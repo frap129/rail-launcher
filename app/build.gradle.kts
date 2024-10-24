@@ -4,12 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "dev.maples.template"
+    namespace = "dev.maples.rail"
 
     defaultConfig {
-        applicationId = "dev.maples.template"
+        applicationId = "dev.maples.rail"
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1"
     }
 
     buildTypes {

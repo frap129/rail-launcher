@@ -1,4 +1,4 @@
-package dev.maples.template
+package dev.maples.rail
 
 import android.os.Bundle
 import androidx.activity.compose.setContent

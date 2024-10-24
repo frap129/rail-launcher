@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AppTemplate"
+rootProject.name = "Rail"
 include(":app")
 include(":core:ui")
 include(":core:util")
