@@ -1,11 +1,12 @@
 plugins {
     alias(libs.plugins.modular.android.library)
+    alias(libs.plugins.modular.compose)
 }
 
 android {
-    namespace = "core.lifecycle"
+    namespace = "feature.launcher"
 }
 dependencies {
-    implementation(project(":feature:launcher"))
+    implementation(project(":core:ui"))
     implementation(project(":core:app-repo"))
 }

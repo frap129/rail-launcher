@@ -27,4 +27,5 @@ dependencies {
     implementation(libs.compose.activity)
     implementation(project(":core:ui"))
     implementation(project(":core:lifecycle"))
+    implementation(project(":feature:launcher"))
 }

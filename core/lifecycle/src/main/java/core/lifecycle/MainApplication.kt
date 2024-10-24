@@ -2,6 +2,8 @@ package core.lifecycle
 
 import android.app.Application
 import android.content.Context
+import core.apprepo.AppRepository
+import feature.rail.LauncherViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -25,6 +27,7 @@ class MainApplication : Application() {
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
+        single<AppRepository> { AppRepository(androidContext()) }
     }
 
     /**
@@ -34,6 +37,7 @@ class MainApplication : Application() {
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
+        single<LauncherViewModel> { LauncherViewModel(androidContext(), get()) }
     }
 
     override fun attachBaseContext(base: Context) {

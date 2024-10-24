@@ -5,6 +5,7 @@ import androidx.activity.compose.setContent
 import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
+import feature.rail.launcherDestination
 
 class MainActivity : TemplateActivity() {
     /**
@@ -14,7 +15,9 @@ class MainActivity : TemplateActivity() {
      *
      * @property destinations a list of [core.ui.model.data.Destination]
      */
-    private val destinations: List<Destination> = listOf()
+    private val destinations: List<Destination> = listOf(
+        launcherDestination
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
