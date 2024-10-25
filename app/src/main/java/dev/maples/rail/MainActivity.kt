@@ -5,7 +5,7 @@ import androidx.activity.compose.setContent
 import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
-import feature.rail.launcherDestination
+import feature.launcher.launcherDestination
 import feature.settings.settingsDestination
 
 class MainActivity : TemplateActivity() {

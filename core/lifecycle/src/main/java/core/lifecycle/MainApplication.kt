@@ -3,7 +3,7 @@ package core.lifecycle
 import android.app.Application
 import android.content.Context
 import core.apprepo.AppRepository
-import feature.rail.LauncherViewModel
+import feature.launcher.LauncherViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin

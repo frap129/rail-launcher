@@ -1,4 +1,4 @@
-package feature.rail
+package feature.launcher
 
 import android.content.Context
 import androidx.lifecycle.ViewModel

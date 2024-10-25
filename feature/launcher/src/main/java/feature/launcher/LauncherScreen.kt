@@ -1,4 +1,4 @@
-package feature.rail
+package feature.launcher
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -24,12 +24,12 @@ import org.koin.compose.koinInject
 val launcherDestination = Destination(
     route = "launcher",
     content = { navController, _ ->
-        Launcher(navController)
+        LauncherScreen(navController)
     }
 )
 
 @Composable
-fun Launcher(navController: NavController, viewModel: LauncherViewModel = koinInject()) {
+fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinInject()) {
     val context = LocalContext.current
     val apps = viewModel.apps.collectAsState()
 
