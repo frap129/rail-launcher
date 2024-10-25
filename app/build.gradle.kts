@@ -28,4 +28,5 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:lifecycle"))
     implementation(project(":feature:launcher"))
+    implementation(project(":feature:settings"))
 }

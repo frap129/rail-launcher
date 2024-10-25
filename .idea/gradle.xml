@@ -32,6 +32,7 @@
             <option value="$PROJECT_DIR$/core/util" />
             <option value="$PROJECT_DIR$/feature" />
             <option value="$PROJECT_DIR$/feature/launcher" />
+            <option value="$PROJECT_DIR$/feature/settings" />
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="false" />

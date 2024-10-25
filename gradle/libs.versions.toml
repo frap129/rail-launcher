@@ -17,6 +17,8 @@ ktlint = "12.1.1"
 lifecycle = "2.8.6"
 navigation-compose = "2.8.3"
 timber = "5.0.1"
+appcompat = "1.7.0"
+material = "1.12.0"
 
 [libraries]
 android-tools-build-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -48,6 +50,8 @@ test-compose-ui-testManifest = { group = "androidx.compose.ui", name = "ui-test-
 test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 test-junit = { group = "junit", name = "junit", version.ref = "junit" }
 util-timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

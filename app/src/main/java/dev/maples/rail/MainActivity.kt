@@ -6,6 +6,7 @@ import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
 import feature.rail.launcherDestination
+import feature.settings.settingsDestination
 
 class MainActivity : TemplateActivity() {
     /**
@@ -16,7 +17,8 @@ class MainActivity : TemplateActivity() {
      * @property destinations a list of [core.ui.model.data.Destination]
      */
     private val destinations: List<Destination> = listOf(
-        launcherDestination
+        launcherDestination,
+        settingsDestination
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
