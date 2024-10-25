@@ -4,5 +4,5 @@
     <color name="highlight">#FF143535</color>
     <color name="backgroundLight">#FF1D2121</color>
     <color name="backgroundMid">#FF161A1A</color>
-    <color name="backgroundDark">#FF000000</color>
+    <color name="backgroundDark">@android:color/transparent</color>
 </resources>
