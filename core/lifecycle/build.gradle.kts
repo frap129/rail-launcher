@@ -9,4 +9,5 @@ dependencies {
     implementation(project(":feature:launcher"))
     implementation(project(":core:app-repo"))
     implementation(project(":core:prefs-repo"))
+    implementation(project(":feature:settings"))
 }

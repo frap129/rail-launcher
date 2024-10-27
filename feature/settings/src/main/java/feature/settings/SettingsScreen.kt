@@ -3,7 +3,7 @@ package feature.settings
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavController
 import core.ui.model.data.Destination
-import org.koin.compose.koinInject
+import org.koin.androidx.compose.koinViewModel
 
 val settingsDestination = Destination(
     route = "settings",
@@ -13,6 +13,6 @@ val settingsDestination = Destination(
 )
 
 @Composable
-fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = koinInject()) {
+fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = koinViewModel()) {
     // TODO: Actual settings screen
 }

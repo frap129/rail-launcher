@@ -5,8 +5,10 @@ import android.content.Context
 import core.apprepo.AppRepository
 import core.prefsrepo.PreferencesRepository
 import feature.launcher.LauncherViewModel
+import feature.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
+import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
 import timber.log.Timber
@@ -39,7 +41,8 @@ class MainApplication : Application() {
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
-        single<LauncherViewModel> { LauncherViewModel(androidContext(), get()) }
+        viewModel { LauncherViewModel(androidContext(), get()) }
+        viewModel { SettingsViewModel(androidContext(), get()) }
     }
 
     override fun attachBaseContext(base: Context) {

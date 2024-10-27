@@ -22,7 +22,7 @@ import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
 import core.apprepo.App
 import core.ui.model.data.Destination
-import org.koin.compose.koinInject
+import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
     route = "launcher",
@@ -32,7 +32,7 @@ val launcherDestination = Destination(
 )
 
 @Composable
-fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinInject()) {
+fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<App>>())
 
     LazyColumn(
