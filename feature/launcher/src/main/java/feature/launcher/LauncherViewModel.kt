@@ -14,4 +14,7 @@ class LauncherViewModel(context: Context, private val appRepository: AppReposito
     val launcherItems: Flow<SortedMap<Char, List<App>>> = appRepository.apps.mapLatest { appList ->
         appList.groupBy { it.label[0].uppercaseChar() }.toSortedMap()
     }
+
+    val heightInPixels = context.resources.displayMetrics.heightPixels
+    val heightInDp = heightInPixels / context.resources.displayMetrics.density
 }
