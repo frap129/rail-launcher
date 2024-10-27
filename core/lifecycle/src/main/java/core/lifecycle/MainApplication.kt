@@ -3,6 +3,7 @@ package core.lifecycle
 import android.app.Application
 import android.content.Context
 import core.apprepo.AppRepository
+import core.prefsrepo.PreferencesRepository
 import feature.launcher.LauncherViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -28,6 +29,7 @@ class MainApplication : Application() {
      */
     private val repoModule = module {
         single<AppRepository> { AppRepository(androidContext()) }
+        single<PreferencesRepository> { PreferencesRepository(androidContext()) }
     }
 
     /**
