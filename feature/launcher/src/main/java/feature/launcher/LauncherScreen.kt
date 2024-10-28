@@ -1,5 +1,6 @@
 package feature.launcher
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,14 +36,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
 import core.apprepo.App
 import core.ui.model.data.Destination
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -60,7 +68,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 
     Box {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().align(Alignment.Center).padding(64.dp, 0.dp),
+            modifier = Modifier.fillMaxSize().align(Alignment.Center).padding(32.dp, 0.dp),
             state = launcherScrollState,
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Top
@@ -86,12 +94,12 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
         )
     }
 
-    // Scroll partway down the inital buffer item
+    // Scroll partway down the initial buffer item
     SideEffect {
         scope.launch {
             launcherScrollState.scrollToItem(
                 index = 1,
-                scrollOffset = -(viewModel.heightInPixels / 6)
+                scrollOffset = -(viewModel.heightInPixels / 8)
             )
         }
     }
@@ -144,26 +152,40 @@ fun AlphaNumericScrollbar(
     val viewModel = koinViewModel<LauncherViewModel>()
     var selectedItemIndex by remember { mutableIntStateOf(-1) }
     var verticalOffset by remember { mutableFloatStateOf(0f) }
+    var horizontalOffset by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
 
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
+            .padding(0.dp, 100.dp, 0.dp, 0.dp)
+            .offset { IntOffset(-24.dp.toPx().toInt(), 0) }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
                         verticalOffset = offset.y
+                        horizontalOffset = 0f
                         visibilities.keys.forEach { key -> visibilities[key]?.value = false }
                     },
                     onDragEnd = {
                         visibilities.keys.forEach { key -> visibilities[key]?.value = true }
                         selectedItemIndex = -1
                         verticalOffset = 0f
+                        horizontalOffset = 0f
                     }
                 ) { change, dragAmount ->
                     verticalOffset += dragAmount.y
-                    val itemIndex = max(min((verticalOffset / 48.dp.toPx()).toInt(), keys.size - 1), 0)
+
+                    // Only allow dragging x to the left
+                    if (horizontalOffset <= 0f) {
+                        horizontalOffset += dragAmount.x
+                    } else {
+                        horizontalOffset = 0f
+                    }
+
+                    // Scroll to the selected group, hiding others
+                    val itemIndex = max(min((verticalOffset / 20.dp.toPx()).toInt(), keys.size - 1), 0)
                     if (itemIndex != selectedItemIndex) {
                         scope.launch {
                             listState.scrollToItem(
@@ -179,11 +201,30 @@ fun AlphaNumericScrollbar(
                 }
             }
     ) {
-        keys.forEach { label ->
+        keys.forEachIndexed { index, label ->
+
+            // Calculate offset for bending animation
+            val offset = animateFloatAsState(
+                targetValue = if (selectedItemIndex < 0) {
+                    0f
+                } else {
+                    val const = -250f
+                    val diff = if (index == selectedItemIndex) 0.8f else abs(index - selectedItemIndex).toFloat()
+                    val scale = 1f - (diff / keys.size)
+
+                    min(0f, (horizontalOffset + const) * (scale.pow(3)))
+                }
+            )
+
             Text(
                 text = "$label",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                lineHeight = 16.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier
+                    .size(20.dp)
+                    .offset { IntOffset(offset.value.toInt(), 0) }
             )
         }
     }
