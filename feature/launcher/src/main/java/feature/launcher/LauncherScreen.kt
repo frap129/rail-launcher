@@ -112,7 +112,9 @@ fun itemGroup(label: String, items: List<App>): MutableState<Boolean> {
 
     Text(
         text = label,
+        fontSize = 26.sp,
         textAlign = TextAlign.Center,
+        fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .padding(20.dp, 24.dp, 0.dp, 8.dp)
             .alpha(if (visible.value) 1f else 0f)
@@ -131,11 +133,14 @@ fun itemGroup(label: String, items: List<App>): MutableState<Boolean> {
                 }
             ) {
                 Image(
-                    modifier = Modifier.size(64.dp).padding(8.dp),
+                    modifier = Modifier.size(64.dp).padding(10.dp),
                     painter = DrawablePainter(item.getIcon(context)),
                     contentDescription = item.label
                 )
-                Text(item.label)
+                Text(
+                    text = item.label,
+                    fontSize = 20.sp
+                )
             }
         }
     }
@@ -161,8 +166,8 @@ fun AlphaNumericScrollbar(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .padding(0.dp, 100.dp, 0.dp, 0.dp)
-            .offset { IntOffset(-24.dp.toPx().toInt(), 0) }
+            .padding(0.dp, 200.dp, 0.dp, 0.dp)
+            .offset { IntOffset(-20.dp.toPx().toInt(), 0) }
             .pointerInteropFilter { event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
@@ -176,7 +181,7 @@ fun AlphaNumericScrollbar(
                             scope.launch {
                                 listState.scrollToItem(
                                     index = itemIndex + 1,
-                                    scrollOffset = -(viewModel.heightInPixels / 4)
+                                    scrollOffset = -(viewModel.heightInPixels / 5)
                                 )
                                 visibilities.keys.forEach { key -> visibilities[key]?.value = false }
                                 visibilities[keys[itemIndex]]?.value = true
