@@ -1,9 +1,9 @@
 package feature.launcher
 
+import android.view.MotionEvent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +24,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -32,9 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -142,6 +142,7 @@ fun itemGroup(label: String, items: List<App>): MutableState<Boolean> {
     return visible
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun AlphaNumericScrollbar(
     modifier: Modifier = Modifier,
@@ -149,6 +150,7 @@ fun AlphaNumericScrollbar(
     keys: List<Char>,
     visibilities: MutableMap<Char, MutableState<Boolean>>
 ) {
+    val context = LocalContext.current
     val viewModel = koinViewModel<LauncherViewModel>()
     var selectedItemIndex by remember { mutableIntStateOf(-1) }
     var verticalOffset by remember { mutableFloatStateOf(0f) }
@@ -161,48 +163,42 @@ fun AlphaNumericScrollbar(
         modifier = modifier
             .padding(0.dp, 100.dp, 0.dp, 0.dp)
             .offset { IntOffset(-24.dp.toPx().toInt(), 0) }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        verticalOffset = offset.y
-                        horizontalOffset = 0f
-                        visibilities.keys.forEach { key -> visibilities[key]?.value = false }
-                    },
-                    onDragEnd = {
-                        visibilities.keys.forEach { key -> visibilities[key]?.value = true }
-                        selectedItemIndex = -1
-                        verticalOffset = 0f
-                        horizontalOffset = 0f
-                    }
-                ) { change, dragAmount ->
-                    verticalOffset += dragAmount.y
+            .pointerInteropFilter { event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                        verticalOffset = event.y
+                        horizontalOffset = event.x
 
-                    // Only allow dragging x to the left
-                    if (horizontalOffset <= 0f) {
-                        horizontalOffset += dragAmount.x
-                    } else {
-                        horizontalOffset = 0f
-                    }
-
-                    // Scroll to the selected group, hiding others
-                    val itemIndex = max(min((verticalOffset / 20.dp.toPx()).toInt(), keys.size - 1), 0)
-                    if (itemIndex != selectedItemIndex) {
-                        scope.launch {
-                            listState.scrollToItem(
-                                index = itemIndex + 1,
-                                scrollOffset = -(viewModel.heightInPixels / 4)
-                            )
-                            visibilities.keys.forEach { key -> visibilities[key]?.value = false }
-                            visibilities[keys[itemIndex]]?.value = true
+                        // Scroll to the selected group, hiding others
+                        val calculatedIndex = (verticalOffset / (20 * context.resources.displayMetrics.density)).toInt()
+                        val itemIndex = max(min(calculatedIndex, keys.size - 1), 0)
+                        if (itemIndex != selectedItemIndex) {
+                            scope.launch {
+                                listState.scrollToItem(
+                                    index = itemIndex + 1,
+                                    scrollOffset = -(viewModel.heightInPixels / 4)
+                                )
+                                visibilities.keys.forEach { key -> visibilities[key]?.value = false }
+                                visibilities[keys[itemIndex]]?.value = true
+                            }
+                            selectedItemIndex = itemIndex
                         }
-                        selectedItemIndex = itemIndex
                     }
-                    visibilities[keys[itemIndex]]?.value = true
+
+                    else -> {
+                        scope.launch {
+                            visibilities.keys.forEach { key -> visibilities[key]?.value = true }
+                            selectedItemIndex = -1
+                            verticalOffset = 0f
+                            horizontalOffset = 0f
+                        }
+                    }
                 }
+
+                true
             }
     ) {
         keys.forEachIndexed { index, label ->
-
             // Calculate offset for bending animation
             val offset = animateFloatAsState(
                 targetValue = if (selectedItemIndex < 0) {
