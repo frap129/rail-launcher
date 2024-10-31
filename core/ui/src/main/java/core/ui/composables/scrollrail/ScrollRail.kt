@@ -1,0 +1,106 @@
+package core.ui.composables.scrollrail
+
+import android.view.MotionEvent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper) {
+    val context = LocalContext.current
+    var selectedItemIndex by remember { mutableIntStateOf(-1) }
+    var verticalOffset by remember { mutableFloatStateOf(0f) }
+    var horizontalOffset by remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .pointerInteropFilter { event ->
+                verticalOffset = event.y
+                horizontalOffset = event.x
+
+                // Scroll to the selected group, hiding others
+                val calculatedIndex = (verticalOffset / (20 * context.resources.displayMetrics.density)).toInt()
+                val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
+
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                        if (itemIndex != selectedItemIndex) {
+                            scope.launch {
+                                when (event.action) {
+                                    MotionEvent.ACTION_DOWN -> scrollRailHelper.onScrollStarted(itemIndex)
+                                    MotionEvent.ACTION_MOVE -> scrollRailHelper.onScroll(itemIndex, selectedItemIndex)
+                                }
+                                selectedItemIndex = itemIndex
+                            }
+                        }
+                    }
+
+                    else -> {
+                        scope.launch {
+                            scrollRailHelper.onScrollEnded(selectedItemIndex)
+                        }
+                        selectedItemIndex = -1
+                        verticalOffset = 0f
+                        horizontalOffset = 0f
+                    }
+                }
+
+                true
+            }
+    ) {
+        scrollRailHelper.railItems.forEachIndexed { index, label ->
+            // Calculate offset for bending animation
+            val offset = animateFloatAsState(
+                targetValue = if (selectedItemIndex < 0) {
+                    0f
+                } else {
+                    val const = -250f
+                    val diff = if (index == selectedItemIndex) 0.8f else abs(index - selectedItemIndex).toFloat()
+                    val scale = 1f - (diff / scrollRailHelper.railItems.size)
+
+                    min(0f, (horizontalOffset + const) * (scale.pow(3)))
+                }
+            )
+
+            Text(
+                text = "$label",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                lineHeight = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .size(20.dp)
+                    .offset { IntOffset(offset.value.toInt(), 0) }
+            )
+        }
+    }
+}
