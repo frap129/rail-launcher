@@ -30,6 +30,15 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlinx.coroutines.launch
 
+/**
+ * A composable that creates a column of single character items that
+ * behaves like a scrollbar. It animates bending horizontally as the
+ * user scrolls on it to ensure that it remains visible while being
+ * touched
+ *
+ * @param modifier the modifier applied to the column
+ * @param scrollRailHelper an object of  [core.ui.composables.scrollrail.ScrollRailHelper]
+ */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper) {
