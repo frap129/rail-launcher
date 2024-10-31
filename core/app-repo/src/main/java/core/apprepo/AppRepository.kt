@@ -6,12 +6,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.os.UserManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import core.util.launchInBackground
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class AppRepository(context: Context) {
@@ -23,7 +21,7 @@ class AppRepository(context: Context) {
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            CoroutineScope(Dispatchers.IO).launch {
+            launchInBackground {
                 val action = intent.action
                 if (Intent.ACTION_PACKAGE_ADDED == action) {
                     val packageName = intent.data!!.schemeSpecificPart
@@ -53,7 +51,7 @@ class AppRepository(context: Context) {
     }
 
     init {
-        CoroutineScope(Dispatchers.IO).launch {
+        launchInBackground {
             _apps.value = getAppsList(context)
             apps.value.forEach {
                 Timber.d("added ${it.label}")

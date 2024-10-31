@@ -5,3 +5,6 @@ plugins {
 android {
     namespace = "core.apprepo"
 }
+dependencies {
+    implementation(project(":core:util"))
+}
