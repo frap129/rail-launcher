@@ -6,4 +6,4 @@
 
 | Name |
 |---|
-| [dev.maples.template](app/dev.maples.template/index.md) |
+| [dev.maples.rail](app/dev.maples.rail/index.md) |

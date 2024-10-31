@@ -1,11 +1,32 @@
 $dokka.format:gfm-v1
 $dokka.linkExtension:md
+$dokka.location:core.apprepo////PointingToDeclaration/app-repo/app-repo/core.apprepo/index.md
+$dokka.location:core.apprepo/App///PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/index.md
+$dokka.location:core.apprepo/App/App/#android.content.pm.LauncherActivityInfo#android.os.UserHandle/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/-app.md
+$dokka.location:core.apprepo/App/getIcon/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/get-icon.md
+$dokka.location:core.apprepo/App/label/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/label.md
+$dokka.location:core.apprepo/App/launch/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/launch.md
+$dokka.location:core.apprepo/App/packageName/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/package-name.md
+$dokka.location:core.apprepo/App/profile/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/profile.md
+$dokka.location:core.apprepo/AppRepository///PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/index.md
+$dokka.location:core.apprepo/AppRepository/AppRepository/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/-app-repository.md
+$dokka.location:core.apprepo/AppRepository/apps/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/apps.md
 $dokka.location:core.lifecycle////PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/index.md
 $dokka.location:core.lifecycle/MainApplication///PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/index.md
 $dokka.location:core.lifecycle/MainApplication/MainApplication/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/-main-application.md
 $dokka.location:core.lifecycle/MainApplication/onCreate/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/on-create.md
 $dokka.location:core.lifecycle/TemplateActivity///PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-template-activity/index.md
 $dokka.location:core.lifecycle/TemplateActivity/TemplateActivity/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-template-activity/-template-activity.md
+$dokka.location:core.prefsrepo////PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/index.md
+$dokka.location:core.prefsrepo/PreferencesRepository///PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md
+$dokka.location:core.prefsrepo/PreferencesRepository/PreferencesRepository/#android.content.Context/PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/-preferences-repository.md
+$dokka.location:core.ui.composables.scrollrail////PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/index.md
+$dokka.location:core.ui.composables.scrollrail//ScrollRail/#androidx.compose.ui.Modifier#core.ui.composables.scrollrail.ScrollRailHelper/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail.md
+$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper///PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/index.md
+$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScroll/#kotlin.Int#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll.md
+$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScrollEnded/#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll-ended.md
+$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScrollStarted/#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll-started.md
+$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/railItems/#/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/rail-items.md
 $dokka.location:core.ui.model.data////PointingToDeclaration/ui/ui/core.ui.model.data/index.md
 $dokka.location:core.ui.model.data/Destination///PointingToDeclaration/ui/ui/core.ui.model.data/-destination/index.md
 $dokka.location:core.ui.model.data/Destination/Destination/#kotlin.String#kotlin.Function2[androidx.navigation.NavController,androidx.navigation.NavBackStackEntry,kotlin.Unit]#kotlin.collections.List[androidx.navigation.NavDeepLink]#kotlin.Function1[androidx.compose.animation.AnimatedContentTransitionScope[androidx.navigation.NavBackStackEntry],androidx.compose.animation.EnterTransition?]?#kotlin.Function1[androidx.compose.animation.AnimatedContentTransitionScope[androidx.navigation.NavBackStackEntry],androidx.compose.animation.ExitTransition?]?#kotlin.collections.List[androidx.navigation.NamedNavArgument]#kotlin.Boolean#core.ui.model.data.DestinationNavBarItem?/PointingToDeclaration/ui/ui/core.ui.model.data/-destination/-destination.md
@@ -31,16 +52,45 @@ $dokka.location:core.ui//App/#kotlin.collections.List[core.ui.model.data.Destina
 $dokka.location:core.ui//AppFrame/#kotlin.Function0[kotlin.Unit]/PointingToDeclaration/ui/ui/core.ui/-app-frame.md
 $dokka.location:core.util////PointingToDeclaration/util/util/core.util/index.md
 $dokka.location:core.util//launchInBackground/#kotlin.coroutines.SuspendFunction1[kotlinx.coroutines.CoroutineScope,kotlin.Unit]/PointingToDeclaration/util/util/core.util/launch-in-background.md
-$dokka.location:dev.maples.template////PointingToDeclaration/app/app/dev.maples.template/index.md
-$dokka.location:dev.maples.template/MainActivity///PointingToDeclaration/app/app/dev.maples.template/-main-activity/index.md
-$dokka.location:dev.maples.template/MainActivity/MainActivity/#/PointingToDeclaration/app/app/dev.maples.template/-main-activity/-main-activity.md
+$dokka.location:core.util//screenHeightDp/#android.content.Context/PointingToDeclaration/util/util/core.util/screen-height-dp.md
+$dokka.location:core.util//screenHeightPx/#android.content.Context/PointingToDeclaration/util/util/core.util/screen-height-px.md
+$dokka.location:dev.maples.rail////PointingToDeclaration/app/app/dev.maples.rail/index.md
+$dokka.location:dev.maples.rail/MainActivity///PointingToDeclaration/app/app/dev.maples.rail/-main-activity/index.md
+$dokka.location:dev.maples.rail/MainActivity/MainActivity/#/PointingToDeclaration/app/app/dev.maples.rail/-main-activity/-main-activity.md
+$dokka.location:feature.launcher////PointingToDeclaration/launcher/launcher/feature.launcher/index.md
+$dokka.location:feature.launcher//LauncherScreen/#androidx.navigation.NavController#feature.launcher.LauncherViewModel/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-screen.md
+$dokka.location:feature.launcher//itemGroup/#kotlin.String#kotlin.collections.List[core.apprepo.App]/PointingToDeclaration/launcher/launcher/feature.launcher/item-group.md
+$dokka.location:feature.launcher//launcherDestination/#/PointingToDeclaration/launcher/launcher/feature.launcher/launcher-destination.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/index.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper/LauncherScrollRailHelper/#android.content.Context#kotlin.collections.List[kotlin.Char]#androidx.compose.foundation.lazy.LazyListState#kotlin.collections.MutableMap[kotlin.Char,androidx.compose.runtime.MutableState[kotlin.Boolean]]/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/-launcher-scroll-rail-helper.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper/onScroll/#kotlin.Int#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper/onScrollEnded/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll-ended.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper/onScrollStarted/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll-started.md
+$dokka.location:feature.launcher/LauncherScrollRailHelper/railItems/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/rail-items.md
+$dokka.location:feature.launcher/LauncherViewModel///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/index.md
+$dokka.location:feature.launcher/LauncherViewModel/LauncherViewModel/#android.content.Context#core.apprepo.AppRepository/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/-launcher-view-model.md
+$dokka.location:feature.launcher/LauncherViewModel/launcherItems/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/launcher-items.md
+$dokka.location:feature.settings////PointingToDeclaration/settings/settings/feature.settings/index.md
+$dokka.location:feature.settings//SettingsScreen/#androidx.navigation.NavController#feature.settings.SettingsViewModel/PointingToDeclaration/settings/settings/feature.settings/-settings-screen.md
+$dokka.location:feature.settings//settingsDestination/#/PointingToDeclaration/settings/settings/feature.settings/settings-destination.md
+$dokka.location:feature.settings/SettingsViewModel///PointingToDeclaration/settings/settings/feature.settings/-settings-view-model/index.md
+$dokka.location:feature.settings/SettingsViewModel/SettingsViewModel/#android.content.Context#core.prefsrepo.PreferencesRepository/PointingToDeclaration/settings/settings/feature.settings/-settings-view-model/-settings-view-model.md
 module:app
-dev.maples.template
+dev.maples.rail
+module:app-repo
+core.apprepo
 module:lifecycle
 core.lifecycle
+module:prefs-repo
+core.prefsrepo
 module:ui
 core.ui
+core.ui.composables.scrollrail
 core.ui.model.data
 core.ui.theme
 module:util
 core.util
+module:launcher
+feature.launcher
+module:settings
+feature.settings

@@ -22,7 +22,7 @@ class [MainActivity](index.md) : [TemplateActivity](../../../../core/lifecycle/l
 | [lastCustomNonConfigurationInstance](index.md#-119787558%2FProperties%2F510797961) | [androidJvm]<br>open val [lastCustomNonConfigurationInstance](index.md#-119787558%2FProperties%2F510797961): [Any](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-any/index.html)? |
 | [lifecycle](index.md#-540226255%2FProperties%2F510797961) | [androidJvm]<br>open override val [lifecycle](index.md#-540226255%2FProperties%2F510797961): [Lifecycle](https://developer.android.com/reference/kotlin/androidx/lifecycle/Lifecycle.html) |
 | [onBackPressedDispatcher](index.md#-2136002408%2FProperties%2F510797961) | [androidJvm]<br>override val [onBackPressedDispatcher](index.md#-2136002408%2FProperties%2F510797961): [OnBackPressedDispatcher](https://developer.android.com/reference/kotlin/androidx/activity/OnBackPressedDispatcher.html) |
-| [savedStateRegistry](index.md#-1476592360%2FProperties%2F510797961) | [androidJvm]<br>override val [savedStateRegistry](index.md#-1476592360%2FProperties%2F510797961): SavedStateRegistry |
+| [savedStateRegistry](index.md#-1476592360%2FProperties%2F510797961) | [androidJvm]<br>override val [savedStateRegistry](index.md#-1476592360%2FProperties%2F510797961): [SavedStateRegistry](https://developer.android.com/reference/kotlin/androidx/savedstate/SavedStateRegistry.html) |
 | [viewModelStore](index.md#-1121451070%2FProperties%2F510797961) | [androidJvm]<br>open override val [viewModelStore](index.md#-1121451070%2FProperties%2F510797961): [ViewModelStore](https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModelStore.html) |
 
 ## Functions

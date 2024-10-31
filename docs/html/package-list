@@ -2,12 +2,21 @@ $dokka.format:html-v1
 $dokka.linkExtension:html
 
 module:app
-dev.maples.template
+dev.maples.rail
+module:app-repo
+core.apprepo
 module:lifecycle
 core.lifecycle
+module:prefs-repo
+core.prefsrepo
 module:ui
 core.ui
+core.ui.composables.scrollrail
 core.ui.model.data
 core.ui.theme
 module:util
 core.util
+module:launcher
+feature.launcher
+module:settings
+feature.settings
