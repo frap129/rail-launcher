@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -47,12 +48,13 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     var verticalOffset by remember { mutableFloatStateOf(0f) }
     var horizontalOffset by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
+    val disallowIntercept = remember { RequestDisallowInterceptTouchEvent() }
 
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .pointerInteropFilter { event ->
+            .pointerInteropFilter(disallowIntercept) { event ->
                 verticalOffset = event.y
                 horizontalOffset = event.x
 
@@ -82,6 +84,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                     }
                 }
 
+                disallowIntercept.invoke(true)
                 true
             }
     ) {
