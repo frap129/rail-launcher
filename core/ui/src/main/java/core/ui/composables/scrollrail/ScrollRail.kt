@@ -56,30 +56,29 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 verticalOffset = event.y
                 horizontalOffset = event.x
 
-                // Scroll to the selected group, hiding others
-                val calculatedIndex = (verticalOffset / (20 * context.resources.displayMetrics.density)).toInt()
-                val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
+                scope.launch {
+                    val calculatedIndex = (verticalOffset / (20 * context.resources.displayMetrics.density)).toInt()
+                    val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
 
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                        if (itemIndex != selectedItemIndex) {
-                            scope.launch {
-                                when (event.action) {
-                                    MotionEvent.ACTION_DOWN -> scrollRailHelper.onScrollStarted(itemIndex)
-                                    MotionEvent.ACTION_MOVE -> scrollRailHelper.onScroll(itemIndex, selectedItemIndex)
-                                }
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            scrollRailHelper.onScrollStarted(itemIndex)
+                            selectedItemIndex = itemIndex
+                        }
+
+                        MotionEvent.ACTION_MOVE -> {
+                            if (itemIndex != selectedItemIndex) {
+                                scrollRailHelper.onScroll(itemIndex, selectedItemIndex)
                                 selectedItemIndex = itemIndex
                             }
                         }
-                    }
 
-                    else -> {
-                        scope.launch {
+                        else -> {
                             scrollRailHelper.onScrollEnded(selectedItemIndex)
+                            selectedItemIndex = -1
+                            verticalOffset = 0f
+                            horizontalOffset = 0f
                         }
-                        selectedItemIndex = -1
-                        verticalOffset = 0f
-                        horizontalOffset = 0f
                     }
                 }
 
