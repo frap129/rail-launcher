@@ -1,7 +1,6 @@
 package core.ui.composables.scrollrail
 
 import android.view.MotionEvent
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.offset
@@ -29,11 +28,11 @@ import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlinx.coroutines.launch
 
 /**
@@ -96,26 +95,12 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 true
             }
     ) {
-        val scale = 2.7
+        val slopeScale = 0.25f
         val itemHeightDp = 20.dp
         val itemHeightPx = itemHeightDp.value * context.resources.displayMetrics.density
-        val minHeight = 800
-        val minWidth = itemHeightPx * scale + 100
+        val minPeak = 150.dp.value * context.resources.displayMetrics.density
         scrollRailHelper.railItems.forEachIndexed { index, label ->
-            // Calculate offset for bending animation
-            val offset = animateFloatAsState(
-                targetValue = if (selectedItemIndex < 0) {
-                    0f
-                } else {
-                    -gaussianCurve(
-                        index.toDouble() * itemHeightPx,
-                        verticalOffset.toDouble(),
-                        minWidth - (horizontalOffset / scale),
-                        minHeight - (horizontalOffset * scale)
-                    ).toFloat()
-                }
-            )
-
+            val position = index * itemHeightPx
             Text(
                 text = "$label",
                 fontWeight = FontWeight.SemiBold,
@@ -125,11 +110,25 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
                     .size(itemHeightDp)
-                    .offset { IntOffset(offset.value.toInt(), 0) }
+                    .offset {
+                        if (selectedItemIndex < 0) {
+                            IntOffset(0, 0)
+                        } else {
+                            // Calculate offset for bending animation
+                            IntOffset(
+                                -gaussianCurve(
+                                    position,
+                                    verticalOffset,
+                                    minPeak + abs(horizontalOffset * slopeScale),
+                                    minPeak - horizontalOffset
+                                ).toInt(),
+                                0
+                            )
+                        }
+                    }
             )
         }
     }
 }
 
-fun gaussianCurve(x: Double, mean: Double, width: Double, height: Double): Double =
-    (1 / ((1 / height) * sqrt(2 * Math.PI))) * exp(-((x - mean).pow(2.0) / (2 * width.pow(2.0))))
+fun gaussianCurve(pos: Float, peakPos: Float, slope: Float, peak: Float): Float = peak * exp(-((pos - peakPos).pow(2) / (slope.pow(2))))
