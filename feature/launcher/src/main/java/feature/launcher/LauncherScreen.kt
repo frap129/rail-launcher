@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -87,7 +88,8 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(0.dp, 200.dp, 0.dp, 0.dp)
-                .offset { IntOffset(-20.dp.toPx().toInt(), 0) }
+                .width(64.dp)
+                .offset { IntOffset(-16.dp.toPx().toInt(), 0) }
         )
     }
 

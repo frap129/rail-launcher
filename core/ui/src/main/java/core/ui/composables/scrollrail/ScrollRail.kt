@@ -58,7 +58,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
 
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.End,
         modifier = modifier
             .pointerInteropFilter(disallowIntercept) { event ->
                 verticalOffset = event.y
