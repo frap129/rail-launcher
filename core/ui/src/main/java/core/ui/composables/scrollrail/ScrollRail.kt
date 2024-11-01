@@ -18,9 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
@@ -52,6 +54,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     var horizontalOffset by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
     val disallowIntercept = remember { RequestDisallowInterceptTouchEvent() }
+    val hapticFeedback = LocalHapticFeedback.current
 
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
@@ -67,12 +70,14 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
 
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             scrollRailHelper.onScrollStarted(itemIndex)
                             selectedItemIndex = itemIndex
                         }
 
                         MotionEvent.ACTION_MOVE -> {
                             if (itemIndex != selectedItemIndex) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 scrollRailHelper.onScroll(itemIndex, selectedItemIndex)
                                 selectedItemIndex = itemIndex
                             }
