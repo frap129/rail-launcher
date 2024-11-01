@@ -27,10 +27,11 @@ import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlinx.coroutines.launch
 
 /**
@@ -90,17 +91,23 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 true
             }
     ) {
+        val scale = 2.7
+        val itemHeightDp = 20.dp
+        val itemHeightPx = itemHeightDp.value * context.resources.displayMetrics.density
+        val minHeight = 800
+        val minWidth = itemHeightPx * scale + 100
         scrollRailHelper.railItems.forEachIndexed { index, label ->
             // Calculate offset for bending animation
             val offset = animateFloatAsState(
                 targetValue = if (selectedItemIndex < 0) {
                     0f
                 } else {
-                    val const = -250f
-                    val diff = if (index == selectedItemIndex) 0.8f else abs(index - selectedItemIndex).toFloat()
-                    val scale = 1f - (diff / scrollRailHelper.railItems.size)
-
-                    min(0f, (horizontalOffset + const) * (scale.pow(3)))
+                    -gaussianCurve(
+                        index.toDouble() * itemHeightPx,
+                        verticalOffset.toDouble(),
+                        minWidth - (horizontalOffset / scale),
+                        minHeight - (horizontalOffset * scale)
+                    ).toFloat()
                 }
             )
 
@@ -112,9 +119,12 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 textAlign = TextAlign.Center,
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
-                    .size(20.dp)
+                    .size(itemHeightDp)
                     .offset { IntOffset(offset.value.toInt(), 0) }
             )
         }
     }
 }
+
+fun gaussianCurve(x: Double, mean: Double, width: Double, height: Double): Double =
+    (1 / ((1 / height) * sqrt(2 * Math.PI))) * exp(-((x - mean).pow(2.0) / (2 * width.pow(2.0))))
