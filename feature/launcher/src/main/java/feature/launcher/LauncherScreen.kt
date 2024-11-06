@@ -83,10 +83,17 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
             }
             items(launcherItems.value.keys.toList()) { key ->
-                visibilities[key] = itemGroup(
-                    label = "$key",
-                    items = launcherItems.value[key]!!
-                )
+
+                visibilities[key] = remember { mutableStateOf(true) }
+                Column(
+                    modifier = Modifier
+                        .alpha(if (visibilities[key]?.value != false) 1f else 0f)
+                ) {
+                    LauncherItemGroup(
+                        label = "$key",
+                        items = launcherItems.value[key]!!
+                    )
+                }
             }
             item {
                 Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
@@ -114,9 +121,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 }
 
 @Composable
-fun itemGroup(label: String, items: List<RailItem>): MutableState<Boolean> {
-    val visible = remember { mutableStateOf(true) }
-
+fun LauncherItemGroup(label: String, items: List<RailItem>) {
     Text(
         text = label,
         fontSize = 26.sp,
@@ -124,18 +129,15 @@ fun itemGroup(label: String, items: List<RailItem>): MutableState<Boolean> {
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
             .padding(20.dp, 24.dp, 0.dp, 8.dp)
-            .alpha(if (visible.value) 1f else 0f)
     )
     Column(
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Top,
-        modifier = Modifier.alpha(if (visible.value) 1f else 0f)
+        verticalArrangement = Arrangement.Top
     ) {
         items.forEach { item ->
             LauncherItem(item)
         }
     }
-    return visible
 }
 
 @Composable
