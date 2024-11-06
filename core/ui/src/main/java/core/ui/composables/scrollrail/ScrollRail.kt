@@ -1,11 +1,15 @@
 package core.ui.composables.scrollrail
 
 import android.view.MotionEvent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,9 +26,9 @@ import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,17 +58,19 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     val scope = rememberCoroutineScope()
     val disallowIntercept = remember { RequestDisallowInterceptTouchEvent() }
     val hapticFeedback = LocalHapticFeedback.current
+    val itemHeight = 20.dp
+    val highlightSize = 42.dp
+    val highlightColor = MaterialTheme.colorScheme.secondaryContainer
 
-    Column(
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.End,
+    Row(
+        horizontalArrangement = Arrangement.End,
         modifier = modifier
             .pointerInteropFilter(disallowIntercept) { event ->
                 verticalOffset = event.y
                 horizontalOffset = event.x
 
                 scope.launch {
-                    val calculatedIndex = (verticalOffset / (20 * context.resources.displayMetrics.density)).toInt()
+                    val calculatedIndex = (verticalOffset / (itemHeight.value * context.resources.displayMetrics.density)).toInt()
                     val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
 
                     when (event.action) {
@@ -95,40 +101,72 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 true
             }
     ) {
-        val slopeScale = 0.25f
-        val itemHeightDp = 20.dp
-        val itemHeightPx = itemHeightDp.value * context.resources.displayMetrics.density
-        val minPeak = 150.dp.value * context.resources.displayMetrics.density
-        scrollRailHelper.railItems.forEachIndexed { index, label ->
-            val position = index * itemHeightPx
+        if (selectedItemIndex > -1) {
             Text(
-                text = "$label",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp,
-                lineHeight = 16.sp,
+                text = "${scrollRailHelper.railItems[selectedItemIndex]}",
+                fontSize = 28.sp,
+                lineHeight = highlightSize.value.sp,
                 textAlign = TextAlign.Center,
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
-                    .size(itemHeightDp)
+                    .size(highlightSize)
                     .offset {
-                        if (selectedItemIndex < 0) {
-                            IntOffset(0, 0)
-                        } else {
-                            // Calculate offset for bending animation
-                            IntOffset(
-                                -gaussianCurve(
-                                    position,
-                                    verticalOffset,
-                                    minPeak + abs(horizontalOffset * slopeScale),
-                                    minPeak - horizontalOffset
-                                ).toInt(),
-                                0
+                        // Calculate offset for bending animation
+                        IntOffset(
+                            getXOffset(
+                                selectedItemIndex,
+                                itemHeight,
+                                density,
+                                verticalOffset,
+                                horizontalOffset
                             )
-                        }
+                                .toInt() - (5 * density).toInt(),
+                            verticalOffset.toInt() - (highlightSize.value * density * 0.5f).toInt()
+                        )
                     }
+                    .background(color = highlightColor, shape = CircleShape)
             )
         }
+
+        Column(
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.End
+        ) {
+            scrollRailHelper.railItems.forEachIndexed { index, label ->
+                Text(
+                    text = "$label",
+                    fontSize = 16.sp,
+                    lineHeight = 16.sp,
+                    textAlign = TextAlign.Center,
+                    style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
+                    modifier = Modifier
+                        .size(itemHeight)
+                        .offset {
+                            if (selectedItemIndex < 0) {
+                                IntOffset(0, 0)
+                            } else {
+                                // Calculate offset for bending animation
+                                IntOffset(
+                                    getXOffset(index, itemHeight, density, verticalOffset, horizontalOffset).toInt(),
+                                    0
+                                )
+                            }
+                        }
+                )
+            }
+        }
     }
+}
+
+fun getXOffset(index: Int, itemHeight: Dp, density: Float, verticalOffset: Float, horizontalOffset: Float): Float {
+    val slopeScale = 0.25f
+    val minPeak = 150.dp
+    return -gaussianCurve(
+        index * itemHeight.value * density,
+        verticalOffset,
+        (minPeak.value * density) + abs(horizontalOffset * slopeScale),
+        (minPeak.value * density) - horizontalOffset
+    )
 }
 
 fun gaussianCurve(pos: Float, peakPos: Float, slope: Float, peak: Float): Float = peak * exp(-((pos - peakPos).pow(2) / (slope.pow(2))))
