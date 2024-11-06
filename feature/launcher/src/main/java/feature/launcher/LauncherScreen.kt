@@ -33,8 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -125,9 +127,10 @@ fun LauncherItemGroup(label: String, items: List<RailItem>) {
     Text(
         text = label,
         fontSize = 26.sp,
-        textAlign = TextAlign.Center,
+        textAlign = TextAlign.Start,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
+            .fillMaxWidth()
             .padding(20.dp, 24.dp, 0.dp, 8.dp)
     )
     Column(
@@ -143,6 +146,7 @@ fun LauncherItemGroup(label: String, items: List<RailItem>) {
 @Composable
 fun LauncherItem(item: RailItem) {
     val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     var showBottomSheet by remember { mutableStateOf(false) }
 
     Row(
@@ -151,8 +155,13 @@ fun LauncherItem(item: RailItem) {
         modifier = Modifier
             .fillMaxWidth()
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { item.launch(context) }, onLongPress = { showBottomSheet = true })
-                item.launch(context)
+                detectTapGestures(
+                    onTap = { item.launch(context) },
+                    onLongPress = {
+                        showBottomSheet = true
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                )
             }
     ) {
         Image(
