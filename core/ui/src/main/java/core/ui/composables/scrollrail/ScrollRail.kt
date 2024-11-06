@@ -52,15 +52,19 @@ import kotlinx.coroutines.launch
 @Composable
 fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper) {
     val context = LocalContext.current
-    var selectedItemIndex by remember { mutableIntStateOf(-1) }
-    var verticalOffset by remember { mutableFloatStateOf(0f) }
-    var horizontalOffset by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
     val disallowIntercept = remember { RequestDisallowInterceptTouchEvent() }
     val hapticFeedback = LocalHapticFeedback.current
+    val density = context.resources.displayMetrics.density
     val itemHeight = 20.dp
+    val railHeight = itemHeight.value * density * scrollRailHelper.railItems.size
     val highlightSize = 42.dp
     val highlightColor = MaterialTheme.colorScheme.secondaryContainer
+
+    var selectedItemIndex by remember { mutableIntStateOf(-1) }
+    var verticalOffset by remember { mutableFloatStateOf(0f) }
+    var horizontalOffset by remember { mutableFloatStateOf(0f) }
+    var railOffset by remember { mutableFloatStateOf(0f) }
 
     Row(
         horizontalArrangement = Arrangement.End,
@@ -70,7 +74,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 horizontalOffset = event.x
 
                 scope.launch {
-                    val calculatedIndex = (verticalOffset / (itemHeight.value * context.resources.displayMetrics.density)).toInt()
+                    val calculatedIndex = ((verticalOffset - railOffset) / (itemHeight.value * density)).toInt()
                     val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
 
                     when (event.action) {
@@ -93,6 +97,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                             selectedItemIndex = -1
                             verticalOffset = 0f
                             horizontalOffset = 0f
+                            railOffset = 0f
                         }
                     }
                 }
@@ -117,10 +122,9 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                                 selectedItemIndex,
                                 itemHeight,
                                 density,
-                                verticalOffset,
+                                verticalOffset - railOffset,
                                 horizontalOffset
-                            )
-                                .toInt() - (5 * density).toInt(),
+                            ).toInt() - (5 * density).toInt(),
                             verticalOffset.toInt() - (highlightSize.value * density * 0.5f).toInt()
                         )
                     }
@@ -130,7 +134,16 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
 
         Column(
             verticalArrangement = Arrangement.SpaceEvenly,
-            horizontalAlignment = Alignment.End
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier.offset {
+                if (verticalOffset < railOffset) {
+                    railOffset = verticalOffset
+                } else if (verticalOffset > railOffset + railHeight) {
+                    railOffset = verticalOffset - railHeight
+                }
+
+                IntOffset(0, railOffset.toInt())
+            }
         ) {
             scrollRailHelper.railItems.forEachIndexed { index, label ->
                 Text(
@@ -147,7 +160,13 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                             } else {
                                 // Calculate offset for bending animation
                                 IntOffset(
-                                    getXOffset(index, itemHeight, density, verticalOffset, horizontalOffset).toInt(),
+                                    getXOffset(
+                                        index,
+                                        itemHeight,
+                                        density,
+                                        verticalOffset - railOffset,
+                                        horizontalOffset
+                                    ).toInt(),
                                     0
                                 )
                             }
