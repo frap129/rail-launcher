@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
-import core.data.apps.App
+import core.data.rail.RailItem
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
@@ -52,7 +52,7 @@ val launcherDestination = Destination(
 @Composable
 fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
-    val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<App>>())
+    val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
     val launcherScrollState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val visibilities: MutableMap<Char, MutableState<Boolean>> = mutableMapOf()
@@ -105,7 +105,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 }
 
 @Composable
-fun itemGroup(label: String, items: List<App>): MutableState<Boolean> {
+fun itemGroup(label: String, items: List<RailItem>): MutableState<Boolean> {
     val context = LocalContext.current
     val visible = remember { mutableStateOf(true) }
 
@@ -134,10 +134,10 @@ fun itemGroup(label: String, items: List<App>): MutableState<Boolean> {
                 Image(
                     modifier = Modifier.size(64.dp).padding(10.dp),
                     painter = DrawablePainter(item.getIcon(context)),
-                    contentDescription = item.label
+                    contentDescription = item.name
                 )
                 Text(
-                    text = item.label,
+                    text = item.name,
                     fontSize = 20.sp
                 )
             }

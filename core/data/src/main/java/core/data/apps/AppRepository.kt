@@ -54,7 +54,7 @@ class AppRepository(context: Context) {
         launchInBackground {
             _apps.value = getAppsList(context)
             apps.value.forEach {
-                Timber.d("added ${it.label}")
+                Timber.d("added ${it.name}")
             }
         }
 
@@ -93,7 +93,7 @@ class AppRepository(context: Context) {
         appList.removeIf { it.packageName == context.applicationInfo.packageName }
 
         return appList.apply {
-            sortBy { it.label.lowercase() }
+            sortBy { it.name.lowercase() }
         }
     }
 }
