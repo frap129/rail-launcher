@@ -7,7 +7,6 @@ android {
 }
 dependencies {
     implementation(project(":feature:launcher"))
-    implementation(project(":core:app-repo"))
-    implementation(project(":core:prefs-repo"))
+    implementation(project(":core:data"))
     implementation(project(":feature:settings"))
 }

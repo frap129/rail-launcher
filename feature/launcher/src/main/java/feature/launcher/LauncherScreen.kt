@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
-import core.apprepo.App
+import core.data.apps.App
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp

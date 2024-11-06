@@ -1,4 +1,4 @@
-package core.apprepo
+package core.data.apps
 
 import android.content.Context
 import android.content.pm.LauncherActivityInfo

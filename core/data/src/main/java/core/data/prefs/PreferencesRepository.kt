@@ -1,4 +1,4 @@
-package core.prefsrepo
+package core.data.prefs
 
 import android.content.Context
 

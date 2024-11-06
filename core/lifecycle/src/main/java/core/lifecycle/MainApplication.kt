@@ -2,8 +2,8 @@ package core.lifecycle
 
 import android.app.Application
 import android.content.Context
-import core.apprepo.AppRepository
-import core.prefsrepo.PreferencesRepository
+import core.data.apps.AppRepository
+import core.data.prefs.PreferencesRepository
 import feature.launcher.LauncherViewModel
 import feature.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext

@@ -2,8 +2,8 @@ package feature.launcher
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import core.apprepo.App
-import core.apprepo.AppRepository
+import core.data.apps.App
+import core.data.apps.AppRepository
 import java.util.SortedMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow

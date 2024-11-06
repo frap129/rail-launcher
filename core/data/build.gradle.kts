@@ -3,9 +3,9 @@ plugins {
 }
 
 android {
-    namespace = "core.prefsrepo"
+    namespace = "core.data"
 }
-
 dependencies {
+    implementation(project(":core:util"))
     implementation(libs.androidx.datastore)
 }

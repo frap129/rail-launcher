@@ -8,5 +8,5 @@ android {
 }
 dependencies {
     implementation(project(":core:ui"))
-    implementation(project(":core:prefs-repo"))
+    implementation(project(":core:data"))
 }
