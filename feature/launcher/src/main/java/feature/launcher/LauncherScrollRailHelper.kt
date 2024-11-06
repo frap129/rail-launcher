@@ -20,7 +20,12 @@ class LauncherScrollRailHelper(
             index = currIndex + 1,
             scrollOffset = -(screenHeightPx(context) / 5)
         )
-        visibilities.keys.forEach { key -> visibilities[key]?.value = false }
+        listState.layoutInfo.visibleItemsInfo.forEach {
+            // Ignore spacers at start/end of list
+            if (it.index > 0 && it.index <= railItems.size) {
+                visibilities[railItems[it.index - 1]]?.value = false
+            }
+        }
         visibilities[railItems[currIndex]]?.value = true
     }
 
