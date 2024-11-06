@@ -6,6 +6,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -15,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -32,9 +32,11 @@ import org.koin.core.annotation.KoinExperimentalAPI
 @Composable
 fun AppFrame(content: @Composable () -> Unit) {
     AppTheme {
+        val colorScheme = MaterialTheme.colorScheme
+
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = colorResource(id = R.color.backgroundDark)
+            color = colorScheme.background
         ) {
             KoinAndroidContext {
                 content()
