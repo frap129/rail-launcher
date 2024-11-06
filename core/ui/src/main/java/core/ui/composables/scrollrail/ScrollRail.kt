@@ -26,6 +26,7 @@ import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
@@ -149,6 +150,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 Text(
                     text = "$label",
                     fontSize = 16.sp,
+                    fontWeight = FontWeight.W500,
                     lineHeight = 16.sp,
                     textAlign = TextAlign.Center,
                     style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
