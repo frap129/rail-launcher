@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
+import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
 import core.data.rail.RailItem
 import core.ui.composables.scrollrail.ScrollRail
@@ -84,8 +85,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             item {
                 Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
             }
-            items(launcherItems.value.keys.toList()) { key ->
-
+            items(launcherItems.value.keys.toList(), key = { it }) { key ->
                 visibilities[key] = remember { mutableStateOf(true) }
                 Column(
                     modifier = Modifier
@@ -148,6 +148,7 @@ fun LauncherItem(item: RailItem) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     var showBottomSheet by remember { mutableStateOf(false) }
+    val icon = rememberDrawablePainter(item.getIcon(context))
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -166,12 +167,12 @@ fun LauncherItem(item: RailItem) {
     ) {
         Image(
             modifier = Modifier.size(64.dp).padding(10.dp),
-            painter = DrawablePainter(item.getIcon(context)),
+            painter = icon,
             contentDescription = item.name
         )
         Text(
             text = item.name,
-            fontSize = 20.sp
+            fontSize = 18.sp
         )
         if (showBottomSheet) {
             LauncherItemBottomSheet(
