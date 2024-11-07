@@ -1,5 +1,7 @@
 package feature.launcher
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -48,7 +50,7 @@ import core.data.rail.RailItem
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
-import core.util.screenHeightPx
+import core.util.toPx
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
@@ -64,9 +66,24 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
     val launcherScrollState = rememberLazyListState()
     val visibleGroups = remember { viewModel.visibleGroups }
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
+    val scrolling by viewModel.scrolling.collectAsState()
     val railHelper = LauncherScrollRailHelper(
         railItems = launcherItems.value.keys.toList(),
-        viewModel = viewModel
+        viewModel = viewModel,
+        lazyListState = launcherScrollState
+    )
+
+    val defaultBuffer = 100.dp
+    val scrollingTopBuffer = (screenHeightDp(context) / 4).dp
+    val scrollingBottomBuffer = (screenHeightDp(context) / 4 * 3).dp
+    val topSpacerHeightAnimator by animateDpAsState(
+        targetValue = if (scrolling) scrollingTopBuffer else defaultBuffer,
+        animationSpec = tween(durationMillis = 200)
+    )
+    val bottomSpacerHeightAnimator by animateDpAsState(
+        targetValue = if (scrolling) scrollingBottomBuffer else defaultBuffer,
+        animationSpec = tween(delayMillis = 10, durationMillis = 300)
     )
 
     Box {
@@ -77,7 +94,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             verticalArrangement = Arrangement.Top
         ) {
             item {
-                Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
+                Spacer(Modifier.height(topSpacerHeightAnimator))
             }
             items(visibleGroups, key = { it }) { key ->
                 Column {
@@ -88,7 +105,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 }
             }
             item {
-                Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
+                Spacer(Modifier.height(bottomSpacerHeightAnimator))
             }
         }
         ScrollRail(
@@ -101,9 +118,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
         )
     }
 
-    // Scroll partway down the initial buffer item
-    val selectedGroup by viewModel.selectedGroup.collectAsState()
-    val scrolling by viewModel.scrolling.collectAsState()
+    // Handle interaction with the ScrollRail
     LaunchedEffect(selectedGroup, scrolling) {
         if (!scrolling) {
             launcherItems.value.keys.forEachIndexed { index, c ->
@@ -113,9 +128,9 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             }
             launcherScrollState.scrollToItem(
                 visibleGroups.indexOf(selectedGroup) + 1,
-                -(screenHeightPx(context) / 4)
+                -scrollingTopBuffer.value.toInt().toPx(context).toInt()
             )
-        } else if (scrolling && selectedGroup != null) {
+        } else if (selectedGroup != null) {
             if (!visibleGroups.contains(selectedGroup)) visibleGroups.add(selectedGroup!!)
             visibleGroups.removeIf { it != selectedGroup }
         }
