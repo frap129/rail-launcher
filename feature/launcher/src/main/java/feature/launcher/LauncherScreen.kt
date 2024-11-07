@@ -22,17 +22,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -51,7 +48,7 @@ import core.data.rail.RailItem
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
-import kotlinx.coroutines.launch
+import core.util.screenHeightPx
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
@@ -66,13 +63,10 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val context = LocalContext.current
     val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
     val launcherScrollState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val visibilities: MutableMap<Char, MutableState<Boolean>> = mutableMapOf()
+    val visibleGroups = remember { viewModel.visibleGroups }
     val railHelper = LauncherScrollRailHelper(
-        context = context,
         railItems = launcherItems.value.keys.toList(),
-        listState = launcherScrollState,
-        visibilities = visibilities
+        viewModel = viewModel
     )
 
     Box {
@@ -85,12 +79,8 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             item {
                 Spacer(Modifier.height((screenHeightDp(context) / 4).dp))
             }
-            items(launcherItems.value.keys.toList(), key = { it }) { key ->
-                visibilities[key] = remember { mutableStateOf(true) }
-                Column(
-                    modifier = Modifier
-                        .alpha(if (visibilities[key]?.value != false) 1f else 0f)
-                ) {
+            items(visibleGroups, key = { it }) { key ->
+                Column {
                     LauncherItemGroup(
                         label = "$key",
                         items = launcherItems.value[key]!!
@@ -112,12 +102,22 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     }
 
     // Scroll partway down the initial buffer item
-    SideEffect {
-        scope.launch {
+    val selectedGroup by viewModel.selectedGroup.collectAsState()
+    val scrolling by viewModel.scrolling.collectAsState()
+    LaunchedEffect(selectedGroup, scrolling) {
+        if (!scrolling) {
+            launcherItems.value.keys.forEachIndexed { index, c ->
+                if (!visibleGroups.contains(c)) {
+                    visibleGroups.add(index, c)
+                }
+            }
             launcherScrollState.scrollToItem(
-                index = 1,
-                scrollOffset = -(screenHeightDp(context) / 8).toInt()
+                visibleGroups.indexOf(selectedGroup) + 1,
+                -(screenHeightPx(context) / 4)
             )
+        } else if (scrolling && selectedGroup != null) {
+            if (!visibleGroups.contains(selectedGroup)) visibleGroups.add(selectedGroup!!)
+            visibleGroups.removeIf { it != selectedGroup }
         }
     }
 }
