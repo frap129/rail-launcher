@@ -1,6 +1,7 @@
 package core.ui.composables.scrollrail
 
 import android.view.MotionEvent
+import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -73,33 +74,36 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
             .pointerInteropFilter(disallowIntercept) { event ->
                 verticalOffset = event.y
                 horizontalOffset = event.x
+                if (verticalOffset < railOffset) {
+                    railOffset = verticalOffset
+                } else if (verticalOffset > railOffset + railHeight) {
+                    railOffset = verticalOffset - railHeight
+                }
 
-                scope.launch {
-                    val calculatedIndex = ((verticalOffset - railOffset) / (itemHeight.value * density)).toInt()
-                    val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
+                val calculatedIndex = ((verticalOffset - railOffset) / (itemHeight.value * density)).toInt()
+                val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
 
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        scope.launch { scrollRailHelper.onScrollStarted(itemIndex) }
+                        selectedItemIndex = itemIndex
+                    }
+
+                    MotionEvent.ACTION_MOVE -> {
+                        if (itemIndex != selectedItemIndex) {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            scrollRailHelper.onScrollStarted(itemIndex)
+                            scope.launch { scrollRailHelper.onScroll(itemIndex, selectedItemIndex) }
                             selectedItemIndex = itemIndex
                         }
+                    }
 
-                        MotionEvent.ACTION_MOVE -> {
-                            if (itemIndex != selectedItemIndex) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                scrollRailHelper.onScroll(itemIndex, selectedItemIndex)
-                                selectedItemIndex = itemIndex
-                            }
-                        }
-
-                        else -> {
-                            scrollRailHelper.onScrollEnded(selectedItemIndex)
-                            selectedItemIndex = -1
-                            verticalOffset = 0f
-                            horizontalOffset = 0f
-                            railOffset = 0f
-                        }
+                    else -> {
+                        scope.launch { scrollRailHelper.onScrollEnded(selectedItemIndex) }
+                        selectedItemIndex = -1
+                        verticalOffset = 0f
+                        horizontalOffset = 0f
+                        railOffset = 0f
                     }
                 }
 
@@ -107,7 +111,18 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 true
             }
     ) {
-        if (selectedItemIndex > -1) {
+        if (selectedItemIndex >= 0) {
+            val offset by animateIntOffsetAsState(
+                targetValue = if (selectedItemIndex < 0) {
+                    IntOffset(0, 0)
+                } else {
+                    IntOffset(
+                        getXOffset(selectedItemIndex, itemHeight, density, verticalOffset - railOffset, horizontalOffset).toInt(),
+                        verticalOffset.toInt() - (highlightSize.value * density * 0.5f).toInt()
+                    )
+                }
+            )
+
             Text(
                 text = "${scrollRailHelper.railItems[selectedItemIndex]}",
                 fontSize = 28.sp,
@@ -116,19 +131,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
                     .size(highlightSize)
-                    .offset {
-                        // Calculate offset for bending animation
-                        IntOffset(
-                            getXOffset(
-                                selectedItemIndex,
-                                itemHeight,
-                                density,
-                                verticalOffset - railOffset,
-                                horizontalOffset
-                            ).toInt() - (5 * density).toInt(),
-                            verticalOffset.toInt() - (highlightSize.value * density * 0.5f).toInt()
-                        )
-                    }
+                    .offset { offset }
                     .background(color = highlightColor, shape = CircleShape)
             )
         }
@@ -137,16 +140,21 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
             verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.End,
             modifier = Modifier.offset {
-                if (verticalOffset < railOffset) {
-                    railOffset = verticalOffset
-                } else if (verticalOffset > railOffset + railHeight) {
-                    railOffset = verticalOffset - railHeight
-                }
-
                 IntOffset(0, railOffset.toInt())
             }
         ) {
             scrollRailHelper.railItems.forEachIndexed { index, label ->
+                val offset by animateIntOffsetAsState(
+                    targetValue = if (selectedItemIndex < 0) {
+                        IntOffset(0, 0)
+                    } else {
+                        IntOffset(
+                            getXOffset(index, itemHeight, density, verticalOffset - railOffset, horizontalOffset).toInt(),
+                            0
+                        )
+                    }
+                )
+
                 Text(
                     text = "$label",
                     fontSize = 16.sp,
@@ -156,23 +164,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                     style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                     modifier = Modifier
                         .size(itemHeight)
-                        .offset {
-                            if (selectedItemIndex < 0) {
-                                IntOffset(0, 0)
-                            } else {
-                                // Calculate offset for bending animation
-                                IntOffset(
-                                    getXOffset(
-                                        index,
-                                        itemHeight,
-                                        density,
-                                        verticalOffset - railOffset,
-                                        horizontalOffset
-                                    ).toInt(),
-                                    0
-                                )
-                            }
-                        }
+                        .offset { offset }
                 )
             }
         }
@@ -180,13 +172,13 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
 }
 
 fun getXOffset(index: Int, itemHeight: Dp, density: Float, verticalOffset: Float, horizontalOffset: Float): Float {
-    val slopeScale = 0.25f
-    val minPeak = 150.dp
+    val slopeScale = 0.15f
+    val minPeak = 150
     return -gaussianCurve(
         index * itemHeight.value * density,
         verticalOffset,
-        (minPeak.value * density) + abs(horizontalOffset * slopeScale),
-        (minPeak.value * density) - horizontalOffset
+        (minPeak * density) + abs(horizontalOffset * slopeScale),
+        (minPeak * density) - horizontalOffset
     )
 }
 
