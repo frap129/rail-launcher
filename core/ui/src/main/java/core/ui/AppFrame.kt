@@ -15,8 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -50,6 +53,7 @@ fun AppFrame(content: @Composable () -> Unit) {
  * within an AppFrame, allowing any screen or flow that is in the
  * `destinations` list to be accessed.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun App(destinations: List<Destination>) {
     val navController = rememberNavController()
@@ -57,6 +61,9 @@ fun App(destinations: List<Destination>) {
 
     AppFrame {
         Scaffold(
+            modifier = Modifier.semantics {
+                testTagsAsResourceId = true
+            },
             bottomBar = {
                 AnimatedVisibility(
                     visible = navBarState.value,

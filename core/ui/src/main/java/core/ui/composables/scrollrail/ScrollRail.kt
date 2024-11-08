@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
@@ -72,6 +73,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     Row(
         horizontalArrangement = Arrangement.End,
         modifier = modifier
+            .testTag("scrollRail")
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {

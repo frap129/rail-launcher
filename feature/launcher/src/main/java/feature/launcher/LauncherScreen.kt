@@ -35,6 +35,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -87,7 +88,11 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 
     Box {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().align(Alignment.Center).padding(32.dp, 0.dp),
+            modifier = Modifier
+                .testTag("launcherList")
+                .fillMaxSize()
+                .align(Alignment.Center)
+                .padding(32.dp, 0.dp),
             state = launcherScrollState,
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Top
