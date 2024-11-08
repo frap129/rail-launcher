@@ -1,6 +1,8 @@
 package core.ui.composables.scrollrail
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,13 +15,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,6 +40,7 @@ import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
@@ -59,10 +63,11 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     val highlightSize = 42.dp
     val highlightColor = MaterialTheme.colorScheme.secondaryContainer
 
-    var selectedItemIndex by remember { mutableIntStateOf(-1) }
-    var verticalOffset by remember { mutableFloatStateOf(0f) }
-    var horizontalOffset by remember { mutableFloatStateOf(0f) }
-    var railOffset by remember { mutableFloatStateOf(0f) }
+    var selectedItemIndex by remember { scrollRailHelper.selectedItemIndex }
+    var verticalOffset by remember { scrollRailHelper.verticalOffset }
+    var horizontalOffset by remember { scrollRailHelper.horizontalOffset }
+    var railOffset by remember { scrollRailHelper.railOffset }
+    val theme = MaterialTheme.colorScheme
 
     Row(
         horizontalArrangement = Arrangement.End,
@@ -73,6 +78,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                         val event = awaitPointerEvent()
                         verticalOffset = event.changes.first().position.y
                         horizontalOffset = event.changes.first().position.x
+
                         if (verticalOffset < railOffset) {
                             railOffset = verticalOffset
                         } else if (verticalOffset > railOffset + railHeight) {
@@ -98,7 +104,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                             }
 
                             PointerEventType.Unknown, PointerEventType.Release -> {
-                                scope.launch { scrollRailHelper.onScrollEnded(selectedItemIndex) }
+                                scope.launch { scrollRailHelper.onScrollEnded(itemIndex) }
                                 selectedItemIndex = -1
                                 verticalOffset = 0f
                                 horizontalOffset = 0f
@@ -143,23 +149,27 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
         ) {
             scrollRailHelper.railItems.forEachIndexed { index, label ->
                 val offset by animateIntOffsetAsState(
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                     targetValue = if (selectedItemIndex < 0) {
                         IntOffset(0, 0)
                     } else {
                         IntOffset(
-                            getXOffset(index, itemHeight, density, verticalOffset - railOffset, horizontalOffset).toInt(),
+                            getXOffset(index, itemHeight, density, verticalOffset - railOffset, horizontalOffset).roundToInt(),
                             0
                         )
                     }
                 )
-
                 Text(
                     text = "$label",
+                    color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W500,
                     lineHeight = 16.sp,
                     textAlign = TextAlign.Center,
-                    style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
+                    style = LocalTextStyle.current.copy(
+                        textMotion = TextMotion.Animated,
+                        shadow = Shadow(color = theme.surface, offset = Offset(2f, 2f))
+                    ),
                     modifier = Modifier
                         .size(itemHeight)
                         .offset { offset }
