@@ -66,8 +66,8 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
     val launcherScrollState = rememberLazyListState()
     val visibleGroups = remember { viewModel.visibleGroups }
-    val selectedGroup by viewModel.selectedGroup.collectAsState()
-    val scrolling by viewModel.scrolling.collectAsState()
+    val selectedGroup by remember { viewModel.selectedGroup }
+    val scrolling by remember { viewModel.scrolling }
     val railHelper = LauncherScrollRailHelper(
         railItems = launcherItems.value.keys.toList(),
         viewModel = viewModel,
