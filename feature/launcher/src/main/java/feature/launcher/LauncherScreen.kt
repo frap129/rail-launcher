@@ -24,7 +24,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +49,7 @@ import core.data.rail.RailItem
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
-import core.util.toPx
+import core.util.screenHeightPx
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
@@ -63,20 +62,20 @@ val launcherDestination = Destination(
 @Composable
 fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
+    val defaultBuffer = 100.dp
+    val scrollingTopBuffer = (screenHeightDp(context) / 5).dp
+    val scrollingBottomBuffer = (screenHeightDp(context) / 5 * 4).dp
     val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
     val launcherScrollState = rememberLazyListState()
     val visibleGroups = remember { viewModel.visibleGroups }
-    val selectedGroup by remember { viewModel.selectedGroup }
     val scrolling by remember { viewModel.scrolling }
     val railHelper = LauncherScrollRailHelper(
         railItems = launcherItems.value.keys.toList(),
         viewModel = viewModel,
-        lazyListState = launcherScrollState
+        lazyListState = launcherScrollState,
+        endScrollOffset = -(screenHeightPx(context) / 5)
     )
 
-    val defaultBuffer = 100.dp
-    val scrollingTopBuffer = (screenHeightDp(context) / 4).dp
-    val scrollingBottomBuffer = (screenHeightDp(context) / 4 * 3).dp
     val topSpacerHeightAnimator by animateDpAsState(
         targetValue = if (scrolling) scrollingTopBuffer else defaultBuffer,
         animationSpec = tween(durationMillis = 200)
@@ -97,12 +96,10 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 Spacer(Modifier.height(topSpacerHeightAnimator))
             }
             items(visibleGroups, key = { it }) { key ->
-                Column {
-                    LauncherItemGroup(
-                        label = "$key",
-                        items = launcherItems.value[key]!!
-                    )
-                }
+                LauncherItemGroup(
+                    label = "$key",
+                    items = launcherItems.value[key]!!
+                )
             }
             item {
                 Spacer(Modifier.height(bottomSpacerHeightAnimator))
@@ -117,41 +114,20 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 .offset { IntOffset(-16.dp.toPx().toInt(), 0) }
         )
     }
-
-    // Handle interaction with the ScrollRail
-    LaunchedEffect(selectedGroup, scrolling) {
-        if (!scrolling) {
-            launcherItems.value.keys.forEachIndexed { index, c ->
-                if (!visibleGroups.contains(c)) {
-                    visibleGroups.add(index, c)
-                }
-            }
-            launcherScrollState.scrollToItem(
-                visibleGroups.indexOf(selectedGroup) + 1,
-                -scrollingTopBuffer.value.toInt().toPx(context).toInt()
-            )
-        } else if (selectedGroup != null) {
-            if (!visibleGroups.contains(selectedGroup)) visibleGroups.add(selectedGroup!!)
-            visibleGroups.removeIf { it != selectedGroup }
-        }
-    }
 }
 
 @Composable
 fun LauncherItemGroup(label: String, items: List<RailItem>) {
-    Text(
-        text = label,
-        fontSize = 26.sp,
-        textAlign = TextAlign.Start,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp, 24.dp, 0.dp, 8.dp)
-    )
-    Column(
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Top
-    ) {
+    Column {
+        Text(
+            text = label,
+            fontSize = 26.sp,
+            textAlign = TextAlign.Start,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp, 24.dp, 0.dp, 8.dp)
+        )
         items.forEach { item ->
             LauncherItem(item)
         }

@@ -22,6 +22,5 @@ class LauncherViewModel(context: Context, private val appRepository: AppReposito
     }
 
     val scrolling: MutableState<Boolean> = mutableStateOf(false)
-    val selectedGroup: MutableState<Char?> = mutableStateOf(null)
     val visibleGroups: SnapshotStateList<Char> = mutableStateListOf()
 }
