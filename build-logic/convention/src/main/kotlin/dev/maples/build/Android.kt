@@ -1,5 +1,6 @@
 package dev.maples.build
 
+import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
 import com.android.build.api.dsl.CommonExtension
 import com.android.build.gradle.BaseExtension
 import java.io.FileInputStream
@@ -9,6 +10,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.logging.LogLevel
+import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
@@ -70,7 +72,6 @@ internal fun configureAndroid(target: Project, commonExtension: CommonExtension<
 internal fun Project.configureAndroidBase(commonExtension: BaseExtension) {
     commonExtension.apply {
         val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-
         dependencies {
             implementation(libs, "androidx.core.ktx")
             implementation(libs, "kotlinx.coroutines.core")
@@ -84,6 +85,13 @@ internal fun Project.configureAndroidBase(commonExtension: BaseExtension) {
             implementation(libs, "koin.bom")
             implementation(libs, "koin.android")
             implementation(libs, "util.timber")
+            add("baselineProfile", project(":core:baselineprofile"))
+        }
+
+        extensions.configure<BaselineProfileConsumerExtension> {
+            mergeIntoMain = true
+            dexLayoutOptimization = true
+            saveInSrc = true
         }
     }
 }

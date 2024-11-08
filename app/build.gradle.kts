@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.modular.android.application)
     alias(libs.plugins.modular.compose)
     alias(libs.plugins.androidApplication)
-    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -32,11 +31,4 @@ dependencies {
     implementation(project(":feature:launcher"))
     implementation(project(":feature:settings"))
     implementation(libs.androidx.profileinstaller)
-    baselineProfile(project(":core:baselineprofile"))
-}
-
-baselineProfile {
-    dexLayoutOptimization = true
-    mergeIntoMain = true
-    saveInSrc = true
 }
