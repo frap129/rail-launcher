@@ -2,7 +2,9 @@ package core.data.rail
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import androidx.compose.runtime.Immutable
 
+@Immutable
 abstract class RailItem {
     abstract val key: String
     abstract fun getDefaultName(): String
