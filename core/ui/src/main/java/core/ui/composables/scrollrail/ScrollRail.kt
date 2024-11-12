@@ -60,7 +60,6 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
     val itemHeight = 20.dp
     val railHeight = itemHeight.value * density * scrollRailHelper.railItems.size
     val highlightSize = 42.dp
-    val highlightColor = MaterialTheme.colorScheme.secondaryContainer
 
     var selectedItemIndex by remember { scrollRailHelper.selectedItemIndex }
     var verticalOffset by remember { scrollRailHelper.verticalOffset }
@@ -130,13 +129,14 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
             Text(
                 text = "${scrollRailHelper.railItems[selectedItemIndex]}",
                 fontSize = 28.sp,
+                color = theme.onPrimaryContainer,
                 lineHeight = highlightSize.value.sp,
                 textAlign = TextAlign.Center,
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
                     .size(highlightSize)
                     .offset { offset }
-                    .background(color = highlightColor, shape = CircleShape)
+                    .background(color = theme.primaryContainer, shape = CircleShape)
             )
         }
 
