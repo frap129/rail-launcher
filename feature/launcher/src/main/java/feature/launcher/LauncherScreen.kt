@@ -47,6 +47,7 @@ import com.google.accompanist.drawablepainter.DrawablePainter
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
 import core.data.launcher.LauncherItem
+import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
@@ -124,7 +125,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 @Composable
 fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
     Column {
-        Text(
+        OutlinedText(
             text = label,
             fontSize = 26.sp,
             textAlign = TextAlign.Start,
@@ -166,7 +167,7 @@ fun LauncherItem(item: LauncherItem) {
             painter = icon,
             contentDescription = item.name
         )
-        Text(
+        OutlinedText(
             text = item.name,
             fontSize = 18.sp
         )

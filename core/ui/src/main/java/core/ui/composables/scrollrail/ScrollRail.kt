@@ -20,9 +20,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -36,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import core.ui.composables.OutlinedText
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
@@ -161,17 +159,12 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                         )
                     }
                 )
-                Text(
+                OutlinedText(
                     text = "$label",
-                    color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W500,
                     lineHeight = 16.sp,
                     textAlign = TextAlign.Center,
-                    style = LocalTextStyle.current.copy(
-                        textMotion = TextMotion.Animated,
-                        shadow = Shadow(color = theme.surface, offset = Offset(2f, 2f))
-                    ),
                     modifier = Modifier
                         .size(itemHeight)
                         .offset { offset }
