@@ -6,9 +6,9 @@ import android.content.pm.LauncherActivityInfo
 import android.net.Uri
 import android.os.UserHandle
 import android.provider.Settings
-import core.data.rail.RailItem
+import core.data.launcher.LauncherItem
 
-class App(info: LauncherActivityInfo, val profile: UserHandle) : RailItem() {
+class App(info: LauncherActivityInfo, val profile: UserHandle) : LauncherItem() {
     val packageName = info.componentName.packageName
     private val label = info.label.toString()
     override val key = "${packageName}_$profile"

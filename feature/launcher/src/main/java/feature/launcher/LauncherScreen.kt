@@ -46,7 +46,7 @@ import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.DrawablePainter
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
-import core.data.rail.RailItem
+import core.data.launcher.LauncherItem
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
@@ -66,7 +66,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val defaultBuffer = 100.dp
     val scrollingTopBuffer = (screenHeightDp(context) / 5).dp
     val scrollingBottomBuffer = (screenHeightDp(context) / 5 * 4).dp
-    val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<RailItem>>())
+    val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<LauncherItem>>())
     val launcherScrollState = rememberLazyListState()
     val visibleGroups = remember { viewModel.visibleGroups }
     val scrolling by remember { viewModel.scrolling }
@@ -122,7 +122,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 }
 
 @Composable
-fun LauncherItemGroup(label: String, items: List<RailItem>) {
+fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
     Column {
         Text(
             text = label,
@@ -140,7 +140,7 @@ fun LauncherItemGroup(label: String, items: List<RailItem>) {
 }
 
 @Composable
-fun LauncherItem(item: RailItem) {
+fun LauncherItem(item: LauncherItem) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -181,7 +181,7 @@ fun LauncherItem(item: RailItem) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LauncherItemBottomSheet(item: RailItem, onDismissRequest: () -> Unit) {
+fun LauncherItemBottomSheet(item: LauncherItem, onDismissRequest: () -> Unit) {
     val context = LocalContext.current
 
     ModalBottomSheet(

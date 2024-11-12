@@ -1,11 +1,11 @@
-package core.data.rail
+package core.data.launcher
 
 import android.content.Context
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Immutable
 
 @Immutable
-abstract class RailItem {
+abstract class LauncherItem {
     abstract val key: String
     abstract fun getDefaultName(): String
     abstract fun getDefaultIcon(context: Context): Drawable
