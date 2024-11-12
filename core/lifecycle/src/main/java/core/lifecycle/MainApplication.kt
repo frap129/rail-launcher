@@ -3,6 +3,7 @@ package core.lifecycle
 import android.app.Application
 import android.content.Context
 import core.data.apps.AppRepository
+import core.data.launcher.LauncherItemRepository
 import core.data.prefs.PreferencesRepository
 import feature.launcher.LauncherViewModel
 import feature.settings.SettingsViewModel
@@ -31,6 +32,7 @@ class MainApplication : Application() {
      */
     private val repoModule = module {
         single<AppRepository> { AppRepository(androidContext()) }
+        single<LauncherItemRepository> { LauncherItemRepository(get()) }
         single<PreferencesRepository> { PreferencesRepository(androidContext()) }
     }
 
@@ -41,8 +43,8 @@ class MainApplication : Application() {
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
-        viewModel { LauncherViewModel(androidContext(), get()) }
-        viewModel { SettingsViewModel(androidContext(), get()) }
+        viewModel { LauncherViewModel(get()) }
+        viewModel { SettingsViewModel(get()) }
     }
 
     override fun attachBaseContext(base: Context) {

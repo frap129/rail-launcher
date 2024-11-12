@@ -1,24 +1,19 @@
 package feature.launcher
 
-import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
-import core.data.apps.AppRepository
-import core.data.launcher.LauncherItem
-import java.util.SortedMap
+import core.data.launcher.LauncherItemRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapLatest
 
-class LauncherViewModel(context: Context, private val appRepository: AppRepository) : ViewModel() {
+class LauncherViewModel(private val launcherItemRepo: LauncherItemRepository) : ViewModel() {
     @OptIn(ExperimentalCoroutinesApi::class)
-    val launcherItems: Flow<SortedMap<Char, List<LauncherItem>>> = appRepository.apps.mapLatest { appList ->
-        appList.groupBy { it.name[0].uppercaseChar() }.toSortedMap().also {
-            visibleGroups.addAll(it.keys)
-        } as SortedMap<Char, List<LauncherItem>>
+    val launcherItems = launcherItemRepo.launcherItems.mapLatest { items ->
+        visibleGroups.addAll(items.keys)
+        items
     }
 
     val scrolling: MutableState<Boolean> = mutableStateOf(false)
