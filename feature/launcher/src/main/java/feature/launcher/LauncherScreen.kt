@@ -20,9 +20,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,12 +43,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.google.accompanist.drawablepainter.DrawablePainter
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
 import core.data.launcher.LauncherItem
@@ -119,6 +124,15 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 .width(64.dp)
                 .offset { IntOffset(-16.dp.toPx().toInt(), 0) }
         )
+        if (viewModel.bottomSheetState.value != BottomSheetStatus.CLOSED) {
+            val selectedItem = viewModel.bottomSheetItem.value?.collectAsState(null)
+            if (selectedItem?.value != null) {
+                LauncherItemBottomSheet(
+                    item = selectedItem.value!!,
+                    onDismissRequest = { viewModel.closeItemMenu() }
+                )
+            }
+        }
     }
 }
 
@@ -141,11 +155,11 @@ fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
 }
 
 @Composable
-fun LauncherItem(item: LauncherItem) {
+fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
-    var showBottomSheet by remember { mutableStateOf(false) }
     val icon = rememberDrawablePainter(item.getIcon(context))
+    val name by remember { item.name }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -156,7 +170,7 @@ fun LauncherItem(item: LauncherItem) {
                 detectTapGestures(
                     onTap = { item.launch(context) },
                     onLongPress = {
-                        showBottomSheet = true
+                        viewModel.openItemMenu(item)
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                 )
@@ -165,65 +179,150 @@ fun LauncherItem(item: LauncherItem) {
         Image(
             modifier = Modifier.size(64.dp).padding(10.dp),
             painter = icon,
-            contentDescription = item.name
+            contentDescription = name
         )
         OutlinedText(
-            text = item.name,
+            text = name,
             fontSize = 18.sp
         )
-        if (showBottomSheet) {
-            LauncherItemBottomSheet(
-                item = item,
-                onDismissRequest = { showBottomSheet = false }
-            )
-        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LauncherItemBottomSheet(item: LauncherItem, onDismissRequest: () -> Unit) {
-    val context = LocalContext.current
-
+fun LauncherItemBottomSheet(item: LauncherItem, onDismissRequest: () -> Unit, viewModel: LauncherViewModel = koinViewModel()) {
     ModalBottomSheet(
+        dragHandle = { Spacer(Modifier.fillMaxWidth().height(10.dp)) },
         onDismissRequest = onDismissRequest
     ) {
+        if (viewModel.bottomSheetState.value == BottomSheetStatus.MENU) {
+            LauncherItemMenu(item)
+        } else if (viewModel.bottomSheetState.value == BottomSheetStatus.RENAME) {
+            LauncherItemEditName(item)
+        }
+    }
+}
+
+@Composable
+fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
+    val context = LocalContext.current
+    val icon = rememberDrawablePainter(item.getIcon(context))
+    val name by remember { item.name }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp, 10.dp)
+    ) {
+        Image(
+            modifier = Modifier
+                .size(64.dp)
+                .padding(10.dp),
+            painter = icon,
+            contentDescription = name
+        )
+
+        Text(
+            text = name,
+            fontSize = 28.sp,
+            modifier = Modifier.clickable {
+                viewModel.openItemRename()
+            }
+        )
+    }
+
+    if (item is App) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(20.dp, 10.dp).clickable {
+                    item.openAppInfo(context)
+                }
+        ) {
+            Image(
+                modifier = Modifier.size(48.dp).padding(10.dp),
+                painter = painterResource(android.R.drawable.ic_dialog_info),
+                contentDescription = "App Info"
+            )
+            Text(
+                text = "App Info",
+                fontSize = 20.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
+    val context = LocalContext.current
+    val icon = rememberDrawablePainter(item.getIcon(context))
+    val name by remember { item.name }
+    var nameEdit by remember { mutableStateOf(name) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
                 .padding(20.dp, 10.dp)
         ) {
             Image(
-                modifier = Modifier.size(64.dp).padding(10.dp),
-                painter = DrawablePainter(item.getIcon(context)),
-                contentDescription = item.name
+                modifier = Modifier
+                    .size(64.dp)
+                    .padding(10.dp),
+                painter = icon,
+                contentDescription = name
             )
             Text(
-                text = item.name,
-                fontSize = 28.sp
+                text = "Rename $name",
+                fontSize = 24.sp
             )
         }
 
-        if (item is App) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp, 10.dp).clickable {
-                        item.openAppInfo(context)
-                    }
+        OutlinedTextField(
+            modifier = Modifier
+                .padding(48.dp, 10.dp)
+                .fillMaxWidth(),
+            singleLine = true,
+            shape = CircleShape,
+            textStyle = LocalTextStyle.current.copy(fontSize = 18.sp),
+            value = nameEdit,
+            onValueChange = { nameEdit = it },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            TextButton(
+                onClick = {
+                    nameEdit = item.defaultName
+                }
             ) {
-                Image(
-                    modifier = Modifier.size(48.dp).padding(10.dp),
-                    painter = painterResource(android.R.drawable.ic_dialog_info),
-                    contentDescription = "App Info"
-                )
                 Text(
-                    text = "App Info",
-                    fontSize = 20.sp
+                    text = "Reset",
+                    fontSize = 18.sp
+                )
+            }
+
+            TextButton(
+                onClick = {
+                    viewModel.setItemName(item, nameEdit)
+                    viewModel.bottomSheetState.value = BottomSheetStatus.MENU
+                }
+            ) {
+                Text(
+                    text = "Done",
+                    fontSize = 18.sp
                 )
             }
         }

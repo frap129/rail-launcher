@@ -3,27 +3,19 @@ package core.data.launcher
 import android.content.Context
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 
 @Immutable
 abstract class LauncherItem {
     abstract val key: String
-    abstract fun getDefaultName(): String
+    abstract val defaultName: String
     abstract fun getDefaultIcon(context: Context): Drawable
     abstract fun launch(context: Context)
 
-    private val hasCustomName: Boolean = false
     private val hasCustomIcon: Boolean = false
 
-    var name: String
-        get() = if (hasCustomName) {
-            // TODO: Implement Custom Names
-            getDefaultName()
-        } else {
-            getDefaultName()
-        }
-        set(value) {
-            // TODO: Implement Custom Icons
-        }
+    val name: MutableState<String> = mutableStateOf(defaultName)
 
     fun getIcon(context: Context): Drawable = if (hasCustomIcon) {
         // TODO: Implement Custom Icons

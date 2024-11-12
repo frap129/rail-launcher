@@ -92,8 +92,6 @@ class AppRepository(context: Context) {
         // Ignore this app
         appList.removeIf { it.packageName == context.applicationInfo.packageName }
 
-        return appList.apply {
-            sortBy { it.name.lowercase() }
-        }
+        return appList
     }
 }

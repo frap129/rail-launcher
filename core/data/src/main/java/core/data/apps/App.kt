@@ -13,7 +13,7 @@ class App(info: LauncherActivityInfo, val profile: UserHandle) : LauncherItem() 
     private val label = info.label.toString()
     override val key = "${packageName}_$profile"
 
-    override fun getDefaultName(): String = label
+    override val defaultName: String = label
     override fun getDefaultIcon(context: Context) = context.packageManager.getApplicationIcon(packageName)
     override fun launch(context: Context) = context.startActivity(
         context.packageManager.getLaunchIntentForPackage(packageName)

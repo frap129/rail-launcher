@@ -32,8 +32,8 @@ class MainApplication : Application() {
      */
     private val repoModule = module {
         single<AppRepository> { AppRepository(androidContext()) }
-        single<LauncherItemRepository> { LauncherItemRepository(get()) }
         single<PreferencesRepository> { PreferencesRepository(androidContext()) }
+        single<LauncherItemRepository> { LauncherItemRepository(get(), get()) }
     }
 
     /**
@@ -43,7 +43,7 @@ class MainApplication : Application() {
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
-        viewModel { LauncherViewModel(get()) }
+        viewModel { LauncherViewModel(get(), get()) }
         viewModel { SettingsViewModel(get()) }
     }
 
