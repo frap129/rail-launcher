@@ -2,19 +2,18 @@ package core.data.apps
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.LauncherActivityInfo
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.UserHandle
 import android.provider.Settings
 import core.data.launcher.model.LauncherItem
 
-class App(info: LauncherActivityInfo, val profile: UserHandle) : LauncherItem() {
-    val packageName = info.componentName.packageName
-    private val label = info.label.toString()
+class App(override val defaultName: String, override val defaultIcon: Drawable, val profile: UserHandle, val packageName: String) :
+    LauncherItem() {
     override val key = "${packageName}_$profile"
+    override var name = defaultName
+    override var icon = defaultIcon
 
-    override val defaultName: String = label
-    override fun getDefaultIcon(context: Context) = context.packageManager.getApplicationIcon(packageName)
     override fun launch(context: Context) = context.startActivity(
         context.packageManager.getLaunchIntentForPackage(packageName)
     )

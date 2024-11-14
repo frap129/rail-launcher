@@ -204,7 +204,7 @@ fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewMode
     ) {
         Image(
             modifier = Modifier.size(64.dp).padding(10.dp),
-            painter = rememberDrawablePainter(item.getIcon(context)),
+            painter = rememberDrawablePainter(item.icon),
             contentDescription = item.name
         )
         OutlinedText(
@@ -244,7 +244,7 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
             modifier = Modifier
                 .size(64.dp)
                 .padding(10.dp),
-            painter = rememberDrawablePainter(item.getIcon(context)),
+            painter = rememberDrawablePainter(item.icon),
             contentDescription = item.name
         )
 
@@ -299,7 +299,7 @@ fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koin
                 modifier = Modifier
                     .size(64.dp)
                     .padding(10.dp),
-                painter = rememberDrawablePainter(item.getIcon(context)),
+                painter = rememberDrawablePainter(item.icon),
                 contentDescription = item.name
             )
             Text(

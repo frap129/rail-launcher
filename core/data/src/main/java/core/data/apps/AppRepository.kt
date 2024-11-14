@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
 class AppRepository(context: Context) {
+    private val packageManager = context.packageManager
     private val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
     private val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
@@ -74,8 +75,10 @@ class AppRepository(context: Context) {
             for (profile in userManager.userProfiles) {
                 for (info in launcherApps.getActivityList(packageName, profile)) {
                     val app = App(
-                        info,
-                        profile
+                        defaultName = info.label.toString(),
+                        defaultIcon = packageManager.getApplicationIcon(info.componentName.packageName),
+                        profile = info.user,
+                        packageName = info.componentName.packageName
                     )
                     appList.add(app)
                 }

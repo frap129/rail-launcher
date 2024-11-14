@@ -12,10 +12,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class PreferencesRepository(val context: Context) {
-    val Context.itemNames: DataStore<Preferences> by preferencesDataStore(name = "names")
+    private val Context.itemNames: DataStore<Preferences> by preferencesDataStore(name = "names")
+    private val Context.itemIcons: DataStore<Preferences> by preferencesDataStore(name = "icons")
+    private val Context.appSettings: DataStore<Preferences> by preferencesDataStore(name = "settings")
     val itemNames = context.itemNames.data
-    val Context.itemIcons: DataStore<Preferences> by preferencesDataStore(name = "icons")
-    val Context.appSettings: DataStore<Preferences> by preferencesDataStore(name = "settings")
+    val itemIcons = context.itemIcons.data
 
     fun getItemName(item: LauncherItem): Flow<String> = context.itemNames.data.map { names ->
         names[stringPreferencesKey(item.key)] ?: item.defaultName

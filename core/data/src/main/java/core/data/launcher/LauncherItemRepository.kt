@@ -17,18 +17,18 @@ class LauncherItemRepository(appRepository: AppRepository, preferencesRepository
         }
     }
 
-    val launcherItemGroups: Flow<List<LauncherItemGroup>> = combine(launcherItems, preferencesRepository.itemNames) { items, names ->
-        items.groupBy { item ->
-            val name = names[stringPreferencesKey(item.key)] ?: item.defaultName
-            item.name = name
-            name.first().uppercaseChar()
-        }.map { mapEntry ->
-            LauncherItemGroup(
-                mapEntry.key.toString(),
-                mapEntry.value
-            )
-        }.sortedBy { it.name }
-    }
+    val launcherItemGroups: Flow<List<LauncherItemGroup>> =
+        combine(launcherItems, preferencesRepository.itemNames, preferencesRepository.itemIcons) { items, names, icons ->
+            items.groupBy { item ->
+                item.name = names[stringPreferencesKey(item.key)] ?: item.defaultName
+                item.name.first().uppercaseChar()
+            }.map { mapEntry ->
+                LauncherItemGroup(
+                    mapEntry.key.toString(),
+                    mapEntry.value
+                )
+            }.sortedBy { it.name }
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun getItemByKey(key: String): Flow<LauncherItem?> = launcherItems.mapLatest { items ->
