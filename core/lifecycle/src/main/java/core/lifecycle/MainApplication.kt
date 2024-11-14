@@ -43,7 +43,7 @@ class MainApplication : Application() {
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
-        viewModel { LauncherViewModel(get(), get()) }
+        viewModel { LauncherViewModel(androidContext(), get(), get()) }
         viewModel { SettingsViewModel(get()) }
     }
 

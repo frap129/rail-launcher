@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import core.data.launcher.LauncherItem
+import core.data.launcher.model.LauncherItem
 import core.util.launchInBackground
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

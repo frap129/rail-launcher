@@ -6,7 +6,7 @@ import android.content.pm.LauncherActivityInfo
 import android.net.Uri
 import android.os.UserHandle
 import android.provider.Settings
-import core.data.launcher.LauncherItem
+import core.data.launcher.model.LauncherItem
 
 class App(info: LauncherActivityInfo, val profile: UserHandle) : LauncherItem() {
     val packageName = info.componentName.packageName

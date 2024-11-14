@@ -1,6 +1,6 @@
 package feature.launcher
 
-import core.data.launcher.LauncherItem
+import core.data.launcher.model.LauncherItem
 import kotlinx.coroutines.flow.Flow
 
 enum class BottomSheetStatus {

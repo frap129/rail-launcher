@@ -15,8 +15,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +41,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 
 /**
  * A composable that creates a column of single character items that
@@ -52,19 +52,24 @@ import kotlinx.coroutines.launch
  * @param scrollRailHelper an object of  [core.ui.composables.scrollrail.ScrollRailHelper]
  */
 @Composable
-fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper) {
+fun ScrollRail(
+    modifier: Modifier = Modifier,
+    items: List<String>,
+    onScrollStarted: (Int) -> Unit,
+    onScroll: (Int) -> Unit,
+    onScrollEnded: (Int) -> Unit
+) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val hapticFeedback = LocalHapticFeedback.current
     val density = context.resources.displayMetrics.density
     val itemHeight = 20.dp
-    val railHeight = itemHeight.value * density * scrollRailHelper.railItems.size
+    val railHeight = itemHeight.value * density * items.size
     val highlightSize = 42.dp
 
-    var selectedItemIndex by remember { scrollRailHelper.selectedItemIndex }
-    var verticalOffset by remember { scrollRailHelper.verticalOffset }
-    var horizontalOffset by remember { scrollRailHelper.horizontalOffset }
-    var railOffset by remember { scrollRailHelper.railOffset }
+    var selectedItemIndex by remember { mutableIntStateOf(-1) }
+    var verticalOffset by remember { mutableFloatStateOf(0f) }
+    var horizontalOffset by remember { mutableFloatStateOf(0f) }
+    var railOffset by remember { mutableFloatStateOf(0f) }
     val theme = MaterialTheme.colorScheme
 
     Row(
@@ -85,25 +90,25 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                         }
 
                         val calculatedIndex = ((verticalOffset - railOffset) / (itemHeight.value * density)).toInt()
-                        val itemIndex = max(min(calculatedIndex, scrollRailHelper.railItems.size - 1), 0)
+                        val itemIndex = max(min(calculatedIndex, items.size - 1), 0)
 
                         when (event.type) {
                             PointerEventType.Press -> {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                scope.launch { scrollRailHelper.onScrollStarted(itemIndex) }
+                                onScrollStarted(itemIndex)
                                 selectedItemIndex = itemIndex
                             }
 
                             PointerEventType.Move -> {
                                 if (itemIndex != selectedItemIndex) {
                                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    scope.launch { scrollRailHelper.onScroll(itemIndex, selectedItemIndex) }
+                                    onScroll(itemIndex)
                                     selectedItemIndex = itemIndex
                                 }
                             }
 
                             PointerEventType.Unknown, PointerEventType.Release -> {
-                                scope.launch { scrollRailHelper.onScrollEnded(itemIndex) }
+                                onScrollEnded(itemIndex)
                                 selectedItemIndex = -1
                                 verticalOffset = 0f
                                 horizontalOffset = 0f
@@ -127,7 +132,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
             )
 
             Text(
-                text = "${scrollRailHelper.railItems[selectedItemIndex]}",
+                text = items[selectedItemIndex],
                 fontSize = 28.sp,
                 color = theme.onPrimaryContainer,
                 lineHeight = highlightSize.value.sp,
@@ -147,7 +152,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                 IntOffset(0, railOffset.toInt())
             }
         ) {
-            scrollRailHelper.railItems.forEachIndexed { index, label ->
+            items.forEachIndexed { index, label ->
                 val offset by animateIntOffsetAsState(
                     animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                     targetValue = if (selectedItemIndex < 0) {
@@ -160,7 +165,7 @@ fun ScrollRail(modifier: Modifier = Modifier, scrollRailHelper: ScrollRailHelper
                     }
                 )
                 OutlinedText(
-                    text = "$label",
+                    text = label,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W500,
                     lineHeight = 16.sp,

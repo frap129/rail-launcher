@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,12 +52,12 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
-import core.data.launcher.LauncherItem
+import core.data.launcher.model.LauncherItem
+import core.data.launcher.model.LauncherItemGroup
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.util.screenHeightDp
-import core.util.screenHeightPx
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
@@ -69,60 +70,47 @@ val launcherDestination = Destination(
 @Composable
 fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
-    val defaultBuffer = 100.dp
-    val scrollingTopBuffer = (screenHeightDp(context) / 5).dp
-    val scrollingBottomBuffer = (screenHeightDp(context) / 5 * 4).dp
-    val launcherItems = viewModel.launcherItems.collectAsState(emptyMap<Char, List<LauncherItem>>())
-    val launcherScrollState = rememberLazyListState()
-    val visibleGroups = remember { viewModel.visibleGroups }
-    val scrolling by remember { viewModel.scrolling }
-    val railHelper = LauncherScrollRailHelper(
-        railItems = launcherItems.value.keys.toList(),
-        viewModel = viewModel,
-        lazyListState = launcherScrollState,
-        endScrollOffset = -(screenHeightPx(context) / 5)
-    )
-
-    val topSpacerHeightAnimator by animateDpAsState(
-        targetValue = if (scrolling) scrollingTopBuffer else defaultBuffer,
-        animationSpec = tween(durationMillis = 200)
-    )
-    val bottomSpacerHeightAnimator by animateDpAsState(
-        targetValue = if (scrolling) scrollingBottomBuffer else defaultBuffer,
-        animationSpec = tween(delayMillis = 10, durationMillis = 300)
-    )
+    val uiState by viewModel.uiState.collectAsState()
+    val launcherItemGroups = viewModel.launcherItemGroups.collectAsState(emptyList())
 
     Box {
-        LazyColumn(
-            modifier = Modifier
-                .testTag("launcherList")
-                .fillMaxSize()
-                .align(Alignment.Center)
-                .padding(32.dp, 0.dp),
-            state = launcherScrollState,
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Top
-        ) {
-            item {
-                Spacer(Modifier.height(topSpacerHeightAnimator))
-            }
-            items(visibleGroups, key = { it }) { key ->
+        when (uiState) {
+            is LauncherUiState.AppList -> LauncherList(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp, 0.dp),
+                launcherList = (uiState as LauncherUiState.AppList).groups,
+                lazyListState = (uiState as LauncherUiState.AppList).lazyListState
+            )
+
+            is LauncherUiState.Scrolling -> {
                 LauncherItemGroup(
-                    label = "$key",
-                    items = launcherItems.value[key]!!
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            start = 32.dp,
+                            end = 32.dp,
+                            top = (screenHeightDp(context) / 5).dp
+                        ),
+                    group = (uiState as LauncherUiState.Scrolling).group
                 )
             }
-            item {
-                Spacer(Modifier.height(bottomSpacerHeightAnimator))
-            }
+
+            LauncherUiState.Error -> {}
+
+            LauncherUiState.Loading -> {}
         }
+
         ScrollRail(
-            scrollRailHelper = railHelper,
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(0.dp, 200.dp, 0.dp, 0.dp)
                 .width(64.dp)
-                .offset { IntOffset(-16.dp.toPx().toInt(), 0) }
+                .offset { IntOffset(-16.dp.toPx().toInt(), 0) },
+            items = launcherItemGroups.value.map { it.name },
+            onScrollStarted = { viewModel.onScrollStarted(it) },
+            onScroll = { viewModel.onScroll(it) },
+            onScrollEnded = { viewModel.onScrollEnded(it) }
         )
         if (viewModel.bottomSheetState.value != BottomSheetStatus.CLOSED) {
             val selectedItem = viewModel.bottomSheetItem.value?.collectAsState(null)
@@ -137,10 +125,50 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 }
 
 @Composable
-fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
-    Column {
+fun LauncherList(modifier: Modifier = Modifier, launcherList: List<LauncherItemGroup>, lazyListState: LazyListState) {
+    val context = LocalContext.current
+    val defaultBuffer = 100.dp
+    val scrollingTopBuffer = (screenHeightDp(context) / 5).dp
+    val scrollingBottomBuffer = (screenHeightDp(context) / 5 * 4).dp
+    var animated by remember { mutableStateOf(false) }
+
+    val topSpacerHeightAnimator by animateDpAsState(
+        targetValue = if (animated) defaultBuffer else scrollingTopBuffer,
+        animationSpec = tween(durationMillis = 200)
+    )
+    val bottomSpacerHeightAnimator by animateDpAsState(
+        targetValue = if (animated) defaultBuffer else scrollingBottomBuffer,
+        animationSpec = tween(delayMillis = 10, durationMillis = 300)
+    )
+
+    LazyColumn(
+        modifier = modifier
+            .testTag("launcherList"),
+        state = lazyListState,
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top
+    ) {
+        item {
+            Spacer(Modifier.height(topSpacerHeightAnimator))
+        }
+        items(launcherList, key = { it.name }) { itemGroup ->
+            LauncherItemGroup(group = itemGroup)
+        }
+        item {
+            Spacer(Modifier.height(bottomSpacerHeightAnimator))
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        animated = true
+    }
+}
+
+@Composable
+fun LauncherItemGroup(modifier: Modifier = Modifier, group: LauncherItemGroup) {
+    Column(modifier = modifier) {
         OutlinedText(
-            text = label,
+            text = group.name,
             fontSize = 26.sp,
             textAlign = TextAlign.Start,
             fontWeight = FontWeight.SemiBold,
@@ -148,7 +176,7 @@ fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
                 .fillMaxWidth()
                 .padding(20.dp, 24.dp, 0.dp, 8.dp)
         )
-        items.forEach { item ->
+        group.items.forEach { item ->
             LauncherItem(item)
         }
     }
@@ -158,8 +186,6 @@ fun LauncherItemGroup(label: String, items: List<LauncherItem>) {
 fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
-    val icon = rememberDrawablePainter(item.getIcon(context))
-    val name by remember { item.name }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -178,11 +204,11 @@ fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewMode
     ) {
         Image(
             modifier = Modifier.size(64.dp).padding(10.dp),
-            painter = icon,
-            contentDescription = name
+            painter = rememberDrawablePainter(item.getIcon(context)),
+            contentDescription = item.name
         )
         OutlinedText(
-            text = name,
+            text = item.name,
             fontSize = 18.sp
         )
     }
@@ -206,8 +232,6 @@ fun LauncherItemBottomSheet(item: LauncherItem, onDismissRequest: () -> Unit, vi
 @Composable
 fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
-    val icon = rememberDrawablePainter(item.getIcon(context))
-    val name by remember { item.name }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -220,12 +244,12 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
             modifier = Modifier
                 .size(64.dp)
                 .padding(10.dp),
-            painter = icon,
-            contentDescription = name
+            painter = rememberDrawablePainter(item.getIcon(context)),
+            contentDescription = item.name
         )
 
         Text(
-            text = name,
+            text = item.name,
             fontSize = 28.sp,
             modifier = Modifier.clickable {
                 viewModel.openItemRename()
@@ -259,9 +283,7 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
 @Composable
 fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
-    val icon = rememberDrawablePainter(item.getIcon(context))
-    val name by remember { item.name }
-    var nameEdit by remember { mutableStateOf(name) }
+    var nameEdit by remember { mutableStateOf(item.name) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -277,11 +299,11 @@ fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koin
                 modifier = Modifier
                     .size(64.dp)
                     .padding(10.dp),
-                painter = icon,
-                contentDescription = name
+                painter = rememberDrawablePainter(item.getIcon(context)),
+                contentDescription = item.name
             )
             Text(
-                text = "Rename $name",
+                text = "Rename ${item.name}",
                 fontSize = 24.sp
             )
         }
