@@ -46,6 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,7 +58,7 @@ import core.data.launcher.model.LauncherItemGroup
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
-import core.util.screenHeightDp
+import core.util.toDp
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
@@ -80,22 +81,22 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             is LauncherUiState.AppList -> LauncherList(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(32.dp, 0.dp),
+                    .padding(horizontal = 32.dp),
                 launcherList = (uiState as LauncherUiState.AppList).groups,
-                lazyListState = (uiState as LauncherUiState.AppList).lazyListState
+                lazyListState = (uiState as LauncherUiState.AppList).lazyListState,
+                topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
+                bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
             )
 
             is LauncherUiState.Scrolling -> {
-                LauncherItemGroup(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            start = 32.dp,
-                            end = 32.dp,
-                            top = (screenHeightDp(context) / 5).dp
-                        ),
-                    group = (uiState as LauncherUiState.Scrolling).group
-                )
+                Column {
+                    LauncherItemGroup(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
+                        group = (uiState as LauncherUiState.Scrolling).group
+                    )
+                }
             }
 
             LauncherUiState.Error -> {}
@@ -131,25 +132,27 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 }
 
 @Composable
-fun LauncherList(modifier: Modifier = Modifier, launcherList: List<LauncherItemGroup>, lazyListState: LazyListState) {
-    val context = LocalContext.current
+fun LauncherList(
+    modifier: Modifier = Modifier,
+    launcherList: List<LauncherItemGroup>,
+    lazyListState: LazyListState,
+    topOffset: Dp,
+    bottomOffset: Dp
+) {
     val defaultBuffer = 100.dp
-    val scrollingTopBuffer = (screenHeightDp(context) / 5).dp
-    val scrollingBottomBuffer = (screenHeightDp(context) / 5 * 4).dp
     var animated by remember { mutableStateOf(false) }
 
     val topSpacerHeightAnimator by animateDpAsState(
-        targetValue = if (animated) defaultBuffer else scrollingTopBuffer,
+        targetValue = if (animated) defaultBuffer else topOffset,
         animationSpec = tween(durationMillis = 200)
     )
     val bottomSpacerHeightAnimator by animateDpAsState(
-        targetValue = if (animated) defaultBuffer else scrollingBottomBuffer,
+        targetValue = if (animated) defaultBuffer else bottomOffset,
         animationSpec = tween(delayMillis = 10, durationMillis = 300)
     )
 
     LazyColumn(
-        modifier = modifier
-            .testTag("launcherList"),
+        modifier = modifier.testTag("launcherList"),
         state = lazyListState,
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top

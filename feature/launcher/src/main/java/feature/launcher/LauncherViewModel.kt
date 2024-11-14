@@ -35,7 +35,8 @@ class LauncherViewModel(
     private val prefsRepo: PreferencesRepository
 ) : ViewModel() {
 
-    val endScrollOffset = screenHeightPx(context) / 5 + 8
+    val listStartOffsetPx = screenHeightPx(context) / 5
+    val listEndOffsetPx = screenHeightPx(context) - listStartOffsetPx
 
     val launcherItemGroups = launcherItemRepo.launcherItemGroups
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
@@ -56,7 +57,7 @@ class LauncherViewModel(
                 groups = groups,
                 lazyListState = LazyListState(
                     firstVisibleItemIndex = max(selected + 1, 0),
-                    firstVisibleItemScrollOffset = -endScrollOffset
+                    firstVisibleItemScrollOffset = -listStartOffsetPx
 
                 )
             )
@@ -65,7 +66,7 @@ class LauncherViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.WhileSubscribed(),
         initialValue = LauncherUiState.Loading
     )
 
@@ -85,7 +86,7 @@ class LauncherViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = SharingStarted.WhileSubscribed(),
         initialValue = LauncherMenuState.Closed
     )
 
