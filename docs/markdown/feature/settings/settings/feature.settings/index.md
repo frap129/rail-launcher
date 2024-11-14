@@ -6,7 +6,7 @@
 
 | Name | Summary |
 |---|---|
-| [SettingsViewModel](-settings-view-model/index.md) | [androidJvm]<br>class [SettingsViewModel](-settings-view-model/index.md)(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), prefsRepo: [PreferencesRepository](../../../../core/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md)) : [ViewModel](https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html) |
+| [SettingsViewModel](-settings-view-model/index.md) | [androidJvm]<br>class [SettingsViewModel](-settings-view-model/index.md)(prefsRepo: [PreferencesRepository](../../../../core/data/data/core.data.prefs/-preferences-repository/index.md)) : [ViewModel](https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html) |
 
 ## Properties
 

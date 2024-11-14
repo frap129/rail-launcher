@@ -2,6 +2,9 @@ package feature.launcher
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -55,6 +58,7 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.apps.App
 import core.data.launcher.model.LauncherItem
 import core.data.launcher.model.LauncherItemGroup
+import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
@@ -76,32 +80,48 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val menuState by viewModel.menuState.collectAsState()
     val launcherItemGroups = viewModel.launcherItemGroups.collectAsState(emptyList())
 
-    Box {
-        when (uiState) {
-            is LauncherUiState.AppList -> LauncherList(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 32.dp),
-                launcherList = (uiState as LauncherUiState.AppList).groups,
-                lazyListState = (uiState as LauncherUiState.AppList).lazyListState,
-                topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
-                bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
-            )
-
-            is LauncherUiState.Scrolling -> {
-                Column {
-                    LauncherItemGroup(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
-                        group = (uiState as LauncherUiState.Scrolling).group
-                    )
+    Box(Modifier.fillMaxSize()) {
+        FocusRevealContent(
+            modifier = Modifier.fillMaxSize(),
+            targetState = uiState,
+            focusState = LauncherUiState.Scrolling::class,
+            revealState = LauncherUiState.AppList::class,
+            defaultSpec = fadeIn(animationSpec = tween(5, 5))
+                .togetherWith(fadeOut(animationSpec = tween(5))),
+            focusSpec = fadeIn(animationSpec = tween(200))
+                .togetherWith(fadeOut(animationSpec = tween(1))),
+            revealSpec = fadeIn(animationSpec = tween(200, 75))
+                .togetherWith(fadeOut(animationSpec = tween(1, 275))),
+            contentKey = {
+                if (it is LauncherUiState.AppList) {
+                    it::class
+                } else {
+                    it
                 }
             }
+        ) { state ->
+            when (state) {
+                is LauncherUiState.AppList -> LauncherList(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 32.dp),
+                    launcherList = state.groups,
+                    lazyListState = state.lazyListState,
+                    topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
+                    bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
+                )
 
-            LauncherUiState.Error -> {}
+                is LauncherUiState.Scrolling -> LauncherItemGroup(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
+                    group = state.group
+                )
 
-            LauncherUiState.Loading -> {}
+                LauncherUiState.Error -> {}
+
+                LauncherUiState.Loading -> {}
+            }
         }
 
         ScrollRail(
@@ -144,11 +164,11 @@ fun LauncherList(
 
     val topSpacerHeightAnimator by animateDpAsState(
         targetValue = if (animated) defaultBuffer else topOffset,
-        animationSpec = tween(durationMillis = 200)
+        animationSpec = tween(durationMillis = 100, delayMillis = 275)
     )
     val bottomSpacerHeightAnimator by animateDpAsState(
         targetValue = if (animated) defaultBuffer else bottomOffset,
-        animationSpec = tween(delayMillis = 10, durationMillis = 300)
+        animationSpec = tween(durationMillis = 400, delayMillis = 275)
     )
 
     LazyColumn(
@@ -276,7 +296,6 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
 
 @Composable
 fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
-    val context = LocalContext.current
     var nameEdit by remember { mutableStateOf(item.name) }
 
     Column(

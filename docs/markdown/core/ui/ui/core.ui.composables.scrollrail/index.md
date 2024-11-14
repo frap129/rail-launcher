@@ -2,14 +2,10 @@
 
 # Package-level declarations
 
-## Types
-
-| Name | Summary |
-|---|---|
-| [ScrollRailHelper](-scroll-rail-helper/index.md) | [androidJvm]<br>interface [ScrollRailHelper](-scroll-rail-helper/index.md)<br>A helper for using [core.ui.composables.scrollrail.ScrollRail](-scroll-rail.md). This interface provides callbacks for handling scrolling. |
-
 ## Functions
 
 | Name | Summary |
 |---|---|
-| [ScrollRail](-scroll-rail.md) | [androidJvm]<br>@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)<br>fun [ScrollRail](-scroll-rail.md)(modifier: [Modifier](https://developer.android.com/reference/kotlin/androidx/compose/ui/Modifier.html) = Modifier, scrollRailHelper: [ScrollRailHelper](-scroll-rail-helper/index.md))<br>A composable that creates a column of single character items that behaves like a scrollbar. It animates bending horizontally as the user scrolls on it to ensure that it remains visible while being touched |
+| [gaussianCurve](gaussian-curve.md) | [androidJvm]<br>fun [gaussianCurve](gaussian-curve.md)(pos: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html), peakPos: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html), slope: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html), peak: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html)): [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html) |
+| [getXOffset](get-x-offset.md) | [androidJvm]<br>fun [getXOffset](get-x-offset.md)(index: [Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html), itemHeight: [Dp](https://developer.android.com/reference/kotlin/androidx/compose/ui/unit/Dp.html), density: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html), verticalOffset: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html), horizontalOffset: [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html)): [Float](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-float/index.html) |
+| [ScrollRail](-scroll-rail.md) | [androidJvm]<br>@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)<br>fun [ScrollRail](-scroll-rail.md)(modifier: [Modifier](https://developer.android.com/reference/kotlin/androidx/compose/ui/Modifier.html) = Modifier, items: [List](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html)&lt;[String](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html)&gt;, onScrollStarted: ([Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html)) -&gt; [Unit](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-unit/index.html), onScroll: ([Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html)) -&gt; [Unit](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-unit/index.html), onScrollEnded: ([Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html)) -&gt; [Unit](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-unit/index.html))<br>A composable that creates a column of single character items that behaves like a scrollbar. It animates bending horizontally as the user scrolls on it to ensure that it remains visible while being touched |

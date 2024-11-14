@@ -3,13 +3,13 @@
 # SettingsViewModel
 
 [androidJvm]\
-class [SettingsViewModel](index.md)(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), prefsRepo: [PreferencesRepository](../../../../../core/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md)) : [ViewModel](https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html)
+class [SettingsViewModel](index.md)(prefsRepo: [PreferencesRepository](../../../../../core/data/data/core.data.prefs/-preferences-repository/index.md)) : [ViewModel](https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html)
 
 ## Constructors
 
 | | |
 |---|---|
-| [SettingsViewModel](-settings-view-model.md) | [androidJvm]<br>constructor(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), prefsRepo: [PreferencesRepository](../../../../../core/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md)) |
+| [SettingsViewModel](-settings-view-model.md) | [androidJvm]<br>constructor(prefsRepo: [PreferencesRepository](../../../../../core/data/data/core.data.prefs/-preferences-repository/index.md)) |
 
 ## Functions
 

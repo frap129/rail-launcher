@@ -3,14 +3,18 @@ $dokka.linkExtension:html
 
 module:app
 dev.maples.rail
-module:app-repo
-core.apprepo
+module:baselineprofile
+core.baselineprofile
+module:data
+core.data.apps
+core.data.launcher
+core.data.launcher.model
+core.data.prefs
 module:lifecycle
 core.lifecycle
-module:prefs-repo
-core.prefsrepo
 module:ui
 core.ui
+core.ui.composables
 core.ui.composables.scrollrail
 core.ui.model.data
 core.ui.theme

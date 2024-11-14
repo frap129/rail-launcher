@@ -3,4 +3,4 @@
 # LauncherViewModel
 
 [androidJvm]\
-constructor(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), appRepository: [AppRepository](../../../../../core/app-repo/app-repo/core.apprepo/-app-repository/index.md))
+constructor(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), launcherItemRepo: [LauncherItemRepository](../../../../../core/data/data/core.data.launcher/-launcher-item-repository/index.md), prefsRepo: [PreferencesRepository](../../../../../core/data/data/core.data.prefs/-preferences-repository/index.md))

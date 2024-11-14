@@ -62,24 +62,24 @@
   <div class="breadcrumbs"><a href="../../index.html">launcher</a><span class="delimiter">/</span><a href="../index.html">feature.launcher</a><span class="delimiter">/</span><span class="current">LauncherViewModel</span></div>
   <div class="cover ">
     <h1 class="cover"><span>Launcher</span><wbr><span>View</span><wbr><span><span>Model</span></span></h1>
-    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">LauncherViewModel</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">appRepository<span class="token operator">: </span><a href="../../../../core/app-repo/core.apprepo/-app-repository/index.html">AppRepository</a></span></span><span class="token punctuation">)</span> : <a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html">ViewModel</a></div></div></div>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">LauncherViewModel</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">launcherItemRepo<span class="token operator">: </span><a href="../../../../core/data/core.data.launcher/-launcher-item-repository/index.html">LauncherItemRepository</a><span class="token punctuation">, </span></span><span class="parameter ">prefsRepo<span class="token operator">: </span><a href="../../../../core/data/core.data.prefs/-preferences-repository/index.html">PreferencesRepository</a></span></span><span class="token punctuation">)</span> : <a href="https://developer.android.com/reference/kotlin/androidx/lifecycle/ViewModel.html">ViewModel</a></div></div></div>
   </div>
   <div class="tabbedcontent">
     <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
     <div class="tabs-section-body">
       <div data-togglable="CONSTRUCTOR">
         <h2 class="">Constructors</h2>
-        <div class="table"><a data-name="1541657330%2FConstructors%2F381736623" anchor-label="LauncherViewModel" id="1541657330%2FConstructors%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+        <div class="table"><a data-name="1197887821%2FConstructors%2F381736623" anchor-label="LauncherViewModel" id="1197887821%2FConstructors%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
           <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
             <div class="main-subrow keyValue ">
               <div class=""><span class="inline-flex">
                   <div><a href="-launcher-view-model.html"><span>Launcher</span><wbr><span>View</span><wbr><span><span>Model</span></span></a></div>
-<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1541657330%2FConstructors%2F381736623"></span>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1197887821%2FConstructors%2F381736623"></span>
                     <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
                   </span></span></div>
               <div>
                 <div class="title">
-                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">appRepository<span class="token operator">: </span><a href="../../../../core/app-repo/core.apprepo/-app-repository/index.html">AppRepository</a></span></span><span class="token punctuation">)</span></div></div></div>
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><a href="https://developer.android.com/reference/kotlin/android/content/Context.html">Context</a><span class="token punctuation">, </span></span><span class="parameter ">launcherItemRepo<span class="token operator">: </span><a href="../../../../core/data/core.data.launcher/-launcher-item-repository/index.html">LauncherItemRepository</a><span class="token punctuation">, </span></span><span class="parameter ">prefsRepo<span class="token operator">: </span><a href="../../../../core/data/core.data.prefs/-preferences-repository/index.html">PreferencesRepository</a></span></span><span class="token punctuation">)</span></div></div></div>
                 </div>
               </div>
             </div>
@@ -88,17 +88,77 @@
       </div>
       <div data-togglable="PROPERTY">
         <h2 class="">Properties</h2>
-        <div class="table"><a data-name="-1686667489%2FProperties%2F381736623" anchor-label="launcherItems" id="-1686667489%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+        <div class="table"><a data-name="1179235572%2FProperties%2F381736623" anchor-label="launcherItemGroups" id="1179235572%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
           <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
             <div class="main-subrow keyValue ">
               <div class=""><span class="inline-flex">
-                  <div><a href="launcher-items.html"><span>launcher</span><wbr><span><span>Items</span></span></a></div>
-<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1686667489%2FProperties%2F381736623"></span>
+                  <div><a href="launcher-item-groups.html"><span>launcher</span><wbr><span>Item</span><wbr><span><span>Groups</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1179235572%2FProperties%2F381736623"></span>
                     <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
                   </span></span></div>
               <div>
                 <div class="title">
-                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="launcher-items.html">launcherItems</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/Flow///PointingToDeclaration/">Flow</span><span class="token operator">&lt;</span><a href="https://developer.android.com/reference/kotlin/java/util/SortedMap.html">SortedMap</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-char/index.html">Char</a><span class="token punctuation">, </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../../../../core/app-repo/core.apprepo/-app/index.html">App</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div></div></div>
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="launcher-item-groups.html">launcherItemGroups</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/Flow///PointingToDeclaration/">Flow</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../../../../core/data/core.data.launcher.model/-launcher-item-group/index.html">LauncherItemGroup</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-973024985%2FProperties%2F381736623" anchor-label="listEndOffsetPx" id="-973024985%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="list-end-offset-px.html"><span>list</span><wbr><span>End</span><wbr><span>Offset</span><wbr><span><span>Px</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-973024985%2FProperties%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="list-end-offset-px.html">listEndOffsetPx</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1986312832%2FProperties%2F381736623" anchor-label="listStartOffsetPx" id="1986312832%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="list-start-offset-px.html"><span>list</span><wbr><span>Start</span><wbr><span>Offset</span><wbr><span><span>Px</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1986312832%2FProperties%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="list-start-offset-px.html">listStartOffsetPx</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1003531757%2FProperties%2F381736623" anchor-label="menuState" id="1003531757%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="menu-state.html"><span>menu</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1003531757%2FProperties%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="menu-state.html">menuState</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/StateFlow///PointingToDeclaration/">StateFlow</span><span class="token operator">&lt;</span><a href="../-launcher-menu-state/index.html">LauncherMenuState</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="601885922%2FProperties%2F381736623" anchor-label="uiState" id="601885922%2FProperties%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="ui-state.html"><span>ui</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="601885922%2FProperties%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">val </span><a href="ui-state.html">uiState</a><span class="token operator">: </span><span data-unresolved-link="kotlinx.coroutines.flow/StateFlow///PointingToDeclaration/">StateFlow</span><span class="token operator">&lt;</span><a href="../-launcher-ui-state/index.html">LauncherUiState</a><span class="token operator">&gt;</span></div></div></div>
                 </div>
               </div>
             </div>
@@ -122,6 +182,21 @@
               </div>
             </div>
           </div>
+<a data-name="-2100829899%2FFunctions%2F381736623" anchor-label="closeItemMenu" id="-2100829899%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="close-item-menu.html"><span>close</span><wbr><span>Item</span><wbr><span><span>Menu</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2100829899%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="close-item-menu.html"><span class="token function">closeItemMenu</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
 <a data-name="1102255800%2FFunctions%2F381736623" anchor-label="getCloseable" id="1102255800%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
           <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
             <div class="main-subrow keyValue ">
@@ -133,6 +208,96 @@
               <div>
                 <div class="title">
                   <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><span class="token operator">&lt;</span><a href="index.html#1102255800%2FFunctions%2F381736623">T</a><span class="token operator"> : </span><a href="https://developer.android.com/reference/kotlin/java/lang/AutoCloseable.html">AutoCloseable</a><span class="token operator">&gt; </span><a href="index.html#1102255800%2FFunctions%2F381736623"><span class="token function">getCloseable</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">key<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html#1102255800%2FFunctions%2F381736623">T</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1333194259%2FFunctions%2F381736623" anchor-label="onScroll" id="-1333194259%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-scroll.html"><span>on</span><wbr><span><span>Scroll</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1333194259%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-scroll.html"><span class="token function">onScroll</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">index<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1139514031%2FFunctions%2F381736623" anchor-label="onScrollEnded" id="1139514031%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-scroll-ended.html"><span>on</span><wbr><span>Scroll</span><wbr><span><span>Ended</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1139514031%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-scroll-ended.html"><span class="token function">onScrollEnded</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">index<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1000303624%2FFunctions%2F381736623" anchor-label="onScrollStarted" id="1000303624%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-scroll-started.html"><span>on</span><wbr><span>Scroll</span><wbr><span><span>Started</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1000303624%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="on-scroll-started.html"><span class="token function">onScrollStarted</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">index<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1598833966%2FFunctions%2F381736623" anchor-label="openItemMenu" id="-1598833966%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-item-menu.html"><span>open</span><wbr><span>Item</span><wbr><span><span>Menu</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1598833966%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="open-item-menu.html"><span class="token function">openItemMenu</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">launcherItem<span class="token operator">: </span><a href="../../../../core/data/core.data.launcher.model/-launcher-item/index.html">LauncherItem</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1367956657%2FFunctions%2F381736623" anchor-label="openItemRename" id="1367956657%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-item-rename.html"><span>open</span><wbr><span>Item</span><wbr><span><span>Rename</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1367956657%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="open-item-rename.html"><span class="token function">openItemRename</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">launcherItem<span class="token operator">: </span><a href="../../../../core/data/core.data.launcher.model/-launcher-item/index.html">LauncherItem</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1360332663%2FFunctions%2F381736623" anchor-label="setItemName" id="1360332663%2FFunctions%2F381736623" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release"></a>
+          <div class="table-row" data-filterable-current=":feature:launcher:dokkaHtmlPartial/release" data-filterable-set=":feature:launcher:dokkaHtmlPartial/release">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-item-name.html"><span>set</span><wbr><span>Item</span><wbr><span><span>Name</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1360332663%2FFunctions%2F381736623"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:launcher:dokkaHtmlPartial/release"><div class="symbol monospace"><span class="token keyword">fun </span><a href="set-item-name.html"><span class="token function">setItemName</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">launcherItem<span class="token operator">: </span><a href="../../../../core/data/core.data.launcher.model/-launcher-item/index.html">LauncherItem</a><span class="token punctuation">, </span></span><span class="parameter ">name<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div></div></div>
                 </div>
               </div>
             </div>

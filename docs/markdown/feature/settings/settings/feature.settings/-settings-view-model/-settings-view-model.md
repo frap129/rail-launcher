@@ -3,4 +3,4 @@
 # SettingsViewModel
 
 [androidJvm]\
-constructor(context: [Context](https://developer.android.com/reference/kotlin/android/content/Context.html), prefsRepo: [PreferencesRepository](../../../../../core/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md))
+constructor(prefsRepo: [PreferencesRepository](../../../../../core/data/data/core.data.prefs/-preferences-repository/index.md))

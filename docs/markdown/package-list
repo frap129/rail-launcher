@@ -1,32 +1,70 @@
 $dokka.format:gfm-v1
 $dokka.linkExtension:md
-$dokka.location:core.apprepo////PointingToDeclaration/app-repo/app-repo/core.apprepo/index.md
-$dokka.location:core.apprepo/App///PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/index.md
-$dokka.location:core.apprepo/App/App/#android.content.pm.LauncherActivityInfo#android.os.UserHandle/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/-app.md
-$dokka.location:core.apprepo/App/getIcon/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/get-icon.md
-$dokka.location:core.apprepo/App/label/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/label.md
-$dokka.location:core.apprepo/App/launch/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/launch.md
-$dokka.location:core.apprepo/App/packageName/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/package-name.md
-$dokka.location:core.apprepo/App/profile/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app/profile.md
-$dokka.location:core.apprepo/AppRepository///PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/index.md
-$dokka.location:core.apprepo/AppRepository/AppRepository/#android.content.Context/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/-app-repository.md
-$dokka.location:core.apprepo/AppRepository/apps/#/PointingToDeclaration/app-repo/app-repo/core.apprepo/-app-repository/apps.md
+$dokka.location:core.baselineprofile////PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/index.md
+$dokka.location:core.baselineprofile/BaselineProfileGenerator///PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-baseline-profile-generator/index.md
+$dokka.location:core.baselineprofile/BaselineProfileGenerator/BaselineProfileGenerator/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-baseline-profile-generator/-baseline-profile-generator.md
+$dokka.location:core.baselineprofile/BaselineProfileGenerator/generate/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-baseline-profile-generator/generate.md
+$dokka.location:core.baselineprofile/BaselineProfileGenerator/rule/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-baseline-profile-generator/rule.md
+$dokka.location:core.baselineprofile/StartupBenchmarks///PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-startup-benchmarks/index.md
+$dokka.location:core.baselineprofile/StartupBenchmarks/StartupBenchmarks/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-startup-benchmarks/-startup-benchmarks.md
+$dokka.location:core.baselineprofile/StartupBenchmarks/rule/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-startup-benchmarks/rule.md
+$dokka.location:core.baselineprofile/StartupBenchmarks/startupCompilationBaselineProfiles/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-startup-benchmarks/startup-compilation-baseline-profiles.md
+$dokka.location:core.baselineprofile/StartupBenchmarks/startupCompilationNone/#/PointingToDeclaration/baselineprofile/baselineprofile/core.baselineprofile/-startup-benchmarks/startup-compilation-none.md
+$dokka.location:core.data.apps////PointingToDeclaration/data/data/core.data.apps/index.md
+$dokka.location:core.data.apps/App///PointingToDeclaration/data/data/core.data.apps/-app/index.md
+$dokka.location:core.data.apps/App/App/#kotlin.String#android.graphics.drawable.Drawable#android.os.UserHandle#kotlin.String/PointingToDeclaration/data/data/core.data.apps/-app/-app.md
+$dokka.location:core.data.apps/App/defaultIcon/#/PointingToDeclaration/data/data/core.data.apps/-app/default-icon.md
+$dokka.location:core.data.apps/App/defaultName/#/PointingToDeclaration/data/data/core.data.apps/-app/default-name.md
+$dokka.location:core.data.apps/App/icon/#/PointingToDeclaration/data/data/core.data.apps/-app/icon.md
+$dokka.location:core.data.apps/App/key/#/PointingToDeclaration/data/data/core.data.apps/-app/key.md
+$dokka.location:core.data.apps/App/launch/#android.content.Context/PointingToDeclaration/data/data/core.data.apps/-app/launch.md
+$dokka.location:core.data.apps/App/name/#/PointingToDeclaration/data/data/core.data.apps/-app/name.md
+$dokka.location:core.data.apps/App/openAppInfo/#android.content.Context/PointingToDeclaration/data/data/core.data.apps/-app/open-app-info.md
+$dokka.location:core.data.apps/App/packageName/#/PointingToDeclaration/data/data/core.data.apps/-app/package-name.md
+$dokka.location:core.data.apps/App/profile/#/PointingToDeclaration/data/data/core.data.apps/-app/profile.md
+$dokka.location:core.data.apps/AppRepository///PointingToDeclaration/data/data/core.data.apps/-app-repository/index.md
+$dokka.location:core.data.apps/AppRepository/AppRepository/#android.content.Context/PointingToDeclaration/data/data/core.data.apps/-app-repository/-app-repository.md
+$dokka.location:core.data.apps/AppRepository/apps/#/PointingToDeclaration/data/data/core.data.apps/-app-repository/apps.md
+$dokka.location:core.data.launcher.model////PointingToDeclaration/data/data/core.data.launcher.model/index.md
+$dokka.location:core.data.launcher.model/LauncherItem///PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/index.md
+$dokka.location:core.data.launcher.model/LauncherItem/LauncherItem/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/-launcher-item.md
+$dokka.location:core.data.launcher.model/LauncherItem/defaultIcon/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/default-icon.md
+$dokka.location:core.data.launcher.model/LauncherItem/defaultName/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/default-name.md
+$dokka.location:core.data.launcher.model/LauncherItem/icon/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/icon.md
+$dokka.location:core.data.launcher.model/LauncherItem/key/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/key.md
+$dokka.location:core.data.launcher.model/LauncherItem/launch/#android.content.Context/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/launch.md
+$dokka.location:core.data.launcher.model/LauncherItem/name/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item/name.md
+$dokka.location:core.data.launcher.model/LauncherItemGroup///PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item-group/index.md
+$dokka.location:core.data.launcher.model/LauncherItemGroup/LauncherItemGroup/#kotlin.String#kotlin.collections.List[core.data.launcher.model.LauncherItem]/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item-group/-launcher-item-group.md
+$dokka.location:core.data.launcher.model/LauncherItemGroup/items/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item-group/items.md
+$dokka.location:core.data.launcher.model/LauncherItemGroup/name/#/PointingToDeclaration/data/data/core.data.launcher.model/-launcher-item-group/name.md
+$dokka.location:core.data.launcher////PointingToDeclaration/data/data/core.data.launcher/index.md
+$dokka.location:core.data.launcher/LauncherItemRepository///PointingToDeclaration/data/data/core.data.launcher/-launcher-item-repository/index.md
+$dokka.location:core.data.launcher/LauncherItemRepository/LauncherItemRepository/#core.data.apps.AppRepository#core.data.prefs.PreferencesRepository/PointingToDeclaration/data/data/core.data.launcher/-launcher-item-repository/-launcher-item-repository.md
+$dokka.location:core.data.launcher/LauncherItemRepository/getItemByKey/#kotlin.String/PointingToDeclaration/data/data/core.data.launcher/-launcher-item-repository/get-item-by-key.md
+$dokka.location:core.data.launcher/LauncherItemRepository/launcherItemGroups/#/PointingToDeclaration/data/data/core.data.launcher/-launcher-item-repository/launcher-item-groups.md
+$dokka.location:core.data.launcher/LauncherItemRepository/launcherItems/#/PointingToDeclaration/data/data/core.data.launcher/-launcher-item-repository/launcher-items.md
+$dokka.location:core.data.prefs////PointingToDeclaration/data/data/core.data.prefs/index.md
+$dokka.location:core.data.prefs/PreferencesRepository///PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/index.md
+$dokka.location:core.data.prefs/PreferencesRepository/PreferencesRepository/#android.content.Context/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/-preferences-repository.md
+$dokka.location:core.data.prefs/PreferencesRepository/context/#/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/context.md
+$dokka.location:core.data.prefs/PreferencesRepository/getItemName/#core.data.launcher.model.LauncherItem/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/get-item-name.md
+$dokka.location:core.data.prefs/PreferencesRepository/itemIcons/#/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/item-icons.md
+$dokka.location:core.data.prefs/PreferencesRepository/itemNames/#/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/item-names.md
+$dokka.location:core.data.prefs/PreferencesRepository/setItemName/#core.data.launcher.model.LauncherItem#kotlin.String/PointingToDeclaration/data/data/core.data.prefs/-preferences-repository/set-item-name.md
 $dokka.location:core.lifecycle////PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/index.md
 $dokka.location:core.lifecycle/MainApplication///PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/index.md
 $dokka.location:core.lifecycle/MainApplication/MainApplication/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/-main-application.md
 $dokka.location:core.lifecycle/MainApplication/onCreate/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-main-application/on-create.md
 $dokka.location:core.lifecycle/TemplateActivity///PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-template-activity/index.md
 $dokka.location:core.lifecycle/TemplateActivity/TemplateActivity/#/PointingToDeclaration/lifecycle/lifecycle/core.lifecycle/-template-activity/-template-activity.md
-$dokka.location:core.prefsrepo////PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/index.md
-$dokka.location:core.prefsrepo/PreferencesRepository///PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/index.md
-$dokka.location:core.prefsrepo/PreferencesRepository/PreferencesRepository/#android.content.Context/PointingToDeclaration/prefs-repo/prefs-repo/core.prefsrepo/-preferences-repository/-preferences-repository.md
 $dokka.location:core.ui.composables.scrollrail////PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/index.md
-$dokka.location:core.ui.composables.scrollrail//ScrollRail/#androidx.compose.ui.Modifier#core.ui.composables.scrollrail.ScrollRailHelper/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail.md
-$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper///PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/index.md
-$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScroll/#kotlin.Int#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll.md
-$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScrollEnded/#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll-ended.md
-$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/onScrollStarted/#kotlin.Int/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/on-scroll-started.md
-$dokka.location:core.ui.composables.scrollrail/ScrollRailHelper/railItems/#/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail-helper/rail-items.md
+$dokka.location:core.ui.composables.scrollrail//ScrollRail/#androidx.compose.ui.Modifier#kotlin.collections.List[kotlin.String]#kotlin.Function1[kotlin.Int,kotlin.Unit]#kotlin.Function1[kotlin.Int,kotlin.Unit]#kotlin.Function1[kotlin.Int,kotlin.Unit]/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/-scroll-rail.md
+$dokka.location:core.ui.composables.scrollrail//gaussianCurve/#kotlin.Float#kotlin.Float#kotlin.Float#kotlin.Float/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/gaussian-curve.md
+$dokka.location:core.ui.composables.scrollrail//getXOffset/#kotlin.Int#androidx.compose.ui.unit.Dp#kotlin.Float#kotlin.Float#kotlin.Float/PointingToDeclaration/ui/ui/core.ui.composables.scrollrail/get-x-offset.md
+$dokka.location:core.ui.composables////PointingToDeclaration/ui/ui/core.ui.composables/index.md
+$dokka.location:core.ui.composables//FocusRevealContent/#TypeParam(bounds=[kotlin.Any])#kotlin.reflect.KClass[*]#kotlin.reflect.KClass[*]#androidx.compose.ui.Modifier#androidx.compose.animation.ContentTransform#androidx.compose.animation.ContentTransform#androidx.compose.animation.ContentTransform#androidx.compose.ui.Alignment#kotlin.String#kotlin.Function1[TypeParam(bounds=[kotlin.Any]),kotlin.Any]#kotlin.Function2[androidx.compose.animation.AnimatedContentScope,TypeParam(bounds=[kotlin.Any]),kotlin.Unit]/PointingToDeclaration/ui/ui/core.ui.composables/-focus-reveal-content.md
+$dokka.location:core.ui.composables//OutlinedText/#kotlin.String#androidx.compose.ui.Modifier#androidx.compose.ui.graphics.Color#androidx.compose.ui.graphics.Color#androidx.compose.ui.unit.TextUnit#androidx.compose.ui.text.font.FontStyle?#androidx.compose.ui.text.font.FontWeight?#androidx.compose.ui.text.font.FontFamily?#androidx.compose.ui.unit.TextUnit#androidx.compose.ui.text.style.TextDecoration?#androidx.compose.ui.text.style.TextAlign?#androidx.compose.ui.unit.TextUnit#androidx.compose.ui.text.style.TextOverflow#kotlin.Boolean#kotlin.Int#kotlin.Int#kotlin.Function1[androidx.compose.ui.text.TextLayoutResult,kotlin.Unit]#androidx.compose.ui.text.TextStyle#androidx.compose.ui.graphics.drawscope.Stroke/PointingToDeclaration/ui/ui/core.ui.composables/-outlined-text.md
 $dokka.location:core.ui.model.data////PointingToDeclaration/ui/ui/core.ui.model.data/index.md
 $dokka.location:core.ui.model.data/Destination///PointingToDeclaration/ui/ui/core.ui.model.data/-destination/index.md
 $dokka.location:core.ui.model.data/Destination/Destination/#kotlin.String#kotlin.Function2[androidx.navigation.NavController,androidx.navigation.NavBackStackEntry,kotlin.Unit]#kotlin.collections.List[androidx.navigation.NavDeepLink]#kotlin.Function1[androidx.compose.animation.AnimatedContentTransitionScope[androidx.navigation.NavBackStackEntry],androidx.compose.animation.EnterTransition?]?#kotlin.Function1[androidx.compose.animation.AnimatedContentTransitionScope[androidx.navigation.NavBackStackEntry],androidx.compose.animation.ExitTransition?]?#kotlin.collections.List[androidx.navigation.NamedNavArgument]#kotlin.Boolean#core.ui.model.data.DestinationNavBarItem?/PointingToDeclaration/ui/ui/core.ui.model.data/-destination/-destination.md
@@ -44,8 +82,7 @@ $dokka.location:core.ui.model.data/DestinationNavBarItem/icon/#/PointingToDeclar
 $dokka.location:core.ui.model.data/DestinationNavBarItem/title/#/PointingToDeclaration/ui/ui/core.ui.model.data/-destination-nav-bar-item/title.md
 $dokka.location:core.ui.theme////PointingToDeclaration/ui/ui/core.ui.theme/index.md
 $dokka.location:core.ui.theme//ANIMATION_DURATION/#/PointingToDeclaration/ui/ui/core.ui.theme/-a-n-i-m-a-t-i-o-n_-d-u-r-a-t-i-o-n.md
-$dokka.location:core.ui.theme//AppTheme/#kotlin.Boolean#kotlin.Boolean#kotlin.Function0[kotlin.Unit]/PointingToDeclaration/ui/ui/core.ui.theme/-app-theme.md
-$dokka.location:core.ui.theme//getColorScheme/#androidx.compose.ui.graphics.Color#androidx.compose.ui.graphics.Color#androidx.compose.ui.graphics.Color#androidx.compose.ui.graphics.Color/PointingToDeclaration/ui/ui/core.ui.theme/get-color-scheme.md
+$dokka.location:core.ui.theme//AppTheme/#kotlin.Function0[kotlin.Unit]/PointingToDeclaration/ui/ui/core.ui.theme/-app-theme.md
 $dokka.location:core.ui.theme//getTypography/#/PointingToDeclaration/ui/ui/core.ui.theme/get-typography.md
 $dokka.location:core.ui////PointingToDeclaration/ui/ui/core.ui/index.md
 $dokka.location:core.ui//App/#kotlin.collections.List[core.ui.model.data.Destination]/PointingToDeclaration/ui/ui/core.ui/-app.md
@@ -54,37 +91,70 @@ $dokka.location:core.util////PointingToDeclaration/util/util/core.util/index.md
 $dokka.location:core.util//launchInBackground/#kotlin.coroutines.SuspendFunction1[kotlinx.coroutines.CoroutineScope,kotlin.Unit]/PointingToDeclaration/util/util/core.util/launch-in-background.md
 $dokka.location:core.util//screenHeightDp/#android.content.Context/PointingToDeclaration/util/util/core.util/screen-height-dp.md
 $dokka.location:core.util//screenHeightPx/#android.content.Context/PointingToDeclaration/util/util/core.util/screen-height-px.md
+$dokka.location:core.util//toDp/kotlin.Int#android.content.Context/PointingToDeclaration/util/util/core.util/to-dp.md
+$dokka.location:core.util//toPx/kotlin.Int#android.content.Context/PointingToDeclaration/util/util/core.util/to-px.md
 $dokka.location:dev.maples.rail////PointingToDeclaration/app/app/dev.maples.rail/index.md
 $dokka.location:dev.maples.rail/MainActivity///PointingToDeclaration/app/app/dev.maples.rail/-main-activity/index.md
 $dokka.location:dev.maples.rail/MainActivity/MainActivity/#/PointingToDeclaration/app/app/dev.maples.rail/-main-activity/-main-activity.md
 $dokka.location:feature.launcher////PointingToDeclaration/launcher/launcher/feature.launcher/index.md
+$dokka.location:feature.launcher//LauncherItem/#core.data.launcher.model.LauncherItem#feature.launcher.LauncherViewModel/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-item.md
+$dokka.location:feature.launcher//LauncherItemEditName/#core.data.launcher.model.LauncherItem#feature.launcher.LauncherViewModel/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-item-edit-name.md
+$dokka.location:feature.launcher//LauncherItemGroup/#androidx.compose.ui.Modifier#core.data.launcher.model.LauncherItemGroup/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-item-group.md
+$dokka.location:feature.launcher//LauncherItemMenu/#core.data.launcher.model.LauncherItem#feature.launcher.LauncherViewModel/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-item-menu.md
+$dokka.location:feature.launcher//LauncherList/#androidx.compose.ui.Modifier#kotlin.collections.List[core.data.launcher.model.LauncherItemGroup]#androidx.compose.foundation.lazy.LazyListState#androidx.compose.ui.unit.Dp#androidx.compose.ui.unit.Dp/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-list.md
 $dokka.location:feature.launcher//LauncherScreen/#androidx.navigation.NavController#feature.launcher.LauncherViewModel/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-screen.md
-$dokka.location:feature.launcher//itemGroup/#kotlin.String#kotlin.collections.List[core.apprepo.App]/PointingToDeclaration/launcher/launcher/feature.launcher/item-group.md
 $dokka.location:feature.launcher//launcherDestination/#/PointingToDeclaration/launcher/launcher/feature.launcher/launcher-destination.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/index.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper/LauncherScrollRailHelper/#android.content.Context#kotlin.collections.List[kotlin.Char]#androidx.compose.foundation.lazy.LazyListState#kotlin.collections.MutableMap[kotlin.Char,androidx.compose.runtime.MutableState[kotlin.Boolean]]/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/-launcher-scroll-rail-helper.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper/onScroll/#kotlin.Int#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper/onScrollEnded/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll-ended.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper/onScrollStarted/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/on-scroll-started.md
-$dokka.location:feature.launcher/LauncherScrollRailHelper/railItems/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-scroll-rail-helper/rail-items.md
+$dokka.location:feature.launcher/LauncherMenuState.Closed///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-closed/index.md
+$dokka.location:feature.launcher/LauncherMenuState.Menu///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-menu/index.md
+$dokka.location:feature.launcher/LauncherMenuState.Menu/Menu/#core.data.launcher.model.LauncherItem/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-menu/-menu.md
+$dokka.location:feature.launcher/LauncherMenuState.Menu/item/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-menu/item.md
+$dokka.location:feature.launcher/LauncherMenuState.Rename///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-rename/index.md
+$dokka.location:feature.launcher/LauncherMenuState.Rename/Rename/#core.data.launcher.model.LauncherItem/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-rename/-rename.md
+$dokka.location:feature.launcher/LauncherMenuState.Rename/item/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/-rename/item.md
+$dokka.location:feature.launcher/LauncherMenuState///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-menu-state/index.md
+$dokka.location:feature.launcher/LauncherUiState.AppList///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-app-list/index.md
+$dokka.location:feature.launcher/LauncherUiState.AppList/AppList/#kotlin.collections.List[core.data.launcher.model.LauncherItemGroup]#androidx.compose.foundation.lazy.LazyListState/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-app-list/-app-list.md
+$dokka.location:feature.launcher/LauncherUiState.AppList/groups/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-app-list/groups.md
+$dokka.location:feature.launcher/LauncherUiState.AppList/lazyListState/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-app-list/lazy-list-state.md
+$dokka.location:feature.launcher/LauncherUiState.Error///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-error/index.md
+$dokka.location:feature.launcher/LauncherUiState.Loading///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-loading/index.md
+$dokka.location:feature.launcher/LauncherUiState.Scrolling///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-scrolling/index.md
+$dokka.location:feature.launcher/LauncherUiState.Scrolling/Scrolling/#core.data.launcher.model.LauncherItemGroup/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-scrolling/-scrolling.md
+$dokka.location:feature.launcher/LauncherUiState.Scrolling/group/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/-scrolling/group.md
+$dokka.location:feature.launcher/LauncherUiState///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-ui-state/index.md
 $dokka.location:feature.launcher/LauncherViewModel///PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/index.md
-$dokka.location:feature.launcher/LauncherViewModel/LauncherViewModel/#android.content.Context#core.apprepo.AppRepository/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/-launcher-view-model.md
-$dokka.location:feature.launcher/LauncherViewModel/launcherItems/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/launcher-items.md
+$dokka.location:feature.launcher/LauncherViewModel/LauncherViewModel/#android.content.Context#core.data.launcher.LauncherItemRepository#core.data.prefs.PreferencesRepository/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/-launcher-view-model.md
+$dokka.location:feature.launcher/LauncherViewModel/closeItemMenu/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/close-item-menu.md
+$dokka.location:feature.launcher/LauncherViewModel/launcherItemGroups/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/launcher-item-groups.md
+$dokka.location:feature.launcher/LauncherViewModel/listEndOffsetPx/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/list-end-offset-px.md
+$dokka.location:feature.launcher/LauncherViewModel/listStartOffsetPx/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/list-start-offset-px.md
+$dokka.location:feature.launcher/LauncherViewModel/menuState/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/menu-state.md
+$dokka.location:feature.launcher/LauncherViewModel/onScroll/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/on-scroll.md
+$dokka.location:feature.launcher/LauncherViewModel/onScrollEnded/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/on-scroll-ended.md
+$dokka.location:feature.launcher/LauncherViewModel/onScrollStarted/#kotlin.Int/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/on-scroll-started.md
+$dokka.location:feature.launcher/LauncherViewModel/openItemMenu/#core.data.launcher.model.LauncherItem/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/open-item-menu.md
+$dokka.location:feature.launcher/LauncherViewModel/openItemRename/#core.data.launcher.model.LauncherItem/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/open-item-rename.md
+$dokka.location:feature.launcher/LauncherViewModel/setItemName/#core.data.launcher.model.LauncherItem#kotlin.String/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/set-item-name.md
+$dokka.location:feature.launcher/LauncherViewModel/uiState/#/PointingToDeclaration/launcher/launcher/feature.launcher/-launcher-view-model/ui-state.md
 $dokka.location:feature.settings////PointingToDeclaration/settings/settings/feature.settings/index.md
 $dokka.location:feature.settings//SettingsScreen/#androidx.navigation.NavController#feature.settings.SettingsViewModel/PointingToDeclaration/settings/settings/feature.settings/-settings-screen.md
 $dokka.location:feature.settings//settingsDestination/#/PointingToDeclaration/settings/settings/feature.settings/settings-destination.md
 $dokka.location:feature.settings/SettingsViewModel///PointingToDeclaration/settings/settings/feature.settings/-settings-view-model/index.md
-$dokka.location:feature.settings/SettingsViewModel/SettingsViewModel/#android.content.Context#core.prefsrepo.PreferencesRepository/PointingToDeclaration/settings/settings/feature.settings/-settings-view-model/-settings-view-model.md
+$dokka.location:feature.settings/SettingsViewModel/SettingsViewModel/#core.data.prefs.PreferencesRepository/PointingToDeclaration/settings/settings/feature.settings/-settings-view-model/-settings-view-model.md
 module:app
 dev.maples.rail
-module:app-repo
-core.apprepo
+module:baselineprofile
+core.baselineprofile
+module:data
+core.data.apps
+core.data.launcher
+core.data.launcher.model
+core.data.prefs
 module:lifecycle
 core.lifecycle
-module:prefs-repo
-core.prefsrepo
 module:ui
 core.ui
+core.ui.composables
 core.ui.composables.scrollrail
 core.ui.model.data
 core.ui.theme
