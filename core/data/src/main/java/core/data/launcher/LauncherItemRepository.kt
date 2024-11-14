@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.mapLatest
 
 class LauncherItemRepository(appRepository: AppRepository, preferencesRepository: PreferencesRepository) {
-    private val launcherItems = combine(appRepository.apps) { itemLists: Array<List<LauncherItem>> ->
+    val launcherItems = combine(appRepository.apps) { itemLists: Array<List<LauncherItem>> ->
         mutableListOf<LauncherItem>().apply {
             itemLists.forEach { list -> addAll(list) }
         }

@@ -2,8 +2,6 @@ package feature.launcher
 
 import android.content.Context
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.launcher.LauncherItemRepository
@@ -12,8 +10,6 @@ import core.data.launcher.model.LauncherItemGroup
 import core.data.prefs.PreferencesRepository
 import core.util.screenHeightPx
 import kotlin.math.max
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +23,12 @@ sealed class LauncherUiState {
     data class Scrolling(val group: LauncherItemGroup) : LauncherUiState()
 }
 
+sealed class LauncherMenuState {
+    data object Closed : LauncherMenuState()
+    data class Menu(val item: LauncherItem) : LauncherMenuState()
+    data class Rename(val item: LauncherItem) : LauncherMenuState()
+}
+
 class LauncherViewModel(
     context: Context,
     private val launcherItemRepo: LauncherItemRepository,
@@ -38,7 +40,6 @@ class LauncherViewModel(
     val launcherItemGroups = launcherItemRepo.launcherItemGroups
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val selectedGroup: MutableStateFlow<Int> = MutableStateFlow(-1)
-
     val uiState: StateFlow<LauncherUiState> = combine(
         launcherItemGroups,
         scrolling,
@@ -68,9 +69,25 @@ class LauncherViewModel(
         initialValue = LauncherUiState.Loading
     )
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val bottomSheetState: MutableState<BottomSheetStatus> = mutableStateOf(BottomSheetStatus.CLOSED)
-    val bottomSheetItem: MutableState<Flow<LauncherItem?>?> = mutableStateOf(null)
+    private val requestedMenuState: MutableStateFlow<LauncherMenuState> = MutableStateFlow(LauncherMenuState.Closed)
+    private val menuItem: MutableStateFlow<LauncherItem?> = MutableStateFlow(null)
+    val menuState: StateFlow<LauncherMenuState> = menuItem.combine(launcherItemRepo.launcherItems) { requestedItem, allItems ->
+        allItems.find { it.key == requestedItem?.key }
+    }.combine(requestedMenuState) { item, requestedState ->
+        if (item == null) {
+            LauncherMenuState.Closed
+        } else {
+            when (requestedState) {
+                is LauncherMenuState.Closed -> LauncherMenuState.Closed
+                is LauncherMenuState.Menu -> LauncherMenuState.Menu(item)
+                is LauncherMenuState.Rename -> LauncherMenuState.Rename(item)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = LauncherMenuState.Closed
+    )
 
     fun onScrollStarted(index: Int) {
         selectedGroup.value = index
@@ -86,18 +103,21 @@ class LauncherViewModel(
     }
 
     fun openItemMenu(launcherItem: LauncherItem) {
-        bottomSheetItem.value = launcherItemRepo.getItemByKey(launcherItem.key)
-        bottomSheetState.value = BottomSheetStatus.MENU
+        menuItem.value = launcherItem
+        requestedMenuState.value = LauncherMenuState.Menu(launcherItem)
     }
 
-    fun openItemRename() {
-        bottomSheetState.value = BottomSheetStatus.RENAME
+    fun openItemRename(launcherItem: LauncherItem) {
+        requestedMenuState.value = LauncherMenuState.Rename(launcherItem)
     }
 
     fun closeItemMenu() {
-        bottomSheetState.value = BottomSheetStatus.CLOSED
-        bottomSheetItem.value = null
+        requestedMenuState.value = LauncherMenuState.Closed
+        menuItem.value = null
     }
 
-    fun setItemName(launcherItem: LauncherItem, name: String) = prefsRepo.setItemName(launcherItem, name)
+    fun setItemName(launcherItem: LauncherItem, name: String) {
+        prefsRepo.setItemName(launcherItem, name)
+        openItemMenu(launcherItem)
+    }
 }

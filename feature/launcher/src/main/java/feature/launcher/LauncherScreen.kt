@@ -67,10 +67,12 @@ val launcherDestination = Destination(
     }
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val menuState by viewModel.menuState.collectAsState()
     val launcherItemGroups = viewModel.launcherItemGroups.collectAsState(emptyList())
 
     Box {
@@ -112,13 +114,17 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             onScroll = { viewModel.onScroll(it) },
             onScrollEnded = { viewModel.onScrollEnded(it) }
         )
-        if (viewModel.bottomSheetState.value != BottomSheetStatus.CLOSED) {
-            val selectedItem = viewModel.bottomSheetItem.value?.collectAsState(null)
-            if (selectedItem?.value != null) {
-                LauncherItemBottomSheet(
-                    item = selectedItem.value!!,
-                    onDismissRequest = { viewModel.closeItemMenu() }
-                )
+
+        if (menuState !is LauncherMenuState.Closed) {
+            ModalBottomSheet(
+                dragHandle = { Spacer(Modifier.fillMaxWidth().height(10.dp)) },
+                onDismissRequest = { viewModel.closeItemMenu() }
+            ) {
+                when (menuState) {
+                    is LauncherMenuState.Menu -> LauncherItemMenu((menuState as LauncherMenuState.Menu).item)
+                    is LauncherMenuState.Rename -> LauncherItemEditName((menuState as LauncherMenuState.Rename).item)
+                    LauncherMenuState.Closed -> {} // this state is never reached
+                }
             }
         }
     }
@@ -214,21 +220,6 @@ fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewMode
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LauncherItemBottomSheet(item: LauncherItem, onDismissRequest: () -> Unit, viewModel: LauncherViewModel = koinViewModel()) {
-    ModalBottomSheet(
-        dragHandle = { Spacer(Modifier.fillMaxWidth().height(10.dp)) },
-        onDismissRequest = onDismissRequest
-    ) {
-        if (viewModel.bottomSheetState.value == BottomSheetStatus.MENU) {
-            LauncherItemMenu(item)
-        } else if (viewModel.bottomSheetState.value == BottomSheetStatus.RENAME) {
-            LauncherItemEditName(item)
-        }
-    }
-}
-
 @Composable
 fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
@@ -252,7 +243,7 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
             text = item.name,
             fontSize = 28.sp,
             modifier = Modifier.clickable {
-                viewModel.openItemRename()
+                viewModel.openItemRename(item)
             }
         )
     }
@@ -337,10 +328,7 @@ fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koin
             }
 
             TextButton(
-                onClick = {
-                    viewModel.setItemName(item, nameEdit)
-                    viewModel.bottomSheetState.value = BottomSheetStatus.MENU
-                }
+                onClick = { viewModel.setItemName(item, nameEdit) }
             ) {
                 Text(
                     text = "Done",
