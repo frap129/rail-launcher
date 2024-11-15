@@ -9,4 +9,5 @@ dependencies {
     implementation(project(":feature:launcher"))
     implementation(project(":core:data"))
     implementation(project(":feature:settings"))
+    implementation(libs.coil)
 }

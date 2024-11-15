@@ -76,9 +76,8 @@ class AppRepository(context: Context) {
                 for (info in launcherApps.getActivityList(packageName, profile)) {
                     val app = App(
                         defaultName = info.label.toString(),
-                        defaultIcon = packageManager.getApplicationIcon(info.componentName.packageName),
                         profile = info.user,
-                        packageName = info.componentName.packageName
+                        componentName = info.componentName
                     )
                     appList.add(app)
                 }

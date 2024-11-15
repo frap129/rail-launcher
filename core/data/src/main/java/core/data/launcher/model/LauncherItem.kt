@@ -1,15 +1,15 @@
 package core.data.launcher.model
 
 import android.content.Context
-import android.graphics.drawable.Drawable
+import core.data.icons.model.Icon
 
 abstract class LauncherItem {
     abstract val key: String
     abstract val defaultName: String
-    abstract val defaultIcon: Drawable
+    abstract val defaultIcon: Icon
 
     abstract var name: String
-    abstract var icon: Drawable
+    abstract var icon: Icon
 
     abstract fun launch(context: Context)
 }

@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import coil3.compose.AsyncImage
 import core.data.apps.App
 import core.data.launcher.model.LauncherItem
 import core.data.launcher.model.LauncherItemGroup
@@ -231,9 +231,9 @@ fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewMode
                 )
             }
     ) {
-        Image(
+        AsyncImage(
             modifier = Modifier.size(64.dp).padding(10.dp),
-            painter = rememberDrawablePainter(item.icon),
+            model = item.icon,
             contentDescription = item.name
         )
         OutlinedText(
@@ -254,11 +254,11 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
             .fillMaxWidth()
             .padding(20.dp, 10.dp)
     ) {
-        Image(
+        AsyncImage(
             modifier = Modifier
                 .size(64.dp)
                 .padding(10.dp),
-            painter = rememberDrawablePainter(item.icon),
+            model = item.icon,
             contentDescription = item.name
         )
 
@@ -308,11 +308,11 @@ fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koin
             modifier = Modifier
                 .padding(20.dp, 10.dp)
         ) {
-            Image(
+            AsyncImage(
                 modifier = Modifier
                     .size(64.dp)
                     .padding(10.dp),
-                painter = rememberDrawablePainter(item.icon),
+                model = item.icon,
                 contentDescription = item.name
             )
             Text(

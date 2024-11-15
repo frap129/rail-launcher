@@ -2,7 +2,12 @@ package core.lifecycle
 
 import android.app.Application
 import android.content.Context
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import core.data.apps.AppRepository
+import core.data.icons.IconMapper
+import core.data.icons.IconRepository
 import core.data.launcher.LauncherItemRepository
 import core.data.prefs.PreferencesRepository
 import feature.launcher.LauncherViewModel
@@ -14,7 +19,9 @@ import org.koin.core.context.startKoin
 import org.koin.dsl.module
 import timber.log.Timber
 
-class MainApplication : Application() {
+class MainApplication :
+    Application(),
+    SingletonImageLoader.Factory {
     /**
      * A Koin module containing a reference to the MainApplication class.
      *
@@ -32,8 +39,9 @@ class MainApplication : Application() {
      */
     private val repoModule = module {
         single<AppRepository> { AppRepository(androidContext()) }
+        single<IconRepository> { IconRepository(androidContext()) }
         single<PreferencesRepository> { PreferencesRepository(androidContext()) }
-        single<LauncherItemRepository> { LauncherItemRepository(get(), get()) }
+        single<LauncherItemRepository> { LauncherItemRepository(get(), get(), get()) }
     }
 
     /**
@@ -71,4 +79,10 @@ class MainApplication : Application() {
             // TODO: Configure reporting for release builds
         }
     }
+
+    override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(context)
+        .components {
+            add(IconMapper())
+        }
+        .build()
 }

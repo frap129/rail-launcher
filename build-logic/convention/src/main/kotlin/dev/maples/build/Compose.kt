@@ -18,6 +18,7 @@ internal fun Project.configureCompose(commonExtension: BaseExtension) {
 
         dependencies {
             add("implementation", platform(libs.findLibrary("compose.bom").get()))
+            implementation(libs, "coil.compose")
             implementation(libs, "compose.ui")
             implementation(libs, "compose.foundation-android")
             implementation(libs, "compose.ui.graphics")
