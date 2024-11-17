@@ -52,7 +52,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         viewModel { LauncherViewModel(androidContext(), get(), get()) }
-        viewModel { SettingsViewModel(get()) }
+        viewModel { SettingsViewModel(get(), get()) }
     }
 
     override fun attachBaseContext(base: Context) {

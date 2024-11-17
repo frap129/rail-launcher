@@ -6,7 +6,9 @@ plugins {
 android {
     namespace = "feature.settings"
 }
+
 dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
+    implementation(libs.icons.fontawesome)
 }

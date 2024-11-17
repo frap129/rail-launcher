@@ -25,6 +25,7 @@ internal fun Project.configureCompose(commonExtension: BaseExtension) {
             implementation(libs, "compose.ui.tooling.preview")
             implementation(libs, "compose.material3")
             implementation(libs, "compose.drawablepainter")
+            implementation(libs, "compose.unstyled.core")
             implementation(libs, "androidx.navigation.compose")
             implementation(libs, "koin.compose")
             implementation(libs, "koin.androidx.compose")
