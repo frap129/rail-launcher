@@ -1,10 +1,10 @@
 package core.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -53,6 +53,7 @@ fun AppFrame(content: @Composable () -> Unit) {
  * within an AppFrame, allowing any screen or flow that is in the
  * `destinations` list to be accessed.
  */
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun App(destinations: List<Destination>) {
@@ -99,11 +100,10 @@ fun App(destinations: List<Destination>) {
                     }
                 )
             },
-            content = { padding ->
+            content = { _ ->
                 NavHost(
                     navController = navController,
-                    startDestination = destinations.first().route,
-                    modifier = Modifier.padding(padding)
+                    startDestination = destinations.first().route
                 ) {
                     // Add all defined destinations to the NavGraph
                     destinations.forEach { dest ->
