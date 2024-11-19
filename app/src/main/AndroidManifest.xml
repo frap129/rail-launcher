@@ -21,6 +21,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER_APP" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.VIEW" />
+                <data android:scheme="rail-launcher" />
             </intent-filter>
         </activity>
     </application>

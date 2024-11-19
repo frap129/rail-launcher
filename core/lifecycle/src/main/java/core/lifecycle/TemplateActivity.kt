@@ -12,7 +12,7 @@ open class TemplateActivity : ComponentActivity() {
 
         // Resend intent updates as pending intents to fix navigation
         val data: Uri? = intent.data
-        if (data?.scheme == "apptemplate") {
+        if (data?.scheme == "rail-launcher") {
             val pending: PendingIntent? = TaskStackBuilder.create(this).run {
                 addNextIntentWithParentStack(intent)
                 getPendingIntent(
