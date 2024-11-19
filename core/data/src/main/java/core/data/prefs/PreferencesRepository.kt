@@ -35,14 +35,18 @@ class PreferencesRepository(val context: Context) {
         }
     }
 
-    fun getIconPackName(): Flow<String?> = context.itemIcons.data.map { settings ->
+    fun getIconPackName(): Flow<String?> = context.appSettings.data.map { settings ->
         settings[AppPreferences.ICON_PACK.key]
     }
 
     fun setIconPack(iconPack: IconPack) {
         launchInBackground {
-            context.itemIcons.edit { icons ->
-                icons[AppPreferences.ICON_PACK.key] = iconPack.name
+            context.appSettings.edit { settings ->
+                if (iconPack is IconPack.CustomIconPack) {
+                    settings[AppPreferences.ICON_PACK.key] = iconPack.packageName
+                } else {
+                    settings[AppPreferences.ICON_PACK.key] = ""
+                }
             }
         }
     }

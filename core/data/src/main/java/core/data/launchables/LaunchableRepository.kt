@@ -51,7 +51,7 @@ class LaunchableRepository(appRepository: AppRepository, iconRepository: IconRep
             item.name = names[stringPreferencesKey(item.key)] ?: item.defaultName
 
             if (item is App) {
-                item.icon = iconPack?.packageName?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
+                item.icon = defaultIconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
             }
 
             item.name.first().uppercaseChar()

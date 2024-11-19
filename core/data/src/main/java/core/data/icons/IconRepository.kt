@@ -66,34 +66,21 @@ class IconRepository(private val context: Context, private val iconPackDao: Cust
             .filterNot { iconsToCache.contains(it) }
         val packsToCache = installedIconPacks
             .filterIsInstance<IconPack.CustomIconPack>()
-            .map { pack ->
-                IconPack.CustomIconPack(
-                    pack.name,
-                    pack.packageName,
-                    pack.icon
-                )
-            }
         val packsToRemove = cachedIconPacks
             .filterIsInstance<IconPack.CustomIconPack>()
             .filterNot { installedIconPacks.contains(it) }
-            .map { pack ->
-                IconPack.CustomIconPack(
-                    pack.name,
-                    pack.packageName,
-                    pack.icon
-                )
-            }
 
         iconsToRemove.forEach { iconDao.delete(it) }
         iconsToCache.forEach { iconDao.insert(it) }
         packsToRemove.forEach { iconPackDao.delete(it) }
         packsToCache.forEach { iconPackDao.insert(it) }
+        emit(getIconPacksFromCache())
         Timber.d("Done caching")
     }.flowOn(Dispatchers.IO).stateInBackground(setOf(IconPack.SystemIconPack))
 
     suspend fun getIcon(packPackageName: String, componentName: ComponentName) = iconDao.getIcon(componentName, packPackageName)
 
-    private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>().apply {
+    private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {
         iconPackDao.getAll().forEach { pack ->
             add(
                 IconPack.CustomIconPack(
