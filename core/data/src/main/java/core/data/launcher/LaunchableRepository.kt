@@ -8,9 +8,11 @@ import core.data.icons.model.IconPack
 import core.data.launcher.model.LauncherItem
 import core.data.launcher.model.LauncherItemGroup
 import core.data.prefs.PreferencesRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 
 class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconRepository, preferencesRepository: PreferencesRepository) {
@@ -27,15 +29,15 @@ class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconR
         iconRepository.iconPacks,
         preferencesRepository.getIconPackName()
     ) { items, names, icons, iconPacks, defaultIconPack ->
-        items.groupBy { item ->
+        val iconPack: IconPack.CustomIconPack? = iconPacks.find {
+            it is IconPack.CustomIconPack && it.packageName == defaultIconPack
+        } as IconPack.CustomIconPack?
 
+        items.groupBy { item ->
             item.name = names[stringPreferencesKey(item.key)] ?: item.defaultName
 
             if (item is App) {
-                val iconPack: IconPack.CustomIconPack? = iconPacks.find {
-                    it is IconPack.CustomIconPack && it.packageName == defaultIconPack
-                } as IconPack.CustomIconPack?
-                item.icon = iconPack?.icons?.find { it.componentName == item.componentName } ?: item.defaultIcon
+                item.icon = iconPack?.packageName?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
             }
 
             item.name.first().uppercaseChar()
@@ -50,5 +52,5 @@ class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconR
     @OptIn(ExperimentalCoroutinesApi::class)
     fun getItemByKey(key: String): Flow<LauncherItem?> = launcherItems.mapLatest { items ->
         items.find { it.key == key }
-    }
+    }.flowOn(Dispatchers.IO)
 }

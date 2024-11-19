@@ -10,4 +10,5 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":feature:settings"))
     implementation(libs.coil)
+    implementation(libs.androidx.room.ktx)
 }

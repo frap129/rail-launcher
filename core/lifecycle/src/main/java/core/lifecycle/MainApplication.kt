@@ -2,6 +2,7 @@ package core.lifecycle
 
 import android.app.Application
 import android.content.Context
+import androidx.room.Room
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -10,6 +11,9 @@ import core.data.icons.IconMapper
 import core.data.icons.IconRepository
 import core.data.launcher.LauncherItemRepository
 import core.data.prefs.PreferencesRepository
+import core.data.room.AppDatabase
+import core.data.room.dao.CustomIconPackDao
+import core.data.room.dao.PackIconDao
 import feature.launcher.LauncherViewModel
 import feature.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
@@ -22,6 +26,14 @@ import timber.log.Timber
 class MainApplication :
     Application(),
     SingletonImageLoader.Factory {
+    private val database by lazy {
+        Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java,
+            "app-database"
+        ).build()
+    }
+
     /**
      * A Koin module containing a reference to the MainApplication class.
      *
@@ -32,6 +44,16 @@ class MainApplication :
     }
 
     /**
+     * A Koin module containing references to Database Access Objects.
+     *
+     * @property daoModule Koin Module for the Application object
+     */
+    private val daoModule = module {
+        single<CustomIconPackDao> { database.getCachedIconPackDao() }
+        single<PackIconDao> { database.getPackIconDao() }
+    }
+
+    /**
      * A Koin module containing references to each repository class used
      * throughout the project.
      *
@@ -39,7 +61,7 @@ class MainApplication :
      */
     private val repoModule = module {
         single<AppRepository> { AppRepository(androidContext()) }
-        single<IconRepository> { IconRepository(androidContext()) }
+        single<IconRepository> { IconRepository(androidContext(), get(), get()) }
         single<PreferencesRepository> { PreferencesRepository(androidContext()) }
         single<LauncherItemRepository> { LauncherItemRepository(get(), get(), get()) }
     }
@@ -59,7 +81,7 @@ class MainApplication :
         startKoin {
             androidContext(base)
             androidLogger()
-            modules(appModule, repoModule, viewModelModule)
+            modules(appModule, daoModule, repoModule, viewModelModule)
         }
         super.attachBaseContext(base)
     }

@@ -23,8 +23,8 @@ sealed class SettingsUiState {
 
 class SettingsViewModel(private val prefsRepo: PreferencesRepository, private val iconRepo: IconRepository) : ViewModel() {
     private val selectedIconPack: StateFlow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.getIconPackName()) { iconPacks, name ->
-        iconPacks.find { it.name == name } ?: iconRepo.defaultIconPack
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), iconRepo.defaultIconPack)
+        iconPacks.find { it.name == name } ?: IconPack.SystemIconPack
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), IconPack.SystemIconPack)
     private val screen: MutableStateFlow<SettingsScreen> = MutableStateFlow(SettingsScreen.Main)
     val uiState: StateFlow<SettingsUiState> = combine(screen, iconRepo.iconPacks, selectedIconPack) { screen, iconPacks, selectedIconPack ->
         when (screen) {

@@ -6,7 +6,7 @@ import coil3.map.Mapper
 import coil3.request.Options
 import core.data.icons.model.Icon
 
-class IconMapper : Mapper<Icon, Drawable> {
+class IconMapper() : Mapper<Icon, Drawable> {
     @SuppressLint("UseCompatLoadingForDrawables")
     override fun map(data: Icon, options: Options): Drawable? = when (data) {
         is Icon.ActivityIcon -> options.context.packageManager.getActivityIcon(data.componentName)

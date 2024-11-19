@@ -26,21 +26,21 @@ import android.content.res.Resources
 import android.util.Xml
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.room.dao.CustomIconPackDao
+import core.data.room.dao.PackIconDao
 import core.util.stateInBackground
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
+import timber.log.Timber
 
-const val SYSTEM_ICON_PACK_NAME: String = "System"
-class IconRepository(val context: Context) {
+class IconRepository(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) {
     private val packageManager: PackageManager = context.packageManager
-    val defaultIconPack = IconPack.SystemIconPack(
-        name = SYSTEM_ICON_PACK_NAME,
-        icon = Icon.ApplicationIcon("com.android.egg")
-    )
     private val iconPackIntents = listOf(
         Intent("com.novalauncher.THEME"),
         Intent("org.adw.launcher.icons.ACTION_PICK_ICON"),
@@ -49,25 +49,76 @@ class IconRepository(val context: Context) {
         Intent("android.intent.action.MAIN").addCategory("com.anddoes.launcher.THEME")
     )
 
-    val iconPacks: StateFlow<Set<IconPack>> = flow<Set<IconPack>> {
-        val iconPacks: MutableSet<IconPack> = iconPackIntents
-            .flatMap { packageManager.queryIntentActivities(it, 0) }
-            .mapTo(mutableSetOf<IconPack>()) { info ->
+    val iconPacks: StateFlow<Set<IconPack>> = flow {
+        emit(setOf(IconPack.SystemIconPack))
+        Timber.d("Emit systemIconPack")
+        val cachedIconPacks = getIconPacksFromCache()
+        emit(cachedIconPacks)
+        Timber.d("Emit cached icon packs")
+        val installedIconPacks = getInstalledIconPacks()
+        emit(getInstalledIconPacks())
+        Timber.d("Emit installed icon packs")
+
+        Timber.d("Caching icon pack data")
+        val iconsToCache = installedIconPacks.flatMap { if (it is IconPack.CustomIconPack) getIconsFromPack(it.packageName) else emptyList() }
+        val iconsToRemove = cachedIconPacks
+            .flatMap { if (it is IconPack.CustomIconPack) getIconsFromPack(it.packageName) else emptyList() }
+            .filterNot { iconsToCache.contains(it) }
+        val packsToCache = installedIconPacks
+            .filterIsInstance<IconPack.CustomIconPack>()
+            .map { pack ->
                 IconPack.CustomIconPack(
-                    info.loadLabel(packageManager).toString(),
-                    info.activityInfo.packageName,
-                    Icon.ApplicationIcon(info.activityInfo.packageName),
-                    getIconsFromPack(info.activityInfo.packageName)
+                    pack.name,
+                    pack.packageName,
+                    pack.icon
                 )
-            }.apply {
-                add(defaultIconPack)
+            }
+        val packsToRemove = cachedIconPacks
+            .filterIsInstance<IconPack.CustomIconPack>()
+            .filterNot { installedIconPacks.contains(it) }
+            .map { pack ->
+                IconPack.CustomIconPack(
+                    pack.name,
+                    pack.packageName,
+                    pack.icon
+                )
             }
 
-        emit(iconPacks)
-    }.stateInBackground(emptySet())
+        iconsToRemove.forEach { iconDao.delete(it) }
+        iconsToCache.forEach { iconDao.insert(it) }
+        packsToRemove.forEach { iconPackDao.delete(it) }
+        packsToCache.forEach { iconPackDao.insert(it) }
+        Timber.d("Done caching")
+    }.flowOn(Dispatchers.IO).stateInBackground(setOf(IconPack.SystemIconPack))
 
-    private fun getIconsFromPack(packPackageName: String): List<Icon.PackIcon> {
-        val icons: MutableList<Icon.PackIcon> = mutableListOf()
+    suspend fun getIcon(packPackageName: String, componentName: ComponentName) = iconDao.getIcon(componentName, packPackageName)
+
+    private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>().apply {
+        iconPackDao.getAll().forEach { pack ->
+            add(
+                IconPack.CustomIconPack(
+                    pack.name,
+                    pack.packageName,
+                    pack.icon,
+                )
+            )
+        }
+    }
+
+    private fun getInstalledIconPacks(): Set<IconPack> = iconPackIntents
+        .flatMap { packageManager.queryIntentActivities(it, 0) }
+        .mapTo(mutableSetOf<IconPack>()) { info ->
+            IconPack.CustomIconPack(
+                info.loadLabel(packageManager).toString(),
+                info.activityInfo.packageName,
+                Icon.ApplicationIcon(info.activityInfo.packageName),
+            )
+        }.apply {
+            add(IconPack.SystemIconPack)
+        }
+
+    private fun getIconsFromPack(packPackageName: String): Set<Icon.PackIcon> {
+        val icons: MutableSet<Icon.PackIcon> = mutableSetOf()
         getXml("appfilter", packPackageName)?.let { parseXml ->
             val compStart = "ComponentInfo{"
             val compStartLength = compStart.length
