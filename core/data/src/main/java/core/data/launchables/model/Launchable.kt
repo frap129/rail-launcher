@@ -1,9 +1,9 @@
-package core.data.launcher.model
+package core.data.launchables.model
 
 import android.content.Context
 import core.data.icons.model.Icon
 
-abstract class LauncherItem {
+abstract class Launchable {
     abstract val key: String
     abstract val defaultName: String
     abstract val defaultIcon: Icon

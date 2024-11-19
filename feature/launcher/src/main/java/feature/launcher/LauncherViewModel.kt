@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import core.data.launcher.LauncherItemRepository
-import core.data.launcher.model.LauncherItem
-import core.data.launcher.model.LauncherItemGroup
+import core.data.launchables.LaunchableRepository
+import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.PreferencesRepository
 import core.util.screenHeightPx
 import kotlin.math.max
@@ -19,30 +19,30 @@ import kotlinx.coroutines.flow.stateIn
 sealed class LauncherUiState {
     data object Error : LauncherUiState()
     data object Loading : LauncherUiState()
-    data class AppList(val groups: List<LauncherItemGroup>, val lazyListState: LazyListState) : LauncherUiState()
-    data class Scrolling(val group: LauncherItemGroup) : LauncherUiState()
+    data class AppList(val groups: List<LaunchableGroup>, val lazyListState: LazyListState) : LauncherUiState()
+    data class Scrolling(val group: LaunchableGroup) : LauncherUiState()
 }
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: LauncherItem) : LauncherMenuState()
-    data class Rename(val item: LauncherItem) : LauncherMenuState()
+    data class Menu(val item: Launchable) : LauncherMenuState()
+    data class Rename(val item: Launchable) : LauncherMenuState()
 }
 
 class LauncherViewModel(
     context: Context,
-    private val launcherItemRepo: LauncherItemRepository,
+    private val launcherItemRepo: LaunchableRepository,
     private val prefsRepo: PreferencesRepository
 ) : ViewModel() {
 
     val listStartOffsetPx = screenHeightPx(context) / 5
     val listEndOffsetPx = screenHeightPx(context) - listStartOffsetPx
 
-    val launcherItemGroups = launcherItemRepo.launcherItemGroups
+    val launchableGroups = launcherItemRepo.launchableGroups
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val selectedGroup: MutableStateFlow<Int> = MutableStateFlow(-1)
     val uiState: StateFlow<LauncherUiState> = combine(
-        launcherItemGroups,
+        launchableGroups,
         scrolling,
         selectedGroup
     ) { groups, scrolling, selected ->
@@ -71,8 +71,8 @@ class LauncherViewModel(
     )
 
     private val requestedMenuState: MutableStateFlow<LauncherMenuState> = MutableStateFlow(LauncherMenuState.Closed)
-    private val menuItem: MutableStateFlow<LauncherItem?> = MutableStateFlow(null)
-    val menuState: StateFlow<LauncherMenuState> = menuItem.combine(launcherItemRepo.launcherItems) { requestedItem, allItems ->
+    private val menuItem: MutableStateFlow<Launchable?> = MutableStateFlow(null)
+    val menuState: StateFlow<LauncherMenuState> = menuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
         allItems.find { it.key == requestedItem?.key }
     }.combine(requestedMenuState) { item, requestedState ->
         if (item == null) {
@@ -103,13 +103,13 @@ class LauncherViewModel(
         scrolling.value = false
     }
 
-    fun openItemMenu(launcherItem: LauncherItem) {
-        menuItem.value = launcherItem
-        requestedMenuState.value = LauncherMenuState.Menu(launcherItem)
+    fun openItemMenu(launchable: Launchable) {
+        menuItem.value = launchable
+        requestedMenuState.value = LauncherMenuState.Menu(launchable)
     }
 
-    fun openItemRename(launcherItem: LauncherItem) {
-        requestedMenuState.value = LauncherMenuState.Rename(launcherItem)
+    fun openItemRename(launchable: Launchable) {
+        requestedMenuState.value = LauncherMenuState.Rename(launchable)
     }
 
     fun closeItemMenu() {
@@ -117,8 +117,8 @@ class LauncherViewModel(
         menuItem.value = null
     }
 
-    fun setItemName(launcherItem: LauncherItem, name: String) {
-        prefsRepo.setItemName(launcherItem, name)
-        openItemMenu(launcherItem)
+    fun setItemName(launchable: Launchable, name: String) {
+        prefsRepo.setItemName(launchable, name)
+        openItemMenu(launchable)
     }
 }

@@ -56,8 +56,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import core.data.apps.App
-import core.data.launcher.model.LauncherItem
-import core.data.launcher.model.LauncherItemGroup
+import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
@@ -78,7 +78,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val menuState by viewModel.menuState.collectAsState()
-    val launcherItemGroups = viewModel.launcherItemGroups.collectAsState(emptyList())
+    val launcherItemGroups = viewModel.launchableGroups.collectAsState(emptyList())
 
     Box(Modifier.fillMaxSize()) {
         FocusRevealContent(
@@ -154,7 +154,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
 @Composable
 fun LauncherList(
     modifier: Modifier = Modifier,
-    launcherList: List<LauncherItemGroup>,
+    launcherList: List<LaunchableGroup>,
     lazyListState: LazyListState,
     topOffset: Dp,
     bottomOffset: Dp
@@ -194,7 +194,7 @@ fun LauncherList(
 }
 
 @Composable
-fun LauncherItemGroup(modifier: Modifier = Modifier, group: LauncherItemGroup) {
+fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup) {
     Column(modifier = modifier) {
         OutlinedText(
             text = group.name,
@@ -212,7 +212,7 @@ fun LauncherItemGroup(modifier: Modifier = Modifier, group: LauncherItemGroup) {
 }
 
 @Composable
-fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherItem(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -244,7 +244,7 @@ fun LauncherItem(item: LauncherItem, viewModel: LauncherViewModel = koinViewMode
 }
 
 @Composable
-fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
 
     Row(
@@ -295,7 +295,7 @@ fun LauncherItemMenu(item: LauncherItem, viewModel: LauncherViewModel = koinView
 }
 
 @Composable
-fun LauncherItemEditName(item: LauncherItem, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
     var nameEdit by remember { mutableStateOf(item.name) }
 
     Column(

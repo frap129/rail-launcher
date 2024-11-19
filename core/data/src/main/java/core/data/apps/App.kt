@@ -7,9 +7,9 @@ import android.net.Uri
 import android.os.UserHandle
 import android.provider.Settings
 import core.data.icons.model.Icon
-import core.data.launcher.model.LauncherItem
+import core.data.launchables.model.Launchable
 
-class App(override val defaultName: String, val profile: UserHandle, val componentName: ComponentName) : LauncherItem() {
+class App(override val defaultName: String, val profile: UserHandle, val componentName: ComponentName) : Launchable() {
     val packageName = componentName.packageName
     override val key = "${packageName}_$profile"
     override val defaultIcon = Icon.ActivityIcon(componentName)

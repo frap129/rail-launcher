@@ -7,7 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import core.data.icons.model.IconPack
-import core.data.launcher.model.LauncherItem
+import core.data.launchables.model.Launchable
 import core.util.launchInBackground
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,11 +23,11 @@ class PreferencesRepository(val context: Context) {
         ICON_PACK(stringPreferencesKey("iconPack"))
     }
 
-    fun getItemName(item: LauncherItem): Flow<String> = context.itemNames.data.map { names ->
+    fun getItemName(item: Launchable): Flow<String> = context.itemNames.data.map { names ->
         names[stringPreferencesKey(item.key)] ?: item.defaultName
     }
 
-    fun setItemName(item: LauncherItem, name: String) {
+    fun setItemName(item: Launchable, name: String) {
         launchInBackground {
             context.itemNames.edit { names ->
                 names[stringPreferencesKey(item.key)] = name

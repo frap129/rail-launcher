@@ -1,12 +1,12 @@
-package core.data.launcher
+package core.data.launchables
 
 import androidx.datastore.preferences.core.stringPreferencesKey
 import core.data.apps.App
 import core.data.apps.AppRepository
 import core.data.icons.IconRepository
 import core.data.icons.model.IconPack
-import core.data.launcher.model.LauncherItem
-import core.data.launcher.model.LauncherItemGroup
+import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,15 +15,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 
-class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconRepository, preferencesRepository: PreferencesRepository) {
-    val launcherItems = combine(appRepository.apps) { itemLists: Array<List<LauncherItem>> ->
-        mutableListOf<LauncherItem>().apply {
+class LaunchableRepository(appRepository: AppRepository, iconRepository: IconRepository, preferencesRepository: PreferencesRepository) {
+    val launchables = combine(appRepository.apps) { itemLists: Array<List<Launchable>> ->
+        mutableListOf<Launchable>().apply {
             itemLists.forEach { list -> addAll(list) }
         }
     }
 
-    val launcherItemGroups: Flow<List<LauncherItemGroup>> = combine(
-        launcherItems,
+    val launchableGroups: Flow<List<LaunchableGroup>> = combine(
+        launchables,
         preferencesRepository.itemNames,
         preferencesRepository.itemIcons,
         iconRepository.iconPacks,
@@ -42,7 +42,7 @@ class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconR
 
             item.name.first().uppercaseChar()
         }.map { mapEntry ->
-            LauncherItemGroup(
+            LaunchableGroup(
                 mapEntry.key.toString(),
                 mapEntry.value
             )
@@ -50,7 +50,7 @@ class LauncherItemRepository(appRepository: AppRepository, iconRepository: IconR
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun getItemByKey(key: String): Flow<LauncherItem?> = launcherItems.mapLatest { items ->
+    fun getItemByKey(key: String): Flow<Launchable?> = launchables.mapLatest { items ->
         items.find { it.key == key }
     }.flowOn(Dispatchers.IO)
 }

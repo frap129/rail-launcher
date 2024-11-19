@@ -9,7 +9,7 @@ import coil3.SingletonImageLoader
 import core.data.apps.AppRepository
 import core.data.icons.IconMapper
 import core.data.icons.IconRepository
-import core.data.launcher.LauncherItemRepository
+import core.data.launchables.LaunchableRepository
 import core.data.prefs.PreferencesRepository
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
@@ -63,7 +63,7 @@ class MainApplication :
         single<AppRepository> { AppRepository(androidContext()) }
         single<IconRepository> { IconRepository(androidContext(), get(), get()) }
         single<PreferencesRepository> { PreferencesRepository(androidContext()) }
-        single<LauncherItemRepository> { LauncherItemRepository(get(), get(), get()) }
+        single<LaunchableRepository> { LaunchableRepository(get(), get(), get()) }
     }
 
     /**
