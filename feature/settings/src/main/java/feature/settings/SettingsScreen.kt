@@ -1,6 +1,8 @@
 package feature.settings
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -24,12 +26,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavDeepLink
+import androidx.navigation.navArgument
 import coil3.compose.AsyncImage
 import com.composables.core.Menu
 import com.composables.core.MenuButton
@@ -44,31 +50,42 @@ import core.data.icons.model.IconPack
 import core.ui.model.data.Destination
 import org.koin.androidx.compose.koinViewModel
 
+private const val SCREEN_ARGUMENT = "screen"
+private const val SETTINGS_ROUTE = "settings"
+
 @SuppressLint("RestrictedApi")
 val settingsDestination = Destination(
-    route = "settings",
-    content = { navController, _ ->
-        SettingsScreen(navController)
+    route = "$SETTINGS_ROUTE/{$SCREEN_ARGUMENT}",
+    content = { navController, backStackEntry ->
+        SettingsScreen(navController, backStackEntry)
     },
+    arguments = listOf(
+        navArgument(SCREEN_ARGUMENT) {
+            defaultValue = SettingsScreen.Main.key
+        }
+    ),
     deepLinks = listOf(
-        NavDeepLink("rail-launcher://settings")
+        NavDeepLink("rail-launcher://$SETTINGS_ROUTE/{$SCREEN_ARGUMENT}")
     )
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = koinViewModel()) {
-    val uiState = viewModel.uiState.collectAsState()
+fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: SettingsViewModel = koinViewModel()) {
+    val uiState by viewModel.uiState.collectAsState()
     val theme = MaterialTheme.colorScheme
+    val screen: SettingsScreen = remember {
+        SettingsScreen.entries.find { it.key == backStackEntry.arguments?.getString(SCREEN_ARGUMENT) } ?: SettingsScreen.Main
+    }
 
     Scaffold(
         modifier = Modifier.background(theme.surface),
         topBar = {
             TopAppBar(
                 title = {
-                    val title = when (uiState.value) {
-                        SettingsUiState.Main -> stringResource(R.string.settings)
-                        is SettingsUiState.Appearance -> stringResource(R.string.appearance)
+                    val title = when (screen) {
+                        SettingsScreen.Main -> stringResource(R.string.settings)
+                        SettingsScreen.Appearance -> stringResource(R.string.appearance)
                     }
 
                     Text(
@@ -78,12 +95,7 @@ fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = 
                 },
                 navigationIcon = {
                     IconButton(
-                        onClick = {
-                            when (uiState.value) {
-                                SettingsUiState.Main -> navController.navigateUp()
-                                is SettingsUiState.Appearance -> viewModel.toMain()
-                            }
-                        }
+                        onClick = { navController.navigateUp() }
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
@@ -99,14 +111,14 @@ fun SettingsScreen(navController: NavController, viewModel: SettingsViewModel = 
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when (uiState.value) {
-                SettingsUiState.Main -> SettingsMainScreen(
-                    toAppearance = { viewModel.toAppearance() }
+            when (screen) {
+                SettingsScreen.Main -> SettingsMainScreen(
+                    toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") }
                 )
 
-                is SettingsUiState.Appearance -> SettingsAppearanceScreen(
-                    iconPacks = (uiState.value as SettingsUiState.Appearance).iconPacks,
-                    selectedIconPack = (uiState.value as SettingsUiState.Appearance).selectedIconPack,
+                SettingsScreen.Appearance -> SettingsAppearanceScreen(
+                    iconPacks = uiState.iconPacks,
+                    selectedIconPack = uiState.selectedIconPack,
                     onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) }
                 )
             }

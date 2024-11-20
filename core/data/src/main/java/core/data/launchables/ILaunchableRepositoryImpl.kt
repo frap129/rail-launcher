@@ -21,7 +21,7 @@ class ILaunchableRepositoryImpl(appRepository: IAppRepository, iconRepository: I
             RailLaunchable(
                 defaultName = "Rail Settings",
                 defaultIcon = Icon.RailIcon(R.drawable.settings_icon),
-                deeplink = "rail-launcher://settings"
+                deeplink = "rail-launcher://settings/main"
             )
         )
     )
