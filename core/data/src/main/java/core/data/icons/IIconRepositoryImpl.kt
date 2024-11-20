@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class IconRepository(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) {
+class IIconRepositoryImpl(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) : IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
         Intent("com.novalauncher.THEME"),
@@ -27,7 +27,7 @@ class IconRepository(private val context: Context, private val iconPackDao: Cust
     )
 
     private val _iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
-    val iconPacks: StateFlow<Set<IconPack>> = _iconPacks.asStateFlow()
+    override val iconPacks: StateFlow<Set<IconPack>> = _iconPacks.asStateFlow()
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -85,7 +85,8 @@ class IconRepository(private val context: Context, private val iconPackDao: Cust
         _iconPacks.value = installedIconPacks
     }
 
-    suspend fun getIcon(packPackageName: String, componentName: ComponentName) = iconDao.getIcon(componentName, packPackageName)
+    override suspend fun getIcon(packPackageName: String, componentName: ComponentName) =
+        iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
 
     private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {
         iconPackDao.getAll().forEach { pack ->

@@ -2,9 +2,11 @@ package feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import core.data.icons.IconRepository
+import core.data.icons.IIconRepository
+import core.data.icons.IIconRepositoryImpl
 import core.data.icons.model.IconPack
-import core.data.prefs.PreferencesRepository
+import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,11 +23,12 @@ sealed class SettingsUiState {
     data class Appearance(val iconPacks: Set<IconPack>, val selectedIconPack: IconPack) : SettingsUiState()
 }
 
-class SettingsViewModel(private val prefsRepo: PreferencesRepository, private val iconRepo: IconRepository) : ViewModel() {
+class SettingsViewModel(private val prefsRepo: IPreferencesRepository, private val iconRepo: IIconRepository) : ViewModel() {
+    private val screen: MutableStateFlow<SettingsScreen> = MutableStateFlow(SettingsScreen.Main)
     private val selectedIconPack: StateFlow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.getIconPackName()) { iconPacks, packageName ->
         iconPacks.find { it is IconPack.CustomIconPack && it.packageName == packageName } ?: IconPack.SystemIconPack
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), IconPack.SystemIconPack)
-    private val screen: MutableStateFlow<SettingsScreen> = MutableStateFlow(SettingsScreen.Main)
+
     val uiState: StateFlow<SettingsUiState> = combine(screen, iconRepo.iconPacks, selectedIconPack) { screen, iconPacks, selectedIconPack ->
         when (screen) {
             SettingsScreen.Main -> SettingsUiState.Main

@@ -6,11 +6,15 @@ import androidx.room.Room
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
-import core.data.apps.AppRepository
+import core.data.apps.IAppRepository
+import core.data.apps.IAppRepositoryImpl
+import core.data.icons.IIconRepository
 import core.data.icons.IconMapper
-import core.data.icons.IconRepository
-import core.data.launchables.LaunchableRepository
-import core.data.prefs.PreferencesRepository
+import core.data.icons.IIconRepositoryImpl
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.ILaunchableRepositoryImpl
+import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
@@ -60,10 +64,10 @@ class MainApplication :
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
-        single<AppRepository> { AppRepository(androidContext()) }
-        single<IconRepository> { IconRepository(androidContext(), get(), get()) }
-        single<PreferencesRepository> { PreferencesRepository(androidContext()) }
-        single<LaunchableRepository> { LaunchableRepository(get(), get(), get()) }
+        single<IAppRepository> { IAppRepositoryImpl(androidContext()) }
+        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
+        single<IPreferencesRepository> { IPreferencesRepositoryImpl(androidContext()) }
+        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get()) }
     }
 
     /**

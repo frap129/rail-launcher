@@ -1,4 +1,4 @@
-package core.data.apps
+package core.data.apps.model
 
 import android.content.ComponentName
 import android.content.Context

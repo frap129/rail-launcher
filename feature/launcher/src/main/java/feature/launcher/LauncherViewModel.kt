@@ -4,10 +4,11 @@ import android.content.Context
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import core.data.launchables.LaunchableRepository
+import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
-import core.data.prefs.PreferencesRepository
+import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import core.util.screenHeightPx
 import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +32,8 @@ sealed class LauncherMenuState {
 
 class LauncherViewModel(
     context: Context,
-    private val launcherItemRepo: LaunchableRepository,
-    private val prefsRepo: PreferencesRepository
+    private val launcherItemRepo: ILaunchableRepository,
+    private val prefsRepo: IPreferencesRepository
 ) : ViewModel() {
 
     val listStartOffsetPx = screenHeightPx(context) / 5

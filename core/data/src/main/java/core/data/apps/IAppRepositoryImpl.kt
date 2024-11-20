@@ -6,19 +6,19 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.os.UserManager
+import core.data.apps.model.App
 import core.util.launchInBackground
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
-class AppRepository(context: Context) {
-    private val packageManager = context.packageManager
+class IAppRepositoryImpl(context: Context): IAppRepository {
     private val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
     private val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
     private val _apps: MutableStateFlow<MutableList<App>> = MutableStateFlow(mutableListOf())
-    val apps: StateFlow<List<App>> = _apps.asStateFlow()
+    override val apps: StateFlow<List<App>> = _apps.asStateFlow()
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
