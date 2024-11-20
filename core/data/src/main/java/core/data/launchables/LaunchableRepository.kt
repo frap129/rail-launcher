@@ -61,6 +61,7 @@ class LaunchableRepository(appRepository: AppRepository, iconRepository: IconRep
                 mapEntry.value
             )
         }.sortedBy { it.name }.toMutableList().apply {
+            if (this.isNotEmpty())
                 add(builtinLaunchables)
             }
     }
