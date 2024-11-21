@@ -1,6 +1,9 @@
 package feature.settings
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
@@ -48,6 +51,7 @@ import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import core.data.icons.model.IconPack
 import core.ui.model.data.Destination
+import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
 private const val SCREEN_ARGUMENT = "screen"
@@ -66,7 +70,9 @@ val settingsDestination = Destination(
     ),
     deepLinks = listOf(
         NavDeepLink("rail-launcher://$SETTINGS_ROUTE/{$SCREEN_ARGUMENT}")
-    )
+    ),
+    enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150)) },
+    exitTransition = { fadeOut(animationSpec = tween(durationMillis = 100, delayMillis = 100)) }
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
