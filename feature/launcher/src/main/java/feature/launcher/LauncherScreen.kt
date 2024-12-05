@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -113,6 +114,7 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                         .padding(horizontal = 32.dp),
                     launcherList = state.groups,
                     lazyListState = state.lazyListState,
+                    onItemLongPress = { viewModel.openItemMenu(it) },
                     topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
                     bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
                 )
@@ -121,7 +123,8 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
-                    group = state.group
+                    group = state.group,
+                    onItemLongPress = { viewModel.openItemMenu(it) }
                 )
 
                 LauncherUiState.Error -> {}
@@ -162,6 +165,7 @@ fun LauncherList(
     modifier: Modifier = Modifier,
     launcherList: List<LaunchableGroup>,
     lazyListState: LazyListState,
+    onItemLongPress: (Launchable) -> Unit,
     topOffset: Dp,
     bottomOffset: Dp
 ) {
@@ -187,7 +191,7 @@ fun LauncherList(
             Spacer(Modifier.height(topSpacerHeightAnimator))
         }
         items(launcherList, key = { it.name }) { itemGroup ->
-            LauncherItemGroup(group = itemGroup)
+            LauncherItemGroup(group = itemGroup, onItemLongPress = onItemLongPress)
         }
         item {
             Spacer(Modifier.height(bottomSpacerHeightAnimator))
@@ -200,7 +204,7 @@ fun LauncherList(
 }
 
 @Composable
-fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup) {
+fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup, onItemLongPress: (Launchable) -> Unit) {
     Column(modifier = modifier) {
         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
             OutlinedText(
@@ -213,13 +217,13 @@ fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup) {
             )
         }
         group.items.forEach { item ->
-            LauncherItem(item)
+            LauncherItem(item, onItemLongPress)
         }
     }
 }
 
 @Composable
-fun LauncherItem(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherItem(item: Launchable, onLongPess: (Launchable) -> Unit) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -233,7 +237,7 @@ fun LauncherItem(item: Launchable, viewModel: LauncherViewModel = koinViewModel(
                     detectTapGestures(
                         onTap = { item.launch(context) },
                         onLongPress = {
-                            viewModel.openItemMenu(item)
+                            onLongPess(item)
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                     )
