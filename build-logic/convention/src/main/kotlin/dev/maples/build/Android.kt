@@ -17,9 +17,9 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 
 private val javaVersion = JavaVersion.VERSION_17
 
-internal fun configureAndroid(target: Project, commonExtension: CommonExtension<*, *, *, *, *>) {
+internal fun configureAndroid(target: Project, commonExtension: CommonExtension<*, *, *, *, *, *>) {
     commonExtension.apply {
-        compileSdk = 34
+        compileSdk = 35
 
         defaultConfig {
             minSdk = 32
@@ -82,7 +82,7 @@ internal fun Project.configureAndroidBase(commonExtension: BaseExtension) {
             implementation(libs, "androidx.lifecycle.service")
             annotationProcessor(libs, "androidx.lifecycle.compiler")
 
-            implementation(libs, "koin.bom")
+            add("implementation", platform(libs.findLibrary("koin.bom").get()))
             implementation(libs, "koin.android")
             implementation(libs, "util.timber")
             add("baselineProfile", project(":core:baselineprofile"))
