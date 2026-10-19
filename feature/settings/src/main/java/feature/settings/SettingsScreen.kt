@@ -4,8 +4,6 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -51,7 +49,6 @@ import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import core.data.icons.model.IconPack
 import core.ui.model.data.Destination
-import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
 private const val SCREEN_ARGUMENT = "screen"

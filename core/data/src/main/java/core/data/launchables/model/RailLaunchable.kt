@@ -17,4 +17,3 @@ class RailLaunchable(override val defaultName: String, override val defaultIcon:
         }
     )
 }
-

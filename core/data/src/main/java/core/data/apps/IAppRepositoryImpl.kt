@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import timber.log.Timber
 
-class IAppRepositoryImpl(context: Context): IAppRepository {
+class IAppRepositoryImpl(context: Context) : IAppRepository {
     private val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
     private val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
