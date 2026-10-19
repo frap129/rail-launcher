@@ -2,6 +2,7 @@ package core.ui
 
 import android.annotation.SuppressLint
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
@@ -11,6 +12,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import core.ui.model.data.Destination
 import core.ui.theme.AppTheme
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.core.annotation.KoinExperimentalAPI
 
@@ -22,15 +25,22 @@ import org.koin.core.annotation.KoinExperimentalAPI
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalComposeUiApi::class, KoinExperimentalAPI::class)
 @Composable
-fun App(destinations: List<Destination>) {
+fun App(destinations: List<Destination>, homeIntents: Flow<Unit>) {
     val navController = rememberNavController()
+    val startDestination: String = destinations.first().route
+
+    LaunchedEffect(navController, homeIntents) {
+        homeIntents.collect {
+            navController.popBackStack(startDestination, inclusive = false)
+        }
+    }
 
     AppTheme {
         KoinAndroidContext {
             NavHost(
                 modifier = Modifier.semantics { testTagsAsResourceId = true },
                 navController = navController,
-                startDestination = destinations.first().route
+                startDestination = startDestination
             ) {
                 // Add all defined destinations to the NavGraph
                 destinations.forEach { dest ->
