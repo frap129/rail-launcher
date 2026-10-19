@@ -14,15 +14,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
+/** A panel rendered in Home's Widget Area. */
+sealed interface Widget
+
 sealed class LauncherUiState {
     data object Error : LauncherUiState()
     data object Loading : LauncherUiState()
 
+    data class Home(val lazyListState: LazyListState, val widgets: List<Widget> = emptyList()) : LauncherUiState()
+
     sealed class AppList : LauncherUiState() {
-        data class List(val groups: kotlin.collections.List<LaunchableGroup>, val lazyListState: LazyListState) : AppList()
+        data class Browsing(val groups: List<LaunchableGroup>, val lazyListState: LazyListState) : AppList()
 
         data class Scrolling(val group: LaunchableGroup) : AppList()
     }
+}
+
+private enum class LauncherMode {
+    Home,
+    AppList
 }
 
 sealed class LauncherMenuState {
@@ -41,21 +51,27 @@ class LauncherViewModel(
     val listEndOffsetPx: Int = listOffsets.endPx
 
     val launchableGroups = launcherItemRepo.launchableGroups
+    private val mode: MutableStateFlow<LauncherMode> = MutableStateFlow(LauncherMode.Home)
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val selectedGroup: MutableStateFlow<Int> = MutableStateFlow(-1)
+    private val homeListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
     val uiState: StateFlow<LauncherUiState> = combine(
         launchableGroups,
+        mode,
         scrolling,
-        selectedGroup
-    ) { groups, scrolling, selected ->
+        selectedGroup,
+        homeListState
+    ) { groups, mode, scrolling, selected, homeListState ->
         when {
             groups.isEmpty() -> LauncherUiState.Loading
+
+            mode == LauncherMode.Home -> LauncherUiState.Home(lazyListState = homeListState)
 
             scrolling && selected < 0 -> LauncherUiState.Loading
 
             scrolling -> LauncherUiState.AppList.Scrolling(groups[selected])
 
-            !scrolling -> LauncherUiState.AppList.List(
+            !scrolling -> LauncherUiState.AppList.Browsing(
                 groups = groups,
                 lazyListState = LazyListState(
                     firstVisibleItemIndex = max(selected + 1, 0),
@@ -94,6 +110,7 @@ class LauncherViewModel(
     fun onRailTouched(index: Int) {
         selectedGroup.value = index
         scrolling.value = true
+        mode.value = LauncherMode.AppList
     }
 
     fun onRailMoved(index: Int) {
@@ -103,25 +120,46 @@ class LauncherViewModel(
     fun onRailReleased(index: Int) {
         selectedGroup.value = index
         scrolling.value = false
+        mode.value = LauncherMode.AppList
     }
 
     /**
-     * Returns whether Back was handled. The App List is the root mode until
-     * the Home mode is added in rail-nf7.4, so Back is not consumed yet.
+     * Returns whether Back was handled. Back returns from the App List to
+     * Home and is not consumed on Home.
      */
-    fun onBack(): Boolean = false
+    fun onBack(): Boolean {
+        if (mode.value == LauncherMode.Home) {
+            return false
+        }
+
+        showHome(resetScroll = false)
+        return true
+    }
 
     /**
-     * The launcher was re-selected through the HOME category. Home mode
-     * arrives in rail-nf7.4, so the App List is unchanged for now.
+     * The launcher was re-selected through the HOME category. Home is shown
+     * scrolled to the top.
      */
-    fun onHomeIntent() = Unit
+    fun onHomeIntent() {
+        showHome(resetScroll = true)
+    }
 
     /**
-     * A Launchable was launched. Resetting to Home arrives in rail-nf7.4, so
-     * the App List is unchanged for now.
+     * A Launchable was launched. Home is shown scrolled to the top for the
+     * next return.
      */
-    fun onLaunchableLaunched() = Unit
+    fun onLaunchableLaunched() {
+        showHome(resetScroll = true)
+    }
+
+    private fun showHome(resetScroll: Boolean) {
+        mode.value = LauncherMode.Home
+        scrolling.value = false
+        selectedGroup.value = -1
+        if (resetScroll) {
+            homeListState.value = LazyListState()
+        }
+    }
 
     fun openItemMenu(launchable: Launchable) {
         menuItem.value = launchable
