@@ -8,7 +8,6 @@ android {
 }
 dependencies {
     implementation(project(":core:util"))
-    implementation(libs.androidx.datastore)
     implementation(libs.coil.core)
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)

@@ -17,7 +17,9 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
+import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PackIconDao
+import core.data.room.dao.SettingsDao
 import core.util.screenHeightPx
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
@@ -37,7 +39,10 @@ class MainApplication :
             applicationContext,
             AppDatabase::class.java,
             "app-database"
-        ).build()
+        )
+            // Pre-release only: replace with real migrations before the first public release.
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     /**
@@ -57,6 +62,8 @@ class MainApplication :
     private val daoModule = module {
         single<CustomIconPackDao> { database.getCachedIconPackDao() }
         single<PackIconDao> { database.getPackIconDao() }
+        single<LaunchableCustomizationDao> { database.getLaunchableCustomizationDao() }
+        single<SettingsDao> { database.getSettingsDao() }
     }
 
     /**
@@ -68,7 +75,7 @@ class MainApplication :
     private val repoModule = module {
         single<IAppRepository> { IAppRepositoryImpl(androidContext()) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
-        single<IPreferencesRepository> { IPreferencesRepositoryImpl(androidContext()) }
+        single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get()) }
     }
 
