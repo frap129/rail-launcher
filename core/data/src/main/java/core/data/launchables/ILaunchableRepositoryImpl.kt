@@ -17,8 +17,7 @@ class ILaunchableRepositoryImpl(
     iconRepository: IIconRepository,
     preferencesRepository: IPreferencesRepository
 ) : ILaunchableRepository {
-    private val builtinLaunchables = LaunchableGroup(
-        name = "⌂",
+    private val builtinGroup = LaunchableGroup.Builtin(
         items = listOf(
             RailLaunchable(
                 defaultName = "Rail Settings",
@@ -41,21 +40,26 @@ class ILaunchableRepositoryImpl(
         iconRepository.iconPacks
     ) { items, customizations, settings, iconPacks ->
         val names: Map<String, String?> = customizations.associate { it.key to it.name }
-        items.groupBy { item ->
+        items.forEach { item ->
             item.name = names[item.key] ?: item.defaultName
             if (item is App) {
                 item.icon = settings.iconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
             }
-            item.name.first().uppercaseChar()
-        }.map { mapEntry ->
-            LaunchableGroup(
-                mapEntry.key.toString(),
-                mapEntry.value
-            )
-        }.sortedBy { it.name }.toMutableList().apply {
-            if (this.isNotEmpty()) {
-                add(builtinLaunchables)
-            }
         }
+        items.toLaunchableGroups(builtinGroup)
     }
+}
+
+/**
+ * Orders the Rail: the Star, then Letter groups sorted by first character,
+ * then [builtinGroup]. Empty when there are no Launchables.
+ */
+internal fun List<Launchable>.toLaunchableGroups(builtinGroup: LaunchableGroup.Builtin): List<LaunchableGroup> {
+    if (isEmpty()) {
+        return emptyList()
+    }
+    val letterGroups: List<LaunchableGroup.Letter> = groupBy { it.name.first().uppercaseChar() }
+        .map { (initial: Char, items: List<Launchable>) -> LaunchableGroup.Letter(label = initial.toString(), items = items) }
+        .sortedBy { it.label }
+    return listOf(LaunchableGroup.Star) + letterGroups + builtinGroup
 }

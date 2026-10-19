@@ -40,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,6 +78,7 @@ import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.util.toDp
 import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.koinViewModel
+import timber.log.Timber
 
 val launcherDestination = Destination(
     route = "launcher",
@@ -88,6 +90,15 @@ val launcherDestination = Destination(
 private val homeEdgePadding = 32.dp
 private val homeRailTouchInset = 80.dp
 
+private fun dispatchRailGroup(groups: List<LaunchableGroup>, index: Int, action: (LaunchableGroup) -> Unit) {
+    val group: LaunchableGroup? = groups.getOrNull(index)
+    if (group == null) {
+        Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
+        return
+    }
+    action(group)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
@@ -95,7 +106,7 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
     val activity = context as? ComponentActivity
     val uiState by viewModel.uiState.collectAsState()
     val menuState by viewModel.menuState.collectAsState()
-    val launcherItemGroups = viewModel.launchableGroups.collectAsState(emptyList())
+    val railGroups: State<List<LaunchableGroup>> = viewModel.launchableGroups.collectAsState(emptyList())
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
         viewModel.onLaunchableLaunched()
@@ -177,10 +188,10 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 .padding(0.dp, 200.dp, 0.dp, 0.dp)
                 .width(64.dp)
                 .offset { IntOffset(-16.dp.toPx().toInt(), 0) },
-            items = launcherItemGroups.value.map { it.name },
-            onScrollStarted = { viewModel.onRailTouched(it) },
-            onScroll = { viewModel.onRailMoved(it) },
-            onScrollEnded = { viewModel.onRailReleased(it) }
+            items = railGroups.value.map { group -> group.label },
+            onScrollStarted = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailTouched) },
+            onScroll = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailMoved) },
+            onScrollEnded = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailReleased) }
         )
 
         if (menuState !is LauncherMenuState.Closed) {
@@ -232,7 +243,7 @@ fun LauncherHome(modifier: Modifier = Modifier, home: LauncherUiState.Home, widg
 @Composable
 fun LauncherList(
     modifier: Modifier = Modifier,
-    launcherList: List<LaunchableGroup>,
+    launcherList: List<LaunchableGroup.Listed>,
     lazyListState: LazyListState,
     onItemLaunch: (Launchable) -> Unit,
     onItemLongPress: (Launchable) -> Unit,
@@ -260,7 +271,7 @@ fun LauncherList(
         item {
             Spacer(Modifier.height(topSpacerHeightAnimator))
         }
-        items(launcherList, key = { it.name }) { itemGroup ->
+        items(launcherList, key = { it.label }) { itemGroup ->
             LauncherItemGroup(
                 group = itemGroup,
                 onItemLaunch = onItemLaunch,
@@ -280,14 +291,14 @@ fun LauncherList(
 @Composable
 fun LauncherItemGroup(
     modifier: Modifier = Modifier,
-    group: LaunchableGroup,
+    group: LaunchableGroup.Listed,
     onItemLaunch: (Launchable) -> Unit,
     onItemLongPress: (Launchable) -> Unit
 ) {
     Column(modifier = modifier) {
         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
             OutlinedText(
-                text = group.name,
+                text = group.label,
                 textAlign = TextAlign.Start,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
