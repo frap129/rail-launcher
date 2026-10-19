@@ -13,7 +13,7 @@ abstract class SettingsDao {
     @Query("SELECT * FROM settings WHERE id = 0")
     abstract fun observeRow(): Flow<Settings?>
 
-    fun observe(): Flow<Settings> = observeRow().map { it ?: Settings() }
+    open fun observe(): Flow<Settings> = observeRow().map { it ?: Settings() }
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsert(settings: Settings)
