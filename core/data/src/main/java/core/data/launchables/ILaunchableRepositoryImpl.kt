@@ -1,6 +1,5 @@
 package core.data.launchables
 
-import androidx.datastore.preferences.core.stringPreferencesKey
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
@@ -38,12 +37,11 @@ class ILaunchableRepositoryImpl(
     override val launchableGroups: Flow<List<LaunchableGroup>> = combine(
         launchables,
         preferencesRepository.itemNames,
-        preferencesRepository.itemIcons,
         iconRepository.iconPacks,
         preferencesRepository.getIconPackName()
-    ) { items, names, icons, iconPacks, globalIconPack ->
+    ) { items, names, iconPacks, globalIconPack ->
         items.groupBy { item ->
-            item.name = names[stringPreferencesKey(item.key)] ?: item.defaultName
+            item.name = names[item.key] ?: item.defaultName
 
             if (item is App) {
                 item.icon = globalIconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon

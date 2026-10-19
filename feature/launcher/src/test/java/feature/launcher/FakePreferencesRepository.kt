@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.datastore.preferences.core.Preferences
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.prefs.IPreferencesRepository
@@ -13,8 +12,7 @@ class FakePreferencesRepository : IPreferencesRepository {
 
     private val recordedRenames: MutableList<ItemRename> = mutableListOf()
     val renames: List<ItemRename> get() = recordedRenames.toList()
-    override val itemNames: Flow<Preferences> = emptyFlow()
-    override val itemIcons: Flow<Preferences> = emptyFlow()
+    override val itemNames: Flow<Map<String, String>> = emptyFlow()
 
     override fun getItemName(item: Launchable): Flow<String> = flowOf(item.name)
 
