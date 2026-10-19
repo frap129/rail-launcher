@@ -7,7 +7,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
-import kotlin.math.max
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,9 +24,9 @@ sealed class LauncherUiState {
     data class Home(val lazyListState: LazyListState, val widgets: List<Widget> = emptyList()) : LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
-        data class Browsing(val groups: List<LaunchableGroup>, val lazyListState: LazyListState) : AppList()
+        data class Browsing(val groups: List<LaunchableGroup.Listed>, val lazyListState: LazyListState) : AppList()
 
-        data class Scrolling(val group: LaunchableGroup) : AppList()
+        data class Scrolling(val group: LaunchableGroup.Listed) : AppList()
     }
 }
 
@@ -50,10 +50,10 @@ class LauncherViewModel(
     val listStartOffsetPx: Int = listOffsets.startPx
     val listEndOffsetPx: Int = listOffsets.endPx
 
-    val launchableGroups = launcherItemRepo.launchableGroups
+    val launchableGroups: Flow<List<LaunchableGroup>> = launcherItemRepo.launchableGroups
     private val mode: MutableStateFlow<LauncherMode> = MutableStateFlow(LauncherMode.Home)
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    private val selectedGroup: MutableStateFlow<Int> = MutableStateFlow(-1)
+    private val selectedGroup: MutableStateFlow<LaunchableGroup.Listed?> = MutableStateFlow(null)
     private val homeListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
     val uiState: StateFlow<LauncherUiState> = combine(
         launchableGroups,
@@ -62,19 +62,20 @@ class LauncherViewModel(
         selectedGroup,
         homeListState
     ) { groups, mode, scrolling, selected, homeListState ->
+        val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
         when {
-            groups.isEmpty() -> LauncherUiState.Loading
+            listedGroups.isEmpty() -> LauncherUiState.Loading
 
             mode == LauncherMode.Home -> LauncherUiState.Home(lazyListState = homeListState)
 
-            scrolling && selected < 0 -> LauncherUiState.Loading
+            scrolling && selected == null -> LauncherUiState.Loading
 
-            scrolling -> LauncherUiState.AppList.Scrolling(groups[selected])
+            scrolling && selected != null -> LauncherUiState.AppList.Scrolling(selected)
 
             !scrolling -> LauncherUiState.AppList.Browsing(
-                groups = groups,
+                groups = listedGroups,
                 lazyListState = LazyListState(
-                    firstVisibleItemIndex = max(selected + 1, 0),
+                    firstVisibleItemIndex = listedGroups.indexOfFirst { it == selected } + 1,
                     firstVisibleItemScrollOffset = -listStartOffsetPx
                 )
             )
@@ -107,19 +108,41 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
-    fun onRailTouched(index: Int) {
-        selectedGroup.value = index
+    fun onRailTouched(group: LaunchableGroup) {
+        preview(group)
+    }
+
+    fun onRailMoved(group: LaunchableGroup) {
+        preview(group)
+    }
+
+    fun onRailReleased(group: LaunchableGroup) {
+        when (group) {
+            LaunchableGroup.Star -> showHomeFromRail()
+            is LaunchableGroup.Listed -> {
+                selectedGroup.value = group
+                scrolling.value = false
+                mode.value = LauncherMode.AppList
+            }
+        }
+    }
+
+    private fun preview(group: LaunchableGroup) {
+        when (group) {
+            LaunchableGroup.Star -> showHomeFromRail()
+            is LaunchableGroup.Listed -> showScrolling(group)
+        }
+    }
+
+    private fun showHomeFromRail() {
+        if (mode.value == LauncherMode.AppList) {
+            showHome(resetScroll = false)
+        }
+    }
+
+    private fun showScrolling(group: LaunchableGroup.Listed) {
+        selectedGroup.value = group
         scrolling.value = true
-        mode.value = LauncherMode.AppList
-    }
-
-    fun onRailMoved(index: Int) {
-        selectedGroup.value = index
-    }
-
-    fun onRailReleased(index: Int) {
-        selectedGroup.value = index
-        scrolling.value = false
         mode.value = LauncherMode.AppList
     }
 
@@ -155,7 +178,7 @@ class LauncherViewModel(
     private fun showHome(resetScroll: Boolean) {
         mode.value = LauncherMode.Home
         scrolling.value = false
-        selectedGroup.value = -1
+        selectedGroup.value = null
         if (resetScroll) {
             homeListState.value = LazyListState()
         }

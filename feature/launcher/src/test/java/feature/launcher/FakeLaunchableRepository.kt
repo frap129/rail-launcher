@@ -9,5 +9,7 @@ import kotlinx.coroutines.flow.map
 
 class FakeLaunchableRepository(groups: List<LaunchableGroup>) : ILaunchableRepository {
     override val launchableGroups: Flow<List<LaunchableGroup>> = MutableStateFlow(groups)
-    override val launchables: Flow<List<Launchable>> = launchableGroups.map { it.flatMap(LaunchableGroup::items) }
+    override val launchables: Flow<List<Launchable>> = launchableGroups.map { groups ->
+        groups.filterIsInstance<LaunchableGroup.Listed>().flatMap(LaunchableGroup.Listed::items)
+    }
 }

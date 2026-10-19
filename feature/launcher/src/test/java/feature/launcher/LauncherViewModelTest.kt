@@ -23,8 +23,9 @@ class LauncherViewModelTest {
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
     private val preferencesRepository: FakePreferencesRepository = FakePreferencesRepository()
-    private val groups: List<LaunchableGroup> = createGroups()
-    private val item: Launchable = groups.first().items.first()
+    private val listedGroups: List<LaunchableGroup.Listed> = createListedGroups()
+    private val groups: List<LaunchableGroup> = listOf(LaunchableGroup.Star) + listedGroups
+    private val item: Launchable = listedGroups.first().items.first()
 
     @Test
     fun `shows Loading when there are no groups`() {
@@ -54,9 +55,9 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.onRailReleased(0)
+                viewModel.onRailReleased(listedGroups[0])
                 val appListState: LauncherUiState.AppList.Browsing = expectAppList()
-                assertEquals(groups, appListState.groups)
+                assertEquals(listedGroups, appListState.groups)
                 assertEquals(1, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
             }
@@ -68,8 +69,8 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onRailTouched(1)
-                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[1]), expectMostRecentItem())
+                viewModel.onRailTouched(listedGroups[1])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
             }
         }
     }
@@ -79,9 +80,9 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onRailTouched(0)
-                viewModel.onRailMoved(2)
-                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[2]), expectMostRecentItem())
+                viewModel.onRailTouched(listedGroups[0])
+                viewModel.onRailMoved(listedGroups[2])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2]), expectMostRecentItem())
             }
         }
     }
@@ -91,13 +92,74 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onRailTouched(1)
-                viewModel.onRailMoved(2)
-                viewModel.onRailReleased(2)
+                viewModel.onRailTouched(listedGroups[1])
+                viewModel.onRailMoved(listedGroups[2])
+                viewModel.onRailReleased(listedGroups[2])
                 val appListState: LauncherUiState.AppList.Browsing = expectAppList()
-                assertEquals(groups, appListState.groups)
+                assertEquals(listedGroups, appListState.groups)
                 assertEquals(3, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
+            }
+        }
+    }
+
+    @Test
+    fun `returns Home when the Star is released during a scrub`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailTouched(listedGroups[1])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
+                viewModel.onRailMoved(LaunchableGroup.Star)
+                viewModel.onRailReleased(LaunchableGroup.Star)
+                expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `returns Home when the Star is touched from the App List`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[1])
+                expectAppList()
+                viewModel.onRailTouched(LaunchableGroup.Star)
+                expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `resumes the scrub preview after moving off the Star`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailTouched(listedGroups[0])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[0]), expectMostRecentItem())
+                viewModel.onRailMoved(LaunchableGroup.Star)
+                expectHome()
+                viewModel.onRailMoved(listedGroups[2])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2]), expectMostRecentItem())
+                viewModel.onRailReleased(listedGroups[2])
+                val appListState: LauncherUiState.AppList.Browsing = expectAppList()
+                assertEquals(3, appListState.lazyListState.firstVisibleItemIndex)
+            }
+        }
+    }
+
+    @Test
+    fun `does not open the App List when the Star is touched on Home`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailTouched(LaunchableGroup.Star)
+                viewModel.onRailReleased(LaunchableGroup.Star)
+                expectNoEvents()
             }
         }
     }
@@ -115,7 +177,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.onRailReleased(1)
+                viewModel.onRailReleased(listedGroups[1])
                 expectAppList()
                 assertTrue(viewModel.onBack())
                 assertEquals(0, expectHome().lazyListState.firstVisibleItemIndex)
@@ -129,8 +191,8 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.onRailTouched(1)
-                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[1]), expectMostRecentItem())
+                viewModel.onRailTouched(listedGroups[1])
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
                 assertTrue(viewModel.onBack())
                 expectHome()
             }
@@ -143,7 +205,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.onRailReleased(1)
+                viewModel.onRailReleased(listedGroups[1])
                 expectAppList()
                 viewModel.onHomeIntent()
                 expectHome()
@@ -171,7 +233,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.onRailReleased(1)
+                viewModel.onRailReleased(listedGroups[1])
                 expectAppList()
                 viewModel.onLaunchableLaunched()
                 expectHome()
@@ -255,10 +317,10 @@ class LauncherViewModelTest {
 
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
 
-    private fun createGroups(): List<LaunchableGroup> = listOf(
-        LaunchableGroup(name = "A", items = listOf(createLaunchable("Alpha"))),
-        LaunchableGroup(name = "B", items = listOf(createLaunchable("Beta"))),
-        LaunchableGroup(name = "C", items = listOf(createLaunchable("Gamma")))
+    private fun createListedGroups(): List<LaunchableGroup.Listed> = listOf(
+        LaunchableGroup.Letter(label = "A", items = listOf(createLaunchable("Alpha"))),
+        LaunchableGroup.Letter(label = "B", items = listOf(createLaunchable("Beta"))),
+        LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
     )
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(

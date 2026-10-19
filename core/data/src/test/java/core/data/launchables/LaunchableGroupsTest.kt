@@ -1,0 +1,55 @@
+package core.data.launchables
+
+import core.data.icons.model.Icon
+import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RailLaunchable
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+private const val RAIL_ICON_RES_ID: Int = 0
+
+class LaunchableGroupsTest {
+    private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
+
+    @Test
+    fun `places the Star above A`() {
+        val inputItems: List<Launchable> = listOf(createLaunchable("Beta"), createLaunchable("Alpha"))
+        val actual: List<String> = inputItems.toLaunchableGroups(builtinGroup).map { it.label }
+        assertEquals(listOf("★", "A", "B", "⌂"), actual)
+    }
+
+    @Test
+    fun `places the Star above groups of names starting with digits`() {
+        val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"), createLaunchable("1Password"))
+        val actual: List<String> = inputItems.toLaunchableGroups(builtinGroup).map { it.label }
+        assertEquals(listOf("★", "1", "A", "⌂"), actual)
+    }
+
+    @Test
+    fun `keeps the Builtin group last`() {
+        val inputItems: List<Launchable> = listOf(createLaunchable("Zulu"))
+        val actual: LaunchableGroup = inputItems.toLaunchableGroups(builtinGroup).last()
+        assertEquals(builtinGroup, actual)
+    }
+
+    @Test
+    fun `groups Launchables by first character`() {
+        val inputAlpha: Launchable = createLaunchable("Alpha")
+        val inputAnchor: Launchable = createLaunchable("anchor")
+        val actual: LaunchableGroup = listOf(inputAlpha, inputAnchor).toLaunchableGroups(builtinGroup)[1]
+        assertEquals(LaunchableGroup.Letter(label = "A", items = listOf(inputAlpha, inputAnchor)), actual)
+    }
+
+    @Test
+    fun `has no Rail entries when there are no Launchables`() {
+        val actual: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(builtinGroup)
+        assertEquals(emptyList<LaunchableGroup>(), actual)
+    }
+
+    private fun createLaunchable(name: String): Launchable = RailLaunchable(
+        defaultName = name,
+        defaultIcon = Icon.RailIcon(resId = RAIL_ICON_RES_ID),
+        deeplink = "rail-launcher://$name"
+    )
+}
