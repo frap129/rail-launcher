@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.content.Context
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,8 +7,6 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
-import core.data.prefs.IPreferencesRepositoryImpl
-import core.util.screenHeightPx
 import kotlin.math.max
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,13 +28,13 @@ sealed class LauncherMenuState {
 }
 
 class LauncherViewModel(
-    context: Context,
+    listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
     private val prefsRepo: IPreferencesRepository
 ) : ViewModel() {
 
-    val listStartOffsetPx = screenHeightPx(context) / 5
-    val listEndOffsetPx = screenHeightPx(context) - listStartOffsetPx
+    val listStartOffsetPx: Int = listOffsets.startPx
+    val listEndOffsetPx: Int = listOffsets.endPx
 
     val launchableGroups = launcherItemRepo.launchableGroups
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)

@@ -9,8 +9,8 @@ import coil3.SingletonImageLoader
 import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
 import core.data.icons.IIconRepository
-import core.data.icons.IconMapper
 import core.data.icons.IIconRepositoryImpl
+import core.data.icons.IconMapper
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
 import core.data.prefs.IPreferencesRepository
@@ -18,7 +18,9 @@ import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
+import core.util.screenHeightPx
 import feature.launcher.LauncherViewModel
+import feature.launcher.ListOffsets
 import feature.settings.SettingsViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -77,7 +79,8 @@ class MainApplication :
      * @property viewModelModule Koin Module for ViewModels
      */
     private val viewModelModule = module {
-        viewModel { LauncherViewModel(androidContext(), get(), get()) }
+        factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
+        viewModel { LauncherViewModel(get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
     }
 
