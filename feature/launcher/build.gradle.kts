@@ -7,6 +7,7 @@ android {
     namespace = "feature.launcher"
 }
 dependencies {
+    implementation(libs.compose.activity)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:util"))
