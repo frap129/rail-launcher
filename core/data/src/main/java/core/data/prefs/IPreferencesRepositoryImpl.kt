@@ -14,17 +14,18 @@ import kotlinx.coroutines.flow.map
 
 class IPreferencesRepositoryImpl(val context: Context) : IPreferencesRepository {
     private val Context.itemNames: DataStore<Preferences> by preferencesDataStore(name = "names")
-    private val Context.itemIcons: DataStore<Preferences> by preferencesDataStore(name = "icons")
     private val Context.appSettings: DataStore<Preferences> by preferencesDataStore(name = "settings")
-    override val itemNames = context.itemNames.data
-    override val itemIcons = context.itemIcons.data
+
+    override val itemNames: Flow<Map<String, String>> = context.itemNames.data.map { names ->
+        names.asMap().entries.mapNotNull { (key, value) -> (value as? String)?.let { key.name to it } }.toMap()
+    }
 
     enum class AppPreferences(val key: Preferences.Key<String>) {
         ICON_PACK(stringPreferencesKey("iconPack"))
     }
 
-    override fun getItemName(item: Launchable): Flow<String> = context.itemNames.data.map { names ->
-        names[stringPreferencesKey(item.key)] ?: item.defaultName
+    override fun getItemName(item: Launchable): Flow<String> = itemNames.map { names ->
+        names[item.key] ?: item.defaultName
     }
 
     override fun setItemName(item: Launchable, name: String) {
