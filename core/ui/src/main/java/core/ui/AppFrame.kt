@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import core.ui.model.data.Destination
+import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -25,13 +26,14 @@ import org.koin.core.annotation.KoinExperimentalAPI
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalComposeUiApi::class, KoinExperimentalAPI::class)
 @Composable
-fun App(destinations: List<Destination>, homeIntents: Flow<Unit>) {
+fun App(destinations: List<Destination>, startDestination: String, homeSignals: Flow<Unit>) {
     val navController = rememberNavController()
-    val startDestination: String = destinations.first().route
 
-    LaunchedEffect(navController, homeIntents) {
-        homeIntents.collect {
+    LaunchedEffect(homeSignals) {
+        homeSignals.collect {
             navController.popBackStack(startDestination, inclusive = false)
+            navController.getBackStackEntry(startDestination)
+                .savedStateHandle[HOME_INTENT_REQUEST_KEY] = true
         }
     }
 
