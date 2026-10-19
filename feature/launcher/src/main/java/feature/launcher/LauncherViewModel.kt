@@ -17,8 +17,12 @@ import kotlinx.coroutines.flow.stateIn
 sealed class LauncherUiState {
     data object Error : LauncherUiState()
     data object Loading : LauncherUiState()
-    data class AppList(val groups: List<LaunchableGroup>, val lazyListState: LazyListState) : LauncherUiState()
-    data class Scrolling(val group: LaunchableGroup) : LauncherUiState()
+
+    sealed class AppList : LauncherUiState() {
+        data class List(val groups: kotlin.collections.List<LaunchableGroup>, val lazyListState: LazyListState) : AppList()
+
+        data class Scrolling(val group: LaunchableGroup) : AppList()
+    }
 }
 
 sealed class LauncherMenuState {
@@ -49,14 +53,13 @@ class LauncherViewModel(
 
             scrolling && selected < 0 -> LauncherUiState.Loading
 
-            scrolling -> LauncherUiState.Scrolling(groups[selected])
+            scrolling -> LauncherUiState.AppList.Scrolling(groups[selected])
 
-            !scrolling -> LauncherUiState.AppList(
+            !scrolling -> LauncherUiState.AppList.List(
                 groups = groups,
                 lazyListState = LazyListState(
                     firstVisibleItemIndex = max(selected + 1, 0),
                     firstVisibleItemScrollOffset = -listStartOffsetPx
-
                 )
             )
 
@@ -88,18 +91,37 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
-    fun onScrollStarted(index: Int) {
+    fun onRailTouched(index: Int) {
         selectedGroup.value = index
         scrolling.value = true
     }
 
-    fun onScroll(index: Int) {
+    fun onRailMoved(index: Int) {
         selectedGroup.value = index
     }
 
-    fun onScrollEnded(index: Int) {
+    fun onRailReleased(index: Int) {
+        selectedGroup.value = index
         scrolling.value = false
     }
+
+    /**
+     * Returns whether Back was handled. The App List is the root mode until
+     * the Home mode is added in rail-nf7.4, so Back is not consumed yet.
+     */
+    fun onBack(): Boolean = false
+
+    /**
+     * The launcher was re-selected through the HOME category. Home mode
+     * arrives in rail-nf7.4, so the App List is unchanged for now.
+     */
+    fun onHomeIntent() = Unit
+
+    /**
+     * A Launchable was launched. Resetting to Home arrives in rail-nf7.4, so
+     * the App List is unchanged for now.
+     */
+    fun onLaunchableLaunched() = Unit
 
     fun openItemMenu(launchable: Launchable) {
         menuItem.value = launchable

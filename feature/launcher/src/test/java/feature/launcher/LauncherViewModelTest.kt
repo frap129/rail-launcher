@@ -8,6 +8,7 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,7 +40,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                val appListState: LauncherUiState.AppList = expectAppList()
+                val appListState: LauncherUiState.AppList.List = expectAppList()
                 assertEquals(groups, appListState.groups)
                 assertEquals(0, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
@@ -48,40 +49,71 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `raises Scrolling with the selected group when the Rail scroll starts`() {
+    fun `shows the selected group when the Rail is touched`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onScrollStarted(1)
-                assertEquals(LauncherUiState.Scrolling(group = groups[1]), expectMostRecentItem())
+                viewModel.onRailTouched(1)
+                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[1]), expectMostRecentItem())
             }
         }
     }
 
     @Test
-    fun `updates the Scrolling group when the Rail scroll moves`() {
+    fun `updates the selected group when the Rail moves`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onScrollStarted(0)
-                viewModel.onScroll(2)
-                assertEquals(LauncherUiState.Scrolling(group = groups[2]), expectMostRecentItem())
+                viewModel.onRailTouched(0)
+                viewModel.onRailMoved(2)
+                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[2]), expectMostRecentItem())
             }
         }
     }
 
     @Test
-    fun `returns to the App List at the selected group when the Rail scroll ends`() {
+    fun `returns to the App List at the selected group when the Rail is released`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                viewModel.onScrollStarted(1)
-                viewModel.onScroll(2)
-                viewModel.onScrollEnded(2)
-                val appListState: LauncherUiState.AppList = expectAppList()
+                viewModel.onRailTouched(1)
+                viewModel.onRailMoved(2)
+                viewModel.onRailReleased(2)
+                val appListState: LauncherUiState.AppList.List = expectAppList()
                 assertEquals(groups, appListState.groups)
                 assertEquals(3, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
+            }
+        }
+    }
+
+    @Test
+    fun `does not consume Back while the App List is the only mode`() {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        assertFalse(viewModel.onBack())
+    }
+
+    @Test
+    fun `keeps the App List when the launcher is re-selected`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectAppList()
+                viewModel.onHomeIntent()
+                expectNoEvents()
+            }
+        }
+    }
+
+    @Test
+    fun `keeps the App List when a Launchable is launched`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectAppList()
+                viewModel.onLaunchableLaunched()
+                expectNoEvents()
             }
         }
     }
@@ -152,10 +184,10 @@ class LauncherViewModelTest {
         prefsRepo = preferencesRepository
     )
 
-    private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList {
+    private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.List {
         val actualState: LauncherUiState = expectMostRecentItem()
-        assertTrue("Expected an App List but was $actualState", actualState is LauncherUiState.AppList)
-        return actualState as LauncherUiState.AppList
+        assertTrue("Expected an App List but was $actualState", actualState is LauncherUiState.AppList.List)
+        return actualState as LauncherUiState.AppList.List
     }
 
     private fun createGroups(): List<LaunchableGroup> = listOf(

@@ -1,5 +1,8 @@
 package feature.launcher
 
+import android.content.Intent
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -35,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.util.Consumer
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
@@ -82,16 +87,37 @@ val launcherDestination = Destination(
 @Composable
 fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
+    val activity = context as? ComponentActivity
     val uiState by viewModel.uiState.collectAsState()
     val menuState by viewModel.menuState.collectAsState()
     val launcherItemGroups = viewModel.launchableGroups.collectAsState(emptyList())
+    val launchItem: (Launchable) -> Unit = { launchable ->
+        launchable.launch(context)
+        viewModel.onLaunchableLaunched()
+    }
+
+    DisposableEffect(activity, viewModel) {
+        val listener = Consumer<Intent> { intent ->
+            if (intent.hasCategory(Intent.CATEGORY_HOME)) {
+                viewModel.onHomeIntent()
+            }
+        }
+        activity?.addOnNewIntentListener(listener)
+        onDispose { activity?.removeOnNewIntentListener(listener) }
+    }
+
+    BackHandler {
+        if (!viewModel.onBack()) {
+            activity?.finish()
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         FocusRevealContent(
             modifier = Modifier.fillMaxSize(),
             targetState = uiState,
-            focusState = LauncherUiState.Scrolling::class,
-            revealState = LauncherUiState.AppList::class,
+            focusState = LauncherUiState.AppList.Scrolling::class,
+            revealState = LauncherUiState.AppList.List::class,
             defaultSpec = fadeIn(animationSpec = tween(5, 5))
                 .togetherWith(fadeOut(animationSpec = tween(5))),
             focusSpec = fadeIn(animationSpec = tween(200))
@@ -99,30 +125,32 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
             revealSpec = fadeIn(animationSpec = tween(200, 75))
                 .togetherWith(fadeOut(animationSpec = tween(1, 275))),
             contentKey = {
-                if (it is LauncherUiState.AppList) {
-                    it::class
+                if (it is LauncherUiState.AppList.List) {
+                    LauncherUiState.AppList.List::class
                 } else {
                     it
                 }
             }
         ) { state ->
             when (state) {
-                is LauncherUiState.AppList -> LauncherList(
+                is LauncherUiState.AppList.List -> LauncherList(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 32.dp),
                     launcherList = state.groups,
                     lazyListState = state.lazyListState,
+                    onItemLaunch = launchItem,
                     onItemLongPress = { viewModel.openItemMenu(it) },
                     topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
                     bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
                 )
 
-                is LauncherUiState.Scrolling -> LauncherItemGroup(
+                is LauncherUiState.AppList.Scrolling -> LauncherItemGroup(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
                     group = state.group,
+                    onItemLaunch = launchItem,
                     onItemLongPress = { viewModel.openItemMenu(it) }
                 )
 
@@ -139,9 +167,9 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
                 .width(64.dp)
                 .offset { IntOffset(-16.dp.toPx().toInt(), 0) },
             items = launcherItemGroups.value.map { it.name },
-            onScrollStarted = { viewModel.onScrollStarted(it) },
-            onScroll = { viewModel.onScroll(it) },
-            onScrollEnded = { viewModel.onScrollEnded(it) }
+            onScrollStarted = { viewModel.onRailTouched(it) },
+            onScroll = { viewModel.onRailMoved(it) },
+            onScrollEnded = { viewModel.onRailReleased(it) }
         )
 
         if (menuState !is LauncherMenuState.Closed) {
@@ -164,6 +192,7 @@ fun LauncherList(
     modifier: Modifier = Modifier,
     launcherList: List<LaunchableGroup>,
     lazyListState: LazyListState,
+    onItemLaunch: (Launchable) -> Unit,
     onItemLongPress: (Launchable) -> Unit,
     topOffset: Dp,
     bottomOffset: Dp
@@ -190,7 +219,11 @@ fun LauncherList(
             Spacer(Modifier.height(topSpacerHeightAnimator))
         }
         items(launcherList, key = { it.name }) { itemGroup ->
-            LauncherItemGroup(group = itemGroup, onItemLongPress = onItemLongPress)
+            LauncherItemGroup(
+                group = itemGroup,
+                onItemLaunch = onItemLaunch,
+                onItemLongPress = onItemLongPress
+            )
         }
         item {
             Spacer(Modifier.height(bottomSpacerHeightAnimator))
@@ -203,7 +236,12 @@ fun LauncherList(
 }
 
 @Composable
-fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup, onItemLongPress: (Launchable) -> Unit) {
+fun LauncherItemGroup(
+    modifier: Modifier = Modifier,
+    group: LaunchableGroup,
+    onItemLaunch: (Launchable) -> Unit,
+    onItemLongPress: (Launchable) -> Unit
+) {
     Column(modifier = modifier) {
         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
             OutlinedText(
@@ -216,14 +254,13 @@ fun LauncherItemGroup(modifier: Modifier = Modifier, group: LaunchableGroup, onI
             )
         }
         group.items.forEach { item ->
-            LauncherItem(item, onItemLongPress)
+            LauncherItem(item, onItemLaunch, onItemLongPress)
         }
     }
 }
 
 @Composable
-fun LauncherItem(item: Launchable, onLongPess: (Launchable) -> Unit) {
-    val context = LocalContext.current
+fun LauncherItem(item: Launchable, onItemLaunch: (Launchable) -> Unit, onItemLongPress: (Launchable) -> Unit) {
     val hapticFeedback = LocalHapticFeedback.current
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
@@ -234,9 +271,9 @@ fun LauncherItem(item: Launchable, onLongPess: (Launchable) -> Unit) {
                 .fillMaxWidth()
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onTap = { item.launch(context) },
+                        onTap = { onItemLaunch(item) },
                         onLongPress = {
-                            onLongPess(item)
+                            onItemLongPress(item)
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                     )
