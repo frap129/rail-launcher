@@ -85,6 +85,10 @@ internal fun Project.configureAndroidBase(commonExtension: BaseExtension) {
             add("implementation", platform(libs.findLibrary("koin.bom").get()))
             implementation(libs, "koin.android")
             implementation(libs, "util.timber")
+
+            testImplementation(libs, "test.junit")
+            testImplementation(libs, "test.kotlinx.coroutines.test")
+            testImplementation(libs, "test.turbine")
             add("baselineProfile", project(":core:baselineprofile"))
         }
 
