@@ -14,8 +14,8 @@ sealed interface LaunchableGroup {
         val items: List<Launchable>
     }
 
-    /** Launchables sharing a first character. */
-    data class Letter(override val label: String, override val items: List<Launchable>) : Listed
+    /** Launchables sharing a first character; digit-prefixed names share "#". */
+    data class InitialGroup(override val label: String, override val items: List<Launchable>) : Listed
 
     /** Rail's own Launchables, last on the Rail. */
     data class Builtin(override val items: List<Launchable>) : Listed {

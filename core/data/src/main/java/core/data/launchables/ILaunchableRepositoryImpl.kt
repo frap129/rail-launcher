@@ -50,16 +50,24 @@ class ILaunchableRepositoryImpl(
     }
 }
 
+private const val DIGIT_GROUP_LABEL: String = "#"
+
 /**
- * Orders the Rail: the Star, then Letter groups sorted by first character,
- * then [builtinGroup]. Empty when there are no Launchables.
+ * Orders the Rail: the Star, then Initial groups sorted by label, then
+ * [builtinGroup]. Names starting with a digit share the "#" group. Empty
+ * when there are no Launchables.
  */
 internal fun List<Launchable>.toLaunchableGroups(builtinGroup: LaunchableGroup.Builtin): List<LaunchableGroup> {
     if (isEmpty()) {
         return emptyList()
     }
-    val letterGroups: List<LaunchableGroup.Letter> = groupBy { it.name.first().uppercaseChar() }
-        .map { (initial: Char, items: List<Launchable>) -> LaunchableGroup.Letter(label = initial.toString(), items = items) }
+    val initialGroups: List<LaunchableGroup.InitialGroup> = groupBy { it.groupLabel() }
+        .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
-    return listOf(LaunchableGroup.Star) + letterGroups + builtinGroup
+    return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup
+}
+
+private fun Launchable.groupLabel(): String {
+    val initial: Char = name.firstOrNull()?.uppercaseChar() ?: return DIGIT_GROUP_LABEL
+    return if (initial.isDigit()) DIGIT_GROUP_LABEL else initial.toString()
 }
