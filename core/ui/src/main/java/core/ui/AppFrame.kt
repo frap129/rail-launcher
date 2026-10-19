@@ -1,8 +1,6 @@
 package core.ui
 
 import android.annotation.SuppressLint
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -39,7 +37,7 @@ fun App(destinations: List<Destination>) {
                     composable(
                         route = dest.route,
                         content = { navBackStackEntry ->
-                                dest.content(navController, navBackStackEntry)
+                            dest.content(navController, navBackStackEntry)
                         },
                         deepLinks = dest.deepLinks,
                         arguments = dest.arguments,

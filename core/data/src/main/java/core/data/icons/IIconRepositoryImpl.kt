@@ -10,13 +10,14 @@ import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
-import core.util.launchInBackground
 import core.util.getIconsFromPack
+import core.util.launchInBackground
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class IIconRepositoryImpl(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) : IIconRepository {
+class IIconRepositoryImpl(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) :
+    IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
         Intent("com.novalauncher.THEME"),

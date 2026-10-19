@@ -10,11 +10,14 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.IPreferencesRepository
-import core.data.prefs.IPreferencesRepositoryImpl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-class ILaunchableRepositoryImpl(appRepository: IAppRepository, iconRepository: IIconRepository, preferencesRepository: IPreferencesRepository) : ILaunchableRepository {
+class ILaunchableRepositoryImpl(
+    appRepository: IAppRepository,
+    iconRepository: IIconRepository,
+    preferencesRepository: IPreferencesRepository
+) : ILaunchableRepository {
     private val builtinLaunchables = LaunchableGroup(
         name = "⌂",
         items = listOf(
@@ -53,8 +56,9 @@ class ILaunchableRepositoryImpl(appRepository: IAppRepository, iconRepository: I
                 mapEntry.value
             )
         }.sortedBy { it.name }.toMutableList().apply {
-            if (this.isNotEmpty())
+            if (this.isNotEmpty()) {
                 add(builtinLaunchables)
             }
+        }
     }
 }

@@ -23,15 +23,14 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.util.Xml
+import java.io.IOException
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
-import java.io.IOException
-
 
 fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<ComponentName, String, Int>> {
     val icons: MutableSet<Triple<ComponentName, String, Int>> = mutableSetOf()
-    getXml(context,"appfilter", packPackageName)?.let { parseXml ->
+    getXml(context, "appfilter", packPackageName)?.let { parseXml ->
         val compStart = "ComponentInfo{"
         val compStartLength = compStart.length
         val compEnd = "}"
