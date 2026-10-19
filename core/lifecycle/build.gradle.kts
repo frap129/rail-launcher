@@ -8,6 +8,7 @@ android {
 dependencies {
     implementation(project(":feature:launcher"))
     implementation(project(":core:data"))
+    implementation(project(":core:util"))
     implementation(project(":feature:settings"))
     implementation(libs.coil)
     implementation(libs.androidx.room.ktx)
