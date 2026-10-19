@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
@@ -38,7 +37,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,7 +58,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.util.Consumer
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
@@ -73,19 +71,21 @@ import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
+import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.util.toDp
+import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.koinViewModel
 
 val launcherDestination = Destination(
     route = "launcher",
-    content = { navController, _ ->
-        LauncherScreen(navController)
+    content = { navController, backStackEntry ->
+        LauncherScreen(navController, backStackEntry)
     }
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val uiState by viewModel.uiState.collectAsState()
@@ -96,14 +96,15 @@ fun LauncherScreen(navController: NavController, viewModel: LauncherViewModel = 
         viewModel.onLaunchableLaunched()
     }
 
-    DisposableEffect(activity, viewModel) {
-        val listener = Consumer<Intent> { intent ->
-            if (intent.hasCategory(Intent.CATEGORY_HOME)) {
-                viewModel.onHomeIntent()
+    LaunchedEffect(backStackEntry) {
+        backStackEntry.savedStateHandle
+            .getStateFlow(HOME_INTENT_REQUEST_KEY, false)
+            .collect { requested ->
+                if (requested) {
+                    backStackEntry.savedStateHandle[HOME_INTENT_REQUEST_KEY] = false
+                    viewModel.onHomeIntent()
+                }
             }
-        }
-        activity?.addOnNewIntentListener(listener)
-        onDispose { activity?.removeOnNewIntentListener(listener) }
     }
 
     BackHandler {
