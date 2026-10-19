@@ -20,10 +20,33 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `places the Star above groups of names starting with digits`() {
+    fun `places the Star above #`() {
         val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"), createLaunchable("1Password"))
         val actual: List<String> = inputItems.toLaunchableGroups(builtinGroup).map { it.label }
-        assertEquals(listOf("★", "1", "A", "⌂"), actual)
+        assertEquals(listOf("★", "#", "A", "⌂"), actual)
+    }
+
+    @Test
+    fun `groups names starting with any digit under #`() {
+        val inputZero: Launchable = createLaunchable("0xBench")
+        val inputOne: Launchable = createLaunchable("1Password")
+        val inputNine: Launchable = createLaunchable("9GAG")
+        val actual: LaunchableGroup = listOf(inputZero, inputOne, inputNine).toLaunchableGroups(builtinGroup)[1]
+        assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputZero, inputOne, inputNine)), actual)
+    }
+
+    @Test
+    fun `groups names starting with a non-ASCII digit under #`() {
+        val inputItem: Launchable = createLaunchable("１Password")
+        val actual: LaunchableGroup = listOf(inputItem).toLaunchableGroups(builtinGroup)[1]
+        assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputItem)), actual)
+    }
+
+    @Test
+    fun `groups names with no initial character under #`() {
+        val inputItem: Launchable = createLaunchable("")
+        val actual: LaunchableGroup = listOf(inputItem).toLaunchableGroups(builtinGroup)[1]
+        assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputItem)), actual)
     }
 
     @Test
@@ -38,7 +61,7 @@ class LaunchableGroupsTest {
         val inputAlpha: Launchable = createLaunchable("Alpha")
         val inputAnchor: Launchable = createLaunchable("anchor")
         val actual: LaunchableGroup = listOf(inputAlpha, inputAnchor).toLaunchableGroups(builtinGroup)[1]
-        assertEquals(LaunchableGroup.Letter(label = "A", items = listOf(inputAlpha, inputAnchor)), actual)
+        assertEquals(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputAlpha, inputAnchor)), actual)
     }
 
     @Test

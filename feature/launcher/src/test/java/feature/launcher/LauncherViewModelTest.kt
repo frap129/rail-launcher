@@ -318,8 +318,8 @@ class LauncherViewModelTest {
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
 
     private fun createListedGroups(): List<LaunchableGroup.Listed> = listOf(
-        LaunchableGroup.Letter(label = "A", items = listOf(createLaunchable("Alpha"))),
-        LaunchableGroup.Letter(label = "B", items = listOf(createLaunchable("Beta"))),
+        LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
+        LaunchableGroup.InitialGroup(label = "B", items = listOf(createLaunchable("Beta"))),
         LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
     )
 
