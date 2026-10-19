@@ -19,8 +19,8 @@ enum class SettingsScreen(val key: String) {
 data class SettingsUiState(val iconPacks: Set<IconPack>, val selectedIconPack: IconPack)
 
 class SettingsViewModel(private val prefsRepo: IPreferencesRepository, private val iconRepo: IIconRepository) : ViewModel() {
-    private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.getIconPackName()) { iconPacks, packageName ->
-        iconPacks.find { it is IconPack.CustomIconPack && it.packageName == packageName } ?: IconPack.SystemIconPack
+    private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.settings) { iconPacks, settings ->
+        iconPacks.find { it is IconPack.CustomIconPack && it.packageName == settings.iconPack } ?: IconPack.SystemIconPack
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(iconRepo.iconPacks, selectedIconPack) { iconPacks, selectedIconPack ->

@@ -5,9 +5,8 @@ import core.data.launchables.model.Launchable
 import kotlinx.coroutines.flow.Flow
 
 interface IPreferencesRepository {
-    val itemNames: Flow<Map<String, String>>
-    fun getItemName(item: Launchable): Flow<String>
+    val launchableCustomizations: Flow<List<LaunchableCustomization>>
+    val settings: Flow<Settings>
     fun setItemName(item: Launchable, name: String)
-    fun getIconPackName(): Flow<String?>
     fun setIconPack(iconPack: IconPack)
 }

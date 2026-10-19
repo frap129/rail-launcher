@@ -36,17 +36,16 @@ class ILaunchableRepositoryImpl(
 
     override val launchableGroups: Flow<List<LaunchableGroup>> = combine(
         launchables,
-        preferencesRepository.itemNames,
-        iconRepository.iconPacks,
-        preferencesRepository.getIconPackName()
-    ) { items, names, iconPacks, globalIconPack ->
+        preferencesRepository.launchableCustomizations,
+        preferencesRepository.settings,
+        iconRepository.iconPacks
+    ) { items, customizations, settings, iconPacks ->
+        val names: Map<String, String?> = customizations.associate { it.key to it.name }
         items.groupBy { item ->
             item.name = names[item.key] ?: item.defaultName
-
             if (item is App) {
-                item.icon = globalIconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
+                item.icon = settings.iconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
             }
-
             item.name.first().uppercaseChar()
         }.map { mapEntry ->
             LaunchableGroup(
