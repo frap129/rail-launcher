@@ -4,8 +4,9 @@ Rail: Android home-screen launcher (Kotlin, Jetpack Compose, Koin, Room). Single
 
 ## Commands
 - Build: `./gradlew :app:assembleDebug`
+- Unit tests: `./gradlew testDebugUnitTest` (JVM; coroutines-test + Turbine are wired by the convention plugins).
 - Lint: `./gradlew ktlintCheck`; fix: `./gradlew ktlintFormat` (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
-- There are no unit/instrumented tests in the repo; verification = build + ktlint.
+- No instrumented tests yet; verification = tests + build + ktlint.
 - Docs: `./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.
 - Baseline profiles: `./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api34`, needs emulator support). Output is saved into `src/main/baseline-prof.txt` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
 
