@@ -9,6 +9,7 @@ import core.data.launchables.model.RailLaunchable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -36,13 +37,27 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `opens to Home`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                val home: LauncherUiState.Home = expectHome()
+                assertEquals(0, home.lazyListState.firstVisibleItemIndex)
+                assertTrue(home.widgets.isEmpty())
+            }
+        }
+    }
+
+    @Test
     fun `builds the App List from the launchable groups`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
-                val appListState: LauncherUiState.AppList.List = expectAppList()
+                expectHome()
+                viewModel.onRailReleased(0)
+                val appListState: LauncherUiState.AppList.Browsing = expectAppList()
                 assertEquals(groups, appListState.groups)
-                assertEquals(0, appListState.lazyListState.firstVisibleItemIndex)
+                assertEquals(1, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
             }
         }
@@ -79,7 +94,7 @@ class LauncherViewModelTest {
                 viewModel.onRailTouched(1)
                 viewModel.onRailMoved(2)
                 viewModel.onRailReleased(2)
-                val appListState: LauncherUiState.AppList.List = expectAppList()
+                val appListState: LauncherUiState.AppList.Browsing = expectAppList()
                 assertEquals(groups, appListState.groups)
                 assertEquals(3, appListState.lazyListState.firstVisibleItemIndex)
                 assertEquals(-START_OFFSET_PX, appListState.lazyListState.firstVisibleItemScrollOffset)
@@ -88,32 +103,78 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `does not consume Back while the App List is the only mode`() {
+    fun `does not consume Back on Home`() {
         val viewModel: LauncherViewModel = createViewModel()
 
         assertFalse(viewModel.onBack())
     }
 
     @Test
-    fun `keeps the App List when the launcher is re-selected`() {
+    fun `returns to Home when Back is pressed in the App List`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(1)
                 expectAppList()
-                viewModel.onHomeIntent()
-                expectNoEvents()
+                assertTrue(viewModel.onBack())
+                assertEquals(0, expectHome().lazyListState.firstVisibleItemIndex)
             }
         }
     }
 
     @Test
-    fun `keeps the App List when a Launchable is launched`() {
+    fun `returns to Home when Back is pressed during the scrub preview`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailTouched(1)
+                assertEquals(LauncherUiState.AppList.Scrolling(group = groups[1]), expectMostRecentItem())
+                assertTrue(viewModel.onBack())
+                expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `returns to Home when the launcher is re-selected from the App List`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(1)
+                expectAppList()
+                viewModel.onHomeIntent()
+                expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `keeps Home scrolled to the top when the launcher is re-selected`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                val firstHome: LauncherUiState.Home = expectHome()
+                viewModel.onHomeIntent()
+                val secondHome: LauncherUiState.Home = expectHome()
+                assertNotSame(firstHome.lazyListState, secondHome.lazyListState)
+                assertEquals(0, secondHome.lazyListState.firstVisibleItemIndex)
+            }
+        }
+    }
+
+    @Test
+    fun `resets to Home when a Launchable is launched from the App List`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(1)
                 expectAppList()
                 viewModel.onLaunchableLaunched()
-                expectNoEvents()
+                expectHome()
             }
         }
     }
@@ -184,11 +245,15 @@ class LauncherViewModelTest {
         prefsRepo = preferencesRepository
     )
 
-    private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.List {
+    private inline fun <reified T : LauncherUiState> TurbineTestContext<LauncherUiState>.expectState(): T {
         val actualState: LauncherUiState = expectMostRecentItem()
-        assertTrue("Expected an App List but was $actualState", actualState is LauncherUiState.AppList.List)
-        return actualState as LauncherUiState.AppList.List
+        assertTrue("Expected ${T::class.simpleName} but was $actualState", actualState is T)
+        return actualState as T
     }
+
+    private fun TurbineTestContext<LauncherUiState>.expectHome(): LauncherUiState.Home = expectState()
+
+    private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
 
     private fun createGroups(): List<LaunchableGroup> = listOf(
         LaunchableGroup(name = "A", items = listOf(createLaunchable("Alpha"))),

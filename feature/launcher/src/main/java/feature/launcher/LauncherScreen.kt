@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -83,6 +85,9 @@ val launcherDestination = Destination(
     }
 )
 
+private val homeEdgePadding = 32.dp
+private val homeRailTouchInset = 80.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
@@ -118,7 +123,7 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
             modifier = Modifier.fillMaxSize(),
             targetState = uiState,
             focusState = LauncherUiState.AppList.Scrolling::class,
-            revealState = LauncherUiState.AppList.List::class,
+            revealState = LauncherUiState.AppList.Browsing::class,
             defaultSpec = fadeIn(animationSpec = tween(5, 5))
                 .togetherWith(fadeOut(animationSpec = tween(5))),
             focusSpec = fadeIn(animationSpec = tween(200))
@@ -126,15 +131,20 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
             revealSpec = fadeIn(animationSpec = tween(200, 75))
                 .togetherWith(fadeOut(animationSpec = tween(1, 275))),
             contentKey = {
-                if (it is LauncherUiState.AppList.List) {
-                    LauncherUiState.AppList.List::class
-                } else {
-                    it
+                when (it) {
+                    is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
+                    is LauncherUiState.Home -> LauncherUiState.Home::class
+                    else -> it
                 }
             }
         ) { state ->
             when (state) {
-                is LauncherUiState.AppList.List -> LauncherList(
+                is LauncherUiState.Home -> LauncherHome(
+                    modifier = Modifier.fillMaxSize(),
+                    home = state
+                )
+
+                is LauncherUiState.AppList.Browsing -> LauncherList(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 32.dp),
@@ -183,6 +193,37 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     is LauncherMenuState.Rename -> LauncherItemEditName((menuState as LauncherMenuState.Rename).item)
                     LauncherMenuState.Closed -> {} // this state is never reached
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun LauncherHome(modifier: Modifier = Modifier, home: LauncherUiState.Home, widgetContent: @Composable (Widget) -> Unit = {}) {
+    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+        // The end inset keeps widgets clear of the Rail's touch column.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = homeEdgePadding, top = homeEdgePadding, end = homeRailTouchInset)
+        ) {
+            home.widgets.forEach { widget -> widgetContent(widget) }
+        }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .testTag("launcherHome"),
+            state = home.lazyListState,
+            verticalArrangement = Arrangement.Bottom,
+            contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
+        ) {
+            item {
+                OutlinedText(
+                    text = "Long-press any app to add it to Favorites",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
