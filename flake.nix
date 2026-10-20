@@ -53,6 +53,7 @@
           packages = [
             pkgs.jdk21
             sdk
+            pkgs.nodejs
           ];
           JAVA_HOME = "${pkgs.jdk21}";
           ANDROID_HOME = "${sdk}/libexec/android-sdk";
