@@ -5,6 +5,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.TextUnit
 fun OutlinedText(
     text: String,
     modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.TopStart,
     fillColor: Color = MaterialTheme.colorScheme.onSurface,
     outlineColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
     fontSize: TextUnit = TextUnit.Unspecified,
@@ -45,7 +47,7 @@ fun OutlinedText(
     style: TextStyle = LocalTextStyle.current,
     outlineDrawStyle: Stroke = Stroke()
 ) {
-    Box(modifier = modifier) {
+    Box(modifier = modifier, contentAlignment = contentAlignment) {
         Text(
             text = text,
             modifier = Modifier.semantics { invisibleToUser() },
