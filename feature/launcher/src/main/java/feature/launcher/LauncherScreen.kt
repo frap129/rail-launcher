@@ -106,6 +106,10 @@ private val dragHandleSize = 48.dp
 private val dragHandleDotRadius = 3.dp
 private val dragHandleDotSpacing = 12.dp
 private val dragHandleOutlineWidth = 2.dp
+private val dragHandleRailGap = 16.dp
+
+// The Rail's touch column starts homeRailTouchInset from the end edge.
+private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHandleRailGap
 
 private fun dispatchRailGroup(groups: List<LaunchableGroup>, index: Int, action: (LaunchableGroup) -> Unit) {
     val group: LaunchableGroup? = groups.getOrNull(index)
@@ -280,13 +284,15 @@ fun LauncherHome(
                 items(home.favorites, key = { favorite -> favorite.key }) { favorite ->
                     ReorderableItem(reorderableListState, key = favorite.key, enabled = home.isEditingFavorites) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            LauncherItem(favorite, onItemLaunch, onItemLongPress, Modifier.weight(1f))
                             if (home.isEditingFavorites) {
                                 FavoriteDragHandle(
-                                    modifier = Modifier.draggableHandle(),
+                                    modifier = Modifier
+                                        .padding(end = dragHandleEndPadding)
+                                        .draggableHandle(),
                                     contentDescription = "Reorder ${favorite.name}"
                                 )
                             }
-                            LauncherItem(favorite, onItemLaunch, onItemLongPress, Modifier.weight(1f))
                         }
                     }
                 }
