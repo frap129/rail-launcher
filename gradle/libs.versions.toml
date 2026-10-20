@@ -24,7 +24,7 @@ profileinstaller = "1.4.1"
 roomRuntime = "2.8.5"
 timber = "5.0.1"
 turbine = "1.2.0"
-uiautomator = "2.3.0"
+uiautomator = "2.4.0"
 
 [libraries]
 android-tools-build-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
