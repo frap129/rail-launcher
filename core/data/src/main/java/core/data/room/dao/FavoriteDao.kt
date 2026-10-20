@@ -2,6 +2,7 @@ package core.data.room.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Update
 import core.data.favorites.FavoriteRecord
 import kotlinx.coroutines.flow.Flow
 
@@ -18,4 +19,8 @@ interface FavoriteDao {
 
     @Query("DELETE FROM favorites WHERE key IN (:keys)")
     suspend fun remove(keys: List<String>)
+
+    /** Rewrites the positions of [records] in one transaction. Records no longer stored are ignored. */
+    @Update
+    suspend fun update(records: List<FavoriteRecord>)
 }

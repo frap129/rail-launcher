@@ -12,4 +12,5 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:util"))
     implementation(libs.icons.fontawesome)
+    implementation(libs.reorderable)
 }

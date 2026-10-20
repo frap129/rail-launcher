@@ -27,4 +27,9 @@ class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : Favo
     override suspend fun remove(keys: List<String>) {
         storedRecords.update { records -> records.filterNot { it.key in keys } }
     }
+
+    override suspend fun update(records: List<FavoriteRecord>) {
+        val updatesByKey: Map<String, FavoriteRecord> = records.associateBy { it.key }
+        storedRecords.update { stored -> stored.map { record -> updatesByKey[record.key] ?: record } }
+    }
 }

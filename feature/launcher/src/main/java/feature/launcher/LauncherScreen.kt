@@ -69,6 +69,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Regular
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.regular.Star
+import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
@@ -82,6 +83,8 @@ import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.util.toDp
 import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.koinViewModel
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
 
 val launcherDestination = Destination(
@@ -158,7 +161,9 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     modifier = Modifier.fillMaxSize(),
                     home = state,
                     onItemLaunch = launchItem,
-                    onItemLongPress = { viewModel.openItemMenu(it) }
+                    onItemLongPress = { viewModel.openItemMenu(it) },
+                    onFavoriteMoved = viewModel::moveFavorite,
+                    onEditingFavoritesDone = viewModel::finishEditingFavorites
                 )
 
                 is LauncherUiState.AppList.Browsing -> LauncherList(
@@ -208,7 +213,8 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 when (val currentMenuState: LauncherMenuState = menuState) {
                     is LauncherMenuState.Menu -> LauncherItemMenu(
                         item = currentMenuState.item,
-                        isFavorite = currentMenuState.isFavorite
+                        isFavorite = currentMenuState.isFavorite,
+                        canEditFavorites = currentMenuState.canEditFavorites
                     )
 
                     is LauncherMenuState.Rename -> LauncherItemEditName(currentMenuState.item)
@@ -226,8 +232,14 @@ fun LauncherHome(
     home: LauncherUiState.Home,
     onItemLaunch: (Launchable) -> Unit,
     onItemLongPress: (Launchable) -> Unit,
+    onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
+    onEditingFavoritesDone: () -> Unit,
     widgetContent: @Composable (Widget) -> Unit = {}
 ) {
+    val reorderableListState = rememberReorderableLazyListState(home.lazyListState) { from, to ->
+        onFavoriteMoved(from.index, to.index)
+    }
+
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         // The end inset keeps widgets clear of the Rail's touch column.
         Column(
@@ -256,8 +268,33 @@ fun LauncherHome(
                 }
             } else {
                 items(home.favorites, key = { favorite -> favorite.key }) { favorite ->
-                    LauncherItem(favorite, onItemLaunch, onItemLongPress)
+                    ReorderableItem(reorderableListState, key = favorite.key, enabled = home.isEditingFavorites) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            LauncherItem(favorite, onItemLaunch, onItemLongPress, Modifier.weight(1f))
+                            if (home.isEditingFavorites) {
+                                Image(
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .size(48.dp)
+                                        .padding(12.dp),
+                                    imageVector = FontAwesomeIcons.Solid.GripVertical,
+                                    colorFilter = ColorFilter.tint(LocalContentColor.current),
+                                    contentDescription = "Reorder ${favorite.name}"
+                                )
+                            }
+                        }
+                    }
                 }
+            }
+        }
+        if (home.isEditingFavorites) {
+            TextButton(
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .padding(end = homeEdgePadding, bottom = homeEdgePadding),
+                onClick = onEditingFavoritesDone
+            ) {
+                Text("Done", style = MaterialTheme.typography.titleLarge)
             }
         }
     }
@@ -336,14 +373,19 @@ fun LauncherItemGroup(
 }
 
 @Composable
-fun LauncherItem(item: Launchable, onItemLaunch: (Launchable) -> Unit, onItemLongPress: (Launchable) -> Unit) {
+fun LauncherItem(
+    item: Launchable,
+    onItemLaunch: (Launchable) -> Unit,
+    onItemLongPress: (Launchable) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val hapticFeedback = LocalHapticFeedback.current
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start,
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -388,7 +430,7 @@ private fun LauncherMenuAction(imageVector: ImageVector, label: String, onClick:
 }
 
 @Composable
-fun LauncherItemMenu(item: Launchable, isFavorite: Boolean, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherItemMenu(item: Launchable, isFavorite: Boolean, canEditFavorites: Boolean, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
     val favoriteActionLabel: String = if (isFavorite) "Remove from Favorites" else "Add to Favorites"
 
@@ -430,6 +472,13 @@ fun LauncherItemMenu(item: Launchable, isFavorite: Boolean, viewModel: LauncherV
                 }
             }
         )
+        if (canEditFavorites) {
+            LauncherMenuAction(
+                imageVector = FontAwesomeIcons.Solid.GripVertical,
+                label = "Edit Favorites",
+                onClick = { viewModel.editFavorites() }
+            )
+        }
         if (item is App) {
             LauncherMenuAction(
                 imageVector = FontAwesomeIcons.Solid.InfoCircle,
