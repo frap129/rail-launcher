@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "core.baselineprofile"
-    compileSdk = 36
+    compileSdk = 37
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 private val javaVersion = JavaVersion.VERSION_17
 private const val JVM_TOOLCHAIN_VERSION = 21
-private const val COMPILE_SDK = 36
+private const val COMPILE_SDK = 37
 private const val MIN_SDK = 32
 
 internal fun configureAndroid(target: Project, commonExtension: CommonExtension) {
