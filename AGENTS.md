@@ -3,13 +3,16 @@
 Rail: Android home-screen launcher (Kotlin, Jetpack Compose, Koin, Room). Single Gradle build, JDK 21.
 
 ## Commands
-- Build: `./gradlew :app:assembleDebug`
-- Unit tests: `./gradlew testDebugUnitTest` (JVM; coroutines-test + Turbine are wired by the convention plugins).
-- Lint: run `./gradlew ktlintFormat` before `./gradlew ktlintCheck` so autofixable formatting issues are resolved first (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
+
+All development commands must run inside the Nix flake. Do not export toolchain variables or use host JDK/Android SDK installations; use `nix develop --command <command>` for one-off commands, or enter an interactive shell with `nix develop`.
+
+- Build: `nix develop --command ./gradlew :app:assembleDebug`
+- Unit tests: `nix develop --command ./gradlew testDebugUnitTest` (JVM; coroutines-test + Turbine are wired by the convention plugins).
+- Lint: run `nix develop --command ./gradlew ktlintFormat` before `nix develop --command ./gradlew ktlintCheck` so autofixable formatting issues are resolved first (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
 - No instrumented tests yet; verification = tests + build + ktlint.
-- Docs: `./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.
-- Baseline profiles: `./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api34`, needs emulator support). Output is saved into `src/main/baseline-prof.txt` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
-- Emulators: the Android MCP's `start_emulator` tool is denied in `opencode.json`. Start an AVD manually (e.g. `nix develop .#emulator --command emulator -avd <name>`) only when no physical device is in use.
+- Docs: `nix develop --command ./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.
+- Baseline profiles: `nix develop --command ./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api34`, needs emulator support). Output is saved into `src/main/baseline-prof.txt` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
+- Emulators: the Android MCP's `start_emulator` tool is denied in `opencode.json`. Start an AVD manually with `nix develop .#emulator --command emulator -avd <name>` only when no physical device is in use.
 
 ## Module layout
 - `app` (`dev.maples.rail`): only `MainActivity`, which lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`.
