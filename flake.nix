@@ -35,7 +35,11 @@
       emulatorAndroid =
         pkgs:
         pkgs.androidenv.composeAndroidPackages {
-          platformVersions = [ "37" ];
+          # nixpkgs has no default API 37 system image; the rail-api36 AVD uses the 36 image.
+          platformVersions = [
+            "36"
+            "37"
+          ];
           buildToolsVersions = [
             "36.0.0"
             "37.0.0"
