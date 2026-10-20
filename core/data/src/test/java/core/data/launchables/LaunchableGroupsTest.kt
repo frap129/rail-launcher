@@ -57,6 +57,17 @@ class LaunchableGroupsTest {
     }
 
     @Test
+    fun `flattens the Listed groups into their Launchables in Rail order`() {
+        val inputGroups: List<LaunchableGroup> = listOf(
+            LaunchableGroup.Star,
+            LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
+            builtinGroup
+        )
+        val actualNames: List<String> = inputGroups.toLaunchables().map { launchable -> launchable.name }
+        assertEquals(listOf("Alpha", "Rail Settings"), actualNames)
+    }
+
+    @Test
     fun `groups Launchables by first character`() {
         val inputAlpha: Launchable = createLaunchable("Alpha")
         val inputAnchor: Launchable = createLaunchable("anchor")

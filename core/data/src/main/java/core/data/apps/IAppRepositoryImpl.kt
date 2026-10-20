@@ -17,8 +17,8 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
     private val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
     private val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
-    private val _apps: MutableStateFlow<MutableList<App>> = MutableStateFlow(mutableListOf())
-    override val apps: StateFlow<List<App>> = _apps.asStateFlow()
+    private val _apps: MutableStateFlow<MutableList<App>?> = MutableStateFlow(null)
+    override val apps: StateFlow<List<App>?> = _apps.asStateFlow()
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -27,22 +27,24 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
                 if (Intent.ACTION_PACKAGE_ADDED == action) {
                     val packageName = intent.data!!.schemeSpecificPart
                     Timber.d("App installed: $packageName")
-                    _apps.value = _apps.value.apply {
+                    _apps.value = (_apps.value ?: mutableListOf()).apply {
                         addAll(getAppInfo(packageName))
                     }
                 } else if (Intent.ACTION_PACKAGE_REMOVED == action) {
+                    // App updates arrive as REMOVED with EXTRA_REPLACING; keep the app.
+                    if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                        return@launchInBackground
+                    }
                     val packageName = intent.data!!.schemeSpecificPart
                     Timber.d("App uninstalled: $packageName")
                     // Remove app from list, ensuring that it's removed from the proper profile
-                    _apps.value = _apps.value.apply {
+                    _apps.value = (_apps.value ?: mutableListOf()).apply {
                         val matchingApps = getAppInfo(packageName)
-                        _apps.value = _apps.value.apply {
-                            when (matchingApps.isEmpty()) {
-                                true -> removeIf { it.packageName == packageName }
+                        when (matchingApps.isEmpty()) {
+                            true -> removeIf { it.packageName == packageName }
 
-                                false -> matchingApps.forEach { app ->
-                                    removeIf { it.packageName == app.packageName && it.profile != app.profile }
-                                }
+                            false -> matchingApps.forEach { app ->
+                                removeIf { it.packageName == app.packageName && it.profile != app.profile }
                             }
                         }
                     }
@@ -54,7 +56,7 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
     init {
         launchInBackground {
             _apps.value = getAppsList(context)
-            apps.value.forEach {
+            apps.value?.forEach {
                 Timber.d("added ${it.name}")
             }
         }

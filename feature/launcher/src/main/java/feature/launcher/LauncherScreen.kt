@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -65,8 +66,11 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
+import compose.icons.fontawesomeicons.Regular
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.regular.Star
 import compose.icons.fontawesomeicons.solid.InfoCircle
+import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -152,7 +156,9 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
             when (state) {
                 is LauncherUiState.Home -> LauncherHome(
                     modifier = Modifier.fillMaxSize(),
-                    home = state
+                    home = state,
+                    onItemLaunch = launchItem,
+                    onItemLongPress = { viewModel.openItemMenu(it) }
                 )
 
                 is LauncherUiState.AppList.Browsing -> LauncherList(
@@ -199,9 +205,12 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 dragHandle = { Spacer(Modifier.fillMaxWidth().height(10.dp)) },
                 onDismissRequest = { viewModel.closeItemMenu() }
             ) {
-                when (menuState) {
-                    is LauncherMenuState.Menu -> LauncherItemMenu((menuState as LauncherMenuState.Menu).item)
-                    is LauncherMenuState.Rename -> LauncherItemEditName((menuState as LauncherMenuState.Rename).item)
+                when (val currentMenuState: LauncherMenuState = menuState) {
+                    is LauncherMenuState.Menu -> LauncherItemMenu(
+                        item = currentMenuState.item,
+                        isFavorite = currentMenuState.isFavorite
+                    )
+                    is LauncherMenuState.Rename -> LauncherItemEditName(currentMenuState.item)
                     LauncherMenuState.Closed -> {} // this state is never reached
                 }
             }
@@ -210,7 +219,13 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
 }
 
 @Composable
-fun LauncherHome(modifier: Modifier = Modifier, home: LauncherUiState.Home, widgetContent: @Composable (Widget) -> Unit = {}) {
+fun LauncherHome(
+    modifier: Modifier = Modifier,
+    home: LauncherUiState.Home,
+    onItemLaunch: (Launchable) -> Unit,
+    onItemLongPress: (Launchable) -> Unit,
+    widgetContent: @Composable (Widget) -> Unit = {}
+) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         // The end inset keeps widgets clear of the Rail's touch column.
         Column(
@@ -229,12 +244,18 @@ fun LauncherHome(modifier: Modifier = Modifier, home: LauncherUiState.Home, widg
             verticalArrangement = Arrangement.Bottom,
             contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
-            item {
-                OutlinedText(
-                    text = "Long-press any app to add it to Favorites",
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.titleMedium
-                )
+            if (home.favorites.isEmpty()) {
+                item {
+                    OutlinedText(
+                        text = "Long-press any app to add it to Favorites",
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            } else {
+                items(home.favorites, key = { favorite -> favorite.key }) { favorite ->
+                    LauncherItem(favorite, onItemLaunch, onItemLongPress)
+                }
             }
         }
     }
@@ -345,8 +366,29 @@ fun LauncherItem(item: Launchable, onItemLaunch: (Launchable) -> Unit, onItemLon
 }
 
 @Composable
-fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
+private fun LauncherMenuAction(imageVector: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(20.dp, 10.dp)
+    ) {
+        Image(
+            modifier = Modifier.size(56.dp).padding(10.dp),
+            imageVector = imageVector,
+            colorFilter = ColorFilter.tint(LocalContentColor.current),
+            contentDescription = label
+        )
+        Text(label)
+    }
+}
+
+@Composable
+fun LauncherItemMenu(item: Launchable, isFavorite: Boolean, viewModel: LauncherViewModel = koinViewModel()) {
     val context = LocalContext.current
+    val favoriteActionLabel: String = if (isFavorite) "Remove from Favorites" else "Add to Favorites"
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
         Row(
@@ -375,23 +417,23 @@ fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel = koinViewMo
     }
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
-        if (item is App) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Start,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { item.openAppInfo(context) }
-                    .padding(20.dp, 10.dp)
-            ) {
-                Image(
-                    modifier = Modifier.size(56.dp).padding(10.dp),
-                    imageVector = FontAwesomeIcons.Solid.InfoCircle,
-                    colorFilter = ColorFilter.tint(LocalContentColor.current),
-                    contentDescription = "App Info"
-                )
-                Text("App Info")
+        LauncherMenuAction(
+            imageVector = if (isFavorite) FontAwesomeIcons.Solid.Star else FontAwesomeIcons.Regular.Star,
+            label = favoriteActionLabel,
+            onClick = {
+                if (isFavorite) {
+                    viewModel.removeFromFavorites(item)
+                } else {
+                    viewModel.addToFavorites(item)
+                }
             }
+        )
+        if (item is App) {
+            LauncherMenuAction(
+                imageVector = FontAwesomeIcons.Solid.InfoCircle,
+                label = "App Info",
+                onClick = { item.openAppInfo(context) }
+            )
         }
     }
 }

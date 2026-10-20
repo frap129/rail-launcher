@@ -11,6 +11,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.prefs.IPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 
 class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
@@ -27,28 +28,32 @@ class ILaunchableRepositoryImpl(
         )
     )
 
-    override val launchables: Flow<List<Launchable>> = combine(appRepository.apps) { itemLists: Array<List<Launchable>> ->
-        mutableListOf<Launchable>().apply {
-            itemLists.forEach { list -> addAll(list) }
-        }
-    }
-
-    override val launchableGroups: Flow<List<LaunchableGroup>> = combine(
-        launchables,
+    override val launchableState: Flow<LaunchableState> = combine(
+        appRepository.apps,
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
         iconRepository.iconPacks
-    ) { items, customizations, settings, iconPacks ->
+    ) { appsOrNull, customizations, settings, _ ->
+        val apps: List<App> = appsOrNull.orEmpty()
         val names: Map<String, String?> = customizations.associate { it.key to it.name }
-        items.forEach { item ->
+        (apps + builtinGroup.items).forEach { item ->
             item.name = names[item.key] ?: item.defaultName
             if (item is App) {
                 item.icon = settings.iconPack?.let { iconRepository.getIcon(it, item.componentName) } ?: item.defaultIcon
             }
         }
-        items.toLaunchableGroups(builtinGroup)
+        val groups: List<LaunchableGroup> = apps.toLaunchableGroups(builtinGroup)
+        LaunchableState(groups = groups, launchables = groups.toLaunchables(), isLoaded = appsOrNull != null)
     }
+
+    override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
+
+    override val launchableGroups: Flow<List<LaunchableGroup>> = launchableState.map { state -> state.groups }
 }
+
+/** Flattens the Listed groups into their Launchables in Rail order. */
+internal fun List<LaunchableGroup>.toLaunchables(): List<Launchable> =
+    filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items }
 
 private const val DIGIT_GROUP_LABEL: String = "#"
 
