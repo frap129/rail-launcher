@@ -28,18 +28,27 @@ class BaselineProfileGenerator {
             pressHome()
             startActivityAndWait()
 
+            // Open the app list from Home using the ScrollRail.
+            device.wait(Until.hasObject(By.res("launcherHome")), 5_000)
+            val scrollRail = checkNotNull(device.wait(Until.findObject(By.res("scrollRail")), 5_000)) {
+                "ScrollRail not found"
+            }
+            scrollRail.click()
+
             // Scroll launcher
-            device.wait(Until.hasObject(By.res("launcherList")), 5_000)
-            val launcherList = device.findObject(By.res("launcherList"))
+            val launcherList = checkNotNull(device.wait(Until.findObject(By.res("launcherList")), 5_000)) {
+                "Launcher list not found after opening the ScrollRail"
+            }
             launcherList.fling(Direction.DOWN, 10000)
             launcherList.fling(Direction.UP, 10000)
 
             // Interact with the ScrollRail
-            device.wait(Until.hasObject(By.res("scrollRail")), 5_000)
-            val scrollRail = device.findObject(By.res("scrollRail"))
+            val scrollRailForDrag = checkNotNull(device.wait(Until.findObject(By.res("scrollRail")), 5_000)) {
+                "ScrollRail not found after opening the app list"
+            }
             val point = Point(device.displayWidth, device.displayHeight)
-            scrollRail.longClick()
-            scrollRail.drag(point, 1000)
+            scrollRailForDrag.longClick()
+            scrollRailForDrag.drag(point, 1000)
 
             // TODO Write more interactions to optimize advanced journeys of your app.
         }
