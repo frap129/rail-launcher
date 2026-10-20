@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -48,13 +49,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -96,6 +102,10 @@ val launcherDestination = Destination(
 
 private val homeEdgePadding = 32.dp
 private val homeRailTouchInset = 80.dp
+private val dragHandleSize = 48.dp
+private val dragHandleDotRadius = 3.dp
+private val dragHandleDotSpacing = 12.dp
+private val dragHandleOutlineWidth = 2.dp
 
 private fun dispatchRailGroup(groups: List<LaunchableGroup>, index: Int, action: (LaunchableGroup) -> Unit) {
     val group: LaunchableGroup? = groups.getOrNull(index)
@@ -270,18 +280,13 @@ fun LauncherHome(
                 items(home.favorites, key = { favorite -> favorite.key }) { favorite ->
                     ReorderableItem(reorderableListState, key = favorite.key, enabled = home.isEditingFavorites) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            LauncherItem(favorite, onItemLaunch, onItemLongPress, Modifier.weight(1f))
                             if (home.isEditingFavorites) {
-                                Image(
-                                    modifier = Modifier
-                                        .draggableHandle()
-                                        .size(48.dp)
-                                        .padding(12.dp),
-                                    imageVector = FontAwesomeIcons.Solid.GripVertical,
-                                    colorFilter = ColorFilter.tint(LocalContentColor.current),
+                                FavoriteDragHandle(
+                                    modifier = Modifier.draggableHandle(),
                                     contentDescription = "Reorder ${favorite.name}"
                                 )
                             }
+                            LauncherItem(favorite, onItemLaunch, onItemLongPress, Modifier.weight(1f))
                         }
                     }
                 }
@@ -290,11 +295,34 @@ fun LauncherHome(
         if (home.isEditingFavorites) {
             TextButton(
                 modifier = Modifier
-                    .align(Alignment.End)
-                    .padding(end = homeEdgePadding, bottom = homeEdgePadding),
+                    .align(Alignment.Start)
+                    .padding(start = homeEdgePadding, bottom = homeEdgePadding),
                 onClick = onEditingFavoritesDone
             ) {
-                Text("Done", style = MaterialTheme.typography.titleLarge)
+                OutlinedText(text = "Done", style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+}
+
+// A four-dot grip outlined like Rail text so it reads on any wallpaper.
+@Composable
+private fun FavoriteDragHandle(modifier: Modifier = Modifier, contentDescription: String) {
+    val fillColor: Color = MaterialTheme.colorScheme.onSurface
+    val outlineColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest
+    Canvas(
+        modifier = modifier
+            .size(dragHandleSize)
+            .semantics { this.contentDescription = contentDescription }
+    ) {
+        val dotRadius: Float = dragHandleDotRadius.toPx()
+        val dotSpacing: Float = dragHandleDotSpacing.toPx()
+        val outline: Stroke = Stroke(width = dragHandleOutlineWidth.toPx())
+        listOf(-1f, 1f).forEach { column ->
+            listOf(-1f, 1f).forEach { row ->
+                val dotCenter: Offset = center + Offset(column * dotSpacing / 2, row * dotSpacing / 2)
+                drawCircle(color = outlineColor, radius = dotRadius, center = dotCenter, style = outline)
+                drawCircle(color = fillColor, radius = dotRadius, center = dotCenter)
             }
         }
     }
