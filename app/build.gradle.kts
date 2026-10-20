@@ -11,7 +11,7 @@ android {
         applicationId = "dev.maples.rail"
         versionCode = 1
         versionName = "0.1"
-        targetSdk = 32
+        targetSdk = 37
     }
 
     buildTypes {
