@@ -22,8 +22,11 @@
       buildAndroid =
         pkgs:
         pkgs.androidenv.composeAndroidPackages {
-          platformVersions = [ "36" ];
-          buildToolsVersions = [ "36.0.0" ];
+          platformVersions = [ "37" ];
+          buildToolsVersions = [
+            "36.0.0"
+            "37.0.0"
+          ];
           includeCmake = false;
           includeNDK = false;
           includeSources = false;
@@ -32,8 +35,11 @@
       emulatorAndroid =
         pkgs:
         pkgs.androidenv.composeAndroidPackages {
-          platformVersions = [ "36" ];
-          buildToolsVersions = [ "36.0.0" ];
+          platformVersions = [ "37" ];
+          buildToolsVersions = [
+            "36.0.0"
+            "37.0.0"
+          ];
           includeEmulator = true;
           includeSystemImages = true;
           systemImageTypes = [ "default" ];
