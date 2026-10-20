@@ -8,17 +8,17 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
 /** A panel rendered in Home's Widget Area. */
@@ -36,9 +36,15 @@ sealed class LauncherUiState {
     ) : LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
-        data class Browsing(val groups: List<LaunchableGroup.Listed>, val lazyListState: LazyListState) : AppList()
+        abstract val isEditingFavorites: Boolean
 
-        data class Scrolling(val group: LaunchableGroup.Listed) : AppList()
+        data class Browsing(
+            val groups: List<LaunchableGroup.Listed>,
+            val lazyListState: LazyListState,
+            override val isEditingFavorites: Boolean
+        ) : AppList()
+
+        data class Scrolling(val group: LaunchableGroup.Listed, override val isEditingFavorites: Boolean) : AppList()
     }
 }
 
@@ -49,7 +55,7 @@ private enum class LauncherMode {
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: Launchable, val isFavorite: Boolean, val canEditFavorites: Boolean = false) : LauncherMenuState()
+    data class Menu(val item: Launchable) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
 
@@ -58,6 +64,8 @@ private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchabl
     val indexByKey: Map<String, Int> = keys.withIndex().associate { (index, key) -> key to index }
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
 }
+
+private data class RailContent(val groups: List<LaunchableGroup>, val selected: LaunchableGroup.Listed?)
 
 private enum class MenuRequest {
     Closed,
@@ -81,42 +89,69 @@ class LauncherViewModel(
     private val selectedGroup: MutableStateFlow<LaunchableGroup.Listed?> = MutableStateFlow(null)
     private val homeListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
 
+    // Kept across emissions so starring a Launchable does not reset the App List scroll.
+    private val appListState: MutableStateFlow<LazyListState?> = MutableStateFlow(null)
+
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
+
+    // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
+    private val favoritesMutex: Mutex = Mutex()
+
+    /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
+    val favorites: StateFlow<List<Launchable>> = combine(
+        favoritesRepo.favorites,
+        editedFavoriteKeys
+    ) { favorites, editedKeys ->
+        if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
+
     private val homeState: Flow<LauncherUiState.Home> = combine(
         homeListState,
-        favoritesRepo.favorites,
+        favorites,
         editedFavoriteKeys
     ) { listState, favorites, editedKeys ->
         LauncherUiState.Home(
             lazyListState = listState,
-            favorites = if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys),
+            favorites = favorites,
             isEditingFavorites = editedKeys != null
         )
     }
-    val uiState: StateFlow<LauncherUiState> = combine(
+    private val railState: Flow<RailContent> = combine(
         launchableGroups,
+        selectedGroup
+    ) { groups, selected ->
+        RailContent(groups = groups, selected = selected)
+    }
+    val uiState: StateFlow<LauncherUiState> = combine(
+        railState,
         mode,
         scrolling,
-        selectedGroup,
-        homeState
-    ) { groups, mode, scrolling, selected, home ->
-        val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+        homeState,
+        editedFavoriteKeys
+    ) { rail, mode, scrolling, home, editedKeys ->
+        val listedGroups: List<LaunchableGroup.Listed> = rail.groups.filterIsInstance<LaunchableGroup.Listed>()
+        val isEditingFavorites: Boolean = editedKeys != null
         when {
             listedGroups.isEmpty() -> LauncherUiState.Loading
 
             mode == LauncherMode.Home -> home
 
-            scrolling && selected == null -> LauncherUiState.Loading
+            scrolling && rail.selected == null -> LauncherUiState.Loading
 
-            scrolling && selected != null -> LauncherUiState.AppList.Scrolling(selected)
+            scrolling && rail.selected != null -> LauncherUiState.AppList.Scrolling(rail.selected, isEditingFavorites)
 
             !scrolling -> LauncherUiState.AppList.Browsing(
                 groups = listedGroups,
-                lazyListState = LazyListState(
-                    firstVisibleItemIndex = listedGroups.indexOfFirst { it == selected } + 1,
+                lazyListState = appListState.value ?: LazyListState(
+                    firstVisibleItemIndex = listedGroups.indexOfFirst { it == rail.selected } + 1,
                     firstVisibleItemScrollOffset = -listStartOffsetPx
-                )
+                ).also { state -> appListState.value = state },
+                isEditingFavorites = isEditingFavorites
             )
 
             else -> LauncherUiState.Error
@@ -130,30 +165,18 @@ class LauncherViewModel(
     private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
     private val menuItem: MutableStateFlow<Launchable?> = MutableStateFlow(null)
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val menuItemIsFavorite: Flow<Boolean> = menuItem.flatMapLatest { item: Launchable? ->
-        if (item == null) flowOf(false) else favoritesRepo.isFavorite(item)
-    }
     val menuState: StateFlow<LauncherMenuState> = combine(
         menuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
             allItems.find { it.key == requestedItem?.key }
         },
-        requestedMenuState,
-        menuItemIsFavorite,
-        mode
-    ) { item, requestedState, isFavorite, mode ->
+        requestedMenuState
+    ) { item, requestedState ->
         if (item == null) {
             LauncherMenuState.Closed
         } else {
             when (requestedState) {
                 MenuRequest.Closed -> LauncherMenuState.Closed
-
-                MenuRequest.Menu -> LauncherMenuState.Menu(
-                    item = item,
-                    isFavorite = isFavorite,
-                    canEditFavorites = isFavorite && mode == LauncherMode.Home
-                )
-
+                MenuRequest.Menu -> LauncherMenuState.Menu(item)
                 MenuRequest.Rename -> LauncherMenuState.Rename(item)
             }
         }
@@ -176,6 +199,7 @@ class LauncherViewModel(
             LaunchableGroup.Star -> showHomeFromRail()
 
             is LaunchableGroup.Listed -> {
+                appListState.value = null
                 selectedGroup.value = group
                 scrolling.value = false
                 mode.value = LauncherMode.AppList
@@ -235,12 +259,16 @@ class LauncherViewModel(
         mode.value = LauncherMode.Home
         scrolling.value = false
         selectedGroup.value = null
+        appListState.value = null
         if (resetScroll) {
             homeListState.value = LazyListState()
         }
     }
 
     fun openItemMenu(launchable: Launchable) {
+        if (editedFavoriteKeys.value != null) {
+            return
+        }
         menuItem.value = launchable
         requestedMenuState.value = MenuRequest.Menu
     }
@@ -259,44 +287,50 @@ class LauncherViewModel(
         openItemMenu(launchable)
     }
 
-    fun addToFavorites(launchable: Launchable) {
-        setFavorite(launchable, favoritesRepo::add)
-    }
-
-    fun removeFromFavorites(launchable: Launchable) {
-        setFavorite(launchable, favoritesRepo::remove)
+    fun toggleFavorite(launchable: Launchable) {
+        viewModelScope.launch {
+            favoritesMutex.withLock {
+                if (favoritesRepo.isFavorite(launchable).first()) {
+                    favoritesRepo.remove(launchable)
+                    editedFavoriteKeys.update { keys -> keys?.filterNot { it == launchable.key } }
+                } else {
+                    favoritesRepo.add(launchable)
+                    editedFavoriteKeys.update { keys -> keys?.plus(launchable.key) }
+                }
+            }
+        }
     }
 
     fun editFavorites() {
-        editedFavoriteKeys.value = shownFavorites().map { it.key }
+        editedFavoriteKeys.value = favorites.value.map { it.key }
         closeItemMenu()
     }
 
     fun moveFavorite(fromIndex: Int, toIndex: Int) {
-        val keys: MutableList<String> = editedFavoriteKeys.value?.toMutableList() ?: return
-        if (fromIndex !in keys.indices || toIndex !in keys.indices) {
-            Timber.w("Ignoring Favorite move from %d to %d outside %d Favorites", fromIndex, toIndex, keys.size)
+        if (editedFavoriteKeys.value == null) {
             return
         }
-        keys.add(toIndex, keys.removeAt(fromIndex))
-        editedFavoriteKeys.value = keys
+        val shownFavorites: List<Launchable> = favorites.value
+        if (fromIndex !in shownFavorites.indices || toIndex !in shownFavorites.indices) {
+            Timber.w("Ignoring Favorite move from %d to %d outside %d Favorites", fromIndex, toIndex, shownFavorites.size)
+            return
+        }
+        editedFavoriteKeys.value = shownFavorites.map { it.key }.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
     }
 
     // Edit mode ends after the order is stored so Home never shows the old order.
     fun finishEditingFavorites() {
-        val keys: List<String> = editedFavoriteKeys.value ?: return
-        viewModelScope.launch {
-            favoritesRepo.reorder(favoritesRepo.favorites.first().sortedInOrderOf(keys))
-            editedFavoriteKeys.value = null
+        if (editedFavoriteKeys.value == null) {
+            return
         }
-    }
-
-    private fun shownFavorites(): List<Launchable> = (uiState.value as? LauncherUiState.Home)?.favorites.orEmpty()
-
-    private fun setFavorite(launchable: Launchable, updateFavorite: suspend (Launchable) -> Unit) {
         viewModelScope.launch {
-            updateFavorite(launchable)
+            favoritesMutex.withLock {
+                val keys: List<String> = editedFavoriteKeys.value ?: return@withLock
+                favoritesRepo.reorder(favoritesRepo.favorites.first().sortedInOrderOf(keys))
+                editedFavoriteKeys.value = null
+            }
         }
-        closeItemMenu()
     }
 }

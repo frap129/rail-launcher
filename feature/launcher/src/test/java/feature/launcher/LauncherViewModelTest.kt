@@ -8,11 +8,13 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -73,7 +75,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 viewModel.onRailTouched(listedGroups[1])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1], isEditingFavorites = false), expectMostRecentItem())
             }
         }
     }
@@ -85,7 +87,7 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 viewModel.onRailTouched(listedGroups[0])
                 viewModel.onRailMoved(listedGroups[2])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2], isEditingFavorites = false), expectMostRecentItem())
             }
         }
     }
@@ -113,7 +115,7 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 expectHome()
                 viewModel.onRailTouched(listedGroups[1])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1], isEditingFavorites = false), expectMostRecentItem())
                 viewModel.onRailMoved(LaunchableGroup.Star)
                 viewModel.onRailReleased(LaunchableGroup.Star)
                 expectHome()
@@ -142,11 +144,11 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 expectHome()
                 viewModel.onRailTouched(listedGroups[0])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[0]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[0], isEditingFavorites = false), expectMostRecentItem())
                 viewModel.onRailMoved(LaunchableGroup.Star)
                 expectHome()
                 viewModel.onRailMoved(listedGroups[2])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[2], isEditingFavorites = false), expectMostRecentItem())
                 viewModel.onRailReleased(listedGroups[2])
                 val appListState: LauncherUiState.AppList.Browsing = expectAppList()
                 assertEquals(3, appListState.lazyListState.firstVisibleItemIndex)
@@ -195,7 +197,7 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 expectHome()
                 viewModel.onRailTouched(listedGroups[1])
-                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1]), expectMostRecentItem())
+                assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1], isEditingFavorites = false), expectMostRecentItem())
                 assertTrue(viewModel.onBack())
                 expectHome()
             }
@@ -250,7 +252,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
-                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = false), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item), expectMostRecentItem())
             }
         }
     }
@@ -297,7 +299,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(item, RENAMED_NAME)
-                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = false), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item), expectMostRecentItem())
             }
         }
     }
@@ -308,7 +310,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 assertTrue(expectHome().favorites.isEmpty())
-                viewModel.addToFavorites(item)
+                viewModel.toggleFavorite(item)
                 assertEquals(listOf(item), expectHome().favorites)
             }
         }
@@ -321,8 +323,8 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.addToFavorites(item)
-                viewModel.addToFavorites(secondItem)
+                viewModel.toggleFavorite(item)
+                viewModel.toggleFavorite(secondItem)
                 assertEquals(listOf(item, secondItem), expectHome().favorites)
             }
         }
@@ -352,9 +354,9 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
             viewModel.uiState.test {
                 expectHome()
-                viewModel.addToFavorites(item)
+                viewModel.toggleFavorite(item)
                 assertEquals(listOf(item), expectHome().favorites)
-                viewModel.removeFromFavorites(item)
+                viewModel.toggleFavorite(item)
                 assertTrue(expectHome().favorites.isEmpty())
             }
             assertTrue(favoriteDao.records.isEmpty())
@@ -362,51 +364,13 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `shows Remove from Favorites for a Favorite`() {
+    fun `shows the same Edit Favorites menu in the App List`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
-            viewModel.addToFavorites(item)
-            viewModel.menuState.test {
-                viewModel.openItemMenu(item)
-                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true, canEditFavorites = true), expectMostRecentItem())
-            }
-        }
-    }
-
-    @Test
-    fun `does not offer Edit Favorites for a Favorite in the App List`() {
-        runTest {
-            val viewModel: LauncherViewModel = createViewModel()
-            viewModel.addToFavorites(item)
             viewModel.onRailReleased(listedGroups[0])
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
-                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true, canEditFavorites = false), expectMostRecentItem())
-            }
-        }
-    }
-
-    @Test
-    fun `closes the menu after adding a Favorite`() {
-        runTest {
-            val viewModel: LauncherViewModel = createViewModel()
-            viewModel.menuState.test {
-                viewModel.openItemMenu(item)
-                viewModel.addToFavorites(item)
-                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            }
-        }
-    }
-
-    @Test
-    fun `closes the menu after removing a Favorite`() {
-        runTest {
-            val viewModel: LauncherViewModel = createViewModel()
-            viewModel.addToFavorites(item)
-            viewModel.menuState.test {
-                viewModel.openItemMenu(item)
-                viewModel.removeFromFavorites(item)
-                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item), expectMostRecentItem())
             }
         }
     }
@@ -414,13 +378,207 @@ class LauncherViewModelTest {
     @Test
     fun `enters Edit Favorites mode from the menu`() {
         runTest {
-            val viewModel: LauncherViewModel = createViewModel()
-            viewModel.addToFavorites(item)
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
             viewModel.uiState.test {
                 assertFalse(expectHome().isEditingFavorites)
                 viewModel.editFavorites()
                 assertTrue(expectHome().isEditingFavorites)
             }
+        }
+    }
+
+    @Test
+    fun `initializes the edited Favorites when entering Edit Favorites from the App List`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 1)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[0])
+                expectAppList()
+                viewModel.editFavorites()
+                viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
+                viewModel.onBack()
+                assertEquals(listOf(secondItem, item), expectHome().favorites)
+            }
+        }
+    }
+
+    @Test
+    fun `keeps the App List LazyListState when a Favorite is toggled`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[0])
+                val before: LauncherUiState.AppList.Browsing = expectAppList()
+                viewModel.toggleFavorite(item)
+                assertEquals(listOf(item), viewModel.favorites.first { favorites -> favorites.isNotEmpty() })
+                expectNoEvents()
+                val after: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
+                assertSame(before.lazyListState, after.lazyListState)
+                assertEquals(before.groups, after.groups)
+            }
+        }
+    }
+
+    @Test
+    fun `enters Edit Favorites mode in the App List without leaving it`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[0])
+                assertFalse(expectAppList().isEditingFavorites)
+                viewModel.editFavorites()
+                assertTrue(expectAppList().isEditingFavorites)
+            }
+        }
+    }
+
+    @Test
+    fun `exposes Edit Favorites mode during the Rail preview`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                viewModel.onRailTouched(listedGroups[1])
+                assertEquals(
+                    LauncherUiState.AppList.Scrolling(group = listedGroups[1], isEditingFavorites = true),
+                    expectMostRecentItem()
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `toggles a Favorite from the App List in Edit Favorites mode`() {
+        runTest {
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[0])
+                val before: LauncherUiState.AppList.Browsing = expectAppList()
+                viewModel.editFavorites()
+                assertTrue(expectAppList().isEditingFavorites)
+                viewModel.toggleFavorite(item)
+                assertEquals(listOf(item), viewModel.favorites.first { favorites -> favorites.isNotEmpty() })
+                val after: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
+                assertTrue(after.isEditingFavorites)
+                assertSame(before.lazyListState, after.lazyListState)
+                assertEquals(before.groups, after.groups)
+                viewModel.toggleFavorite(item)
+                advanceUntilIdle()
+                assertTrue(viewModel.favorites.value.isEmpty())
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `toggles a Favorite from Home in Edit Favorites mode`() {
+        runTest {
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                assertTrue(expectHome().isEditingFavorites)
+                viewModel.toggleFavorite(item)
+                val home: LauncherUiState.Home = expectHome()
+                assertTrue(home.isEditingFavorites)
+                assertTrue(home.favorites.isEmpty())
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `reorders a Favorite added during Edit Favorites`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val railItem: Launchable = listedGroups.last().items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 1)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                assertTrue(expectHome().isEditingFavorites)
+                viewModel.toggleFavorite(railItem)
+                advanceUntilIdle()
+                assertEquals(listOf(item, secondItem, railItem), viewModel.favorites.value)
+                viewModel.moveFavorite(fromIndex = 2, toIndex = 0)
+                advanceUntilIdle()
+                assertEquals(listOf(railItem, item, secondItem), viewModel.favorites.value)
+                viewModel.finishEditingFavorites()
+                advanceUntilIdle()
+                assertFalse(expectHome().isEditingFavorites)
+            }
+            assertEquals(
+                listOf(
+                    FavoriteRecord(key = railItem.key, position = 0),
+                    FavoriteRecord(key = item.key, position = 1),
+                    FavoriteRecord(key = secondItem.key, position = 2)
+                ),
+                favoriteDao.records.sortedBy { it.position }
+            )
+        }
+    }
+
+    @Test
+    fun `exits Edit Favorites in place from the App List when Done is pressed`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 1)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(listedGroups[0])
+                assertFalse(expectAppList().isEditingFavorites)
+                viewModel.editFavorites()
+                assertTrue(expectAppList().isEditingFavorites)
+                viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
+                assertEquals(
+                    listOf(secondItem, item),
+                    viewModel.favorites.first { favorites -> favorites.firstOrNull() == secondItem }
+                )
+                viewModel.finishEditingFavorites()
+                advanceUntilIdle()
+                assertFalse(expectAppList().isEditingFavorites)
+                val after: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
+                assertFalse(after.isEditingFavorites)
+                assertEquals(listedGroups, after.groups)
+            }
+            assertEquals(
+                listOf(
+                    FavoriteRecord(key = secondItem.key, position = 0),
+                    FavoriteRecord(key = item.key, position = 1)
+                ),
+                favoriteDao.records.sortedBy { it.position }
+            )
         }
     }
 
@@ -483,10 +641,26 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `does not open the item menu in Edit Favorites mode`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.toggleFavorite(item)
+            advanceUntilIdle()
+            viewModel.editFavorites()
+            viewModel.menuState.test {
+                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+                viewModel.openItemMenu(item)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+    }
+
+    @Test
     fun `closes the menu when entering Edit Favorites mode`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
-            viewModel.addToFavorites(item)
+            viewModel.toggleFavorite(item)
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
                 viewModel.editFavorites()
@@ -502,7 +676,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
-                viewModel.addToFavorites(railItem)
+                viewModel.toggleFavorite(railItem)
                 assertEquals(listOf(railItem), expectHome().favorites)
             }
         }
@@ -519,7 +693,7 @@ class LauncherViewModelTest {
             )
             viewModel.uiState.test {
                 expectHome()
-                viewModel.addToFavorites(item)
+                viewModel.toggleFavorite(item)
                 assertEquals(listOf(item), expectHome().favorites)
                 launchableRepository.setGroups(groups = listOf(LaunchableGroup.Star) + listedGroups.drop(1))
                 assertTrue(expectHome().favorites.isEmpty())
