@@ -18,4 +18,7 @@ interface IFavoritesRepository {
 
     /** Removes [launchable] from the Favorites. Does nothing if it is not one. */
     suspend fun remove(launchable: Launchable)
+
+    /** Stores [favorites] as the Favorites' order. Launchables that are not Favorites are ignored. */
+    suspend fun reorder(favorites: List<Launchable>)
 }

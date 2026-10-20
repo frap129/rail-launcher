@@ -38,6 +38,10 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
     override suspend fun remove(launchable: Launchable) {
         favoriteDao.remove(listOf(launchable.key))
     }
+
+    override suspend fun reorder(favorites: List<Launchable>) {
+        favoriteDao.update(favorites.mapIndexed { index, launchable -> FavoriteRecord(key = launchable.key, position = index) })
+    }
 }
 
 private fun resolveFavorites(records: List<FavoriteRecord>, launchables: List<Launchable>): FavoriteResolution {

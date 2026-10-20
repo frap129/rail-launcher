@@ -368,7 +368,20 @@ class LauncherViewModelTest {
             viewModel.addToFavorites(item)
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
-                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true, canEditFavorites = true), expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `does not offer Edit Favorites for a Favorite in the App List`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.addToFavorites(item)
+            viewModel.onRailReleased(listedGroups[0])
+            viewModel.menuState.test {
+                viewModel.openItemMenu(item)
+                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true, canEditFavorites = false), expectMostRecentItem())
             }
         }
     }
@@ -393,6 +406,90 @@ class LauncherViewModelTest {
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
                 viewModel.removeFromFavorites(item)
+                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `enters Edit Favorites mode from the menu`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.addToFavorites(item)
+            viewModel.uiState.test {
+                assertFalse(expectHome().isEditingFavorites)
+                viewModel.editFavorites()
+                assertTrue(expectHome().isEditingFavorites)
+            }
+        }
+    }
+
+    @Test
+    fun `moves a Favorite in Edit Favorites mode without persisting it`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 1)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
+                assertEquals(listOf(secondItem, item), expectHome().favorites)
+            }
+            assertEquals(
+                listOf(FavoriteRecord(key = item.key, position = 0), FavoriteRecord(key = secondItem.key, position = 1)),
+                favoriteDao.records
+            )
+        }
+    }
+
+    @Test
+    fun `persists the edited order when Edit Favorites mode is done`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val railItem: Launchable = listedGroups.last().items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 4),
+                    FavoriteRecord(key = railItem.key, position = 7)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                viewModel.moveFavorite(fromIndex = 2, toIndex = 0)
+                expectHome()
+                viewModel.finishEditingFavorites()
+                val home: LauncherUiState.Home = expectHome()
+                assertFalse(home.isEditingFavorites)
+                assertEquals(listOf(railItem, item, secondItem), home.favorites)
+            }
+            assertEquals(
+                listOf(
+                    FavoriteRecord(key = railItem.key, position = 0),
+                    FavoriteRecord(key = item.key, position = 1),
+                    FavoriteRecord(key = secondItem.key, position = 2)
+                ),
+                favoriteDao.records.sortedBy { it.position }
+            )
+        }
+    }
+
+    @Test
+    fun `closes the menu when entering Edit Favorites mode`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.addToFavorites(item)
+            viewModel.menuState.test {
+                viewModel.openItemMenu(item)
+                viewModel.editFavorites()
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
         }
