@@ -3,16 +3,21 @@ package feature.launcher
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.favorites.IFavoritesRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** A panel rendered in Home's Widget Area. */
 sealed interface Widget
@@ -21,7 +26,8 @@ sealed class LauncherUiState {
     data object Error : LauncherUiState()
     data object Loading : LauncherUiState()
 
-    data class Home(val lazyListState: LazyListState, val widgets: List<Widget> = emptyList()) : LauncherUiState()
+    data class Home(val lazyListState: LazyListState, val favorites: List<Launchable>, val widgets: List<Widget> = emptyList()) :
+        LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
         data class Browsing(val groups: List<LaunchableGroup.Listed>, val lazyListState: LazyListState) : AppList()
@@ -37,14 +43,21 @@ private enum class LauncherMode {
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: Launchable) : LauncherMenuState()
+    data class Menu(val item: Launchable, val isFavorite: Boolean) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
+}
+
+private enum class MenuRequest {
+    Closed,
+    Menu,
+    Rename
 }
 
 class LauncherViewModel(
     listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
-    private val prefsRepo: IPreferencesRepository
+    private val prefsRepo: IPreferencesRepository,
+    private val favoritesRepo: IFavoritesRepository
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -55,18 +68,21 @@ class LauncherViewModel(
     private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val selectedGroup: MutableStateFlow<LaunchableGroup.Listed?> = MutableStateFlow(null)
     private val homeListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
+    private val homeState: Flow<LauncherUiState.Home> = combine(homeListState, favoritesRepo.favorites) { listState, favorites ->
+        LauncherUiState.Home(lazyListState = listState, favorites = favorites)
+    }
     val uiState: StateFlow<LauncherUiState> = combine(
         launchableGroups,
         mode,
         scrolling,
         selectedGroup,
-        homeListState
-    ) { groups, mode, scrolling, selected, homeListState ->
+        homeState
+    ) { groups, mode, scrolling, selected, home ->
         val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
         when {
             listedGroups.isEmpty() -> LauncherUiState.Loading
 
-            mode == LauncherMode.Home -> LauncherUiState.Home(lazyListState = homeListState)
+            mode == LauncherMode.Home -> home
 
             scrolling && selected == null -> LauncherUiState.Loading
 
@@ -88,18 +104,27 @@ class LauncherViewModel(
         initialValue = LauncherUiState.Loading
     )
 
-    private val requestedMenuState: MutableStateFlow<LauncherMenuState> = MutableStateFlow(LauncherMenuState.Closed)
+    private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
     private val menuItem: MutableStateFlow<Launchable?> = MutableStateFlow(null)
-    val menuState: StateFlow<LauncherMenuState> = menuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
-        allItems.find { it.key == requestedItem?.key }
-    }.combine(requestedMenuState) { item, requestedState ->
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val menuItemIsFavorite: Flow<Boolean> = menuItem.flatMapLatest { item: Launchable? ->
+        if (item == null) flowOf(false) else favoritesRepo.isFavorite(item)
+    }
+    val menuState: StateFlow<LauncherMenuState> = combine(
+        menuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
+            allItems.find { it.key == requestedItem?.key }
+        },
+        requestedMenuState,
+        menuItemIsFavorite
+    ) { item, requestedState, isFavorite ->
         if (item == null) {
             LauncherMenuState.Closed
         } else {
             when (requestedState) {
-                is LauncherMenuState.Closed -> LauncherMenuState.Closed
-                is LauncherMenuState.Menu -> LauncherMenuState.Menu(item)
-                is LauncherMenuState.Rename -> LauncherMenuState.Rename(item)
+                MenuRequest.Closed -> LauncherMenuState.Closed
+                MenuRequest.Menu -> LauncherMenuState.Menu(item = item, isFavorite = isFavorite)
+                MenuRequest.Rename -> LauncherMenuState.Rename(item)
             }
         }
     }.stateIn(
@@ -186,20 +211,35 @@ class LauncherViewModel(
 
     fun openItemMenu(launchable: Launchable) {
         menuItem.value = launchable
-        requestedMenuState.value = LauncherMenuState.Menu(launchable)
+        requestedMenuState.value = MenuRequest.Menu
     }
 
     fun openItemRename(launchable: Launchable) {
-        requestedMenuState.value = LauncherMenuState.Rename(launchable)
+        requestedMenuState.value = MenuRequest.Rename
     }
 
     fun closeItemMenu() {
-        requestedMenuState.value = LauncherMenuState.Closed
+        requestedMenuState.value = MenuRequest.Closed
         menuItem.value = null
     }
 
     fun setItemName(launchable: Launchable, name: String) {
         prefsRepo.setItemName(launchable, name)
         openItemMenu(launchable)
+    }
+
+    fun addToFavorites(launchable: Launchable) {
+        setFavorite(launchable, favoritesRepo::add)
+    }
+
+    fun removeFromFavorites(launchable: Launchable) {
+        setFavorite(launchable, favoritesRepo::remove)
+    }
+
+    private fun setFavorite(launchable: Launchable, updateFavorite: suspend (Launchable) -> Unit) {
+        viewModelScope.launch {
+            updateFavorite(launchable)
+        }
+        closeItemMenu()
     }
 }

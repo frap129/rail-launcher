@@ -2,10 +2,13 @@ package feature.launcher
 
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
+import core.data.favorites.FavoriteRecord
+import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -247,7 +250,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(item)
-                assertEquals(LauncherMenuState.Menu(item = item), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = false), expectMostRecentItem())
             }
         }
     }
@@ -294,17 +297,212 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(item, RENAMED_NAME)
-                assertEquals(LauncherMenuState.Menu(item = item), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = false), expectMostRecentItem())
             }
         }
     }
 
+    @Test
+    fun `adds a Launchable to the Favorites shown on Home`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                assertTrue(expectHome().favorites.isEmpty())
+                viewModel.addToFavorites(item)
+                assertEquals(listOf(item), expectHome().favorites)
+            }
+        }
+    }
+
+    @Test
+    fun `adds Favorites in the order they were added`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.addToFavorites(item)
+                viewModel.addToFavorites(secondItem)
+                assertEquals(listOf(item, secondItem), expectHome().favorites)
+            }
+        }
+    }
+
+    @Test
+    fun `orders Favorites by their stored position`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 1),
+                    FavoriteRecord(key = secondItem.key, position = 0)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                assertEquals(listOf(secondItem, item), expectHome().favorites)
+            }
+        }
+    }
+
+    @Test
+    fun `removes a Launchable from the Favorites`() {
+        runTest {
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.addToFavorites(item)
+                assertEquals(listOf(item), expectHome().favorites)
+                viewModel.removeFromFavorites(item)
+                assertTrue(expectHome().favorites.isEmpty())
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `shows Remove from Favorites for a Favorite`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.addToFavorites(item)
+            viewModel.menuState.test {
+                viewModel.openItemMenu(item)
+                assertEquals(LauncherMenuState.Menu(item = item, isFavorite = true), expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `closes the menu after adding a Favorite`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.menuState.test {
+                viewModel.openItemMenu(item)
+                viewModel.addToFavorites(item)
+                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `closes the menu after removing a Favorite`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.addToFavorites(item)
+            viewModel.menuState.test {
+                viewModel.openItemMenu(item)
+                viewModel.removeFromFavorites(item)
+                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `adds a Rail deeplink to the Favorites`() {
+        runTest {
+            val railItem: Launchable = listedGroups.last().items.first()
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.addToFavorites(railItem)
+                assertEquals(listOf(railItem), expectHome().favorites)
+            }
+        }
+    }
+
+    @Test
+    fun `removes a Favorite whose Launchable no longer exists`() {
+        runTest {
+            val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = groups)
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+            val viewModel: LauncherViewModel = createViewModel(
+                launchableRepository = launchableRepository,
+                favoriteDao = favoriteDao
+            )
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.addToFavorites(item)
+                assertEquals(listOf(item), expectHome().favorites)
+                launchableRepository.setGroups(groups = listOf(LaunchableGroup.Star) + listedGroups.drop(1))
+                assertTrue(expectHome().favorites.isEmpty())
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `does not restore a Favorite whose Launchable reappears`() {
+        runTest {
+            val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.Star) + listedGroups.drop(1)
+            )
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
+            )
+            val viewModel: LauncherViewModel = createViewModel(
+                launchableRepository = launchableRepository,
+                favoriteDao = favoriteDao
+            )
+            viewModel.uiState.test {
+                assertTrue(expectHome().favorites.isEmpty())
+                launchableRepository.setGroups(groups = groups)
+                advanceUntilIdle()
+                val home: LauncherUiState.Home = viewModel.uiState.value as LauncherUiState.Home
+                assertTrue(home.favorites.isEmpty())
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `does not remove Favorites while the Launchables are loading`() {
+        runTest {
+            val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
+            )
+            val viewModel: LauncherViewModel = createViewModel(
+                launchableRepository = launchableRepository,
+                favoriteDao = favoriteDao
+            )
+            viewModel.uiState.test {
+                assertEquals(LauncherUiState.Loading, expectMostRecentItem())
+                launchableRepository.setGroups(groups = groups)
+                assertEquals(listOf(item), expectHome().favorites)
+            }
+            assertEquals(listOf(FavoriteRecord(key = item.key, position = 0)), favoriteDao.records)
+        }
+    }
+
+    @Test
+    fun `removes a Favorite when no Launchables remain`() {
+        runTest {
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
+            )
+            val viewModel: LauncherViewModel = createViewModel(
+                launchableRepository = FakeLaunchableRepository(groups = emptyList()),
+                favoriteDao = favoriteDao
+            )
+            viewModel.uiState.test {
+                assertEquals(LauncherUiState.Loading, expectMostRecentItem())
+                advanceUntilIdle()
+            }
+            assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    // The production repository with FakeFavoriteDao exercises the resolution and
+    // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun createViewModel(
-        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = groups)
+        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = groups),
+        favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = launchableRepository,
-        prefsRepo = preferencesRepository
+        prefsRepo = preferencesRepository,
+        favoritesRepo = IFavoritesRepositoryImpl(favoriteDao = favoriteDao, launchableRepository = launchableRepository)
     )
 
     private inline fun <reified T : LauncherUiState> TurbineTestContext<LauncherUiState>.expectState(): T {

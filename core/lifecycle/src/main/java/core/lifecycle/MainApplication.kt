@@ -8,6 +8,8 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
+import core.data.favorites.IFavoritesRepository
+import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.IIconRepository
 import core.data.icons.IIconRepositoryImpl
 import core.data.icons.IconMapper
@@ -17,6 +19,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
+import core.data.room.dao.FavoriteDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.SettingsDao
@@ -64,6 +67,7 @@ class MainApplication :
         single<PackIconDao> { database.getPackIconDao() }
         single<LaunchableCustomizationDao> { database.getLaunchableCustomizationDao() }
         single<SettingsDao> { database.getSettingsDao() }
+        single<FavoriteDao> { database.getFavoriteDao() }
     }
 
     /**
@@ -77,6 +81,7 @@ class MainApplication :
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get()) }
+        single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get()) }
     }
 
     /**
@@ -87,7 +92,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
     }
 
