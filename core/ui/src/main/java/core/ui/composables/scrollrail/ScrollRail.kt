@@ -166,6 +166,7 @@ fun ScrollRail(
                 )
                 OutlinedText(
                     text = label,
+                    contentAlignment = Alignment.Center,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W500,
                     lineHeight = 16.sp,
