@@ -20,7 +20,7 @@ plugins {
 
 group = "dev.maples.build"
 
-val javaVersion = JavaVersion.VERSION_17
+val javaVersion = JavaVersion.VERSION_21
 
 java {
     sourceCompatibility = javaVersion
@@ -28,7 +28,7 @@ java {
 }
 
 kotlin {
-    jvmToolchain(javaVersion.ordinal + 1)
+    jvmToolchain(javaVersion.majorVersion.toInt())
 }
 
 dependencies {

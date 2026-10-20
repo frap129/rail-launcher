@@ -14,8 +14,7 @@
  *   limitations under the License.
  */
 
-import com.android.build.gradle.BaseExtension
-import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
+import com.android.build.api.dsl.ApplicationExtension
 import dev.maples.build.configureAndroid
 import dev.maples.build.configureAndroidBase
 import dev.maples.build.implementation
@@ -23,7 +22,6 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
-import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 
@@ -32,19 +30,15 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
         with(target) {
             with(pluginManager) {
                 apply("com.android.application")
-                apply("org.jetbrains.kotlin.android")
                 apply("androidx.baselineprofile")
             }
 
-            configureAndroidBase(extensions.getByType<BaseExtension>())
-            extensions.configure<BaseAppModuleExtension> {
-                configureAndroid(target, this)
-                this.apply {
-                    val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-                    dependencies {
-                        implementation(libs, "androidx.profileinstaller")
-                    }
-                }
+            configureAndroidBase()
+            configureAndroid(target, extensions.getByType<ApplicationExtension>())
+
+            val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+            dependencies {
+                implementation(libs, "androidx.profileinstaller")
             }
         }
     }

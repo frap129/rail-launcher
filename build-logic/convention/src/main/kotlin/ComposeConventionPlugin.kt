@@ -14,7 +14,7 @@
  *   limitations under the License.
  */
 
-import com.android.build.gradle.BaseExtension
+import com.android.build.api.dsl.CommonExtension
 import dev.maples.build.configureCompose
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -27,7 +27,7 @@ class ComposeConventionPlugin : Plugin<Project> {
                 apply("org.jetbrains.kotlin.plugin.compose")
             }
 
-            val extension = extensions.getByType<BaseExtension>()
+            val extension = extensions.getByType<CommonExtension>()
             configureCompose(extension)
         }
     }

@@ -210,7 +210,9 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         item = currentMenuState.item,
                         isFavorite = currentMenuState.isFavorite
                     )
+
                     is LauncherMenuState.Rename -> LauncherItemEditName(currentMenuState.item)
+
                     LauncherMenuState.Closed -> {} // this state is never reached
                 }
             }

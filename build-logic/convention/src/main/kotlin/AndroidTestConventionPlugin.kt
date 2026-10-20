@@ -14,7 +14,7 @@
  *   limitations under the License.
  */
 
-import com.android.build.gradle.TestExtension
+import com.android.build.api.dsl.TestExtension
 import dev.maples.build.androidTestImplementation
 import dev.maples.build.configureAndroid
 import dev.maples.build.debugImplementation
@@ -22,7 +22,6 @@ import dev.maples.build.testImplementation
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
-import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 
@@ -31,12 +30,9 @@ class AndroidTestConventionPlugin : Plugin<Project> {
         with(target) {
             with(pluginManager) {
                 apply("com.android.test")
-                apply("org.jetbrains.kotlin.android")
             }
 
-            extensions.configure<TestExtension> {
-                configureAndroid(target, this)
-            }
+            configureAndroid(target, extensions.getByType<TestExtension>())
 
             val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
             dependencies {

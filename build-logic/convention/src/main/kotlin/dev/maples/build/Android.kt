@@ -2,7 +2,6 @@ package dev.maples.build
 
 import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
 import com.android.build.api.dsl.CommonExtension
-import com.android.build.gradle.BaseExtension
 import java.io.FileInputStream
 import java.util.Properties
 import org.gradle.api.JavaVersion
@@ -13,40 +12,44 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
-import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 private val javaVersion = JavaVersion.VERSION_17
+private const val JVM_TOOLCHAIN_VERSION = 21
+private const val COMPILE_SDK = 36
+private const val MIN_SDK = 32
 
-internal fun configureAndroid(target: Project, commonExtension: CommonExtension<*, *, *, *, *, *>) {
+internal fun configureAndroid(target: Project, commonExtension: CommonExtension) {
     commonExtension.apply {
-        compileSdk = 35
+        compileSdk = COMPILE_SDK
 
-        defaultConfig {
-            minSdk = 32
+        defaultConfig.apply {
+            minSdk = MIN_SDK
             testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-            vectorDrawables {
-                useSupportLibrary = true
-            }
+            vectorDrawables.useSupportLibrary = true
         }
 
-        compileOptions {
+        compileOptions.apply {
             sourceCompatibility = javaVersion
             targetCompatibility = javaVersion
         }
 
-        target.kotlinExtension.jvmToolchain(javaVersion.ordinal + 1)
+        buildFeatures.buildConfig = true
 
-        buildFeatures {
-            buildConfig = true
+        target.extensions.configure<KotlinAndroidProjectExtension> {
+            jvmToolchain(JVM_TOOLCHAIN_VERSION)
+            compilerOptions {
+                jvmTarget.set(JvmTarget.JVM_17)
+            }
         }
 
         try {
             val keystorePropertiesFile = target.rootProject.file("keystore.properties")
             val keystoreProperties = Properties()
             if (keystorePropertiesFile.exists()) {
-                signingConfigs {
-                    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+                signingConfigs.apply {
                     buildTypes.names.forEach { variant ->
                         val prefix = if (keystoreProperties.keys.any { (it as String).contains(variant) }) "$variant." else ""
                         val config = when (variant) {
@@ -69,33 +72,31 @@ internal fun configureAndroid(target: Project, commonExtension: CommonExtension<
     }
 }
 
-internal fun Project.configureAndroidBase(commonExtension: BaseExtension) {
-    commonExtension.apply {
-        val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-        dependencies {
-            implementation(libs, "androidx.core.ktx")
-            implementation(libs, "kotlinx.coroutines.core")
-            implementation(libs, "kotlinx.coroutines.android")
+internal fun Project.configureAndroidBase() {
+    val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+    dependencies {
+        implementation(libs, "androidx.core.ktx")
+        implementation(libs, "kotlinx.coroutines.core")
+        implementation(libs, "kotlinx.coroutines.android")
 
-            implementation(libs, "androidx.lifecycle.runtime.ktx")
-            implementation(libs, "androidx.lifecycle.viewmodel.compose")
-            implementation(libs, "androidx.lifecycle.service")
-            annotationProcessor(libs, "androidx.lifecycle.compiler")
+        implementation(libs, "androidx.lifecycle.runtime.ktx")
+        implementation(libs, "androidx.lifecycle.viewmodel.compose")
+        implementation(libs, "androidx.lifecycle.service")
+        annotationProcessor(libs, "androidx.lifecycle.compiler")
 
-            add("implementation", platform(libs.findLibrary("koin.bom").get()))
-            implementation(libs, "koin.android")
-            implementation(libs, "util.timber")
+        add("implementation", platform(libs.findLibrary("koin.bom").get()))
+        implementation(libs, "koin.android")
+        implementation(libs, "util.timber")
 
-            testImplementation(libs, "test.junit")
-            testImplementation(libs, "test.kotlinx.coroutines.test")
-            testImplementation(libs, "test.turbine")
-            add("baselineProfile", project(":core:baselineprofile"))
-        }
+        testImplementation(libs, "test.junit")
+        testImplementation(libs, "test.kotlinx.coroutines.test")
+        testImplementation(libs, "test.turbine")
+        add("baselineProfile", project(":core:baselineprofile"))
+    }
 
-        extensions.configure<BaselineProfileConsumerExtension> {
-            mergeIntoMain = true
-            dexLayoutOptimization = true
-            saveInSrc = true
-        }
+    extensions.configure<BaselineProfileConsumerExtension> {
+        mergeIntoMain = true
+        dexLayoutOptimization = true
+        saveInSrc = true
     }
 }

@@ -144,6 +144,7 @@ class LauncherViewModel(
     fun onRailReleased(group: LaunchableGroup) {
         when (group) {
             LaunchableGroup.Star -> showHomeFromRail()
+
             is LaunchableGroup.Listed -> {
                 selectedGroup.value = group
                 scrolling.value = false
