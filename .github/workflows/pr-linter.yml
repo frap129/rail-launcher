@@ -7,6 +7,9 @@ on:
       - edited
       - labeled
       - synchronize # when PR branch is updated
+permissions:
+  contents: read
+  statuses: write
 # only run one workflow at a time and kill the others
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
