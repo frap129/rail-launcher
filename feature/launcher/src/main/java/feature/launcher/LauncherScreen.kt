@@ -110,7 +110,8 @@ val launcherDestination = Destination(
     route = "launcher",
     content = { navController, backStackEntry ->
         LauncherScreen(navController, backStackEntry)
-    }
+    },
+    isWallpaperBacked = true
 )
 
 private val homeEdgePadding = 32.dp

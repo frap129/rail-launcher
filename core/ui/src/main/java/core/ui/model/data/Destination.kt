@@ -25,6 +25,8 @@ import core.ui.theme.ANIMATION_DURATION
  * @property enterTransition animation to use when entering the destination
  * @property exitTransition animation to use when exiting the destination
  * @property arguments list of [NamedNavArgument] supported by the destination
+ * @property isWallpaperBacked whether the destination shows the wallpaper behind
+ * the transparent system bars
  * @constructor Creates a new destination object
  */
 class Destination(
@@ -40,5 +42,6 @@ class Destination(
     val exitTransition: (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition?)? = {
         fadeOut(animationSpec = tween(ANIMATION_DURATION))
     },
-    val arguments: List<NamedNavArgument> = emptyList()
+    val arguments: List<NamedNavArgument> = emptyList(),
+    val isWallpaperBacked: Boolean = false
 )
