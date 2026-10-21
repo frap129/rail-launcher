@@ -1,21 +1,28 @@
 package feature.settings
 
 import android.annotation.SuppressLint
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,14 +30,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -52,8 +67,13 @@ import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Th
 import core.data.icons.model.IconPack
+import core.data.prefs.HeaderAlignment
+import core.data.prefs.HeaderSize
+import core.data.prefs.TimeFormat
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
+import feature.widgets.HeaderClockStyleChooser
+import feature.widgets.labelResource
 import org.koin.androidx.compose.koinViewModel
 
 private const val SCREEN_ARGUMENT = "screen"
@@ -175,49 +195,332 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
 @Composable
 fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) {
     val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
+    var showClockStyleChooser: Boolean by remember { mutableStateOf(false) }
+    var openDialog: WidgetSettingsDialog? by remember { mutableStateOf(null) }
+    WidgetSettingsList(
+        uiState = uiState,
+        viewModel = viewModel,
+        onClockStyleClick = { showClockStyleChooser = true },
+        onDialogClick = { dialog -> openDialog = dialog }
+    )
+    if (showClockStyleChooser) {
+        ClockStyleChooserSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            onDismiss = { showClockStyleChooser = false }
+        )
+    }
+    openDialog?.let { dialog ->
+        WidgetSettingsDialogContent(
+            dialog = dialog,
+            uiState = uiState,
+            viewModel = viewModel,
+            onDismiss = { openDialog = null }
+        )
+    }
+}
+
+@Composable
+private fun WidgetSettingsList(
+    uiState: WidgetSettingsUiState,
+    viewModel: WidgetSettingsViewModel,
+    onClockStyleClick: () -> Unit,
+    onDialogClick: (WidgetSettingsDialog) -> Unit
+) {
     LazyColumn {
+        item { HeaderSectionTitle() }
+        item { HeaderVisibilityRows(uiState = uiState, viewModel = viewModel) }
         item {
-            Text(
-                text = stringResource(R.string.header),
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleSmall
+            HeaderFormatRows(
+                uiState = uiState,
+                viewModel = viewModel,
+                onClockStyleClick = onClockStyleClick,
+                onDialogClick = onDialogClick
             )
         }
         item {
-            SettingsSwitchRow(
-                title = stringResource(R.string.show_header),
-                checked = uiState.headerShown,
-                onCheckedChange = viewModel::setHeaderShown
-            )
-        }
-        item {
-            SettingsSwitchRow(
-                title = stringResource(R.string.clock),
-                checked = uiState.clockVisible,
-                enabled = uiState.headerShown && uiState.canHideClock,
-                supportingText = if (uiState.headerShown && !uiState.canHideClock) {
-                    stringResource(CoreUiR.string.header_last_part_supporting_text)
-                } else {
-                    null
-                },
-                onCheckedChange = viewModel::setClockVisible
-            )
-        }
-        item {
-            SettingsSwitchRow(
-                title = stringResource(R.string.date),
-                checked = uiState.dateVisible,
-                enabled = uiState.headerShown && uiState.canHideDate,
-                supportingText = if (uiState.headerShown && !uiState.canHideDate) {
-                    stringResource(CoreUiR.string.header_last_part_supporting_text)
-                } else {
-                    null
-                },
-                onCheckedChange = viewModel::setDateVisible
+            HeaderLayoutRows(
+                uiState = uiState,
+                viewModel = viewModel,
+                onDialogClick = onDialogClick
             )
         }
     }
+}
+
+@Composable
+private fun HeaderSectionTitle() {
+    Text(
+        text = stringResource(R.string.header),
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleSmall
+    )
+}
+
+@Composable
+private fun HeaderVisibilityRows(uiState: WidgetSettingsUiState, viewModel: WidgetSettingsViewModel) {
+    Column {
+        SettingsSwitchRow(
+            title = stringResource(R.string.show_header),
+            checked = uiState.headerShown,
+            onCheckedChange = viewModel::setHeaderShown
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.clock),
+            checked = uiState.clockVisible,
+            enabled = uiState.headerShown && uiState.canHideClock,
+            supportingText = if (uiState.headerShown && !uiState.canHideClock) {
+                stringResource(CoreUiR.string.header_last_part_supporting_text)
+            } else {
+                null
+            },
+            onCheckedChange = viewModel::setClockVisible
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.date),
+            checked = uiState.dateVisible,
+            enabled = uiState.headerShown && uiState.canHideDate,
+            supportingText = if (uiState.headerShown && !uiState.canHideDate) {
+                stringResource(CoreUiR.string.header_last_part_supporting_text)
+            } else {
+                null
+            },
+            onCheckedChange = viewModel::setDateVisible
+        )
+    }
+}
+
+@Composable
+private fun HeaderFormatRows(
+    uiState: WidgetSettingsUiState,
+    viewModel: WidgetSettingsViewModel,
+    onClockStyleClick: () -> Unit,
+    onDialogClick: (WidgetSettingsDialog) -> Unit
+) {
+    Column {
+        SettingsActionRow(
+            title = stringResource(R.string.clock_style),
+            value = stringResource(uiState.clockStyle.labelResource()),
+            enabled = uiState.headerShown,
+            onClick = onClockStyleClick
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.time_format),
+            value = stringResource(uiState.timeFormat.labelResource()),
+            enabled = uiState.headerShown,
+            onClick = { onDialogClick(WidgetSettingsDialog.TimeFormat) }
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.show_am_pm),
+            checked = uiState.showAmPm,
+            enabled = uiState.headerShown && uiState.canShowAmPm,
+            supportingText = if (!uiState.canShowAmPm) {
+                stringResource(R.string.only_in_12_hour)
+            } else {
+                null
+            },
+            onCheckedChange = viewModel::setShowAmPm
+        )
+    }
+}
+
+@Composable
+private fun HeaderLayoutRows(
+    uiState: WidgetSettingsUiState,
+    viewModel: WidgetSettingsViewModel,
+    onDialogClick: (WidgetSettingsDialog) -> Unit
+) {
+    val dateFormatLabel: String = uiState.dateFormatOptions
+        .firstOrNull { option -> option.preset == uiState.dateFormat }
+        ?.label
+        .orEmpty()
+    Column {
+        SettingsActionRow(
+            title = stringResource(R.string.date_format),
+            value = dateFormatLabel,
+            enabled = uiState.headerShown,
+            onClick = { onDialogClick(WidgetSettingsDialog.DateFormat) }
+        )
+        SettingsAlignmentRow(
+            alignment = uiState.alignment,
+            enabled = uiState.headerShown,
+            onAlignmentSelected = viewModel::setAlignment
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.size),
+            value = stringResource(uiState.size.labelResource()),
+            enabled = uiState.headerShown,
+            onClick = { onDialogClick(WidgetSettingsDialog.Size) }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ClockStyleChooserSheet(uiState: WidgetSettingsUiState, viewModel: WidgetSettingsViewModel, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        HeaderClockStyleChooser(
+            selected = uiState.clockStyle,
+            previews = uiState.clockStylePreviews,
+            onSelect = { style ->
+                viewModel.setClockStyle(style)
+                onDismiss()
+            }
+        )
+    }
+}
+
+@Composable
+private fun WidgetSettingsDialogContent(
+    dialog: WidgetSettingsDialog,
+    uiState: WidgetSettingsUiState,
+    viewModel: WidgetSettingsViewModel,
+    onDismiss: () -> Unit
+) {
+    when (dialog) {
+        WidgetSettingsDialog.TimeFormat -> SingleChoiceDialog(
+            title = stringResource(R.string.time_format),
+            options = TimeFormat.entries.map { format ->
+                SingleChoiceOption(value = format, label = stringResource(format.labelResource()))
+            },
+            selected = uiState.timeFormat,
+            onSelect = { format ->
+                viewModel.setTimeFormat(format)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+
+        WidgetSettingsDialog.DateFormat -> SingleChoiceDialog(
+            title = stringResource(R.string.date_format),
+            options = uiState.dateFormatOptions.map { option ->
+                SingleChoiceOption(value = option.preset, label = option.label)
+            },
+            selected = uiState.dateFormat,
+            onSelect = { format ->
+                viewModel.setDateFormat(format)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+
+        WidgetSettingsDialog.Size -> SingleChoiceDialog(
+            title = stringResource(R.string.size),
+            options = HeaderSize.entries.map { size ->
+                SingleChoiceOption(value = size, label = stringResource(size.labelResource()))
+            },
+            selected = uiState.size,
+            onSelect = { size ->
+                viewModel.setSize(size)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+    }
+}
+
+private enum class WidgetSettingsDialog {
+    TimeFormat,
+    DateFormat,
+    Size
+}
+
+private data class SingleChoiceOption<T>(val value: T, val label: String)
+
+@Composable
+private fun <T> SingleChoiceDialog(
+    title: String,
+    options: List<SingleChoiceOption<T>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                options.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = option.value == selected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(option.value) }
+                            )
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = option.value == selected, onClick = null)
+                        Text(text = option.label, modifier = Modifier.padding(start = 16.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun SettingsAlignmentRow(alignment: HeaderAlignment, enabled: Boolean, onAlignmentSelected: (HeaderAlignment) -> Unit) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(text = stringResource(R.string.alignment), style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            HeaderAlignment.entries.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = alignment == option,
+                    onClick = { onAlignmentSelected(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = HeaderAlignment.entries.size),
+                    enabled = enabled
+                ) {
+                    Text(stringResource(option.labelResource()))
+                }
+            }
+        }
+    }
+}
+
+@StringRes
+private fun TimeFormat.labelResource(): Int = when (this) {
+    TimeFormat.SYSTEM -> R.string.time_format_system
+    TimeFormat.H12 -> R.string.time_format_12_hour
+    TimeFormat.H24 -> R.string.time_format_24_hour
+}
+
+@StringRes
+private fun HeaderAlignment.labelResource(): Int = when (this) {
+    HeaderAlignment.START -> R.string.align_start
+    HeaderAlignment.CENTER -> R.string.align_center
+    HeaderAlignment.END -> R.string.align_end
+}
+
+@StringRes
+private fun HeaderSize.labelResource(): Int = when (this) {
+    HeaderSize.SMALL -> R.string.size_small
+    HeaderSize.DEFAULT -> R.string.size_default
+    HeaderSize.LARGE -> R.string.size_large
+    HeaderSize.EXTRA_LARGE -> R.string.size_extra_large
+}
+
+@Composable
+private fun SettingsActionRow(title: String, value: String, enabled: Boolean, onClick: () -> Unit) {
+    ListItem(
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+        headlineContent = { Text(title) },
+        supportingContent = if (value.isNotEmpty()) {
+            { Text(value) }
+        } else {
+            null
+        }
+    )
 }
 
 @Composable

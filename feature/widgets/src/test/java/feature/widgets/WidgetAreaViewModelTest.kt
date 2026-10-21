@@ -2,7 +2,11 @@ package feature.widgets
 
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
+import core.data.prefs.ClockStyle
+import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
+import core.data.prefs.HeaderSize
+import core.data.prefs.TimeFormat
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeWidgetAreaRepository
@@ -74,6 +78,31 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
+    fun `re-emits the Header when the style settings change`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        viewModel.widgetAreaState.test {
+            assertEquals(ClockStyle.CLASSIC, expectMostRecentItem().header().style)
+            settingsRepository.updateHeaderSettings { settings ->
+                settings.copy(
+                    clockStyle = ClockStyle.STACKED,
+                    timeFormat = TimeFormat.H24,
+                    alignment = HeaderAlignment.END,
+                    size = HeaderSize.EXTRA_LARGE
+                )
+            }
+            val header: HeaderModel = awaitItem().header()
+            assertEquals(ClockStyle.STACKED, header.style)
+            assertEquals(HeaderAlignment.END, header.alignment)
+            assertEquals(HeaderSize.EXTRA_LARGE, header.size)
+            assertEquals("14", header.time?.hourText)
+            assertEquals("05", header.time?.minuteText)
+            assertEquals("Tuesday, October 20", header.date?.text)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `reformats when the reading zone or locale changes`() = runTest {
         val clockSource: FakeClockSource = FakeClockSource(reading())
         val viewModel: WidgetAreaViewModel = createViewModel(clockSource = clockSource)
@@ -109,6 +138,21 @@ class WidgetAreaViewModelTest {
             val header: HeaderModel = expectMostRecentItem().header()
             assertNull(header.time)
             assertEquals("Tuesday, October 20", header.date?.text)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps the date in Compact style when the clock is off`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(clockVisible = false, clockStyle = ClockStyle.COMPACT)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        viewModel.widgetAreaState.test {
+            val header: HeaderModel = expectMostRecentItem().header()
+            assertNull(header.time)
+            assertEquals("Tuesday, October 20", header.date?.text)
+            assertEquals(ClockStyle.COMPACT, header.style)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -170,6 +214,7 @@ class WidgetAreaViewModelTest {
                 listOf(
                     WidgetMenuAction.Clock,
                     WidgetMenuAction.Date,
+                    WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
                 ),
@@ -179,6 +224,26 @@ class WidgetAreaViewModelTest {
             assertTrue((menu.items[0] as WidgetMenuItem.Toggle).enabled)
             assertTrue((menu.items[1] as WidgetMenuItem.Toggle).checked)
             assertTrue((menu.items[1] as WidgetMenuItem.Toggle).enabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `opens the Clock Style chooser with previews and applies a style`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        viewModel.menuState.test {
+            viewModel.openHeaderMenu()
+            expectHeaderMenu()
+            viewModel.openClockStyleChooser()
+            val chooser: WidgetMenuState.ClockStyleChooser = expectState()
+            assertEquals(ClockStyle.CLASSIC, chooser.selected)
+            assertEquals(ClockStyle.entries, chooser.previews.map { preview -> preview.style })
+            assertEquals("2:05", chooser.previews.first().time?.text)
+            viewModel.selectClockStyle(ClockStyle.BOLD)
+            advanceUntilIdle()
+            assertEquals(WidgetMenuState.Closed, expectMostRecentItem())
+            assertEquals(ClockStyle.BOLD, settingsRepository.updates.last().clockStyle)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -292,7 +357,7 @@ class WidgetAreaViewModelTest {
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
-        datePatternSource = FakeDatePatternSource(),
+        formatter = HeaderFormatter(FakeDatePatternSource()),
         settingsRepository = settingsRepository,
         homeEditState = homeEditState
     )

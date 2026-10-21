@@ -22,9 +22,11 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
+import compose.icons.fontawesomeicons.solid.Font
 import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
+import core.data.prefs.ClockStyle
 
 /** The content of the Widget Area's context sheet. */
 @Composable
@@ -32,6 +34,7 @@ fun WidgetMenu(
     state: WidgetMenuState,
     onToggle: (WidgetMenuAction, Boolean) -> Unit,
     onAction: (WidgetMenuAction) -> Unit,
+    onClockStyleSelected: (ClockStyle) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (state) {
@@ -53,6 +56,13 @@ fun WidgetMenu(
                 WidgetMenuRow(item = item, onToggle = onToggle, onAction = onAction)
             }
         }
+
+        is WidgetMenuState.ClockStyleChooser -> HeaderClockStyleChooser(
+            selected = state.selected,
+            previews = state.previews,
+            onSelect = onClockStyleSelected,
+            modifier = modifier
+        )
     }
 }
 
@@ -115,6 +125,7 @@ private fun WidgetMenuIcon(action: WidgetMenuAction) {
 private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Clock -> R.string.widget_clock
     WidgetMenuAction.Date -> R.string.widget_date
+    WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
@@ -123,6 +134,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
 private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.Clock -> FontAwesomeIcons.Solid.Clock
     WidgetMenuAction.Date -> FontAwesomeIcons.Solid.Calendar
+    WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH

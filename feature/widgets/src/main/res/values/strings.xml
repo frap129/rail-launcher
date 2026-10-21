@@ -7,6 +7,12 @@
     <string name="header_title">Header</string>
     <string name="widget_clock">Clock</string>
     <string name="widget_date">Date</string>
+    <string name="clock_style">Clock Style…</string>
+    <string name="clock_style_title">Clock Style</string>
+    <string name="clock_style_classic">Classic</string>
+    <string name="clock_style_bold">Bold</string>
+    <string name="clock_style_stacked">Stacked</string>
+    <string name="clock_style_compact">Compact</string>
     <string name="remove_header">Remove Header</string>
     <string name="restore_header">Restore Header</string>
     <string name="widget_settings">Widget settings</string>

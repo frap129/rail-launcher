@@ -2,19 +2,15 @@ package feature.widgets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.time.ClockReading
 import core.data.time.IClockSource
-import core.data.time.IDatePatternSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
 import core.ui.R as CoreUiR
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
-import java.util.Locale
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,12 +23,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private const val STATE_TIMEOUT_MS: Long = 5_000L
-private const val TIME_SKELETON_12_HOUR: String = "hm"
-private const val TIME_SKELETON_24_HOUR: String = "Hm"
-private const val DATE_SKELETON: String = "EEEEMMMMd"
-private const val SPOKEN_TIME_PATTERN_12_HOUR: String = "h:mm a"
-private const val SPOKEN_TIME_PATTERN_24_HOUR: String = "HH:mm"
-private val DAY_PERIOD_PATTERN: Regex = Regex("[\\s\\u00A0\\u202F]*[aB]+[\\s\\u00A0\\u202F]*")
 
 sealed interface WidgetMenuState {
     data object Closed : WidgetMenuState
@@ -40,6 +30,8 @@ sealed interface WidgetMenuState {
     data class HeaderMenu(val items: List<WidgetMenuItem>) : WidgetMenuState
 
     data class EmptyAreaMenu(val items: List<WidgetMenuItem>) : WidgetMenuState
+
+    data class ClockStyleChooser(val selected: ClockStyle, val previews: List<HeaderModel>) : WidgetMenuState
 }
 
 sealed interface WidgetMenuItem {
@@ -54,6 +46,7 @@ sealed interface WidgetMenuItem {
 enum class WidgetMenuAction {
     Clock,
     Date,
+    ClockStyle,
     RemoveHeader,
     RestoreHeader,
     WidgetSettings
@@ -67,13 +60,14 @@ sealed interface WidgetAreaEvent {
 
 private enum class WidgetMenuTarget {
     Header,
-    EmptyArea
+    EmptyArea,
+    ClockStyle
 }
 
 class WidgetAreaViewModel(
     private val repository: IWidgetAreaRepository,
-    clockSource: IClockSource,
-    private val datePatternSource: IDatePatternSource,
+    private val clockSource: IClockSource,
+    private val formatter: HeaderFormatter,
     private val settingsRepository: IWidgetSettingsRepository,
     private val homeEditState: HomeEditState
 ) : ViewModel() {
@@ -98,12 +92,13 @@ class WidgetAreaViewModel(
         menuTarget,
         repository.places,
         settingsRepository.headerSettings,
-        homeEditState.mode
-    ) { target, places, settings, mode ->
+        homeEditState.mode,
+        clockSource.readings
+    ) { target, places, settings, mode, reading ->
         if (mode != HomeEditMode.None) {
             WidgetMenuState.Closed
         } else {
-            target.toMenuState(places = places, settings = settings)
+            target.toMenuState(places = places, settings = settings, reading = reading)
         }
     }.stateIn(
         scope = viewModelScope,
@@ -128,6 +123,17 @@ class WidgetAreaViewModel(
 
     fun closeMenu() {
         menuTarget.value = null
+    }
+
+    fun openClockStyleChooser() {
+        menuTarget.value = WidgetMenuTarget.ClockStyle
+    }
+
+    fun selectClockStyle(style: ClockStyle) {
+        menuTarget.value = null
+        viewModelScope.launch {
+            settingsRepository.updateHeaderSettings { settings -> settings.copy(clockStyle = style) }
+        }
     }
 
     fun setClockVisible(visible: Boolean) {
@@ -180,19 +186,31 @@ class WidgetAreaViewModel(
         }
     }
 
-    private fun WidgetMenuTarget?.toMenuState(places: List<WidgetPlace>, settings: HeaderSettings): WidgetMenuState = when (this) {
-        WidgetMenuTarget.Header -> {
-            if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
-                WidgetMenuState.Closed
-            } else {
-                WidgetMenuState.HeaderMenu(items = headerMenuItems(settings))
+    private fun WidgetMenuTarget?.toMenuState(places: List<WidgetPlace>, settings: HeaderSettings, reading: ClockReading): WidgetMenuState =
+        when (this) {
+            WidgetMenuTarget.Header -> {
+                if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
+                    WidgetMenuState.Closed
+                } else {
+                    WidgetMenuState.HeaderMenu(items = headerMenuItems(settings))
+                }
             }
+
+            WidgetMenuTarget.ClockStyle -> {
+                if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
+                    WidgetMenuState.Closed
+                } else {
+                    WidgetMenuState.ClockStyleChooser(
+                        selected = settings.clockStyle,
+                        previews = formatter.previews(reading = reading, settings = settings)
+                    )
+                }
+            }
+
+            WidgetMenuTarget.EmptyArea -> WidgetMenuState.EmptyAreaMenu(items = emptyAreaMenuItems(places))
+
+            null -> WidgetMenuState.Closed
         }
-
-        WidgetMenuTarget.EmptyArea -> WidgetMenuState.EmptyAreaMenu(items = emptyAreaMenuItems(places))
-
-        null -> WidgetMenuState.Closed
-    }
 
     private fun headerMenuItems(settings: HeaderSettings): List<WidgetMenuItem> = listOf(
         WidgetMenuItem.Toggle(
@@ -207,6 +225,7 @@ class WidgetAreaViewModel(
             enabled = settings.canHideDate,
             supportingText = if (settings.canHideDate) null else CoreUiR.string.header_last_part_supporting_text
         ),
+        WidgetMenuItem.Action(id = WidgetMenuAction.ClockStyle),
         WidgetMenuItem.Action(id = WidgetMenuAction.RemoveHeader),
         WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings)
     )
@@ -228,51 +247,7 @@ class WidgetAreaViewModel(
     }
 
     private fun PlacedWidget.toModel(reading: ClockReading, settings: HeaderSettings): WidgetModel? = when (this) {
-        is PlacedWidget.Header -> toHeaderModel(reading, settings)
+        is PlacedWidget.Header -> formatter.format(id = id, reading = reading, settings = settings)
         is PlacedWidget.AppWidget -> null
     }
-
-    private fun PlacedWidget.Header.toHeaderModel(reading: ClockReading, settings: HeaderSettings): HeaderModel {
-        val zonedDateTime: ZonedDateTime = reading.instant.atZone(reading.zoneId)
-        return HeaderModel(
-            id = id,
-            time = if (settings.clockVisible) timeLine(zonedDateTime, reading) else null,
-            date = if (settings.dateVisible) dateLine(zonedDateTime, reading) else null
-        )
-    }
-
-    private fun timeLine(zonedDateTime: ZonedDateTime, reading: ClockReading): HeaderLineModel {
-        val timePattern: String = datePatternSource
-            .bestPattern(
-                skeleton = if (reading.isSystem24Hour) TIME_SKELETON_24_HOUR else TIME_SKELETON_12_HOUR,
-                locale = reading.locale
-            )
-            .replace(DAY_PERIOD_PATTERN, "")
-        val spokenTimePattern: String = if (reading.isSystem24Hour) {
-            SPOKEN_TIME_PATTERN_24_HOUR
-        } else {
-            SPOKEN_TIME_PATTERN_12_HOUR
-        }
-        return HeaderLineModel(
-            text = format(zonedDateTime, timePattern, reading.locale),
-            spokenText = format(zonedDateTime, spokenTimePattern, reading.locale),
-            tapTarget = HeaderTapTarget.SystemAlarms,
-            clickLabel = R.string.open_alarms
-        )
-    }
-
-    private fun dateLine(zonedDateTime: ZonedDateTime, reading: ClockReading): HeaderLineModel {
-        val datePattern: String = datePatternSource.bestPattern(DATE_SKELETON, reading.locale)
-        return HeaderLineModel(
-            text = format(zonedDateTime, datePattern, reading.locale),
-            spokenText = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
-                .withLocale(reading.locale)
-                .format(zonedDateTime),
-            tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = reading.instant.toEpochMilli()),
-            clickLabel = R.string.open_calendar
-        )
-    }
-
-    private fun format(zonedDateTime: ZonedDateTime, pattern: String, locale: Locale): String =
-        DateTimeFormatter.ofPattern(pattern, locale).format(zonedDateTime)
 }

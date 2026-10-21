@@ -6,38 +6,27 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
 import android.widget.Toast
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import core.ui.composables.OutlinedText
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
 import core.ui.util.performLongPressHaptic
 import org.koin.androidx.compose.koinViewModel
 import timber.log.Timber
 
-private val minTouchTargetHeight: Dp = 48.dp
 private val emptyWidgetAreaHeight: Dp = 96.dp
 
 /** The standalone Widget Area, rendered above Favorites on Home. */
@@ -106,7 +95,7 @@ private fun WidgetPlaceContent(
     Column(modifier = Modifier.fillMaxWidth()) {
         place.widgets.forEach { widget ->
             when (widget) {
-                is HeaderModel -> HeaderWidget(
+                is HeaderModel -> HeaderContent(
                     model = widget,
                     menuEnabled = menuEnabled,
                     onTapTarget = onTapTarget,
@@ -114,61 +103,6 @@ private fun WidgetPlaceContent(
                 )
             }
         }
-    }
-}
-
-@Composable
-internal fun HeaderWidget(model: HeaderModel, menuEnabled: Boolean, onTapTarget: (HeaderTapTarget) -> Unit, onLongPress: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        model.time?.let { line ->
-            HeaderTapTargetText(
-                line = line,
-                style = MaterialTheme.typography.displayLarge,
-                menuEnabled = menuEnabled,
-                onTapTarget = onTapTarget,
-                onLongPress = onLongPress
-            )
-        }
-        model.date?.let { line ->
-            HeaderTapTargetText(
-                line = line,
-                style = MaterialTheme.typography.titleMedium,
-                menuEnabled = menuEnabled,
-                onTapTarget = onTapTarget,
-                onLongPress = onLongPress
-            )
-        }
-    }
-}
-
-@Composable
-private fun HeaderTapTargetText(
-    line: HeaderLineModel,
-    style: TextStyle,
-    menuEnabled: Boolean,
-    onTapTarget: (HeaderTapTarget) -> Unit,
-    onLongPress: () -> Unit
-) {
-    val clickLabel: String = stringResource(line.clickLabel)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = minTouchTargetHeight)
-            .clearAndSetSemantics {
-                contentDescription = line.spokenText
-                onClick(label = clickLabel) {
-                    onTapTarget(line.tapTarget)
-                    true
-                }
-            }
-            .combinedClickable(
-                onClickLabel = clickLabel,
-                onLongClick = if (menuEnabled) onLongPress else null,
-                onClick = { onTapTarget(line.tapTarget) }
-            ),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        OutlinedText(text = line.text, style = style)
     }
 }
 
