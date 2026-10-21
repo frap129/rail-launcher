@@ -17,7 +17,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -76,10 +75,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -117,11 +114,12 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.widgets.IAppWidgetHostSource
 import core.ui.R as CoreUiR
+import core.ui.composables.DragHandle
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.homeEdgePadding
-import core.ui.layout.homeRailTouchInset
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.util.consumeTouches
@@ -137,6 +135,7 @@ import feature.widgets.ResizeState
 import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
 import feature.widgets.WidgetAreaViewModel
+import feature.widgets.WidgetEditDraft
 import feature.widgets.WidgetMenu
 import feature.widgets.WidgetMenuAction
 import feature.widgets.WidgetMenuState
@@ -156,12 +155,8 @@ val launcherDestination = Destination(
     isWallpaperBacked = true
 )
 
-private val dragHandleSize = 48.dp
-private val dragHandleDotRadius = 3.dp
-private val dragHandleDotSpacing = 12.dp
-private val dragHandleOutlineWidth = 2.dp
-private val dragHandleRailGap = 16.dp
 private val doneButtonPadding = 24.dp
+private val favoriteToggleSize = 48.dp
 private val favoriteStarSize = 28.dp
 private val favoriteStarOutlineSize = 36.dp
 private val contentHorizontalPadding: Dp = 32.dp
@@ -192,9 +187,6 @@ data class LauncherItemActions(
 
 @Immutable
 data class LauncherRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>)
-
-// The Rail's touch column starts homeRailTouchInset from the end edge.
-private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHandleRailGap
 
 @Composable
 fun LauncherScreen(
@@ -238,6 +230,7 @@ fun LauncherScreen(
 
                 Lifecycle.Event.ON_STOP -> {
                     widgetViewModel.finishResize()
+                    widgetViewModel.finishEditingWidgets()
                     appWidgetHostSource.stopListening()
                 }
 
@@ -363,7 +356,8 @@ fun LauncherScreen(
             .collect { requested ->
                 if (requested) {
                     backStackEntry.savedStateHandle[HOME_INTENT_REQUEST_KEY] = false
-                    if (!widgetViewModel.onHomeIntent()) {
+                    val wasEditingWidgets: Boolean = widgetViewModel.editState.value != null
+                    if (!widgetViewModel.onHomeIntent() || wasEditingWidgets) {
                         viewModel.onHomeIntent()
                     }
                 }
@@ -379,7 +373,9 @@ fun LauncherScreen(
     }
     val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
+    val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val isResizing: Boolean = resizeState != null
+    val isEditingWidgets: Boolean = editDraft != null
     BackHandler {
         if (!widgetViewModel.onBack()) {
             viewModel.onBack()
@@ -391,10 +387,11 @@ fun LauncherScreen(
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem,
-            isResizing = isResizing
+            isResizing = isResizing,
+            isEditingWidgets = isEditingWidgets
         )
-        LauncherRail(viewModel, enabled = !isResizing)
-        LauncherDoneButton(viewModel)
+        LauncherRail(viewModel, enabled = !isResizing && !isEditingWidgets)
+        LauncherDoneButton(viewModel, widgetViewModel)
         LauncherMenu(viewModel)
         LauncherWidgetMenu(widgetViewModel)
         if (addFlowState is AddWidgetFlowState.Picking) {
@@ -443,7 +440,8 @@ private fun LauncherContent(
     viewModel: LauncherViewModel,
     widgetViewModel: WidgetAreaViewModel,
     onItemLaunch: (Launchable) -> Unit,
-    isResizing: Boolean
+    isResizing: Boolean,
+    isEditingWidgets: Boolean
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
@@ -498,8 +496,9 @@ private fun LauncherContent(
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 isResizing = isResizing,
+                isEditingWidgets = isEditingWidgets,
                 onResizeOutsideTap = widgetViewModel::finishResize,
-                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites && !isResizing) }
+                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites && !isResizing && !isEditingWidgets) }
             )
         }
         FocusRevealContent(
@@ -611,15 +610,23 @@ private fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolean
 }
 
 @Composable
-private fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel) {
+private fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetViewModel: WidgetAreaViewModel) {
     val isEditingFavorites: Boolean by viewModel.isEditingFavorites.collectAsState()
-    if (isEditingFavorites) {
+    val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
+    val isEditingWidgets: Boolean = editDraft != null
+    if (isEditingFavorites || isEditingWidgets) {
         FloatingActionButton(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .safeDrawingPadding()
                 .padding(doneButtonPadding),
-            onClick = viewModel::finishEditingFavorites
+            onClick = {
+                if (isEditingWidgets) {
+                    widgetViewModel.finishEditingWidgets()
+                } else {
+                    viewModel.finishEditingFavorites()
+                }
+            }
         ) {
             Text(stringResource(R.string.launcher_done))
         }
@@ -673,6 +680,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings -> Unit
 
                     WidgetMenuAction.UpcomingEvents -> viewModel.setUpcomingEventsEnabled(checked)
@@ -694,6 +702,7 @@ fun LauncherHome(
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit = {},
     isResizing: Boolean = false,
+    isEditingWidgets: Boolean = false,
     onResizeOutsideTap: () -> Unit = {},
     widgetContent: @Composable () -> Unit = {}
 ) {
@@ -707,8 +716,8 @@ fun LauncherHome(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .pointerInput(home.isEditingFavorites, isResizing) {
-                    if (!home.isEditingFavorites && !isResizing) {
+                .pointerInput(home.isEditingFavorites, isResizing, isEditingWidgets) {
+                    if (!home.isEditingFavorites && !isResizing && !isEditingWidgets) {
                         detectTapGestures(
                             onLongPress = {
                                 hapticFeedback.performLongPressHaptic()
@@ -729,10 +738,12 @@ fun LauncherHome(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .alpha(if (isResizing) RESIZE_DIMMED_ALPHA else 1f)
+                .alpha(if (isResizing || isEditingWidgets) RESIZE_DIMMED_ALPHA else 1f)
                 .then(
                     if (isResizing) {
                         Modifier.consumeTouches(onGestureEnd = onResizeOutsideTap)
+                    } else if (isEditingWidgets) {
+                        Modifier.consumeTouches()
                     } else {
                         Modifier
                     }
@@ -762,7 +773,7 @@ fun LauncherHome(
                                 modifier = Modifier.weight(1f)
                             )
                             if (home.isEditingFavorites) {
-                                FavoriteDragHandle(
+                                DragHandle(
                                     modifier = Modifier
                                         .padding(end = dragHandleEndPadding)
                                         .draggableHandle(),
@@ -772,29 +783,6 @@ fun LauncherHome(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-// A four-dot grip outlined like Rail text so it reads on any wallpaper.
-@Composable
-private fun FavoriteDragHandle(modifier: Modifier = Modifier, contentDescription: String) {
-    val fillColor: Color = MaterialTheme.colorScheme.onSurface
-    val outlineColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest
-    Canvas(
-        modifier = modifier
-            .size(dragHandleSize)
-            .semantics { this.contentDescription = contentDescription }
-    ) {
-        val dotRadius: Float = dragHandleDotRadius.toPx()
-        val dotSpacing: Float = dragHandleDotSpacing.toPx()
-        val outline: Stroke = Stroke(width = dragHandleOutlineWidth.toPx())
-        listOf(-1f, 1f).forEach { column ->
-            listOf(-1f, 1f).forEach { row ->
-                val dotCenter: Offset = center + Offset(column * dotSpacing / 2, row * dotSpacing / 2)
-                drawCircle(color = outlineColor, radius = dotRadius, center = dotCenter, style = outline)
-                drawCircle(color = fillColor, radius = dotRadius, center = dotCenter)
             }
         }
     }
@@ -934,7 +922,7 @@ private fun FavoriteToggleStar(isFavorite: Boolean, onClick: () -> Unit) {
     val imageVector: ImageVector = if (isFavorite) FontAwesomeIcons.Solid.Star else FontAwesomeIcons.Regular.Star
     Box(
         modifier = Modifier
-            .size(dragHandleSize)
+            .size(favoriteToggleSize)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center

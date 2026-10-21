@@ -12,7 +12,11 @@ import core.data.widgets.WidgetAvailability
 
 /** What the Widget Area shows once the first clock reading has arrived. */
 @Immutable
-data class WidgetAreaState(val places: List<WidgetPlaceModel> = emptyList(), val hasWidgets: Boolean = places.isNotEmpty())
+data class WidgetAreaState(
+    val places: List<WidgetPlaceModel> = emptyList(),
+    val hasWidgets: Boolean = places.isNotEmpty(),
+    val isEditing: Boolean = false
+)
 
 @Immutable
 data class WidgetPlaceModel(val id: Long, val heightDp: Int?, val widgets: List<WidgetModel>)

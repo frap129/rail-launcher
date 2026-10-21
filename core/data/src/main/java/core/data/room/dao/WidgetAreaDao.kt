@@ -144,4 +144,32 @@ abstract class WidgetAreaDao {
         deleteEmptyPlaces()
         return widget.appWidgetId
     }
+
+    @Query("SELECT app_widget_id FROM widgets WHERE place_id IN (:placeIds) AND app_widget_id IS NOT NULL")
+    abstract suspend fun appWidgetIdsForPlaces(placeIds: List<Long>): List<Int>
+
+    @Query("DELETE FROM widget_places WHERE id IN (:placeIds)")
+    abstract suspend fun deletePlaces(placeIds: List<Long>)
+
+    @Query("SELECT id FROM widget_places ORDER BY position")
+    abstract suspend fun getPlaceIds(): List<Long>
+
+    @Query("UPDATE widget_places SET position = :position WHERE id = :placeId")
+    abstract suspend fun setPlacePosition(placeId: Long, position: Int)
+
+    @Transaction
+    open suspend fun commitEdit(order: List<Long>, removed: Set<Long>): List<Int> {
+        val removedIds: List<Long> = removed.toList()
+        val freedIds: List<Int> = if (removedIds.isEmpty()) emptyList() else appWidgetIdsForPlaces(removedIds)
+        if (removedIds.isNotEmpty()) {
+            deletePlaces(removedIds)
+        }
+        val remainingIds: List<Long> = getPlaceIds()
+        val orderedIds: List<Long> = order.filter { placeId -> placeId in remainingIds } +
+            remainingIds.filter { placeId -> placeId !in order }
+        orderedIds.forEachIndexed { index, placeId ->
+            setPlacePosition(placeId = placeId, position = index)
+        }
+        return freedIds
+    }
 }

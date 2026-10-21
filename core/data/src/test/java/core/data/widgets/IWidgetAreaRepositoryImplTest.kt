@@ -258,6 +258,70 @@ class IWidgetAreaRepositoryImplTest {
         assertNull(repository.places.first().single().heightDp)
     }
 
+    @Test
+    fun `commitEdit removes places, rewrites contiguous positions and returns freed ids`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                place(id = 2L, position = 1),
+                place(id = 3L, position = 2)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42),
+                appWidget(id = 30L, placeId = 3L, appWidgetId = 7)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        val freedIds: List<AppWidgetId> = repository.commitEdit(order = listOf(3L, 1L), removed = setOf(2L))
+
+        assertEquals(listOf(AppWidgetId(42)), freedIds)
+        assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
+        assertEquals(
+            listOf(0, 1),
+            dao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position }
+        )
+        assertEquals(emptyList<WidgetRecord>(), dao.observeWidgets().first().filter { widget -> widget.placeId == 2L })
+    }
+
+    @Test
+    fun `commitEdit ignores removed places in the order`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
+            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0), appWidget(id = 20L, placeId = 2L))
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.commitEdit(order = listOf(2L, 1L), removed = setOf(2L))
+
+        assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+        assertEquals(listOf(0), dao.observePlaces().first().map { place -> place.position })
+    }
+
+    @Test
+    fun `commitEdit keeps positions contiguous when a place vanished before commit`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                place(id = 2L, position = 1),
+                place(id = 3L, position = 2)
+            ),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 200),
+                appWidget(id = 30L, placeId = 3L, pagePosition = 0, appWidgetId = 300)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+        dao.deletePlaces(placeIds = listOf(2L))
+
+        repository.commitEdit(order = listOf(3L, 2L, 1L), removed = emptySet())
+
+        assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
+        assertEquals(listOf(1, 0), dao.observePlaces().first().sortedBy { place -> place.id }.map { place -> place.position })
+    }
+
     private suspend fun repository(
         dao: FakeWidgetAreaDao,
         host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
@@ -284,12 +348,12 @@ class IWidgetAreaRepositoryImplTest {
         kind = WidgetKind.HEADER
     )
 
-    private fun appWidget(id: Long, placeId: Long, pagePosition: Int = 0): WidgetRecord = WidgetRecord(
+    private fun appWidget(id: Long, placeId: Long, pagePosition: Int = 0, appWidgetId: Int = 42): WidgetRecord = WidgetRecord(
         id = id,
         placeId = placeId,
         pagePosition = pagePosition,
         kind = WidgetKind.APP_WIDGET,
-        appWidgetId = 42,
+        appWidgetId = appWidgetId,
         provider = "com.example.widget/WidgetProvider",
         profileSerial = 1L
     )

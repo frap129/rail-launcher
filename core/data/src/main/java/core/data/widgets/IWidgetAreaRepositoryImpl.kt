@@ -50,6 +50,9 @@ class IWidgetAreaRepositoryImpl(
     override suspend fun setPlaceHeight(placeId: Long, heightDp: Int?) {
         widgetAreaDao.setPlaceHeight(placeId = placeId, heightDp = heightDp)
     }
+
+    override suspend fun commitEdit(order: List<Long>, removed: Set<Long>): List<AppWidgetId> =
+        widgetAreaDao.commitEdit(order = order, removed = removed).map(::AppWidgetId)
 }
 
 internal data class WidgetAreaResolution(val places: List<WidgetPlace>, val duplicateHeaderIds: List<Long>)

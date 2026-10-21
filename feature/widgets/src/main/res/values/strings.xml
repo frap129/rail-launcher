@@ -30,6 +30,13 @@
     <string name="restore_header">Restore Header</string>
     <string name="widget_settings">Widget settings</string>
     <string name="add_widget">Add widget</string>
+    <string name="edit_widgets">Edit widgets</string>
+    <string name="no_widgets">No widgets</string>
+    <string name="widget_title">Widget</string>
+    <string name="remove_widget_named">Remove %1$s</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="reorder_widget">Reorder %1$s</string>
     <string name="add_widget_title">Add widget</string>
     <string name="search_widgets">Search widgets</string>
     <string name="no_widgets_found">No widgets found</string>

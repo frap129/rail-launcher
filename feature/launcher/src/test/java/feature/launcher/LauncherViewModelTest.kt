@@ -1039,6 +1039,16 @@ class LauncherViewModelTest {
         assertFalse(viewModel.isEditingFavorites.value)
     }
 
+    @Test
+    fun `editFavorites is ignored while Edit Widgets is active`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState()
+        homeEditState.tryEnter(HomeEditMode.Widgets)
+        val viewModel: LauncherViewModel = createViewModel(homeEditState = homeEditState)
+        viewModel.editFavorites()
+        assertEquals(HomeEditMode.Widgets, homeEditState.mode.value)
+        assertFalse(viewModel.isEditingFavorites.value)
+    }
+
     // The production repository with FakeFavoriteDao exercises the resolution and
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun TestScope.createViewModel(

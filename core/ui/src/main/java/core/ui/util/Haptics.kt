@@ -7,3 +7,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 fun HapticFeedback.performLongPressHaptic() {
     performHapticFeedback(HapticFeedbackType.LongPress)
 }
+
+/** Performs the launcher's standard reorder segment-tick haptic. */
+fun HapticFeedback.performSegmentTickHaptic() {
+    performHapticFeedback(HapticFeedbackType.SegmentTick)
+}
