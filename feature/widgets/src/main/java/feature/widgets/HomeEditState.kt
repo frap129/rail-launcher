@@ -11,6 +11,8 @@ sealed interface HomeEditMode {
     data object Favorites : HomeEditMode
 
     data class Resizing(val placeId: Long) : HomeEditMode
+
+    data object Widgets : HomeEditMode
 }
 
 /** Holds the one active Home edit mode. */

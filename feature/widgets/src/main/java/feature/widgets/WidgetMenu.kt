@@ -29,6 +29,7 @@ import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.Font
+import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
@@ -231,6 +232,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.RemoveWidget -> R.string.remove_widget
+    WidgetMenuAction.EditWidgets -> R.string.edit_widgets
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
 }
 
@@ -246,5 +248,6 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
     WidgetMenuAction.RemoveWidget -> FontAwesomeIcons.Solid.TrashAlt
+    WidgetMenuAction.EditWidgets -> FontAwesomeIcons.Solid.GripVertical
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH
 }

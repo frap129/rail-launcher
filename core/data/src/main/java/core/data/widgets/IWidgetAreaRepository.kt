@@ -38,4 +38,10 @@ interface IWidgetAreaRepository {
 
     /** Stores the place height, or null to fall back to the provider default. */
     suspend fun setPlaceHeight(placeId: Long, heightDp: Int?)
+
+    /**
+     * Deletes [removed] places, stores [order] as the contiguous place order and
+     * returns the App Widget ids freed by the deletion.
+     */
+    suspend fun commitEdit(order: List<Long>, removed: Set<Long>): List<AppWidgetId>
 }

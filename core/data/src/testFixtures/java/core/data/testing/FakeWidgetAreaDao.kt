@@ -76,4 +76,22 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
     }
 
     override suspend fun getMaxPlacePosition(): Int = places.value.maxOfOrNull { place -> place.position } ?: -1
+
+    override suspend fun getPlaceIds(): List<Long> = places.value.sortedBy { place -> place.position }.map { place -> place.id }
+
+    override suspend fun appWidgetIdsForPlaces(placeIds: List<Long>): List<Int> = widgets.value
+        .filter { widget -> widget.placeId in placeIds }
+        .mapNotNull { widget -> widget.appWidgetId }
+
+    override suspend fun deletePlaces(placeIds: List<Long>) {
+        if (placeIds.isEmpty()) {
+            return
+        }
+        widgets.update { current -> current.filterNot { widget -> widget.placeId in placeIds } }
+        places.update { current -> current.filterNot { place -> place.id in placeIds } }
+    }
+
+    override suspend fun setPlacePosition(placeId: Long, position: Int) {
+        places.update { current -> current.map { place -> if (place.id == placeId) place.copy(position = position) else place } }
+    }
 }

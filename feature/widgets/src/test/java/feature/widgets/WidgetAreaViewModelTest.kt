@@ -28,6 +28,7 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
+import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
@@ -347,6 +348,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.UpcomingEvents,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
                 ),
@@ -1049,9 +1051,10 @@ class WidgetAreaViewModelTest {
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
             assertEquals(
                 listOf(
-                    WidgetMenuAction.AddWidget,
                     WidgetMenuAction.Reconfigure,
+                    WidgetMenuAction.AddWidget,
                     WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
                 ),
                 menu.items.map { item -> item.id }
@@ -1076,7 +1079,12 @@ class WidgetAreaViewModelTest {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RemoveWidget, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -1096,7 +1104,12 @@ class WidgetAreaViewModelTest {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RemoveWidget, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -1115,7 +1128,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(WidgetMenuAction.Reconfigure, menu.items[1].id)
+            assertEquals(WidgetMenuAction.Reconfigure, menu.items.first().id)
             viewModel.onMenuAction(WidgetMenuAction.Reconfigure)
             assertEquals(WidgetMenuState.Closed, expectMostRecentItem())
             cancelAndIgnoreRemainingEvents()
@@ -1321,6 +1334,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.Resize,
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
                 ),
                 menu.items.map { item -> item.id }
@@ -1345,7 +1359,12 @@ class WidgetAreaViewModelTest {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RemoveWidget, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -1365,7 +1384,12 @@ class WidgetAreaViewModelTest {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RemoveWidget, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -1614,6 +1638,218 @@ class WidgetAreaViewModelTest {
             assertEquals(200, place.heightDp)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `Edit Widgets from the Header menu enters the mode with a draft of the current order`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, homeEditState = homeEditState)
+        viewModel.openHeaderMenu()
+        viewModel.onMenuAction(WidgetMenuAction.EditWidgets)
+        advanceUntilIdle()
+        assertEquals(HomeEditMode.Widgets, homeEditState.mode.value)
+        assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
+        assertEquals(emptySet<Long>(), viewModel.editState.value?.removedPlaceIds)
+    }
+
+    @Test
+    fun `Edit Widgets from an App Widget menu enters the mode`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, homeEditState = homeEditState)
+        viewModel.openAppWidgetMenu(widgetId = 2L)
+        viewModel.onMenuAction(WidgetMenuAction.EditWidgets)
+        advanceUntilIdle()
+        assertEquals(HomeEditMode.Widgets, homeEditState.mode.value)
+        assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
+    }
+
+    @Test
+    fun `Edit Widgets is ignored while Favorites or Resize is active`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
+        val viewModel: WidgetAreaViewModel = createViewModel(homeEditState = homeEditState)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        assertEquals(HomeEditMode.Favorites, homeEditState.mode.value)
+        assertNull(viewModel.editState.value)
+        homeEditState.exit(HomeEditMode.Favorites)
+        homeEditState.tryEnter(HomeEditMode.Resizing(placeId = 1L))
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        assertEquals(HomeEditMode.Resizing(1L), homeEditState.mode.value)
+        assertNull(viewModel.editState.value)
+    }
+
+    @Test
+    fun `moving a place in Edit Widgets reorders the draft and rejects out of range moves`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L), appWidgetPlace(placeId = 3L, widgetId = 3L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.moveWidgetPlace(fromIndex = 0, toIndex = 2)
+        assertEquals(listOf(2L, 3L, 1L), viewModel.editState.value?.placeIds)
+        viewModel.moveWidgetPlace(fromIndex = 0, toIndex = 3)
+        viewModel.moveWidgetPlace(fromIndex = -1, toIndex = 1)
+        assertEquals(listOf(2L, 3L, 1L), viewModel.editState.value?.placeIds)
+    }
+
+    @Test
+    fun `removing a place in Edit Widgets only changes the draft`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+        advanceUntilIdle()
+        val draft: WidgetEditDraft = viewModel.editState.value!!
+        assertEquals(listOf(1L), draft.placeIds)
+        assertEquals(setOf(2L), draft.removedPlaceIds)
+        assertTrue(repository.edits.isEmpty())
+        assertTrue(repository.removedHeaders.isEmpty())
+        assertTrue(host.deletedIds.isEmpty())
+        assertEquals(listOf(1L, 2L), repository.places.first().map { place -> place.id })
+    }
+
+    @Test
+    fun `widgetAreaState renders the draft order and flags editing`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+        viewModel.widgetAreaState.test {
+            assertEquals(listOf(1L, 2L), expectMostRecentItem().places.map { place -> place.id })
+            viewModel.editWidgets()
+            advanceUntilIdle()
+            viewModel.moveWidgetPlace(fromIndex = 0, toIndex = 1)
+            val moved: WidgetAreaState = expectMostRecentItem()
+            assertTrue(moved.isEditing)
+            assertEquals(listOf(2L, 1L), moved.places.map { place -> place.id })
+            viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+            val removed: WidgetAreaState = expectMostRecentItem()
+            assertEquals(listOf(1L), removed.places.map { place -> place.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `Done commits the draft, deletes freed ids and exits only after persistence`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            homeEditState = homeEditState,
+            appWidgetHost = host
+        )
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.moveWidgetPlace(fromIndex = 0, toIndex = 1)
+        viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+        viewModel.events.test {
+            viewModel.finishEditingWidgets()
+            assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        advanceUntilIdle()
+        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
+        assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+        assertNull(viewModel.editState.value)
+        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+    }
+
+    @Test
+    fun `Done twice commits and frees ids once`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+        viewModel.finishEditingWidgets()
+        viewModel.finishEditingWidgets()
+        advanceUntilIdle()
+        assertEquals(1, repository.edits.size)
+        assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
+        assertNull(viewModel.editState.value)
+    }
+
+    @Test
+    fun `Back commits Edit Widgets and is consumed`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, homeEditState = homeEditState)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+        assertTrue(viewModel.onBack())
+        advanceUntilIdle()
+        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+    }
+
+    @Test
+    fun `Home commits Edit Widgets and is consumed`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, homeEditState = homeEditState)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.removeWidgetPlaceInEdit(placeId = 2L)
+        assertTrue(viewModel.onHomeIntent())
+        advanceUntilIdle()
+        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+    }
+
+    @Test
+    fun `a vanished place is dropped from the draft`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        repository.removeWidget(widgetId = 2L)
+        advanceUntilIdle()
+        assertEquals(listOf(1L), viewModel.editState.value?.placeIds)
+    }
+
+    @Test
+    fun `a place added while editing is appended to the draft`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        repository.addAppWidget(
+            AddAppWidget(
+                appWidgetId = AppWidgetId(7),
+                provider = WidgetProvider(packageName = "com.example", className = "AddedWidget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.End,
+                defaultHeightDp = 48
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
     }
 
     private fun appWidgetProviderInfo(

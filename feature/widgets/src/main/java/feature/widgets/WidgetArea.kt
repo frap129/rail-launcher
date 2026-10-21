@@ -15,18 +15,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.ui.composables.OutlinedText
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
 import core.ui.util.consumeTouches
@@ -97,53 +101,68 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                 )
         ) {
             if (state.hasWidgets) {
-                state.places.forEach { place ->
-                    val placeResize: ResizeState? = resize?.takeIf { resizing -> resizing.placeId == place.id }
-                    if (placeResize != null) {
-                        ResizeOverlay(
-                            state = placeResize,
-                            onDrag = viewModel::dragResize,
-                            onStep = viewModel::stepResize,
-                            onReset = viewModel::resetResize,
-                            onDone = viewModel::finishResize,
-                            toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
-                        ) {
+                if (state.isEditing) {
+                    EditableWidgetArea(
+                        places = state.places,
+                        onMovePlace = viewModel::moveWidgetPlace,
+                        onRemovePlace = viewModel::removeWidgetPlaceInEdit,
+                        placeContent = { place, contentModifier ->
+                            placeContent(place, place.heightDp, false, false, contentModifier)
+                        }
+                    )
+                } else {
+                    state.places.forEach { place ->
+                        val placeResize: ResizeState? = resize?.takeIf { resizing -> resizing.placeId == place.id }
+                        if (placeResize != null) {
+                            ResizeOverlay(
+                                state = placeResize,
+                                onDrag = viewModel::dragResize,
+                                onStep = viewModel::stepResize,
+                                onReset = viewModel::resetResize,
+                                onDone = viewModel::finishResize,
+                                toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
+                            ) {
+                                placeContent(
+                                    place,
+                                    placeResize.draftHeightDp,
+                                    false,
+                                    true,
+                                    Modifier.consumeTouches()
+                                )
+                            }
+                        } else {
+                            val dimmed: Boolean = resize != null
                             placeContent(
                                 place,
-                                placeResize.draftHeightDp,
+                                place.heightDp,
+                                menuEnabled && !dimmed,
                                 false,
-                                true,
-                                Modifier.consumeTouches()
+                                Modifier
+                                    .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
+                                    .then(
+                                        if (dimmed) {
+                                            Modifier.consumeTouches(onGestureEnd = viewModel::finishResize)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
                             )
                         }
-                    } else {
-                        val dimmed: Boolean = resize != null
-                        placeContent(
-                            place,
-                            place.heightDp,
-                            menuEnabled && !dimmed,
-                            false,
-                            Modifier
-                                .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
-                                .then(
-                                    if (dimmed) {
-                                        Modifier.consumeTouches(onGestureEnd = viewModel::finishResize)
-                                    } else {
-                                        Modifier
-                                    }
-                                )
-                        )
                     }
                 }
             } else {
-                EmptyWidgetArea(menuEnabled = menuEnabled && resize == null, onLongPress = openEmptyAreaMenu)
+                EmptyWidgetArea(
+                    menuEnabled = menuEnabled && resize == null && !state.isEditing,
+                    showNoWidgets = state.isEditing,
+                    onLongPress = openEmptyAreaMenu
+                )
             }
         }
     }
 }
 
 @Composable
-private fun EmptyWidgetArea(menuEnabled: Boolean, onLongPress: () -> Unit) {
+private fun EmptyWidgetArea(menuEnabled: Boolean, showNoWidgets: Boolean, onLongPress: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -153,7 +172,15 @@ private fun EmptyWidgetArea(menuEnabled: Boolean, onLongPress: () -> Unit) {
                     detectTapGestures(onLongPress = { onLongPress() })
                 }
             }
-    )
+    ) {
+        if (showNoWidgets) {
+            OutlinedText(
+                text = stringResource(R.string.no_widgets),
+                modifier = Modifier.align(Alignment.CenterStart),
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
 }
 
 @Composable
@@ -174,6 +201,7 @@ private fun WidgetPlaceContent(
                 is HeaderModel -> HeaderContent(
                     model = widget,
                     menuEnabled = menuEnabled,
+                    interactive = menuEnabled,
                     onTapTarget = onTapTarget,
                     onLongPress = onHeaderLongPress
                 )

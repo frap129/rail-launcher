@@ -53,7 +53,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import timber.log.Timber
 
 private const val STATE_TIMEOUT_MS: Long = 5_000L
 private const val PENDING_APP_WIDGET_ID_KEY: String = "pendingAppWidgetId"
@@ -69,6 +73,9 @@ private const val PENDING_PHASE_CONFIGURING: String = "configuring"
 
 /** Where a picked App Widget is inserted and whether the flow returns to Settings. */
 data class AddWidgetOrigin(val insertAt: InsertPosition, val returnToSettings: Boolean = false)
+
+/** The pending order and removals of one Edit Widgets session. */
+data class WidgetEditDraft(val placeIds: List<Long>, val removedPlaceIds: Set<Long> = emptySet())
 
 /** One app's App Widget providers in the picker. */
 data class PickerGroup(
@@ -151,6 +158,7 @@ enum class WidgetMenuAction {
     RemoveHeader,
     RestoreHeader,
     RemoveWidget,
+    EditWidgets,
     WidgetSettings
 }
 
@@ -231,6 +239,10 @@ class WidgetAreaViewModel(
     private val addFlow: MutableStateFlow<AddWidgetFlowState> = MutableStateFlow(AddWidgetFlowState.Idle)
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
 
+    private val editDraft: MutableStateFlow<WidgetEditDraft?> = MutableStateFlow(null)
+    val editState: StateFlow<WidgetEditDraft?> = editDraft.asStateFlow()
+    private val editMutex: Mutex = Mutex()
+
     private val resizeController: WidgetResizeController = WidgetResizeController(
         repository = repository,
         appWidgetHost = appWidgetHost,
@@ -261,6 +273,20 @@ class WidgetAreaViewModel(
         viewModelScope.launch {
             widgetLifecycleReconciler.removedIds.collect { id ->
                 eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = id))
+            }
+        }
+        viewModelScope.launch {
+            repository.places.collect { places ->
+                editDraft.update { draft ->
+                    if (draft == null) {
+                        null
+                    } else {
+                        val sourceIds: Set<Long> = places.mapTo(HashSet()) { place -> place.id }
+                        val keptIds: List<Long> = draft.placeIds.filter { placeId -> placeId in sourceIds }
+                        val appendedIds: List<Long> = places.map { place -> place.id }.filterNot { placeId -> placeId in keptIds }
+                        draft.copy(placeIds = keptIds + appendedIds)
+                    }
+                }
             }
         }
     }
@@ -320,9 +346,25 @@ class WidgetAreaViewModel(
         )
     }
 
-    val widgetAreaState: StateFlow<WidgetAreaState> = combine(widgetAreaContent, resizeController.homeHeightDp) { content, homeHeightDp ->
+    val widgetAreaState: StateFlow<WidgetAreaState> = combine(
+        widgetAreaContent,
+        resizeController.homeHeightDp,
+        editDraft
+    ) { content, homeHeightDp, draft ->
+        val orderedPlaces: List<WidgetPlace> = if (draft == null) {
+            content.places
+        } else {
+            val placeById: Map<Long, WidgetPlace> = content.places.associateBy { place -> place.id }
+            val drafted: List<WidgetPlace> = draft.placeIds.mapNotNull { placeId ->
+                placeById[placeId]?.takeUnless { place -> place.id in draft.removedPlaceIds }
+            }
+            val added: List<WidgetPlace> = content.places.filter { place ->
+                place.id !in draft.placeIds && place.id !in draft.removedPlaceIds
+            }
+            drafted + added
+        }
         WidgetAreaState(
-            places = content.places.mapNotNull { place ->
+            places = orderedPlaces.mapNotNull { place ->
                 place.toModel(
                     reading = content.reading,
                     settings = content.settings,
@@ -333,7 +375,8 @@ class WidgetAreaViewModel(
                     homeHeightDp = homeHeightDp
                 )
             },
-            hasWidgets = content.places.isNotEmpty()
+            hasWidgets = orderedPlaces.isNotEmpty(),
+            isEditing = draft != null
         )
     }.stateIn(
         scope = viewModelScope,
@@ -457,6 +500,67 @@ class WidgetAreaViewModel(
         }
     }
 
+    fun editWidgets() {
+        if (homeEditState.mode.value != HomeEditMode.None) {
+            return
+        }
+        menuTarget.value = null
+        viewModelScope.launch {
+            val placeIds: List<Long> = repository.places.first().map { place -> place.id }
+            if (homeEditState.tryEnter(HomeEditMode.Widgets)) {
+                editDraft.value = WidgetEditDraft(placeIds = placeIds)
+            }
+        }
+    }
+
+    fun moveWidgetPlace(fromIndex: Int, toIndex: Int) {
+        val draft: WidgetEditDraft = editDraft.value ?: return
+        if (fromIndex !in draft.placeIds.indices || toIndex !in draft.placeIds.indices) {
+            Timber.w("Ignoring Widget place move from %d to %d outside %d places", fromIndex, toIndex, draft.placeIds.size)
+            return
+        }
+        if (fromIndex == toIndex) {
+            return
+        }
+        editDraft.value = draft.copy(
+            placeIds = draft.placeIds.toMutableList().apply {
+                add(toIndex, removeAt(fromIndex))
+            }
+        )
+    }
+
+    fun removeWidgetPlaceInEdit(placeId: Long) {
+        val draft: WidgetEditDraft = editDraft.value ?: return
+        if (placeId !in draft.placeIds) {
+            return
+        }
+        editDraft.value = draft.copy(
+            placeIds = draft.placeIds - placeId,
+            removedPlaceIds = draft.removedPlaceIds + placeId
+        )
+    }
+
+    fun finishEditingWidgets() {
+        if (editDraft.value == null) {
+            return
+        }
+        viewModelScope.launch {
+            editMutex.withLock {
+                val draft: WidgetEditDraft = editDraft.value ?: return@withLock
+                val freedIds: List<AppWidgetId> = repository.commitEdit(
+                    order = draft.placeIds,
+                    removed = draft.removedPlaceIds
+                )
+                freedIds.forEach { id ->
+                    appWidgetHost.deleteId(id = id)
+                    eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = id))
+                }
+                editDraft.value = null
+                homeEditState.exit(HomeEditMode.Widgets)
+            }
+        }
+    }
+
     fun openWidgetSettings() {
         menuTarget.value = null
         viewModelScope.launch {
@@ -532,9 +636,17 @@ class WidgetAreaViewModel(
 
     fun finishResize() = resizeController.finishResize()
 
-    fun onBack(): Boolean = resizeController.onBack()
+    fun onBack(): Boolean = finishEditingOrResize(fallback = resizeController::onBack)
 
-    fun onHomeIntent(): Boolean = resizeController.onHomeIntent()
+    fun onHomeIntent(): Boolean = finishEditingOrResize(fallback = resizeController::onHomeIntent)
+
+    private fun finishEditingOrResize(fallback: () -> Boolean): Boolean {
+        if (editDraft.value == null) {
+            return fallback()
+        }
+        finishEditingWidgets()
+        return true
+    }
 
     fun openAppWidgetMenu(widgetId: Long) {
         if (homeEditState.mode.value == HomeEditMode.None) {
@@ -563,6 +675,8 @@ class WidgetAreaViewModel(
             WidgetMenuAction.RemoveHeader -> removeHeader()
 
             WidgetMenuAction.RestoreHeader -> restoreHeader()
+
+            WidgetMenuAction.EditWidgets -> editWidgets()
 
             WidgetMenuAction.WidgetSettings -> openWidgetSettings()
 
@@ -895,12 +1009,13 @@ class WidgetAreaViewModel(
                         if (widget.availability == WidgetAvailability.Available && resizeBounds?.isResizable == true) {
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Resize))
                         }
-                        add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
                         val isReconfigurable: Boolean = info != null && info.isReconfigurable && info.hasConfigureActivity
                         if (widget.availability == WidgetAvailability.Available && isReconfigurable) {
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Reconfigure))
                         }
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.RemoveWidget))
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets))
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
                     }
                 )
@@ -943,6 +1058,7 @@ class WidgetAreaViewModel(
         ),
         WidgetMenuItem.Action(id = WidgetMenuAction.ClockStyle),
         WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget),
+        WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets),
         WidgetMenuItem.Action(id = WidgetMenuAction.RemoveHeader),
         WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings)
     )

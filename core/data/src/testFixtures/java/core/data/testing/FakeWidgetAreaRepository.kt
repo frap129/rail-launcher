@@ -19,6 +19,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     val restoredHeaderPositions: MutableList<Int> = mutableListOf()
     val addedAppWidgets: MutableList<AddAppWidget> = mutableListOf()
     val heightUpdates: MutableList<Pair<Long, Int?>> = mutableListOf()
+    val edits: MutableList<Pair<List<Long>, Set<Long>>> = mutableListOf()
 
     override val places: Flow<List<WidgetPlace>> = storedPlaces
 
@@ -110,5 +111,20 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
         storedPlaces.update { places ->
             places.map { place -> if (place.id == placeId) place.copy(heightDp = heightDp) else place }
         }
+    }
+
+    override suspend fun commitEdit(order: List<Long>, removed: Set<Long>): List<AppWidgetId> {
+        edits.add(order to removed)
+        val freedIds: List<AppWidgetId> = storedPlaces.value
+            .filter { place -> place.id in removed }
+            .flatMap { place -> place.widgets }
+            .filterIsInstance<PlacedWidget.AppWidget>()
+            .map { widget -> AppWidgetId(widget.appWidgetId) }
+        storedPlaces.update { places ->
+            val remaining: List<WidgetPlace> = places.filterNot { place -> place.id in removed }
+            val orderIndex: Map<Long, Int> = order.withIndex().associate { (index, placeId) -> placeId to index }
+            remaining.sortedBy { place -> orderIndex[place.id] ?: Int.MAX_VALUE }
+        }
+        return freedIds
     }
 }
