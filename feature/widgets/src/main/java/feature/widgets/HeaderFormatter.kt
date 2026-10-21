@@ -1,5 +1,7 @@
 package feature.widgets
 
+import core.data.battery.BatteryStatus
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderSettings
@@ -20,12 +22,13 @@ private const val DAY_PERIOD_PATTERN: String = "a"
 private const val SPOKEN_TIME_PATTERN_12_HOUR: String = "h:mm a"
 private const val SPOKEN_TIME_PATTERN_24_HOUR: String = "HH:mm"
 private const val PREVIEW_ID: Long = 0L
+private const val LOW_BATTERY_PERCENT: Int = 20
 private val DAY_PERIOD_REGEX: Regex = Regex("[\\s\\u00A0\\u202F]*[aBb]+[\\s\\u00A0\\u202F]*")
 private val HOUR_REGEX: Regex = Regex("[hHK]+")
 
 /** Pure mapping from Header settings and the current clock reading to the values the Header renders. */
 class HeaderFormatter(private val datePatternSource: IDatePatternSource) {
-    fun format(id: Long, reading: ClockReading, settings: HeaderSettings): HeaderModel {
+    fun format(id: Long, reading: ClockReading, settings: HeaderSettings, battery: BatteryStatus? = null): HeaderModel {
         val dateTime: ZonedDateTime = reading.instant.atZone(reading.zoneId)
         val is24Hour: Boolean = settings.timeFormat.is24Hour(reading.isSystem24Hour)
         return HeaderModel(
@@ -42,6 +45,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource) {
                 null
             },
             date = if (settings.dateVisible) createDateModel(dateTime, reading, settings.dateFormat) else null,
+            battery = createBatteryModel(battery, settings.batteryVisibility),
             style = settings.clockStyle,
             alignment = settings.alignment,
             size = settings.size
@@ -92,6 +96,27 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource) {
             tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = reading.instant.toEpochMilli()),
             clickLabel = R.string.open_calendar
         )
+
+    private fun createBatteryModel(status: BatteryStatus?, visibility: BatteryVisibility): BatteryModel? {
+        if (status == null) {
+            return null
+        }
+        val isLow: Boolean = status.percent <= LOW_BATTERY_PERCENT
+        val isVisible: Boolean = when (visibility) {
+            BatteryVisibility.NEVER -> false
+            BatteryVisibility.ALWAYS -> true
+            BatteryVisibility.CHARGING_OR_LOW -> status.isCharging || isLow
+        }
+        if (!isVisible) {
+            return null
+        }
+        return BatteryModel(
+            text = "${status.percent}%",
+            percent = status.percent,
+            isCharging = status.isCharging,
+            isLow = isLow && !status.isCharging
+        )
+    }
 
     private fun displayPattern(reading: ClockReading, is24Hour: Boolean, showAmPm: Boolean): String {
         val skeleton: String = if (is24Hour) TIME_SKELETON_24_HOUR else TIME_SKELETON_12_HOUR

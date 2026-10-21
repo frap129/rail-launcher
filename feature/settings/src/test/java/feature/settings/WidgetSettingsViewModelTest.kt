@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
@@ -55,6 +56,7 @@ class WidgetSettingsViewModelTest {
             assertTrue(state.headerShown)
             assertTrue(state.clockVisible)
             assertTrue(state.dateVisible)
+            assertEquals(BatteryVisibility.NEVER, state.batteryVisibility)
             assertTrue(state.canHideClock)
             assertTrue(state.canHideDate)
             assertEquals(ClockStyle.CLASSIC, state.clockStyle)
@@ -136,6 +138,49 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
+    fun `persists the battery visibility`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setBatteryVisibility(BatteryVisibility.ALWAYS)
+        advanceUntilIdle()
+
+        assertEquals(BatteryVisibility.ALWAYS, settingsRepository.updates.last().batteryVisibility)
+    }
+
+    @Test
+    fun `allows hiding the clock and date when the battery is always shown`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
+            )
+        )
+
+        viewModel.uiState.test {
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+            assertTrue(state.canHideClock)
+            assertTrue(state.canHideDate)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides the clock and date when the battery is always shown`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setClockVisible(visible = false)
+        advanceUntilIdle()
+        viewModel.setDateVisible(visible = false)
+        advanceUntilIdle()
+
+        assertFalse(settingsRepository.updates.last().clockVisible)
+        assertFalse(settingsRepository.updates.last().dateVisible)
+    }
+
+    @Test
     fun `cannot hide the clock when it is the only visible Header part`() = runTest {
         val viewModel: WidgetSettingsViewModel = createViewModel(
             settingsRepository = FakeWidgetSettingsRepository(
@@ -182,6 +227,21 @@ class WidgetSettingsViewModelTest {
         advanceUntilIdle()
 
         assertTrue(settingsRepository.updates.isEmpty())
+    }
+
+    @Test
+    fun `restores the clock when the battery stops being always visible`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setBatteryVisibility(BatteryVisibility.NEVER)
+        advanceUntilIdle()
+
+        val updated: HeaderSettings = settingsRepository.updates.single()
+        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
+        assertTrue(updated.clockVisible)
     }
 
     @Test

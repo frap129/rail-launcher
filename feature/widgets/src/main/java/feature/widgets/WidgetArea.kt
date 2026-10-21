@@ -124,6 +124,12 @@ private fun Context.openHeaderTapTarget(target: HeaderTapTarget) {
             target = target,
             messageResource = R.string.no_calendar_app
         )
+
+        HeaderTapTarget.SystemBatteryUsage -> openSystemIntent(
+            intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY),
+            target = target,
+            messageResource = R.string.no_battery_usage_app
+        )
     }
 }
 

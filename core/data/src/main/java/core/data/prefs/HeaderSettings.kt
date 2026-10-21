@@ -16,11 +16,12 @@ data class HeaderSettings(
     val alignment: HeaderAlignment = HeaderAlignment.START,
     val size: HeaderSize = HeaderSize.DEFAULT,
     @ColumnInfo(name = "time_tap_target") val timeTapTarget: HeaderTapSetting? = null,
-    @ColumnInfo(name = "date_tap_target") val dateTapTarget: HeaderTapSetting? = null
+    @ColumnInfo(name = "date_tap_target") val dateTapTarget: HeaderTapSetting? = null,
+    @ColumnInfo(name = "battery_visibility") val batteryVisibility: BatteryVisibility = BatteryVisibility.NEVER
 ) {
-    val canHideClock: Boolean get() = !clockVisible || dateVisible
+    val canHideClock: Boolean get() = !clockVisible || dateVisible || batteryVisibility == BatteryVisibility.ALWAYS
 
-    val canHideDate: Boolean get() = !dateVisible || clockVisible
+    val canHideDate: Boolean get() = !dateVisible || clockVisible || batteryVisibility == BatteryVisibility.ALWAYS
 
     val resolvedTimeTapTarget: HeaderTapSetting get() = timeTapTarget ?: HeaderTapSetting.SystemDefault
 
@@ -47,6 +48,25 @@ enum class TimeFormat {
     SYSTEM,
     H12,
     H24
+}
+
+enum class BatteryVisibility {
+    NEVER,
+    ALWAYS,
+    CHARGING_OR_LOW
+}
+
+fun HeaderSettings.withClockVisible(visible: Boolean): HeaderSettings =
+    if (!visible && !canHideClock) this else copy(clockVisible = visible)
+
+fun HeaderSettings.withDateVisible(visible: Boolean): HeaderSettings = if (!visible && !canHideDate) this else copy(dateVisible = visible)
+
+fun HeaderSettings.withBatteryVisibility(visibility: BatteryVisibility): HeaderSettings {
+    val restoresClock: Boolean = visibility != BatteryVisibility.ALWAYS && !clockVisible && !dateVisible
+    return copy(
+        batteryVisibility = visibility,
+        clockVisible = if (restoresClock) true else clockVisible
+    )
 }
 
 fun TimeFormat.is24Hour(isSystem24Hour: Boolean): Boolean = when (this) {

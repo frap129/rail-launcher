@@ -78,6 +78,7 @@ import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Th
 import core.data.icons.model.IconPack
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
@@ -346,6 +347,12 @@ private fun HeaderFormatRows(
             },
             onCheckedChange = viewModel::setShowAmPm
         )
+        SettingsActionRow(
+            title = stringResource(CoreUiR.string.battery),
+            value = stringResource(uiState.batteryVisibility.labelResource()),
+            enabled = uiState.headerShown,
+            onClick = { onDialogClick(WidgetSettingsDialog.Battery) }
+        )
     }
 }
 
@@ -561,13 +568,27 @@ private fun WidgetSettingsDialogContent(
             },
             onDismiss = onDismiss
         )
+
+        WidgetSettingsDialog.Battery -> SingleChoiceDialog(
+            title = stringResource(CoreUiR.string.battery),
+            options = BatteryVisibility.entries.map { visibility ->
+                SingleChoiceOption(value = visibility, label = stringResource(visibility.labelResource()))
+            },
+            selected = uiState.batteryVisibility,
+            onSelect = { visibility ->
+                viewModel.setBatteryVisibility(visibility)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
     }
 }
 
 private enum class WidgetSettingsDialog {
     TimeFormat,
     DateFormat,
-    Size
+    Size,
+    Battery
 }
 
 private data class SingleChoiceOption<T>(val value: T, val label: String)

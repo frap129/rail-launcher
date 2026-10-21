@@ -24,6 +24,7 @@ data class HeaderModel(
     override val id: Long,
     val time: HeaderTimeModel?,
     val date: HeaderLineModel?,
+    val battery: BatteryModel?,
     val style: ClockStyle,
     val alignment: HeaderAlignment,
     val size: HeaderSize
@@ -50,8 +51,17 @@ data class HeaderLineModel(
     val clickLabelArg: String? = null
 )
 
+@Immutable
+data class BatteryModel(val text: String, val percent: Int, val isCharging: Boolean, val isLow: Boolean) {
+    @get:StringRes
+    val contentDescriptionRes: Int
+        get() = if (isCharging) R.string.battery_content_description_charging else R.string.battery_content_description
+}
+
 sealed interface HeaderTapTarget {
     data object SystemAlarms : HeaderTapTarget
+
+    data object SystemBatteryUsage : HeaderTapTarget
 
     data class SystemCalendar(val atEpochMillis: Long) : HeaderTapTarget
 
