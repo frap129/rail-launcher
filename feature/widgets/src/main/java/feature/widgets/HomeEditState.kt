@@ -4,12 +4,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class HomeEditMode {
-    None,
-    Favorites
+/** The one active Home edit mode, shared with the Widget Area and the launcher. */
+sealed interface HomeEditMode {
+    data object None : HomeEditMode
+
+    data object Favorites : HomeEditMode
+
+    data class Resizing(val placeId: Long) : HomeEditMode
 }
 
-/** The one active Home edit mode, shared with the Widget Area and the launcher. */
+/** Holds the one active Home edit mode. */
 class HomeEditState {
     private val currentMode: MutableStateFlow<HomeEditMode> = MutableStateFlow(HomeEditMode.None)
 

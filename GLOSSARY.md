@@ -48,6 +48,14 @@ _Avoid_: Media card, music widget, now playing
 Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways.
 _Avoid_: Carousel, pager
 
+**Place**:
+An ordered slot in the Widget Area holding one Widget or Widget Stack.
+_Avoid_: Slot, row
+
+**Resize mode**:
+The Home edit mode that changes one Widget Area place's height.
+_Avoid_: Resize screen, resize drag
+
 **Widget Area**:
 The region at the top of Home, above Favorites, holding an ordered column of Widgets and Widget Stacks.
 _Avoid_: Widget page, widget list

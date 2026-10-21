@@ -98,7 +98,13 @@ private class RailPointerAnimation {
  * @param onScrollEnded invoked with the item under the pointer when the scroll ends
  */
 @Composable
-fun ScrollRail(modifier: Modifier = Modifier, items: List<String>, onScroll: (Int) -> Unit, onScrollEnded: (Int) -> Unit) {
+fun ScrollRail(
+    modifier: Modifier = Modifier,
+    items: List<String>,
+    onScroll: (Int) -> Unit,
+    onScrollEnded: (Int) -> Unit,
+    enabled: Boolean = true
+) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -121,7 +127,10 @@ fun ScrollRail(modifier: Modifier = Modifier, items: List<String>, onScroll: (In
         horizontalArrangement = Arrangement.End,
         modifier = modifier
             .testTag("scrollRail")
-            .pointerInput(items.size) {
+            .pointerInput(items.size, enabled) {
+                if (!enabled) {
+                    return@pointerInput
+                }
                 fun startScroll(pointer: Offset, itemIndex: Int) {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onScroll(itemIndex)

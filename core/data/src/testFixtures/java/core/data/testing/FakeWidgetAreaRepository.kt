@@ -18,6 +18,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     val removedHeaders: MutableList<Unit> = mutableListOf()
     val restoredHeaderPositions: MutableList<Int> = mutableListOf()
     val addedAppWidgets: MutableList<AddAppWidget> = mutableListOf()
+    val heightUpdates: MutableList<Pair<Long, Int?>> = mutableListOf()
 
     override val places: Flow<List<WidgetPlace>> = storedPlaces
 
@@ -102,5 +103,12 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
             }
         }
         return AppWidgetId(widget.appWidgetId)
+    }
+
+    override suspend fun setPlaceHeight(placeId: Long, heightDp: Int?) {
+        heightUpdates.add(placeId to heightDp)
+        storedPlaces.update { places ->
+            places.map { place -> if (place.id == placeId) place.copy(heightDp = heightDp) else place }
+        }
     }
 }

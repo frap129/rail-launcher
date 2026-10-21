@@ -10,14 +10,17 @@ import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -26,16 +29,20 @@ import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
+import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
+import kotlin.math.roundToInt
 import org.koin.androidx.compose.koinViewModel
 import timber.log.Timber
 
 private val emptyWidgetAreaHeight: Dp = 96.dp
+private const val RESIZE_TOOLBAR_SPACE_DP: Int = 128
 
 /** The standalone Widget Area, rendered above Favorites on Home. */
 @Composable
 fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewModel: WidgetAreaViewModel = koinViewModel()) {
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
+    val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val openHeaderMenu: () -> Unit = {
@@ -50,28 +57,87 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
             viewModel.openEmptyAreaMenu()
         }
     }
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = homeEdgePadding,
-                top = homeEdgePadding,
-                end = homeRailTouchInset
+    val placeContent: @Composable (WidgetPlaceModel, Int?, Boolean, Boolean, Modifier) -> Unit =
+        { place, heightDp, placeMenuEnabled, placeIsResizing, placeModifier ->
+            WidgetPlaceContent(
+                place = place,
+                heightDp = heightDp,
+                menuEnabled = placeMenuEnabled,
+                isResizing = placeIsResizing,
+                onTapTarget = context::openHeaderTapTarget,
+                onHeaderLongPress = openHeaderMenu,
+                onAppWidgetLongPress = viewModel::openAppWidgetMenu,
+                onAppWidgetUnpause = viewModel::unpauseWorkProfile,
+                modifier = placeModifier
             )
-    ) {
-        if (state.hasWidgets) {
-            state.places.forEach { place ->
-                WidgetPlaceContent(
-                    place = place,
-                    menuEnabled = menuEnabled,
-                    onTapTarget = context::openHeaderTapTarget,
-                    onHeaderLongPress = openHeaderMenu,
-                    onAppWidgetLongPress = viewModel::openAppWidgetMenu,
-                    onAppWidgetUnpause = viewModel::unpauseWorkProfile
+        }
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val homeHeightDp: Int = maxHeight.value.roundToInt()
+        val widgetAreaWidthDp: Int = (maxWidth.value - homeEdgePadding.value - homeRailTouchInset.value).roundToInt()
+        LaunchedEffect(homeHeightDp) {
+            viewModel.setHomeHeight(heightDp = homeHeightDp)
+        }
+        LaunchedEffect(widgetAreaWidthDp) {
+            viewModel.setWidgetAreaWidth(widthDp = widgetAreaWidthDp)
+        }
+        if (resize != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .consumeTouches(onGestureEnd = viewModel::finishResize)
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = homeEdgePadding,
+                    top = homeEdgePadding,
+                    end = homeRailTouchInset
                 )
+        ) {
+            if (state.hasWidgets) {
+                state.places.forEach { place ->
+                    val placeResize: ResizeState? = resize?.takeIf { resizing -> resizing.placeId == place.id }
+                    if (placeResize != null) {
+                        ResizeOverlay(
+                            state = placeResize,
+                            onDrag = viewModel::dragResize,
+                            onStep = viewModel::stepResize,
+                            onReset = viewModel::resetResize,
+                            onDone = viewModel::finishResize,
+                            toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
+                        ) {
+                            placeContent(
+                                place,
+                                placeResize.draftHeightDp,
+                                false,
+                                true,
+                                Modifier.consumeTouches()
+                            )
+                        }
+                    } else {
+                        val dimmed: Boolean = resize != null
+                        placeContent(
+                            place,
+                            place.heightDp,
+                            menuEnabled && !dimmed,
+                            false,
+                            Modifier
+                                .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
+                                .then(
+                                    if (dimmed) {
+                                        Modifier.consumeTouches(onGestureEnd = viewModel::finishResize)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        )
+                    }
+                }
+            } else {
+                EmptyWidgetArea(menuEnabled = menuEnabled && resize == null, onLongPress = openEmptyAreaMenu)
             }
-        } else {
-            EmptyWidgetArea(menuEnabled = menuEnabled, onLongPress = openEmptyAreaMenu)
         }
     }
 }
@@ -93,13 +159,16 @@ private fun EmptyWidgetArea(menuEnabled: Boolean, onLongPress: () -> Unit) {
 @Composable
 private fun WidgetPlaceContent(
     place: WidgetPlaceModel,
+    heightDp: Int?,
     menuEnabled: Boolean,
+    isResizing: Boolean,
     onTapTarget: (HeaderTapTarget) -> Unit,
     onHeaderLongPress: () -> Unit,
     onAppWidgetLongPress: (Long) -> Unit,
-    onAppWidgetUnpause: (Long) -> Unit
+    onAppWidgetUnpause: (Long) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         place.widgets.forEach { widget ->
             when (widget) {
                 is HeaderModel -> HeaderContent(
@@ -111,8 +180,9 @@ private fun WidgetPlaceContent(
 
                 is AppWidgetModel -> AppWidgetContent(
                     widget = widget,
-                    heightDp = place.heightDp,
+                    heightDp = heightDp,
                     menuEnabled = menuEnabled,
+                    isResizing = isResizing,
                     onLongPress = onAppWidgetLongPress,
                     onUnpause = onAppWidgetUnpause
                 )

@@ -1027,6 +1027,18 @@ class LauncherViewModelTest {
         }
     }
 
+    @Test
+    fun `editFavorites is ignored while a widget is resizing`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState()
+        homeEditState.tryEnter(HomeEditMode.Resizing(placeId = 2L))
+        val viewModel: LauncherViewModel = createViewModel(homeEditState = homeEditState)
+
+        viewModel.editFavorites()
+
+        assertEquals(HomeEditMode.Resizing(placeId = 2L), homeEditState.mode.value)
+        assertFalse(viewModel.isEditingFavorites.value)
+    }
+
     // The production repository with FakeFavoriteDao exercises the resolution and
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun TestScope.createViewModel(

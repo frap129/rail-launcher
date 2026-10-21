@@ -6,7 +6,9 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.os.Bundle
 import android.os.SystemClock
+import android.util.SizeF
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -129,6 +131,7 @@ class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
 /** One RailAppWidgetHostView per App Widget id, kept for the process lifetime. */
 class AppWidgetViewCache(private val context: Context, private val host: AppWidgetHost) {
     private val views: MutableMap<Int, RailAppWidgetHostView> = mutableMapOf()
+    private val reportedSizes: MutableMap<Int, ReportedSize> = mutableMapOf()
 
     fun getOrCreate(id: AppWidgetId): RailAppWidgetHostView? {
         views[id.value]?.let { view ->
@@ -154,8 +157,30 @@ class AppWidgetViewCache(private val context: Context, private val host: AppWidg
             view.onLongPress = null
             view.detachFromParent()
         }
+        reportedSizes.remove(id.value)
+    }
+
+    /** Reports [widthDp] × [heightDp] unless the same size was already sent for this widget. */
+    fun reportSizeIfChanged(id: AppWidgetId, widthDp: Int, heightDp: Int) {
+        val view: RailAppWidgetHostView = views[id.value] ?: return
+        val reported: ReportedSize? = reportedSizes[id.value]
+        if (reported != null && reported.heightDp == heightDp && kotlin.math.abs(reported.widthDp - widthDp) <= 1) {
+            return
+        }
+        val options: Bundle = Bundle().apply {
+            putInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN)
+        }
+        view.updateAppWidgetSize(options, listOf(SizeF(widthDp.toFloat(), heightDp.toFloat())))
+        reportedSizes[id.value] = ReportedSize(widthDp = widthDp, heightDp = heightDp)
+    }
+
+    /** Reports the persisted Widget Area size to the providers of the resized place. */
+    fun updateSize(ids: List<AppWidgetId>, widthDp: Int, heightDp: Int) {
+        ids.forEach { id -> reportSizeIfChanged(id = id, widthDp = widthDp, heightDp = heightDp) }
     }
 }
+
+private data class ReportedSize(val widthDp: Int, val heightDp: Int)
 
 private fun RailAppWidgetHostView.detachFromParent() {
     (parent as? ViewGroup)?.removeView(this)

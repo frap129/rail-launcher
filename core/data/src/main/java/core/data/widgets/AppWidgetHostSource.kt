@@ -41,7 +41,8 @@ data class WidgetProviderInfo(
     val needsConfiguration: Boolean,
     val isReconfigurable: Boolean,
     val hasConfigureActivity: Boolean,
-    val isWorkProfile: Boolean
+    val isWorkProfile: Boolean,
+    val isVerticallyResizable: Boolean = false
 )
 
 /**
