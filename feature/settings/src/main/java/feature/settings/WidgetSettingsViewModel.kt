@@ -20,9 +20,16 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.prefs.is24Hour
 import core.data.time.IClockSource
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
+import core.data.widgets.RemoveAppWidget
+import core.data.widgets.WidgetPlace
+import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.iconOr
+import core.data.widgets.labelOr
 import feature.widgets.CalendarPermissionDecision
 import feature.widgets.CalendarPermissionGate
 import feature.widgets.HeaderFormatter
@@ -72,6 +79,9 @@ data class TapActionPickerState(
     val launchables: List<TapActionLaunchable> = emptyList()
 )
 
+/** One placed App Widget row in Settings. */
+data class WidgetSettingsAppWidget(val widgetId: Long, val appWidgetId: Int, val label: String, val icon: Icon, val isWorkProfile: Boolean)
+
 data class WidgetSettingsUiState(
     val headerShown: Boolean = true,
     val clockVisible: Boolean = true,
@@ -102,15 +112,24 @@ data class WidgetSettingsUiState(
     val eventMaxEvents: Int = 1,
     val includeAllDay: Boolean = true,
     val excludedCalendarIds: Set<String> = emptySet(),
-    val calendars: List<CalendarInfo> = emptyList()
+    val calendars: List<CalendarInfo> = emptyList(),
+    val appWidgets: List<WidgetSettingsAppWidget> = emptyList()
 )
 
 private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
+
+private data class WidgetSettingsRows(val places: List<WidgetPlace>, val appWidgets: List<WidgetSettingsAppWidget>)
 
 sealed interface WidgetSettingsEvent {
     data object RequestCalendarPermission : WidgetSettingsEvent
 
     data class ShowCalendarPermissionDenied(val permanentlyDenied: Boolean) : WidgetSettingsEvent
+
+    data object StartAddWidget : WidgetSettingsEvent
+
+    data class AppWidgetRemoved(val appWidgetId: AppWidgetId) : WidgetSettingsEvent
+
+    data class ShowMessage(@StringRes val message: Int) : WidgetSettingsEvent
 }
 
 class WidgetSettingsViewModel(
@@ -119,7 +138,9 @@ class WidgetSettingsViewModel(
     private val clockSource: IClockSource,
     private val formatter: HeaderFormatter,
     private val launchableRepository: ILaunchableRepository,
-    private val calendarEventSource: ICalendarEventSource
+    private val calendarEventSource: ICalendarEventSource,
+    private val appWidgetHost: IAppWidgetHostSource,
+    private val removeWidgetUseCase: RemoveAppWidget
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
@@ -154,13 +175,37 @@ class WidgetSettingsViewModel(
         EventSettingsState(settings = settings, hasPermission = hasPermission, calendars = calendars)
     }
 
-    val uiState: StateFlow<WidgetSettingsUiState> = combine(
+    private val widgetRows: Flow<WidgetSettingsRows> = combine(
         areaRepository.places,
+        appWidgetHost.providers
+    ) { places, providers ->
+        WidgetSettingsRows(
+            places = places,
+            appWidgets = places.flatMap { place ->
+                place.widgets.filterIsInstance<PlacedWidget.AppWidget>().map { widget ->
+                    val info: WidgetProviderInfo? = providers.firstOrNull { provider ->
+                        provider.provider == widget.provider && provider.profileSerial == widget.profileSerial
+                    }
+                    WidgetSettingsAppWidget(
+                        widgetId = widget.id,
+                        appWidgetId = widget.appWidgetId,
+                        label = info.labelOr(provider = widget.provider),
+                        icon = info.iconOr(provider = widget.provider),
+                        isWorkProfile = info?.isWorkProfile ?: false
+                    )
+                }
+            }
+        )
+    }
+
+    val uiState: StateFlow<WidgetSettingsUiState> = combine(
+        widgetRows,
         settingsRepository.headerSettings,
         clockSource.readings,
         launchableRepository.launchableState,
         eventSettingsState
-    ) { places, settings, reading, launchableState, eventSettingsState ->
+    ) { rows, settings, reading, launchableState, eventSettingsState ->
+        val places: List<WidgetPlace> = rows.places
         val timeTapTarget: HeaderTapSetting = settings.resolvedTimeTapTarget.resolved(launchableState)
         val dateTapTarget: HeaderTapSetting = settings.resolvedDateTapTarget.resolved(launchableState)
         WidgetSettingsUiState(
@@ -195,7 +240,8 @@ class WidgetSettingsViewModel(
             eventMaxEvents = eventSettingsState.settings.resolvedMaxEvents,
             includeAllDay = eventSettingsState.settings.includeAllDay,
             excludedCalendarIds = eventSettingsState.settings.excludedCalendarIds,
-            calendars = eventSettingsState.calendars
+            calendars = eventSettingsState.calendars,
+            appWidgets = rows.appWidgets
         )
     }.stateIn(
         scope = viewModelScope,
@@ -341,6 +387,20 @@ class WidgetSettingsViewModel(
 
     fun refreshCalendarPermission() {
         calendarPermissionGate.refreshPermission()
+    }
+
+    fun openAddWidget() {
+        viewModelScope.launch {
+            eventChannel.send(WidgetSettingsEvent.StartAddWidget)
+        }
+    }
+
+    fun removeAppWidget(widgetId: Long) {
+        viewModelScope.launch {
+            val appWidgetId: AppWidgetId = removeWidgetUseCase(widgetId = widgetId) ?: return@launch
+            eventChannel.send(WidgetSettingsEvent.AppWidgetRemoved(appWidgetId = appWidgetId))
+            eventChannel.send(WidgetSettingsEvent.ShowMessage(message = R.string.widget_removed))
+        }
     }
 
     fun setEventLookaheadHours(hours: Int) {

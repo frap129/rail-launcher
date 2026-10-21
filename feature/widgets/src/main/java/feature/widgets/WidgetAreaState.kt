@@ -13,12 +13,22 @@ import core.data.prefs.HeaderSize
 data class WidgetAreaState(val places: List<WidgetPlaceModel> = emptyList(), val hasWidgets: Boolean = places.isNotEmpty())
 
 @Immutable
-data class WidgetPlaceModel(val id: Long, val widgets: List<WidgetModel>)
+data class WidgetPlaceModel(val id: Long, val heightDp: Int?, val widgets: List<WidgetModel>)
 
 @Immutable
 sealed interface WidgetModel {
     val id: Long
 }
+
+@Immutable
+data class AppWidgetModel(
+    override val id: Long,
+    val appWidgetId: Int,
+    val provider: String,
+    val label: String,
+    val minHeightDp: Int,
+    val isWorkProfile: Boolean
+) : WidgetModel
 
 @Immutable
 data class HeaderModel(

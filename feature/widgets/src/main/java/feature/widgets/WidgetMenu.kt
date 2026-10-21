@@ -20,12 +20,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Font
+import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
@@ -64,6 +66,33 @@ fun WidgetMenu(
         }
 
         is WidgetMenuState.EmptyAreaMenu -> Column(modifier = modifier.fillMaxWidth()) {
+            state.items.forEach { item ->
+                WidgetMenuRow(
+                    item = item,
+                    onToggle = onToggle,
+                    onAction = onAction,
+                    onChoiceClick = onChoiceClick,
+                    onChoiceSelected = onChoiceSelected
+                )
+            }
+        }
+
+        is WidgetMenuState.AppWidgetMenu -> Column(modifier = modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = state.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+                Text(
+                    text = state.label,
+                    modifier = Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
             state.items.forEach { item ->
                 WidgetMenuRow(
                     item = item,
@@ -194,8 +223,10 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Battery -> CoreUiR.string.battery
     WidgetMenuAction.UpcomingEvents -> R.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
+    WidgetMenuAction.AddWidget -> R.string.add_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
+    WidgetMenuAction.RemoveWidget -> R.string.remove_widget
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
 }
 
@@ -205,7 +236,9 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.Battery -> FontAwesomeIcons.Solid.BatteryThreeQuarters
     WidgetMenuAction.UpcomingEvents -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
+    WidgetMenuAction.AddWidget -> FontAwesomeIcons.Solid.PlusSquare
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
+    WidgetMenuAction.RemoveWidget -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH
 }

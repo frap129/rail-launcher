@@ -20,6 +20,15 @@ class IWidgetAreaRepositoryImpl(private val widgetAreaDao: WidgetAreaDao) : IWid
     override suspend fun restoreHeader(position: Int) {
         widgetAreaDao.restoreHeader(position)
     }
+
+    override suspend fun addAppWidget(request: AddAppWidget): Long = widgetAreaDao.addAppWidget(
+        appWidgetId = request.appWidgetId.value,
+        provider = request.provider,
+        profileSerial = request.profileSerial,
+        belowPlaceId = (request.insertAt as? InsertPosition.Below)?.placeId
+    )
+
+    override suspend fun removeWidget(widgetId: Long): AppWidgetId? = widgetAreaDao.removeWidget(widgetId)?.let(::AppWidgetId)
 }
 
 internal data class WidgetAreaResolution(val places: List<WidgetPlace>, val duplicateHeaderIds: List<Long>)

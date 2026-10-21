@@ -14,6 +14,7 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
@@ -23,6 +24,7 @@ import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
 import core.data.widgets.PlacedWidget
+import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
 import feature.widgets.HeaderFormatter
 import java.time.Instant
@@ -515,7 +517,8 @@ class WidgetSettingsViewModelTest {
         areaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
-        calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource()
+        calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
+        appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
         settingsRepository = settingsRepository,
         areaRepository = areaRepository,
@@ -535,7 +538,9 @@ class WidgetSettingsViewModelTest {
             )
         ),
         launchableRepository = launchableRepository,
-        calendarEventSource = calendarEventSource
+        calendarEventSource = calendarEventSource,
+        appWidgetHost = appWidgetHost,
+        removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost)
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(

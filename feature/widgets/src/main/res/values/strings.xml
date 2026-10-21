@@ -29,4 +29,15 @@
     <string name="remove_header">Remove Header</string>
     <string name="restore_header">Restore Header</string>
     <string name="widget_settings">Widget settings</string>
+    <string name="add_widget">Add widget</string>
+    <string name="add_widget_title">Add widget</string>
+    <string name="search_widgets">Search widgets</string>
+    <string name="no_widgets_found">No widgets found</string>
+    <string name="work">Work</string>
+    <string name="widget_size_cells">%1$d × %2$d</string>
+    <string name="widget_size_dp">%1$d × %2$d dp</string>
+    <string name="widget_preview">Preview of %1$s</string>
+    <string name="remove_widget">Remove widget</string>
+    <string name="widget_removed">Widget removed</string>
+    <string name="couldnt_add_widget">Couldn\'t add widget</string>
 </resources>

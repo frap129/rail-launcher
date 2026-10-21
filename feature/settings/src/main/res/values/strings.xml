@@ -55,5 +55,9 @@
     <string name="no_calendars">No calendars</string>
     <string name="other_calendars">Other</string>
     <string name="work_profile">Work</string>
+    <string name="app_widgets">App Widgets</string>
+    <string name="add_widget">Add widget</string>
+    <string name="remove_widget">Remove widget</string>
+    <string name="widget_removed">Widget removed</string>
     <string name="done">Done</string>
 </resources>

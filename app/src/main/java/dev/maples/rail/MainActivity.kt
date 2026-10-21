@@ -17,11 +17,13 @@ import core.lifecycle.HomeSignals
 import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
+import feature.launcher.AppWidgetResults
 import feature.launcher.launcherDestination
 import feature.settings.settingsDestination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.android.ext.android.inject
 
 class MainActivity : TemplateActivity() {
     /**
@@ -62,6 +64,8 @@ class MainActivity : TemplateActivity() {
             updateSystemBarIconAppearance()
         }
     }
+
+    private val appWidgetResults: AppWidgetResults by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -151,4 +155,9 @@ class MainActivity : TemplateActivity() {
 
     private fun Resources.isNightMode(): Boolean =
         (configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        appWidgetResults.onActivityResult(requestCode = requestCode, resultCode = resultCode)
+        super.onActivityResult(requestCode, resultCode, data)
+    }
 }

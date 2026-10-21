@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetPlaceRecord
+import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.Flow
 
@@ -29,6 +30,9 @@ abstract class WidgetAreaDao {
 
     @Query("SELECT position FROM widget_places WHERE id = :placeId")
     abstract suspend fun getPlacePosition(placeId: Long): Int?
+
+    @Query("SELECT * FROM widgets WHERE id = :widgetId")
+    abstract suspend fun getWidget(widgetId: Long): WidgetRecord?
 
     @Insert
     abstract suspend fun insertPlace(place: WidgetPlaceRecord): Long
@@ -84,5 +88,32 @@ abstract class WidgetAreaDao {
         }
         deleteWidgets(ids)
         deleteEmptyPlaces()
+    }
+
+    @Transaction
+    open suspend fun addAppWidget(appWidgetId: Int, provider: WidgetProvider, profileSerial: Long, belowPlaceId: Long?): Long {
+        val belowPosition: Int? = belowPlaceId?.let { placeId -> getPlacePosition(placeId) }
+        val position: Int = belowPosition?.plus(1) ?: (getMaxPlacePosition() + 1)
+        shiftPositionsFrom(position)
+        val placeId: Long = insertPlace(WidgetPlaceRecord(position = position))
+        insertWidget(
+            WidgetRecord(
+                placeId = placeId,
+                pagePosition = 0,
+                kind = WidgetKind.APP_WIDGET,
+                appWidgetId = appWidgetId,
+                provider = provider.key,
+                profileSerial = profileSerial
+            )
+        )
+        return placeId
+    }
+
+    @Transaction
+    open suspend fun removeWidget(widgetId: Long): Int? {
+        val widget: WidgetRecord = getWidget(widgetId) ?: return null
+        deleteWidgets(listOf(widgetId))
+        deleteEmptyPlaces()
+        return widget.appWidgetId
     }
 }

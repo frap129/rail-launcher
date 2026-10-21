@@ -1,6 +1,9 @@
 package core.data.testing
 
+import core.data.widgets.AddAppWidget
+import core.data.widgets.AppWidgetId
 import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
 import kotlinx.coroutines.flow.Flow
@@ -48,5 +51,53 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
         storedPlaces.update { places ->
             places.toMutableList().apply { add(targetPosition, headerPlace) }
         }
+    }
+
+    override suspend fun addAppWidget(request: AddAppWidget): Long {
+        val targetIndex: Int = when (val insertAt: InsertPosition = request.insertAt) {
+            is InsertPosition.Below -> storedPlaces.value.indexOfFirst { place -> place.id == insertAt.placeId }
+                .takeIf { index -> index >= 0 }
+                ?.plus(1)
+                ?: storedPlaces.value.size
+
+            InsertPosition.End -> storedPlaces.value.size
+        }
+        val widgetId: Long = nextWidgetId++
+        val place: WidgetPlace = WidgetPlace(
+            id = nextPlaceId++,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(
+                PlacedWidget.AppWidget(
+                    id = widgetId,
+                    appWidgetId = request.appWidgetId.value,
+                    provider = request.provider,
+                    profileSerial = request.profileSerial,
+                    extendsUnderRail = false
+                )
+            )
+        )
+        storedPlaces.update { places -> places.toMutableList().apply { add(targetIndex, place) } }
+        return widgetId
+    }
+
+    override suspend fun removeWidget(widgetId: Long): AppWidgetId? {
+        val place: WidgetPlace = storedPlaces.value.firstOrNull { place ->
+            place.widgets.any { widget -> widget.id == widgetId }
+        } ?: return null
+        val widget: PlacedWidget.AppWidget = place.widgets.filterIsInstance<PlacedWidget.AppWidget>()
+            .firstOrNull { widget -> widget.id == widgetId }
+            ?: return null
+        val remaining: List<PlacedWidget> = place.widgets.filterNot { widget -> widget.id == widgetId }
+        storedPlaces.update { places ->
+            places.mapNotNull { current ->
+                when {
+                    current.id != place.id -> current
+                    remaining.isEmpty() -> null
+                    else -> current.copy(widgets = remaining)
+                }
+            }
+        }
+        return AppWidgetId(widget.appWidgetId)
     }
 }
