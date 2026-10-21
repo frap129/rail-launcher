@@ -511,6 +511,20 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `exposes Edit Favorites mode`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.isEditingFavorites.test {
+                assertFalse(expectMostRecentItem())
+                viewModel.editFavorites()
+                assertTrue(awaitItem())
+                viewModel.finishEditingFavorites()
+                assertFalse(awaitItem())
+            }
+        }
+    }
+
+    @Test
     fun `initializes the edited Favorites when entering Edit Favorites from the App List`() {
         runTest {
             val secondItem: Launchable = listedGroups[1].items.first()

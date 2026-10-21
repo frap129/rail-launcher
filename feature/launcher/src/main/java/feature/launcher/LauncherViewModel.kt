@@ -78,13 +78,12 @@ private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favorites: List<Launchable>,
-    editedFavoriteKeys: List<String>?
+    isEditingFavorites: Boolean
 ): LauncherUiState {
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     if (listedGroups.isEmpty()) {
         return LauncherUiState.Loading
     }
-    val isEditingFavorites: Boolean = editedFavoriteKeys != null
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
@@ -141,6 +140,15 @@ class LauncherViewModel(
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
+    /** Whether the Favorites are being edited, shared with the Done button. */
+    val isEditingFavorites: StateFlow<Boolean> = editedFavoriteKeys
+        .map { keys -> keys != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(),
+            initialValue = false
+        )
+
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
 
@@ -160,13 +168,13 @@ class LauncherViewModel(
         navigation,
         launchableState,
         favorites,
-        editedFavoriteKeys
-    ) { navigation, state, favorites, editedKeys ->
+        isEditingFavorites
+    ) { navigation, state, favorites, isEditingFavorites ->
         toUiState(
             navigation = navigation,
             state = state,
             favorites = favorites,
-            editedFavoriteKeys = editedKeys
+            isEditingFavorites = isEditingFavorites
         )
     }.stateIn(
         scope = viewModelScope,

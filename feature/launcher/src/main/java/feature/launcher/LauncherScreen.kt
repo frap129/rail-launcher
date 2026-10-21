@@ -1,5 +1,6 @@
 package feature.launcher
 
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
@@ -13,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,11 +43,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +91,7 @@ import core.ui.composables.scrollrail.ScrollRail
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.util.toDp
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
@@ -109,30 +114,43 @@ private val dragHandleRailGap = 16.dp
 private val doneButtonPadding = 24.dp
 private val favoriteStarSize = 28.dp
 private val favoriteStarOutlineSize = 36.dp
+private val contentHorizontalPadding: Dp = 32.dp
+private val railTopPadding: Dp = 200.dp
+private val railWidth: Dp = 64.dp
+private val railHorizontalOffset: Dp = (-16).dp
+private val sheetDragHandleHeight: Dp = 10.dp
+
+private const val DEFAULT_FADE_IN_MILLIS: Int = 5
+private const val DEFAULT_FADE_IN_DELAY_MILLIS: Int = 5
+private const val DEFAULT_FADE_OUT_MILLIS: Int = 5
+private const val FOCUS_FADE_IN_MILLIS: Int = 200
+private const val FOCUS_FADE_OUT_MILLIS: Int = 1
+private const val REVEAL_FADE_IN_MILLIS: Int = 200
+private const val REVEAL_FADE_IN_DELAY_MILLIS: Int = 75
+private const val REVEAL_FADE_OUT_MILLIS: Int = 1
+private const val REVEAL_FADE_OUT_DELAY_MILLIS: Int = 275
+
+@Immutable
+data class LauncherItemActions(
+    val onItemLaunch: (Launchable) -> Unit,
+    val onItemLongPress: (Launchable) -> Unit,
+    val onToggleFavorite: (Launchable) -> Unit
+)
+
+@Immutable
+data class LauncherRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>)
 
 // The Rail's touch column starts homeRailTouchInset from the end edge.
 private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHandleRailGap
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
-    val context = LocalContext.current
-    val activity = context as? ComponentActivity
-    val uiState by viewModel.uiState.collectAsState()
-    val menuState by viewModel.menuState.collectAsState()
-    val railLabels: List<String> by viewModel.railLabels.collectAsState()
-    val favorites: List<Launchable> by viewModel.favorites.collectAsState()
-    val favoriteKeys: Set<String> = remember(favorites) { favorites.mapTo(HashSet()) { favorite -> favorite.key } }
+    val context: Context = LocalContext.current
+    val activity: ComponentActivity? = context as? ComponentActivity
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
         viewModel.onLaunchableLaunched()
     }
-    val isEditingFavorites: Boolean = when (val state = uiState) {
-        is LauncherUiState.AppList -> state.isEditingFavorites
-        is LauncherUiState.Home -> state.isEditingFavorites
-        else -> false
-    }
-
     LaunchedEffect(backStackEntry) {
         backStackEntry.savedStateHandle
             .getStateFlow(HOME_INTENT_REQUEST_KEY, false)
@@ -143,109 +161,154 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 }
             }
     }
-
     BackHandler {
         if (!viewModel.onBack()) {
             activity?.finish()
         }
     }
-
     Box(Modifier.fillMaxSize()) {
-        FocusRevealContent(
+        LauncherContent(
             modifier = Modifier.fillMaxSize(),
-            targetState = uiState,
-            focusState = LauncherUiState.AppList.Scrolling::class,
-            revealState = LauncherUiState.AppList.Browsing::class,
-            defaultSpec = fadeIn(animationSpec = tween(5, 5))
-                .togetherWith(fadeOut(animationSpec = tween(5))),
-            focusSpec = fadeIn(animationSpec = tween(200))
-                .togetherWith(fadeOut(animationSpec = tween(1))),
-            revealSpec = fadeIn(animationSpec = tween(200, 75))
-                .togetherWith(fadeOut(animationSpec = tween(1, 275))),
-            contentKey = {
-                when (it) {
-                    is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
-                    is LauncherUiState.Home -> LauncherUiState.Home::class
-                    else -> it
-                }
-            }
-        ) { state ->
-            when (state) {
-                is LauncherUiState.Home -> LauncherHome(
-                    modifier = Modifier.fillMaxSize(),
-                    home = state,
-                    onItemLaunch = launchItem,
-                    onItemLongPress = { viewModel.openItemMenu(it) },
-                    onFavoriteMoved = viewModel::moveFavorite,
-                    onToggleFavorite = viewModel::toggleFavorite
-                )
+            viewModel = viewModel,
+            onItemLaunch = launchItem
+        )
+        LauncherRail(viewModel)
+        LauncherDoneButton(viewModel)
+        LauncherMenu(viewModel)
+    }
+}
 
-                is LauncherUiState.AppList.Browsing -> LauncherList(
+@Composable
+private fun LauncherContent(modifier: Modifier, viewModel: LauncherViewModel, onItemLaunch: (Launchable) -> Unit) {
+    val uiState: LauncherUiState by viewModel.uiState.collectAsState()
+    val context: Context = LocalContext.current
+    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch) {
+        LauncherItemActions(
+            onItemLaunch = onItemLaunch,
+            onItemLongPress = viewModel::openItemMenu,
+            onToggleFavorite = viewModel::toggleFavorite
+        )
+    }
+    FocusRevealContent(
+        modifier = modifier,
+        targetState = uiState,
+        focusState = LauncherUiState.AppList.Scrolling::class,
+        revealState = LauncherUiState.AppList.Browsing::class,
+        defaultSpec = fadeIn(animationSpec = tween(durationMillis = DEFAULT_FADE_IN_MILLIS, delayMillis = DEFAULT_FADE_IN_DELAY_MILLIS))
+            .togetherWith(fadeOut(animationSpec = tween(durationMillis = DEFAULT_FADE_OUT_MILLIS))),
+        focusSpec = fadeIn(animationSpec = tween(durationMillis = FOCUS_FADE_IN_MILLIS))
+            .togetherWith(fadeOut(animationSpec = tween(durationMillis = FOCUS_FADE_OUT_MILLIS))),
+        revealSpec = fadeIn(animationSpec = tween(durationMillis = REVEAL_FADE_IN_MILLIS, delayMillis = REVEAL_FADE_IN_DELAY_MILLIS))
+            .togetherWith(
+                fadeOut(animationSpec = tween(durationMillis = REVEAL_FADE_OUT_MILLIS, delayMillis = REVEAL_FADE_OUT_DELAY_MILLIS))
+            ),
+        contentKey = { state ->
+            when (state) {
+                is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
+                is LauncherUiState.AppList.Scrolling -> state.group
+                is LauncherUiState.Home -> LauncherUiState.Home::class
+                LauncherUiState.Loading -> LauncherUiState.Loading
+            }
+        }
+    ) { state ->
+        when (state) {
+            is LauncherUiState.Home -> LauncherHome(
+                modifier = Modifier.fillMaxSize(),
+                home = state,
+                itemActions = itemActions,
+                onFavoriteMoved = viewModel::moveFavorite
+            )
+
+            is LauncherUiState.AppList.Browsing -> {
+                val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
+                LauncherList(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 32.dp),
+                        .padding(horizontal = contentHorizontalPadding),
                     launcherList = state.groups,
                     lazyListState = state.lazyListState,
-                    isEditingFavorites = state.isEditingFavorites,
-                    favoriteKeys = favoriteKeys,
-                    onItemLaunch = launchItem,
-                    onItemLongPress = { viewModel.openItemMenu(it) },
-                    onToggleFavorite = viewModel::toggleFavorite,
+                    rowState = rowState,
+                    itemActions = itemActions,
                     topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
                     bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
                 )
+            }
 
-                is LauncherUiState.AppList.Scrolling -> LauncherItemGroup(
+            is LauncherUiState.AppList.Scrolling -> {
+                val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
+                LauncherItemGroup(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 32.dp, top = viewModel.listStartOffsetPx.toDp(context).dp),
+                        .padding(start = contentHorizontalPadding, top = viewModel.listStartOffsetPx.toDp(context).dp),
                     group = state.group,
-                    isEditingFavorites = state.isEditingFavorites,
-                    favoriteKeys = favoriteKeys,
-                    onItemLaunch = launchItem,
-                    onItemLongPress = { viewModel.openItemMenu(it) },
-                    onToggleFavorite = viewModel::toggleFavorite
+                    rowState = rowState,
+                    itemActions = itemActions
                 )
-
-                LauncherUiState.Loading -> {}
             }
-        }
 
-        ScrollRail(
+            LauncherUiState.Loading -> {}
+        }
+    }
+}
+
+// App List rows only read Favorites while Edit Favorites shows stars.
+@Composable
+private fun rememberRowState(isEditingFavorites: Boolean, favorites: StateFlow<List<Launchable>>): LauncherRowState {
+    if (!isEditingFavorites) {
+        return LauncherRowState(isEditingFavorites = false, favoriteKeys = emptySet())
+    }
+    val favoriteList: List<Launchable> by favorites.collectAsState()
+    val favoriteKeys: Set<String> = remember(favoriteList) { favoriteList.mapTo(HashSet()) { favorite -> favorite.key } }
+    return LauncherRowState(isEditingFavorites = true, favoriteKeys = favoriteKeys)
+}
+
+@Composable
+private fun BoxScope.LauncherRail(viewModel: LauncherViewModel) {
+    val railLabels: List<String> by viewModel.railLabels.collectAsState()
+    ScrollRail(
+        modifier = Modifier
+            .align(Alignment.CenterEnd)
+            .padding(0.dp, railTopPadding, 0.dp, 0.dp)
+            .width(railWidth)
+            .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) },
+        items = railLabels,
+        onScrollStarted = viewModel::onRailPreview,
+        onScroll = viewModel::onRailPreview,
+        onScrollEnded = viewModel::onRailReleased
+    )
+}
+
+@Composable
+private fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel) {
+    val isEditingFavorites: Boolean by viewModel.isEditingFavorites.collectAsState()
+    if (isEditingFavorites) {
+        FloatingActionButton(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(0.dp, 200.dp, 0.dp, 0.dp)
-                .width(64.dp)
-                .offset { IntOffset(-16.dp.toPx().toInt(), 0) },
-            items = railLabels,
-            onScrollStarted = viewModel::onRailPreview,
-            onScroll = viewModel::onRailPreview,
-            onScrollEnded = viewModel::onRailReleased
-        )
-
-        if (isEditingFavorites) {
-            FloatingActionButton(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .safeDrawingPadding()
-                    .padding(doneButtonPadding),
-                onClick = viewModel::finishEditingFavorites
-            ) {
-                Text("Done")
-            }
+                .align(Alignment.BottomEnd)
+                .safeDrawingPadding()
+                .padding(doneButtonPadding),
+            onClick = viewModel::finishEditingFavorites
+        ) {
+            Text("Done")
         }
+    }
+}
 
-        if (menuState !is LauncherMenuState.Closed) {
-            ModalBottomSheet(
-                dragHandle = { Spacer(Modifier.fillMaxWidth().height(10.dp)) },
-                onDismissRequest = { viewModel.closeItemMenu() }
-            ) {
-                when (val currentMenuState: LauncherMenuState = menuState) {
-                    is LauncherMenuState.Menu -> LauncherItemMenu(item = currentMenuState.item)
-                    is LauncherMenuState.Rename -> LauncherItemEditName(currentMenuState.item)
-                    LauncherMenuState.Closed -> {} // this state is never reached
-                }
-            }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LauncherMenu(viewModel: LauncherViewModel) {
+    val menuState: LauncherMenuState by viewModel.menuState.collectAsState()
+    if (menuState is LauncherMenuState.Closed) {
+        return
+    }
+    ModalBottomSheet(
+        dragHandle = { Spacer(Modifier.fillMaxWidth().height(sheetDragHandleHeight)) },
+        onDismissRequest = { viewModel.closeItemMenu() }
+    ) {
+        when (val currentMenuState: LauncherMenuState = menuState) {
+            is LauncherMenuState.Menu -> LauncherItemMenu(item = currentMenuState.item, viewModel = viewModel)
+            is LauncherMenuState.Rename -> LauncherItemEditName(item = currentMenuState.item, viewModel = viewModel)
+            LauncherMenuState.Closed -> {} // this state is never reached
         }
     }
 }
@@ -254,16 +317,13 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
 fun LauncherHome(
     modifier: Modifier = Modifier,
     home: LauncherUiState.Home,
-    onItemLaunch: (Launchable) -> Unit,
-    onItemLongPress: (Launchable) -> Unit,
+    itemActions: LauncherItemActions,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
-    onToggleFavorite: (Launchable) -> Unit,
     widgetContent: @Composable (Widget) -> Unit = {}
 ) {
     val reorderableListState = rememberReorderableLazyListState(home.lazyListState) { from, to ->
         onFavoriteMoved(from.index, to.index)
     }
-
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         // The end inset keeps widgets clear of the Rail's touch column.
         Column(
@@ -298,9 +358,7 @@ fun LauncherHome(
                                 item = favorite,
                                 isEditingFavorites = home.isEditingFavorites,
                                 isFavorite = true,
-                                onItemLaunch = onItemLaunch,
-                                onItemLongPress = onItemLongPress,
-                                onToggleFavorite = onToggleFavorite,
+                                itemActions = itemActions,
                                 modifier = Modifier.weight(1f)
                             )
                             if (home.isEditingFavorites) {
@@ -347,17 +405,13 @@ fun LauncherList(
     modifier: Modifier = Modifier,
     launcherList: List<LaunchableGroup.Listed>,
     lazyListState: LazyListState,
-    isEditingFavorites: Boolean,
-    favoriteKeys: Set<String>,
-    onItemLaunch: (Launchable) -> Unit,
-    onItemLongPress: (Launchable) -> Unit,
-    onToggleFavorite: (Launchable) -> Unit,
+    rowState: LauncherRowState,
+    itemActions: LauncherItemActions,
     topOffset: Dp,
     bottomOffset: Dp
 ) {
     val defaultBuffer = 100.dp
     var animated by remember { mutableStateOf(false) }
-
     val topSpacerHeightAnimator by animateDpAsState(
         targetValue = if (animated) defaultBuffer else topOffset,
         animationSpec = tween(durationMillis = 100, delayMillis = 275)
@@ -366,7 +420,6 @@ fun LauncherList(
         targetValue = if (animated) defaultBuffer else bottomOffset,
         animationSpec = tween(durationMillis = 400, delayMillis = 275)
     )
-
     LazyColumn(
         modifier = modifier.testTag("launcherList"),
         state = lazyListState,
@@ -379,18 +432,14 @@ fun LauncherList(
         items(launcherList, key = { it.label }) { itemGroup ->
             LauncherItemGroup(
                 group = itemGroup,
-                isEditingFavorites = isEditingFavorites,
-                favoriteKeys = favoriteKeys,
-                onItemLaunch = onItemLaunch,
-                onItemLongPress = onItemLongPress,
-                onToggleFavorite = onToggleFavorite
+                rowState = rowState,
+                itemActions = itemActions
             )
         }
         item {
             Spacer(Modifier.height(bottomSpacerHeightAnimator))
         }
     }
-
     LaunchedEffect(Unit) {
         animated = true
     }
@@ -400,11 +449,8 @@ fun LauncherList(
 fun LauncherItemGroup(
     modifier: Modifier = Modifier,
     group: LaunchableGroup.Listed,
-    isEditingFavorites: Boolean,
-    favoriteKeys: Set<String>,
-    onItemLaunch: (Launchable) -> Unit,
-    onItemLongPress: (Launchable) -> Unit,
-    onToggleFavorite: (Launchable) -> Unit
+    rowState: LauncherRowState,
+    itemActions: LauncherItemActions
 ) {
     Column(modifier = modifier) {
         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
@@ -420,11 +466,9 @@ fun LauncherItemGroup(
         group.items.forEach { item ->
             LauncherItem(
                 item = item,
-                isEditingFavorites = isEditingFavorites,
-                isFavorite = item.key in favoriteKeys,
-                onItemLaunch = onItemLaunch,
-                onItemLongPress = onItemLongPress,
-                onToggleFavorite = onToggleFavorite
+                isEditingFavorites = rowState.isEditingFavorites,
+                isFavorite = item.key in rowState.favoriteKeys,
+                itemActions = itemActions
             )
         }
     }
@@ -435,13 +479,12 @@ fun LauncherItem(
     item: Launchable,
     isEditingFavorites: Boolean,
     isFavorite: Boolean,
-    onItemLaunch: (Launchable) -> Unit,
-    onItemLongPress: (Launchable) -> Unit,
-    onToggleFavorite: (Launchable) -> Unit,
+    itemActions: LauncherItemActions,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
-
+    val currentItem: Launchable by rememberUpdatedState(item)
+    val currentItemActions: LauncherItemActions by rememberUpdatedState(itemActions)
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -451,9 +494,9 @@ fun LauncherItem(
                 .pointerInput(isEditingFavorites) {
                     if (!isEditingFavorites) {
                         detectTapGestures(
-                            onTap = { onItemLaunch(item) },
+                            onTap = { currentItemActions.onItemLaunch(currentItem) },
                             onLongPress = {
-                                onItemLongPress(item)
+                                currentItemActions.onItemLongPress(currentItem)
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                         )
@@ -463,7 +506,7 @@ fun LauncherItem(
             if (isEditingFavorites) {
                 FavoriteToggleStar(
                     isFavorite = isFavorite,
-                    onClick = { onToggleFavorite(item) }
+                    onClick = { currentItemActions.onToggleFavorite(currentItem) }
                 )
             }
             AsyncImage(
