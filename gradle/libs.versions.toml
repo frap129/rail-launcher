@@ -22,6 +22,7 @@ lifecycle = "2.11.0"
 navigation-compose = "2.10.2"
 profileinstaller = "1.4.1"
 reorderable = "3.1.0"
+robolectric = "4.17"
 roomRuntime = "2.8.5"
 timber = "5.0.1"
 turbine = "1.2.1"
@@ -67,6 +68,7 @@ test-androidx-ext-junit = { group = "androidx.test.ext", name = "junit", version
 test-compose-ui-testManifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 test-junit = { group = "junit", name = "junit", version.ref = "junit" }
+test-robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 test-kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines-core" }
 test-turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }

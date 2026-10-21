@@ -12,7 +12,8 @@ import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.IIconRepository
 import core.data.icons.IIconRepositoryImpl
-import core.data.icons.IconMapper
+import core.data.icons.IconFetcher
+import core.data.icons.IconKeyer
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
 import core.data.prefs.IPreferencesRepository
@@ -123,7 +124,8 @@ class MainApplication :
 
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(context)
         .components {
-            add(IconMapper())
+            add(IconKeyer())
+            add(IconFetcher.Factory())
         }
         .build()
 }
