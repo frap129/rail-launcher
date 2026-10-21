@@ -5,7 +5,9 @@ import androidx.room.Entity
 
 sealed class Icon {
     data class RailIcon(val resId: Int) : Icon()
+
     data class ActivityIcon(val componentName: ComponentName) : Icon()
+
     data class ApplicationIcon(val packageName: String) : Icon()
 
     @Entity(tableName = "icons", primaryKeys = ["componentName", "packPackageName"])
