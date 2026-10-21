@@ -2,6 +2,7 @@ package core.lifecycle
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.room.Room
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -41,6 +42,7 @@ import org.koin.dsl.module
 import timber.log.Timber
 
 private const val APP_SCOPE_QUALIFIER: String = "appScope"
+private const val RELEASE_LOG_TAG: String = "Rail"
 
 class MainApplication :
     Application(),
@@ -130,9 +132,10 @@ class MainApplication :
         }
     }
 
+    /** Release logcat sink. A Timber Tree is the layer that writes to [Log]. */
     private object ReleaseTree : Timber.Tree() {
         override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-            // TODO: Configure reporting for release builds
+            Log.println(priority, tag ?: RELEASE_LOG_TAG, message)
         }
     }
 

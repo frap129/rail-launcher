@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -16,17 +17,26 @@ private const val REEMIT_BUFFER_CAPACITY: Int = 1
 class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : FavoriteDao {
     private val storedRecords: MutableStateFlow<List<FavoriteRecord>> = MutableStateFlow(initialRecords)
     private val reemittedRecords: MutableSharedFlow<List<FavoriteRecord>> = MutableSharedFlow(extraBufferCapacity = REEMIT_BUFFER_CAPACITY)
+    private val observeFailures: MutableSharedFlow<Throwable> = MutableSharedFlow(extraBufferCapacity = REEMIT_BUFFER_CAPACITY)
     private val observeAllSubscriptions: AtomicInteger = AtomicInteger(0)
     var failNextRemove: Throwable? = null
     var isAddEnabled: Boolean = true
     val records: List<FavoriteRecord> get() = storedRecords.value
     val observeAllSubscriptionCount: Int get() = observeAllSubscriptions.get()
 
-    override fun observeAll(): Flow<List<FavoriteRecord>> = merge(storedRecords, reemittedRecords)
+    override fun observeAll(): Flow<List<FavoriteRecord>> = merge(
+        storedRecords,
+        reemittedRecords,
+        observeFailures.map { failure -> throw failure }
+    )
         .onStart { observeAllSubscriptions.incrementAndGet() }
 
     suspend fun reemit(records: List<FavoriteRecord>) {
         reemittedRecords.emit(records)
+    }
+
+    fun failNextObserve(failure: Throwable) {
+        check(observeFailures.tryEmit(failure)) { "No uncollected observeAll failure slot available" }
     }
 
     override suspend fun add(key: String) {

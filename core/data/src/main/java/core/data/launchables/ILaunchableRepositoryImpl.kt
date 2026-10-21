@@ -12,6 +12,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,6 +45,7 @@ class ILaunchableRepositoryImpl(
     ) { appsOrNull, customizations, settings, _ ->
         resolveState(appsOrNull = appsOrNull, customizations = customizations, settings = settings)
     }
+        .retryWithExponentialBackoff()
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),

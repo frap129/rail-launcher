@@ -24,6 +24,7 @@ import org.junit.Test
 private const val DEFAULT_RES_ID: Int = 0
 private const val SECOND_POSITION: Int = 1
 private const val RESOLUTION_TIMEOUT_MS: Long = 500L
+private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IFavoritesRepositoryImplTest {
@@ -234,6 +235,31 @@ class IFavoritesRepositoryImplTest {
         launchableRepository.setGroups(groups = emptyList())
         runCurrent()
         assertTrue(favoriteDao.records.isEmpty())
+    }
+
+    @Test
+    fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
+        val otherLaunchable: Launchable = createLaunchable(name = "Other")
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
+        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = favoriteDao,
+            launchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable, otherLaunchable)))
+            )
+        )
+        runCurrent()
+        assertEquals(listOf(launchable), repository.favorites.first())
+        favoriteDao.failNextObserve(IllegalStateException("Favorites upstream failure"))
+        favoriteDao.add(otherLaunchable.key)
+        runCurrent()
+        assertEquals(listOf(launchable), repository.favorites.first())
+        advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
+        runCurrent()
+        assertEquals(listOf(launchable), repository.favorites.first())
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(launchable, otherLaunchable), repository.favorites.first())
     }
 
     @Test
