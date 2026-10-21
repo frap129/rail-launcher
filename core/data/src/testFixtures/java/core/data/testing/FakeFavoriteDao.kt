@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 
@@ -17,19 +16,23 @@ private const val REEMIT_BUFFER_CAPACITY: Int = 1
 class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : FavoriteDao {
     private val storedRecords: MutableStateFlow<List<FavoriteRecord>> = MutableStateFlow(initialRecords)
     private val reemittedRecords: MutableSharedFlow<List<FavoriteRecord>> = MutableSharedFlow(extraBufferCapacity = REEMIT_BUFFER_CAPACITY)
-    private val activeCollectors: AtomicInteger = AtomicInteger(0)
+    private val observeAllSubscriptions: AtomicInteger = AtomicInteger(0)
+    var failNextRemove: Throwable? = null
+    var isAddEnabled: Boolean = true
     val records: List<FavoriteRecord> get() = storedRecords.value
-    val activeCollectorCount: Int get() = activeCollectors.get()
+    val observeAllSubscriptionCount: Int get() = observeAllSubscriptions.get()
 
     override fun observeAll(): Flow<List<FavoriteRecord>> = merge(storedRecords, reemittedRecords)
-        .onStart { activeCollectors.incrementAndGet() }
-        .onCompletion { activeCollectors.decrementAndGet() }
+        .onStart { observeAllSubscriptions.incrementAndGet() }
 
     suspend fun reemit(records: List<FavoriteRecord>) {
         reemittedRecords.emit(records)
     }
 
     override suspend fun add(key: String) {
+        if (!isAddEnabled) {
+            return
+        }
         storedRecords.update { records ->
             if (records.any { it.key == key }) {
                 records
@@ -40,6 +43,10 @@ class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : Favo
     }
 
     override suspend fun remove(keys: List<String>) {
+        failNextRemove?.let { failure ->
+            failNextRemove = null
+            throw failure
+        }
         storedRecords.update { records -> records.filterNot { it.key in keys } }
     }
 
