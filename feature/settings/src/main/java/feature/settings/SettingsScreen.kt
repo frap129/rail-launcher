@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -32,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
@@ -47,7 +50,9 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
+import compose.icons.fontawesomeicons.solid.Th
 import core.data.icons.model.IconPack
+import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import org.koin.androidx.compose.koinViewModel
 
@@ -89,6 +94,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     val title = when (screen) {
                         SettingsScreen.Main -> stringResource(R.string.settings)
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
+                        SettingsScreen.Widgets -> stringResource(R.string.widgets)
                     }
 
                     Text(
@@ -116,7 +122,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
         ) {
             when (screen) {
                 SettingsScreen.Main -> SettingsMainScreen(
-                    toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") }
+                    toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
+                    toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") }
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
@@ -124,13 +131,15 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     selectedIconPack = uiState.selectedIconPack,
                     onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) }
                 )
+
+                SettingsScreen.Widgets -> SettingsWidgetsScreen()
             }
         }
     }
 }
 
 @Composable
-fun SettingsMainScreen(toAppearance: () -> Unit) {
+fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
     LazyColumn {
         item {
             ListItem(
@@ -146,7 +155,94 @@ fun SettingsMainScreen(toAppearance: () -> Unit) {
                 }
             )
         }
+        item {
+            ListItem(
+                modifier = Modifier.clickable { toWidgets.invoke() },
+                headlineContent = { Text(stringResource(R.string.widgets)) },
+                supportingContent = { Text(stringResource(R.string.widgets_summary)) },
+                leadingContent = {
+                    Icon(
+                        modifier = Modifier.size(64.dp).padding(16.dp),
+                        imageVector = FontAwesomeIcons.Solid.Th,
+                        contentDescription = stringResource(R.string.widgets)
+                    )
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) {
+    val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
+    LazyColumn {
+        item {
+            Text(
+                text = stringResource(R.string.header),
+                modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_header),
+                checked = uiState.headerShown,
+                onCheckedChange = viewModel::setHeaderShown
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.clock),
+                checked = uiState.clockVisible,
+                enabled = uiState.headerShown && uiState.canHideClock,
+                supportingText = if (uiState.headerShown && !uiState.canHideClock) {
+                    stringResource(CoreUiR.string.header_last_part_supporting_text)
+                } else {
+                    null
+                },
+                onCheckedChange = viewModel::setClockVisible
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.date),
+                checked = uiState.dateVisible,
+                enabled = uiState.headerShown && uiState.canHideDate,
+                supportingText = if (uiState.headerShown && !uiState.canHideDate) {
+                    stringResource(CoreUiR.string.header_last_part_supporting_text)
+                } else {
+                    null
+                },
+                onCheckedChange = viewModel::setDateVisible
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    supportingText: String? = null
+) {
+    ListItem(
+        modifier = Modifier.toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Switch,
+            onValueChange = onCheckedChange
+        ),
+        headlineContent = { Text(title) },
+        supportingContent = if (supportingText != null) {
+            { Text(supportingText) }
+        } else {
+            null
+        },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) }
+    )
 }
 
 @Composable

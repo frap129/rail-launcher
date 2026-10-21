@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,10 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +56,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,7 +69,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -97,11 +102,21 @@ import core.data.launchables.model.LaunchableGroup
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.layout.homeEdgePadding
+import core.ui.layout.homeRailTouchInset
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.util.performLongPressHaptic
 import core.util.toDp
+import feature.widgets.WidgetArea
+import feature.widgets.WidgetAreaEvent
+import feature.widgets.WidgetAreaViewModel
+import feature.widgets.WidgetMenu
+import feature.widgets.WidgetMenuAction
+import feature.widgets.WidgetMenuState
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -114,8 +129,6 @@ val launcherDestination = Destination(
     isWallpaperBacked = true
 )
 
-private val homeEdgePadding = 32.dp
-private val homeRailTouchInset = 80.dp
 private val dragHandleSize = 48.dp
 private val dragHandleDotRadius = 3.dp
 private val dragHandleDotSpacing = 12.dp
@@ -129,6 +142,9 @@ private val railTopPadding: Dp = 200.dp
 private val railWidth: Dp = 64.dp
 private val railHorizontalOffset: Dp = (-16).dp
 private val sheetDragHandleHeight: Dp = 10.dp
+private val snackbarBottomPadding: Dp = 80.dp
+
+private const val WIDGETS_SETTINGS_ROUTE: String = "settings/widgets"
 
 private const val DEFAULT_FADE_IN_MILLIS: Int = 5
 private const val DEFAULT_FADE_IN_DELAY_MILLIS: Int = 5
@@ -154,11 +170,38 @@ data class LauncherRowState(val isEditingFavorites: Boolean, val favoriteKeys: S
 private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHandleRailGap
 
 @Composable
-fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
+fun LauncherScreen(
+    navController: NavController,
+    backStackEntry: NavBackStackEntry,
+    viewModel: LauncherViewModel = koinViewModel(),
+    widgetViewModel: WidgetAreaViewModel = koinViewModel()
+) {
     val context: Context = LocalContext.current
+    val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val headerRemovedMessage: String = stringResource(R.string.header_removed)
+    val undoLabel: String = stringResource(R.string.undo)
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
         viewModel.onLaunchableLaunched()
+    }
+    LaunchedEffect(widgetViewModel) {
+        widgetViewModel.events.collect { event ->
+            when (event) {
+                is WidgetAreaEvent.ShowUndo -> coroutineScope.launch {
+                    val result: SnackbarResult = snackbarHostState.showSnackbar(
+                        message = headerRemovedMessage,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        widgetViewModel.undoRemoveHeader(position = event.position)
+                    }
+                }
+
+                WidgetAreaEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
+            }
+        }
     }
     LaunchedEffect(backStackEntry) {
         backStackEntry.savedStateHandle
@@ -175,16 +218,30 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
         LauncherContent(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
+            widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem
         )
         LauncherRail(viewModel)
         LauncherDoneButton(viewModel)
         LauncherMenu(viewModel)
+        LauncherWidgetMenu(widgetViewModel)
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .safeDrawingPadding()
+                .padding(bottom = snackbarBottomPadding)
+        )
     }
 }
 
 @Composable
-private fun LauncherContent(modifier: Modifier, viewModel: LauncherViewModel, onItemLaunch: (Launchable) -> Unit) {
+private fun LauncherContent(
+    modifier: Modifier,
+    viewModel: LauncherViewModel,
+    widgetViewModel: WidgetAreaViewModel,
+    onItemLaunch: (Launchable) -> Unit
+) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch) {
@@ -235,7 +292,9 @@ private fun LauncherContent(modifier: Modifier, viewModel: LauncherViewModel, on
                     .then(if (isHomeVisible) Modifier else hiddenHomeModifier),
                 home = home,
                 itemActions = itemActions,
-                onFavoriteMoved = viewModel::moveFavorite
+                onFavoriteMoved = viewModel::moveFavorite,
+                onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
+                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites) }
             )
         }
         FocusRevealContent(
@@ -380,30 +439,73 @@ private fun LauncherMenu(viewModel: LauncherViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
+    val menuState: WidgetMenuState by viewModel.menuState.collectAsState()
+    val state: WidgetMenuState = menuState
+    if (state is WidgetMenuState.Closed) {
+        return
+    }
+    ModalBottomSheet(
+        dragHandle = { Spacer(Modifier.fillMaxWidth().height(sheetDragHandleHeight)) },
+        onDismissRequest = viewModel::closeMenu
+    ) {
+        WidgetMenu(
+            state = state,
+            onToggle = { action, checked ->
+                when (action) {
+                    WidgetMenuAction.Clock -> viewModel.setClockVisible(checked)
+                    WidgetMenuAction.Date -> viewModel.setDateVisible(checked)
+                    else -> Unit
+                }
+            },
+            onAction = { action ->
+                when (action) {
+                    WidgetMenuAction.RemoveHeader -> viewModel.removeHeader()
+                    WidgetMenuAction.RestoreHeader -> viewModel.restoreHeader()
+                    WidgetMenuAction.WidgetSettings -> viewModel.openWidgetSettings()
+                    else -> Unit
+                }
+            }
+        )
+    }
+}
+
 @Composable
 fun LauncherHome(
     modifier: Modifier = Modifier,
     home: LauncherUiState.Home,
     itemActions: LauncherItemActions,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
-    widgetContent: @Composable (Widget) -> Unit = {}
+    onEmptyAreaLongPress: () -> Unit = {},
+    widgetContent: @Composable () -> Unit = {}
 ) {
     val reorderableListState = rememberReorderableLazyListState(home.lazyListState) { from, to ->
         onFavoriteMoved(from.index, to.index)
     }
+    val hapticFeedback = LocalHapticFeedback.current
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        // The end inset keeps widgets clear of the Rail's touch column.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = homeEdgePadding, top = homeEdgePadding, end = homeRailTouchInset)
-        ) {
-            home.widgets.forEach { widget -> widgetContent(widget) }
-        }
-        LazyColumn(
+        widgetContent()
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .pointerInput(home.isEditingFavorites) {
+                    if (!home.isEditingFavorites) {
+                        detectTapGestures(
+                            onLongPress = {
+                                hapticFeedback.performLongPressHaptic()
+                                onEmptyAreaLongPress()
+                            }
+                        )
+                    }
+                }
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
                 .testTag("launcherHome"),
             state = home.lazyListState,
             verticalArrangement = Arrangement.Bottom,
@@ -571,7 +673,7 @@ fun LauncherItem(
                             onTap = { currentItemActions.onItemLaunch(currentItem) },
                             onLongPress = {
                                 currentItemActions.onItemLongPress(currentItem)
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                hapticFeedback.performLongPressHaptic()
                             }
                         )
                     }

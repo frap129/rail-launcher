@@ -9,6 +9,8 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
+import feature.widgets.HomeEditMode
+import feature.widgets.HomeEditState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,18 +24,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
-/** A panel rendered in Home's Widget Area. */
-sealed interface Widget
-
 sealed class LauncherUiState {
     data object Loading : LauncherUiState()
 
-    data class Home(
-        val lazyListState: LazyListState,
-        val favorites: List<Launchable>,
-        val widgets: List<Widget> = emptyList(),
-        val isEditingFavorites: Boolean = false
-    ) : LauncherUiState()
+    data class Home(val lazyListState: LazyListState, val favorites: List<Launchable>, val isEditingFavorites: Boolean = false) :
+        LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
         abstract val isEditingFavorites: Boolean
@@ -118,7 +113,8 @@ class LauncherViewModel(
     listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
     private val prefsRepo: IPreferencesRepository,
-    private val favoritesRepo: IFavoritesRepository
+    private val favoritesRepo: IFavoritesRepository,
+    private val homeEditState: HomeEditState
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -142,8 +138,8 @@ class LauncherViewModel(
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
     /** Whether the Favorites are being edited, shared with the Done button. */
-    val isEditingFavorites: StateFlow<Boolean> = editedFavoriteKeys
-        .map { keys -> keys != null }
+    val isEditingFavorites: StateFlow<Boolean> = homeEditState.mode
+        .map { mode -> mode == HomeEditMode.Favorites }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(),
@@ -308,7 +304,7 @@ class LauncherViewModel(
     }
 
     fun openItemMenu(launchable: Launchable) {
-        if (editedFavoriteKeys.value != null) {
+        if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
         menuItem.value = launchable
@@ -344,6 +340,9 @@ class LauncherViewModel(
     }
 
     fun editFavorites() {
+        if (!homeEditState.tryEnter(HomeEditMode.Favorites)) {
+            return
+        }
         editedFavoriteKeys.value = favorites.value.map { it.key }
         closeItemMenu()
     }
@@ -372,6 +371,7 @@ class LauncherViewModel(
                 val keys: List<String> = editedFavoriteKeys.value ?: return@withLock
                 favoritesRepo.reorder(favoritesRepo.favorites.first().sortedInOrderOf(keys))
                 editedFavoriteKeys.value = null
+                homeEditState.exit(HomeEditMode.Favorites)
             }
         }
     }

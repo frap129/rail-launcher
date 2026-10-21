@@ -23,4 +23,6 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     testImplementation(libs.test.robolectric)
     testFixturesImplementation(libs.kotlinx.coroutines.core)
+    testFixturesImplementation(libs.test.junit)
+    testFixturesImplementation(libs.test.kotlinx.coroutines.test)
 }
