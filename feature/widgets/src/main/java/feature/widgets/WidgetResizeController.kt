@@ -3,10 +3,13 @@ package feature.widgets
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
+import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.resizeBounds
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +26,8 @@ data class ResizeState(
     val defaultHeightDp: Int,
     val draftHeightDp: Int,
     val canDecrease: Boolean,
-    val canIncrease: Boolean
+    val canIncrease: Boolean,
+    val indicatorVisible: Boolean = false
 )
 
 /** The direction of one Resize toolbar step. */
@@ -36,6 +40,7 @@ enum class ResizeStep {
 internal class WidgetResizeController(
     private val repository: IWidgetAreaRepository,
     private val appWidgetHost: IAppWidgetHostSource,
+    private val settingsRepository: IWidgetSettingsRepository,
     private val homeEditState: HomeEditState,
     private val scope: CoroutineScope,
     private val onReportSize: (appWidgetIds: List<AppWidgetId>, widthDp: Int, heightDp: Int) -> Unit
@@ -47,6 +52,8 @@ internal class WidgetResizeController(
     val homeHeightDp: StateFlow<Int?> = homeHeight.asStateFlow()
 
     private var widgetAreaWidthDp: Int = 0
+    val widgetAreaWidth: Int get() = widgetAreaWidthDp
+
     private var rawResizeHeightDp: Float = 0f
     private var resizingAppWidgetIds: List<AppWidgetId> = emptyList()
 
@@ -73,25 +80,39 @@ internal class WidgetResizeController(
     }
 
     /** Enters Resize for [placeId], returning false when the place is not resizable right now. */
-    suspend fun startResize(placeId: Long): Boolean {
+    suspend fun startResize(placeId: Long, headerHeightDp: Int? = null): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return false
         }
         val place: WidgetPlace = repository.places.first().firstOrNull { place -> place.id == placeId } ?: return false
-        val widget: PlacedWidget.AppWidget = place.widgets
-            .filterIsInstance<PlacedWidget.AppWidget>()
-            .firstOrNull()
-            ?.takeIf { widget -> widget.availability == WidgetAvailability.Available }
-            ?: return false
-        val info: WidgetProviderInfo = providerInfoFor(widget) ?: return false
-        val bounds: ResizeBounds = ResizeBounds.from(info)
+        if (place.widgets.none { widget -> widget is PlacedWidget.AppWidget }) {
+            return false
+        }
+        val bounds: ResizeBounds = if (place.isStack) {
+            ResizeBounds.stackBounds(place.widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) })
+        } else {
+            val widget: PlacedWidget.AppWidget = place.widgets.filterIsInstance<PlacedWidget.AppWidget>().firstOrNull()
+                ?.takeIf { widget -> widget.availability == WidgetAvailability.Available }
+                ?: return false
+            providerInfoFor(widget)?.let(ResizeBounds::from) ?: return false
+        }
         if (!bounds.isResizable) {
             return false
         }
         if (!homeEditState.tryEnter(HomeEditMode.Resizing(placeId = placeId))) {
             return false
         }
-        val defaultHeightDp: Int = info.minHeightDp
+        val defaults: List<Int> = place.widgets.mapNotNull { widget ->
+            (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
+                providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
+            }
+        }
+        val defaultHeightDp: Int = if (place.isStack) {
+            defaults.maxOrNull() ?: bounds.minDp
+        } else {
+            defaults.firstOrNull() ?: bounds.minDp
+        }
+        val indicatorVisible: Boolean = place.isStack && settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
         val draftHeightDp: Int = bounds.clamp(
             heightDp = place.heightDp ?: defaultHeightDp,
             homeHeightDp = homeHeight.value ?: Int.MAX_VALUE
@@ -106,17 +127,18 @@ internal class WidgetResizeController(
             defaultHeightDp = defaultHeightDp,
             draftHeightDp = draftHeightDp,
             canDecrease = false,
-            canIncrease = false
+            canIncrease = false,
+            indicatorVisible = indicatorVisible
         ).withDraft(heightDp = draftHeightDp)
         return true
     }
 
     /** Enters Resize for the place holding [widgetId]. */
-    suspend fun startResizeForWidget(widgetId: Long): Boolean {
+    suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int? = null): Boolean {
         val place: WidgetPlace = repository.places.first().firstOrNull { place ->
             place.widgets.any { widget -> widget.id == widgetId }
         } ?: return false
-        return startResize(placeId = place.id)
+        return startResize(placeId = place.id, headerHeightDp = headerHeightDp)
     }
 
     /** Applies a fractional drag delta, snapping the accumulated height to the 8dp grid. */
@@ -148,7 +170,7 @@ internal class WidgetResizeController(
         resize.value = state.withDraft(heightDp = state.defaultHeightDp)
     }
 
-    /** Persists the draft height and reports the size once to the widget's provider. */
+    /** Persists the draft height and reports the shared page size once to every App Widget page. */
     fun finishResize() {
         val state: ResizeState = resize.value ?: return
         resize.value = null
@@ -161,15 +183,17 @@ internal class WidgetResizeController(
         val storedHeightDp: Int? = heightDp.takeUnless { draft -> draft == effectiveDefaultHeightDp }
         val appWidgetIds: List<AppWidgetId> = resizingAppWidgetIds
         resizingAppWidgetIds = emptyList()
+        val pageHeightDp: Int = (heightDp - if (state.indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0)
+            .coerceAtLeast(1)
         scope.launch {
             repository.setPlaceHeight(placeId = state.placeId, heightDp = storedHeightDp)
             if (appWidgetIds.isNotEmpty() && widgetAreaWidthDp > 0) {
-                onReportSize(appWidgetIds, widgetAreaWidthDp, heightDp)
+                onReportSize(appWidgetIds, widgetAreaWidthDp, pageHeightDp)
             }
         }
     }
 
-    /** Leaves Resize without saving when the widget disappears underneath the user. */
+    /** Leaves Resize without saving when the place disappears underneath the user. */
     fun cancelResize() {
         val state: ResizeState = resize.value ?: return
         resize.value = null
@@ -194,10 +218,7 @@ internal class WidgetResizeController(
     private fun cancelIfGone(places: List<WidgetPlace>) {
         val state: ResizeState = resize.value ?: return
         val place: WidgetPlace? = places.firstOrNull { place -> place.id == state.placeId }
-        val widget: PlacedWidget.AppWidget? = place?.widgets
-            ?.filterIsInstance<PlacedWidget.AppWidget>()
-            ?.firstOrNull()
-        if (widget == null || widget.availability != WidgetAvailability.Available) {
+        if (place == null) {
             cancelResize()
         }
     }

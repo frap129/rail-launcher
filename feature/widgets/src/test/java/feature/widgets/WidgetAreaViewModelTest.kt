@@ -30,9 +30,13 @@ import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
+import core.data.widgets.HeaderRemoval
 import core.data.widgets.InsertPosition
+import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
+import core.data.widgets.WidgetAreaEdit
+import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetLifecycleReconciler
@@ -48,6 +52,7 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -427,7 +432,12 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
         viewModel.events.test {
             viewModel.removeHeader()
-            assertEquals(WidgetAreaEvent.ShowUndo(position = 0), awaitItem())
+            assertEquals(
+                WidgetAreaEvent.ShowUndo(
+                    removal = HeaderRemoval(position = 0, placeId = 1L, pagePosition = 0)
+                ),
+                awaitItem()
+            )
         }
         assertEquals(1, repository.removedHeaders.size)
         assertEquals(WidgetMenuState.Closed, viewModel.menuState.value)
@@ -463,15 +473,15 @@ class WidgetAreaViewModelTest {
             listOf(appWidgetPlace, headerPlace.copy(id = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
-        var undoPosition: Int = -1
+        var removal: HeaderRemoval? = null
         viewModel.events.test {
             viewModel.removeHeader()
             val event: WidgetAreaEvent.ShowUndo = awaitItem() as WidgetAreaEvent.ShowUndo
-            undoPosition = event.position
+            removal = event.removal
         }
-        viewModel.undoRemoveHeader(position = undoPosition)
+        viewModel.undoRemoveHeader(removal = removal!!)
         advanceUntilIdle()
-        assertEquals(listOf(1), repository.restoredHeaderPositions)
+        assertEquals(listOf(1), repository.restoredHeaders.map { restored -> restored.position })
     }
 
     @Test
@@ -768,6 +778,149 @@ class WidgetAreaViewModelTest {
         isWorkProfile = false
     )
 
+    @Test
+    fun `adding from a Header menu offers a placement choice below the cap`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = FakeWidgetAreaRepository(listOf(headerPlace)))
+
+        viewModel.openHeaderMenu()
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.ChoosingPlacement)
+    }
+
+    @Test
+    fun `adding from a full stack skips the placement choice`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = FakeWidgetAreaRepository(listOf(stack)),
+            settingsRepository = FakeWidgetSettingsRepository(initialAreaSettings = WidgetAreaSettings(maxStackPages = 2))
+        )
+
+        viewModel.openHeaderMenu(widgetId = 1L)
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.Picking)
+    }
+
+    @Test
+    fun `choosing Add to stack appends a page and makes it current`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
+        )
+
+        viewModel.openHeaderMenu()
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+        viewModel.choosePlacement(AddWidgetPlacement.IntoStack)
+        viewModel.pickProvider(appWidgetProviderInfo())
+        advanceUntilIdle()
+
+        val place: WidgetPlace = repository.places.first().single()
+        assertEquals(2, place.widgets.size)
+        assertEquals(1, place.currentPage)
+    }
+
+    @Test
+    fun `a stack Header menu offers Remove from stack`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = FakeWidgetAreaRepository(listOf(stack)))
+
+        viewModel.menuState.test {
+            expectMostRecentItem()
+            viewModel.openHeaderMenu(widgetId = 1L)
+            advanceUntilIdle()
+            val menu: WidgetMenuState.HeaderMenu = expectMostRecentItem() as WidgetMenuState.HeaderMenu
+            assertTrue(menu.items.any { item -> item.id == WidgetMenuAction.RemoveFromStack })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `page settle persists the current page after the debounce`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+
+        viewModel.onPageSettled(placeId = 1L, page = 1)
+        advanceTimeBy(299)
+        assertTrue(repository.currentPageUpdates.isEmpty())
+        advanceTimeBy(1)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L to 1), repository.currentPageUpdates)
+    }
+
+    @Test
+    fun `merging a place over the stack cap is rejected`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = FakeWidgetAreaRepository(listOf(stack, appWidgetPlace(placeId = 3L, widgetId = 3L))),
+            settingsRepository = FakeWidgetSettingsRepository(initialAreaSettings = WidgetAreaSettings(maxStackPages = 2))
+        )
+
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.mergePlace(sourcePlaceId = 3L, targetPlaceId = 1L)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L, 3L), viewModel.editState.value?.placeIds)
+    }
+
+    @Test
+    fun `splitting a stack page creates a new draft place`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = FakeWidgetAreaRepository(listOf(stack)))
+
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.splitPage(placeId = 1L, widgetId = 2L, toIndex = 1)
+
+        val draft: WidgetEditDraft = viewModel.editState.value!!
+        assertEquals(2, draft.places.size)
+        assertNull(draft.places[1].placeId)
+        assertEquals(listOf(2L), draft.places[1].widgetIds)
+    }
+
+    @Test
+    fun `toggling a stack expands it in the draft`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = FakeWidgetAreaRepository(listOf(stack)))
+
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.toggleStackExpanded(placeId = 1L)
+
+        assertTrue(1L in viewModel.editState.value!!.expandedPlaceIds)
+    }
+
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
@@ -925,6 +1078,7 @@ class WidgetAreaViewModelTest {
         viewModel.openHeaderMenu()
         viewModel.startAddFromMenu()
         advanceUntilIdle()
+        viewModel.choosePlacement(AddWidgetPlacement.Below)
         viewModel.pickProvider(appWidgetProviderInfo())
         advanceUntilIdle()
         val places: List<WidgetPlace> = repository.places.first()
@@ -944,6 +1098,7 @@ class WidgetAreaViewModelTest {
         viewModel.openAppWidgetMenu(widgetId = 2L)
         viewModel.startAddFromMenu()
         advanceUntilIdle()
+        viewModel.choosePlacement(AddWidgetPlacement.Below)
         viewModel.pickProvider(appWidgetProviderInfo())
         advanceUntilIdle()
         val places: List<WidgetPlace> = repository.places.first()
@@ -1652,7 +1807,7 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
         assertEquals(HomeEditMode.Widgets, homeEditState.mode.value)
         assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
-        assertEquals(emptySet<Long>(), viewModel.editState.value?.removedPlaceIds)
+        assertEquals(emptySet<Long>(), viewModel.editState.value?.removedWidgetIds)
     }
 
     @Test
@@ -1713,7 +1868,8 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
         val draft: WidgetEditDraft = viewModel.editState.value!!
         assertEquals(listOf(1L), draft.placeIds)
-        assertEquals(setOf(2L), draft.removedPlaceIds)
+        assertFalse(draft.places.any { place -> place.placeId == 2L })
+        assertEquals(setOf(2L), draft.removedWidgetIds)
         assertTrue(repository.edits.isEmpty())
         assertTrue(repository.removedHeaders.isEmpty())
         assertTrue(host.deletedIds.isEmpty())
@@ -1763,7 +1919,15 @@ class WidgetAreaViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         advanceUntilIdle()
-        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(
+            listOf(
+                WidgetAreaEdit(
+                    places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(1L))),
+                    removedWidgetIds = setOf(2L)
+                )
+            ),
+            repository.edits
+        )
         assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
         assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
         assertNull(viewModel.editState.value)
@@ -1800,7 +1964,15 @@ class WidgetAreaViewModelTest {
         viewModel.removeWidgetPlaceInEdit(placeId = 2L)
         assertTrue(viewModel.onBack())
         advanceUntilIdle()
-        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(
+            listOf(
+                WidgetAreaEdit(
+                    places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(1L))),
+                    removedWidgetIds = setOf(2L)
+                )
+            ),
+            repository.edits
+        )
         assertEquals(HomeEditMode.None, homeEditState.mode.value)
     }
 
@@ -1816,7 +1988,15 @@ class WidgetAreaViewModelTest {
         viewModel.removeWidgetPlaceInEdit(placeId = 2L)
         assertTrue(viewModel.onHomeIntent())
         advanceUntilIdle()
-        assertEquals(listOf(listOf(1L) to setOf(2L)), repository.edits)
+        assertEquals(
+            listOf(
+                WidgetAreaEdit(
+                    places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(1L))),
+                    removedWidgetIds = setOf(2L)
+                )
+            ),
+            repository.edits
+        )
         assertEquals(HomeEditMode.None, homeEditState.mode.value)
     }
 

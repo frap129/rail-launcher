@@ -7,6 +7,7 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.WidgetAreaSettingsDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -37,6 +38,7 @@ private fun HeaderTapSetting?.isStale(keys: Set<String>): Boolean = this is Head
 class IWidgetSettingsRepositoryImpl(
     private val headerSettingsDao: HeaderSettingsDao,
     private val eventSettingsDao: EventSettingsDao,
+    private val widgetAreaSettingsDao: WidgetAreaSettingsDao,
     launchableRepository: ILaunchableRepository
 ) : IWidgetSettingsRepository {
     private val cleanupMutex: Mutex = Mutex()
@@ -67,11 +69,17 @@ class IWidgetSettingsRepositoryImpl(
 
     override val eventSettings: Flow<EventSettings> = eventSettingsDao.observe().distinctUntilChanged()
 
+    override val widgetAreaSettings: Flow<WidgetAreaSettings> = widgetAreaSettingsDao.observe().distinctUntilChanged()
+
     override suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings) {
         headerSettingsDao.update(transform)
     }
 
     override suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings) {
         eventSettingsDao.update(transform)
+    }
+
+    override suspend fun updateWidgetAreaSettings(transform: (WidgetAreaSettings) -> WidgetAreaSettings) {
+        widgetAreaSettingsDao.update(transform)
     }
 }

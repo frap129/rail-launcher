@@ -1,0 +1,43 @@
+package core.data.widgets
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+/** Persisted preferences for the Widget Area and its stacks. */
+@Entity(tableName = "widget_area_settings")
+data class WidgetAreaSettingsRecord(
+    @PrimaryKey val id: Int = 0,
+    @ColumnInfo(name = "max_stack_pages", defaultValue = "4") val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
+    @ColumnInfo(name = "stack_indicator_visible", defaultValue = "1") val stackIndicatorVisible: Boolean = true
+) {
+    /** Reads the row as a valid domain value, coercing a corrupt range back into bounds. */
+    fun toDomain(): WidgetAreaSettings = WidgetAreaSettings(
+        maxStackPages = maxStackPages.coerceIn(WidgetAreaSettings.MIN_STACK_PAGES, WidgetAreaSettings.MAX_STACK_PAGES),
+        stackIndicatorVisible = stackIndicatorVisible
+    )
+
+    companion object {
+        fun from(settings: WidgetAreaSettings): WidgetAreaSettingsRecord = WidgetAreaSettingsRecord(
+            maxStackPages = settings.maxStackPages,
+            stackIndicatorVisible = settings.stackIndicatorVisible
+        )
+    }
+}
+
+/** The User's Widget Stack preferences. */
+data class WidgetAreaSettings(val maxStackPages: Int = DEFAULT_MAX_STACK_PAGES, val stackIndicatorVisible: Boolean = true) {
+    init {
+        require(maxStackPages in MIN_STACK_PAGES..MAX_STACK_PAGES) {
+            "maxStackPages must be between $MIN_STACK_PAGES and $MAX_STACK_PAGES"
+        }
+    }
+
+    companion object {
+        const val MIN_STACK_PAGES: Int = 2
+        const val MAX_STACK_PAGES: Int = 8
+        const val DEFAULT_MAX_STACK_PAGES: Int = 4
+
+        val Default: WidgetAreaSettings = WidgetAreaSettings()
+    }
+}

@@ -60,4 +60,8 @@
     <string name="remove_widget">Remove widget</string>
     <string name="widget_removed">Widget removed</string>
     <string name="done">Done</string>
+    <string name="widget_stacks">Widget Stacks</string>
+    <string name="max_stack_pages">Maximum pages per stack</string>
+    <string name="page_indicator">Page indicator</string>
+    <string name="more_pages_use_memory">More pages use more memory</string>
 </resources>

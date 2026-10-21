@@ -260,7 +260,7 @@ class WidgetSettingsViewModelTest {
 
         viewModel.setHeaderShown(shown = true)
         advanceUntilIdle()
-        assertEquals(listOf(0), areaRepository.restoredHeaderPositions)
+        assertEquals(listOf(0), areaRepository.restoredHeaders.map { restored -> restored.position })
     }
 
     @Test

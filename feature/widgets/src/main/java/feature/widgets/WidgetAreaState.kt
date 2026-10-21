@@ -8,6 +8,7 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 
 /** What the Widget Area shows once the first clock reading has arrived. */
@@ -15,11 +16,15 @@ import core.data.widgets.WidgetAvailability
 data class WidgetAreaState(
     val places: List<WidgetPlaceModel> = emptyList(),
     val hasWidgets: Boolean = places.isNotEmpty(),
-    val isEditing: Boolean = false
+    val isEditing: Boolean = false,
+    val stackIndicatorVisible: Boolean = true,
+    val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES
 )
 
 @Immutable
-data class WidgetPlaceModel(val id: Long, val heightDp: Int?, val widgets: List<WidgetModel>)
+data class WidgetPlaceModel(val id: Long, val heightDp: Int?, val currentPage: Int = 0, val widgets: List<WidgetModel>) {
+    val isStack: Boolean get() = widgets.size > 1
+}
 
 @Immutable
 sealed interface WidgetModel {

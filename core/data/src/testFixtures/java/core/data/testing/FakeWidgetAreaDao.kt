@@ -38,7 +38,19 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
         places.update { current -> current.map { place -> if (place.id == placeId) place.copy(heightDp = heightDp) else place } }
     }
 
+    override suspend fun getPlace(placeId: Long): WidgetPlaceRecord? = places.value.firstOrNull { place -> place.id == placeId }
+
+    override suspend fun setCurrentPage(placeId: Long, page: Int) {
+        places.update { current -> current.map { place -> if (place.id == placeId) place.copy(currentPage = page) else place } }
+    }
+
     override suspend fun getWidget(widgetId: Long): WidgetRecord? = widgets.value.firstOrNull { widget -> widget.id == widgetId }
+
+    override suspend fun getWidgets(ids: List<Long>): List<WidgetRecord> = widgets.value.filter { widget -> widget.id in ids }
+
+    override suspend fun getWidgetsForPlace(placeId: Long): List<WidgetRecord> = widgets.value
+        .filter { widget -> widget.placeId == placeId }
+        .sortedWith(compareBy({ widget -> widget.pagePosition }, { widget -> widget.id }))
 
     override suspend fun getAppWidgets(): List<WidgetRecord> = widgets.value.filter { widget -> widget.kind == WidgetKind.APP_WIDGET }
 
@@ -82,6 +94,18 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
     override suspend fun appWidgetIdsForPlaces(placeIds: List<Long>): List<Int> = widgets.value
         .filter { widget -> widget.placeId in placeIds }
         .mapNotNull { widget -> widget.appWidgetId }
+
+    override suspend fun appWidgetIdsForWidgets(widgetIds: List<Long>): List<Int> = widgets.value
+        .filter { widget -> widget.id in widgetIds }
+        .mapNotNull { widget -> widget.appWidgetId }
+
+    override suspend fun moveWidget(widgetId: Long, placeId: Long, position: Int) {
+        widgets.update { current ->
+            current.map { widget ->
+                if (widget.id == widgetId) widget.copy(placeId = placeId, pagePosition = position) else widget
+            }
+        }
+    }
 
     override suspend fun deletePlaces(placeIds: List<Long>) {
         if (placeIds.isEmpty()) {

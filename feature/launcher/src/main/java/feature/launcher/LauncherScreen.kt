@@ -127,6 +127,7 @@ import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
 import core.util.toDp
 import feature.widgets.AddWidgetFlowState
+import feature.widgets.AddWidgetPlacement
 import feature.widgets.AppWidgetPickerSheet
 import feature.widgets.AppWidgetViewCache
 import feature.widgets.AppWidgetViews
@@ -256,7 +257,7 @@ fun LauncherScreen(
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        widgetViewModel.undoRemoveHeader(position = event.position)
+                        widgetViewModel.undoRemoveHeader(removal = event.removal)
                     }
                 }
 
@@ -399,6 +400,14 @@ fun LauncherScreen(
                 state = addFlowState as AddWidgetFlowState.Picking,
                 onQueryChange = widgetViewModel::setPickerQuery,
                 onPick = widgetViewModel::pickProvider,
+                onDismiss = widgetViewModel::cancelAdd
+            )
+        }
+        if (addFlowState is AddWidgetFlowState.ChoosingPlacement) {
+            AddPlacementSheet(
+                canStack = (addFlowState as AddWidgetFlowState.ChoosingPlacement).canStack,
+                onBelow = { widgetViewModel.choosePlacement(AddWidgetPlacement.Below) },
+                onIntoStack = { widgetViewModel.choosePlacement(AddWidgetPlacement.IntoStack) },
                 onDismiss = widgetViewModel::cancelAdd
             )
         }
@@ -678,6 +687,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.Resize,
                     WidgetMenuAction.Reconfigure,
                     WidgetMenuAction.RemoveHeader,
+                    WidgetMenuAction.RemoveFromStack,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
@@ -691,6 +701,41 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
             onAction = viewModel::onMenuAction,
             onClockStyleSelected = viewModel::selectClockStyle
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        dragHandle = { Spacer(Modifier.fillMaxWidth().height(sheetDragHandleHeight)) },
+        onDismissRequest = onDismiss
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(feature.widgets.R.string.add_widget_title),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                style = MaterialTheme.typography.headlineMedium
+            )
+            Text(
+                text = stringResource(feature.widgets.R.string.add_below),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onBelow)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                style = MaterialTheme.typography.titleLarge
+            )
+            if (canStack) {
+                Text(
+                    text = stringResource(feature.widgets.R.string.add_to_stack),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onIntoStack)
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+        }
     }
 }
 
