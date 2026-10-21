@@ -11,10 +11,13 @@ import core.data.launchables.model.RailLaunchable
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePreferencesRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -551,6 +554,20 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `toggles a Favorite twice in a row`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.toggleFavorite(item)
+                viewModel.toggleFavorite(item)
+                advanceUntilIdle()
+                assertTrue(expectHome().favorites.isEmpty())
+            }
+        }
+    }
+
+    @Test
     fun `shows the same Edit Favorites menu in the App List`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
@@ -719,18 +736,20 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `stops collecting Favorites when nothing is subscribed`() {
+    fun `stops observing Favorites when nothing is subscribed`() {
         runTest {
             val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
             val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
 
             val collectionJob: Job = viewModel.favorites.launchIn(this)
             runCurrent()
-            assertEquals(1, favoriteDao.activeCollectorCount)
-
             collectionJob.cancel()
             advanceUntilIdle()
-            assertEquals(0, favoriteDao.activeCollectorCount)
+
+            favoriteDao.add(item.key)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.favorites.value.isEmpty())
         }
     }
 
@@ -926,6 +945,7 @@ class LauncherViewModelTest {
                 launchableRepository.setGroups(groups = listOf(LaunchableGroup.Star) + listedGroups.drop(1))
                 assertTrue(expectHome().favorites.isEmpty())
             }
+            advanceUntilIdle()
             assertTrue(favoriteDao.records.isEmpty())
         }
     }
@@ -945,6 +965,7 @@ class LauncherViewModelTest {
             )
             viewModel.uiState.test {
                 assertTrue(expectHome().favorites.isEmpty())
+                runCurrent()
                 launchableRepository.setGroups(groups = groups)
                 advanceUntilIdle()
                 val home: LauncherUiState.Home = viewModel.uiState.value as LauncherUiState.Home
@@ -994,14 +1015,20 @@ class LauncherViewModelTest {
 
     // The production repository with FakeFavoriteDao exercises the resolution and
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
-    private fun createViewModel(
+    private fun TestScope.createViewModel(
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = groups),
         favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = launchableRepository,
         prefsRepo = preferencesRepository,
-        favoritesRepo = IFavoritesRepositoryImpl(favoriteDao = favoriteDao, launchableRepository = launchableRepository)
+        // Eagerly resolved on an unconfined scope so ViewModel tests need no runCurrent
+        // per test; dispatcher-sensitive await semantics are covered by repository tests.
+        favoritesRepo = IFavoritesRepositoryImpl(
+            favoriteDao = favoriteDao,
+            launchableRepository = launchableRepository,
+            scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+        )
     )
 
     private inline fun <reified T : LauncherUiState> checkState(actualState: LauncherUiState): T {

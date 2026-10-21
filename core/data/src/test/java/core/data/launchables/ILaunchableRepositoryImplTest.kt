@@ -10,6 +10,7 @@ import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
@@ -66,7 +67,8 @@ class ILaunchableRepositoryImplTest {
         )
         val favoritesRepository: IFavoritesRepositoryImpl = IFavoritesRepositoryImpl(
             favoriteDao = fakeFavoriteDao,
-            launchableRepository = repository
+            launchableRepository = repository,
+            scope = backgroundScope
         )
         val stateDeferred: Deferred<LaunchableState> = async { repository.launchableState.first { it.isLoaded } }
         // The item menu reads the same launchables flow.
@@ -102,6 +104,18 @@ class ILaunchableRepositoryImplTest {
         val actual: List<String> = repository.launchableState.first { it.isLoaded }.groups.map { group -> group.label }
 
         assertEquals(listOf("★", "⌂"), actual)
+    }
+
+    @Test
+    fun `resolves Builtin Launchables alongside Apps`() = runTest {
+        val repository: ILaunchableRepository = createRepository(fakeAppRepository = FakeAppRepository(inputApps = emptyList()))
+        val state: LaunchableState = repository.launchableState.first { it.isLoaded }
+        val builtinItems: List<Launchable> = state.groups
+            .filterIsInstance<LaunchableGroup.Builtin>()
+            .flatMap { group -> group.items }
+
+        assertTrue(builtinItems.isNotEmpty())
+        assertTrue(state.launchables.containsAll(builtinItems))
     }
 
     @Test

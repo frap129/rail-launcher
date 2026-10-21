@@ -28,6 +28,7 @@ import core.util.screenHeightPx
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.settings.SettingsViewModel
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,7 +45,11 @@ private const val APP_SCOPE_QUALIFIER: String = "appScope"
 class MainApplication :
     Application(),
     SingletonImageLoader.Factory {
-    private val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val appScope: CoroutineScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, throwable ->
+            Timber.e(throwable, "Uncaught exception in the application scope")
+        }
+    )
 
     private val database by lazy {
         Room.databaseBuilder(
@@ -91,7 +96,7 @@ class MainApplication :
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get()) }
+        single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
     }
 
     /**
