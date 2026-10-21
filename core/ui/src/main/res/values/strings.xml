@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="header_last_part_supporting_text">Use Remove Header to hide the Header</string>
+    <string name="battery">Battery</string>
+    <string name="battery_never">Never</string>
+    <string name="battery_always">Always</string>
+    <string name="battery_charging_or_low">When charging or low</string>
 </resources>

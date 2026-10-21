@@ -7,6 +7,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -62,6 +62,7 @@ data class WidgetSettingsUiState(
     val headerShown: Boolean = true,
     val clockVisible: Boolean = true,
     val dateVisible: Boolean = true,
+    val batteryVisibility: BatteryVisibility = BatteryVisibility.NEVER,
     val canHideClock: Boolean = true,
     val canHideDate: Boolean = true,
     val clockStyle: ClockStyle = ClockStyle.CLASSIC,
@@ -105,6 +106,7 @@ class WidgetSettingsViewModel(
             headerShown = places.any { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } },
             clockVisible = settings.clockVisible,
             dateVisible = settings.dateVisible,
+            batteryVisibility = settings.batteryVisibility,
             canHideClock = settings.canHideClock,
             canHideDate = settings.canHideDate,
             clockStyle = settings.clockStyle,
@@ -170,23 +172,19 @@ class WidgetSettingsViewModel(
 
     fun setClockVisible(visible: Boolean) {
         viewModelScope.launch {
-            if (!visible && !settingsRepository.headerSettings.first().dateVisible) {
-                return@launch
-            }
-            settingsRepository.updateHeaderSettings { settings ->
-                if (!visible && !settings.dateVisible) settings else settings.copy(clockVisible = visible)
-            }
+            settingsRepository.setClockVisible(visible)
         }
     }
 
     fun setDateVisible(visible: Boolean) {
         viewModelScope.launch {
-            if (!visible && !settingsRepository.headerSettings.first().clockVisible) {
-                return@launch
-            }
-            settingsRepository.updateHeaderSettings { settings ->
-                if (!visible && !settings.clockVisible) settings else settings.copy(dateVisible = visible)
-            }
+            settingsRepository.setDateVisible(visible)
+        }
+    }
+
+    fun setBatteryVisibility(visibility: BatteryVisibility) {
+        viewModelScope.launch {
+            settingsRepository.setBatteryVisibility(visibility)
         }
     }
 

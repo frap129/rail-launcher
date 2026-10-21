@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,7 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -35,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Bolt
 import compose.icons.fontawesomeicons.solid.Check
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
@@ -46,6 +50,15 @@ private val previewPadding: Dp = 20.dp
 private val selectedIconSize: Dp = 24.dp
 private const val STACKED_LINE_HEIGHT_MULTIPLIER: Float = 0.9f
 private const val COMPACT_SEPARATOR: String = "·"
+
+private data class HeaderLinePresentation(
+    val style: TextStyle,
+    val alignment: HeaderAlignment,
+    val menuEnabled: Boolean,
+    val interactive: Boolean,
+    val onTapTarget: (HeaderTapTarget) -> Unit,
+    val onLongPress: () -> Unit
+)
 
 @Composable
 fun HeaderContent(
@@ -74,40 +87,32 @@ fun HeaderContent(
     val secondaryStyle: TextStyle = MaterialTheme.typography.titleMedium
         .scaled(model.size.secondaryMultiplier)
         .copy(fontWeight = if (isBold) FontWeight.SemiBold else FontWeight.Normal)
+    val timePresentation: HeaderLinePresentation = HeaderLinePresentation(
+        style = timeStyle,
+        alignment = model.alignment,
+        menuEnabled = menuEnabled,
+        interactive = interactive,
+        onTapTarget = onTapTarget,
+        onLongPress = onLongPress
+    )
+    val secondaryPresentation: HeaderLinePresentation = timePresentation.copy(style = secondaryStyle)
     Column(modifier = modifier.fillMaxWidth()) {
         model.time?.let { time ->
             if (model.style == ClockStyle.STACKED) {
                 StackedTime(
                     time = time,
-                    timeStyle = timeStyle,
-                    secondaryStyle = secondaryStyle,
-                    alignment = model.alignment,
-                    menuEnabled = menuEnabled,
-                    interactive = interactive,
-                    onTapTarget = onTapTarget,
-                    onLongPress = onLongPress
+                    presentation = timePresentation,
+                    secondaryStyle = secondaryStyle
                 )
             } else {
-                HeaderTimeText(
-                    time = time,
-                    style = timeStyle,
-                    alignment = model.alignment,
-                    menuEnabled = menuEnabled,
-                    interactive = interactive,
-                    onTapTarget = onTapTarget,
-                    onLongPress = onLongPress
-                )
+                HeaderTimeText(time = time, presentation = timePresentation)
             }
         }
-        model.date?.let { date ->
-            HeaderTapTargetText(
-                line = date,
-                style = secondaryStyle,
-                alignment = model.alignment,
-                menuEnabled = menuEnabled,
-                interactive = interactive,
-                onTapTarget = onTapTarget,
-                onLongPress = onLongPress
+        if (model.date != null || model.battery != null) {
+            HeaderSecondaryLine(
+                line = model.date,
+                battery = model.battery,
+                presentation = secondaryPresentation
             )
         }
     }
@@ -167,66 +172,66 @@ fun HeaderClockStyleChooser(
 }
 
 @Composable
-private fun HeaderTimeText(
-    time: HeaderTimeModel,
-    style: TextStyle,
-    alignment: HeaderAlignment,
-    menuEnabled: Boolean,
-    interactive: Boolean,
-    onTapTarget: (HeaderTapTarget) -> Unit,
-    onLongPress: () -> Unit
-) {
+private fun HeaderSecondaryLine(line: HeaderLineModel?, battery: BatteryModel?, presentation: HeaderLinePresentation) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(previewSpacing, presentation.alignment.horizontalAlignment()),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        line?.let { date ->
+            HeaderTapTargetText(line = date, presentation = presentation, fillWidth = false)
+        }
+        if (line != null && battery != null) {
+            Text(
+                text = COMPACT_SEPARATOR,
+                modifier = Modifier.clearAndSetSemantics {},
+                style = presentation.style
+            )
+        }
+        battery?.let { model ->
+            HeaderBattery(model = model, presentation = presentation, fillWidth = false)
+        }
+    }
+}
+
+@Composable
+private fun HeaderTimeText(time: HeaderTimeModel, presentation: HeaderLinePresentation) {
     val text: String = time.text ?: return
     val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
         spokenText = time.spokenText,
         tapTarget = time.tapTarget,
-        alignment = alignment,
-        menuEnabled = menuEnabled,
-        interactive = interactive,
-        onTapTarget = onTapTarget,
-        onLongPress = onLongPress
+        presentation = presentation
     ) {
-        OutlinedText(text = text, style = style, textAlign = alignment.textAlign())
+        OutlinedText(text = text, style = presentation.style, textAlign = presentation.alignment.textAlign())
     }
 }
 
 @Composable
-private fun StackedTime(
-    time: HeaderTimeModel,
-    timeStyle: TextStyle,
-    secondaryStyle: TextStyle,
-    alignment: HeaderAlignment,
-    menuEnabled: Boolean,
-    interactive: Boolean,
-    onTapTarget: (HeaderTapTarget) -> Unit,
-    onLongPress: () -> Unit
-) {
+private fun StackedTime(time: HeaderTimeModel, presentation: HeaderLinePresentation, secondaryStyle: TextStyle) {
     val hourText: String = time.hourText ?: return
     val minuteText: String = time.minuteText ?: return
     val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
-    val stackedStyle: TextStyle = timeStyle.copy(lineHeight = timeStyle.fontSize * STACKED_LINE_HEIGHT_MULTIPLIER)
+    val stackedStyle: TextStyle = presentation.style.copy(
+        lineHeight = presentation.style.fontSize * STACKED_LINE_HEIGHT_MULTIPLIER
+    )
     HeaderTapTargetBox(
         clickLabel = clickLabel,
         spokenText = time.spokenText,
         tapTarget = time.tapTarget,
-        alignment = alignment,
-        menuEnabled = menuEnabled,
-        interactive = interactive,
-        onTapTarget = onTapTarget,
-        onLongPress = onLongPress
+        presentation = presentation
     ) {
-        Column(horizontalAlignment = alignment.horizontalAlignment()) {
-            OutlinedText(text = hourText, style = stackedStyle, textAlign = alignment.textAlign())
+        Column(horizontalAlignment = presentation.alignment.horizontalAlignment()) {
+            OutlinedText(text = hourText, style = stackedStyle, textAlign = presentation.alignment.textAlign())
             Row(verticalAlignment = Alignment.Bottom) {
-                OutlinedText(text = minuteText, style = stackedStyle, textAlign = alignment.textAlign())
+                OutlinedText(text = minuteText, style = stackedStyle, textAlign = presentation.alignment.textAlign())
                 time.amPmText?.let { amPmText ->
                     OutlinedText(
                         text = amPmText,
                         modifier = Modifier.padding(start = 4.dp),
                         style = secondaryStyle,
-                        textAlign = alignment.textAlign()
+                        textAlign = presentation.alignment.textAlign()
                     )
                 }
             }
@@ -246,11 +251,20 @@ private fun HeaderCompactContent(
 ) {
     val time: HeaderTimeModel? = model.time
     val timeText: String? = time?.text
-    if (timeText == null && model.date == null) {
+    if (timeText == null && model.date == null && model.battery == null) {
         return
     }
     val timeStyle: TextStyle = MaterialTheme.typography.headlineMedium.scaled(model.size.timeMultiplier)
     val dateStyle: TextStyle = MaterialTheme.typography.titleMedium.scaled(model.size.secondaryMultiplier)
+    val timePresentation: HeaderLinePresentation = HeaderLinePresentation(
+        style = timeStyle,
+        alignment = model.alignment,
+        menuEnabled = menuEnabled,
+        interactive = interactive,
+        onTapTarget = onTapTarget,
+        onLongPress = onLongPress
+    )
+    val datePresentation: HeaderLinePresentation = timePresentation.copy(style = dateStyle)
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(previewSpacing, model.alignment.horizontalAlignment()),
@@ -264,13 +278,8 @@ private fun HeaderCompactContent(
                     tapTarget = time.tapTarget,
                     clickLabel = time.clickLabel
                 ),
-                style = timeStyle,
-                alignment = model.alignment,
-                menuEnabled = menuEnabled,
-                interactive = interactive,
-                fillWidth = false,
-                onTapTarget = onTapTarget,
-                onLongPress = onLongPress
+                presentation = timePresentation,
+                fillWidth = false
             )
         }
         model.date?.let { date ->
@@ -278,49 +287,82 @@ private fun HeaderCompactContent(
                 if (timeText != null) {
                     Text(
                         text = COMPACT_SEPARATOR,
-                        modifier = Modifier.padding(end = previewSpacing),
-                        style = dateStyle
+                        modifier = Modifier.padding(end = previewSpacing).clearAndSetSemantics {},
+                        style = datePresentation.style
                     )
                 }
-                HeaderTapTargetText(
-                    line = date,
-                    style = dateStyle,
-                    alignment = model.alignment,
-                    menuEnabled = menuEnabled,
-                    interactive = interactive,
-                    fillWidth = false,
-                    onTapTarget = onTapTarget,
-                    onLongPress = onLongPress
-                )
+                HeaderTapTargetText(line = date, presentation = datePresentation, fillWidth = false)
+            }
+        }
+        model.battery?.let { battery ->
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (timeText != null || model.date != null) {
+                    Text(
+                        text = COMPACT_SEPARATOR,
+                        modifier = Modifier.padding(end = previewSpacing).clearAndSetSemantics {},
+                        style = datePresentation.style
+                    )
+                }
+                HeaderBattery(model = battery, presentation = datePresentation, fillWidth = false)
             }
         }
     }
 }
 
 @Composable
-private fun HeaderTapTargetText(
-    line: HeaderLineModel,
-    style: TextStyle,
-    alignment: HeaderAlignment,
-    menuEnabled: Boolean,
-    interactive: Boolean,
-    onTapTarget: (HeaderTapTarget) -> Unit,
-    onLongPress: () -> Unit,
-    fillWidth: Boolean = true
-) {
+private fun HeaderBattery(model: BatteryModel, presentation: HeaderLinePresentation, fillWidth: Boolean = true) {
+    val fillColor: Color = if (model.isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    HeaderTapTargetBox(
+        clickLabel = stringResource(R.string.open_battery_usage),
+        spokenText = stringResource(model.contentDescriptionRes, model.percent),
+        tapTarget = HeaderTapTarget.SystemBatteryUsage,
+        presentation = presentation,
+        fillWidth = fillWidth
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (model.isCharging) {
+                HeaderBatteryBolt(style = presentation.style, fillColor = fillColor)
+            }
+            OutlinedText(
+                text = model.text,
+                style = presentation.style,
+                textAlign = presentation.alignment.textAlign(),
+                fillColor = fillColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeaderBatteryBolt(style: TextStyle, fillColor: Color) {
+    val boltSize: Dp = with(LocalDensity.current) { style.lineHeight.toDp() }
+    Box(modifier = Modifier.size(boltSize), contentAlignment = Alignment.Center) {
+        Icon(
+            imageVector = FontAwesomeIcons.Solid.Bolt,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.surfaceContainerLowest,
+            modifier = Modifier.fillMaxSize()
+        )
+        Icon(
+            imageVector = FontAwesomeIcons.Solid.Bolt,
+            contentDescription = null,
+            tint = fillColor,
+            modifier = Modifier.fillMaxSize(0.88f)
+        )
+    }
+}
+
+@Composable
+private fun HeaderTapTargetText(line: HeaderLineModel, presentation: HeaderLinePresentation, fillWidth: Boolean = true) {
     val clickLabel: String? = resolveClickLabel(clickLabel = line.clickLabel, arg = line.clickLabelArg)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
         spokenText = line.spokenText,
         tapTarget = line.tapTarget,
-        alignment = alignment,
-        menuEnabled = menuEnabled,
-        interactive = interactive,
-        onTapTarget = onTapTarget,
-        onLongPress = onLongPress,
+        presentation = presentation,
         fillWidth = fillWidth
     ) {
-        OutlinedText(text = line.text, style = style, textAlign = alignment.textAlign())
+        OutlinedText(text = line.text, style = presentation.style, textAlign = presentation.alignment.textAlign())
     }
 }
 
@@ -329,27 +371,23 @@ private fun HeaderTapTargetBox(
     clickLabel: String?,
     spokenText: String,
     tapTarget: HeaderTapTarget,
-    alignment: HeaderAlignment,
-    menuEnabled: Boolean,
-    interactive: Boolean,
-    onTapTarget: (HeaderTapTarget) -> Unit,
-    onLongPress: () -> Unit,
+    presentation: HeaderLinePresentation,
     fillWidth: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val isClickable: Boolean = clickLabel != null
-    val semanticsModifier: Modifier = if (interactive) {
+    val semanticsModifier: Modifier = if (presentation.interactive) {
         Modifier
             .clearAndSetSemantics {
                 contentDescription = spokenText
                 if (isClickable) {
                     onClick(label = clickLabel.orEmpty()) {
-                        onTapTarget(tapTarget)
+                        presentation.onTapTarget(tapTarget)
                         true
                     }
-                } else if (menuEnabled) {
+                } else if (presentation.menuEnabled) {
                     onLongClick {
-                        onLongPress()
+                        presentation.onLongPress()
                         true
                     }
                 }
@@ -357,11 +395,11 @@ private fun HeaderTapTargetBox(
             .then(
                 tapModifier(
                     isClickable = isClickable,
-                    menuEnabled = menuEnabled,
+                    menuEnabled = presentation.menuEnabled,
                     clickLabel = clickLabel.orEmpty(),
                     tapTarget = tapTarget,
-                    onTapTarget = onTapTarget,
-                    onLongPress = onLongPress
+                    onTapTarget = presentation.onTapTarget,
+                    onLongPress = presentation.onLongPress
                 )
             )
     } else {
@@ -372,7 +410,7 @@ private fun HeaderTapTargetBox(
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .defaultMinSize(minHeight = minTouchTargetHeight)
             .then(semanticsModifier),
-        contentAlignment = alignment.contentAlignment()
+        contentAlignment = presentation.alignment.contentAlignment()
     ) {
         content()
     }

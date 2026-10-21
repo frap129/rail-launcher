@@ -1,5 +1,7 @@
 package feature.widgets
 
+import core.data.battery.BatteryStatus
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
@@ -13,7 +15,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HeaderFormatterTest {
@@ -132,11 +136,98 @@ class HeaderFormatterTest {
         assertEquals("Tuesday", header.date?.text)
     }
 
-    private fun format(settings: HeaderSettings, isSystem24Hour: Boolean = false): HeaderModel =
+    @Test
+    fun `hides the battery when its visibility is Never`() {
+        val header: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.NEVER),
+            battery = BatteryStatus(percent = 84, isCharging = true)
+        )
+
+        assertNull(header.battery)
+    }
+
+    @Test
+    fun `always shows the battery when a status is available`() {
+        val header: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
+            battery = BatteryStatus(percent = 84, isCharging = false)
+        )
+
+        assertEquals("84%", header.battery?.text)
+        assertFalse(header.battery?.isCharging == true)
+        assertFalse(header.battery?.isLow == true)
+        assertEquals(84, header.battery?.percent)
+        assertEquals(R.string.battery_content_description, header.battery?.contentDescriptionRes)
+    }
+
+    @Test
+    fun `hides the battery when Always is selected without a status`() {
+        val header: HeaderModel = format(HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS))
+
+        assertNull(header.battery)
+    }
+
+    @Test
+    fun `shows the battery while charging or at or below the low threshold`() {
+        val charging: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
+            battery = BatteryStatus(percent = 84, isCharging = true)
+        )
+        assertEquals("84%", charging.battery?.text)
+        assertTrue(charging.battery?.isCharging == true)
+        assertFalse(charging.battery?.isLow == true)
+        assertEquals(84, charging.battery?.percent)
+        assertEquals(R.string.battery_content_description_charging, charging.battery?.contentDescriptionRes)
+
+        val low: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
+            battery = BatteryStatus(percent = 20, isCharging = false)
+        )
+        assertEquals("20%", low.battery?.text)
+        assertTrue(low.battery?.isLow == true)
+    }
+
+    @Test
+    fun `hides the battery above the low threshold when not charging`() {
+        val header: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
+            battery = BatteryStatus(percent = 21, isCharging = false)
+        )
+
+        assertNull(header.battery)
+    }
+
+    @Test
+    fun `does not mark a charging battery as low`() {
+        val header: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
+            battery = BatteryStatus(percent = 20, isCharging = true)
+        )
+
+        assertTrue(header.battery?.isCharging == true)
+        assertFalse(header.battery?.isLow == true)
+    }
+
+    @Test
+    fun `shows a full battery as charging`() {
+        val header: HeaderModel = format(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
+            battery = BatteryStatus(percent = 100, isCharging = true)
+        )
+
+        assertEquals("100%", header.battery?.text)
+        assertTrue(header.battery?.isCharging == true)
+        assertFalse(header.battery?.isLow == true)
+        assertEquals(100, header.battery?.percent)
+        assertEquals(R.string.battery_content_description_charging, header.battery?.contentDescriptionRes)
+    }
+
+    private fun format(settings: HeaderSettings, isSystem24Hour: Boolean = false, battery: BatteryStatus? = null): HeaderModel =
         HeaderFormatter(FakeDatePatternSource()).format(
             id = 1L,
             reading = reading(isSystem24Hour = isSystem24Hour),
-            settings = settings
+            settings = settings,
+            battery = battery
         )
 
     private fun time(settings: HeaderSettings, isSystem24Hour: Boolean): String? = format(settings, isSystem24Hour).time?.text

@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +22,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Font
@@ -27,6 +30,7 @@ import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.prefs.ClockStyle
+import core.ui.R as CoreUiR
 
 /** The content of the Widget Area's context sheet. */
 @Composable
@@ -34,6 +38,8 @@ fun WidgetMenu(
     state: WidgetMenuState,
     onToggle: (WidgetMenuAction, Boolean) -> Unit,
     onAction: (WidgetMenuAction) -> Unit,
+    onChoiceClick: (WidgetMenuAction) -> Unit,
+    onChoiceSelected: (WidgetMenuAction, WidgetMenuChoiceKey) -> Unit,
     onClockStyleSelected: (ClockStyle) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -47,13 +53,25 @@ fun WidgetMenu(
                 style = MaterialTheme.typography.headlineMedium
             )
             state.items.forEach { item ->
-                WidgetMenuRow(item = item, onToggle = onToggle, onAction = onAction)
+                WidgetMenuRow(
+                    item = item,
+                    onToggle = onToggle,
+                    onAction = onAction,
+                    onChoiceClick = onChoiceClick,
+                    onChoiceSelected = onChoiceSelected
+                )
             }
         }
 
         is WidgetMenuState.EmptyAreaMenu -> Column(modifier = modifier.fillMaxWidth()) {
             state.items.forEach { item ->
-                WidgetMenuRow(item = item, onToggle = onToggle, onAction = onAction)
+                WidgetMenuRow(
+                    item = item,
+                    onToggle = onToggle,
+                    onAction = onAction,
+                    onChoiceClick = onChoiceClick,
+                    onChoiceSelected = onChoiceSelected
+                )
             }
         }
 
@@ -67,10 +85,17 @@ fun WidgetMenu(
 }
 
 @Composable
-private fun WidgetMenuRow(item: WidgetMenuItem, onToggle: (WidgetMenuAction, Boolean) -> Unit, onAction: (WidgetMenuAction) -> Unit) {
+private fun WidgetMenuRow(
+    item: WidgetMenuItem,
+    onToggle: (WidgetMenuAction, Boolean) -> Unit,
+    onAction: (WidgetMenuAction) -> Unit,
+    onChoiceClick: (WidgetMenuAction) -> Unit,
+    onChoiceSelected: (WidgetMenuAction, WidgetMenuChoiceKey) -> Unit
+) {
     when (item) {
         is WidgetMenuItem.Toggle -> ToggleRow(item = item, onToggle = onToggle)
         is WidgetMenuItem.Action -> ActionRow(item = item, onAction = onAction)
+        is WidgetMenuItem.Choice -> ChoiceRow(item = item, onChoiceClick = onChoiceClick, onChoiceSelected = onChoiceSelected)
     }
 }
 
@@ -114,6 +139,47 @@ private fun ActionRow(item: WidgetMenuItem.Action, onAction: (WidgetMenuAction) 
 }
 
 @Composable
+private fun ChoiceRow(
+    item: WidgetMenuItem.Choice,
+    onChoiceClick: (WidgetMenuAction) -> Unit,
+    onChoiceSelected: (WidgetMenuAction, WidgetMenuChoiceKey) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button) { onChoiceClick(item.id) }
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WidgetMenuIcon(action = item.id)
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(text = stringResource(item.id.label()), style = MaterialTheme.typography.titleLarge)
+                Text(text = stringResource(item.valueLabel), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (item.expanded) {
+            item.options.forEach { option ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = option.key == item.selectedKey,
+                            role = Role.RadioButton,
+                            onClick = { onChoiceSelected(item.id, option.key) }
+                        )
+                        .padding(start = 76.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = option.key == item.selectedKey, onClick = null)
+                    Text(text = stringResource(option.label), modifier = Modifier.padding(start = 12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun WidgetMenuIcon(action: WidgetMenuAction) {
     Icon(
         modifier = Modifier.size(56.dp).padding(10.dp),
@@ -125,6 +191,7 @@ private fun WidgetMenuIcon(action: WidgetMenuAction) {
 private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Clock -> R.string.widget_clock
     WidgetMenuAction.Date -> R.string.widget_date
+    WidgetMenuAction.Battery -> CoreUiR.string.battery
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
@@ -134,6 +201,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
 private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.Clock -> FontAwesomeIcons.Solid.Clock
     WidgetMenuAction.Date -> FontAwesomeIcons.Solid.Calendar
+    WidgetMenuAction.Battery -> FontAwesomeIcons.Solid.BatteryThreeQuarters
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th

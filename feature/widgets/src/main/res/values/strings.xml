@@ -6,6 +6,10 @@
     <string name="cannot_open_launchable">Can\'t open %1$s</string>
     <string name="no_clock_app">No clock app</string>
     <string name="no_calendar_app">No calendar app</string>
+    <string name="open_battery_usage">Open battery usage</string>
+    <string name="no_battery_usage_app">No battery usage screen</string>
+    <string name="battery_content_description">Battery %1$d percent</string>
+    <string name="battery_content_description_charging">Battery %1$d percent, charging</string>
     <string name="header_title">Header</string>
     <string name="widget_clock">Clock</string>
     <string name="widget_date">Date</string>

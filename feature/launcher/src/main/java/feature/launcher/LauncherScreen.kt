@@ -459,12 +459,15 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.Date -> viewModel.setDateVisible(checked)
 
+                    WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.WidgetSettings -> Unit
                 }
             },
+            onChoiceClick = viewModel::toggleChoice,
+            onChoiceSelected = viewModel::selectChoice,
             onAction = { action ->
                 when (action) {
                     WidgetMenuAction.ClockStyle -> viewModel.openClockStyleChooser()
@@ -475,6 +478,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.WidgetSettings -> viewModel.openWidgetSettings()
 
+                    WidgetMenuAction.Battery,
                     WidgetMenuAction.Clock,
                     WidgetMenuAction.Date -> Unit
                 }

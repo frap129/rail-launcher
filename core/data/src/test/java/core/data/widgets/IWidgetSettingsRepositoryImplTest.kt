@@ -5,6 +5,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.testing.FakeHeaderSettingsDao
@@ -17,6 +18,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,6 +39,32 @@ class IWidgetSettingsRepositoryImplTest {
         repository.updateHeaderSettings { settings -> settings.copy(clockVisible = false) }
 
         assertEquals(HeaderSettings(clockVisible = false), repository.headerSettings.first())
+    }
+
+    @Test
+    fun `setClockVisible rejects hiding the last standing part`() = runTest {
+        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+            HeaderSettings(clockVisible = true, dateVisible = false)
+        )
+        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+
+        repository.setClockVisible(visible = false)
+
+        assertEquals(0, dao.upsertCount)
+    }
+
+    @Test
+    fun `setBatteryVisibility restores the clock when the battery stops standing`() = runTest {
+        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+            HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+
+        repository.setBatteryVisibility(BatteryVisibility.NEVER)
+
+        val updated: HeaderSettings = requireNotNull(dao.getRow())
+        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
+        assertTrue(updated.clockVisible)
     }
 
     @Test

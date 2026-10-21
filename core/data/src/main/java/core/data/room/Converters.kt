@@ -3,6 +3,7 @@ package core.data.room
 import android.content.ComponentName
 import androidx.room.TypeConverter
 import core.data.icons.model.Icon
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
@@ -68,6 +69,13 @@ class Converters {
     @TypeConverter
     fun fromStringToHeaderSize(size: String): HeaderSize =
         HeaderSize.entries.firstOrNull { entry -> entry.name == size } ?: HeaderSize.DEFAULT
+
+    @TypeConverter
+    fun fromBatteryVisibilityToString(visibility: BatteryVisibility): String = visibility.name
+
+    @TypeConverter
+    fun fromStringToBatteryVisibility(visibility: String): BatteryVisibility =
+        BatteryVisibility.entries.firstOrNull { entry -> entry.name == visibility } ?: BatteryVisibility.NEVER
 
     @TypeConverter
     fun fromHeaderTapSettingToString(setting: HeaderTapSetting?): String? = when (setting) {

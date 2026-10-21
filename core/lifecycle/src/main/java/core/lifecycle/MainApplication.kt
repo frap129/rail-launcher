@@ -9,6 +9,8 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
+import core.data.battery.AndroidBatterySource
+import core.data.battery.IBatterySource
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.IIconRepository
@@ -121,6 +123,7 @@ class MainApplication :
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get()) }
         single { HomeEditState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
+        single<IBatterySource> { AndroidBatterySource(androidContext()) }
         single<IDatePatternSource> { AndroidDatePatternSource() }
         single { HeaderFormatter(get()) }
     }
@@ -136,7 +139,7 @@ class MainApplication :
         viewModel { LauncherViewModel(get(), get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
         viewModel { WidgetSettingsViewModel(get(), get(), get(), get(), get()) }
-        viewModel { WidgetAreaViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { WidgetAreaViewModel(get(), get(), get(), get(), get(), get(), get()) }
     }
 
     override fun attachBaseContext(base: Context) {

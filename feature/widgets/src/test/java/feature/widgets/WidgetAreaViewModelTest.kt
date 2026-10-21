@@ -2,15 +2,18 @@ package feature.widgets
 
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
+import core.data.battery.BatteryStatus
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.testing.FakeBatterySource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
@@ -322,6 +325,7 @@ class WidgetAreaViewModelTest {
                 listOf(
                     WidgetMenuAction.Clock,
                     WidgetMenuAction.Date,
+                    WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
@@ -457,19 +461,168 @@ class WidgetAreaViewModelTest {
         }
     }
 
+    @Test
+    fun `does not collect the battery while its visibility is Never`() = runTest {
+        val batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
+        val viewModel: WidgetAreaViewModel = createViewModel(batterySource = batterySource)
+
+        viewModel.widgetAreaState.test {
+            val header: HeaderModel = expectMostRecentItem().header()
+            assertNull(header.battery)
+            advanceUntilIdle()
+            assertEquals(0, batterySource.activeSubscribers)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `shows and updates the battery when its visibility is Always`() = runTest {
+        val batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            batterySource = batterySource
+        )
+
+        viewModel.widgetAreaState.test {
+            val header: HeaderModel = expectMostRecentItem().header()
+            assertEquals("84%", header.battery?.text)
+            assertEquals(84, header.battery?.percent)
+            assertEquals(R.string.battery_content_description, header.battery?.contentDescriptionRes)
+            assertTrue(batterySource.activeSubscribers > 0)
+
+            batterySource.emit(BatteryStatus(percent = 85, isCharging = false))
+            assertEquals("85%", awaitItem().header().battery?.text)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `shows the battery only while charging or low`() = runTest {
+        val batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            batterySource = batterySource
+        )
+
+        viewModel.widgetAreaState.test {
+            assertNull(expectMostRecentItem().header().battery)
+
+            batterySource.emit(BatteryStatus(percent = 20, isCharging = false))
+            val low: BatteryModel? = awaitItem().header().battery
+            assertEquals("20%", low?.text)
+            assertTrue(low?.isLow == true)
+
+            batterySource.emit(BatteryStatus(percent = 21, isCharging = false))
+            assertNull(awaitItem().header().battery)
+
+            batterySource.emit(BatteryStatus(percent = 50, isCharging = true))
+            val charging: BatteryModel? = awaitItem().header().battery
+            assertEquals("50%", charging?.text)
+            assertTrue(charging?.isCharging == true)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps the Header visible when the battery is always shown`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setClockVisible(visible = false)
+        viewModel.setDateVisible(visible = false)
+        advanceUntilIdle()
+
+        assertFalse(settingsRepository.updates.last().clockVisible)
+        assertFalse(settingsRepository.updates.last().dateVisible)
+    }
+
+    @Test
+    fun `restores the clock when the battery stops being always visible`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.selectBatteryVisibility(BatteryVisibility.NEVER)
+        advanceUntilIdle()
+
+        val updated: HeaderSettings = settingsRepository.updates.single()
+        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
+        assertTrue(updated.clockVisible)
+    }
+
+    @Test
+    fun `rejects hiding the last visible Header part while the battery is conditional`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(
+                clockVisible = true,
+                dateVisible = false,
+                batteryVisibility = BatteryVisibility.CHARGING_OR_LOW
+            )
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setClockVisible(visible = false)
+        advanceUntilIdle()
+
+        assertTrue(settingsRepository.updates.isEmpty())
+    }
+
+    @Test
+    fun `expands the Battery menu choice and saves a visibility`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.menuState.test {
+            viewModel.openHeaderMenu()
+            val menu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
+            val battery: WidgetMenuItem.Choice = menu.items[2] as WidgetMenuItem.Choice
+            assertEquals(WidgetMenuAction.Battery, battery.id)
+            assertEquals(CoreUiR.string.battery_never, battery.valueLabel)
+            assertEquals(
+                listOf("NEVER", "ALWAYS", "CHARGING_OR_LOW"),
+                battery.options.map { option -> option.key.value }
+            )
+            assertFalse(battery.expanded)
+
+            viewModel.toggleChoice(WidgetMenuAction.Battery)
+            advanceUntilIdle()
+            val expanded: WidgetMenuItem.Choice = expectHeaderMenu().items[2] as WidgetMenuItem.Choice
+            assertTrue(expanded.expanded)
+
+            viewModel.selectBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW)
+            advanceUntilIdle()
+            assertEquals(BatteryVisibility.CHARGING_OR_LOW, settingsRepository.updates.last().batteryVisibility)
+            val collapsed: WidgetMenuItem.Choice = expectHeaderMenu().items[2] as WidgetMenuItem.Choice
+            assertFalse(collapsed.expanded)
+            assertEquals(BatteryVisibility.CHARGING_OR_LOW.name, collapsed.selectedKey.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         homeEditState: HomeEditState = HomeEditState(),
-        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList())
+        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
+        batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
         formatter = HeaderFormatter(FakeDatePatternSource()),
         settingsRepository = settingsRepository,
         homeEditState = homeEditState,
-        launchableRepository = launchableRepository
+        launchableRepository = launchableRepository,
+        batterySource = batterySource
     )
 
     private fun reading(

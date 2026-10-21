@@ -32,6 +32,7 @@ private fun resolveTapTarget(setting: HeaderTapSetting?, launchables: List<Launc
 internal fun HeaderTapTarget.clickLabel(): Int? = when (this) {
     HeaderTapTarget.SystemAlarms -> R.string.open_alarms
     is HeaderTapTarget.SystemCalendar -> R.string.open_calendar
+    HeaderTapTarget.SystemBatteryUsage -> R.string.open_battery_usage
     is HeaderTapTarget.LaunchLaunchable -> R.string.open_launchable
     HeaderTapTarget.None -> null
 }

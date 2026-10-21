@@ -30,7 +30,7 @@ import core.data.widgets.WidgetRecord
         WidgetPlaceRecord::class,
         WidgetRecord::class
     ],
-    version = 7
+    version = 8
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

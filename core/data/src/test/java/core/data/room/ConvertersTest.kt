@@ -1,5 +1,6 @@
 package core.data.room
 
+import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
@@ -30,6 +31,9 @@ class ConvertersTest {
         HeaderSize.entries.forEach { size ->
             assertEquals(size, converters.fromStringToHeaderSize(converters.fromHeaderSizeToString(size)))
         }
+        BatteryVisibility.entries.forEach { visibility ->
+            assertEquals(visibility, converters.fromStringToBatteryVisibility(converters.fromBatteryVisibilityToString(visibility)))
+        }
     }
 
     @Test
@@ -39,6 +43,7 @@ class ConvertersTest {
         assertEquals(DateFormatPreset.FULL, converters.fromStringToDateFormatPreset("UNKNOWN"))
         assertEquals(HeaderAlignment.START, converters.fromStringToHeaderAlignment("UNKNOWN"))
         assertEquals(HeaderSize.DEFAULT, converters.fromStringToHeaderSize("UNKNOWN"))
+        assertEquals(BatteryVisibility.NEVER, converters.fromStringToBatteryVisibility("UNKNOWN"))
     }
 
     @Test
