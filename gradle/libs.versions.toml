@@ -80,6 +80,7 @@ util-timber = { module = "com.jakewharton.timber:timber", version.ref = "timber"
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 androidTest = { id = "com.android.test", version.ref = "agp" }
+androidx-room = { id = "androidx.room", version.ref = "roomRuntime" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 dokka = {id = "org.jetbrains.dokka", version.ref="dokka" }
