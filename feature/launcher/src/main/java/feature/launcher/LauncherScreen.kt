@@ -466,6 +466,13 @@ private fun FavoriteDragHandle(modifier: Modifier = Modifier, contentDescription
     }
 }
 
+// A name starting with a Rail label (e.g. "⌂") forms an Initial group that
+// shares the Builtin label, so the App List key includes the group kind.
+internal fun LaunchableGroup.Listed.launcherListKey(): String = when (this) {
+    is LaunchableGroup.Builtin -> "builtin:$label"
+    is LaunchableGroup.InitialGroup -> "initial:$label"
+}
+
 @Composable
 fun LauncherList(
     modifier: Modifier = Modifier,
@@ -495,7 +502,7 @@ fun LauncherList(
         item {
             Spacer(Modifier.height(topSpacerHeightAnimator))
         }
-        items(launcherList, key = { it.label }) { itemGroup ->
+        items(launcherList, key = { itemGroup -> itemGroup.launcherListKey() }) { itemGroup ->
             LauncherItemGroup(
                 group = itemGroup,
                 rowState = rowState,
