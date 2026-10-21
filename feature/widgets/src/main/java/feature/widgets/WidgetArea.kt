@@ -1,10 +1,12 @@
 package feature.widgets
 
 import android.content.ActivityNotFoundException
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
+import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -130,7 +132,36 @@ private fun Context.openHeaderTapTarget(target: HeaderTapTarget) {
             target = target,
             messageResource = R.string.no_battery_usage_app
         )
+
+        is HeaderTapTarget.OpenEvent -> openEvent(target)
     }
+}
+
+private fun Context.openEvent(target: HeaderTapTarget.OpenEvent) {
+    if (target.isWorkProfile) {
+        try {
+            val opened: Boolean = CalendarContract.startViewCalendarEventInManagedProfile(
+                this,
+                target.eventId,
+                target.beginMillis,
+                target.endMillis,
+                false,
+                0
+            )
+            if (!opened) {
+                Toast.makeText(this, R.string.no_calendar_app, Toast.LENGTH_SHORT).show()
+            }
+        } catch (exception: SecurityException) {
+            Toast.makeText(this, R.string.no_calendar_app, Toast.LENGTH_SHORT).show()
+            Timber.w(exception, "Could not open work-profile event %s", target.eventId)
+        }
+        return
+    }
+    val intent: Intent = Intent(Intent.ACTION_VIEW)
+        .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, target.eventId))
+        .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, target.beginMillis)
+        .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, target.endMillis)
+    openSystemIntent(intent = intent, target = target, messageResource = R.string.no_calendar_app)
 }
 
 private fun Context.openLaunchable(launchable: Launchable) {

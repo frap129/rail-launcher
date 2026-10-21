@@ -192,6 +192,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Clock -> R.string.widget_clock
     WidgetMenuAction.Date -> R.string.widget_date
     WidgetMenuAction.Battery -> CoreUiR.string.battery
+    WidgetMenuAction.UpcomingEvents -> R.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
@@ -202,6 +203,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.Clock -> FontAwesomeIcons.Solid.Clock
     WidgetMenuAction.Date -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.Battery -> FontAwesomeIcons.Solid.BatteryThreeQuarters
+    WidgetMenuAction.UpcomingEvents -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th

@@ -5,4 +5,9 @@
     <string name="battery_never">Never</string>
     <string name="battery_always">Always</string>
     <string name="battery_charging_or_low">When charging or low</string>
+    <string name="calendar_permission_needed">Rail needs calendar access to show events</string>
+    <string name="calendar_permission_denied_title">Calendar access is off</string>
+    <string name="calendar_permission_denied_message">Rail needs calendar access to show events. Enable it in app settings.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="cancel">Cancel</string>
 </resources>

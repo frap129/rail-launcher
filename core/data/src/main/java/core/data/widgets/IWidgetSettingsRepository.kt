@@ -1,6 +1,7 @@
 package core.data.widgets
 
 import core.data.prefs.BatteryVisibility
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.withBatteryVisibility
 import core.data.prefs.withClockVisible
@@ -11,7 +12,11 @@ import kotlinx.coroutines.flow.first
 interface IWidgetSettingsRepository {
     val headerSettings: Flow<HeaderSettings>
 
+    val eventSettings: Flow<EventSettings>
+
     suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings)
+
+    suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings)
 
     suspend fun setClockVisible(visible: Boolean) {
         updateIfChanged { settings -> settings.withClockVisible(visible) }
@@ -24,11 +29,45 @@ interface IWidgetSettingsRepository {
     suspend fun setBatteryVisibility(visibility: BatteryVisibility) {
         updateIfChanged { settings -> settings.withBatteryVisibility(visibility) }
     }
+
+    suspend fun setEventsEnabled(enabled: Boolean) {
+        updateEventIfChanged { settings -> settings.copy(enabled = enabled) }
+    }
+
+    suspend fun setEventLookaheadHours(hours: Int) {
+        updateEventIfChanged { settings -> settings.copy(lookaheadHours = hours) }
+    }
+
+    suspend fun setEventMaxEvents(maxEvents: Int) {
+        updateEventIfChanged { settings -> settings.copy(maxEvents = maxEvents).withValidMaxEvents() }
+    }
+
+    suspend fun setEventIncludeAllDay(includeAllDay: Boolean) {
+        updateEventIfChanged { settings -> settings.copy(includeAllDay = includeAllDay) }
+    }
+
+    suspend fun setExcludedCalendarIds(calendarIds: Set<String>) {
+        updateEventIfChanged { settings -> settings.copy(excludedCalendarIds = calendarIds) }
+    }
+
+    suspend fun pruneExcludedCalendarIds(availableCalendarIds: Set<String>) {
+        if (availableCalendarIds.isEmpty()) return
+        updateEventIfChanged { settings ->
+            settings.copy(excludedCalendarIds = settings.excludedCalendarIds.intersect(availableCalendarIds))
+        }
+    }
 }
 
 private suspend fun IWidgetSettingsRepository.updateIfChanged(transform: (HeaderSettings) -> HeaderSettings) {
     val current: HeaderSettings = headerSettings.first()
     if (transform(current) != current) {
         updateHeaderSettings(transform)
+    }
+}
+
+private suspend fun IWidgetSettingsRepository.updateEventIfChanged(transform: (EventSettings) -> EventSettings) {
+    val current: EventSettings = eventSettings.first()
+    if (transform(current) != current) {
+        updateEventSettings(transform)
     }
 }

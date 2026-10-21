@@ -11,6 +11,8 @@ import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
 import core.data.battery.AndroidBatterySource
 import core.data.battery.IBatterySource
+import core.data.calendar.AndroidCalendarEventSource
+import core.data.calendar.ICalendarEventSource
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.IIconRepository
@@ -23,6 +25,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
+import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
@@ -103,6 +106,7 @@ class MainApplication :
         single<LaunchableCustomizationDao> { database.getLaunchableCustomizationDao() }
         single<SettingsDao> { database.getSettingsDao() }
         single<HeaderSettingsDao> { database.getHeaderSettingsDao() }
+        single<EventSettingsDao> { database.getEventSettingsDao() }
         single<FavoriteDao> { database.getFavoriteDao() }
         single<WidgetAreaDao> { database.getWidgetAreaDao() }
     }
@@ -120,12 +124,13 @@ class MainApplication :
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get()) }
-        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get()) }
+        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get()) }
+        single<ICalendarEventSource> { AndroidCalendarEventSource(androidContext()) }
         single { HomeEditState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
         single<IBatterySource> { AndroidBatterySource(androidContext()) }
         single<IDatePatternSource> { AndroidDatePatternSource() }
-        single { HeaderFormatter(get()) }
+        single { HeaderFormatter(get(), androidContext().resources) }
     }
 
     /**
@@ -138,8 +143,8 @@ class MainApplication :
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
-        viewModel { WidgetSettingsViewModel(get(), get(), get(), get(), get()) }
-        viewModel { WidgetAreaViewModel(get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { WidgetSettingsViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { WidgetAreaViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     }
 
     override fun attachBaseContext(base: Context) {

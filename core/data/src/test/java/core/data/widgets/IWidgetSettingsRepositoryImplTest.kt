@@ -6,8 +6,10 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.BatteryVisibility
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
+import core.data.testing.FakeEventSettingsDao
 import core.data.testing.FakeHeaderSettingsDao
 import core.data.testing.FakeLaunchableRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,6 +42,49 @@ class IWidgetSettingsRepositoryImplTest {
         repository.updateHeaderSettings { settings -> settings.copy(clockVisible = false) }
 
         assertEquals(HeaderSettings(clockVisible = false), repository.headerSettings.first())
+    }
+
+    @Test
+    fun `returns Event settings defaults when the row is absent`() = runTest {
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+
+        assertEquals(EventSettings(), repository.eventSettings.first())
+    }
+
+    @Test
+    fun `round trips excluded calendar ids through Event settings`() = runTest {
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val excluded: Set<String> = setOf("42", "w:7")
+
+        repository.setExcludedCalendarIds(excluded)
+
+        assertEquals(excluded, repository.eventSettings.first().excludedCalendarIds)
+    }
+
+    @Test
+    fun `clamps a stored event count on read`() = runTest {
+        val repository: IWidgetSettingsRepository = createRepository(
+            dao = FakeHeaderSettingsDao(),
+            eventSettingsDao = FakeEventSettingsDao(EventSettings(maxEvents = 9))
+        )
+
+        assertEquals(3, repository.eventSettings.first().maxEvents)
+    }
+
+    @Test
+    fun `persists Event settings through their setters`() = runTest {
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+
+        repository.setEventsEnabled(true)
+        repository.setEventLookaheadHours(24)
+        repository.setEventMaxEvents(2)
+        repository.setEventIncludeAllDay(false)
+
+        val settings: EventSettings = repository.eventSettings.first()
+        assertTrue(settings.enabled)
+        assertEquals(24, settings.lookaheadHours)
+        assertEquals(2, settings.maxEvents)
+        assertFalse(settings.includeAllDay)
     }
 
     @Test
@@ -135,6 +181,7 @@ class IWidgetSettingsRepositoryImplTest {
 
     private fun createRepository(
         dao: FakeHeaderSettingsDao,
+        eventSettingsDao: FakeEventSettingsDao = FakeEventSettingsDao(),
         isLoaded: Boolean = true,
         launchables: FakeLaunchableRepository = FakeLaunchableRepository(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(keptLaunchable))),
@@ -142,6 +189,7 @@ class IWidgetSettingsRepositoryImplTest {
         )
     ): IWidgetSettingsRepository = IWidgetSettingsRepositoryImpl(
         headerSettingsDao = dao,
+        eventSettingsDao = eventSettingsDao,
         launchableRepository = launchables
     )
 

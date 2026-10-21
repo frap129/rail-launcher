@@ -2,13 +2,11 @@ package core.data.apps.model
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.UserHandle
-import android.provider.Settings
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
+import core.util.openApplicationDetailsSettings
 
 data class App(
     override val defaultName: String,
@@ -28,8 +26,6 @@ data class App(
     )
 
     fun openAppInfo(context: Context) {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        intent.data = Uri.parse("package:$packageName")
-        context.startActivity(intent)
+        context.openApplicationDetailsSettings()
     }
 }

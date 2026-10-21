@@ -5,10 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.battery.BatteryStatus
 import core.data.battery.IBatterySource
+import core.data.calendar.ICalendarEventSource
+import core.data.calendar.MAX_EVENT_LOOKAHEAD_HOURS
+import core.data.calendar.UpcomingEvent
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.time.ClockReading
 import core.data.time.IClockSource
@@ -17,6 +21,7 @@ import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
 import core.ui.R as CoreUiR
+import java.time.Duration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -70,6 +76,7 @@ enum class WidgetMenuAction {
     Clock,
     Date,
     Battery,
+    UpcomingEvents,
     ClockStyle,
     RemoveHeader,
     RestoreHeader,
@@ -78,6 +85,10 @@ enum class WidgetMenuAction {
 
 sealed interface WidgetAreaEvent {
     data class ShowUndo(val position: Int) : WidgetAreaEvent
+
+    data object RequestCalendarPermission : WidgetAreaEvent
+
+    data class ShowCalendarPermissionDenied(val permanentlyDenied: Boolean) : WidgetAreaEvent
 
     data object NavigateToWidgetSettings : WidgetAreaEvent
 }
@@ -90,6 +101,12 @@ private enum class WidgetMenuTarget {
 
 private data class HeaderSettingsAndBattery(val settings: HeaderSettings, val battery: BatteryStatus?)
 
+private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean)
+
+private data class EventData(val events: List<UpcomingEvent>, val settings: EventSettings)
+
+private data class MenuSettings(val header: HeaderSettingsAndBattery, val events: EventSettingsState)
+
 private data class MenuContext(val target: WidgetMenuTarget?, val expandedChoice: WidgetMenuAction?)
 
 class WidgetAreaViewModel(
@@ -99,6 +116,7 @@ class WidgetAreaViewModel(
     private val settingsRepository: IWidgetSettingsRepository,
     private val homeEditState: HomeEditState,
     private val launchableRepository: ILaunchableRepository,
+    private val calendarEventSource: ICalendarEventSource,
     batterySource: IBatterySource
 ) : ViewModel() {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -119,15 +137,42 @@ class WidgetAreaViewModel(
         batteryStatus
     ) { settings, battery -> HeaderSettingsAndBattery(settings = settings, battery = battery) }
 
+    private val eventSettingsState: Flow<EventSettingsState> = combine(
+        settingsRepository.eventSettings,
+        calendarEventSource.hasPermission
+    ) { settings, hasPermission -> EventSettingsState(settings = settings, hasPermission = hasPermission) }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val eventData: Flow<EventData> = eventSettingsState
+        .flatMapLatest { state ->
+            if (state.settings.enabled && state.hasPermission) {
+                val nowMillis: Long = clockSource.readings.first().instant.toEpochMilli()
+                calendarEventSource.events(
+                    windowEndMillis = nowMillis + Duration.ofHours(MAX_EVENT_LOOKAHEAD_HOURS.toLong()).toMillis()
+                )
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .combine(settingsRepository.eventSettings) { events, settings -> EventData(events = events, settings = settings) }
+
     val widgetAreaState: StateFlow<WidgetAreaState> = combine(
         repository.places,
         clockSource.readings,
         settingsAndBattery,
-        launchableRepository.launchableState
-    ) { places, reading, settingsAndBattery, launchableState ->
+        launchableRepository.launchableState,
+        eventData
+    ) { places, reading, settingsAndBattery, launchableState, events ->
         WidgetAreaState(
             places = places.mapNotNull { place ->
-                place.toModel(reading, settingsAndBattery.settings, settingsAndBattery.battery, launchableState.launchables)
+                place.toModel(
+                    reading = reading,
+                    settings = settingsAndBattery.settings,
+                    battery = settingsAndBattery.battery,
+                    launchables = launchableState.launchables,
+                    events = events.events,
+                    eventSettings = events.settings
+                )
             },
             hasWidgets = places.isNotEmpty()
         )
@@ -139,24 +184,29 @@ class WidgetAreaViewModel(
 
     private val menuTarget: MutableStateFlow<WidgetMenuTarget?> = MutableStateFlow(null)
     private val expandedChoice: MutableStateFlow<WidgetMenuAction?> = MutableStateFlow(null)
+    private val calendarPermissionGate: CalendarPermissionGate = CalendarPermissionGate(calendarEventSource)
 
     private val menuContext: Flow<MenuContext> = combine(menuTarget, expandedChoice) { target, expanded ->
         MenuContext(target = target, expandedChoice = expanded)
     }
 
+    private val menuSettings: Flow<MenuSettings> = combine(settingsAndBattery, eventSettingsState) { header, events ->
+        MenuSettings(header = header, events = events)
+    }
+
     val menuState: StateFlow<WidgetMenuState> = combine(
         menuContext,
         repository.places,
-        settingsAndBattery,
+        menuSettings,
         homeEditState.mode,
         clockSource.readings
-    ) { context, places, settingsAndBattery, mode, reading ->
+    ) { context, places, menuSettings, mode, reading ->
         if (mode != HomeEditMode.None) {
             WidgetMenuState.Closed
         } else {
             context.target.toMenuState(
                 places = places,
-                settings = settingsAndBattery.settings,
+                menuSettings = menuSettings,
                 reading = reading,
                 expandedChoice = context.expandedChoice
             )
@@ -255,9 +305,49 @@ class WidgetAreaViewModel(
         }
     }
 
+    fun setUpcomingEventsEnabled(enabled: Boolean) {
+        if (!enabled) {
+            viewModelScope.launch {
+                settingsRepository.setEventsEnabled(false)
+            }
+            return
+        }
+        when (val decision: CalendarPermissionDecision = calendarPermissionGate.decideEnable()) {
+            CalendarPermissionDecision.Enable -> viewModelScope.launch {
+                settingsRepository.setEventsEnabled(true)
+            }
+
+            CalendarPermissionDecision.Request -> viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.RequestCalendarPermission)
+            }
+
+            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
+            }
+        }
+    }
+
+    fun onCalendarPermissionResult(granted: Boolean, canAskAgain: Boolean) {
+        when (val decision: CalendarPermissionDecision = calendarPermissionGate.onPermissionResult(granted, canAskAgain)) {
+            CalendarPermissionDecision.Enable -> viewModelScope.launch {
+                settingsRepository.setEventsEnabled(true)
+            }
+
+            CalendarPermissionDecision.Request -> Unit
+
+            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
+            }
+        }
+    }
+
+    fun refreshCalendarPermission() {
+        calendarPermissionGate.refreshPermission()
+    }
+
     private fun WidgetMenuTarget?.toMenuState(
         places: List<WidgetPlace>,
-        settings: HeaderSettings,
+        menuSettings: MenuSettings,
         reading: ClockReading,
         expandedChoice: WidgetMenuAction?
     ): WidgetMenuState = when (this) {
@@ -265,7 +355,13 @@ class WidgetAreaViewModel(
             if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
                 WidgetMenuState.Closed
             } else {
-                WidgetMenuState.HeaderMenu(items = headerMenuItems(settings = settings, expandedChoice = expandedChoice))
+                WidgetMenuState.HeaderMenu(
+                    items = headerMenuItems(
+                        settings = menuSettings.header.settings,
+                        eventSettings = menuSettings.events,
+                        expandedChoice = expandedChoice
+                    )
+                )
             }
         }
 
@@ -274,8 +370,8 @@ class WidgetAreaViewModel(
                 WidgetMenuState.Closed
             } else {
                 WidgetMenuState.ClockStyleChooser(
-                    selected = settings.clockStyle,
-                    previews = formatter.previews(reading = reading, settings = settings)
+                    selected = menuSettings.header.settings.clockStyle,
+                    previews = formatter.previews(reading = reading, settings = menuSettings.header.settings)
                 )
             }
         }
@@ -285,7 +381,11 @@ class WidgetAreaViewModel(
         null -> WidgetMenuState.Closed
     }
 
-    private fun headerMenuItems(settings: HeaderSettings, expandedChoice: WidgetMenuAction?): List<WidgetMenuItem> = listOf(
+    private fun headerMenuItems(
+        settings: HeaderSettings,
+        eventSettings: EventSettingsState,
+        expandedChoice: WidgetMenuAction?
+    ): List<WidgetMenuItem> = listOf(
         WidgetMenuItem.Toggle(
             id = WidgetMenuAction.Clock,
             checked = settings.clockVisible,
@@ -307,6 +407,11 @@ class WidgetAreaViewModel(
             selectedKey = WidgetMenuChoiceKey(settings.batteryVisibility.name),
             expanded = expandedChoice == WidgetMenuAction.Battery
         ),
+        WidgetMenuItem.Toggle(
+            id = WidgetMenuAction.UpcomingEvents,
+            checked = eventSettings.settings.enabled && eventSettings.hasPermission,
+            enabled = true
+        ),
         WidgetMenuItem.Action(id = WidgetMenuAction.ClockStyle),
         WidgetMenuItem.Action(id = WidgetMenuAction.RemoveHeader),
         WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings)
@@ -323,9 +428,20 @@ class WidgetAreaViewModel(
         reading: ClockReading,
         settings: HeaderSettings,
         battery: BatteryStatus?,
-        launchables: List<Launchable>
+        launchables: List<Launchable>,
+        events: List<UpcomingEvent>,
+        eventSettings: EventSettings
     ): WidgetPlaceModel? {
-        val widgetModels: List<WidgetModel> = widgets.mapNotNull { widget -> widget.toModel(reading, settings, battery, launchables) }
+        val widgetModels: List<WidgetModel> = widgets.mapNotNull { widget ->
+            widget.toModel(
+                reading = reading,
+                settings = settings,
+                battery = battery,
+                launchables = launchables,
+                events = events,
+                eventSettings = eventSettings
+            )
+        }
         return if (widgetModels.isEmpty()) {
             null
         } else {
@@ -337,9 +453,18 @@ class WidgetAreaViewModel(
         reading: ClockReading,
         settings: HeaderSettings,
         battery: BatteryStatus?,
-        launchables: List<Launchable>
+        launchables: List<Launchable>,
+        events: List<UpcomingEvent>,
+        eventSettings: EventSettings
     ): WidgetModel? = when (this) {
-        is PlacedWidget.Header -> formatter.format(id = id, reading = reading, settings = settings, battery = battery).withTapTargets(
+        is PlacedWidget.Header -> formatter.format(
+            id = id,
+            reading = reading,
+            settings = settings,
+            battery = battery,
+            events = events,
+            eventSettings = eventSettings
+        ).withTapTargets(
             settings = settings,
             launchables = launchables,
             atEpochMillis = reading.instant.toEpochMilli()

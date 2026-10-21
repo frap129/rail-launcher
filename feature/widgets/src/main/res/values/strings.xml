@@ -2,6 +2,12 @@
 <resources>
     <string name="open_alarms">Open alarms</string>
     <string name="open_calendar">Open calendar</string>
+    <string name="open_event">Open %1$s</string>
+    <string name="event_untitled">(No title)</string>
+    <string name="event_until">until %1$s</string>
+    <string name="event_today">Today</string>
+    <string name="event_tomorrow">Tomorrow</string>
+    <string name="event_tomorrow_lower">tomorrow</string>
     <string name="open_launchable">Open %1$s</string>
     <string name="cannot_open_launchable">Can\'t open %1$s</string>
     <string name="no_clock_app">No clock app</string>
@@ -13,6 +19,7 @@
     <string name="header_title">Header</string>
     <string name="widget_clock">Clock</string>
     <string name="widget_date">Date</string>
+    <string name="upcoming_events">Upcoming events</string>
     <string name="clock_style">Clock Style…</string>
     <string name="clock_style_title">Clock Style</string>
     <string name="clock_style_classic">Classic</string>

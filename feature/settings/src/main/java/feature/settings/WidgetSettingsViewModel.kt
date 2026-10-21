@@ -3,6 +3,8 @@ package feature.settings
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.calendar.CalendarInfo
+import core.data.calendar.ICalendarEventSource
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
@@ -10,6 +12,7 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
@@ -20,14 +23,25 @@ import core.data.time.IClockSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
+import feature.widgets.CalendarPermissionDecision
+import feature.widgets.CalendarPermissionGate
 import feature.widgets.HeaderFormatter
 import feature.widgets.HeaderModel
 import java.text.Normalizer
 import java.util.Locale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -81,25 +95,72 @@ data class WidgetSettingsUiState(
     val dateTapAction: TapActionSummary = TapActionSummary(
         setting = HeaderTapSetting.SystemDefault,
         label = TapActionLabel.Resource(R.string.tap_action_calendar_default)
-    )
+    ),
+    val calendarAccess: Boolean = false,
+    val eventsEnabled: Boolean = false,
+    val eventLookaheadHours: Int = EventSettings.DEFAULT_LOOKAHEAD_HOURS,
+    val eventMaxEvents: Int = 1,
+    val includeAllDay: Boolean = true,
+    val excludedCalendarIds: Set<String> = emptySet(),
+    val calendars: List<CalendarInfo> = emptyList()
 )
+
+private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
+
+sealed interface WidgetSettingsEvent {
+    data object RequestCalendarPermission : WidgetSettingsEvent
+
+    data class ShowCalendarPermissionDenied(val permanentlyDenied: Boolean) : WidgetSettingsEvent
+}
 
 class WidgetSettingsViewModel(
     private val settingsRepository: IWidgetSettingsRepository,
     private val areaRepository: IWidgetAreaRepository,
     private val clockSource: IClockSource,
     private val formatter: HeaderFormatter,
-    private val launchableRepository: ILaunchableRepository
+    private val launchableRepository: ILaunchableRepository,
+    private val calendarEventSource: ICalendarEventSource
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
+    private val eventChannel: Channel<WidgetSettingsEvent> = Channel(Channel.BUFFERED)
+    private val calendarPermissionGate: CalendarPermissionGate = CalendarPermissionGate(calendarEventSource)
+
+    val events: Flow<WidgetSettingsEvent> = eventChannel.receiveAsFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val calendars: Flow<List<CalendarInfo>> = settingsRepository.eventSettings
+        .map { settings -> settings.enabled }
+        .distinctUntilChanged()
+        .flatMapLatest { enabled ->
+            if (enabled) {
+                calendarEventSource.calendars
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .onEach { loadedCalendars ->
+            if (loadedCalendars.isNotEmpty()) {
+                val availableCalendarIds: Set<String> = loadedCalendars.mapTo(mutableSetOf()) { calendar -> calendar.calendarKey }
+                settingsRepository.pruneExcludedCalendarIds(availableCalendarIds)
+            }
+        }
+
+    private val eventSettingsState: Flow<EventSettingsState> = combine(
+        settingsRepository.eventSettings,
+        calendarEventSource.hasPermission,
+        calendars
+    ) { settings, hasPermission, calendars ->
+        EventSettingsState(settings = settings, hasPermission = hasPermission, calendars = calendars)
+    }
 
     val uiState: StateFlow<WidgetSettingsUiState> = combine(
         areaRepository.places,
         settingsRepository.headerSettings,
         clockSource.readings,
-        launchableRepository.launchableState
-    ) { places, settings, reading, launchableState ->
+        launchableRepository.launchableState,
+        eventSettingsState
+    ) { places, settings, reading, launchableState, eventSettingsState ->
         val timeTapTarget: HeaderTapSetting = settings.resolvedTimeTapTarget.resolved(launchableState)
         val dateTapTarget: HeaderTapSetting = settings.resolvedDateTapTarget.resolved(launchableState)
         WidgetSettingsUiState(
@@ -127,7 +188,14 @@ class WidgetSettingsViewModel(
             dateTapAction = dateTapTarget.toSummary(
                 defaultResource = R.string.tap_action_calendar_default,
                 launchables = launchableState.launchables
-            )
+            ),
+            calendarAccess = eventSettingsState.hasPermission,
+            eventsEnabled = eventSettingsState.settings.enabled,
+            eventLookaheadHours = eventSettingsState.settings.lookaheadHours,
+            eventMaxEvents = eventSettingsState.settings.resolvedMaxEvents,
+            includeAllDay = eventSettingsState.settings.includeAllDay,
+            excludedCalendarIds = eventSettingsState.settings.excludedCalendarIds,
+            calendars = eventSettingsState.calendars
         )
     }.stateIn(
         scope = viewModelScope,
@@ -233,6 +301,70 @@ class WidgetSettingsViewModel(
     fun setDateTapTarget(target: HeaderTapSetting) {
         updateHeaderSettings { settings -> settings.copy(dateTapTarget = target.toStoredTapTarget()) }
         closeTapActionPicker()
+    }
+
+    fun setEventsEnabled(enabled: Boolean) {
+        if (!enabled) {
+            viewModelScope.launch {
+                settingsRepository.setEventsEnabled(false)
+            }
+            return
+        }
+        when (val decision: CalendarPermissionDecision = calendarPermissionGate.decideEnable()) {
+            CalendarPermissionDecision.Enable -> viewModelScope.launch {
+                settingsRepository.setEventsEnabled(true)
+            }
+
+            CalendarPermissionDecision.Request -> viewModelScope.launch {
+                eventChannel.send(WidgetSettingsEvent.RequestCalendarPermission)
+            }
+
+            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
+                eventChannel.send(WidgetSettingsEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
+            }
+        }
+    }
+
+    fun onCalendarPermissionResult(granted: Boolean, canAskAgain: Boolean) {
+        when (val decision: CalendarPermissionDecision = calendarPermissionGate.onPermissionResult(granted, canAskAgain)) {
+            CalendarPermissionDecision.Enable -> viewModelScope.launch {
+                settingsRepository.setEventsEnabled(true)
+            }
+
+            CalendarPermissionDecision.Request -> Unit
+
+            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
+                eventChannel.send(WidgetSettingsEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
+            }
+        }
+    }
+
+    fun refreshCalendarPermission() {
+        calendarPermissionGate.refreshPermission()
+    }
+
+    fun setEventLookaheadHours(hours: Int) {
+        viewModelScope.launch {
+            settingsRepository.setEventLookaheadHours(hours)
+        }
+    }
+
+    fun setEventMaxEvents(maxEvents: Int) {
+        viewModelScope.launch {
+            settingsRepository.setEventMaxEvents(maxEvents)
+        }
+    }
+
+    fun setEventIncludeAllDay(includeAllDay: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setEventIncludeAllDay(includeAllDay)
+        }
+    }
+
+    fun setExcludedCalendarIds(calendarIds: Set<String>) {
+        viewModelScope.launch {
+            settingsRepository.setExcludedCalendarIds(calendarIds)
+        }
     }
 
     private fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings) {

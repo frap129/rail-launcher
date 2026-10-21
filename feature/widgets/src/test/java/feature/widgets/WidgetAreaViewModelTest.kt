@@ -3,17 +3,20 @@ package feature.widgets
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.battery.BatteryStatus
+import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.testing.FakeBatterySource
+import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
@@ -326,6 +329,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.Clock,
                     WidgetMenuAction.Date,
                     WidgetMenuAction.Battery,
+                    WidgetMenuAction.UpcomingEvents,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
@@ -608,12 +612,151 @@ class WidgetAreaViewModelTest {
         }
     }
 
+    @Test
+    fun `does not collect calendar events while the feature is off`() = runTest {
+        val calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(calendarEventSource = calendarEventSource)
+
+        viewModel.widgetAreaState.test {
+            expectMostRecentItem()
+            advanceUntilIdle()
+
+            assertEquals(0, calendarEventSource.activeSubscribers)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `does not collect calendar events without permission`() = runTest {
+        val calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false)
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialEventSettings = EventSettings(enabled = true)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = calendarEventSource
+        )
+
+        viewModel.widgetAreaState.test {
+            expectMostRecentItem()
+            advanceUntilIdle()
+
+            assertEquals(0, calendarEventSource.activeSubscribers)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `requests calendar permission when enabling events without it`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            calendarEventSource = FakeCalendarEventSource(hasPermission = false)
+        )
+
+        viewModel.events.test {
+            viewModel.setUpcomingEventsEnabled(enabled = true)
+            advanceUntilIdle()
+
+            assertEquals(WidgetAreaEvent.RequestCalendarPermission, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps events off and reports a denial`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = false)
+        )
+
+        viewModel.events.test {
+            viewModel.setUpcomingEventsEnabled(enabled = true)
+            advanceUntilIdle()
+            assertEquals(WidgetAreaEvent.RequestCalendarPermission, awaitItem())
+
+            viewModel.onCalendarPermissionResult(granted = false, canAskAgain = true)
+            advanceUntilIdle()
+
+            assertEquals(WidgetAreaEvent.ShowCalendarPermissionDenied(permanentlyDenied = false), awaitItem())
+            assertTrue(settingsRepository.eventUpdates.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `persists events as enabled after a permission grant`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = false)
+        )
+
+        viewModel.onCalendarPermissionResult(granted = true, canAskAgain = true)
+        advanceUntilIdle()
+
+        assertTrue(settingsRepository.eventUpdates.last().enabled)
+    }
+
+    @Test
+    fun `drops an event on the first clock tick after it ends`() = runTest {
+        val event: UpcomingEvent = event(title = "Standup")
+        val clockSource: FakeClockSource = FakeClockSource(reading(at = "2026-10-20T14:05:00Z"))
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialSettings = HeaderSettings(timeFormat = TimeFormat.H24),
+            initialEventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 1)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            clockSource = clockSource,
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(events = listOf(event))
+        )
+
+        viewModel.widgetAreaState.test {
+            assertEquals(listOf("Standup · 14:06"), expectMostRecentItem().header().events.map { model -> model.text })
+
+            clockSource.emit(reading(at = "2026-10-20T14:08:00Z"))
+            advanceUntilIdle()
+
+            assertTrue(expectMostRecentItem().header().events.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `shows Upcoming events as the fourth Header menu item`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+
+        viewModel.menuState.test {
+            viewModel.openHeaderMenu()
+            val menu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
+
+            assertEquals(WidgetMenuAction.UpcomingEvents, menu.items[3].id)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun event(
+        title: String = "Standup",
+        begin: String = "2026-10-20T14:06:00Z",
+        end: String = "2026-10-20T14:07:00Z"
+    ): UpcomingEvent = UpcomingEvent(
+        eventId = 7L,
+        title = title,
+        beginMillis = Instant.parse(begin).toEpochMilli(),
+        endMillis = Instant.parse(end).toEpochMilli(),
+        isAllDay = false,
+        calendarId = 3L,
+        color = 0,
+        isWorkProfile = false
+    )
+
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         homeEditState: HomeEditState = HomeEditState(),
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
+        calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
         batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
@@ -622,6 +765,7 @@ class WidgetAreaViewModelTest {
         settingsRepository = settingsRepository,
         homeEditState = homeEditState,
         launchableRepository = launchableRepository,
+        calendarEventSource = calendarEventSource,
         batterySource = batterySource
     )
 
