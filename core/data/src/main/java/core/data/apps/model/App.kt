@@ -8,13 +8,20 @@ import android.os.UserHandle
 import android.provider.Settings
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableAppearance
 
-class App(override val defaultName: String, val profile: UserHandle, val componentName: ComponentName) : Launchable() {
-    val packageName = componentName.packageName
-    override val key = "${packageName}_$profile"
-    override val defaultIcon = Icon.ActivityIcon(componentName)
-    override var name = defaultName
-    override var icon: Icon = defaultIcon
+data class App(
+    override val defaultName: String,
+    val profile: UserHandle,
+    val componentName: ComponentName,
+    override val name: String = defaultName,
+    override val defaultIcon: Icon = Icon.ActivityIcon(componentName),
+    override val icon: Icon = defaultIcon
+) : Launchable() {
+    val packageName: String = componentName.packageName
+    override val key: String = "${packageName}_$profile"
+
+    override fun withCustomization(appearance: LaunchableAppearance): App = copy(name = appearance.name, icon = appearance.icon)
 
     override fun launch(context: Context) = context.startActivity(
         context.packageManager.getLaunchIntentForPackage(packageName)

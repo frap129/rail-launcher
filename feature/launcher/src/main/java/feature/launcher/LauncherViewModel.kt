@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.SHARED_SUBSCRIPTION_TIMEOUT_MS
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
@@ -106,7 +107,7 @@ class LauncherViewModel(
         if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
+        started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
         initialValue = emptyList()
     )
 

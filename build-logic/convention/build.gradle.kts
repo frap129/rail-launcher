@@ -35,6 +35,7 @@ dependencies {
     compileOnly(libs.android.tools.build.gradle.plugin)
     compileOnly(libs.android.baselineprofile.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)
+    compileOnly(libs.kotlin.compose.compiler.gradle.plugin)
 }
 
 gradlePlugin {

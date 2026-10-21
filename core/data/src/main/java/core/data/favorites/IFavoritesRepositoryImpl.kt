@@ -26,6 +26,7 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
     }
         .onEach { resolution -> if (resolution.staleKeys.isNotEmpty()) favoriteDao.remove(resolution.staleKeys) }
         .map { resolution -> resolution.favorites }
+        .distinctUntilChanged()
 
     override fun isFavorite(launchable: Launchable): Flow<Boolean> = favoriteDao.observeAll()
         .map { records -> records.any { record -> record.key == launchable.key } }

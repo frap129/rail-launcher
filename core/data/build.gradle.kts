@@ -5,6 +5,9 @@ plugins {
 
 android {
     namespace = "core.data"
+    testFixtures {
+        enable = true
+    }
 }
 dependencies {
     implementation(project(":core:util"))
@@ -13,4 +16,5 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
     testImplementation(libs.test.robolectric)
+    testFixturesImplementation(libs.kotlinx.coroutines.core)
 }

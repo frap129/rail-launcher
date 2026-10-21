@@ -28,16 +28,24 @@ import core.util.screenHeightPx
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.settings.SettingsViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import timber.log.Timber
+
+private const val APP_SCOPE_QUALIFIER: String = "appScope"
 
 class MainApplication :
     Application(),
     SingletonImageLoader.Factory {
+    private val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     private val database by lazy {
         Room.databaseBuilder(
             applicationContext,
@@ -56,6 +64,7 @@ class MainApplication :
      */
     private val appModule = module {
         single<MainApplication> { this@MainApplication }
+        single<CoroutineScope>(named(APP_SCOPE_QUALIFIER)) { appScope }
     }
 
     /**
@@ -81,7 +90,7 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext()) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
-        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get()) }
+        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get()) }
     }
 
