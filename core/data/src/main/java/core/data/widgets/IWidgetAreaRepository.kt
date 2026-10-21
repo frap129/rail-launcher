@@ -35,4 +35,7 @@ interface IWidgetAreaRepository {
 
     /** Removes the Widget and its place when empty, returning its system id. */
     suspend fun removeWidget(widgetId: Long): AppWidgetId?
+
+    /** Stores the place height, or null to fall back to the provider default. */
+    suspend fun setPlaceHeight(placeId: Long, heightDp: Int?)
 }

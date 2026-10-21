@@ -46,6 +46,10 @@ class IWidgetAreaRepositoryImpl(
     )
 
     override suspend fun removeWidget(widgetId: Long): AppWidgetId? = widgetAreaDao.removeWidget(widgetId)?.let(::AppWidgetId)
+
+    override suspend fun setPlaceHeight(placeId: Long, heightDp: Int?) {
+        widgetAreaDao.setPlaceHeight(placeId = placeId, heightDp = heightDp)
+    }
 }
 
 internal data class WidgetAreaResolution(val places: List<WidgetPlace>, val duplicateHeaderIds: List<Long>)

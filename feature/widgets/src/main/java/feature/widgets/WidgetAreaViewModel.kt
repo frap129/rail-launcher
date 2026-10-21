@@ -146,6 +146,7 @@ enum class WidgetMenuAction {
     UpcomingEvents,
     ClockStyle,
     AddWidget,
+    Resize,
     Reconfigure,
     RemoveHeader,
     RestoreHeader,
@@ -174,6 +175,8 @@ sealed interface WidgetAreaEvent {
 
     data class RemoveHostView(val appWidgetId: AppWidgetId) : WidgetAreaEvent
 
+    data class ReportWidgetSize(val appWidgetIds: List<AppWidgetId>, val widthDp: Int, val heightDp: Int) : WidgetAreaEvent
+
     data object ReturnToSettings : WidgetAreaEvent
 }
 
@@ -197,6 +200,16 @@ private data class MenuSettings(val header: HeaderSettingsAndBattery, val events
 
 private data class MenuContext(val target: WidgetMenuTarget?, val expandedChoice: WidgetMenuAction?)
 
+private data class WidgetAreaContent(
+    val places: List<WidgetPlace>,
+    val reading: ClockReading,
+    val settings: HeaderSettings,
+    val battery: BatteryStatus?,
+    val launchables: List<Launchable>,
+    val events: List<UpcomingEvent>,
+    val eventSettings: EventSettings
+)
+
 class WidgetAreaViewModel(
     private val repository: IWidgetAreaRepository,
     private val clockSource: IClockSource,
@@ -217,6 +230,25 @@ class WidgetAreaViewModel(
 
     private val addFlow: MutableStateFlow<AddWidgetFlowState> = MutableStateFlow(AddWidgetFlowState.Idle)
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
+
+    private val resizeController: WidgetResizeController = WidgetResizeController(
+        repository = repository,
+        appWidgetHost = appWidgetHost,
+        homeEditState = homeEditState,
+        scope = viewModelScope,
+        onReportSize = { appWidgetIds, widthDp, heightDp ->
+            viewModelScope.launch {
+                eventChannel.send(
+                    WidgetAreaEvent.ReportWidgetSize(
+                        appWidgetIds = appWidgetIds,
+                        widthDp = widthDp,
+                        heightDp = heightDp
+                    )
+                )
+            }
+        }
+    )
+    val resizeState: StateFlow<ResizeState?> = resizeController.resizeState
 
     init {
         restorePendingWidget()
@@ -270,25 +302,38 @@ class WidgetAreaViewModel(
         }
         .combine(settingsRepository.eventSettings) { events, settings -> EventData(events = events, settings = settings) }
 
-    val widgetAreaState: StateFlow<WidgetAreaState> = combine(
+    private val widgetAreaContent: Flow<WidgetAreaContent> = combine(
         repository.places,
         clockSource.readings,
         settingsAndBattery,
         launchableRepository.launchableState,
         eventData
     ) { places, reading, settingsAndBattery, launchableState, events ->
+        WidgetAreaContent(
+            places = places,
+            reading = reading,
+            settings = settingsAndBattery.settings,
+            battery = settingsAndBattery.battery,
+            launchables = launchableState.launchables,
+            events = events.events,
+            eventSettings = events.settings
+        )
+    }
+
+    val widgetAreaState: StateFlow<WidgetAreaState> = combine(widgetAreaContent, resizeController.homeHeightDp) { content, homeHeightDp ->
         WidgetAreaState(
-            places = places.mapNotNull { place ->
+            places = content.places.mapNotNull { place ->
                 place.toModel(
-                    reading = reading,
-                    settings = settingsAndBattery.settings,
-                    battery = settingsAndBattery.battery,
-                    launchables = launchableState.launchables,
-                    events = events.events,
-                    eventSettings = events.settings
+                    reading = content.reading,
+                    settings = content.settings,
+                    battery = content.battery,
+                    launchables = content.launchables,
+                    events = content.events,
+                    eventSettings = content.eventSettings,
+                    homeHeightDp = homeHeightDp
                 )
             },
-            hasWidgets = places.isNotEmpty()
+            hasWidgets = content.places.isNotEmpty()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -459,6 +504,38 @@ class WidgetAreaViewModel(
         calendarPermissionGate.refreshPermission()
     }
 
+    fun setHomeHeight(heightDp: Int) = resizeController.setHomeHeight(heightDp = heightDp)
+
+    fun setWidgetAreaWidth(widthDp: Int) = resizeController.setWidgetAreaWidth(widthDp = widthDp)
+
+    fun startResize(placeId: Long) {
+        viewModelScope.launch {
+            if (resizeController.startResize(placeId = placeId)) {
+                menuTarget.value = null
+            }
+        }
+    }
+
+    private fun startResizeForWidget(widgetId: Long) {
+        viewModelScope.launch {
+            if (resizeController.startResizeForWidget(widgetId = widgetId)) {
+                menuTarget.value = null
+            }
+        }
+    }
+
+    fun dragResize(deltaDp: Float) = resizeController.dragResize(deltaDp = deltaDp)
+
+    fun stepResize(direction: ResizeStep) = resizeController.stepResize(direction = direction)
+
+    fun resetResize() = resizeController.resetResize()
+
+    fun finishResize() = resizeController.finishResize()
+
+    fun onBack(): Boolean = resizeController.onBack()
+
+    fun onHomeIntent(): Boolean = resizeController.onHomeIntent()
+
     fun openAppWidgetMenu(widgetId: Long) {
         if (homeEditState.mode.value == HomeEditMode.None) {
             menuTarget.value = WidgetMenuTarget.AppWidget(widgetId = widgetId)
@@ -468,6 +545,10 @@ class WidgetAreaViewModel(
     fun onMenuAction(action: WidgetMenuAction) {
         when (action) {
             WidgetMenuAction.AddWidget -> startAddFromMenu()
+
+            WidgetMenuAction.Resize -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
+                startResizeForWidget(widgetId = target.widgetId)
+            }
 
             WidgetMenuAction.Reconfigure -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
                 reconfigure(widgetId = target.widgetId)
@@ -607,6 +688,9 @@ class WidgetAreaViewModel(
             eventChannel.send(WidgetAreaEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
         }
     }
+
+    private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
+        appWidgetHost.providerInfo(provider = widget.provider, profileSerial = widget.profileSerial)
 
     private suspend fun findAppWidget(widgetId: Long): PlacedWidget.AppWidget? = repository.places.first()
         .asSequence()
@@ -800,16 +884,17 @@ class WidgetAreaViewModel(
             if (widget == null) {
                 WidgetMenuState.Closed
             } else {
-                val info: WidgetProviderInfo? = appWidgetHost.providerInfo(
-                    provider = widget.provider,
-                    profileSerial = widget.profileSerial
-                )
+                val info: WidgetProviderInfo? = providerInfoFor(widget)
                 WidgetMenuState.AppWidgetMenu(
                     widgetId = widget.id,
                     appWidgetId = AppWidgetId(widget.appWidgetId),
                     icon = info.iconOr(provider = widget.provider),
                     label = info.labelOr(provider = widget.provider),
                     items = buildList {
+                        val resizeBounds: ResizeBounds? = info?.let(ResizeBounds::from)
+                        if (widget.availability == WidgetAvailability.Available && resizeBounds?.isResizable == true) {
+                            add(WidgetMenuItem.Action(id = WidgetMenuAction.Resize))
+                        }
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
                         val isReconfigurable: Boolean = info != null && info.isReconfigurable && info.hasConfigureActivity
                         if (widget.availability == WidgetAvailability.Available && isReconfigurable) {
@@ -876,7 +961,8 @@ class WidgetAreaViewModel(
         battery: BatteryStatus?,
         launchables: List<Launchable>,
         events: List<UpcomingEvent>,
-        eventSettings: EventSettings
+        eventSettings: EventSettings,
+        homeHeightDp: Int?
     ): WidgetPlaceModel? {
         val widgetModels: List<WidgetModel> = widgets.mapNotNull { widget ->
             widget.toModel(
@@ -888,10 +974,24 @@ class WidgetAreaViewModel(
                 eventSettings = eventSettings
             )
         }
+        val appWidget: PlacedWidget.AppWidget? = widgets.filterIsInstance<PlacedWidget.AppWidget>().firstOrNull()
+        val info: WidgetProviderInfo? = appWidget?.let(::providerInfoFor)
+        val resizeBounds: ResizeBounds? = info?.let(ResizeBounds::from)
+        val storedHeightDp: Int? = heightDp
+        val resolvedHeightDp: Int? = if (
+            storedHeightDp != null &&
+            resizeBounds != null &&
+            resizeBounds.isResizable &&
+            homeHeightDp != null
+        ) {
+            resizeBounds.clamp(heightDp = storedHeightDp, homeHeightDp = homeHeightDp)
+        } else {
+            storedHeightDp
+        }
         return if (widgetModels.isEmpty()) {
             null
         } else {
-            WidgetPlaceModel(id = id, heightDp = heightDp, widgets = widgetModels)
+            WidgetPlaceModel(id = id, heightDp = resolvedHeightDp, widgets = widgetModels)
         }
     }
 
@@ -917,7 +1017,7 @@ class WidgetAreaViewModel(
         )
 
         is PlacedWidget.AppWidget -> {
-            val info: WidgetProviderInfo? = appWidgetHost.providerInfo(provider = provider, profileSerial = profileSerial)
+            val info: WidgetProviderInfo? = providerInfoFor(this)
             AppWidgetModel(
                 id = id,
                 appWidgetId = appWidgetId,

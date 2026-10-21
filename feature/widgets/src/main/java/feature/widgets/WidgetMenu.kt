@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.ArrowsAltV
 import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
@@ -225,6 +226,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.UpcomingEvents -> R.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.AddWidget -> R.string.add_widget
+    WidgetMenuAction.Resize -> R.string.resize_widget
     WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
@@ -239,6 +241,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.UpcomingEvents -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.AddWidget -> FontAwesomeIcons.Solid.PlusSquare
+    WidgetMenuAction.Resize -> FontAwesomeIcons.Solid.ArrowsAltV
     WidgetMenuAction.Reconfigure -> FontAwesomeIcons.Solid.Cog
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th

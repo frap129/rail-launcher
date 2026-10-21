@@ -31,6 +31,9 @@ abstract class WidgetAreaDao {
     @Query("SELECT position FROM widget_places WHERE id = :placeId")
     abstract suspend fun getPlacePosition(placeId: Long): Int?
 
+    @Query("UPDATE widget_places SET height_dp = :heightDp WHERE id = :placeId")
+    abstract suspend fun setPlaceHeight(placeId: Long, heightDp: Int?)
+
     @Query("SELECT * FROM widgets WHERE kind = 'APP_WIDGET'")
     abstract suspend fun getAppWidgets(): List<WidgetRecord>
 

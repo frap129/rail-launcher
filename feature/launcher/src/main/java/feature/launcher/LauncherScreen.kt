@@ -72,6 +72,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -123,6 +124,7 @@ import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
 import core.util.toDp
@@ -130,6 +132,8 @@ import feature.widgets.AddWidgetFlowState
 import feature.widgets.AppWidgetPickerSheet
 import feature.widgets.AppWidgetViewCache
 import feature.widgets.AppWidgetViews
+import feature.widgets.RESIZE_DIMMED_ALPHA
+import feature.widgets.ResizeState
 import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
 import feature.widgets.WidgetAreaViewModel
@@ -229,8 +233,14 @@ fun LauncherScreen(
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> widgetViewModel.refreshCalendarPermission()
+
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
-                Lifecycle.Event.ON_STOP -> appWidgetHostSource.stopListening()
+
+                Lifecycle.Event.ON_STOP -> {
+                    widgetViewModel.finishResize()
+                    appWidgetHostSource.stopListening()
+                }
+
                 else -> Unit
             }
         }
@@ -332,6 +342,12 @@ fun LauncherScreen(
 
                 is WidgetAreaEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
 
+                is WidgetAreaEvent.ReportWidgetSize -> appWidgetViewCache.updateSize(
+                    ids = event.appWidgetIds,
+                    widthDp = event.widthDp,
+                    heightDp = event.heightDp
+                )
+
                 is WidgetAreaEvent.RequestQuietModeOff -> AppWidgetViews.requestQuietModeOff(
                     context = context,
                     profileSerial = event.profileSerial
@@ -347,7 +363,9 @@ fun LauncherScreen(
             .collect { requested ->
                 if (requested) {
                     backStackEntry.savedStateHandle[HOME_INTENT_REQUEST_KEY] = false
-                    viewModel.onHomeIntent()
+                    if (!widgetViewModel.onHomeIntent()) {
+                        viewModel.onHomeIntent()
+                    }
                 }
             }
     }
@@ -360,15 +378,22 @@ fun LauncherScreen(
         }
     }
     val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
-    BackHandler { viewModel.onBack() }
+    val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
+    val isResizing: Boolean = resizeState != null
+    BackHandler {
+        if (!widgetViewModel.onBack()) {
+            viewModel.onBack()
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         LauncherContent(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
-            onItemLaunch = launchItem
+            onItemLaunch = launchItem,
+            isResizing = isResizing
         )
-        LauncherRail(viewModel)
+        LauncherRail(viewModel, enabled = !isResizing)
         LauncherDoneButton(viewModel)
         LauncherMenu(viewModel)
         LauncherWidgetMenu(widgetViewModel)
@@ -417,7 +442,8 @@ private fun LauncherContent(
     modifier: Modifier,
     viewModel: LauncherViewModel,
     widgetViewModel: WidgetAreaViewModel,
-    onItemLaunch: (Launchable) -> Unit
+    onItemLaunch: (Launchable) -> Unit,
+    isResizing: Boolean
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
@@ -471,7 +497,9 @@ private fun LauncherContent(
                 itemActions = itemActions,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
-                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites) }
+                isResizing = isResizing,
+                onResizeOutsideTap = widgetViewModel::finishResize,
+                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites && !isResizing) }
             )
         }
         FocusRevealContent(
@@ -567,7 +595,7 @@ private fun rememberRowState(isEditingFavorites: Boolean, favorites: StateFlow<L
 }
 
 @Composable
-private fun BoxScope.LauncherRail(viewModel: LauncherViewModel) {
+private fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolean = true) {
     val railLabels: List<String> by viewModel.railLabels.collectAsState()
     ScrollRail(
         modifier = Modifier
@@ -577,7 +605,8 @@ private fun BoxScope.LauncherRail(viewModel: LauncherViewModel) {
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) },
         items = railLabels,
         onScroll = viewModel::onRailPreview,
-        onScrollEnded = viewModel::onRailReleased
+        onScrollEnded = viewModel::onRailReleased,
+        enabled = enabled
     )
 }
 
@@ -639,6 +668,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.Resize,
                     WidgetMenuAction.Reconfigure,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
@@ -663,6 +693,8 @@ fun LauncherHome(
     itemActions: LauncherItemActions,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit = {},
+    isResizing: Boolean = false,
+    onResizeOutsideTap: () -> Unit = {},
     widgetContent: @Composable () -> Unit = {}
 ) {
     val reorderableListState = rememberReorderableLazyListState(home.lazyListState) { from, to ->
@@ -675,8 +707,8 @@ fun LauncherHome(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .pointerInput(home.isEditingFavorites) {
-                    if (!home.isEditingFavorites) {
+                .pointerInput(home.isEditingFavorites, isResizing) {
+                    if (!home.isEditingFavorites && !isResizing) {
                         detectTapGestures(
                             onLongPress = {
                                 hapticFeedback.performLongPressHaptic()
@@ -685,11 +717,26 @@ fun LauncherHome(
                         )
                     }
                 }
+                .then(
+                    if (isResizing) {
+                        Modifier.consumeTouches(onGestureEnd = onResizeOutsideTap)
+                    } else {
+                        Modifier
+                    }
+                )
         )
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
+                .alpha(if (isResizing) RESIZE_DIMMED_ALPHA else 1f)
+                .then(
+                    if (isResizing) {
+                        Modifier.consumeTouches(onGestureEnd = onResizeOutsideTap)
+                    } else {
+                        Modifier
+                    }
+                )
                 .testTag("launcherHome"),
             state = home.lazyListState,
             verticalArrangement = Arrangement.Bottom,

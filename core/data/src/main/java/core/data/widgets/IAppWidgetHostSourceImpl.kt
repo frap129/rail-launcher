@@ -21,6 +21,7 @@ import core.data.icons.model.Icon
 import core.data.icons.model.SYSTEM_ICON_PACK_NAME
 import core.data.prefs.IPreferencesRepository
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -193,6 +194,7 @@ class IAppWidgetHostSourceImpl(
     private fun AppWidgetProviderInfo.toWidgetProviderInfo(user: UserHandle, appIcon: Icon): WidgetProviderInfo {
         val appLabel: String = appLabelFor(provider.packageName, user)
         val features: Int = widgetFeatures
+        val density: Float = context.resources.displayMetrics.density
         val isConfigurationOptional: Boolean =
             features and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
         val isReconfigurable: Boolean = features and AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE != 0
@@ -204,15 +206,15 @@ class IAppWidgetHostSourceImpl(
             appIcon = appIcon,
             label = loadLabel(context.packageManager).toString(),
             description = loadDescription(context)?.toString(),
-            defaultSize = WidgetSize(widthDp = minWidth, heightDp = minHeight),
+            defaultSize = WidgetSize(widthDp = minWidth.pxToDp(density = density), heightDp = minHeight.pxToDp(density = density)),
             cellSize = if (targetCellWidth > 0 && targetCellHeight > 0) {
                 WidgetSize(widthDp = targetCellWidth, heightDp = targetCellHeight)
             } else {
                 null
             },
-            minHeightDp = minHeight,
-            minResizeHeightDp = minResizeHeight,
-            maxResizeHeightDp = maxResizeHeight.takeIf { height -> height > 0 },
+            minHeightDp = minHeight.pxToDp(density = density),
+            minResizeHeightDp = minResizeHeight.pxToDp(density = density),
+            maxResizeHeightDp = maxResizeHeight.takeIf { height -> height > 0 }?.pxToDp(density = density),
             needsConfiguration = needsConfiguration(
                 hasConfigureActivity = configure != null,
                 isConfigurationOptional = isConfigurationOptional,
@@ -220,7 +222,8 @@ class IAppWidgetHostSourceImpl(
             ),
             isReconfigurable = isReconfigurable,
             hasConfigureActivity = configure != null,
-            isWorkProfile = user != Process.myUserHandle()
+            isWorkProfile = user != Process.myUserHandle(),
+            isVerticallyResizable = resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL != 0
         )
     }
 
@@ -239,4 +242,6 @@ class IAppWidgetHostSourceImpl(
     }.recoverCatching {
         context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(packageName, 0)).toString()
     }.getOrDefault(packageName)
+
+    private fun Int.pxToDp(density: Float): Int = (this / density).roundToInt()
 }

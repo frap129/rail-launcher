@@ -6,6 +6,7 @@ import core.data.testing.FakeWidgetAreaDao
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class IWidgetAreaRepositoryImplTest {
@@ -240,6 +241,21 @@ class IWidgetAreaRepositoryImplTest {
             assertEquals(WidgetAvailability.Unknown, model(awaitItem()).availability)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `setPlaceHeight stores and clears the height`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(appWidget(id = 11L, placeId = 1L))
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.setPlaceHeight(placeId = 1L, heightDp = 120)
+        assertEquals(120, repository.places.first().single().heightDp)
+
+        repository.setPlaceHeight(placeId = 1L, heightDp = null)
+        assertNull(repository.places.first().single().heightDp)
     }
 
     private suspend fun repository(
