@@ -5,16 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
 import core.data.launchables.SHARED_SUBSCRIPTION_TIMEOUT_MS
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,7 +27,6 @@ import timber.log.Timber
 sealed interface Widget
 
 sealed class LauncherUiState {
-    data object Error : LauncherUiState()
     data object Loading : LauncherUiState()
 
     data class Home(
@@ -66,7 +66,47 @@ private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchabl
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
 }
 
-private data class RailContent(val groups: List<LaunchableGroup>, val selected: LaunchableGroup.Listed?)
+private data class RailNavigation(
+    val mode: LauncherMode = LauncherMode.Home,
+    val isScrolling: Boolean = false,
+    val selected: LaunchableGroup.Listed? = null,
+    val homeListState: LazyListState = LazyListState(),
+    val appListState: LazyListState? = null
+)
+
+private fun toUiState(
+    navigation: RailNavigation,
+    state: LaunchableState,
+    favorites: List<Launchable>,
+    editedFavoriteKeys: List<String>?
+): LauncherUiState {
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
+    if (listedGroups.isEmpty()) {
+        return LauncherUiState.Loading
+    }
+    val isEditingFavorites: Boolean = editedFavoriteKeys != null
+    if (navigation.mode == LauncherMode.Home) {
+        return LauncherUiState.Home(
+            lazyListState = navigation.homeListState,
+            favorites = favorites,
+            isEditingFavorites = isEditingFavorites
+        )
+    }
+    val selected: LaunchableGroup.Listed? = navigation.selected
+    if (navigation.isScrolling) {
+        return if (selected == null) {
+            LauncherUiState.Loading
+        } else {
+            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = isEditingFavorites)
+        }
+    }
+    val appListState: LazyListState = navigation.appListState ?: return LauncherUiState.Loading
+    return LauncherUiState.AppList.Browsing(
+        groups = listedGroups,
+        lazyListState = appListState,
+        isEditingFavorites = isEditingFavorites
+    )
+}
 
 private enum class MenuRequest {
     Closed,
@@ -84,14 +124,19 @@ class LauncherViewModel(
     val listStartOffsetPx: Int = listOffsets.startPx
     val listEndOffsetPx: Int = listOffsets.endPx
 
-    val launchableGroups: Flow<List<LaunchableGroup>> = launcherItemRepo.launchableGroups
-    private val mode: MutableStateFlow<LauncherMode> = MutableStateFlow(LauncherMode.Home)
-    private val scrolling: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    private val selectedGroup: MutableStateFlow<LaunchableGroup.Listed?> = MutableStateFlow(null)
-    private val homeListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
+    private val launchableState: StateFlow<LaunchableState> = launcherItemRepo.launchableState
 
-    // Kept across emissions so starring a Launchable does not reset the App List scroll.
-    private val appListState: MutableStateFlow<LazyListState?> = MutableStateFlow(null)
+    /** The Rail labels in index order, shared with the Rail. */
+    val railLabels: StateFlow<List<String>> = launchableState
+        .map { state -> state.groups.map { group -> group.label } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = emptyList()
+        )
+
+    // Mode, selection, and scroll positions change together, so one Rail event is one emission.
+    private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
@@ -111,52 +156,18 @@ class LauncherViewModel(
         initialValue = emptyList()
     )
 
-    private val homeState: Flow<LauncherUiState.Home> = combine(
-        homeListState,
+    val uiState: StateFlow<LauncherUiState> = combine(
+        navigation,
+        launchableState,
         favorites,
         editedFavoriteKeys
-    ) { listState, favorites, editedKeys ->
-        LauncherUiState.Home(
-            lazyListState = listState,
+    ) { navigation, state, favorites, editedKeys ->
+        toUiState(
+            navigation = navigation,
+            state = state,
             favorites = favorites,
-            isEditingFavorites = editedKeys != null
+            editedFavoriteKeys = editedKeys
         )
-    }
-    private val railState: Flow<RailContent> = combine(
-        launchableGroups,
-        selectedGroup
-    ) { groups, selected ->
-        RailContent(groups = groups, selected = selected)
-    }
-    val uiState: StateFlow<LauncherUiState> = combine(
-        railState,
-        mode,
-        scrolling,
-        homeState,
-        editedFavoriteKeys
-    ) { rail, mode, scrolling, home, editedKeys ->
-        val listedGroups: List<LaunchableGroup.Listed> = rail.groups.filterIsInstance<LaunchableGroup.Listed>()
-        val isEditingFavorites: Boolean = editedKeys != null
-        when {
-            listedGroups.isEmpty() -> LauncherUiState.Loading
-
-            mode == LauncherMode.Home -> home
-
-            scrolling && rail.selected == null -> LauncherUiState.Loading
-
-            scrolling && rail.selected != null -> LauncherUiState.AppList.Scrolling(rail.selected, isEditingFavorites)
-
-            !scrolling -> LauncherUiState.AppList.Browsing(
-                groups = listedGroups,
-                lazyListState = appListState.value ?: LazyListState(
-                    firstVisibleItemIndex = listedGroups.indexOfFirst { it == rail.selected } + 1,
-                    firstVisibleItemScrollOffset = -listStartOffsetPx
-                ).also { state -> appListState.value = state },
-                isEditingFavorites = isEditingFavorites
-            )
-
-            else -> LauncherUiState.Error
-        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(),
@@ -187,44 +198,78 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
-    fun onRailTouched(group: LaunchableGroup) {
-        preview(group)
+    fun onRailPreview(index: Int) {
+        previewGroup(findRailGroup(index) ?: return)
     }
 
-    fun onRailMoved(group: LaunchableGroup) {
-        preview(group)
-    }
-
-    fun onRailReleased(group: LaunchableGroup) {
+    fun onRailReleased(index: Int) {
+        val group: LaunchableGroup = findRailGroup(index) ?: return
         when (group) {
             LaunchableGroup.Star -> showHomeFromRail()
 
             is LaunchableGroup.Listed -> {
-                appListState.value = null
-                selectedGroup.value = group
-                scrolling.value = false
-                mode.value = LauncherMode.AppList
+                val appListState: LazyListState = createAppListState(group)
+                navigation.update { current ->
+                    toAppListNavigation(
+                        current = current,
+                        group = group,
+                        isScrolling = false,
+                        appListState = appListState
+                    )
+                }
             }
         }
     }
 
-    private fun preview(group: LaunchableGroup) {
+    // Reads the shared state before update so a retried update cannot build a second scroll state.
+    private fun createAppListState(group: LaunchableGroup.Listed): LazyListState {
+        val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.listedGroups
+        return LazyListState(
+            firstVisibleItemIndex = listedGroups.indexOfFirst { listed -> listed == group } + 1,
+            firstVisibleItemScrollOffset = -listStartOffsetPx
+        )
+    }
+
+    private fun toAppListNavigation(
+        current: RailNavigation,
+        group: LaunchableGroup.Listed,
+        isScrolling: Boolean,
+        appListState: LazyListState?
+    ): RailNavigation = current.copy(
+        mode = LauncherMode.AppList,
+        isScrolling = isScrolling,
+        selected = group,
+        appListState = appListState
+    )
+
+    private fun findRailGroup(index: Int): LaunchableGroup? {
+        val groups: List<LaunchableGroup> = launchableState.value.groups
+        val group: LaunchableGroup? = groups.getOrNull(index)
+        if (group == null) {
+            Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
+        }
+        return group
+    }
+
+    private fun previewGroup(group: LaunchableGroup) {
         when (group) {
             LaunchableGroup.Star -> showHomeFromRail()
-            is LaunchableGroup.Listed -> showScrolling(group)
+
+            is LaunchableGroup.Listed -> navigation.update { current ->
+                toAppListNavigation(
+                    current = current,
+                    group = group,
+                    isScrolling = true,
+                    appListState = current.appListState
+                )
+            }
         }
     }
 
     private fun showHomeFromRail() {
-        if (mode.value == LauncherMode.AppList) {
+        if (navigation.value.mode == LauncherMode.AppList) {
             showHome(resetScroll = false)
         }
-    }
-
-    private fun showScrolling(group: LaunchableGroup.Listed) {
-        selectedGroup.value = group
-        scrolling.value = true
-        mode.value = LauncherMode.AppList
     }
 
     /**
@@ -232,7 +277,7 @@ class LauncherViewModel(
      * Home and is not consumed on Home.
      */
     fun onBack(): Boolean {
-        if (mode.value == LauncherMode.Home) {
+        if (navigation.value.mode == LauncherMode.Home) {
             return false
         }
 
@@ -257,12 +302,14 @@ class LauncherViewModel(
     }
 
     private fun showHome(resetScroll: Boolean) {
-        mode.value = LauncherMode.Home
-        scrolling.value = false
-        selectedGroup.value = null
-        appListState.value = null
-        if (resetScroll) {
-            homeListState.value = LazyListState()
+        navigation.update { current ->
+            current.copy(
+                mode = LauncherMode.Home,
+                isScrolling = false,
+                selected = null,
+                appListState = null,
+                homeListState = if (resetScroll) LazyListState() else current.homeListState
+            )
         }
     }
 

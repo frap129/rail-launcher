@@ -10,7 +10,6 @@ import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
-import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
@@ -72,18 +71,16 @@ class ILaunchableRepositoryImplTest {
         val stateDeferred: Deferred<LaunchableState> = async { repository.launchableState.first { it.isLoaded } }
         // The item menu reads the same launchables flow.
         val menuItemsDeferred: Deferred<List<Launchable>> = async { repository.launchables.first { it.isNotEmpty() } }
-        val groupsDeferred: Deferred<List<LaunchableGroup>> = async { repository.launchableGroups.first { it.isNotEmpty() } }
         val favoritesDeferred: Deferred<List<Launchable>> = async { favoritesRepository.favorites.first { it.isNotEmpty() } }
         val state: LaunchableState = stateDeferred.await()
         val menuItems: List<Launchable> = menuItemsDeferred.await()
-        val groups: List<LaunchableGroup> = groupsDeferred.await()
         val favorites: List<Launchable> = favoritesDeferred.await()
 
         assertEquals(1, fakeAppRepository.collections)
         assertEquals(1, fakeIconRepository.iconRequests)
         assertTrue(state.isLoaded)
+        assertEquals(listOf("O", "⌂"), state.listedGroups.map { group -> group.label })
         assertTrue(menuItems.isNotEmpty())
-        assertTrue(groups.isNotEmpty())
         assertTrue(favorites.isNotEmpty())
     }
 

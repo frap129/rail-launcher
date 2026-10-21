@@ -3,9 +3,13 @@ package core.data.launchables
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
-/** The Launchables and whether the installed apps have loaded. */
-data class LaunchableState(val groups: List<LaunchableGroup>, val launchables: List<Launchable>, val isLoaded: Boolean)
+/** The Rail groups, the App List groups, and whether the installed apps have loaded. */
+data class LaunchableState(val groups: List<LaunchableGroup>, val launchables: List<Launchable>, val isLoaded: Boolean) {
+    /** The groups shown in the App List, in Rail order. */
+    val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+}
 
 /** How long the shared Launchable State stays subscribed after the last collector leaves. */
 const val SHARED_SUBSCRIPTION_TIMEOUT_MS: Long = 5_000
@@ -19,8 +23,5 @@ interface ILaunchableRepository {
      * [LaunchableState.isLoaded] false and keeps its upstream subscription for
      * [SHARED_SUBSCRIPTION_TIMEOUT_MS] after the last collector leaves.
      */
-    val launchableState: Flow<LaunchableState>
-
-    /** Rail entries in order: the Star, Initial groups ("#" for digits first), then the Builtin group. */
-    val launchableGroups: Flow<List<LaunchableGroup>>
+    val launchableState: StateFlow<LaunchableState>
 }
