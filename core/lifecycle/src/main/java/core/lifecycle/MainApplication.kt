@@ -58,7 +58,7 @@ class MainApplication :
             "app-database"
         )
             // Pre-release only: replace with real migrations before the first public release.
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
     }
 
