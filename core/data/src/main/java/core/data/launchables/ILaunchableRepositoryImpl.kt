@@ -47,12 +47,14 @@ class ILaunchableRepositoryImpl(
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = LaunchableState(groups = emptyList(), launchables = emptyList(), isLoaded = false)
+            initialValue = LaunchableState(
+                groups = emptyList(),
+                launchables = emptyList(),
+                isLoaded = false
+            )
         )
 
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
-
-    override val launchableGroups: Flow<List<LaunchableGroup>> = launchableState.map { state -> state.groups }
 
     private suspend fun resolveState(
         appsOrNull: List<App>?,
@@ -66,7 +68,11 @@ class ILaunchableRepositoryImpl(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
         val groups: List<LaunchableGroup> = resolvedApps.toLaunchableGroups(resolvedBuiltinGroup)
-        return LaunchableState(groups = groups, launchables = groups.toLaunchables(), isLoaded = appsOrNull != null)
+        return LaunchableState(
+            groups = groups,
+            launchables = groups.toLaunchables(),
+            isLoaded = appsOrNull != null
+        )
     }
 
     private suspend fun Launchable.resolve(names: Map<String, String?>, settings: Settings): Launchable {

@@ -42,7 +42,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -92,7 +91,6 @@ import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.koinViewModel
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import timber.log.Timber
 
 val launcherDestination = Destination(
     route = "launcher",
@@ -115,15 +113,6 @@ private val favoriteStarOutlineSize = 36.dp
 // The Rail's touch column starts homeRailTouchInset from the end edge.
 private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHandleRailGap
 
-private fun dispatchRailGroup(groups: List<LaunchableGroup>, index: Int, action: (LaunchableGroup) -> Unit) {
-    val group: LaunchableGroup? = groups.getOrNull(index)
-    if (group == null) {
-        Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
-        return
-    }
-    action(group)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
@@ -131,7 +120,7 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
     val activity = context as? ComponentActivity
     val uiState by viewModel.uiState.collectAsState()
     val menuState by viewModel.menuState.collectAsState()
-    val railGroups: State<List<LaunchableGroup>> = viewModel.launchableGroups.collectAsState(emptyList())
+    val railLabels: List<String> by viewModel.railLabels.collectAsState()
     val favorites: List<Launchable> by viewModel.favorites.collectAsState()
     val favoriteKeys: Set<String> = remember(favorites) { favorites.mapTo(HashSet()) { favorite -> favorite.key } }
     val launchItem: (Launchable) -> Unit = { launchable ->
@@ -218,8 +207,6 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     onToggleFavorite = viewModel::toggleFavorite
                 )
 
-                LauncherUiState.Error -> {}
-
                 LauncherUiState.Loading -> {}
             }
         }
@@ -230,10 +217,10 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 .padding(0.dp, 200.dp, 0.dp, 0.dp)
                 .width(64.dp)
                 .offset { IntOffset(-16.dp.toPx().toInt(), 0) },
-            items = railGroups.value.map { group -> group.label },
-            onScrollStarted = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailTouched) },
-            onScroll = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailMoved) },
-            onScrollEnded = { index -> dispatchRailGroup(railGroups.value, index, viewModel::onRailReleased) }
+            items = railLabels,
+            onScrollStarted = viewModel::onRailPreview,
+            onScroll = viewModel::onRailPreview,
+            onScrollEnded = viewModel::onRailReleased
         )
 
         if (isEditingFavorites) {
