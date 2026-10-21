@@ -12,7 +12,13 @@ sealed interface InsertPosition {
 }
 
 /** Everything needed to place a bound App Widget in the Widget Area. */
-data class AddAppWidget(val appWidgetId: AppWidgetId, val provider: WidgetProvider, val profileSerial: Long, val insertAt: InsertPosition)
+data class AddAppWidget(
+    val appWidgetId: AppWidgetId,
+    val provider: WidgetProvider,
+    val profileSerial: Long,
+    val insertAt: InsertPosition,
+    val defaultHeightDp: Int
+)
 
 interface IWidgetAreaRepository {
     /** The Widget Area places in display order. Places without Widgets are dropped. */

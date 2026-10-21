@@ -26,6 +26,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
+import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.Font
 import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.SlidersH
@@ -224,6 +225,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.UpcomingEvents -> R.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.AddWidget -> R.string.add_widget
+    WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.RemoveWidget -> R.string.remove_widget
@@ -237,6 +239,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.UpcomingEvents -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.AddWidget -> FontAwesomeIcons.Solid.PlusSquare
+    WidgetMenuAction.Reconfigure -> FontAwesomeIcons.Solid.Cog
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
     WidgetMenuAction.RemoveWidget -> FontAwesomeIcons.Solid.TrashAlt

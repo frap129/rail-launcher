@@ -1,8 +1,10 @@
 package core.lifecycle
 
+import android.app.Activity
 import android.app.Application
 import android.appwidget.AppWidgetHost
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
 import androidx.room.Room
 import coil3.ImageLoader
@@ -37,6 +39,9 @@ import core.data.time.AndroidClockSource
 import core.data.time.AndroidDatePatternSource
 import core.data.time.IClockSource
 import core.data.time.IDatePatternSource
+import core.data.widgets.AppWidgetHostCallbacks
+import core.data.widgets.IAddFlowPendingIds
+import core.data.widgets.IAddFlowPendingIdsImpl
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IAppWidgetHostSourceImpl
 import core.data.widgets.IWidgetAreaRepository
@@ -45,6 +50,7 @@ import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetAreaSeedCallback
+import core.data.widgets.WidgetLifecycleReconciler
 import core.util.screenHeightPx
 import feature.launcher.AppWidgetResults
 import feature.launcher.LauncherViewModel
@@ -60,8 +66,14 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.qualifier.named
@@ -73,7 +85,8 @@ private const val RELEASE_LOG_TAG: String = "Rail"
 
 class MainApplication :
     Application(),
-    SingletonImageLoader.Factory {
+    SingletonImageLoader.Factory,
+    KoinComponent {
     private val appScope: CoroutineScope = CoroutineScope(
         SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, throwable ->
             Timber.e(throwable, "Uncaught exception in the application scope")
@@ -130,11 +143,14 @@ class MainApplication :
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get()) }
+        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get()) }
-        single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID) }
+        single { AppWidgetHostCallbacks() }
+        single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
-        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get()) }
+        single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(androidContext()) }
+        single { WidgetLifecycleReconciler(get(), get()) }
+        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
         single { AppWidgetViewCache(androidContext(), get()) }
         single { RemoveAppWidget(get(), get()) }
         single<ICalendarEventSource> { AndroidCalendarEventSource(androidContext()) }
@@ -179,7 +195,9 @@ class MainApplication :
                 appWidgetHost = get(),
                 savedStateHandle = get(),
                 batterySource = get(),
-                removeAppWidget = get()
+                removeAppWidget = get(),
+                addFlowPendingIds = get(),
+                widgetLifecycleReconciler = get()
             )
         }
     }
@@ -200,6 +218,48 @@ class MainApplication :
         when (BuildConfig.DEBUG) {
             true -> Timber.plant(Timber.DebugTree())
             false -> Timber.plant(ReleaseTree)
+        }
+
+        startWidgetLifecycle()
+    }
+
+    private fun startWidgetLifecycle() {
+        val reconciler: WidgetLifecycleReconciler = get()
+        val pendingIds: IAddFlowPendingIds = get()
+        val hostSource: IAppWidgetHostSource = get()
+        val launchableRepository: ILaunchableRepository = get()
+        registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            private var isReconciled: Boolean = false
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                if (isReconciled) {
+                    return
+                }
+                isReconciled = true
+                appScope.launch(Dispatchers.IO) {
+                    reconciler.reconcileAtStartup(pendingIds = pendingIds.ids.value)
+                }
+            }
+
+            override fun onActivityStarted(activity: Activity) = Unit
+
+            override fun onActivityResumed(activity: Activity) = Unit
+
+            override fun onActivityPaused(activity: Activity) = Unit
+
+            override fun onActivityStopped(activity: Activity) = Unit
+
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
+        appScope.launch(Dispatchers.IO) {
+            combine(
+                launchableRepository.launchableState,
+                hostSource.providerChanges.onStart { emit(Unit) }
+            ) { state, _ -> state.isLoaded }
+                .filter { isLoaded -> isLoaded }
+                .collect { reconciler.removeGoneProviders() }
         }
     }
 

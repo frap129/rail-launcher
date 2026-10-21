@@ -11,6 +11,16 @@ value class AppWidgetId(val value: Int)
 /** A size in dp, used for an App Widget's default and resize bounds. */
 data class WidgetSize(val widthDp: Int, val heightDp: Int)
 
+/** Whether a placed App Widget can currently be rendered. */
+enum class WidgetAvailability {
+    Available,
+    Gone,
+    Updating,
+    Disabled,
+    ProfilePaused,
+    Unknown
+}
+
 /** Everything needed to bind an allocated App Widget id to a provider. */
 data class BindRequest(val id: AppWidgetId, val provider: WidgetProvider, val profileSerial: Long)
 
@@ -30,6 +40,7 @@ data class WidgetProviderInfo(
     val maxResizeHeightDp: Int?,
     val needsConfiguration: Boolean,
     val isReconfigurable: Boolean,
+    val hasConfigureActivity: Boolean,
     val isWorkProfile: Boolean
 )
 
@@ -46,6 +57,15 @@ interface IAppWidgetHostSource {
 
     /** Home-screen providers from every profile, excluding Rail's own providers. */
     val providers: Flow<List<WidgetProviderInfo>>
+
+    /** Emits when the host or a package/profile change may have altered providers. */
+    val providerChanges: Flow<Unit>
+
+    /** Every App Widget id the system currently attributes to Rail's host. */
+    fun boundIds(): Set<AppWidgetId>
+
+    /** The current availability of a placed App Widget. */
+    fun availability(id: AppWidgetId, provider: WidgetProvider, profileSerial: Long): WidgetAvailability
 
     fun providerInfo(id: AppWidgetId): WidgetProviderInfo?
 

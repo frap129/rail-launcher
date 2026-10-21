@@ -5,13 +5,11 @@ import android.appwidget.AppWidgetProviderInfo
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onSizeChanged
@@ -20,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import core.data.widgets.AppWidgetId
+import core.data.widgets.WidgetAvailability
 import org.koin.compose.koinInject
 
 /** The minimum height Rail gives an App Widget when its provider does not declare one. */
@@ -32,21 +31,31 @@ fun AppWidgetContent(
     heightDp: Int?,
     menuEnabled: Boolean,
     onLongPress: (Long) -> Unit,
+    onUnpause: (Long) -> Unit,
     modifier: Modifier = Modifier,
     cache: AppWidgetViewCache = koinInject()
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val height: Int = heightDp ?: widget.minHeightDp.coerceAtLeast(MIN_APP_WIDGET_HEIGHT_DP)
-    val view: RailAppWidgetHostView? = cache.getOrCreate(AppWidgetId(widget.appWidgetId))
+    val view: RailAppWidgetHostView? = if (widget.availability == WidgetAvailability.Available) {
+        cache.getOrCreate(AppWidgetId(widget.appWidgetId))
+    } else {
+        null
+    }
     if (view == null) {
-        Box(
+        AppWidgetPlaceholder(
+            widget = widget,
+            heightDp = height,
+            menuEnabled = menuEnabled,
+            onLongPress = onLongPress,
+            onUnpause = onUnpause,
             modifier = modifier
-                .fillMaxWidth()
-                .height(height.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
         return
+    }
+    LaunchedEffect(widget.appWidgetId) {
+        cache.refresh(AppWidgetId(widget.appWidgetId))
     }
     DisposableEffect(widget.id) {
         onDispose { view.onLongPress = null }

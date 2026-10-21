@@ -307,11 +307,35 @@ fun LauncherScreen(
                     }
                 }
 
+                is WidgetAreaEvent.LaunchReconfigure -> {
+                    val currentActivity: ComponentActivity? = activity
+                    if (currentActivity == null) {
+                        widgetViewModel.onReconfigureResult(ok = false)
+                    } else {
+                        try {
+                            appWidgetHostSource.startConfiguring(
+                                activity = currentActivity,
+                                id = event.id,
+                                requestCode = AppWidgetResults.RECONFIGURE_REQUEST_CODE
+                            )
+                        } catch (exception: ActivityNotFoundException) {
+                            widgetViewModel.onReconfigureResult(ok = false)
+                        } catch (exception: SecurityException) {
+                            widgetViewModel.onReconfigureResult(ok = false)
+                        }
+                    }
+                }
+
                 is WidgetAreaEvent.ShowMessage -> coroutineScope.launch {
                     snackbarHostState.showSnackbar(message = context.getString(event.message))
                 }
 
                 is WidgetAreaEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
+
+                is WidgetAreaEvent.RequestQuietModeOff -> AppWidgetViews.requestQuietModeOff(
+                    context = context,
+                    profileSerial = event.profileSerial
+                )
 
                 WidgetAreaEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
             }
@@ -329,8 +353,9 @@ fun LauncherScreen(
     }
     LaunchedEffect(appWidgetResults) {
         appWidgetResults.results.collect { result ->
+            // Only bind-configuration results change data; reconfigure results keep the widget either way.
             if (result.requestCode == AppWidgetResults.REQUEST_CODE) {
-                widgetViewModel.onConfigureResult(ok = result.resultCode == Activity.RESULT_OK)
+                widgetViewModel.onConfigureResult(ok = result.isOk)
             }
         }
     }
@@ -614,6 +639,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.Reconfigure,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.RemoveWidget,

@@ -1,19 +1,35 @@
 package core.data.widgets
 
 import core.data.room.dao.WidgetAreaDao
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onStart
 
-class IWidgetAreaRepositoryImpl(private val widgetAreaDao: WidgetAreaDao) : IWidgetAreaRepository {
+class IWidgetAreaRepositoryImpl(
+    private val widgetAreaDao: WidgetAreaDao,
+    private val appWidgetHost: IAppWidgetHostSource,
+    private val lifecycleReconciler: WidgetLifecycleReconciler
+) : IWidgetAreaRepository {
     override val places: Flow<List<WidgetPlace>> = combine(
         widgetAreaDao.observePlaces(),
-        widgetAreaDao.observeWidgets()
-    ) { places, widgets ->
-        val resolution: WidgetAreaResolution = resolveWidgetArea(places, widgets)
-        widgetAreaDao.deleteDuplicateHeaders(resolution.duplicateHeaderIds)
-        resolution.places
-    }.distinctUntilChanged()
+        widgetAreaDao.observeWidgets(),
+        appWidgetHost.providerChanges.onStart { emit(Unit) },
+        lifecycleReconciler.isStartupReconciled
+    ) { places, widgets, _, startupReconciled ->
+        if (!startupReconciled) {
+            emptyList()
+        } else {
+            val resolution: WidgetAreaResolution = resolveWidgetArea(places, widgets) { widget ->
+                widget.availability(host = appWidgetHost)
+            }
+            widgetAreaDao.deleteDuplicateHeaders(resolution.duplicateHeaderIds)
+            resolution.places
+        }
+    }.flowOn(Dispatchers.IO)
+        .distinctUntilChanged()
 
     override suspend fun removeHeader(): Int? = widgetAreaDao.removeHeader()
 
@@ -25,7 +41,8 @@ class IWidgetAreaRepositoryImpl(private val widgetAreaDao: WidgetAreaDao) : IWid
         appWidgetId = request.appWidgetId.value,
         provider = request.provider,
         profileSerial = request.profileSerial,
-        belowPlaceId = (request.insertAt as? InsertPosition.Below)?.placeId
+        belowPlaceId = (request.insertAt as? InsertPosition.Below)?.placeId,
+        defaultHeightDp = request.defaultHeightDp
     )
 
     override suspend fun removeWidget(widgetId: Long): AppWidgetId? = widgetAreaDao.removeWidget(widgetId)?.let(::AppWidgetId)
@@ -34,7 +51,11 @@ class IWidgetAreaRepositoryImpl(private val widgetAreaDao: WidgetAreaDao) : IWid
 internal data class WidgetAreaResolution(val places: List<WidgetPlace>, val duplicateHeaderIds: List<Long>)
 
 /** Resolves DAO rows into the Widget Area's display model, keeping only the first Header. */
-internal fun resolveWidgetArea(places: List<WidgetPlaceRecord>, widgets: List<WidgetRecord>): WidgetAreaResolution {
+internal fun resolveWidgetArea(
+    places: List<WidgetPlaceRecord>,
+    widgets: List<WidgetRecord>,
+    availability: (WidgetRecord) -> WidgetAvailability = { WidgetAvailability.Available }
+): WidgetAreaResolution {
     val widgetsByPlace: Map<Long, List<WidgetRecord>> = widgets.groupBy { widget -> widget.placeId }
     var hasHeader: Boolean = false
     val duplicateHeaderIds: MutableList<Long> = mutableListOf()
@@ -51,7 +72,7 @@ internal fun resolveWidgetArea(places: List<WidgetPlaceRecord>, widgets: List<Wi
                         }
                         hasHeader = true
                     }
-                    widget.toPlacedWidget()
+                    widget.toPlacedWidget(availability = availability)
                 }
             if (placedWidgets.isEmpty()) {
                 null
@@ -67,7 +88,7 @@ internal fun resolveWidgetArea(places: List<WidgetPlaceRecord>, widgets: List<Wi
     return WidgetAreaResolution(places = resolvedPlaces, duplicateHeaderIds = duplicateHeaderIds)
 }
 
-private fun WidgetRecord.toPlacedWidget(): PlacedWidget? = when (kind) {
+private fun WidgetRecord.toPlacedWidget(availability: (WidgetRecord) -> WidgetAvailability): PlacedWidget? = when (kind) {
     WidgetKind.HEADER -> PlacedWidget.Header(id = id)
 
     WidgetKind.APP_WIDGET -> {
@@ -82,7 +103,9 @@ private fun WidgetRecord.toPlacedWidget(): PlacedWidget? = when (kind) {
                 appWidgetId = storedAppWidgetId,
                 provider = storedProvider,
                 profileSerial = storedProfileSerial,
-                extendsUnderRail = extendsUnderRail
+                extendsUnderRail = extendsUnderRail,
+                availability = availability(this),
+                defaultHeightDp = defaultHeightDp
             )
         }
     }

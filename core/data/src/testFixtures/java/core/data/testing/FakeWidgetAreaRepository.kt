@@ -17,6 +17,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
 
     val removedHeaders: MutableList<Unit> = mutableListOf()
     val restoredHeaderPositions: MutableList<Int> = mutableListOf()
+    val addedAppWidgets: MutableList<AddAppWidget> = mutableListOf()
 
     override val places: Flow<List<WidgetPlace>> = storedPlaces
 
@@ -54,6 +55,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     }
 
     override suspend fun addAppWidget(request: AddAppWidget): Long {
+        addedAppWidgets.add(request)
         val targetIndex: Int = when (val insertAt: InsertPosition = request.insertAt) {
             is InsertPosition.Below -> storedPlaces.value.indexOfFirst { place -> place.id == insertAt.placeId }
                 .takeIf { index -> index >= 0 }
@@ -73,7 +75,8 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
                     appWidgetId = request.appWidgetId.value,
                     provider = request.provider,
                     profileSerial = request.profileSerial,
-                    extendsUnderRail = false
+                    extendsUnderRail = false,
+                    defaultHeightDp = request.defaultHeightDp
                 )
             )
         )

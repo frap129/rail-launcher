@@ -4,15 +4,24 @@ import android.app.Activity
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.IAppWidgetHostSource
+import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = emptyList(), bindResults: List<Boolean> = emptyList()) :
     IAppWidgetHostSource {
     val providersState: MutableStateFlow<List<WidgetProviderInfo>> = MutableStateFlow(initialProviders)
     override val providers: Flow<List<WidgetProviderInfo>> = providersState
+
+    private val changes: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = 1)
+    override val providerChanges: Flow<Unit> = changes
+
+    val boundIdsState: MutableSet<AppWidgetId> = mutableSetOf()
+    val availabilityResults: MutableMap<AppWidgetId, WidgetAvailability> = mutableMapOf()
+    var defaultAvailability: WidgetAvailability = WidgetAvailability.Available
 
     val allocatedIds: MutableList<AppWidgetId> = mutableListOf()
     val deletedIds: MutableList<AppWidgetId> = mutableListOf()
@@ -35,6 +44,11 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
         return scriptedBindResults.removeFirstOrNull() ?: true
     }
 
+    override fun boundIds(): Set<AppWidgetId> = boundIdsState.toSet()
+
+    override fun availability(id: AppWidgetId, provider: WidgetProvider, profileSerial: Long): WidgetAvailability =
+        availabilityResults[id] ?: defaultAvailability
+
     override fun providerInfo(id: AppWidgetId): WidgetProviderInfo? = null
 
     override fun providerInfo(provider: WidgetProvider, profileSerial: Long): WidgetProviderInfo? =
@@ -54,5 +68,10 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
 
     fun setProviders(providers: List<WidgetProviderInfo>) {
         providersState.value = providers
+        changes.tryEmit(Unit)
+    }
+
+    fun emitProviderChange() {
+        changes.tryEmit(Unit)
     }
 }

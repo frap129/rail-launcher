@@ -34,7 +34,8 @@ data class WidgetRecord(
     @ColumnInfo(name = "app_widget_id") val appWidgetId: Int? = null,
     val provider: String? = null,
     @ColumnInfo(name = "profile_serial") val profileSerial: Long? = null,
-    @ColumnInfo(name = "extends_under_rail", defaultValue = "0") val extendsUnderRail: Boolean = false
+    @ColumnInfo(name = "extends_under_rail", defaultValue = "0") val extendsUnderRail: Boolean = false,
+    @ColumnInfo(name = "default_height_dp") val defaultHeightDp: Int? = null
 )
 
 enum class WidgetKind {

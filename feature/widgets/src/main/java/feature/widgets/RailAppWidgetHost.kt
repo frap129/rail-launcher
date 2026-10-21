@@ -3,6 +3,7 @@ package feature.widgets
 import android.annotation.SuppressLint
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
+import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.SystemClock
@@ -10,12 +11,18 @@ import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import core.data.widgets.AppWidgetHostCallbacks
 import core.data.widgets.AppWidgetId
 
 /** The AppWidgetHost Rail owns for the process lifetime. */
-class RailAppWidgetHost(context: Context, hostId: Int) : AppWidgetHost(context, hostId) {
+class RailAppWidgetHost(context: Context, hostId: Int, private val callbacks: AppWidgetHostCallbacks) : AppWidgetHost(context, hostId) {
     override fun onCreateView(context: Context, appWidgetId: Int, appWidgetInfo: AppWidgetProviderInfo): AppWidgetHostView =
         RailAppWidgetHostView(context)
+
+    override fun onProvidersChanged() {
+        super.onProvidersChanged()
+        callbacks.onProvidersChanged()
+    }
 }
 
 /**
@@ -128,11 +135,18 @@ class AppWidgetViewCache(private val context: Context, private val host: AppWidg
             view.detachFromParent()
             return view
         }
-        val info: AppWidgetProviderInfo = android.appwidget.AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return null
+        val info: AppWidgetProviderInfo = AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return null
         val view: RailAppWidgetHostView = host.createView(context, id.value, info) as RailAppWidgetHostView
         view.setPadding(0, 0, 0, 0)
         views[id.value] = view
         return view
+    }
+
+    /** Re-applies the provider info after the provider becomes available again. */
+    fun refresh(id: AppWidgetId) {
+        val view: RailAppWidgetHostView = views[id.value] ?: return
+        val info: AppWidgetProviderInfo = AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return
+        view.setAppWidget(id.value, info)
     }
 
     fun remove(id: AppWidgetId) {
