@@ -69,6 +69,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -354,7 +355,7 @@ private fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel) {
                 .padding(doneButtonPadding),
             onClick = viewModel::finishEditingFavorites
         ) {
-            Text("Done")
+            Text(stringResource(R.string.launcher_done))
         }
     }
 }
@@ -410,7 +411,7 @@ fun LauncherHome(
             if (home.favorites.isEmpty()) {
                 item {
                     OutlinedText(
-                        text = "Long-press any app to add it to Favorites",
+                        text = stringResource(R.string.favorites_empty_hint),
                         modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.titleMedium
                     )
@@ -431,7 +432,7 @@ fun LauncherHome(
                                     modifier = Modifier
                                         .padding(end = dragHandleEndPadding)
                                         .draggableHandle(),
-                                    contentDescription = "Reorder ${favorite.name}"
+                                    contentDescription = stringResource(R.string.reorder_favorite, favorite.name)
                                 )
                             }
                         }
@@ -588,7 +589,7 @@ fun LauncherItem(
 
 @Composable
 private fun FavoriteToggleStar(isFavorite: Boolean, onClick: () -> Unit) {
-    val label: String = if (isFavorite) "Remove from Favorites" else "Add to Favorites"
+    val label: String = stringResource(if (isFavorite) R.string.remove_from_favorites else R.string.add_to_favorites)
     val imageVector: ImageVector = if (isFavorite) FontAwesomeIcons.Solid.Star else FontAwesomeIcons.Regular.Star
     Box(
         modifier = Modifier
@@ -665,13 +666,13 @@ fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel = koinViewMo
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
         LauncherMenuAction(
             imageVector = FontAwesomeIcons.Solid.GripVertical,
-            label = "Edit Favorites",
+            label = stringResource(R.string.edit_favorites),
             onClick = { viewModel.editFavorites() }
         )
         if (item is App) {
             LauncherMenuAction(
                 imageVector = FontAwesomeIcons.Solid.InfoCircle,
-                label = "App Info",
+                label = stringResource(R.string.app_info),
                 onClick = { item.openAppInfo(context) }
             )
         }
@@ -700,7 +701,7 @@ fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel = koinVi
                     model = item.icon,
                     contentDescription = item.name
                 )
-                Text("Rename ${item.name}")
+                Text(stringResource(R.string.rename_item, item.name))
             }
         }
 
@@ -724,13 +725,13 @@ fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel = koinVi
                 TextButton(
                     onClick = { nameEdit = item.defaultName }
                 ) {
-                    Text("Reset")
+                    Text(stringResource(R.string.launcher_reset))
                 }
 
                 TextButton(
                     onClick = { viewModel.setItemName(item, nameEdit) }
                 ) {
-                    Text("Done")
+                    Text(stringResource(R.string.launcher_done))
                 }
             }
         }
