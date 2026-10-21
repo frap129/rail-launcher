@@ -26,4 +26,13 @@ abstract class HeaderSettingsDao {
     open suspend fun update(transform: (HeaderSettings) -> HeaderSettings) {
         upsert(transform(getRow() ?: HeaderSettings()))
     }
+
+    @Transaction
+    open suspend fun updateIfChanged(transform: (HeaderSettings) -> HeaderSettings) {
+        val current: HeaderSettings = getRow() ?: HeaderSettings()
+        val updated: HeaderSettings = transform(current)
+        if (updated != current) {
+            upsert(updated)
+        }
+    }
 }

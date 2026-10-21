@@ -2,13 +2,18 @@ package feature.widgets
 
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
+import core.data.icons.model.Icon
+import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RailLaunchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
+import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
@@ -126,6 +131,109 @@ class WidgetAreaViewModelTest {
             val header: HeaderModel = expectMostRecentItem().header()
             assertEquals(HeaderTapTarget.SystemAlarms, header.time?.tapTarget)
             assertEquals(HeaderTapTarget.SystemCalendar(now.toEpochMilli()), header.date?.tapTarget)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves a chosen Launchable for the time and Nothing for the date`() = runTest {
+        val launchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(
+                timeTapTarget = HeaderTapSetting.Launchable(key = launchable.key),
+                dateTapTarget = HeaderTapSetting.Nothing
+            )
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            launchableRepository = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Builtin(items = listOf(launchable))))
+        )
+        viewModel.widgetAreaState.test {
+            val header: HeaderModel = expectMostRecentItem().header()
+            assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = launchable), header.time?.tapTarget)
+            assertEquals(R.string.open_launchable, header.time?.clickLabel)
+            assertEquals("Maps", header.time?.clickLabelArg)
+            assertEquals(HeaderTapTarget.None, header.date?.tapTarget)
+            assertNull(header.date?.clickLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves Nothing for the time`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        viewModel.widgetAreaState.test {
+            val header: HeaderModel = expectMostRecentItem().header()
+            assertEquals(HeaderTapTarget.None, header.time?.tapTarget)
+            assertNull(header.time?.clickLabel)
+            assertEquals(HeaderTapTarget.SystemCalendar(Instant.parse("2026-10-20T14:05:00Z").toEpochMilli()), header.date?.tapTarget)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves a chosen Launchable for the date`() = runTest {
+        val launchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(dateTapTarget = HeaderTapSetting.Launchable(key = launchable.key))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            launchableRepository = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Builtin(items = listOf(launchable))))
+        )
+        viewModel.widgetAreaState.test {
+            val date: HeaderLineModel? = expectMostRecentItem().header().date
+            assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = launchable), date?.tapTarget)
+            assertEquals(R.string.open_launchable, date?.clickLabel)
+            assertEquals("Maps", date?.clickLabelArg)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves stale Launchables to the system default before and after loading`() = runTest {
+        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(
+                timeTapTarget = HeaderTapSetting.Launchable(key = "uninstalled-clock"),
+                dateTapTarget = HeaderTapSetting.Launchable(key = "uninstalled-calendar")
+            )
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            launchableRepository = launchableRepository
+        )
+        viewModel.widgetAreaState.test {
+            val unloadedHeader: HeaderModel = expectMostRecentItem().header()
+            assertEquals(HeaderTapTarget.SystemAlarms, unloadedHeader.time?.tapTarget)
+            assertTrue(unloadedHeader.date?.tapTarget is HeaderTapTarget.SystemCalendar)
+            launchableRepository.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(testLaunchable()))))
+            advanceUntilIdle()
+            val loadedHeader: HeaderModel = viewModel.widgetAreaState.value.header()
+            assertEquals(HeaderTapTarget.SystemAlarms, loadedHeader.time?.tapTarget)
+            assertTrue(loadedHeader.date?.tapTarget is HeaderTapTarget.SystemCalendar)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves a chosen Launchable once it loads`() = runTest {
+        val launchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
+        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = launchable.key))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            launchableRepository = launchableRepository
+        )
+        viewModel.widgetAreaState.test {
+            assertEquals(HeaderTapTarget.SystemAlarms, expectMostRecentItem().header().time?.tapTarget)
+            launchableRepository.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(launchable))))
+            assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = launchable), awaitItem().header().time?.tapTarget)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -353,13 +461,15 @@ class WidgetAreaViewModelTest {
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
-        homeEditState: HomeEditState = HomeEditState()
+        homeEditState: HomeEditState = HomeEditState(),
+        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList())
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
         formatter = HeaderFormatter(FakeDatePatternSource()),
         settingsRepository = settingsRepository,
-        homeEditState = homeEditState
+        homeEditState = homeEditState,
+        launchableRepository = launchableRepository
     )
 
     private fun reading(
@@ -372,6 +482,12 @@ class WidgetAreaViewModelTest {
         zoneId = zoneId,
         locale = locale,
         isSystem24Hour = isSystem24Hour
+    )
+
+    private fun testLaunchable(name: String = "Example", deeplink: String = "rail://example"): RailLaunchable = RailLaunchable(
+        defaultName = name,
+        defaultIcon = Icon.ApplicationIcon(packageName = "com.example"),
+        deeplink = deeplink
     )
 
     private fun WidgetAreaState.header(): HeaderModel = places.single().widgets.single() as HeaderModel

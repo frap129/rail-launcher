@@ -4,8 +4,10 @@ import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConvertersTest {
@@ -37,5 +39,30 @@ class ConvertersTest {
         assertEquals(DateFormatPreset.FULL, converters.fromStringToDateFormatPreset("UNKNOWN"))
         assertEquals(HeaderAlignment.START, converters.fromStringToHeaderAlignment("UNKNOWN"))
         assertEquals(HeaderSize.DEFAULT, converters.fromStringToHeaderSize("UNKNOWN"))
+    }
+
+    @Test
+    fun `encodes the system default as a null Header tap target`() {
+        assertNull(converters.fromHeaderTapSettingToString(HeaderTapSetting.SystemDefault))
+        assertNull(converters.fromHeaderTapSettingToString(null))
+        assertEquals(HeaderTapSetting.SystemDefault, converters.fromStringToHeaderTapSetting(null))
+    }
+
+    @Test
+    fun `round trips every Header tap setting encoding`() {
+        val settings: List<HeaderTapSetting> = listOf(
+            HeaderTapSetting.Nothing,
+            HeaderTapSetting.Launchable(key = "com.example.app_UserHandle{0}"),
+            HeaderTapSetting.Launchable(key = "launchable:com.example/thing:extra")
+        )
+        assertEquals("none", converters.fromHeaderTapSettingToString(HeaderTapSetting.Nothing))
+        settings.forEach { setting ->
+            assertEquals(setting, converters.fromStringToHeaderTapSetting(converters.fromHeaderTapSettingToString(setting)))
+        }
+    }
+
+    @Test
+    fun `falls back to the system default for an unknown Header tap target`() {
+        assertEquals(HeaderTapSetting.SystemDefault, converters.fromStringToHeaderTapSetting("unexpected"))
     }
 }

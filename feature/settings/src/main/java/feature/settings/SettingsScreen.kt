@@ -11,35 +11,43 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -63,12 +72,15 @@ import com.composables.core.MenuItem
 import com.composables.core.rememberMenuState
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Calendar
+import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Th
 import core.data.icons.model.IconPack
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
@@ -195,19 +207,29 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
 @Composable
 fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) {
     val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
+    val tapActionPicker: TapActionPickerState? by viewModel.tapActionPicker.collectAsState()
     var showClockStyleChooser: Boolean by remember { mutableStateOf(false) }
     var openDialog: WidgetSettingsDialog? by remember { mutableStateOf(null) }
     WidgetSettingsList(
         uiState = uiState,
         viewModel = viewModel,
         onClockStyleClick = { showClockStyleChooser = true },
-        onDialogClick = { dialog -> openDialog = dialog }
+        onDialogClick = { dialog -> openDialog = dialog },
+        onTapActionClick = viewModel::openTapActionPicker
     )
     if (showClockStyleChooser) {
         ClockStyleChooserSheet(
             uiState = uiState,
             viewModel = viewModel,
             onDismiss = { showClockStyleChooser = false }
+        )
+    }
+    tapActionPicker?.let { picker ->
+        TapActionPickerSheet(
+            state = picker,
+            uiState = uiState,
+            viewModel = viewModel,
+            onDismiss = viewModel::closeTapActionPicker
         )
     }
     openDialog?.let { dialog ->
@@ -225,7 +247,8 @@ private fun WidgetSettingsList(
     uiState: WidgetSettingsUiState,
     viewModel: WidgetSettingsViewModel,
     onClockStyleClick: () -> Unit,
-    onDialogClick: (WidgetSettingsDialog) -> Unit
+    onDialogClick: (WidgetSettingsDialog) -> Unit,
+    onTapActionClick: (HeaderTapTargetPart) -> Unit
 ) {
     LazyColumn {
         item { HeaderSectionTitle() }
@@ -245,6 +268,7 @@ private fun WidgetSettingsList(
                 onDialogClick = onDialogClick
             )
         }
+        item { HeaderTapActionRows(uiState = uiState, onTapActionClick = onTapActionClick) }
     }
 }
 
@@ -354,6 +378,126 @@ private fun HeaderLayoutRows(
             onClick = { onDialogClick(WidgetSettingsDialog.Size) }
         )
     }
+}
+
+@Composable
+private fun HeaderTapActionRows(uiState: WidgetSettingsUiState, onTapActionClick: (HeaderTapTargetPart) -> Unit) {
+    Column {
+        SettingsActionRow(
+            title = stringResource(R.string.time_tap_action),
+            value = uiState.timeTapAction.label.resolve(),
+            enabled = uiState.headerShown,
+            onClick = { onTapActionClick(HeaderTapTargetPart.Time) }
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.date_tap_action),
+            value = uiState.dateTapAction.label.resolve(),
+            enabled = uiState.headerShown,
+            onClick = { onTapActionClick(HeaderTapTargetPart.Date) }
+        )
+    }
+}
+
+private data class TapActionPartUi(val selected: HeaderTapSetting, val icon: ImageVector, val onSelect: (HeaderTapSetting) -> Unit)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TapActionPickerSheet(
+    state: TapActionPickerState,
+    uiState: WidgetSettingsUiState,
+    viewModel: WidgetSettingsViewModel,
+    onDismiss: () -> Unit
+) {
+    val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val partUi: TapActionPartUi = when (state.part) {
+        HeaderTapTargetPart.Time -> TapActionPartUi(
+            selected = uiState.timeTapAction.setting,
+            icon = FontAwesomeIcons.Solid.Clock,
+            onSelect = viewModel::setTimeTapTarget
+        )
+
+        HeaderTapTargetPart.Date -> TapActionPartUi(
+            selected = uiState.dateTapAction.setting,
+            icon = FontAwesomeIcons.Solid.Calendar,
+            onSelect = viewModel::setDateTapTarget
+        )
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.fillMaxHeight()) {
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = viewModel::setTapActionQuery,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                label = { Text(stringResource(R.string.tap_action_search)) },
+                singleLine = true
+            )
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                item {
+                    TapActionRow(
+                        label = stringResource(R.string.tap_action_system_default),
+                        selected = partUi.selected == HeaderTapSetting.SystemDefault,
+                        icon = {
+                            Icon(
+                                imageVector = partUi.icon,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = { partUi.onSelect(HeaderTapSetting.SystemDefault) }
+                    )
+                }
+                item {
+                    TapActionRow(
+                        label = stringResource(R.string.tap_action_nothing),
+                        selected = partUi.selected == HeaderTapSetting.Nothing,
+                        onClick = { partUi.onSelect(HeaderTapSetting.Nothing) }
+                    )
+                }
+                item { HorizontalDivider() }
+                if (!state.isLoaded) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else {
+                    items(items = state.launchables, key = { launchable -> launchable.setting.key }) { launchable ->
+                        TapActionRow(
+                            label = launchable.name,
+                            selected = partUi.selected == launchable.setting,
+                            icon = {
+                                AsyncImage(
+                                    modifier = Modifier.size(40.dp),
+                                    model = launchable.icon,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = { partUi.onSelect(launchable.setting) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TapActionRow(label: String, selected: Boolean, onClick: () -> Unit, icon: (@Composable () -> Unit)? = null) {
+    ListItem(
+        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        headlineContent = { Text(label) },
+        leadingContent = icon,
+        trailingContent = if (selected) {
+            { Icon(imageVector = Icons.Default.Check, contentDescription = null) }
+        } else {
+            null
+        }
+    )
+}
+
+@Composable
+private fun TapActionLabel.resolve(): String = when (this) {
+    is TapActionLabel.Resource -> stringResource(id)
+    is TapActionLabel.Launchable -> name
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

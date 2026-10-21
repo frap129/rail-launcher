@@ -1,5 +1,6 @@
 package core.data.prefs
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,11 +14,26 @@ data class HeaderSettings(
     val showAmPm: Boolean = false,
     val dateFormat: DateFormatPreset = DateFormatPreset.FULL,
     val alignment: HeaderAlignment = HeaderAlignment.START,
-    val size: HeaderSize = HeaderSize.DEFAULT
+    val size: HeaderSize = HeaderSize.DEFAULT,
+    @ColumnInfo(name = "time_tap_target") val timeTapTarget: HeaderTapSetting? = null,
+    @ColumnInfo(name = "date_tap_target") val dateTapTarget: HeaderTapSetting? = null
 ) {
     val canHideClock: Boolean get() = !clockVisible || dateVisible
 
     val canHideDate: Boolean get() = !dateVisible || clockVisible
+
+    val resolvedTimeTapTarget: HeaderTapSetting get() = timeTapTarget ?: HeaderTapSetting.SystemDefault
+
+    val resolvedDateTapTarget: HeaderTapSetting get() = dateTapTarget ?: HeaderTapSetting.SystemDefault
+}
+
+/** What a Header line opens when tapped. A null database value stands for [SystemDefault]. */
+sealed interface HeaderTapSetting {
+    data object SystemDefault : HeaderTapSetting
+
+    data object Nothing : HeaderTapSetting
+
+    data class Launchable(val key: String) : HeaderTapSetting
 }
 
 enum class ClockStyle {

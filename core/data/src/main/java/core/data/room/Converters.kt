@@ -7,8 +7,12 @@ import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.widgets.WidgetKind
+
+private const val TAP_TARGET_NONE: String = "none"
+private const val TAP_TARGET_LAUNCHABLE_PREFIX: String = "launchable:"
 
 class Converters {
     @TypeConverter
@@ -64,4 +68,19 @@ class Converters {
     @TypeConverter
     fun fromStringToHeaderSize(size: String): HeaderSize =
         HeaderSize.entries.firstOrNull { entry -> entry.name == size } ?: HeaderSize.DEFAULT
+
+    @TypeConverter
+    fun fromHeaderTapSettingToString(setting: HeaderTapSetting?): String? = when (setting) {
+        null, HeaderTapSetting.SystemDefault -> null
+        HeaderTapSetting.Nothing -> TAP_TARGET_NONE
+        is HeaderTapSetting.Launchable -> "$TAP_TARGET_LAUNCHABLE_PREFIX${setting.key}"
+    }
+
+    @TypeConverter
+    fun fromStringToHeaderTapSetting(value: String?): HeaderTapSetting = when {
+        value == null -> HeaderTapSetting.SystemDefault
+        value == TAP_TARGET_NONE -> HeaderTapSetting.Nothing
+        value.startsWith(TAP_TARGET_LAUNCHABLE_PREFIX) -> HeaderTapSetting.Launchable(value.removePrefix(TAP_TARGET_LAUNCHABLE_PREFIX))
+        else -> HeaderTapSetting.SystemDefault
+    }
 }

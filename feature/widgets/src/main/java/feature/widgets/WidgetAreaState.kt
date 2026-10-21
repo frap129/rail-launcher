@@ -2,6 +2,7 @@ package feature.widgets
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
+import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
@@ -36,14 +37,25 @@ data class HeaderTimeModel(
     val amPmText: String?,
     val spokenText: String,
     val tapTarget: HeaderTapTarget,
-    @StringRes val clickLabel: Int
+    @StringRes val clickLabel: Int?,
+    val clickLabelArg: String? = null
 )
 
 @Immutable
-data class HeaderLineModel(val text: String, val spokenText: String, val tapTarget: HeaderTapTarget, @StringRes val clickLabel: Int)
+data class HeaderLineModel(
+    val text: String,
+    val spokenText: String,
+    val tapTarget: HeaderTapTarget,
+    @StringRes val clickLabel: Int?,
+    val clickLabelArg: String? = null
+)
 
 sealed interface HeaderTapTarget {
     data object SystemAlarms : HeaderTapTarget
 
     data class SystemCalendar(val atEpochMillis: Long) : HeaderTapTarget
+
+    data class LaunchLaunchable(val launchable: Launchable) : HeaderTapTarget
+
+    data object None : HeaderTapTarget
 }

@@ -1,14 +1,19 @@
 package feature.settings
 
 import app.cash.turbine.test
+import core.data.icons.model.Icon
+import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RailLaunchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
+import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
@@ -24,6 +29,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -202,10 +208,137 @@ class WidgetSettingsViewModelTest {
         }
     }
 
+    @Test
+    fun `shows the system default as the initial tap action`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+            assertEquals(HeaderTapSetting.SystemDefault, state.timeTapAction.setting)
+            assertEquals(HeaderTapSetting.SystemDefault, state.dateTapAction.setting)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), state.timeTapAction.label)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_calendar_default), state.dateTapAction.label)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves tap action labels from Launchables, Nothing and the system default`() = runTest {
+        val launchable: RailLaunchable = testLaunchable(name = "Café Maps")
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                HeaderSettings(
+                    timeTapTarget = HeaderTapSetting.Launchable(key = launchable.key),
+                    dateTapTarget = HeaderTapSetting.Nothing
+                )
+            ),
+            launchableRepository = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Builtin(items = listOf(launchable))))
+        )
+
+        viewModel.uiState.test {
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+            assertEquals(HeaderTapSetting.Launchable(key = launchable.key), state.timeTapAction.setting)
+            assertEquals("Café Maps", (state.timeTapAction.label as TapActionLabel.Launchable).name)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_nothing), state.dateTapAction.label)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `resolves an uninstalled tap action to the system default`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = "uninstalled"))
+            ),
+            launchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.Builtin(items = listOf(testLaunchable(name = "Maps"))))
+            )
+        )
+
+        viewModel.uiState.test {
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+            assertEquals(HeaderTapSetting.SystemDefault, state.timeTapAction.setting)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), state.timeTapAction.label)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `filters Launchables by name ignoring case and accents`() {
+        val cafe: RailLaunchable = testLaunchable(name = "Café")
+        val maps: RailLaunchable = testLaunchable(name = "Maps")
+        val photos: RailLaunchable = testLaunchable(name = "Photos")
+        val launchables: List<RailLaunchable> = listOf(cafe, maps, photos)
+
+        assertEquals(listOf(cafe), filterLaunchables(launchables, "cafe"))
+        assertEquals(listOf(cafe), filterLaunchables(launchables, "CAFÉ"))
+        assertEquals(listOf(maps), filterLaunchables(launchables, "map"))
+        assertEquals(launchables, filterLaunchables(launchables, ""))
+    }
+
+    @Test
+    fun `exposes picker rows once the Launchables load`() = runTest {
+        val launchable: RailLaunchable = testLaunchable(name = "Maps")
+        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val viewModel: WidgetSettingsViewModel = createViewModel(launchableRepository = launchableRepository)
+
+        viewModel.tapActionPicker.test {
+            assertNull(awaitItem())
+            viewModel.openTapActionPicker(HeaderTapTargetPart.Date)
+            val loading: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertEquals(HeaderTapTargetPart.Date, loading.part)
+            assertFalse(loading.isLoaded)
+            assertTrue(loading.launchables.isEmpty())
+
+            launchableRepository.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(launchable))))
+            val loaded: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertTrue(loaded.isLoaded)
+            assertEquals(listOf("Maps"), loaded.launchables.map { row -> row.name })
+
+            viewModel.setTapActionQuery("map")
+            val filtered: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertEquals("map", filtered.query)
+            assertEquals(listOf("Maps"), filtered.launchables.map { row -> row.name })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `saves a tap action immediately and closes the picker`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+        val timeTarget: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://maps")
+
+        viewModel.tapActionPicker.test {
+            assertNull(awaitItem())
+            viewModel.openTapActionPicker(HeaderTapTargetPart.Time)
+            assertEquals(HeaderTapTargetPart.Time, awaitItem()?.part)
+            viewModel.setTimeTapTarget(timeTarget)
+            advanceUntilIdle()
+            assertEquals(timeTarget, settingsRepository.updates.last().timeTapTarget)
+            assertNull(expectMostRecentItem())
+
+            viewModel.openTapActionPicker(HeaderTapTargetPart.Date)
+            assertEquals(HeaderTapTargetPart.Date, awaitItem()?.part)
+            viewModel.setDateTapTarget(HeaderTapSetting.Nothing)
+            advanceUntilIdle()
+            assertEquals(HeaderTapSetting.Nothing, settingsRepository.updates.last().dateTapTarget)
+            assertNull(expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun testLaunchable(name: String): RailLaunchable = RailLaunchable(
+        defaultName = name,
+        defaultIcon = Icon.ApplicationIcon(packageName = "com.example"),
+        deeplink = "rail://${name.lowercase()}"
+    )
+
     private fun createViewModel(
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         areaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
-        clockSource: FakeClockSource = FakeClockSource(reading())
+        clockSource: FakeClockSource = FakeClockSource(reading()),
+        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList())
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
         settingsRepository = settingsRepository,
         areaRepository = areaRepository,
@@ -223,7 +356,8 @@ class WidgetSettingsViewModelTest {
                     "yMd" to "M/d/y"
                 )
             )
-        )
+        ),
+        launchableRepository = launchableRepository
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(
