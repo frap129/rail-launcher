@@ -1,7 +1,6 @@
 package feature.launcher
 
 import android.content.Context
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -155,7 +154,6 @@ private val dragHandleEndPadding = homeRailTouchInset - homeEdgePadding + dragHa
 @Composable
 fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: LauncherViewModel = koinViewModel()) {
     val context: Context = LocalContext.current
-    val activity: ComponentActivity? = context as? ComponentActivity
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
         viewModel.onLaunchableLaunched()
@@ -170,11 +168,7 @@ fun LauncherScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 }
             }
     }
-    BackHandler {
-        if (!viewModel.onBack()) {
-            activity?.finish()
-        }
-    }
+    BackHandler { viewModel.onBack() }
     Box(Modifier.fillMaxSize()) {
         LauncherContent(
             modifier = Modifier.fillMaxSize(),

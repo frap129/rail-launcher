@@ -161,7 +161,7 @@ class LauncherViewModelTest {
                 assertEquals(2, awaitState<LauncherUiState.AppList.Browsing>().lazyListState.firstVisibleItemIndex)
                 runCurrent()
                 expectNoEvents()
-                assertTrue(viewModel.onBack())
+                viewModel.onBack()
                 awaitState<LauncherUiState.Home>()
                 runCurrent()
                 expectNoEvents()
@@ -286,10 +286,49 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `does not consume Back on Home`() {
-        val viewModel: LauncherViewModel = createViewModel()
+    fun `persists the edited order when Back is pressed on Home while editing Favorites`() {
+        runTest {
+            val secondItem: Launchable = listedGroups[1].items.first()
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+                initialRecords = listOf(
+                    FavoriteRecord(key = item.key, position = 0),
+                    FavoriteRecord(key = secondItem.key, position = 1)
+                )
+            )
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.editFavorites()
+                assertTrue(expectHome().isEditingFavorites)
+                viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
+                assertEquals(listOf(secondItem, item), expectHome().favorites)
+                viewModel.onBack()
+                val home: LauncherUiState.Home = expectHome()
+                assertFalse(home.isEditingFavorites)
+                assertEquals(listOf(secondItem, item), home.favorites)
+            }
+            assertEquals(
+                listOf(
+                    FavoriteRecord(key = secondItem.key, position = 0),
+                    FavoriteRecord(key = item.key, position = 1)
+                ),
+                favoriteDao.records.sortedBy { it.position }
+            )
+        }
+    }
 
-        assertFalse(viewModel.onBack())
+    @Test
+    fun `keeps Home when Back is pressed outside Edit Favorites`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                val home: LauncherUiState.Home = expectHome()
+                viewModel.onBack()
+                runCurrent()
+                expectNoEvents()
+                assertSame(home.lazyListState, (viewModel.uiState.value as LauncherUiState.Home).lazyListState)
+            }
+        }
     }
 
     @Test
@@ -300,7 +339,7 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailReleased(railIndex(listedGroups[1]))
                 expectAppList()
-                assertTrue(viewModel.onBack())
+                viewModel.onBack()
                 assertEquals(0, expectHome().lazyListState.firstVisibleItemIndex)
             }
         }
@@ -314,7 +353,7 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(railIndex(listedGroups[1]))
                 assertEquals(LauncherUiState.AppList.Scrolling(group = listedGroups[1], isEditingFavorites = false), expectMostRecentItem())
-                assertTrue(viewModel.onBack())
+                viewModel.onBack()
                 expectHome()
             }
         }
@@ -525,7 +564,7 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `initializes the edited Favorites when entering Edit Favorites from the App List`() {
+    fun `returns to Home still editing Favorites when Back is pressed in the App List`() {
         runTest {
             val secondItem: Launchable = listedGroups[1].items.first()
             val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
@@ -540,10 +579,17 @@ class LauncherViewModelTest {
                 viewModel.onRailReleased(railIndex(listedGroups[0]))
                 expectAppList()
                 viewModel.editFavorites()
+                assertTrue(expectAppList().isEditingFavorites)
                 viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
                 viewModel.onBack()
-                assertEquals(listOf(secondItem, item), expectHome().favorites)
+                val home: LauncherUiState.Home = expectHome()
+                assertTrue(home.isEditingFavorites)
+                assertEquals(listOf(secondItem, item), home.favorites)
             }
+            assertEquals(
+                listOf(FavoriteRecord(key = item.key, position = 0), FavoriteRecord(key = secondItem.key, position = 1)),
+                favoriteDao.records
+            )
         }
     }
 

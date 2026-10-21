@@ -266,16 +266,17 @@ class LauncherViewModel(
     }
 
     /**
-     * Returns whether Back was handled. Back returns from the App List to
-     * Home and is not consumed on Home.
+     * Back from the App List returns to Home with Edit Favorites intact. Back on
+     * Home leaves Edit Favorites, keeping the pending order, and is a no-op
+     * outside Edit Favorites. Home always consumes Back so the launcher activity
+     * is never finished.
      */
-    fun onBack(): Boolean {
-        if (navigation.value.mode == LauncherMode.Home) {
-            return false
+    fun onBack() {
+        if (navigation.value.mode == LauncherMode.AppList) {
+            showHome(resetScroll = false)
+        } else {
+            finishEditingFavorites()
         }
-
-        showHome(resetScroll = false)
-        return true
     }
 
     /**
