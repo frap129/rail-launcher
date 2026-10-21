@@ -8,8 +8,14 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.testing.FakeFavoriteDao
+import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakePreferencesRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -503,6 +509,22 @@ class LauncherViewModelTest {
                 assertTrue(home.favorites.isEmpty())
             }
             assertTrue(favoriteDao.records.isEmpty())
+        }
+    }
+
+    @Test
+    fun `stops collecting Favorites when nothing is subscribed`() {
+        runTest {
+            val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+            val viewModel: LauncherViewModel = createViewModel(favoriteDao = favoriteDao)
+
+            val collectionJob: Job = viewModel.favorites.launchIn(this)
+            runCurrent()
+            assertEquals(1, favoriteDao.activeCollectorCount)
+
+            collectionJob.cancel()
+            advanceUntilIdle()
+            assertEquals(0, favoriteDao.activeCollectorCount)
         }
     }
 

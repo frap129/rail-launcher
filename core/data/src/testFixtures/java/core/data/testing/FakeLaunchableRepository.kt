@@ -1,4 +1,4 @@
-package feature.launcher
+package core.data.testing
 
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState

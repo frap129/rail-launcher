@@ -13,4 +13,5 @@ dependencies {
     implementation(project(":core:util"))
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
+    testImplementation(testFixtures(project(":core:data")))
 }
