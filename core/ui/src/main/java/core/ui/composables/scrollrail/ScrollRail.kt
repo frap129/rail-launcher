@@ -1,7 +1,9 @@
 package core.ui.composables.scrollrail
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,9 +20,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -30,26 +34,69 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextMotion
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import core.ui.composables.OutlinedText
 import kotlin.math.abs
 import kotlin.math.exp
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+
+private const val BEND_STRENGTH_RESTING = 0f
+private const val BEND_STRENGTH_ACTIVE = 1f
+private const val MIN_PEAK_DP = 150f
+private const val SLOPE_SCALE = 0.15f
+private val bendSpring: SpringSpec<Offset> = spring(stiffness = Spring.StiffnessMediumLow)
+private val bendStrengthSpring: SpringSpec<Float> = spring(stiffness = Spring.StiffnessMediumLow)
+private val bubbleSpring: SpringSpec<Offset> = spring()
+
+private data class RailMetrics(val itemHeightPx: Float, val minPeakPx: Float, val highlightSizePx: Float)
+
+private class RailPointerAnimation {
+    private val bend = Animatable(Offset.Zero, Offset.VectorConverter)
+    private val strength = Animatable(BEND_STRENGTH_RESTING, Float.VectorConverter)
+    private val bubble = Animatable(Offset.Zero, Offset.VectorConverter)
+    val bendPosition: Offset get() = bend.value
+    val currentStrength: Float get() = strength.value
+    val bubblePosition: Offset get() = bubble.value
+
+    suspend fun start(at: Offset) {
+        bend.snapTo(at)
+        bubble.snapTo(at)
+        strength.animateTo(BEND_STRENGTH_ACTIVE, bendStrengthSpring)
+    }
+
+    suspend fun follow(at: Offset) {
+        coroutineScope {
+            launch { bend.animateTo(at, bendSpring) }
+            launch { bubble.animateTo(at, bubbleSpring) }
+        }
+    }
+
+    suspend fun stop() {
+        strength.animateTo(BEND_STRENGTH_RESTING, bendStrengthSpring)
+    }
+}
 
 /**
- * A composable that creates a column of single character items that
- * behaves like a scrollbar. It animates bending horizontally as the
- * user scrolls on it to ensure that it remains visible while being
- * touched
+ * A column of single character items along the screen edge that the
+ * user can scrub through. It animates bending horizontally as the
+ * user drags on it to ensure that it remains visible while being
+ * touched.
  *
- * @param modifier the modifier applied to the column
- * @param scrollRailHelper an object of  [core.ui.composables.scrollrail.ScrollRailHelper]
+ * Pointer positions are only read during layout, so scrubbing does not
+ * recompose the Rail. A single animated pointer position drives the bend
+ * of every item, and an animated strength bends the Rail in and out when
+ * a scrub starts and ends.
+ *
+ * @param modifier the modifier applied to the row
+ * @param items the labels shown on the Rail, top to bottom
+ * @param onScrollStarted invoked with the touched item when a scroll starts
+ * @param onScroll invoked when the pointer crosses into another item
+ * @param onScrollEnded invoked with the item under the pointer when the scroll ends
  */
 @Composable
 fun ScrollRail(
@@ -61,76 +108,68 @@ fun ScrollRail(
 ) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
     val density = context.resources.displayMetrics.density
     val itemHeight = 20.dp
-    val railHeight = itemHeight.value * density * items.size
     val highlightSize = 42.dp
-
+    val railMetrics = remember(density) {
+        RailMetrics(
+            itemHeightPx = itemHeight.value * density,
+            minPeakPx = MIN_PEAK_DP * density,
+            highlightSizePx = highlightSize.value * density
+        )
+    }
+    val railHeight = railMetrics.itemHeightPx * items.size
     var selectedItemIndex by remember { mutableIntStateOf(-1) }
-    var verticalOffset by remember { mutableFloatStateOf(0f) }
-    var horizontalOffset by remember { mutableFloatStateOf(0f) }
     var railOffset by remember { mutableFloatStateOf(0f) }
+    val railPointer = remember { RailPointerAnimation() }
     val theme = MaterialTheme.colorScheme
-
     Row(
         horizontalArrangement = Arrangement.End,
         modifier = modifier
             .testTag("scrollRail")
-            .pointerInput(Unit) {
+            .pointerInput(items.size) {
+                fun startScroll(pointer: Offset, itemIndex: Int) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onScrollStarted(itemIndex)
+                    selectedItemIndex = itemIndex
+                    scope.launch { railPointer.start(pointer) }
+                }
+
+                fun moveScroll(pointer: Offset, itemIndex: Int) {
+                    scope.launch { railPointer.follow(pointer) }
+                    if (itemIndex != selectedItemIndex) {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onScroll(itemIndex)
+                        selectedItemIndex = itemIndex
+                    }
+                }
+
+                fun endScroll(itemIndex: Int) {
+                    onScrollEnded(itemIndex)
+                    selectedItemIndex = -1
+                    scope.launch { railPointer.stop() }
+                }
+
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        verticalOffset = event.changes.first().position.y
-                        horizontalOffset = event.changes.first().position.x
-
-                        if (verticalOffset < railOffset) {
-                            railOffset = verticalOffset
-                        } else if (verticalOffset > railOffset + railHeight) {
-                            railOffset = verticalOffset - railHeight
+                        val pointer = event.changes.first().position
+                        if (event.type == PointerEventType.Press) {
+                            railOffset = 0f
                         }
-
-                        val calculatedIndex = ((verticalOffset - railOffset) / (itemHeight.value * density)).toInt()
-                        val itemIndex = max(min(calculatedIndex, items.size - 1), 0)
-
+                        railOffset = clampRailOffset(pointer.y, railOffset, railHeight)
+                        val itemIndex = railItemIndex(pointer.y - railOffset, railMetrics.itemHeightPx, items.size)
                         when (event.type) {
-                            PointerEventType.Press -> {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onScrollStarted(itemIndex)
-                                selectedItemIndex = itemIndex
-                            }
-
-                            PointerEventType.Move -> {
-                                if (itemIndex != selectedItemIndex) {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    onScroll(itemIndex)
-                                    selectedItemIndex = itemIndex
-                                }
-                            }
-
-                            PointerEventType.Unknown, PointerEventType.Release -> {
-                                onScrollEnded(itemIndex)
-                                selectedItemIndex = -1
-                                verticalOffset = 0f
-                                horizontalOffset = 0f
-                                railOffset = 0f
-                            }
+                            PointerEventType.Press -> startScroll(pointer, itemIndex)
+                            PointerEventType.Move -> moveScroll(pointer, itemIndex)
+                            PointerEventType.Unknown, PointerEventType.Release -> endScroll(itemIndex)
                         }
                     }
                 }
             }
     ) {
         if (selectedItemIndex >= 0) {
-            val offset by animateIntOffsetAsState(
-                targetValue = if (selectedItemIndex < 0) {
-                    IntOffset(0, 0)
-                } else {
-                    IntOffset(
-                        getXOffset(selectedItemIndex, itemHeight, density, verticalOffset - railOffset, horizontalOffset).toInt(),
-                        verticalOffset.toInt() - (highlightSize.value * density * 0.5f).toInt()
-                    )
-                }
-            )
-
             Text(
                 text = items[selectedItemIndex],
                 fontSize = 28.sp,
@@ -140,30 +179,24 @@ fun ScrollRail(
                 style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
                 modifier = Modifier
                     .size(highlightSize)
-                    .offset { offset }
+                    .offset {
+                        val bubble = railPointer.bubblePosition
+                        IntOffset(
+                            getXOffset(selectedItemIndex, railMetrics, Offset(bubble.x, bubble.y - railOffset)).toInt(),
+                            bubble.y.toInt() - (railMetrics.highlightSizePx * 0.5f).toInt()
+                        )
+                    }
                     .background(color = theme.primaryContainer, shape = CircleShape)
             )
         }
-
         Column(
             verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.End,
             modifier = Modifier.offset {
-                IntOffset(0, railOffset.toInt())
+                IntOffset(0, (railOffset * railPointer.currentStrength).toInt())
             }
         ) {
             items.forEachIndexed { index, label ->
-                val offset by animateIntOffsetAsState(
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    targetValue = if (selectedItemIndex < 0) {
-                        IntOffset(0, 0)
-                    } else {
-                        IntOffset(
-                            getXOffset(index, itemHeight, density, verticalOffset - railOffset, horizontalOffset).roundToInt(),
-                            0
-                        )
-                    }
-                )
                 OutlinedText(
                     text = label,
                     contentAlignment = Alignment.Center,
@@ -173,22 +206,38 @@ fun ScrollRail(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .size(itemHeight)
-                        .offset { offset }
+                        .offset {
+                            val bend = railPointer.bendPosition
+                            val strength = railPointer.currentStrength
+                            IntOffset(
+                                (getXOffset(index, railMetrics, Offset(bend.x, bend.y - railOffset)) * strength).roundToInt(),
+                                0
+                            )
+                        }
                 )
             }
         }
     }
 }
 
-fun getXOffset(index: Int, itemHeight: Dp, density: Float, verticalOffset: Float, horizontalOffset: Float): Float {
-    val slopeScale = 0.15f
-    val minPeak = 150
-    return -gaussianCurve(
-        index * itemHeight.value * density,
-        verticalOffset,
-        (minPeak * density) + abs(horizontalOffset * slopeScale),
-        (minPeak * density) - horizontalOffset
-    )
+private fun clampRailOffset(pointerY: Float, railOffset: Float, railHeight: Float): Float = when {
+    pointerY < railOffset -> pointerY
+    pointerY > railOffset + railHeight -> pointerY - railHeight
+    else -> railOffset
 }
 
-fun gaussianCurve(pos: Float, peakPos: Float, slope: Float, peak: Float): Float = peak * exp(-((pos - peakPos).pow(2) / (slope.pow(2))))
+private fun railItemIndex(verticalOffset: Float, itemHeightPx: Float, itemCount: Int): Int = if (itemCount == 0) {
+    0
+} else {
+    (verticalOffset / itemHeightPx).toInt().coerceIn(0, itemCount - 1)
+}
+
+private fun getXOffset(index: Int, metrics: RailMetrics, pointer: Offset): Float = -gaussianCurve(
+    index * metrics.itemHeightPx,
+    pointer.y,
+    metrics.minPeakPx + abs(pointer.x * SLOPE_SCALE),
+    metrics.minPeakPx - pointer.x
+)
+
+private fun gaussianCurve(pos: Float, peakPos: Float, slope: Float, peak: Float): Float =
+    peak * exp(-((pos - peakPos).pow(2) / (slope.pow(2))))
