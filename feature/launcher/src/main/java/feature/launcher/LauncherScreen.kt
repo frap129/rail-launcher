@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,6 +46,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,17 +56,23 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -189,64 +198,127 @@ private fun LauncherContent(modifier: Modifier, viewModel: LauncherViewModel, on
             onToggleFavorite = viewModel::toggleFavorite
         )
     }
-    FocusRevealContent(
-        modifier = modifier,
-        targetState = uiState,
-        focusState = LauncherUiState.AppList.Scrolling::class,
-        revealState = LauncherUiState.AppList.Browsing::class,
-        defaultSpec = fadeIn(animationSpec = tween(durationMillis = DEFAULT_FADE_IN_MILLIS, delayMillis = DEFAULT_FADE_IN_DELAY_MILLIS))
-            .togetherWith(fadeOut(animationSpec = tween(durationMillis = DEFAULT_FADE_OUT_MILLIS))),
-        focusSpec = fadeIn(animationSpec = tween(durationMillis = FOCUS_FADE_IN_MILLIS))
-            .togetherWith(fadeOut(animationSpec = tween(durationMillis = FOCUS_FADE_OUT_MILLIS))),
-        revealSpec = fadeIn(animationSpec = tween(durationMillis = REVEAL_FADE_IN_MILLIS, delayMillis = REVEAL_FADE_IN_DELAY_MILLIS))
-            .togetherWith(
-                fadeOut(animationSpec = tween(durationMillis = REVEAL_FADE_OUT_MILLIS, delayMillis = REVEAL_FADE_OUT_DELAY_MILLIS))
-            ),
-        contentKey = { state ->
-            when (state) {
-                is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
-                is LauncherUiState.AppList.Scrolling -> state.group
-                is LauncherUiState.Home -> LauncherUiState.Home::class
-                LauncherUiState.Loading -> LauncherUiState.Loading
-            }
-        }
-    ) { state ->
-        when (state) {
-            is LauncherUiState.Home -> LauncherHome(
-                modifier = Modifier.fillMaxSize(),
-                home = state,
+    val home: LauncherUiState.Home? = retainedHomeState(uiState)
+    val isHomeVisible: Boolean = uiState is LauncherUiState.Home
+    val homeAlpha: State<Float> = animateFloatAsState(
+        targetValue = if (isHomeVisible) 1f else 0f,
+        animationSpec = if (isHomeVisible) {
+            tween(durationMillis = DEFAULT_FADE_IN_MILLIS, delayMillis = DEFAULT_FADE_IN_DELAY_MILLIS)
+        } else {
+            tween(durationMillis = DEFAULT_FADE_OUT_MILLIS)
+        },
+        label = "homeAlpha"
+    )
+    val hiddenHomeModifier: Modifier = remember {
+        Modifier
+            .clearAndSetSemantics { hideFromAccessibility() }
+            .consumePointerInput()
+    }
+    val homePaint: Paint = remember { Paint() }
+    Box(modifier) {
+        // Kept composed under the App List so returning to Home never rebuilds it.
+        if (home != null) {
+            LauncherHome(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        val alpha: Float = homeAlpha.value
+                        when {
+                            alpha <= 0f -> Unit
+
+                            alpha >= 1f -> drawContent()
+
+                            else -> {
+                                homePaint.alpha = alpha
+                                drawContext.canvas.saveLayer(Rect(Offset.Zero, size), homePaint)
+                                drawContent()
+                                drawContext.canvas.restore()
+                            }
+                        }
+                    }
+                    .then(if (isHomeVisible) Modifier else hiddenHomeModifier),
+                home = home,
                 itemActions = itemActions,
                 onFavoriteMoved = viewModel::moveFavorite
             )
-
-            is LauncherUiState.AppList.Browsing -> {
-                val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
-                LauncherList(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = contentHorizontalPadding),
-                    launcherList = state.groups,
-                    lazyListState = state.lazyListState,
-                    rowState = rowState,
-                    itemActions = itemActions,
-                    topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
-                    bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
-                )
+        }
+        FocusRevealContent(
+            modifier = Modifier.fillMaxSize(),
+            targetState = uiState,
+            focusState = LauncherUiState.AppList.Scrolling::class,
+            revealState = LauncherUiState.AppList.Browsing::class,
+            defaultSpec = fadeIn(animationSpec = tween(durationMillis = DEFAULT_FADE_IN_MILLIS, delayMillis = DEFAULT_FADE_IN_DELAY_MILLIS))
+                .togetherWith(fadeOut(animationSpec = tween(durationMillis = DEFAULT_FADE_OUT_MILLIS))),
+            focusSpec = fadeIn(animationSpec = tween(durationMillis = FOCUS_FADE_IN_MILLIS))
+                .togetherWith(fadeOut(animationSpec = tween(durationMillis = FOCUS_FADE_OUT_MILLIS))),
+            revealSpec = fadeIn(animationSpec = tween(durationMillis = REVEAL_FADE_IN_MILLIS, delayMillis = REVEAL_FADE_IN_DELAY_MILLIS))
+                .togetherWith(
+                    fadeOut(animationSpec = tween(durationMillis = REVEAL_FADE_OUT_MILLIS, delayMillis = REVEAL_FADE_OUT_DELAY_MILLIS))
+                ),
+            contentKey = { state ->
+                when (state) {
+                    is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
+                    is LauncherUiState.AppList.Scrolling -> state.group
+                    is LauncherUiState.Home -> LauncherUiState.Home::class
+                    LauncherUiState.Loading -> LauncherUiState.Loading
+                }
             }
+        ) { state ->
+            when (state) {
+                is LauncherUiState.Home, LauncherUiState.Loading -> {}
 
-            is LauncherUiState.AppList.Scrolling -> {
-                val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
-                LauncherItemGroup(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = contentHorizontalPadding, top = viewModel.listStartOffsetPx.toDp(context).dp),
-                    group = state.group,
-                    rowState = rowState,
-                    itemActions = itemActions
-                )
+                is LauncherUiState.AppList.Browsing -> {
+                    val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
+                    LauncherList(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = contentHorizontalPadding),
+                        launcherList = state.groups,
+                        lazyListState = state.lazyListState,
+                        rowState = rowState,
+                        itemActions = itemActions,
+                        topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
+                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
+                    )
+                }
+
+                is LauncherUiState.AppList.Scrolling -> {
+                    val rowState: LauncherRowState = rememberRowState(state.isEditingFavorites, viewModel.favorites)
+                    LauncherItemGroup(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = contentHorizontalPadding, top = viewModel.listStartOffsetPx.toDp(context).dp),
+                        group = state.group,
+                        rowState = rowState,
+                        itemActions = itemActions
+                    )
+                }
             }
+        }
+    }
+}
 
-            LauncherUiState.Loading -> {}
+// Keeps the latest Home state while the App List covers Home.
+@Composable
+private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
+    var retained: LauncherUiState.Home? by remember { mutableStateOf<LauncherUiState.Home?>(null) }
+    SideEffect {
+        if (uiState is LauncherUiState.Home) {
+            retained = uiState
+        }
+    }
+    return when (uiState) {
+        is LauncherUiState.Home -> uiState
+        is LauncherUiState.AppList -> retained
+        LauncherUiState.Loading -> null
+    }
+}
+
+// Consumes touches that miss the App List and land on the hidden Home.
+private fun Modifier.consumePointerInput(): Modifier = pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent(PointerEventPass.Initial).changes.forEach { change -> change.consume() }
         }
     }
 }
