@@ -1,5 +1,6 @@
 package feature.widgets
 
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.battery.BatteryStatus
@@ -15,6 +16,7 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeBatterySource
 import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
@@ -24,14 +26,20 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
+import core.data.widgets.AppWidgetId
+import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
+import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
+import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -331,6 +339,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.UpcomingEvents,
                     WidgetMenuAction.ClockStyle,
+                    WidgetMenuAction.AddWidget,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
                 ),
@@ -370,7 +379,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openEmptyAreaMenu()
             val menu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
-            assertEquals(listOf(WidgetMenuAction.WidgetSettings), menu.items.map { item -> item.id })
+            assertEquals(listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.WidgetSettings), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -382,7 +391,7 @@ class WidgetAreaViewModelTest {
             viewModel.openEmptyAreaMenu()
             val menu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
             assertEquals(
-                listOf(WidgetMenuAction.RestoreHeader, WidgetMenuAction.WidgetSettings),
+                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RestoreHeader, WidgetMenuAction.WidgetSettings),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -757,7 +766,9 @@ class WidgetAreaViewModelTest {
         homeEditState: HomeEditState = HomeEditState(),
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
-        batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false))
+        batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false)),
+        appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
+        savedStateHandle: SavedStateHandle = SavedStateHandle()
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
@@ -766,7 +777,282 @@ class WidgetAreaViewModelTest {
         homeEditState = homeEditState,
         launchableRepository = launchableRepository,
         calendarEventSource = calendarEventSource,
-        batterySource = batterySource
+        batterySource = batterySource,
+        appWidgetHost = appWidgetHost,
+        savedStateHandle = savedStateHandle,
+        removeAppWidget = RemoveAppWidget(repository = repository, host = appWidgetHost)
+    )
+
+    @Test
+    fun `silent bind with no configuration places the App Widget at the end`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(true))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        val provider: WidgetProviderInfo = appWidgetProviderInfo()
+        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        viewModel.pickProvider(provider)
+        advanceUntilIdle()
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(listOf(1L, 2L), places.map { place -> place.id })
+        val widget: PlacedWidget.AppWidget = places.last().widgets.single() as PlacedWidget.AppWidget
+        assertEquals(1, widget.appWidgetId)
+        assertEquals(provider.provider, widget.provider)
+        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+        assertEquals(listOf(AppWidgetId(1)), host.allocatedIds)
+        assertTrue(host.deletedIds.isEmpty())
+    }
+
+    @Test
+    fun `a refused silent bind launches the system dialog and a denial deletes the id`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(false))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+            viewModel.pickProvider(appWidgetProviderInfo())
+            val event: WidgetAreaEvent = awaitItem()
+            assertTrue(event is WidgetAreaEvent.LaunchBind)
+            viewModel.onBindResult(granted = false)
+            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
+            assertEquals(listOf(headerPlace.id), repository.places.first().map { place -> place.id })
+            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a granted bind places the App Widget after the dialog`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(false))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        viewModel.pickProvider(appWidgetProviderInfo())
+        viewModel.onBindResult(granted = true)
+        advanceUntilIdle()
+        assertEquals(2, repository.places.first().size)
+        assertTrue(host.deletedIds.isEmpty())
+    }
+
+    @Test
+    fun `a provider that needs configuration launches it and cancelling deletes the id`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(true))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
+            assertEquals(WidgetAreaEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
+            viewModel.onConfigureResult(ok = false)
+            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
+            assertEquals(1, repository.places.first().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a provider that needs configuration places the App Widget when configuration succeeds`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(true))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
+            awaitItem()
+            viewModel.onConfigureResult(ok = true)
+            advanceUntilIdle()
+            assertEquals(2, repository.places.first().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a provider with optional reconfigurable configuration is placed without launching configuration`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(bindResults = listOf(true))
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = false))
+            advanceUntilIdle()
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(2, repository.places.first().size)
+    }
+
+    @Test
+    fun `cancelling the picker allocates nothing`() = runTest {
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
+        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.Picking)
+        viewModel.cancelAdd()
+        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+        assertTrue(host.allocatedIds.isEmpty())
+    }
+
+    @Test
+    fun `add from the Header menu inserts directly below the Header`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            appWidgetHost = FakeAppWidgetHostSource(bindResults = listOf(true))
+        )
+        viewModel.openHeaderMenu()
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+        viewModel.pickProvider(appWidgetProviderInfo())
+        advanceUntilIdle()
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(2, places.size)
+        assertTrue(places[1].widgets.single() is PlacedWidget.AppWidget)
+    }
+
+    @Test
+    fun `add from an App Widget menu inserts directly below that widget`() = runTest {
+        val first: WidgetPlace = headerPlace
+        val second: WidgetPlace = appWidgetPlace(placeId = 2L, widgetId = 2L)
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(first, second))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            appWidgetHost = FakeAppWidgetHostSource(bindResults = listOf(true))
+        )
+        viewModel.openAppWidgetMenu(widgetId = 2L)
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+        viewModel.pickProvider(appWidgetProviderInfo())
+        advanceUntilIdle()
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(listOf(1L, 2L, 3L), places.map { place -> place.id })
+        assertTrue(places[2].widgets.single() is PlacedWidget.AppWidget)
+    }
+
+    @Test
+    fun `add from the empty area inserts at the end`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            appWidgetHost = FakeAppWidgetHostSource(bindResults = listOf(true))
+        )
+        viewModel.openEmptyAreaMenu()
+        viewModel.startAddFromMenu()
+        advanceUntilIdle()
+        viewModel.pickProvider(appWidgetProviderInfo())
+        advanceUntilIdle()
+        assertEquals(1, repository.places.first().size)
+    }
+
+    @Test
+    fun `add started from Settings returns to Settings after placing`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            repository = repository,
+            appWidgetHost = FakeAppWidgetHostSource(bindResults = listOf(true))
+        )
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End, returnToSettings = true))
+            viewModel.pickProvider(appWidgetProviderInfo())
+            advanceUntilIdle()
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(2, repository.places.first().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `picker groups by app, sorts by label and filters by query`() = runTest {
+        val alphaProvider: WidgetProvider = WidgetProvider(packageName = "com.alpha", className = "AlphaWidget")
+        val zetaProvider: WidgetProvider = WidgetProvider(packageName = "com.zeta", className = "ZetaWidget")
+        val alphaBeta: WidgetProvider = WidgetProvider(packageName = "com.alpha", className = "BetaWidget")
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(
+                appWidgetProviderInfo(provider = zetaProvider, appPackageName = "com.zeta", appLabel = "Zeta", label = "Clock"),
+                appWidgetProviderInfo(provider = alphaProvider, appPackageName = "com.alpha", appLabel = "Alpha", label = "Calendar"),
+                appWidgetProviderInfo(provider = alphaBeta, appPackageName = "com.alpha", appLabel = "Alpha", label = "Mail")
+            )
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
+        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        advanceUntilIdle()
+        val picking: AddWidgetFlowState.Picking = viewModel.addFlowState.value as AddWidgetFlowState.Picking
+        assertEquals(listOf("Alpha", "Zeta"), picking.groups.map { group -> group.appLabel })
+        assertEquals(listOf("Calendar", "Mail"), picking.groups.first().widgets.map { widget -> widget.label })
+        viewModel.setPickerQuery("mail")
+        val filtered: AddWidgetFlowState.Picking = viewModel.addFlowState.value as AddWidgetFlowState.Picking
+        assertEquals(listOf("Mail"), filtered.groups.flatMap { group -> group.widgets.map { widget -> widget.label } })
+        viewModel.setPickerQuery("missing")
+        assertTrue((viewModel.addFlowState.value as AddWidgetFlowState.Picking).groups.isEmpty())
+    }
+
+    @Test
+    fun `remove widget deletes the row, the system id and the cached view`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.removeWidget(widgetId = 2L)
+            assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetAreaEvent.ShowMessage(R.string.widget_removed), awaitItem())
+            assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
+            assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `menus and add flows are ignored while editing`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
+        val viewModel: WidgetAreaViewModel = createViewModel(homeEditState = homeEditState)
+        viewModel.openHeaderMenu()
+        viewModel.openEmptyAreaMenu()
+        viewModel.openAppWidgetMenu(widgetId = 2L)
+        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+        assertEquals(WidgetMenuState.Closed, viewModel.menuState.value)
+    }
+
+    private fun appWidgetProviderInfo(
+        provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+        appPackageName: String = provider.packageName,
+        appLabel: String = "Example",
+        label: String = "Example Widget",
+        needsConfiguration: Boolean = false,
+        profileSerial: Long = 0L
+    ): WidgetProviderInfo = WidgetProviderInfo(
+        provider = provider,
+        profileSerial = profileSerial,
+        appPackageName = appPackageName,
+        appLabel = appLabel,
+        appIcon = Icon.ApplicationIcon(packageName = appPackageName),
+        label = label,
+        description = null,
+        defaultSize = WidgetSize(widthDp = 110, heightDp = 48),
+        cellSize = null,
+        minHeightDp = 48,
+        minResizeHeightDp = 48,
+        maxResizeHeightDp = null,
+        needsConfiguration = needsConfiguration,
+        isReconfigurable = false,
+        isWorkProfile = false
+    )
+
+    private fun appWidgetPlace(placeId: Long, widgetId: Long, appWidgetId: Int = 9, profileSerial: Long = 0L): WidgetPlace = WidgetPlace(
+        id = placeId,
+        heightDp = null,
+        currentPage = 0,
+        widgets = listOf(
+            PlacedWidget.AppWidget(
+                id = widgetId,
+                appWidgetId = appWidgetId,
+                provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+                profileSerial = profileSerial,
+                extendsUnderRail = false
+            )
+        )
     )
 
     private fun reading(

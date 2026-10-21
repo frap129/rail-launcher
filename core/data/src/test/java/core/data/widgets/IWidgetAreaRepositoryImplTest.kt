@@ -122,6 +122,65 @@ class IWidgetAreaRepositoryImplTest {
         }
     }
 
+    @Test
+    fun `addAppWidget inserts a place below the given place and shifts later positions`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                place(id = 2L, position = 1)
+            ),
+            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        )
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "Widget")
+        repository.addAppWidget(
+            AddAppWidget(
+                appWidgetId = AppWidgetId(42),
+                provider = provider,
+                profileSerial = 1L,
+                insertAt = InsertPosition.Below(placeId = 1L)
+            )
+        )
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(listOf(0, 1, 2), dao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
+        val inserted: PlacedWidget.AppWidget = places[1].widgets.single() as PlacedWidget.AppWidget
+        assertEquals(42, inserted.appWidgetId)
+        assertEquals(provider, inserted.provider)
+        assertEquals(1L, inserted.profileSerial)
+    }
+
+    @Test
+    fun `addAppWidget adds at the end for End`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        )
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        repository.addAppWidget(
+            AddAppWidget(
+                appWidgetId = AppWidgetId(7),
+                provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.End
+            )
+        )
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(7, (places.last().widgets.single() as PlacedWidget.AppWidget).appWidgetId)
+    }
+
+    @Test
+    fun `removeWidget deletes the place when empty and returns the system id`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(appWidget(id = 11L, placeId = 1L))
+        )
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        assertEquals(AppWidgetId(42), repository.removeWidget(widgetId = 11L))
+        assertEquals(emptyList<WidgetPlace>(), repository.places.first())
+        assertEquals(emptyList<WidgetPlaceRecord>(), dao.observePlaces().first())
+        assertEquals(emptyList<WidgetRecord>(), dao.observeWidgets().first())
+    }
+
     private fun place(id: Long, position: Int): WidgetPlaceRecord = WidgetPlaceRecord(
         id = id,
         position = position,

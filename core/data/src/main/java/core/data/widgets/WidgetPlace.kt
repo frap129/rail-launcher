@@ -22,6 +22,10 @@ sealed interface PlacedWidget {
 
 /** The provider of an App Widget, stored as its package name and class name. */
 data class WidgetProvider(val packageName: String, val className: String) {
+    /** The provider stored as "package/class". */
+    val key: String
+        get() = "$packageName/$className"
+
     companion object {
         /** Reads a provider stored as "package/class", or returns null when [key] is malformed. */
         fun fromKey(key: String): WidgetProvider? {

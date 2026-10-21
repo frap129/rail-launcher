@@ -65,7 +65,8 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                     place = place,
                     menuEnabled = menuEnabled,
                     onTapTarget = context::openHeaderTapTarget,
-                    onHeaderLongPress = openHeaderMenu
+                    onHeaderLongPress = openHeaderMenu,
+                    onAppWidgetLongPress = viewModel::openAppWidgetMenu
                 )
             }
         } else {
@@ -93,7 +94,8 @@ private fun WidgetPlaceContent(
     place: WidgetPlaceModel,
     menuEnabled: Boolean,
     onTapTarget: (HeaderTapTarget) -> Unit,
-    onHeaderLongPress: () -> Unit
+    onHeaderLongPress: () -> Unit,
+    onAppWidgetLongPress: (Long) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         place.widgets.forEach { widget ->
@@ -103,6 +105,13 @@ private fun WidgetPlaceContent(
                     menuEnabled = menuEnabled,
                     onTapTarget = onTapTarget,
                     onLongPress = onHeaderLongPress
+                )
+
+                is AppWidgetModel -> AppWidgetContent(
+                    widget = widget,
+                    heightDp = place.heightDp,
+                    menuEnabled = menuEnabled,
+                    onLongPress = onAppWidgetLongPress
                 )
             }
         }

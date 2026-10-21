@@ -1,10 +1,15 @@
 package feature.launcher
 
 import android.Manifest
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -109,6 +114,7 @@ import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.widgets.IAppWidgetHostSource
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
@@ -120,6 +126,10 @@ import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
 import core.util.toDp
+import feature.widgets.AddWidgetFlowState
+import feature.widgets.AppWidgetPickerSheet
+import feature.widgets.AppWidgetViewCache
+import feature.widgets.AppWidgetViews
 import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
 import feature.widgets.WidgetAreaViewModel
@@ -130,6 +140,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -198,6 +209,13 @@ fun LauncherScreen(
     val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
     val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
+    val appWidgetResults: AppWidgetResults = koinInject()
+    val appWidgetHostSource: IAppWidgetHostSource = koinInject()
+    val appWidgetViewCache: AppWidgetViewCache = koinInject()
+    val bindLauncher: ManagedActivityResultLauncher<Intent, ActivityResult> =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            widgetViewModel.onBindResult(granted = result.resultCode == Activity.RESULT_OK)
+        }
     val permissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
@@ -209,12 +227,21 @@ fun LauncherScreen(
     }
     DisposableEffect(lifecycleOwner, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                widgetViewModel.refreshCalendarPermission()
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> widgetViewModel.refreshCalendarPermission()
+                Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
+                Lifecycle.Event.ON_STOP -> appWidgetHostSource.stopListening()
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            appWidgetHostSource.startListening()
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            appWidgetHostSource.stopListening()
+        }
     }
     LaunchedEffect(widgetViewModel) {
         widgetViewModel.events.collect { event ->
@@ -250,6 +277,43 @@ fun LauncherScreen(
                 }
 
                 WidgetAreaEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
+
+                is WidgetAreaEvent.LaunchBind -> {
+                    try {
+                        bindLauncher.launch(AppWidgetViews.bindIntent(context = context, request = event.request))
+                    } catch (exception: ActivityNotFoundException) {
+                        widgetViewModel.onBindResult(granted = false)
+                    } catch (exception: SecurityException) {
+                        widgetViewModel.onBindResult(granted = false)
+                    }
+                }
+
+                is WidgetAreaEvent.LaunchConfigure -> {
+                    val currentActivity: ComponentActivity? = activity
+                    if (currentActivity == null) {
+                        widgetViewModel.onConfigureResult(ok = false)
+                    } else {
+                        try {
+                            appWidgetHostSource.startConfiguring(
+                                activity = currentActivity,
+                                id = event.id,
+                                requestCode = AppWidgetResults.REQUEST_CODE
+                            )
+                        } catch (exception: ActivityNotFoundException) {
+                            widgetViewModel.onConfigureResult(ok = false)
+                        } catch (exception: SecurityException) {
+                            widgetViewModel.onConfigureResult(ok = false)
+                        }
+                    }
+                }
+
+                is WidgetAreaEvent.ShowMessage -> coroutineScope.launch {
+                    snackbarHostState.showSnackbar(message = context.getString(event.message))
+                }
+
+                is WidgetAreaEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
+
+                WidgetAreaEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
             }
         }
     }
@@ -263,6 +327,14 @@ fun LauncherScreen(
                 }
             }
     }
+    LaunchedEffect(appWidgetResults) {
+        appWidgetResults.results.collect { result ->
+            if (result.requestCode == AppWidgetResults.REQUEST_CODE) {
+                widgetViewModel.onConfigureResult(ok = result.resultCode == Activity.RESULT_OK)
+            }
+        }
+    }
+    val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
     BackHandler { viewModel.onBack() }
     Box(Modifier.fillMaxSize()) {
         LauncherContent(
@@ -275,6 +347,14 @@ fun LauncherScreen(
         LauncherDoneButton(viewModel)
         LauncherMenu(viewModel)
         LauncherWidgetMenu(widgetViewModel)
+        if (addFlowState is AddWidgetFlowState.Picking) {
+            AppWidgetPickerSheet(
+                state = addFlowState as AddWidgetFlowState.Picking,
+                onQueryChange = widgetViewModel::setPickerQuery,
+                onPick = widgetViewModel::pickProvider,
+                onDismiss = widgetViewModel::cancelAdd
+            )
+        }
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -533,8 +613,10 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
+                    WidgetMenuAction.AddWidget,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
+                    WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.WidgetSettings -> Unit
 
                     WidgetMenuAction.UpcomingEvents -> viewModel.setUpcomingEventsEnabled(checked)
@@ -542,22 +624,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
             },
             onChoiceClick = viewModel::toggleChoice,
             onChoiceSelected = viewModel::selectChoice,
-            onAction = { action ->
-                when (action) {
-                    WidgetMenuAction.ClockStyle -> viewModel.openClockStyleChooser()
-
-                    WidgetMenuAction.RemoveHeader -> viewModel.removeHeader()
-
-                    WidgetMenuAction.RestoreHeader -> viewModel.restoreHeader()
-
-                    WidgetMenuAction.WidgetSettings -> viewModel.openWidgetSettings()
-
-                    WidgetMenuAction.Battery,
-                    WidgetMenuAction.Clock,
-                    WidgetMenuAction.Date,
-                    WidgetMenuAction.UpcomingEvents -> Unit
-                }
-            },
+            onAction = viewModel::onMenuAction,
             onClockStyleSelected = viewModel::selectClockStyle
         )
     }

@@ -53,6 +53,8 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,6 +67,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,6 +99,7 @@ import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Th
+import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.calendar.CalendarInfo
 import core.data.icons.model.IconPack
 import core.data.prefs.BatteryVisibility
@@ -106,10 +110,14 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
+import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.util.openApplicationDetailsSettings
+import feature.widgets.AppWidgetViewCache
 import feature.widgets.HeaderClockStyleChooser
 import feature.widgets.labelResource
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 private const val SCREEN_ARGUMENT = "screen"
 private const val SETTINGS_ROUTE = "settings"
@@ -187,7 +195,12 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) }
                 )
 
-                SettingsScreen.Widgets -> SettingsWidgetsScreen()
+                SettingsScreen.Widgets -> SettingsWidgetsScreen(
+                    onAddWidget = {
+                        navController.getBackStackEntry("launcher").savedStateHandle[HOME_ADD_WIDGET_REQUEST_KEY] = true
+                        navController.popBackStack("launcher", inclusive = false)
+                    }
+                )
             }
         }
     }
@@ -228,10 +241,13 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
 }
 
 @Composable
-fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) {
+fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsViewModel = koinViewModel()) {
     val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
     val tapActionPicker: TapActionPickerState? by viewModel.tapActionPicker.collectAsState()
     val context: Context = LocalContext.current
+    val appWidgetViewCache: AppWidgetViewCache = koinInject()
+    val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val activity: Activity? = remember(context) { context.findActivity() }
     var showClockStyleChooser: Boolean by remember { mutableStateOf(false) }
     var openDialog: WidgetSettingsDialog? by remember { mutableStateOf(null) }
@@ -245,7 +261,16 @@ fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) 
         viewModel.events.collect { event ->
             when (event) {
                 WidgetSettingsEvent.RequestCalendarPermission -> permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+
                 is WidgetSettingsEvent.ShowCalendarPermissionDenied -> showPermissionDialog = true
+
+                WidgetSettingsEvent.StartAddWidget -> onAddWidget()
+
+                is WidgetSettingsEvent.AppWidgetRemoved -> appWidgetViewCache.remove(event.appWidgetId)
+
+                is WidgetSettingsEvent.ShowMessage -> coroutineScope.launch {
+                    snackbarHostState.showSnackbar(context.getString(event.message))
+                }
             }
         }
     }
@@ -259,13 +284,20 @@ fun SettingsWidgetsScreen(viewModel: WidgetSettingsViewModel = koinViewModel()) 
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    WidgetSettingsList(
-        uiState = uiState,
-        viewModel = viewModel,
-        onClockStyleClick = { showClockStyleChooser = true },
-        onDialogClick = { dialog -> openDialog = dialog },
-        onTapActionClick = viewModel::openTapActionPicker
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        WidgetSettingsList(
+            uiState = uiState,
+            viewModel = viewModel,
+            onClockStyleClick = { showClockStyleChooser = true },
+            onDialogClick = { dialog -> openDialog = dialog },
+            onTapActionClick = viewModel::openTapActionPicker,
+            onAddWidget = viewModel::openAddWidget
+        )
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
+    }
     if (showClockStyleChooser) {
         ClockStyleChooserSheet(
             uiState = uiState,
@@ -306,7 +338,8 @@ private fun WidgetSettingsList(
     viewModel: WidgetSettingsViewModel,
     onClockStyleClick: () -> Unit,
     onDialogClick: (WidgetSettingsDialog) -> Unit,
-    onTapActionClick: (HeaderTapTargetPart) -> Unit
+    onTapActionClick: (HeaderTapTargetPart) -> Unit,
+    onAddWidget: () -> Unit
 ) {
     LazyColumn {
         item { SettingsSectionTitle(R.string.header) }
@@ -329,7 +362,46 @@ private fun WidgetSettingsList(
         item { HeaderTapActionRows(uiState = uiState, onTapActionClick = onTapActionClick) }
         item { SettingsSectionTitle(R.string.upcoming_events) }
         item { EventSettingsRows(uiState = uiState, viewModel = viewModel, onDialogClick = onDialogClick) }
+        item { SettingsSectionTitle(R.string.app_widgets) }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.add_widget),
+                value = "",
+                enabled = true,
+                onClick = onAddWidget
+            )
+        }
+        items(items = uiState.appWidgets, key = { widget -> widget.widgetId }) { widget ->
+            AppWidgetSettingsRow(widget = widget, onRemove = { viewModel.removeAppWidget(widget.widgetId) })
+        }
     }
+}
+
+@Composable
+private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(widget.label) },
+        supportingContent = if (widget.isWorkProfile) {
+            { Text(stringResource(R.string.work_profile)) }
+        } else {
+            null
+        },
+        leadingContent = {
+            AsyncImage(
+                model = widget.icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp)
+            )
+        },
+        trailingContent = {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                    contentDescription = stringResource(R.string.remove_widget)
+                )
+            }
+        }
+    )
 }
 
 @Composable
