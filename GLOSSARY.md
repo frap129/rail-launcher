@@ -13,7 +13,7 @@ A Launchable the user has pinned to Home, held in a user-defined order.
 _Avoid_: Pin, starred app, dock
 
 **Home**:
-The launcher's default state, showing the Header, the Widget Area, and Favorites.
+The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
@@ -25,13 +25,25 @@ The letter index along the screen edge used to jump through the App List; touchi
 _Avoid_: Scroll bar, alphabet, wave
 
 **Widget**:
-A self-contained panel shown in the Widget Area, either built into Rail or an Android app widget.
+A self-contained panel shown on Home, either built into Rail (the Header, the Media Player) or an App Widget.
 _Avoid_: Card, glance
+
+**App Widget**:
+An Android app widget, provided by another app and hosted by Rail.
+_Avoid_: Custom widget, third-party widget
 
 **Header**:
 The built-in clock-and-date Widget, present in the Widget Area by default.
 _Avoid_: Glance, clock bar
 
+**Media Player**:
+The built-in Widget that appears on Home while an app is playing media and shows its playback controls.
+_Avoid_: Media card, music widget, now playing
+
+**Widget Stack**:
+Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways.
+_Avoid_: Carousel, pager
+
 **Widget Area**:
-The region at the top of Home, above Favorites, holding an ordered stack of Widgets.
-_Avoid_: Widget page, widget stack
+The region at the top of Home, above Favorites, holding an ordered column of Widgets and Widget Stacks.
+_Avoid_: Widget page, widget list
