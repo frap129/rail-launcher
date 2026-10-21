@@ -3,6 +3,11 @@ package core.data.room
 import android.content.ComponentName
 import androidx.room.TypeConverter
 import core.data.icons.model.Icon
+import core.data.prefs.ClockStyle
+import core.data.prefs.DateFormatPreset
+import core.data.prefs.HeaderAlignment
+import core.data.prefs.HeaderSize
+import core.data.prefs.TimeFormat
 import core.data.widgets.WidgetKind
 
 class Converters {
@@ -24,4 +29,39 @@ class Converters {
     @TypeConverter
     fun fromStringToWidgetKind(kind: String): WidgetKind =
         WidgetKind.entries.firstOrNull { entry -> entry.name == kind } ?: WidgetKind.UNKNOWN
+
+    @TypeConverter
+    fun fromClockStyleToString(style: ClockStyle): String = style.name
+
+    @TypeConverter
+    fun fromStringToClockStyle(style: String): ClockStyle =
+        ClockStyle.entries.firstOrNull { entry -> entry.name == style } ?: ClockStyle.CLASSIC
+
+    @TypeConverter
+    fun fromTimeFormatToString(format: TimeFormat): String = format.name
+
+    @TypeConverter
+    fun fromStringToTimeFormat(format: String): TimeFormat =
+        TimeFormat.entries.firstOrNull { entry -> entry.name == format } ?: TimeFormat.SYSTEM
+
+    @TypeConverter
+    fun fromDateFormatPresetToString(format: DateFormatPreset): String = format.name
+
+    @TypeConverter
+    fun fromStringToDateFormatPreset(format: String): DateFormatPreset =
+        DateFormatPreset.entries.firstOrNull { entry -> entry.name == format } ?: DateFormatPreset.FULL
+
+    @TypeConverter
+    fun fromHeaderAlignmentToString(alignment: HeaderAlignment): String = alignment.name
+
+    @TypeConverter
+    fun fromStringToHeaderAlignment(alignment: String): HeaderAlignment =
+        HeaderAlignment.entries.firstOrNull { entry -> entry.name == alignment } ?: HeaderAlignment.START
+
+    @TypeConverter
+    fun fromHeaderSizeToString(size: HeaderSize): String = size.name
+
+    @TypeConverter
+    fun fromStringToHeaderSize(size: String): HeaderSize =
+        HeaderSize.entries.firstOrNull { entry -> entry.name == size } ?: HeaderSize.DEFAULT
 }

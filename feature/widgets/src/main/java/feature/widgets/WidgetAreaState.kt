@@ -2,6 +2,9 @@ package feature.widgets
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
+import core.data.prefs.ClockStyle
+import core.data.prefs.HeaderAlignment
+import core.data.prefs.HeaderSize
 
 /** What the Widget Area shows once the first clock reading has arrived. */
 @Immutable
@@ -16,7 +19,25 @@ sealed interface WidgetModel {
 }
 
 @Immutable
-data class HeaderModel(override val id: Long, val time: HeaderLineModel?, val date: HeaderLineModel?) : WidgetModel
+data class HeaderModel(
+    override val id: Long,
+    val time: HeaderTimeModel?,
+    val date: HeaderLineModel?,
+    val style: ClockStyle,
+    val alignment: HeaderAlignment,
+    val size: HeaderSize
+) : WidgetModel
+
+@Immutable
+data class HeaderTimeModel(
+    val text: String?,
+    val hourText: String?,
+    val minuteText: String?,
+    val amPmText: String?,
+    val spokenText: String,
+    val tapTarget: HeaderTapTarget,
+    @StringRes val clickLabel: Int
+)
 
 @Immutable
 data class HeaderLineModel(val text: String, val spokenText: String, val tapTarget: HeaderTapTarget, @StringRes val clickLabel: Int)

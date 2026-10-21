@@ -41,6 +41,7 @@ import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.settings.SettingsViewModel
 import feature.settings.WidgetSettingsViewModel
+import feature.widgets.HeaderFormatter
 import feature.widgets.HomeEditState
 import feature.widgets.WidgetAreaViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -121,6 +122,7 @@ class MainApplication :
         single { HomeEditState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
         single<IDatePatternSource> { AndroidDatePatternSource() }
+        single { HeaderFormatter(get()) }
     }
 
     /**
@@ -133,7 +135,7 @@ class MainApplication :
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
-        viewModel { WidgetSettingsViewModel(get(), get()) }
+        viewModel { WidgetSettingsViewModel(get(), get(), get(), get()) }
         viewModel { WidgetAreaViewModel(get(), get(), get(), get(), get()) }
     }
 

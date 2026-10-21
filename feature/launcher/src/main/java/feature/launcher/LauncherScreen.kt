@@ -456,18 +456,30 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
             onToggle = { action, checked ->
                 when (action) {
                     WidgetMenuAction.Clock -> viewModel.setClockVisible(checked)
+
                     WidgetMenuAction.Date -> viewModel.setDateVisible(checked)
-                    else -> Unit
+
+                    WidgetMenuAction.ClockStyle,
+                    WidgetMenuAction.RemoveHeader,
+                    WidgetMenuAction.RestoreHeader,
+                    WidgetMenuAction.WidgetSettings -> Unit
                 }
             },
             onAction = { action ->
                 when (action) {
+                    WidgetMenuAction.ClockStyle -> viewModel.openClockStyleChooser()
+
                     WidgetMenuAction.RemoveHeader -> viewModel.removeHeader()
+
                     WidgetMenuAction.RestoreHeader -> viewModel.restoreHeader()
+
                     WidgetMenuAction.WidgetSettings -> viewModel.openWidgetSettings()
-                    else -> Unit
+
+                    WidgetMenuAction.Clock,
+                    WidgetMenuAction.Date -> Unit
                 }
-            }
+            },
+            onClockStyleSelected = viewModel::selectClockStyle
         )
     }
 }
