@@ -1,9 +1,11 @@
 package feature.widgets
 
 import core.data.battery.BatteryStatus
+import core.data.calendar.UpcomingEvent
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
@@ -221,6 +223,192 @@ class HeaderFormatterTest {
         assertEquals(100, header.battery?.percent)
         assertEquals(R.string.battery_content_description_charging, header.battery?.contentDescriptionRes)
     }
+
+    @Test
+    fun `excludes events at the lookahead and now boundaries`() {
+        val lookaheadEnd: UpcomingEvent = event(title = "At window end", begin = "2026-10-20T15:05:00Z", end = "2026-10-20T15:30:00Z")
+        val endedNow: UpcomingEvent = event(title = "Ends now", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:05:00Z")
+        val inside: UpcomingEvent = event(title = "Inside", begin = "2026-10-20T15:04:00Z", end = "2026-10-20T15:05:00Z")
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(lookaheadEnd, endedNow, inside),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 1)
+        )
+
+        assertEquals(listOf("Inside · 15:04"), selected.map { model -> model.text })
+    }
+
+    @Test
+    fun `orders ongoing timed events before upcoming events`() {
+        val upcoming: UpcomingEvent = event(title = "Later", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+        val ongoingLater: UpcomingEvent = event(title = "Ongoing later", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T16:00:00Z")
+        val ongoingSooner: UpcomingEvent = event(title = "Ongoing sooner", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:30:00Z")
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(upcoming, ongoingLater, ongoingSooner),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 3)
+        )
+
+        assertEquals(
+            listOf("Ongoing sooner · until 14:30", "Ongoing later · until 16:00", "Later · 14:06"),
+            selected.map { model -> model.text }
+        )
+    }
+
+    @Test
+    fun `formats ongoing today tomorrow and untitled events`() {
+        val today: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T15:00:00Z")
+        val tomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-20T14:00:00Z", end = "2026-10-21T01:00:00Z")
+        val untitled: UpcomingEvent = event(title = "", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T14:30:00Z")
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(today, tomorrow, untitled),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 3)
+        )
+
+        assertEquals(
+            listOf("(No title) · until 14:30", "Standup · until 15:00", "Release · until tomorrow 01:00"),
+            selected.map { model -> model.text }
+        )
+    }
+
+    @Test
+    fun `formats upcoming events by day`() {
+        val today: UpcomingEvent = event(title = "Today", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+        val tomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-21T14:06:00Z", end = "2026-10-21T14:30:00Z")
+        val weekday: UpcomingEvent = event(title = "Weekday", begin = "2026-10-22T09:30:00Z", end = "2026-10-22T10:00:00Z")
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(today, tomorrow, weekday),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 48, maxEvents = 3)
+        )
+
+        assertEquals(
+            listOf("Today · 14:06", "Tomorrow · Release · 14:06", "Thursday · Weekday · 09:30"),
+            selected.map { model -> model.text }
+        )
+    }
+
+    @Test
+    fun `shows all-day events after timed events on the same day`() {
+        val allDay: UpcomingEvent = event(
+            title = "Holiday",
+            begin = "2026-10-20T00:00:00Z",
+            end = "2026-10-21T00:00:00Z",
+            allDay = true
+        )
+        val timed: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(allDay, timed),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 12, includeAllDay = true, maxEvents = 2)
+        )
+
+        assertEquals(listOf("Standup · 14:06", "Today · Holiday"), selected.map { model -> model.text })
+    }
+
+    @Test
+    fun `hides all-day events when they are disabled`() {
+        val allDay: UpcomingEvent = event(
+            title = "Holiday",
+            begin = "2026-10-20T00:00:00Z",
+            end = "2026-10-21T00:00:00Z",
+            allDay = true
+        )
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(allDay),
+            eventSettings = EventSettings(enabled = true, includeAllDay = false)
+        )
+
+        assertTrue(selected.isEmpty())
+    }
+
+    @Test
+    fun `expands a multi-day all-day event for each day it covers`() {
+        val allDay: UpcomingEvent = event(
+            title = "Conference",
+            begin = "2026-10-20T00:00:00Z",
+            end = "2026-10-22T00:00:00Z",
+            allDay = true
+        )
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(allDay),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 48, includeAllDay = true, maxEvents = 3)
+        )
+
+        assertEquals(listOf("Today · Conference", "Tomorrow · Conference"), selected.map { model -> model.text })
+    }
+
+    @Test
+    fun `filters excluded calendars and limits the event count`() {
+        val excluded: UpcomingEvent = event(title = "Hidden", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 9L)
+        val first: UpcomingEvent = event(title = "First", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
+        val second: UpcomingEvent = event(title = "Second", begin = "2026-10-20T14:07:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
+
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(excluded, first, second),
+            eventSettings = EventSettings(
+                enabled = true,
+                lookaheadHours = 12,
+                maxEvents = 1,
+                excludedCalendarIds = setOf("9")
+            )
+        )
+
+        assertEquals(listOf("First · 14:06"), selected.map { model -> model.text })
+    }
+
+    @Test
+    fun `carries the calendar color and event tap target into each line`() {
+        val selected: List<EventModel> = selectEvents(
+            events = listOf(
+                event(title = "Standup", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", color = 0xFF00FF00.toInt())
+            ),
+            eventSettings = EventSettings(enabled = true)
+        )
+
+        val model: EventModel = selected.single()
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF00FF00.toInt()), model.color)
+        assertEquals(R.string.open_event, model.clickLabel)
+        assertEquals("Standup", model.clickLabelArg)
+        assertEquals(
+            HeaderTapTarget.OpenEvent(
+                eventId = 1L,
+                beginMillis = Instant.parse("2026-10-20T14:06:00Z").toEpochMilli(),
+                endMillis = Instant.parse("2026-10-20T14:30:00Z").toEpochMilli(),
+                isWorkProfile = false
+            ),
+            model.tapTarget
+        )
+    }
+
+    private fun selectEvents(events: List<UpcomingEvent>, eventSettings: EventSettings): List<EventModel> =
+        HeaderFormatter(FakeDatePatternSource()).selectEvents(
+            events = events,
+            eventSettings = eventSettings,
+            headerSettings = HeaderSettings(timeFormat = TimeFormat.H24),
+            reading = reading
+        )
+
+    private fun event(
+        title: String = "Event",
+        begin: String = "2026-10-20T14:06:00Z",
+        end: String = "2026-10-20T14:30:00Z",
+        allDay: Boolean = false,
+        calendarId: Long = 1L,
+        color: Int = 0
+    ): UpcomingEvent = UpcomingEvent(
+        eventId = 1L,
+        title = title,
+        beginMillis = Instant.parse(begin).toEpochMilli(),
+        endMillis = Instant.parse(end).toEpochMilli(),
+        isAllDay = allDay,
+        calendarId = calendarId,
+        color = color,
+        isWorkProfile = false
+    )
 
     private fun format(settings: HeaderSettings, isSystem24Hour: Boolean = false, battery: BatteryStatus? = null): HeaderModel =
         HeaderFormatter(FakeDatePatternSource()).format(

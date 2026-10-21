@@ -8,8 +8,10 @@ android {
 }
 
 dependencies {
+    implementation(libs.compose.activity)
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
+    implementation(project(":core:util"))
     implementation(project(":feature:widgets"))
     implementation(libs.compose.material.icons.core)
     implementation(libs.icons.fontawesome)

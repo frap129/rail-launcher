@@ -91,4 +91,12 @@ class Converters {
         value.startsWith(TAP_TARGET_LAUNCHABLE_PREFIX) -> HeaderTapSetting.Launchable(value.removePrefix(TAP_TARGET_LAUNCHABLE_PREFIX))
         else -> HeaderTapSetting.SystemDefault
     }
+
+    @TypeConverter
+    fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)
+
+    @TypeConverter
+    fun fromStringToCalendarIdSet(value: String): Set<String> = value.split(CALENDAR_ID_SEPARATOR).filter { id -> id.isNotBlank() }.toSet()
 }
+
+private const val CALENDAR_ID_SEPARATOR: String = ","

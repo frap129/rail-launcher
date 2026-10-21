@@ -9,6 +9,7 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConvertersTest {
@@ -69,5 +70,17 @@ class ConvertersTest {
     @Test
     fun `falls back to the system default for an unknown Header tap target`() {
         assertEquals(HeaderTapSetting.SystemDefault, converters.fromStringToHeaderTapSetting("unexpected"))
+    }
+
+    @Test
+    fun `round trips a set of profile-qualified calendar ids`() {
+        val ids: Set<String> = setOf("42", "w:7", "w:103")
+
+        assertEquals(ids, converters.fromStringToCalendarIdSet(converters.fromCalendarIdSetToString(ids)))
+    }
+
+    @Test
+    fun `decodes an empty calendar id string as an empty set`() {
+        assertTrue(converters.fromStringToCalendarIdSet("").isEmpty())
     }
 }

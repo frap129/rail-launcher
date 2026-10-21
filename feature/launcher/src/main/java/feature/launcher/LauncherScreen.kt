@@ -1,7 +1,11 @@
 package feature.launcher
 
+import android.Manifest
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -33,6 +37,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.LocalContentColor
@@ -48,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -73,6 +79,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -86,6 +93,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -99,6 +109,7 @@ import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
@@ -107,6 +118,7 @@ import core.ui.layout.homeRailTouchInset
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.util.performLongPressHaptic
+import core.util.openApplicationDetailsSettings
 import core.util.toDp
 import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
@@ -177,13 +189,32 @@ fun LauncherScreen(
     widgetViewModel: WidgetAreaViewModel = koinViewModel()
 ) {
     val context: Context = LocalContext.current
+    val activity: ComponentActivity? = context as? ComponentActivity
+    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val headerRemovedMessage: String = stringResource(R.string.header_removed)
     val undoLabel: String = stringResource(R.string.undo)
+    val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
+    val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
+    var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
+    val permissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
+            widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
+        }
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
         viewModel.onLaunchableLaunched()
+    }
+    DisposableEffect(lifecycleOwner, widgetViewModel) {
+        val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                widgetViewModel.refreshCalendarPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(widgetViewModel) {
         widgetViewModel.events.collect { event ->
@@ -196,6 +227,25 @@ fun LauncherScreen(
                     )
                     if (result == SnackbarResult.ActionPerformed) {
                         widgetViewModel.undoRemoveHeader(position = event.position)
+                    }
+                }
+
+                WidgetAreaEvent.RequestCalendarPermission -> permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+
+                is WidgetAreaEvent.ShowCalendarPermissionDenied -> {
+                    if (event.permanentlyDenied) {
+                        showCalendarPermissionDialog = true
+                    } else {
+                        coroutineScope.launch {
+                            val result: SnackbarResult = snackbarHostState.showSnackbar(
+                                message = calendarPermissionMessage,
+                                actionLabel = openSettingsLabel,
+                                duration = SnackbarDuration.Long
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                context.openApplicationDetailsSettings()
+                            }
+                        }
                     }
                 }
 
@@ -231,6 +281,28 @@ fun LauncherScreen(
                 .align(Alignment.BottomCenter)
                 .safeDrawingPadding()
                 .padding(bottom = snackbarBottomPadding)
+        )
+    }
+    if (showCalendarPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCalendarPermissionDialog = false },
+            title = { Text(text = stringResource(CoreUiR.string.calendar_permission_denied_title)) },
+            text = { Text(text = stringResource(CoreUiR.string.calendar_permission_denied_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCalendarPermissionDialog = false
+                        context.openApplicationDetailsSettings()
+                    }
+                ) {
+                    Text(text = stringResource(CoreUiR.string.open_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCalendarPermissionDialog = false }) {
+                    Text(text = stringResource(CoreUiR.string.cancel))
+                }
+            }
         )
     }
 }
@@ -464,6 +536,8 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.WidgetSettings -> Unit
+
+                    WidgetMenuAction.UpcomingEvents -> viewModel.setUpcomingEventsEnabled(checked)
                 }
             },
             onChoiceClick = viewModel::toggleChoice,
@@ -480,7 +554,8 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.Clock,
-                    WidgetMenuAction.Date -> Unit
+                    WidgetMenuAction.Date,
+                    WidgetMenuAction.UpcomingEvents -> Unit
                 }
             },
             onClockStyleSelected = viewModel::selectClockStyle

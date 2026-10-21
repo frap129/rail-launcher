@@ -1,17 +1,20 @@
 package feature.settings
 
 import app.cash.turbine.test
+import core.data.calendar.CalendarInfo
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
@@ -388,6 +391,119 @@ class WidgetSettingsViewModelTest {
         }
     }
 
+    @Test
+    fun `exposes calendar event settings and calendars`() = runTest {
+        val calendars: List<CalendarInfo> = listOf(
+            CalendarInfo(id = 1L, name = "Personal", accountName = "me@example.com", color = 0, isWorkProfile = false),
+            CalendarInfo(id = 5L, name = "Work", accountName = "work@example.com", color = 0, isWorkProfile = true)
+        )
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialEventSettings = EventSettings(
+                enabled = true,
+                lookaheadHours = 6,
+                maxEvents = 2,
+                includeAllDay = false,
+                excludedCalendarIds = setOf("w:5")
+            )
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = true, calendars = calendars)
+        )
+
+        viewModel.uiState.test {
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+
+            assertTrue(state.calendarAccess)
+            assertTrue(state.eventsEnabled)
+            assertEquals(6, state.eventLookaheadHours)
+            assertEquals(2, state.eventMaxEvents)
+            assertFalse(state.includeAllDay)
+            assertEquals(setOf("w:5"), state.excludedCalendarIds)
+            assertEquals(calendars, state.calendars)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `prunes exclusions for calendars that no longer exist`() = runTest {
+        val calendars: List<CalendarInfo> = listOf(
+            CalendarInfo(id = 1L, name = "Personal", accountName = "me@example.com", color = 0, isWorkProfile = false)
+        )
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialEventSettings = EventSettings(enabled = true, excludedCalendarIds = setOf("1", "2"))
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = true, calendars = calendars)
+        )
+
+        viewModel.uiState.test {
+            advanceUntilIdle()
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+
+            assertEquals(setOf("1"), state.excludedCalendarIds)
+            assertEquals(setOf("1"), settingsRepository.eventUpdates.last().excludedCalendarIds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps exclusions while no calendars are loaded`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialEventSettings = EventSettings(enabled = true, excludedCalendarIds = setOf("1"))
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = true, calendars = emptyList())
+        )
+
+        viewModel.uiState.test {
+            advanceUntilIdle()
+            val state: WidgetSettingsUiState = expectMostRecentItem()
+
+            assertEquals(setOf("1"), state.excludedCalendarIds)
+            assertTrue(settingsRepository.eventUpdates.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `requests calendar permission without enabling events`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = FakeCalendarEventSource(hasPermission = false)
+        )
+
+        viewModel.events.test {
+            viewModel.setEventsEnabled(enabled = true)
+            advanceUntilIdle()
+
+            assertEquals(WidgetSettingsEvent.RequestCalendarPermission, awaitItem())
+            assertTrue(settingsRepository.eventUpdates.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `saves event options`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setEventLookaheadHours(24)
+        viewModel.setEventMaxEvents(3)
+        viewModel.setEventIncludeAllDay(false)
+        viewModel.setExcludedCalendarIds(setOf("1", "w:2"))
+        advanceUntilIdle()
+
+        val saved: EventSettings = settingsRepository.eventUpdates.last()
+        assertEquals(24, saved.lookaheadHours)
+        assertEquals(3, saved.maxEvents)
+        assertFalse(saved.includeAllDay)
+        assertEquals(setOf("1", "w:2"), saved.excludedCalendarIds)
+    }
+
     private fun testLaunchable(name: String): RailLaunchable = RailLaunchable(
         defaultName = name,
         defaultIcon = Icon.ApplicationIcon(packageName = "com.example"),
@@ -398,7 +514,8 @@ class WidgetSettingsViewModelTest {
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         areaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
-        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList())
+        launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
+        calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource()
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
         settingsRepository = settingsRepository,
         areaRepository = areaRepository,
@@ -417,7 +534,8 @@ class WidgetSettingsViewModelTest {
                 )
             )
         ),
-        launchableRepository = launchableRepository
+        launchableRepository = launchableRepository,
+        calendarEventSource = calendarEventSource
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(

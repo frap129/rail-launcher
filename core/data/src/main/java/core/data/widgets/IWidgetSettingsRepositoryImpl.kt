@@ -2,8 +2,10 @@ package core.data.widgets
 
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
+import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
+import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.HeaderSettingsDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -32,8 +34,11 @@ internal fun HeaderSettings.withoutStaleTapTargets(keys: Set<String>): HeaderSet
 
 private fun HeaderTapSetting?.isStale(keys: Set<String>): Boolean = this is HeaderTapSetting.Launchable && key !in keys
 
-class IWidgetSettingsRepositoryImpl(private val headerSettingsDao: HeaderSettingsDao, launchableRepository: ILaunchableRepository) :
-    IWidgetSettingsRepository {
+class IWidgetSettingsRepositoryImpl(
+    private val headerSettingsDao: HeaderSettingsDao,
+    private val eventSettingsDao: EventSettingsDao,
+    launchableRepository: ILaunchableRepository
+) : IWidgetSettingsRepository {
     private val cleanupMutex: Mutex = Mutex()
 
     // Deleting stale keys keeps a reinstalled Launchable from restoring an old tap action.
@@ -60,7 +65,13 @@ class IWidgetSettingsRepositoryImpl(private val headerSettingsDao: HeaderSetting
         .map { cleanup -> cleanup.settings }
         .distinctUntilChanged()
 
+    override val eventSettings: Flow<EventSettings> = eventSettingsDao.observe().distinctUntilChanged()
+
     override suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings) {
         headerSettingsDao.update(transform)
+    }
+
+    override suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings) {
+        eventSettingsDao.update(transform)
     }
 }
