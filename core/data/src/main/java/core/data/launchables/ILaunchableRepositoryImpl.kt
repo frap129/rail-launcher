@@ -95,13 +95,10 @@ private const val DIGIT_GROUP_LABEL: String = "#"
 
 /**
  * Orders the Rail: the Star, then Initial groups sorted by label, then
- * [builtinGroup]. Names starting with a digit share the "#" group. Empty
- * when there are no Launchables.
+ * [builtinGroup]. Names starting with a digit share the "#" group. Always
+ * holds the Star and the Builtin group so Home stays reachable without apps.
  */
 internal fun List<Launchable>.toLaunchableGroups(builtinGroup: LaunchableGroup.Builtin): List<LaunchableGroup> {
-    if (isEmpty()) {
-        return emptyList()
-    }
     val initialGroups: List<LaunchableGroup.InitialGroup> = groupBy { it.groupLabel() }
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }

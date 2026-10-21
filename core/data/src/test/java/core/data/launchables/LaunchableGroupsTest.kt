@@ -76,9 +76,9 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `has no Rail entries when there are no Launchables`() {
+    fun `keeps the Star and Builtin groups when there are no Launchables`() {
         val actual: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(builtinGroup)
-        assertEquals(emptyList<LaunchableGroup>(), actual)
+        assertEquals(listOf(LaunchableGroup.Star, builtinGroup), actual)
     }
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(

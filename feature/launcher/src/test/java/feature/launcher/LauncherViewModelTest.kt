@@ -36,16 +36,48 @@ class LauncherViewModelTest {
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
     private val preferencesRepository: FakePreferencesRepository = FakePreferencesRepository()
-    private val listedGroups: List<LaunchableGroup.Listed> = createListedGroups()
+    private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
+    private val listedGroups: List<LaunchableGroup.Listed> = listOf(
+        LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
+        LaunchableGroup.InitialGroup(label = "B", items = listOf(createLaunchable("Beta"))),
+        builtinGroup
+    )
     private val groups: List<LaunchableGroup> = listOf(LaunchableGroup.Star) + listedGroups
     private val item: Launchable = listedGroups.first().items.first()
 
     @Test
-    fun `shows Loading when there are no groups`() {
+    fun `shows Loading until the Launchables are loaded`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(FakeLaunchableRepository(groups = groups, isLoaded = false))
+            viewModel.uiState.test {
+                assertEquals(LauncherUiState.Loading, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `shows Home when the Launchables are loaded and there are none`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel(FakeLaunchableRepository(groups = emptyList()))
             viewModel.uiState.test {
-                assertEquals(LauncherUiState.Loading, expectMostRecentItem())
+                expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `shows Home with the Star and Builtin groups when there are no Launchables`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                launchableRepository = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Star, builtinGroup))
+            )
+            viewModel.uiState.test {
+                val home: LauncherUiState.Home = expectHome()
+                assertTrue(home.favorites.isEmpty())
+                assertTrue(home.widgets.isEmpty())
+            }
+            viewModel.railLabels.test {
+                assertEquals(listOf("★", "⌂"), expectMostRecentItem())
             }
         }
     }
@@ -949,11 +981,11 @@ class LauncherViewModelTest {
                 initialRecords = listOf(FavoriteRecord(key = item.key, position = 0))
             )
             val viewModel: LauncherViewModel = createViewModel(
-                launchableRepository = FakeLaunchableRepository(groups = emptyList()),
+                launchableRepository = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Star, builtinGroup)),
                 favoriteDao = favoriteDao
             )
             viewModel.uiState.test {
-                assertEquals(LauncherUiState.Loading, expectMostRecentItem())
+                expectHome()
                 advanceUntilIdle()
             }
             assertTrue(favoriteDao.records.isEmpty())
@@ -987,12 +1019,6 @@ class LauncherViewModelTest {
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
 
     private fun railIndex(group: LaunchableGroup): Int = groups.indexOf(group)
-
-    private fun createListedGroups(): List<LaunchableGroup.Listed> = listOf(
-        LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
-        LaunchableGroup.InitialGroup(label = "B", items = listOf(createLaunchable("Beta"))),
-        LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
-    )
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(
         defaultName = name,
