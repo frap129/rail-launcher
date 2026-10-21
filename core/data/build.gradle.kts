@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.androidx.room)
     alias(libs.plugins.kotlinSymbolProcessor)
     alias(libs.plugins.modular.android.library)
 }
@@ -9,6 +10,11 @@ android {
         enable = true
     }
 }
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     implementation(project(":core:util"))
     implementation(libs.coil.core)

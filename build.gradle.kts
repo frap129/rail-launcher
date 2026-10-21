@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.dokka)
     alias(libs.plugins.androidTest) apply false
     alias(libs.plugins.baselineprofile) apply false
+    alias(libs.plugins.androidx.room) apply false
 }
 
 subprojects {
