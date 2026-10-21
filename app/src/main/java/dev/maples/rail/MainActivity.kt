@@ -6,16 +6,12 @@ import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.lifecycle.lifecycleScope
+import core.lifecycle.HomeSignals
 import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
 import feature.launcher.launcherDestination
 import feature.settings.settingsDestination
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
-
-private const val HOME_SIGNAL_BUFFER_CAPACITY: Int = 1
 
 class MainActivity : TemplateActivity() {
     /**
@@ -29,7 +25,14 @@ class MainActivity : TemplateActivity() {
         launcherDestination,
         settingsDestination
     )
-    private val homeSignals: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = HOME_SIGNAL_BUFFER_CAPACITY)
+
+    /**
+     * Delivers HOME intent events to the UI so a re-selection shows Home
+     * scrolled to the top.
+     *
+     * @property homeSignals the activity-owned [core.lifecycle.HomeSignals] queue
+     */
+    private val homeSignals: HomeSignals = HomeSignals()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -41,17 +44,16 @@ class MainActivity : TemplateActivity() {
             App(
                 destinations = destinations,
                 startDestination = launcherDestination.route,
-                homeSignals = homeSignals
+                homeSignals = homeSignals.events
             )
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) {
-            lifecycleScope.launch {
-                homeSignals.emit(Unit)
-            }
+        setIntent(intent)
+        if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
+            homeSignals.signal()
         }
     }
 }
