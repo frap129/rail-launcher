@@ -9,22 +9,22 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - Build: `nix develop --command ./gradlew :app:assembleDebug`
 - Unit tests: `nix develop --command ./gradlew testDebugUnitTest` (JVM; coroutines-test + Turbine are wired by the convention plugins).
 - Lint: run `nix develop --command ./gradlew ktlintFormat` before `nix develop --command ./gradlew ktlintCheck` so autofixable formatting issues are resolved first (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
-- No instrumented tests yet; verification = tests + build + ktlint.
+- No `androidTest` in app/feature/core modules (only `core:baselineprofile`'s benchmark harness); verification = tests + build + ktlint.
 - Docs: `nix develop --command ./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.
-- Baseline profiles: `nix develop --command ./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api34`, needs emulator support). Output is saved into `src/main/baseline-prof.txt` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
+- Baseline profiles: `nix develop --command ./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api36`, needs emulator support). Output is saved into `src/main/baseline-prof.txt` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
 - Emulators: the Android MCP's `start_emulator` tool is denied in `opencode.json`. Start an AVD manually with `nix develop .#emulator --command emulator -avd <name>` only when no physical device is in use.
 
 ## Module layout
-- `app` (`dev.maples.rail`): only `MainActivity`, which lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`.
-- `core:lifecycle`: `MainApplication` (set in app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB. New repos/ViewModels must be registered here; it depends on the feature modules for that reason.
-- `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP), DataStore prefs.
+- `app` (`dev.maples.rail`): a thin `MainActivity` that lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`, plus `SystemBarIconContrast` (system-bar icon-tone decision logic, unit-tested).
+- `core:lifecycle`: `MainApplication` (set in app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB. New repos/ViewModels must be registered here; it depends on the feature modules for that reason. Also `HomeSignals`, the activity-owned HOME-press channel exposed as a `Flow`.
+- `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP). No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
 - `core:ui` (shared Compose, theme, `ScrollRail`, `Destination` model), `core:util`, `feature:launcher`, `feature:settings`.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.
 - `core:baselineprofile` is a `com.android.test` module with its own hard-coded SDK/Java 11 config; don't apply convention plugins to it.
 
 ## Build conventions
 - New modules: use convention plugins from `build-logic/` via catalog aliases `libs.plugins.modular.android.library` / `.application` and `libs.plugins.modular.compose`, then `include(...)` in `settings.gradle.kts`.
-- Convention plugins already add compileSdk 35 / minSdk 32, coroutines, lifecycle, Koin, Timber, baseline profile wiring, and (compose plugin) Compose BOM, Material3, Navigation, Coil, Koin-Compose. Don't re-declare these in module build files.
+- Convention plugins already add compileSdk 37 / minSdk 32, coroutines, lifecycle, Koin, Timber, baseline profile wiring, and (compose plugin) Compose BOM, Material3, Navigation, Coil, Koin-Compose. Don't re-declare these in module build files. They do not set `targetSdk`, so application modules must set it (`app` uses 37).
 - All dependency versions go through `gradle/libs.versions.toml`.
 - Optional release signing via untracked root `keystore.properties`.
 
@@ -49,4 +49,4 @@ Default five-role vocabulary as beads labels (`needs-triage`, `needs-info`, `rea
 
 ### Domain docs
 
-Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: root `GLOSSARY.md` + `docs/adr/` (created lazily; none yet). See `docs/agents/domain.md`.

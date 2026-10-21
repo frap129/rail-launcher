@@ -1,10 +1,10 @@
 # Rail
 
-Rail is a WIP launcher for Android, inspired by Niagra.
+Rail is a WIP launcher for Android, inspired by Niagara.
 
 ## Development
 
-Requires Nix with flakes enabled. The dev shell provides JDK 21, Android SDK 36, build-tools 36, `adb`, and Node.js:
+Requires Nix with flakes enabled. The dev shell provides JDK 21, Android SDK 37, build-tools 36 and 37, `adb`, and Node.js:
 
 ```sh
 nix develop
