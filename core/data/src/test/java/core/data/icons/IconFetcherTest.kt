@@ -7,6 +7,7 @@ import coil3.fetch.Fetcher
 import coil3.fetch.ImageFetchResult
 import coil3.request.Options
 import core.data.icons.model.Icon
+import core.data.testing.TEST_SDK
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -16,7 +17,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-private const val TEST_SDK: Int = 35
 private const val TEST_ICON_RES_ID: Int = android.R.drawable.ic_menu_help
 
 @RunWith(RobolectricTestRunner::class)

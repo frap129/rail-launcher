@@ -344,7 +344,6 @@ private fun BoxScope.LauncherRail(viewModel: LauncherViewModel) {
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) },
         items = railLabels,
-        onScrollStarted = viewModel::onRailPreview,
         onScroll = viewModel::onRailPreview,
         onScrollEnded = viewModel::onRailReleased
     )

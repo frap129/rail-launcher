@@ -56,28 +56,28 @@ private val bubbleSpring: SpringSpec<Offset> = spring()
 private data class RailMetrics(val itemHeightPx: Float, val minPeakPx: Float, val highlightSizePx: Float)
 
 private class RailPointerAnimation {
-    private val bend = Animatable(Offset.Zero, Offset.VectorConverter)
-    private val strength = Animatable(BEND_STRENGTH_RESTING, Float.VectorConverter)
-    private val bubble = Animatable(Offset.Zero, Offset.VectorConverter)
-    val bendPosition: Offset get() = bend.value
-    val currentStrength: Float get() = strength.value
-    val bubblePosition: Offset get() = bubble.value
+    private val bendAnimation = Animatable(Offset.Zero, Offset.VectorConverter)
+    private val bendStrengthAnimation = Animatable(BEND_STRENGTH_RESTING, Float.VectorConverter)
+    private val bubbleAnimation = Animatable(Offset.Zero, Offset.VectorConverter)
+    val bendPosition: Offset get() = bendAnimation.value
+    val bendStrength: Float get() = bendStrengthAnimation.value
+    val bubblePosition: Offset get() = bubbleAnimation.value
 
     suspend fun start(at: Offset) {
-        bend.snapTo(at)
-        bubble.snapTo(at)
-        strength.animateTo(BEND_STRENGTH_ACTIVE, bendStrengthSpring)
+        bendAnimation.snapTo(at)
+        bubbleAnimation.snapTo(at)
+        bendStrengthAnimation.animateTo(BEND_STRENGTH_ACTIVE, bendStrengthSpring)
     }
 
     suspend fun follow(at: Offset) {
         coroutineScope {
-            launch { bend.animateTo(at, bendSpring) }
-            launch { bubble.animateTo(at, bubbleSpring) }
+            launch { bendAnimation.animateTo(at, bendSpring) }
+            launch { bubbleAnimation.animateTo(at, bubbleSpring) }
         }
     }
 
     suspend fun stop() {
-        strength.animateTo(BEND_STRENGTH_RESTING, bendStrengthSpring)
+        bendStrengthAnimation.animateTo(BEND_STRENGTH_RESTING, bendStrengthSpring)
     }
 }
 
@@ -94,18 +94,11 @@ private class RailPointerAnimation {
  *
  * @param modifier the modifier applied to the row
  * @param items the labels shown on the Rail, top to bottom
- * @param onScrollStarted invoked with the touched item when a scroll starts
- * @param onScroll invoked when the pointer crosses into another item
+ * @param onScroll invoked when a scroll starts or the pointer crosses into another item
  * @param onScrollEnded invoked with the item under the pointer when the scroll ends
  */
 @Composable
-fun ScrollRail(
-    modifier: Modifier = Modifier,
-    items: List<String>,
-    onScrollStarted: (Int) -> Unit,
-    onScroll: (Int) -> Unit,
-    onScrollEnded: (Int) -> Unit
-) {
+fun ScrollRail(modifier: Modifier = Modifier, items: List<String>, onScroll: (Int) -> Unit, onScrollEnded: (Int) -> Unit) {
     val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -131,7 +124,7 @@ fun ScrollRail(
             .pointerInput(items.size) {
                 fun startScroll(pointer: Offset, itemIndex: Int) {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onScrollStarted(itemIndex)
+                    onScroll(itemIndex)
                     selectedItemIndex = itemIndex
                     scope.launch { railPointer.start(pointer) }
                 }
@@ -193,7 +186,7 @@ fun ScrollRail(
             verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.End,
             modifier = Modifier.offset {
-                IntOffset(0, (railOffset * railPointer.currentStrength).toInt())
+                IntOffset(0, (railOffset * railPointer.bendStrength).toInt())
             }
         ) {
             items.forEachIndexed { index, label ->
@@ -208,7 +201,7 @@ fun ScrollRail(
                         .size(itemHeight)
                         .offset {
                             val bend = railPointer.bendPosition
-                            val strength = railPointer.currentStrength
+                            val strength = railPointer.bendStrength
                             IntOffset(
                                 (getXOffset(index, railMetrics, Offset(bend.x, bend.y - railOffset)) * strength).roundToInt(),
                                 0
