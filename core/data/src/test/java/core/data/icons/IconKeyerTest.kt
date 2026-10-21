@@ -3,6 +3,7 @@ package core.data.icons
 import android.content.ComponentName
 import coil3.request.Options
 import core.data.icons.model.Icon
+import core.data.testing.TEST_SDK
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -11,7 +12,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-private const val TEST_SDK: Int = 35
 private const val RAIL_ICON_RES_ID: Int = 1
 private const val SECOND_RAIL_ICON_RES_ID: Int = 2
 private const val APPLICATION_PACKAGE: String = "com.example.app"
@@ -33,91 +33,71 @@ class IconKeyerTest {
 
     @Test
     fun `equal rail icons produce equal cache keys`() {
-        val inputIcon: Icon = Icon.RailIcon(RAIL_ICON_RES_ID)
-        val inputSameIcon: Icon = Icon.RailIcon(RAIL_ICON_RES_ID)
-        val expectedKey: String = keyer.key(inputSameIcon, options)
-        val actualKey: String = keyer.key(inputIcon, options)
-        assertEquals(expectedKey, actualKey)
+        assertEqualKeys(Icon.RailIcon(RAIL_ICON_RES_ID), Icon.RailIcon(RAIL_ICON_RES_ID))
     }
 
     @Test
     fun `equal application icons produce equal cache keys`() {
-        val inputIcon: Icon = Icon.ApplicationIcon(APPLICATION_PACKAGE)
-        val inputSameIcon: Icon = Icon.ApplicationIcon(APPLICATION_PACKAGE)
-        val expectedKey: String = keyer.key(inputSameIcon, options)
-        val actualKey: String = keyer.key(inputIcon, options)
-        assertEquals(expectedKey, actualKey)
+        assertEqualKeys(Icon.ApplicationIcon(APPLICATION_PACKAGE), Icon.ApplicationIcon(APPLICATION_PACKAGE))
     }
 
     @Test
     fun `equal activity icons produce equal cache keys`() {
-        val inputIcon: Icon = Icon.ActivityIcon(componentName)
-        val inputSameIcon: Icon = Icon.ActivityIcon(componentName)
-        val expectedKey: String = keyer.key(inputSameIcon, options)
-        val actualKey: String = keyer.key(inputIcon, options)
-        assertEquals(expectedKey, actualKey)
+        assertEqualKeys(Icon.ActivityIcon(componentName), Icon.ActivityIcon(componentName))
     }
 
     @Test
     fun `equal icon pack icons produce equal cache keys`() {
-        val inputIcon: Icon = Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
-        val inputSameIcon: Icon = Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
-        val expectedKey: String = keyer.key(inputSameIcon, options)
-        val actualKey: String = keyer.key(inputIcon, options)
-        assertEquals(expectedKey, actualKey)
+        assertEqualKeys(
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+        )
     }
 
     @Test
     fun `different rail icons produce different cache keys`() {
-        val inputIcon: Icon = Icon.RailIcon(RAIL_ICON_RES_ID)
-        val inputOtherIcon: Icon = Icon.RailIcon(SECOND_RAIL_ICON_RES_ID)
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(Icon.RailIcon(RAIL_ICON_RES_ID), Icon.RailIcon(SECOND_RAIL_ICON_RES_ID))
     }
 
     @Test
     fun `different application icons produce different cache keys`() {
-        val inputIcon: Icon = Icon.ApplicationIcon(APPLICATION_PACKAGE)
-        val inputOtherIcon: Icon = Icon.ApplicationIcon(SECOND_APPLICATION_PACKAGE)
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(Icon.ApplicationIcon(APPLICATION_PACKAGE), Icon.ApplicationIcon(SECOND_APPLICATION_PACKAGE))
     }
 
     @Test
     fun `different activity icons produce different cache keys`() {
-        val inputIcon: Icon = Icon.ActivityIcon(componentName)
-        val inputOtherIcon: Icon = Icon.ActivityIcon(ComponentName(APPLICATION_PACKAGE, SECOND_ACTIVITY_CLASS))
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(
+            Icon.ActivityIcon(componentName),
+            Icon.ActivityIcon(ComponentName(APPLICATION_PACKAGE, SECOND_ACTIVITY_CLASS))
+        )
     }
 
     @Test
     fun `icon pack icons with different packs produce different cache keys`() {
-        val inputIcon: Icon = Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
-        val inputOtherIcon: Icon = Icon.PackIcon(componentName, SECOND_ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, SECOND_ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+        )
     }
 
     @Test
     fun `icon pack icons with different resources produce different cache keys`() {
-        val inputIcon: Icon = Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
-        val inputOtherIcon: Icon = Icon.PackIcon(componentName, ICON_PACK_PACKAGE, SECOND_PACK_ICON_RES_ID)
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, SECOND_PACK_ICON_RES_ID)
+        )
     }
 
     @Test
     fun `icons of different types produce different cache keys`() {
-        val inputIcon: Icon = Icon.RailIcon(SHARED_IDENTITY)
-        val inputOtherIcon: Icon = Icon.ApplicationIcon(SHARED_IDENTITY.toString())
-        val actualKey: String = keyer.key(inputIcon, options)
-        val actualOtherKey: String = keyer.key(inputOtherIcon, options)
-        assertNotEquals(actualKey, actualOtherKey)
+        assertDifferentKeys(Icon.RailIcon(SHARED_IDENTITY), Icon.ApplicationIcon(SHARED_IDENTITY.toString()))
+    }
+
+    private fun assertEqualKeys(icon: Icon, sameIcon: Icon) {
+        assertEquals(keyer.key(icon, options), keyer.key(sameIcon, options))
+    }
+
+    private fun assertDifferentKeys(icon: Icon, otherIcon: Icon) {
+        assertNotEquals(keyer.key(icon, options), keyer.key(otherIcon, options))
     }
 }

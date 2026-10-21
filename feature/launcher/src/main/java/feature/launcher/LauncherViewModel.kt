@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
-import core.data.launchables.SHARED_SUBSCRIPTION_TIMEOUT_MS
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
@@ -59,6 +58,8 @@ sealed class LauncherMenuState {
     data class Menu(val item: Launchable) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
+
+private const val VIEW_MODEL_STATE_TIMEOUT_MS: Long = 5_000
 
 // Favorites missing from [keys] keep their relative order after the ordered ones.
 private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchable> {
@@ -130,7 +131,7 @@ class LauncherViewModel(
         .map { state -> state.groups.map { group -> group.label } }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
+            started = SharingStarted.WhileSubscribed(VIEW_MODEL_STATE_TIMEOUT_MS),
             initialValue = emptyList()
         )
 
@@ -160,7 +161,7 @@ class LauncherViewModel(
         if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(VIEW_MODEL_STATE_TIMEOUT_MS),
         initialValue = emptyList()
     )
 
@@ -206,23 +207,22 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
-    fun onRailPreview(index: Int) {
-        previewGroup(findRailGroup(index) ?: return)
-    }
+    fun onRailPreview(index: Int) = handleRailGroup(index, isScrolling = true)
 
-    fun onRailReleased(index: Int) {
-        val group: LaunchableGroup = findRailGroup(index) ?: return
-        when (group) {
+    fun onRailReleased(index: Int) = handleRailGroup(index, isScrolling = false)
+
+    private fun handleRailGroup(index: Int, isScrolling: Boolean) {
+        when (val group = findRailGroup(index) ?: return) {
             LaunchableGroup.Star -> showHomeFromRail()
 
             is LaunchableGroup.Listed -> {
-                val appListState: LazyListState = createAppListState(group)
+                val appListState: LazyListState? = if (isScrolling) null else createAppListState(group)
                 navigation.update { current ->
                     toAppListNavigation(
                         current = current,
                         group = group,
-                        isScrolling = false,
-                        appListState = appListState
+                        isScrolling = isScrolling,
+                        appListState = appListState ?: current.appListState
                     )
                 }
             }
@@ -257,21 +257,6 @@ class LauncherViewModel(
             Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
         }
         return group
-    }
-
-    private fun previewGroup(group: LaunchableGroup) {
-        when (group) {
-            LaunchableGroup.Star -> showHomeFromRail()
-
-            is LaunchableGroup.Listed -> navigation.update { current ->
-                toAppListNavigation(
-                    current = current,
-                    group = group,
-                    isScrolling = true,
-                    appListState = current.appListState
-                )
-            }
-        }
     }
 
     private fun showHomeFromRail() {

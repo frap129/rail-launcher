@@ -16,6 +16,7 @@ import core.data.prefs.Settings
 import core.data.testing.FIRST_POSITION
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakePreferencesRepository
+import core.data.testing.TEST_SDK
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +38,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private const val TEST_SDK: Int = 35
 private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
