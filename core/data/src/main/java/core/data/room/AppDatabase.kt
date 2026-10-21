@@ -18,6 +18,8 @@ import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
+import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.widgets.WidgetAreaSettingsRecord
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
 
@@ -31,9 +33,10 @@ import core.data.widgets.WidgetRecord
         EventSettings::class,
         FavoriteRecord::class,
         WidgetPlaceRecord::class,
-        WidgetRecord::class
+        WidgetRecord::class,
+        WidgetAreaSettingsRecord::class
     ],
-    version = 10
+    version = 11
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -45,4 +48,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getEventSettingsDao(): EventSettingsDao
     abstract fun getFavoriteDao(): FavoriteDao
     abstract fun getWidgetAreaDao(): WidgetAreaDao
+    abstract fun getWidgetAreaSettingsDao(): WidgetAreaSettingsDao
 }

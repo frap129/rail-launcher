@@ -1,6 +1,7 @@
 package core.data.widgets
 
 import core.data.room.dao.WidgetAreaDao
+import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -31,10 +32,12 @@ class IWidgetAreaRepositoryImpl(
     }.flowOn(Dispatchers.IO)
         .distinctUntilChanged()
 
-    override suspend fun removeHeader(): Int? = widgetAreaDao.removeHeader()
+    override suspend fun removeHeader(): HeaderRemoval? = widgetAreaDao.removeHeader()
 
-    override suspend fun restoreHeader(position: Int) {
-        widgetAreaDao.restoreHeader(position)
+    override suspend fun removeHeaderPage(widgetId: Long): HeaderRemoval? = widgetAreaDao.removeHeader(widgetId = widgetId)
+
+    override suspend fun restoreHeader(position: Int, placeId: Long?, pagePosition: Int) {
+        widgetAreaDao.restoreHeader(position = position, placeId = placeId, pagePosition = pagePosition)
     }
 
     override suspend fun addAppWidget(request: AddAppWidget): Long = widgetAreaDao.addAppWidget(
@@ -42,17 +45,32 @@ class IWidgetAreaRepositoryImpl(
         provider = request.provider,
         profileSerial = request.profileSerial,
         belowPlaceId = (request.insertAt as? InsertPosition.Below)?.placeId,
+        stackPlaceId = (request.insertAt as? InsertPosition.IntoStack)?.placeId,
         defaultHeightDp = request.defaultHeightDp
     )
 
-    override suspend fun removeWidget(widgetId: Long): AppWidgetId? = widgetAreaDao.removeWidget(widgetId)?.let(::AppWidgetId)
+    override suspend fun removeWidget(widgetId: Long): AppWidgetId? {
+        val widget: WidgetRecord = widgetAreaDao.getWidget(widgetId) ?: return null
+        val freedId: Int = widgetAreaDao.removeWidget(widgetId) ?: return null
+        clampDissolvedPlace(dao = widgetAreaDao, host = appWidgetHost, placeId = widget.placeId)
+        return AppWidgetId(freedId)
+    }
 
     override suspend fun setPlaceHeight(placeId: Long, heightDp: Int?) {
         widgetAreaDao.setPlaceHeight(placeId = placeId, heightDp = heightDp)
     }
 
-    override suspend fun commitEdit(order: List<Long>, removed: Set<Long>): List<AppWidgetId> =
-        widgetAreaDao.commitEdit(order = order, removed = removed).map(::AppWidgetId)
+    override suspend fun setCurrentPage(placeId: Long, page: Int) {
+        widgetAreaDao.setCurrentPage(placeId = placeId, page = page)
+    }
+
+    override suspend fun commitEdit(edit: WidgetAreaEdit): List<AppWidgetId> {
+        val freedIds: List<AppWidgetId> = widgetAreaDao.commitEdit(edit = edit).map(::AppWidgetId)
+        widgetAreaDao.getPlaceIds().forEach { placeId ->
+            clampDissolvedPlace(dao = widgetAreaDao, host = appWidgetHost, placeId = placeId)
+        }
+        return freedIds
+    }
 }
 
 internal data class WidgetAreaResolution(val places: List<WidgetPlace>, val duplicateHeaderIds: List<Long>)
@@ -87,7 +105,7 @@ internal fun resolveWidgetArea(
                 WidgetPlace(
                     id = place.id,
                     heightDp = place.heightDp,
-                    currentPage = place.currentPage,
+                    currentPage = place.currentPage.coerceIn(0, placedWidgets.lastIndex),
                     widgets = placedWidgets
                 )
             }

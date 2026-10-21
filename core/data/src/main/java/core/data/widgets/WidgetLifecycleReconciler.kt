@@ -65,8 +65,9 @@ class WidgetLifecycleReconciler(private val dao: WidgetAreaDao, private val host
             if (gone.isEmpty()) {
                 return
             }
-            dao.deleteByAppWidgetIds(gone.mapNotNull { widget -> widget.appWidgetId })
             gone.forEach { widget ->
+                dao.removeWidget(widgetId = widget.id)
+                clampDissolvedPlace(dao = dao, host = host, placeId = widget.placeId)
                 widget.appWidgetId?.let { id ->
                     host.deleteId(AppWidgetId(id))
                     removed.tryEmit(AppWidgetId(id))

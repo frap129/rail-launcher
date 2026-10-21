@@ -35,6 +35,7 @@ import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
+import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.time.AndroidClockSource
 import core.data.time.AndroidDatePatternSource
 import core.data.time.IClockSource
@@ -129,6 +130,7 @@ class MainApplication :
         single<EventSettingsDao> { database.getEventSettingsDao() }
         single<FavoriteDao> { database.getFavoriteDao() }
         single<WidgetAreaDao> { database.getWidgetAreaDao() }
+        single<WidgetAreaSettingsDao> { database.getWidgetAreaSettingsDao() }
     }
 
     /**
@@ -144,7 +146,7 @@ class MainApplication :
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
-        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get()) }
+        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get()) }
         single { AppWidgetHostCallbacks() }
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }

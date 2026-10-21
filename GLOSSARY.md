@@ -48,9 +48,21 @@ _Avoid_: Media card, music widget, now playing
 Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways.
 _Avoid_: Carousel, pager
 
+**Stack page**:
+One Widget inside a Widget Stack, selected by paging sideways.
+_Avoid_: Stack item, tab
+
+**Stack cap**:
+The maximum number of pages a Widget Stack may hold, set in Rail Settings (2–8, default 4).
+_Avoid_: Stack limit, max pages
+
 **Place**:
 An ordered slot in the Widget Area holding one Widget or Widget Stack.
 _Avoid_: Slot, row
+
+**Edit Widgets draft**:
+The in-memory order, stack membership and removals edited during Edit Widgets, committed atomically on Done.
+_Avoid_: Edit state, pending layout
 
 **Resize mode**:
 The Home edit mode that changes one Widget Area place's height.

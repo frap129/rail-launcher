@@ -108,6 +108,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.widgets.WidgetAreaSettings
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -373,6 +374,23 @@ private fun WidgetSettingsList(
         }
         items(items = uiState.appWidgets, key = { widget -> widget.widgetId }) { widget ->
             AppWidgetSettingsRow(widget = widget, onRemove = { viewModel.removeAppWidget(widget.widgetId) })
+        }
+        item { SettingsSectionTitle(R.string.widget_stacks) }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.max_stack_pages),
+                value = uiState.maxStackPages.toString(),
+                enabled = true,
+                onClick = { onDialogClick(WidgetSettingsDialog.MaxStackPages) },
+                supportingText = stringResource(R.string.more_pages_use_memory)
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.page_indicator),
+                checked = uiState.stackIndicatorVisible,
+                onCheckedChange = viewModel::setStackIndicatorVisible
+            )
         }
     }
 }
@@ -817,6 +835,19 @@ private fun WidgetSettingsDialogContent(
             onDismiss = onDismiss
         )
 
+        WidgetSettingsDialog.MaxStackPages -> SingleChoiceDialog(
+            title = stringResource(R.string.max_stack_pages),
+            options = (WidgetAreaSettings.MIN_STACK_PAGES..WidgetAreaSettings.MAX_STACK_PAGES).map { pages ->
+                SingleChoiceOption(value = pages, label = pages.toString())
+            },
+            selected = uiState.maxStackPages,
+            onSelect = { pages ->
+                viewModel.setMaxStackPages(pages)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+
         WidgetSettingsDialog.Calendars -> CalendarSelectionDialog(
             calendars = uiState.calendars,
             excludedCalendarIds = uiState.excludedCalendarIds,
@@ -836,6 +867,7 @@ private enum class WidgetSettingsDialog {
     Battery,
     EventLookahead,
     EventCount,
+    MaxStackPages,
     Calendars
 }
 
@@ -1042,12 +1074,12 @@ private fun HeaderSize.labelResource(): Int = when (this) {
 }
 
 @Composable
-private fun SettingsActionRow(title: String, value: String, enabled: Boolean, onClick: () -> Unit) {
+private fun SettingsActionRow(title: String, value: String, enabled: Boolean, onClick: () -> Unit, supportingText: String? = null) {
     ListItem(
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
         headlineContent = { Text(title) },
-        supportingContent = if (value.isNotEmpty()) {
-            { Text(value) }
+        supportingContent = if (value.isNotEmpty() || supportingText != null) {
+            { Text(value.ifEmpty { supportingText.orEmpty() }) }
         } else {
             null
         }

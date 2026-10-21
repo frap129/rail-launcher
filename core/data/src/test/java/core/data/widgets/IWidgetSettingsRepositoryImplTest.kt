@@ -12,6 +12,7 @@ import core.data.prefs.HeaderTapSetting
 import core.data.testing.FakeEventSettingsDao
 import core.data.testing.FakeHeaderSettingsDao
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakeWidgetAreaSettingsDao
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -190,6 +191,7 @@ class IWidgetSettingsRepositoryImplTest {
     ): IWidgetSettingsRepository = IWidgetSettingsRepositoryImpl(
         headerSettingsDao = dao,
         eventSettingsDao = eventSettingsDao,
+        widgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
         launchableRepository = launchables
     )
 

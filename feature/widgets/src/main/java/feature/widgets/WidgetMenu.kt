@@ -230,6 +230,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Resize -> R.string.resize_widget
     WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
+    WidgetMenuAction.RemoveFromStack -> R.string.remove_from_stack
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.RemoveWidget -> R.string.remove_widget
     WidgetMenuAction.EditWidgets -> R.string.edit_widgets
@@ -246,6 +247,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.Resize -> FontAwesomeIcons.Solid.ArrowsAltV
     WidgetMenuAction.Reconfigure -> FontAwesomeIcons.Solid.Cog
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt
+    WidgetMenuAction.RemoveFromStack -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
     WidgetMenuAction.RemoveWidget -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.EditWidgets -> FontAwesomeIcons.Solid.GripVertical

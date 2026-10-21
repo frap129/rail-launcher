@@ -1,6 +1,7 @@
 package feature.widgets
 
 import core.data.icons.model.Icon
+import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
@@ -60,6 +61,48 @@ class ResizeBoundsTest {
     fun `rejects a range whose maximum is not taller than its minimum`() {
         assertFalse(ResizeBounds.from(info(minResizeHeightDp = 72, maxResizeHeightDp = 72)).isResizable)
         assertFalse(ResizeBounds.from(info(minResizeHeightDp = 72, maxResizeHeightDp = 64)).isResizable)
+    }
+
+    @Test
+    fun `stack bounds intersect the pages' ranges`() {
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(
+            listOf(ResizeBounds(minDp = 48, maxDp = 200), ResizeBounds(minDp = 80, maxDp = 160))
+        )
+
+        assertEquals(80, bounds.minDp)
+        assertEquals(160, bounds.maxDp)
+        assertTrue(bounds.isResizable)
+    }
+
+    @Test
+    fun `stack bounds ignore unbounded pages`() {
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(
+            listOf(ResizeBounds(minDp = 48, maxDp = null), ResizeBounds(minDp = 72, maxDp = 120))
+        )
+
+        assertEquals(72, bounds.minDp)
+        assertEquals(120, bounds.maxDp)
+    }
+
+    @Test
+    fun `stack bounds with an empty intersection are not resizable at the highest minimum`() {
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(
+            listOf(ResizeBounds(minDp = 48, maxDp = 100), ResizeBounds(minDp = 120, maxDp = 200))
+        )
+
+        assertEquals(120, bounds.minDp)
+        assertEquals(120, bounds.maxDp)
+        assertFalse(bounds.isResizable)
+    }
+
+    @Test
+    fun `stack bounds include a header page's measured minimum`() {
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(
+            listOf(ResizeBounds(minDp = 96, maxDp = null, isResizable = false), ResizeBounds(minDp = 48, maxDp = 160))
+        )
+
+        assertEquals(96, bounds.minDp)
+        assertEquals(160, bounds.maxDp)
     }
 
     private fun info(

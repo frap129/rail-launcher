@@ -1,7 +1,10 @@
 package core.data.widgets
 
 /** An ordered slot in Home's Widget Area. A place holds one Widget or a Widget Stack. */
-data class WidgetPlace(val id: Long, val heightDp: Int?, val currentPage: Int, val widgets: List<PlacedWidget>)
+data class WidgetPlace(val id: Long, val heightDp: Int?, val currentPage: Int, val widgets: List<PlacedWidget>) {
+    /** True when this place pages sideways as a Widget Stack. */
+    val isStack: Boolean get() = widgets.size > 1
+}
 
 /** A Widget stored in a [WidgetPlace]. */
 sealed interface PlacedWidget {

@@ -14,9 +14,28 @@ interface IWidgetSettingsRepository {
 
     val eventSettings: Flow<EventSettings>
 
+    val widgetAreaSettings: Flow<WidgetAreaSettings>
+
     suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings)
 
     suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings)
+
+    suspend fun updateWidgetAreaSettings(transform: (WidgetAreaSettings) -> WidgetAreaSettings)
+
+    suspend fun setMaxStackPages(maxStackPages: Int) {
+        updateWidgetAreaIfChanged { settings ->
+            settings.copy(
+                maxStackPages = maxStackPages.coerceIn(
+                    WidgetAreaSettings.MIN_STACK_PAGES,
+                    WidgetAreaSettings.MAX_STACK_PAGES
+                )
+            )
+        }
+    }
+
+    suspend fun setStackIndicatorVisible(visible: Boolean) {
+        updateWidgetAreaIfChanged { settings -> settings.copy(stackIndicatorVisible = visible) }
+    }
 
     suspend fun setClockVisible(visible: Boolean) {
         updateIfChanged { settings -> settings.withClockVisible(visible) }
@@ -69,5 +88,12 @@ private suspend fun IWidgetSettingsRepository.updateEventIfChanged(transform: (E
     val current: EventSettings = eventSettings.first()
     if (transform(current) != current) {
         updateEventSettings(transform)
+    }
+}
+
+private suspend fun IWidgetSettingsRepository.updateWidgetAreaIfChanged(transform: (WidgetAreaSettings) -> WidgetAreaSettings) {
+    val current: WidgetAreaSettings = widgetAreaSettings.first()
+    if (transform(current) != current) {
+        updateWidgetAreaSettings(transform)
     }
 }

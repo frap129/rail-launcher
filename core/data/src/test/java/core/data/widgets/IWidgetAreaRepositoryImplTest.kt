@@ -81,7 +81,7 @@ class IWidgetAreaRepositoryImplTest {
             )
         )
         val repository: IWidgetAreaRepository = repository(dao)
-        assertEquals(5, repository.removeHeader() ?: -1)
+        assertEquals(5, repository.removeHeader()?.position)
     }
 
     @Test
@@ -274,7 +274,11 @@ class IWidgetAreaRepositoryImplTest {
         )
         val repository: IWidgetAreaRepository = repository(dao)
 
-        val freedIds: List<AppWidgetId> = repository.commitEdit(order = listOf(3L, 1L), removed = setOf(2L))
+        val freedIds: List<AppWidgetId> = repository.commitEdit(
+            edit = WidgetAreaEdit(
+                places = listOf(PlaceDraft(placeId = 3L, widgetIds = listOf(30L)), PlaceDraft(placeId = 1L, widgetIds = listOf(10L)))
+            )
+        )
 
         assertEquals(listOf(AppWidgetId(42)), freedIds)
         assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
@@ -293,7 +297,7 @@ class IWidgetAreaRepositoryImplTest {
         )
         val repository: IWidgetAreaRepository = repository(dao)
 
-        repository.commitEdit(order = listOf(2L, 1L), removed = setOf(2L))
+        repository.commitEdit(edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L)))))
 
         assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
         assertEquals(listOf(0), dao.observePlaces().first().map { place -> place.position })
@@ -316,10 +320,102 @@ class IWidgetAreaRepositoryImplTest {
         val repository: IWidgetAreaRepository = repository(dao)
         dao.deletePlaces(placeIds = listOf(2L))
 
-        repository.commitEdit(order = listOf(3L, 2L, 1L), removed = emptySet())
+        repository.commitEdit(
+            edit = WidgetAreaEdit(
+                places = listOf(PlaceDraft(placeId = 3L, widgetIds = listOf(30L)), PlaceDraft(placeId = 1L, widgetIds = listOf(10L)))
+            )
+        )
 
         assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
         assertEquals(listOf(1, 0), dao.observePlaces().first().sortedBy { place -> place.id }.map { place -> place.position })
+    }
+
+    @Test
+    fun `addAppWidget into a stack appends a page and makes it current`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.addAppWidget(
+            request = AddAppWidget(
+                appWidgetId = AppWidgetId(7),
+                provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.IntoStack(placeId = 1L),
+                defaultHeightDp = 48
+            )
+        )
+
+        val place: WidgetPlace = repository.places.first().single()
+        assertEquals(2, place.widgets.size)
+        assertEquals(1, place.currentPage)
+        assertEquals(10L, place.widgets.first().id)
+    }
+
+    @Test
+    fun `removeWidget dissolves a two-page stack and resets the current page`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, heightDp = 200, currentPage = 1)),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 7)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.removeWidget(widgetId = 20L)
+
+        val place: WidgetPlace = repository.places.first().single()
+        assertEquals(1, place.widgets.size)
+        assertEquals(0, place.currentPage)
+        assertNull(place.heightDp)
+    }
+
+    @Test
+    fun `commitEdit moves a widget between places`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.commitEdit(
+            edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L, 20L))))
+        )
+
+        val place: WidgetPlace = repository.places.first().single()
+        assertEquals(listOf(10L, 20L), place.widgets.map { widget -> widget.id })
+        assertEquals(0, place.currentPage)
+    }
+
+    @Test
+    fun `commitEdit creates a place for a split page`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 200)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.commitEdit(
+            edit = WidgetAreaEdit(
+                places = listOf(
+                    PlaceDraft(placeId = 1L, widgetIds = listOf(10L)),
+                    PlaceDraft(placeId = null, widgetIds = listOf(20L))
+                )
+            )
+        )
+
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(2, places.size)
+        assertEquals(listOf(10L, 20L), places.flatMap { place -> place.widgets }.map { widget -> widget.id })
     }
 
     private suspend fun repository(

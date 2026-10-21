@@ -8,51 +8,75 @@ import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.data.widgets.ResizeBounds
 import core.ui.composables.OutlinedText
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.koin.androidx.compose.koinViewModel
 import timber.log.Timber
 
 private val emptyWidgetAreaHeight: Dp = 96.dp
 private const val RESIZE_TOOLBAR_SPACE_DP: Int = 128
+private val stackIndicatorHeight: Dp = ResizeBounds.STACK_INDICATOR_HEIGHT_DP.dp
+private val stackIndicatorDotSize: Dp = 6.dp
+private val stackIndicatorGap: Dp = 6.dp
 
 /** The standalone Widget Area, rendered above Favorites on Home. */
 @Composable
 fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewModel: WidgetAreaViewModel = koinViewModel()) {
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
+    val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
-    val openHeaderMenu: () -> Unit = {
+    val openHeaderMenu: (Long) -> Unit = { widgetId ->
         if (menuEnabled) {
             hapticFeedback.performLongPressHaptic()
-            viewModel.openHeaderMenu()
+            viewModel.openHeaderMenu(widgetId = widgetId)
         }
     }
     val openEmptyAreaMenu: () -> Unit = {
@@ -68,10 +92,14 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                 heightDp = heightDp,
                 menuEnabled = placeMenuEnabled,
                 isResizing = placeIsResizing,
+                stackIndicatorVisible = state.stackIndicatorVisible,
                 onTapTarget = context::openHeaderTapTarget,
                 onHeaderLongPress = openHeaderMenu,
+                onHeaderHeight = viewModel::setHeaderHeight,
                 onAppWidgetLongPress = viewModel::openAppWidgetMenu,
                 onAppWidgetUnpause = viewModel::unpauseWorkProfile,
+                onPageSettled = viewModel::onPageSettled,
+                userScrollEnabled = placeMenuEnabled && !placeIsResizing,
                 modifier = placeModifier
             )
         }
@@ -104,8 +132,15 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                 if (state.isEditing) {
                     EditableWidgetArea(
                         places = state.places,
+                        expandedPlaceIds = editDraft?.expandedPlaceIds.orEmpty(),
+                        maxStackPages = state.maxStackPages,
                         onMovePlace = viewModel::moveWidgetPlace,
                         onRemovePlace = viewModel::removeWidgetPlaceInEdit,
+                        onToggleExpand = viewModel::toggleStackExpanded,
+                        onMovePage = viewModel::movePage,
+                        onRemovePage = viewModel::removePageInEdit,
+                        onSplitPage = viewModel::splitPage,
+                        onMergePlace = viewModel::mergePlace,
                         placeContent = { place, contentModifier ->
                             placeContent(place, place.heightDp, false, false, contentModifier)
                         }
@@ -189,33 +224,200 @@ private fun WidgetPlaceContent(
     heightDp: Int?,
     menuEnabled: Boolean,
     isResizing: Boolean,
+    stackIndicatorVisible: Boolean,
     onTapTarget: (HeaderTapTarget) -> Unit,
-    onHeaderLongPress: () -> Unit,
+    onHeaderLongPress: (Long) -> Unit,
+    onHeaderHeight: (Int) -> Unit,
     onAppWidgetLongPress: (Long) -> Unit,
     onAppWidgetUnpause: (Long) -> Unit,
+    onPageSettled: (Long, Int) -> Unit,
+    userScrollEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        place.widgets.forEach { widget ->
-            when (widget) {
-                is HeaderModel -> HeaderContent(
-                    model = widget,
-                    menuEnabled = menuEnabled,
-                    interactive = menuEnabled,
-                    onTapTarget = onTapTarget,
-                    onLongPress = onHeaderLongPress
-                )
-
-                is AppWidgetModel -> AppWidgetContent(
+    if (place.isStack) {
+        WidgetStack(
+            place = place,
+            heightDp = heightDp,
+            menuEnabled = menuEnabled,
+            isResizing = isResizing,
+            indicatorVisible = stackIndicatorVisible,
+            onTapTarget = onTapTarget,
+            onHeaderLongPress = onHeaderLongPress,
+            onHeaderHeight = onHeaderHeight,
+            onAppWidgetLongPress = onAppWidgetLongPress,
+            onAppWidgetUnpause = onAppWidgetUnpause,
+            onPageSettled = onPageSettled,
+            userScrollEnabled = menuEnabled && !isResizing,
+            modifier = modifier
+        )
+    } else {
+        Column(modifier = modifier.fillMaxWidth()) {
+            place.widgets.forEach { widget ->
+                WidgetPageContent(
                     widget = widget,
                     heightDp = heightDp,
                     menuEnabled = menuEnabled,
                     isResizing = isResizing,
-                    onLongPress = onAppWidgetLongPress,
-                    onUnpause = onAppWidgetUnpause
+                    onTapTarget = onTapTarget,
+                    onHeaderLongPress = onHeaderLongPress,
+                    onHeaderHeight = onHeaderHeight,
+                    onAppWidgetLongPress = onAppWidgetLongPress,
+                    onAppWidgetUnpause = onAppWidgetUnpause
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun WidgetStack(
+    place: WidgetPlaceModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    indicatorVisible: Boolean,
+    onTapTarget: (HeaderTapTarget) -> Unit,
+    onHeaderLongPress: (Long) -> Unit,
+    onHeaderHeight: (Int) -> Unit,
+    onAppWidgetLongPress: (Long) -> Unit,
+    onAppWidgetUnpause: (Long) -> Unit,
+    onPageSettled: (Long, Int) -> Unit,
+    userScrollEnabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val pageCount: Int = place.widgets.size
+    val pagerState = rememberPagerState(initialPage = place.currentPage.coerceIn(0, pageCount - 1)) { pageCount }
+    val totalHeight: Dp = (heightDp ?: ResizeBounds.MIN_HEIGHT_DP).dp
+    val indicatorHeight: Dp = if (indicatorVisible) stackIndicatorHeight else 0.dp
+    val pageHeight: Dp = (totalHeight - indicatorHeight).coerceAtLeast(1.dp)
+    val pageHeightDp: Int = pageHeight.value.roundToInt()
+    LaunchedEffect(place.currentPage, pageCount) {
+        val target: Int = place.currentPage.coerceIn(0, pageCount - 1)
+        if (!pagerState.isScrollInProgress && pagerState.currentPage != target) {
+            pagerState.scrollToPage(target)
+        }
+    }
+    LaunchedEffect(pagerState.settledPage) {
+        onPageSettled(place.id, pagerState.settledPage)
+    }
+    val dominanceFilter: NestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+                if (source == NestedScrollSource.UserInput && abs(available.y) >= abs(available.x)) {
+                    Offset(available.x, 0f)
+                } else {
+                    Offset.Zero
+                }
+        }
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(pageHeight)
+                .nestedScroll(dominanceFilter),
+            userScrollEnabled = userScrollEnabled,
+            key = { page -> place.widgets[page].id }
+        ) { page ->
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                WidgetPageContent(
+                    widget = place.widgets[page],
+                    heightDp = pageHeightDp,
+                    menuEnabled = menuEnabled,
+                    isResizing = isResizing,
+                    onTapTarget = onTapTarget,
+                    onHeaderLongPress = onHeaderLongPress,
+                    onHeaderHeight = onHeaderHeight,
+                    onAppWidgetLongPress = onAppWidgetLongPress,
+                    onAppWidgetUnpause = onAppWidgetUnpause
+                )
+            }
+        }
+        if (indicatorVisible) {
+            StackPageIndicator(
+                pageCount = pageCount,
+                currentPage = pagerState.currentPage
+            )
+        }
+    }
+}
+
+@Composable
+private fun StackPageIndicator(pageCount: Int, currentPage: Int) {
+    val description: String = stringResource(R.string.stack_page_of, currentPage + 1, pageCount)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(stackIndicatorHeight)
+            .semantics { contentDescription = description },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(pageCount) { page ->
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = stackIndicatorGap / 2)
+                    .size(stackIndicatorDotSize)
+                    .background(
+                        color = if (page == currentPage) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        },
+                        shape = CircleShape
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = CircleShape
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun WidgetPageContent(
+    widget: WidgetModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    onTapTarget: (HeaderTapTarget) -> Unit,
+    onHeaderLongPress: (Long) -> Unit,
+    onHeaderHeight: (Int) -> Unit,
+    onAppWidgetLongPress: (Long) -> Unit,
+    onAppWidgetUnpause: (Long) -> Unit
+) {
+    when (widget) {
+        is HeaderModel -> {
+            val density = LocalDensity.current
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size -> onHeaderHeight(with(density) { size.height.toDp().value.roundToInt() }) }
+            ) {
+                HeaderContent(
+                    model = widget,
+                    menuEnabled = menuEnabled,
+                    interactive = menuEnabled,
+                    onTapTarget = onTapTarget,
+                    onLongPress = { onHeaderLongPress(widget.id) }
+                )
+            }
+        }
+
+        is AppWidgetModel -> AppWidgetContent(
+            widget = widget,
+            heightDp = heightDp,
+            menuEnabled = menuEnabled,
+            isResizing = isResizing,
+            onLongPress = onAppWidgetLongPress,
+            onUnpause = onAppWidgetUnpause
+        )
     }
 }
 

@@ -41,6 +41,7 @@ class WidgetAreaDaoTest {
                 provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
                 profileSerial = 0L,
                 belowPlaceId = headerPlaceId,
+                stackPlaceId = null,
                 defaultHeightDp = 48
             )
 

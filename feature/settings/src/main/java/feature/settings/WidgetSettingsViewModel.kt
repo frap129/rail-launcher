@@ -26,6 +26,7 @@ import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
+import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
@@ -113,12 +114,18 @@ data class WidgetSettingsUiState(
     val includeAllDay: Boolean = true,
     val excludedCalendarIds: Set<String> = emptySet(),
     val calendars: List<CalendarInfo> = emptyList(),
-    val appWidgets: List<WidgetSettingsAppWidget> = emptyList()
+    val appWidgets: List<WidgetSettingsAppWidget> = emptyList(),
+    val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
+    val stackIndicatorVisible: Boolean = true
 )
 
 private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
 
-private data class WidgetSettingsRows(val places: List<WidgetPlace>, val appWidgets: List<WidgetSettingsAppWidget>)
+private data class WidgetSettingsRows(
+    val places: List<WidgetPlace>,
+    val appWidgets: List<WidgetSettingsAppWidget>,
+    val areaSettings: WidgetAreaSettings
+)
 
 sealed interface WidgetSettingsEvent {
     data object RequestCalendarPermission : WidgetSettingsEvent
@@ -177,10 +184,12 @@ class WidgetSettingsViewModel(
 
     private val widgetRows: Flow<WidgetSettingsRows> = combine(
         areaRepository.places,
-        appWidgetHost.providers
-    ) { places, providers ->
+        appWidgetHost.providers,
+        settingsRepository.widgetAreaSettings
+    ) { places, providers, areaSettings ->
         WidgetSettingsRows(
             places = places,
+            areaSettings = areaSettings,
             appWidgets = places.flatMap { place ->
                 place.widgets.filterIsInstance<PlacedWidget.AppWidget>().map { widget ->
                     val info: WidgetProviderInfo? = providers.firstOrNull { provider ->
@@ -241,7 +250,9 @@ class WidgetSettingsViewModel(
             includeAllDay = eventSettingsState.settings.includeAllDay,
             excludedCalendarIds = eventSettingsState.settings.excludedCalendarIds,
             calendars = eventSettingsState.calendars,
-            appWidgets = rows.appWidgets
+            appWidgets = rows.appWidgets,
+            maxStackPages = rows.areaSettings.maxStackPages,
+            stackIndicatorVisible = rows.areaSettings.stackIndicatorVisible
         )
     }.stateIn(
         scope = viewModelScope,
@@ -392,6 +403,18 @@ class WidgetSettingsViewModel(
     fun openAddWidget() {
         viewModelScope.launch {
             eventChannel.send(WidgetSettingsEvent.StartAddWidget)
+        }
+    }
+
+    fun setMaxStackPages(maxStackPages: Int) {
+        viewModelScope.launch {
+            settingsRepository.setMaxStackPages(maxStackPages)
+        }
+    }
+
+    fun setStackIndicatorVisible(visible: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setStackIndicatorVisible(visible)
         }
     }
 
