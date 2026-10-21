@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="launcher_done">Done</string>
+    <string name="launcher_reset">Reset</string>
+    <string name="app_info">App Info</string>
+    <string name="edit_favorites">Edit Favorites</string>
+    <string name="favorites_empty_hint">Long-press any app to add it to Favorites</string>
+    <string name="add_to_favorites">Add to Favorites</string>
+    <string name="remove_from_favorites">Remove from Favorites</string>
+    <string name="reorder_favorite">Reorder %1$s</string>
+    <string name="rename_item">Rename %1$s</string>
+</resources>
