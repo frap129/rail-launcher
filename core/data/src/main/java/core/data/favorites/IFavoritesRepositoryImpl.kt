@@ -2,6 +2,7 @@ package core.data.favorites
 
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
+import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +49,7 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
             UNLOADED_RESOLUTION
         }
     }
+        .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_RESOLUTION)
 
     init {

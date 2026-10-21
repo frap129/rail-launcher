@@ -23,13 +23,18 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
@@ -46,6 +51,7 @@ private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
+private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -84,6 +90,42 @@ class ILaunchableRepositoryImplTest {
         assertEquals(listOf("O", "⌂"), state.listedGroups.map { group -> group.label })
         assertTrue(menuItems.isNotEmpty())
         assertTrue(favorites.isNotEmpty())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
+        val inputApp: App = createApp()
+        val inputRenamedApp: App = createApp(name = RENAMED_NAME)
+        val fakeAppRepository: FakeAppRepository = FakeAppRepository(inputApps = listOf(inputApp))
+        val repository: ILaunchableRepository = createRepository(
+            fakeAppRepository = fakeAppRepository,
+            scope = backgroundScope
+        )
+        backgroundScope.launch { repository.launchableState.collect() }
+        runCurrent()
+        assertTrue(repository.launchableState.value.isLoaded)
+        fakeAppRepository.failNextCollections(count = 2)
+        fakeAppRepository.setApps(listOf(inputRenamedApp))
+        runCurrent()
+        assertEquals(1, fakeAppRepository.collections)
+        assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
+        advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
+        runCurrent()
+        assertEquals(1, fakeAppRepository.collections)
+        assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(2, fakeAppRepository.collections)
+        assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
+        advanceTimeBy(2 * INITIAL_RETRY_DELAY_MS - 1)
+        runCurrent()
+        assertEquals(2, fakeAppRepository.collections)
+        assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(3, fakeAppRepository.collections)
+        assertEquals(RENAMED_NAME, repository.launchableState.value.singleAppName())
     }
 
     @Test
@@ -165,36 +207,53 @@ class ILaunchableRepositoryImplTest {
         fakePreferencesRepository: IPreferencesRepository = FakePreferencesRepository(),
         fakeIconRepository: IIconRepository = FakeIconRepository(
             inputIcon = Icon.ActivityIcon(componentName)
-        )
+        ),
+        scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = fakeAppRepository,
         iconRepository = fakeIconRepository,
         preferencesRepository = fakePreferencesRepository,
-        scope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
+        scope = scope
     )
 
-    private fun createApp(): App = App(
-        defaultName = ORIGINAL_NAME,
+    private fun createApp(name: String = ORIGINAL_NAME): App = App(
+        defaultName = name,
         profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
         componentName = componentName
     )
+
+    private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
 }
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
 private class FakeAppRepository(inputApps: List<App>) : IAppRepository {
     private val state: MutableStateFlow<List<App>?> = MutableStateFlow(inputApps)
     private val collectionCounter: AtomicInteger = AtomicInteger(0)
+    private val remainingFailures: AtomicInteger = AtomicInteger(0)
     private val recordedThreadNames: MutableList<String> = Collections.synchronizedList(mutableListOf())
     override val apps: StateFlow<List<App>?> = object : StateFlow<List<App>?> by state {
         override suspend fun collect(collector: FlowCollector<List<App>?>): Nothing {
             collectionCounter.incrementAndGet()
             recordedThreadNames.add(Thread.currentThread().name)
-            return state.collect(collector)
+            return state.collect { apps ->
+                if (remainingFailures.getAndUpdate { count -> if (count > 0) count - 1 else 0 } > 0) {
+                    throw IllegalStateException("Apps upstream failure")
+                }
+                collector.emit(apps)
+            }
         }
     }
 
     val collections: Int get() = collectionCounter.get()
     val collectionThreadNames: List<String> get() = recordedThreadNames.toList()
+
+    fun failNextCollections(count: Int) {
+        remainingFailures.set(count)
+    }
+
+    fun setApps(apps: List<App>) {
+        state.value = apps
+    }
 }
 
 private class FakeIconRepository(private val inputIcon: Icon) : IIconRepository {
