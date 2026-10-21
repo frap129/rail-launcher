@@ -31,6 +31,12 @@ abstract class WidgetAreaDao {
     @Query("SELECT position FROM widget_places WHERE id = :placeId")
     abstract suspend fun getPlacePosition(placeId: Long): Int?
 
+    @Query("SELECT * FROM widgets WHERE kind = 'APP_WIDGET'")
+    abstract suspend fun getAppWidgets(): List<WidgetRecord>
+
+    @Query("SELECT app_widget_id FROM widgets WHERE app_widget_id IS NOT NULL")
+    abstract suspend fun allAppWidgetIds(): List<Int>
+
     @Query("SELECT * FROM widgets WHERE id = :widgetId")
     abstract suspend fun getWidget(widgetId: Long): WidgetRecord?
 
@@ -45,6 +51,18 @@ abstract class WidgetAreaDao {
 
     @Query("DELETE FROM widget_places WHERE id NOT IN (SELECT DISTINCT place_id FROM widgets)")
     abstract suspend fun deleteEmptyPlaces()
+
+    @Query("DELETE FROM widgets WHERE app_widget_id IN (:ids)")
+    abstract suspend fun deleteWidgetsByAppWidgetIds(ids: List<Int>)
+
+    @Transaction
+    open suspend fun deleteByAppWidgetIds(ids: List<Int>) {
+        if (ids.isEmpty()) {
+            return
+        }
+        deleteWidgetsByAppWidgetIds(ids)
+        deleteEmptyPlaces()
+    }
 
     @Query("UPDATE widget_places SET position = position + 1 WHERE position >= :position")
     abstract suspend fun shiftPositionsFrom(position: Int)
@@ -91,7 +109,13 @@ abstract class WidgetAreaDao {
     }
 
     @Transaction
-    open suspend fun addAppWidget(appWidgetId: Int, provider: WidgetProvider, profileSerial: Long, belowPlaceId: Long?): Long {
+    open suspend fun addAppWidget(
+        appWidgetId: Int,
+        provider: WidgetProvider,
+        profileSerial: Long,
+        belowPlaceId: Long?,
+        defaultHeightDp: Int
+    ): Long {
         val belowPosition: Int? = belowPlaceId?.let { placeId -> getPlacePosition(placeId) }
         val position: Int = belowPosition?.plus(1) ?: (getMaxPlacePosition() + 1)
         shiftPositionsFrom(position)
@@ -103,7 +127,8 @@ abstract class WidgetAreaDao {
                 kind = WidgetKind.APP_WIDGET,
                 appWidgetId = appWidgetId,
                 provider = provider.key,
-                profileSerial = profileSerial
+                profileSerial = profileSerial,
+                defaultHeightDp = defaultHeightDp
             )
         )
         return placeId

@@ -40,4 +40,10 @@
     <string name="remove_widget">Remove widget</string>
     <string name="widget_removed">Widget removed</string>
     <string name="couldnt_add_widget">Couldn\'t add widget</string>
+    <string name="widget_updating">Updating…</string>
+    <string name="widget_work_profile_paused">Work apps are paused</string>
+    <string name="widget_disabled">App is disabled</string>
+    <string name="widget_unavailable">Widget unavailable</string>
+    <string name="reconfigure_widget">Reconfigure</string>
+    <string name="couldnt_open_widget_settings">Couldn\'t open widget settings</string>
 </resources>

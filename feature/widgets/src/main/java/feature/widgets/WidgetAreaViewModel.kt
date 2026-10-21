@@ -21,13 +21,17 @@ import core.data.time.IClockSource
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
+import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
+import core.data.widgets.WidgetAvailability
+import core.data.widgets.WidgetLifecycleReconciler
 import core.data.widgets.WidgetPlace
+import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
@@ -53,6 +57,15 @@ import kotlinx.coroutines.launch
 
 private const val STATE_TIMEOUT_MS: Long = 5_000L
 private const val PENDING_APP_WIDGET_ID_KEY: String = "pendingAppWidgetId"
+private const val PENDING_PROVIDER_KEY: String = "pendingAppWidgetProvider"
+private const val PENDING_PROFILE_SERIAL_KEY: String = "pendingAppWidgetProfileSerial"
+private const val PENDING_NEEDS_CONFIGURATION_KEY: String = "pendingAppWidgetNeedsConfiguration"
+private const val PENDING_DEFAULT_HEIGHT_KEY: String = "pendingAppWidgetDefaultHeight"
+private const val PENDING_INSERT_BELOW_PLACE_ID_KEY: String = "pendingAppWidgetInsertBelowPlaceId"
+private const val PENDING_RETURN_TO_SETTINGS_KEY: String = "pendingAppWidgetReturnToSettings"
+private const val PENDING_PHASE_KEY: String = "pendingAppWidgetPhase"
+private const val PENDING_PHASE_BINDING: String = "binding"
+private const val PENDING_PHASE_CONFIGURING: String = "configuring"
 
 /** Where a picked App Widget is inserted and whether the flow returns to Settings. */
 data class AddWidgetOrigin(val insertAt: InsertPosition, val returnToSettings: Boolean = false)
@@ -67,7 +80,14 @@ data class PickerGroup(
 )
 
 /** The allocated id and destination of an App Widget in the add flow. */
-data class PendingWidget(val id: AppWidgetId, val provider: WidgetProviderInfo, val origin: AddWidgetOrigin)
+data class PendingWidget(
+    val id: AppWidgetId,
+    val provider: WidgetProvider,
+    val profileSerial: Long,
+    val needsConfiguration: Boolean,
+    val defaultHeightDp: Int,
+    val origin: AddWidgetOrigin
+)
 
 sealed interface AddWidgetFlowState {
     data object Idle : AddWidgetFlowState
@@ -126,6 +146,7 @@ enum class WidgetMenuAction {
     UpcomingEvents,
     ClockStyle,
     AddWidget,
+    Reconfigure,
     RemoveHeader,
     RestoreHeader,
     RemoveWidget,
@@ -144,6 +165,10 @@ sealed interface WidgetAreaEvent {
     data class LaunchBind(val request: BindRequest) : WidgetAreaEvent
 
     data class LaunchConfigure(val id: AppWidgetId) : WidgetAreaEvent
+
+    data class LaunchReconfigure(val id: AppWidgetId) : WidgetAreaEvent
+
+    data class RequestQuietModeOff(val profileSerial: Long) : WidgetAreaEvent
 
     data class ShowMessage(@StringRes val message: Int) : WidgetAreaEvent
 
@@ -183,7 +208,9 @@ class WidgetAreaViewModel(
     private val appWidgetHost: IAppWidgetHostSource,
     private val savedStateHandle: SavedStateHandle,
     batterySource: IBatterySource,
-    private val removeAppWidget: RemoveAppWidget
+    private val removeAppWidget: RemoveAppWidget,
+    private val addFlowPendingIds: IAddFlowPendingIds,
+    private val widgetLifecycleReconciler: WidgetLifecycleReconciler
 ) : ViewModel() {
     private val providers: StateFlow<List<WidgetProviderInfo>> = appWidgetHost.providers
         .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = emptyList())
@@ -192,14 +219,16 @@ class WidgetAreaViewModel(
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
 
     init {
-        savedStateHandle.get<Int>(PENDING_APP_WIDGET_ID_KEY)?.let { pendingId ->
-            appWidgetHost.deleteId(AppWidgetId(pendingId))
-            savedStateHandle.remove<Int>(PENDING_APP_WIDGET_ID_KEY)
-        }
+        restorePendingWidget()
         viewModelScope.launch {
             providers.collect { providerList ->
                 val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return@collect
                 addFlow.value = picking.copy(groups = pickerGroups(providers = providerList, query = picking.query))
+            }
+        }
+        viewModelScope.launch {
+            widgetLifecycleReconciler.removedIds.collect { id ->
+                eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = id))
             }
         }
     }
@@ -440,6 +469,10 @@ class WidgetAreaViewModel(
         when (action) {
             WidgetMenuAction.AddWidget -> startAddFromMenu()
 
+            WidgetMenuAction.Reconfigure -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
+                reconfigure(widgetId = target.widgetId)
+            }
+
             WidgetMenuAction.RemoveWidget -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
                 removeWidget(widgetId = target.widgetId)
             }
@@ -481,17 +514,33 @@ class WidgetAreaViewModel(
 
     fun pickProvider(provider: WidgetProviderInfo) {
         val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return
+        val isStillOffered: Boolean = providers.value.any { available ->
+            available.provider == provider.provider && available.profileSerial == provider.profileSerial
+        }
+        if (!isStillOffered) {
+            addFlow.value = AddWidgetFlowState.Idle
+            viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
+            }
+            return
+        }
         val id: AppWidgetId = appWidgetHost.allocateId()
-        val pending: PendingWidget = PendingWidget(id = id, provider = provider, origin = picking.origin)
-        savedStateHandle[PENDING_APP_WIDGET_ID_KEY] = id.value
+        val pending: PendingWidget = PendingWidget(
+            id = id,
+            provider = provider.provider,
+            profileSerial = provider.profileSerial,
+            needsConfiguration = provider.needsConfiguration,
+            defaultHeightDp = provider.minHeightDp,
+            origin = picking.origin
+        )
         addFlow.value = AddWidgetFlowState.Binding(widget = pending)
-        if (appWidgetHost.bindIfAllowed(BindRequest(id = id, provider = provider.provider, profileSerial = provider.profileSerial))) {
+        persistPending(pending = pending, phase = PENDING_PHASE_BINDING)
+        val request: BindRequest = BindRequest(id = id, provider = provider.provider, profileSerial = provider.profileSerial)
+        if (appWidgetHost.bindIfAllowed(request = request)) {
             continueAfterBind(pending = pending)
         } else {
             viewModelScope.launch {
-                eventChannel.send(
-                    WidgetAreaEvent.LaunchBind(BindRequest(id = id, provider = provider.provider, profileSerial = provider.profileSerial))
-                )
+                eventChannel.send(WidgetAreaEvent.LaunchBind(request = request))
             }
         }
     }
@@ -533,6 +582,38 @@ class WidgetAreaViewModel(
         }
     }
 
+    fun reconfigure(widgetId: Long) {
+        viewModelScope.launch {
+            val widget: PlacedWidget.AppWidget = findAppWidget(widgetId = widgetId) ?: return@launch
+            if (widget.availability != WidgetAvailability.Available) {
+                return@launch
+            }
+            menuTarget.value = null
+            eventChannel.send(WidgetAreaEvent.LaunchReconfigure(id = AppWidgetId(widget.appWidgetId)))
+        }
+    }
+
+    fun onReconfigureResult(ok: Boolean) {
+        if (!ok) {
+            viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_open_widget_settings))
+            }
+        }
+    }
+
+    fun unpauseWorkProfile(widgetId: Long) {
+        viewModelScope.launch {
+            val widget: PlacedWidget.AppWidget = findAppWidget(widgetId = widgetId) ?: return@launch
+            eventChannel.send(WidgetAreaEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
+        }
+    }
+
+    private suspend fun findAppWidget(widgetId: Long): PlacedWidget.AppWidget? = repository.places.first()
+        .asSequence()
+        .flatMap { place -> place.widgets.asSequence() }
+        .filterIsInstance<PlacedWidget.AppWidget>()
+        .firstOrNull { widget -> widget.id == widgetId }
+
     fun startAddFromMenu() {
         val target: WidgetMenuTarget = menuTarget.value ?: return
         viewModelScope.launch {
@@ -554,8 +635,9 @@ class WidgetAreaViewModel(
     }
 
     private fun continueAfterBind(pending: PendingWidget) {
-        if (pending.provider.needsConfiguration) {
+        if (pending.needsConfiguration) {
             addFlow.value = AddWidgetFlowState.Configuring(widget = pending)
+            persistPending(pending = pending, phase = PENDING_PHASE_CONFIGURING)
             viewModelScope.launch {
                 eventChannel.send(WidgetAreaEvent.LaunchConfigure(id = pending.id))
             }
@@ -570,9 +652,10 @@ class WidgetAreaViewModel(
                 repository.addAppWidget(
                     request = AddAppWidget(
                         appWidgetId = pending.id,
-                        provider = pending.provider.provider,
-                        profileSerial = pending.provider.profileSerial,
-                        insertAt = pending.origin.insertAt
+                        provider = pending.provider,
+                        profileSerial = pending.profileSerial,
+                        insertAt = pending.origin.insertAt,
+                        defaultHeightDp = pending.defaultHeightDp
                     )
                 )
             }
@@ -580,7 +663,7 @@ class WidgetAreaViewModel(
                 failAdd(id = pending.id)
                 return@launch
             }
-            clearPendingId()
+            clearPending()
             addFlow.value = AddWidgetFlowState.Idle
             if (pending.origin.returnToSettings) {
                 eventChannel.send(WidgetAreaEvent.ReturnToSettings)
@@ -592,15 +675,65 @@ class WidgetAreaViewModel(
 
     private fun failAdd(id: AppWidgetId) {
         appWidgetHost.deleteId(id = id)
-        clearPendingId()
+        clearPending()
         addFlow.value = AddWidgetFlowState.Idle
         viewModelScope.launch {
             eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
         }
     }
 
-    private fun clearPendingId() {
+    private fun restorePendingWidget() {
+        val pendingId: Int = savedStateHandle.get<Int>(PENDING_APP_WIDGET_ID_KEY) ?: return
+        val providerKey: String? = savedStateHandle.get<String>(PENDING_PROVIDER_KEY)
+        val provider: WidgetProvider? = providerKey?.let(WidgetProvider::fromKey)
+        val profileSerial: Long? = savedStateHandle.get<Long>(PENDING_PROFILE_SERIAL_KEY)
+        if (provider == null || profileSerial == null) {
+            failAdd(id = AppWidgetId(pendingId))
+            return
+        }
+        val pending: PendingWidget = PendingWidget(
+            id = AppWidgetId(pendingId),
+            provider = provider,
+            profileSerial = profileSerial,
+            needsConfiguration = savedStateHandle.get<Boolean>(PENDING_NEEDS_CONFIGURATION_KEY) ?: false,
+            defaultHeightDp = savedStateHandle.get<Int>(PENDING_DEFAULT_HEIGHT_KEY) ?: 0,
+            origin = AddWidgetOrigin(
+                insertAt = savedStateHandle.get<Long>(PENDING_INSERT_BELOW_PLACE_ID_KEY)
+                    ?.let { placeId -> InsertPosition.Below(placeId = placeId) }
+                    ?: InsertPosition.End,
+                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false
+            )
+        )
+        addFlowPendingIds.set(setOf(pending.id))
+        addFlow.value = if (savedStateHandle.get<String>(PENDING_PHASE_KEY) == PENDING_PHASE_CONFIGURING) {
+            AddWidgetFlowState.Configuring(widget = pending)
+        } else {
+            AddWidgetFlowState.Binding(widget = pending)
+        }
+    }
+
+    private fun persistPending(pending: PendingWidget, phase: String) {
+        savedStateHandle[PENDING_APP_WIDGET_ID_KEY] = pending.id.value
+        savedStateHandle[PENDING_PROVIDER_KEY] = pending.provider.key
+        savedStateHandle[PENDING_PROFILE_SERIAL_KEY] = pending.profileSerial
+        savedStateHandle[PENDING_NEEDS_CONFIGURATION_KEY] = pending.needsConfiguration
+        savedStateHandle[PENDING_DEFAULT_HEIGHT_KEY] = pending.defaultHeightDp
+        savedStateHandle[PENDING_INSERT_BELOW_PLACE_ID_KEY] = (pending.origin.insertAt as? InsertPosition.Below)?.placeId
+        savedStateHandle[PENDING_RETURN_TO_SETTINGS_KEY] = pending.origin.returnToSettings
+        savedStateHandle[PENDING_PHASE_KEY] = phase
+        addFlowPendingIds.set(setOf(pending.id))
+    }
+
+    private fun clearPending() {
         savedStateHandle.remove<Int>(PENDING_APP_WIDGET_ID_KEY)
+        savedStateHandle.remove<String>(PENDING_PROVIDER_KEY)
+        savedStateHandle.remove<Long>(PENDING_PROFILE_SERIAL_KEY)
+        savedStateHandle.remove<Boolean>(PENDING_NEEDS_CONFIGURATION_KEY)
+        savedStateHandle.remove<Int>(PENDING_DEFAULT_HEIGHT_KEY)
+        savedStateHandle.remove<Long>(PENDING_INSERT_BELOW_PLACE_ID_KEY)
+        savedStateHandle.remove<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY)
+        savedStateHandle.remove<String>(PENDING_PHASE_KEY)
+        addFlowPendingIds.set(emptySet())
     }
 
     private fun pickerGroups(providers: List<WidgetProviderInfo>, query: String): List<PickerGroup> {
@@ -676,11 +809,15 @@ class WidgetAreaViewModel(
                     appWidgetId = AppWidgetId(widget.appWidgetId),
                     icon = info.iconOr(provider = widget.provider),
                     label = info.labelOr(provider = widget.provider),
-                    items = listOf(
-                        WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget),
-                        WidgetMenuItem.Action(id = WidgetMenuAction.RemoveWidget),
-                        WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings)
-                    )
+                    items = buildList {
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
+                        val isReconfigurable: Boolean = info != null && info.isReconfigurable && info.hasConfigureActivity
+                        if (widget.availability == WidgetAvailability.Available && isReconfigurable) {
+                            add(WidgetMenuItem.Action(id = WidgetMenuAction.Reconfigure))
+                        }
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.RemoveWidget))
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
+                    }
                 )
             }
         }
@@ -786,8 +923,10 @@ class WidgetAreaViewModel(
                 appWidgetId = appWidgetId,
                 provider = provider.key,
                 label = info.labelOr(provider = provider),
-                minHeightDp = info?.minHeightDp ?: 0,
-                isWorkProfile = info?.isWorkProfile ?: false
+                icon = info.iconOr(provider = provider),
+                minHeightDp = info?.minHeightDp ?: defaultHeightDp ?: 0,
+                isWorkProfile = info?.isWorkProfile ?: false,
+                availability = availability
             )
         }
     }

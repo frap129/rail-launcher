@@ -39,7 +39,8 @@ class WidgetAreaDaoTest {
                 appWidgetId = 41,
                 provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
                 profileSerial = 0L,
-                belowPlaceId = headerPlaceId
+                belowPlaceId = headerPlaceId,
+                defaultHeightDp = 48
             )
 
             val places: List<WidgetPlaceRecord> = dao.observePlaces().first()
@@ -48,6 +49,7 @@ class WidgetAreaDaoTest {
             val inserted: WidgetRecord = dao.observeWidgets().first().first { widget -> widget.appWidgetId == 41 }
             assertEquals(insertedPlaceId, inserted.placeId)
             assertTrue(inserted.kind == WidgetKind.APP_WIDGET)
+            assertEquals(48, inserted.defaultHeightDp)
         } finally {
             database.close()
         }

@@ -19,6 +19,7 @@ import core.data.widgets.BindRequest
 import core.data.widgets.WidgetProviderInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 /** Android-only rendering helpers for App Widgets. */
 object AppWidgetViews {
@@ -72,6 +73,15 @@ object AppWidgetViews {
             append(resourceId, context.getColor(resourceId))
         }
     }
+
+    /** Asks the system to leave quiet mode for the profile that owns [profileSerial]. */
+    fun requestQuietModeOff(context: Context, profileSerial: Long) {
+        val user: UserHandle = userForSerial(context, profileSerial) ?: return
+        val userManager: UserManager = context.getSystemService(UserManager::class.java)
+        runCatching { userManager.requestQuietModeEnabled(false, user) }
+            .onFailure { exception -> Timber.w(exception, "Could not leave quiet mode for profile %s", profileSerial) }
+    }
+
     private fun userForSerial(context: Context, serial: Long): UserHandle? {
         val userManager: UserManager = context.getSystemService(UserManager::class.java)
         return userManager.userProfiles.firstOrNull { user -> userManager.getSerialNumberForUser(user) == serial }

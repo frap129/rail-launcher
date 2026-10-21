@@ -22,5 +22,6 @@ class AppWidgetResults {
 
     companion object {
         const val REQUEST_CODE: Int = 1001
+        const val RECONFIGURE_REQUEST_CODE: Int = 1002
     }
 }

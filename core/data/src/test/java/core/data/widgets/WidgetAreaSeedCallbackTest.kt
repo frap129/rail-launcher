@@ -3,6 +3,8 @@ package core.data.widgets
 import android.content.Context
 import androidx.room.Room
 import core.data.room.AppDatabase
+import core.data.room.dao.WidgetAreaDao
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.TEST_SDK
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -56,7 +58,11 @@ class WidgetAreaSeedCallbackTest {
     }
 
     private suspend fun assertSingleSeededHeader(database: AppDatabase) {
-        val places: List<WidgetPlace> = IWidgetAreaRepositoryImpl(database.getWidgetAreaDao()).places.first()
+        val dao: WidgetAreaDao = database.getWidgetAreaDao()
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        reconciler.reconcileAtStartup(pendingIds = emptySet())
+        val places: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, host, reconciler).places.first()
         assertEquals(1, places.size)
         val widgets: List<PlacedWidget> = places.single().widgets
         assertEquals(1, widgets.size)

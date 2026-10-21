@@ -36,6 +36,14 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
 
     override suspend fun getWidget(widgetId: Long): WidgetRecord? = widgets.value.firstOrNull { widget -> widget.id == widgetId }
 
+    override suspend fun getAppWidgets(): List<WidgetRecord> = widgets.value.filter { widget -> widget.kind == WidgetKind.APP_WIDGET }
+
+    override suspend fun allAppWidgetIds(): List<Int> = widgets.value.mapNotNull { widget -> widget.appWidgetId }
+
+    override suspend fun deleteWidgetsByAppWidgetIds(ids: List<Int>) {
+        widgets.update { current -> current.filterNot { widget -> widget.appWidgetId in ids } }
+    }
+
     override suspend fun insertPlace(place: WidgetPlaceRecord): Long {
         val id: Long = if (place.id == 0L) nextPlaceId++ else place.id
         places.update { current -> current + place.copy(id = id) }

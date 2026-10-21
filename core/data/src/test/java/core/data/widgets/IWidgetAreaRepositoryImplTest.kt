@@ -1,6 +1,7 @@
 package core.data.widgets
 
 import app.cash.turbine.test
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeWidgetAreaDao
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -21,7 +22,7 @@ class IWidgetAreaRepositoryImplTest {
                 appWidget(id = 11L, placeId = 1L, pagePosition = 1)
             )
         )
-        IWidgetAreaRepositoryImpl(dao).places.test {
+        repository(dao).places.test {
             val places: List<WidgetPlace> = awaitItem()
             assertEquals(listOf(1L, 2L), places.map { place -> place.id })
             assertEquals(listOf(12L, 11L), places.first().widgets.map { widget -> widget.id })
@@ -38,7 +39,7 @@ class IWidgetAreaRepositoryImplTest {
             ),
             initialWidgets = listOf(header(id = 2L, placeId = 2L, pagePosition = 0))
         )
-        IWidgetAreaRepositoryImpl(dao).places.test {
+        repository(dao).places.test {
             assertEquals(listOf(2L), awaitItem().map { place -> place.id })
             cancelAndIgnoreRemainingEvents()
         }
@@ -56,7 +57,7 @@ class IWidgetAreaRepositoryImplTest {
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         repository.removeHeader()
         assertEquals(listOf(10L), repository.places.first().flatMap { place -> place.widgets.map { widget -> widget.id } })
         repository.restoreHeader(position = 0)
@@ -78,7 +79,7 @@ class IWidgetAreaRepositoryImplTest {
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         assertEquals(5, repository.removeHeader() ?: -1)
     }
 
@@ -95,7 +96,7 @@ class IWidgetAreaRepositoryImplTest {
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         val resolvedPlaces: List<WidgetPlace> = repository.places.first()
         assertEquals(listOf(1L), resolvedPlaces.map { place -> place.id })
         assertEquals(listOf(10L), resolvedPlaces.flatMap { place -> place.widgets.map { widget -> widget.id } })
@@ -116,7 +117,7 @@ class IWidgetAreaRepositoryImplTest {
                 )
             )
         )
-        IWidgetAreaRepositoryImpl(dao).places.test {
+        repository(dao).places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -131,14 +132,15 @@ class IWidgetAreaRepositoryImplTest {
             ),
             initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         val provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "Widget")
         repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(42),
                 provider = provider,
                 profileSerial = 1L,
-                insertAt = InsertPosition.Below(placeId = 1L)
+                insertAt = InsertPosition.Below(placeId = 1L),
+                defaultHeightDp = 48
             )
         )
         val places: List<WidgetPlace> = repository.places.first()
@@ -155,17 +157,40 @@ class IWidgetAreaRepositoryImplTest {
             initialPlaces = listOf(place(id = 1L, position = 0)),
             initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(7),
                 provider = WidgetProvider(packageName = "com.example", className = "Widget"),
                 profileSerial = 0L,
-                insertAt = InsertPosition.End
+                insertAt = InsertPosition.End,
+                defaultHeightDp = 48
             )
         )
         val places: List<WidgetPlace> = repository.places.first()
         assertEquals(7, (places.last().widgets.single() as PlacedWidget.AppWidget).appWidgetId)
+    }
+
+    @Test
+    fun `addAppWidget stores the default height on the placed widget`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+        repository.addAppWidget(
+            AddAppWidget(
+                appWidgetId = AppWidgetId(7),
+                provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.End,
+                defaultHeightDp = 64
+            )
+        )
+        val stored: WidgetRecord = dao.observeWidgets().first().first { widget -> widget.appWidgetId == 7 }
+        assertEquals(64, stored.defaultHeightDp)
+        val placed: PlacedWidget.AppWidget = repository.places.first().last().widgets.single() as PlacedWidget.AppWidget
+        assertEquals(64, placed.defaultHeightDp)
     }
 
     @Test
@@ -174,12 +199,60 @@ class IWidgetAreaRepositoryImplTest {
             initialPlaces = listOf(place(id = 1L, position = 0)),
             initialWidgets = listOf(appWidget(id = 11L, placeId = 1L))
         )
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao)
+        val repository: IWidgetAreaRepository = repository(dao)
         assertEquals(AppWidgetId(42), repository.removeWidget(widgetId = 11L))
         assertEquals(emptyList<WidgetPlace>(), repository.places.first())
         assertEquals(emptyList<WidgetPlaceRecord>(), dao.observePlaces().first())
         assertEquals(emptyList<WidgetRecord>(), dao.observeWidgets().first())
     }
+
+    @Test
+    fun `hides the Widget Area until startup reconciliation finishes`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        host.boundIdsState.add(AppWidgetId(42))
+        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao, host, reconciler)
+        repository.places.test {
+            assertEquals(emptyList<WidgetPlace>(), awaitItem())
+            reconciler.reconcileAtStartup(pendingIds = emptySet())
+            assertEquals(listOf(1L), awaitItem().map { place -> place.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `re-resolves availability when providers change`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        host.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Available
+        val repository: IWidgetAreaRepository = repository(dao = dao, host = host)
+        repository.places.test {
+            assertEquals(WidgetAvailability.Available, model(awaitItem()).availability)
+            host.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Unknown
+            host.emitProviderChange()
+            assertEquals(WidgetAvailability.Unknown, model(awaitItem()).availability)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private suspend fun repository(
+        dao: FakeWidgetAreaDao,
+        host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+    ): IWidgetAreaRepositoryImpl {
+        host.boundIdsState.addAll(dao.allAppWidgetIds().map { id -> AppWidgetId(id) })
+        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        reconciler.reconcileAtStartup(pendingIds = emptySet())
+        return IWidgetAreaRepositoryImpl(dao, host, reconciler)
+    }
+
+    private fun model(places: List<WidgetPlace>): PlacedWidget.AppWidget = places.single().widgets.single() as PlacedWidget.AppWidget
 
     private fun place(id: Long, position: Int): WidgetPlaceRecord = WidgetPlaceRecord(
         id = id,

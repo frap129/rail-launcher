@@ -16,7 +16,9 @@ sealed interface PlacedWidget {
         val appWidgetId: Int,
         val provider: WidgetProvider,
         val profileSerial: Long,
-        val extendsUnderRail: Boolean
+        val extendsUnderRail: Boolean,
+        val availability: WidgetAvailability = WidgetAvailability.Available,
+        val defaultHeightDp: Int? = null
     ) : PlacedWidget
 }
 

@@ -3,10 +3,12 @@ package feature.widgets
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.widgets.WidgetAvailability
 
 /** What the Widget Area shows once the first clock reading has arrived. */
 @Immutable
@@ -26,8 +28,10 @@ data class AppWidgetModel(
     val appWidgetId: Int,
     val provider: String,
     val label: String,
+    val icon: Icon,
     val minHeightDp: Int,
-    val isWorkProfile: Boolean
+    val isWorkProfile: Boolean,
+    val availability: WidgetAvailability
 ) : WidgetModel
 
 @Immutable
