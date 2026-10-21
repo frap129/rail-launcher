@@ -20,18 +20,18 @@ import org.junit.Test
 private const val WRITE_TIMEOUT_MS: Long = 5_000
 private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
 private const val CUSTOM_ICON_PACK_PACKAGE: String = "com.example.iconpack"
-private const val CUSTOM_ICON: String = "icon"
 private const val RENAMED_ITEM_NAME: String = "Renamed Item"
 private const val SECOND_RENAMED_ITEM_NAME: String = "Second Renamed Item"
 private const val RAIL_ICON_RES_ID: Int = 0
 private const val LAUNCHABLE_DEEPLINK: String = "rail-launcher://test"
+private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomization(key = "other", name = "Other")
 
 class IPreferencesRepositoryImplTest {
     @Test
     fun `exposes launchable customizations from the DAO`() = runTest {
         val expected: List<LaunchableCustomization> = listOf(
             LaunchableCustomization(key = "first", name = "First"),
-            LaunchableCustomization(key = "second", icon = CUSTOM_ICON)
+            LaunchableCustomization(key = "second", name = "Second")
         )
         val repository: IPreferencesRepository = createRepository(inputCustomizations = expected)
         val actual: List<LaunchableCustomization> = repository.launchableCustomizations.first()
@@ -60,23 +60,23 @@ class IPreferencesRepositoryImplTest {
     }
 
     @Test
-    fun `preserves an existing icon when renaming a launchable`() = runTest {
+    fun `renames an existing launchable customization in place`() = runTest {
         val inputItem: Launchable = createLaunchable()
         val mockLaunchableCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao(
-            inputCustomizations = listOf(LaunchableCustomization(key = inputItem.key, icon = CUSTOM_ICON))
+            inputCustomizations = listOf(LaunchableCustomization(key = inputItem.key), OTHER_CUSTOMIZATION)
         )
         val repository: IPreferencesRepository = createRepository(
             mockLaunchableCustomizationDao = mockLaunchableCustomizationDao
         )
-        val expected: LaunchableCustomization = LaunchableCustomization(
-            key = inputItem.key,
-            name = RENAMED_ITEM_NAME,
-            icon = CUSTOM_ICON
+        val expectedCustomizations: Set<LaunchableCustomization> = setOf(
+            LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME),
+            OTHER_CUSTOMIZATION
         )
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
         mockLaunchableCustomizationDao.awaitRename()
-        val actual: LaunchableCustomization = repository.launchableCustomizations.first().single()
-        assertEquals(expected, actual)
+        val actualCustomizations: List<LaunchableCustomization> = repository.launchableCustomizations.first()
+        assertEquals(expectedCustomizations.size, actualCustomizations.size)
+        assertEquals(expectedCustomizations, actualCustomizations.toSet())
     }
 
     @Test

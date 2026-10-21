@@ -22,7 +22,7 @@ import core.data.room.dao.SettingsDao
         Settings::class,
         FavoriteRecord::class
     ],
-    version = 3
+    version = 4
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
