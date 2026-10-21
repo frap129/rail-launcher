@@ -36,6 +36,10 @@ _Avoid_: Custom widget, third-party widget
 The built-in clock-and-date Widget, present in the Widget Area by default.
 _Avoid_: Glance, clock bar
 
+**Tap action**:
+What a tappable Header line opens: the system default, a chosen Launchable, or nothing. A removed Launchable falls back to the system default.
+_Avoid_: Shortcut, click action, gesture
+
 **Media Player**:
 The built-in Widget that appears on Home while an app is playing media and shows its playback controls.
 _Avoid_: Media card, music widget, now playing

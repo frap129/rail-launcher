@@ -2,6 +2,7 @@ package feature.widgets
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +21,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -174,7 +177,7 @@ private fun HeaderTimeText(
     onLongPress: () -> Unit
 ) {
     val text: String = time.text ?: return
-    val clickLabel: String = stringResource(time.clickLabel)
+    val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
         spokenText = time.spokenText,
@@ -202,7 +205,7 @@ private fun StackedTime(
 ) {
     val hourText: String = time.hourText ?: return
     val minuteText: String = time.minuteText ?: return
-    val clickLabel: String = stringResource(time.clickLabel)
+    val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
     val stackedStyle: TextStyle = timeStyle.copy(lineHeight = timeStyle.fontSize * STACKED_LINE_HEIGHT_MULTIPLIER)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
@@ -305,7 +308,7 @@ private fun HeaderTapTargetText(
     onLongPress: () -> Unit,
     fillWidth: Boolean = true
 ) {
-    val clickLabel: String = stringResource(line.clickLabel)
+    val clickLabel: String? = resolveClickLabel(clickLabel = line.clickLabel, arg = line.clickLabelArg)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
         spokenText = line.spokenText,
@@ -323,7 +326,7 @@ private fun HeaderTapTargetText(
 
 @Composable
 private fun HeaderTapTargetBox(
-    clickLabel: String,
+    clickLabel: String?,
     spokenText: String,
     tapTarget: HeaderTapTarget,
     alignment: HeaderAlignment,
@@ -334,19 +337,32 @@ private fun HeaderTapTargetBox(
     fillWidth: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val isClickable: Boolean = clickLabel != null
     val semanticsModifier: Modifier = if (interactive) {
         Modifier
             .clearAndSetSemantics {
                 contentDescription = spokenText
-                onClick(label = clickLabel) {
-                    onTapTarget(tapTarget)
-                    true
+                if (isClickable) {
+                    onClick(label = clickLabel.orEmpty()) {
+                        onTapTarget(tapTarget)
+                        true
+                    }
+                } else if (menuEnabled) {
+                    onLongClick {
+                        onLongPress()
+                        true
+                    }
                 }
             }
-            .combinedClickable(
-                onClickLabel = clickLabel,
-                onLongClick = if (menuEnabled) onLongPress else null,
-                onClick = { onTapTarget(tapTarget) }
+            .then(
+                tapModifier(
+                    isClickable = isClickable,
+                    menuEnabled = menuEnabled,
+                    clickLabel = clickLabel.orEmpty(),
+                    tapTarget = tapTarget,
+                    onTapTarget = onTapTarget,
+                    onLongPress = onLongPress
+                )
             )
     } else {
         Modifier
@@ -360,6 +376,32 @@ private fun HeaderTapTargetBox(
     ) {
         content()
     }
+}
+
+private fun tapModifier(
+    isClickable: Boolean,
+    menuEnabled: Boolean,
+    clickLabel: String,
+    tapTarget: HeaderTapTarget,
+    onTapTarget: (HeaderTapTarget) -> Unit,
+    onLongPress: () -> Unit
+): Modifier = when {
+    isClickable -> Modifier.combinedClickable(
+        onClickLabel = clickLabel,
+        onLongClick = if (menuEnabled) onLongPress else null,
+        onClick = { onTapTarget(tapTarget) }
+    )
+
+    menuEnabled -> Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) }
+
+    else -> Modifier.pointerInput(Unit) { detectTapGestures(onTap = {}) }
+}
+
+@Composable
+private fun resolveClickLabel(clickLabel: Int?, arg: String?): String? = when {
+    clickLabel == null -> null
+    arg == null -> stringResource(clickLabel)
+    else -> stringResource(clickLabel, arg)
 }
 
 private fun TextStyle.scaled(multiplier: Float): TextStyle = copy(

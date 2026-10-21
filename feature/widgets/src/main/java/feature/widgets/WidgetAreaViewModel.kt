@@ -2,6 +2,8 @@ package feature.widgets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.time.ClockReading
@@ -69,15 +71,17 @@ class WidgetAreaViewModel(
     private val clockSource: IClockSource,
     private val formatter: HeaderFormatter,
     private val settingsRepository: IWidgetSettingsRepository,
-    private val homeEditState: HomeEditState
+    private val homeEditState: HomeEditState,
+    private val launchableRepository: ILaunchableRepository
 ) : ViewModel() {
     val widgetAreaState: StateFlow<WidgetAreaState> = combine(
         repository.places,
         clockSource.readings,
-        settingsRepository.headerSettings
-    ) { places, reading, settings ->
+        settingsRepository.headerSettings,
+        launchableRepository.launchableState
+    ) { places, reading, settings, launchableState ->
         WidgetAreaState(
-            places = places.mapNotNull { place -> place.toModel(reading, settings) },
+            places = places.mapNotNull { place -> place.toModel(reading, settings, launchableState.launchables) },
             hasWidgets = places.isNotEmpty()
         )
     }.stateIn(
@@ -237,8 +241,8 @@ class WidgetAreaViewModel(
         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
     }
 
-    private fun WidgetPlace.toModel(reading: ClockReading, settings: HeaderSettings): WidgetPlaceModel? {
-        val widgetModels: List<WidgetModel> = widgets.mapNotNull { widget -> widget.toModel(reading, settings) }
+    private fun WidgetPlace.toModel(reading: ClockReading, settings: HeaderSettings, launchables: List<Launchable>): WidgetPlaceModel? {
+        val widgetModels: List<WidgetModel> = widgets.mapNotNull { widget -> widget.toModel(reading, settings, launchables) }
         return if (widgetModels.isEmpty()) {
             null
         } else {
@@ -246,8 +250,14 @@ class WidgetAreaViewModel(
         }
     }
 
-    private fun PlacedWidget.toModel(reading: ClockReading, settings: HeaderSettings): WidgetModel? = when (this) {
-        is PlacedWidget.Header -> formatter.format(id = id, reading = reading, settings = settings)
-        is PlacedWidget.AppWidget -> null
-    }
+    private fun PlacedWidget.toModel(reading: ClockReading, settings: HeaderSettings, launchables: List<Launchable>): WidgetModel? =
+        when (this) {
+            is PlacedWidget.Header -> formatter.format(id = id, reading = reading, settings = settings).withTapTargets(
+                settings = settings,
+                launchables = launchables,
+                atEpochMillis = reading.instant.toEpochMilli()
+            )
+
+            is PlacedWidget.AppWidget -> null
+        }
 }

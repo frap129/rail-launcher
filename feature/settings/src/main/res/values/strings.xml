@@ -27,5 +27,12 @@
     <string name="size_default">Default</string>
     <string name="size_large">Large</string>
     <string name="size_extra_large">Extra large</string>
+    <string name="time_tap_action">Time tap action</string>
+    <string name="date_tap_action">Date tap action</string>
+    <string name="tap_action_clock_default">Clock (system default)</string>
+    <string name="tap_action_calendar_default">Calendar (system default)</string>
+    <string name="tap_action_system_default">System default</string>
+    <string name="tap_action_nothing">Nothing</string>
+    <string name="tap_action_search">Search</string>
     <string name="cancel">Cancel</string>
 </resources>

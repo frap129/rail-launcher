@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import core.data.launchables.model.Launchable
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
 import core.ui.util.performLongPressHaptic
@@ -107,21 +108,44 @@ private fun WidgetPlaceContent(
 }
 
 private fun Context.openHeaderTapTarget(target: HeaderTapTarget) {
-    val intent: Intent = when (target) {
-        HeaderTapTarget.SystemAlarms -> Intent(AlarmClock.ACTION_SHOW_ALARMS)
+    when (target) {
+        HeaderTapTarget.None -> Unit
 
-        is HeaderTapTarget.SystemCalendar -> Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("content://com.android.calendar/time/${target.atEpochMillis}")
+        is HeaderTapTarget.LaunchLaunchable -> openLaunchable(target.launchable)
+
+        HeaderTapTarget.SystemAlarms -> openSystemIntent(
+            intent = Intent(AlarmClock.ACTION_SHOW_ALARMS),
+            target = target,
+            messageResource = R.string.no_clock_app
+        )
+
+        is HeaderTapTarget.SystemCalendar -> openSystemIntent(
+            intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/${target.atEpochMillis}")),
+            target = target,
+            messageResource = R.string.no_calendar_app
         )
     }
+}
+
+private fun Context.openLaunchable(launchable: Launchable) {
+    try {
+        launchable.launch(this)
+    } catch (exception: SecurityException) {
+        showLaunchFailure(launchable = launchable, exception = exception)
+    } catch (exception: ActivityNotFoundException) {
+        showLaunchFailure(launchable = launchable, exception = exception)
+    }
+}
+
+private fun Context.showLaunchFailure(launchable: Launchable, exception: Exception) {
+    Toast.makeText(this, getString(R.string.cannot_open_launchable, launchable.name), Toast.LENGTH_SHORT).show()
+    Timber.w(exception, "Could not open Launchable %s", launchable.key)
+}
+
+private fun Context.openSystemIntent(intent: Intent, target: HeaderTapTarget, messageResource: Int) {
     try {
         startActivity(intent)
     } catch (exception: ActivityNotFoundException) {
-        val messageResource: Int = when (target) {
-            HeaderTapTarget.SystemAlarms -> R.string.no_clock_app
-            is HeaderTapTarget.SystemCalendar -> R.string.no_calendar_app
-        }
         Toast.makeText(this, messageResource, Toast.LENGTH_SHORT).show()
         Timber.w(exception, "No activity for %s", target)
     }

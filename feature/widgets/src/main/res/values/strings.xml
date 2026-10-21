@@ -2,6 +2,8 @@
 <resources>
     <string name="open_alarms">Open alarms</string>
     <string name="open_calendar">Open calendar</string>
+    <string name="open_launchable">Open %1$s</string>
+    <string name="cannot_open_launchable">Can\'t open %1$s</string>
     <string name="no_clock_app">No clock app</string>
     <string name="no_calendar_app">No calendar app</string>
     <string name="header_title">Header</string>
