@@ -96,6 +96,15 @@ class ILaunchableRepositoryImplTest {
     }
 
     @Test
+    fun `keeps the Star and Builtin groups when there are no Apps`() = runTest {
+        val repository: ILaunchableRepository = createRepository(fakeAppRepository = FakeAppRepository(inputApps = emptyList()))
+
+        val actual: List<String> = repository.launchableState.first { it.isLoaded }.groups.map { group -> group.label }
+
+        assertEquals(listOf("★", "⌂"), actual)
+    }
+
+    @Test
     fun `resolves a renamed App into a new instance and leaves the original unchanged`() = runTest {
         val inputApp: App = createApp()
         val fakePreferencesRepository: FakePreferencesRepository = FakePreferencesRepository(

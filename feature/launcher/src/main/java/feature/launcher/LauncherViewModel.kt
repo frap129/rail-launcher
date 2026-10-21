@@ -81,10 +81,10 @@ private fun toUiState(
     favorites: List<Launchable>,
     isEditingFavorites: Boolean
 ): LauncherUiState {
-    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
-    if (listedGroups.isEmpty()) {
+    if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
