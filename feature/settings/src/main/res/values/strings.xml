@@ -4,4 +4,10 @@
     <string name="appearance">Appearance</string>
     <string name="appearance_summary">Customize Rail launchers appearance</string>
     <string name="icon_pack">Icon Pack</string>
+    <string name="widgets">Widgets</string>
+    <string name="widgets_summary">Customize widgets on Home</string>
+    <string name="header">Header</string>
+    <string name="show_header">Show Header</string>
+    <string name="clock">Clock</string>
+    <string name="date">Date</string>
 </resources>

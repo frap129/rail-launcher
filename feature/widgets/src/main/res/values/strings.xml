@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="open_alarms">Open alarms</string>
+    <string name="open_calendar">Open calendar</string>
+    <string name="no_clock_app">No clock app</string>
+    <string name="no_calendar_app">No calendar app</string>
+    <string name="header_title">Header</string>
+    <string name="widget_clock">Clock</string>
+    <string name="widget_date">Date</string>
+    <string name="remove_header">Remove Header</string>
+    <string name="restore_header">Restore Header</string>
+    <string name="widget_settings">Widget settings</string>
+</resources>

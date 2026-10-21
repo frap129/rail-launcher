@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:util"))
+    implementation(project(":feature:widgets"))
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))

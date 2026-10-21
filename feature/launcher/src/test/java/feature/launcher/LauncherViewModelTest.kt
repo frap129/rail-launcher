@@ -11,6 +11,9 @@ import core.data.launchables.model.RailLaunchable
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePreferencesRepository
+import core.data.testing.MainDispatcherRule
+import feature.widgets.HomeEditMode
+import feature.widgets.HomeEditState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -77,7 +80,6 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 val home: LauncherUiState.Home = expectHome()
                 assertTrue(home.favorites.isEmpty())
-                assertTrue(home.widgets.isEmpty())
             }
             viewModel.railLabels.test {
                 assertEquals(listOf("★", "⌂"), expectMostRecentItem())
@@ -92,7 +94,6 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 val home: LauncherUiState.Home = expectHome()
                 assertEquals(0, home.lazyListState.firstVisibleItemIndex)
-                assertTrue(home.widgets.isEmpty())
             }
         }
     }
@@ -904,6 +905,19 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `enters and exits the Favorites Home edit mode`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: LauncherViewModel = createViewModel(homeEditState = homeEditState)
+
+        viewModel.editFavorites()
+        assertEquals(HomeEditMode.Favorites, homeEditState.mode.value)
+
+        viewModel.finishEditingFavorites()
+        advanceUntilIdle()
+        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+    }
+
+    @Test
     fun `closes the menu when entering Edit Favorites mode`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
@@ -1017,7 +1031,8 @@ class LauncherViewModelTest {
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun TestScope.createViewModel(
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = groups),
-        favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+        favoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
+        homeEditState: HomeEditState = HomeEditState()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = launchableRepository,
@@ -1028,7 +1043,8 @@ class LauncherViewModelTest {
             favoriteDao = favoriteDao,
             launchableRepository = launchableRepository,
             scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
-        )
+        ),
+        homeEditState = homeEditState
     )
 
     private inline fun <reified T : LauncherUiState> checkState(actualState: LauncherUiState): T {

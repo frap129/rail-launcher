@@ -12,4 +12,5 @@ dependencies {
     implementation(project(":core:data"))
     implementation(libs.compose.material.icons.core)
     implementation(libs.icons.fontawesome)
+    testImplementation(testFixtures(project(":core:data")))
 }
