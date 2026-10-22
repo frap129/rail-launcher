@@ -143,12 +143,16 @@ import feature.widgets.AppWidgetViewCache
 import feature.widgets.AppWidgetViews
 import feature.widgets.CappedWidgetArea
 import feature.widgets.EditMergeState
+import feature.widgets.MoveWidgetAreaPanel
+import feature.widgets.MoveWidgetAreaState
 import feature.widgets.RESIZE_DIMMED_ALPHA
 import feature.widgets.ResizeState
 import feature.widgets.UndoAction
+import feature.widgets.WIDGET_AREA_OFFSET_KEY
 import feature.widgets.WidgetAreaEvent
 import feature.widgets.WidgetAreaLayout
 import feature.widgets.WidgetAreaResizeAutoScroll
+import feature.widgets.WidgetAreaTopOffsetSpacer
 import feature.widgets.WidgetAreaUi
 import feature.widgets.WidgetAreaViewModel
 import feature.widgets.WidgetEditDraft
@@ -253,6 +257,7 @@ fun LauncherScreen(
                 Lifecycle.Event.ON_STOP -> {
                     widgetViewModel.finishResize()
                     widgetViewModel.finishEditingWidgets()
+                    widgetViewModel.finishMoveWidgetArea()
                     appWidgetHostSource.stopListening()
                 }
 
@@ -381,8 +386,9 @@ fun LauncherScreen(
             .collect { requested ->
                 if (requested) {
                     backStackEntry.savedStateHandle[HOME_INTENT_REQUEST_KEY] = false
-                    val wasEditingWidgets: Boolean = widgetViewModel.editState.value != null
-                    if (!widgetViewModel.onHomeIntent() || wasEditingWidgets) {
+                    val wasEditingHome: Boolean =
+                        widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
+                    if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
                         viewModel.onHomeIntent()
                     }
                 }
@@ -399,8 +405,11 @@ fun LauncherScreen(
     val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
+    val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
+    val isMovingWidgetArea: Boolean = moveState != null
+    val isEditingHome: Boolean = isResizing || isEditingWidgets || isMovingWidgetArea
     BackHandler {
         if (!widgetViewModel.onBack()) {
             viewModel.onBack()
@@ -413,12 +422,32 @@ fun LauncherScreen(
             widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem,
             isResizing = isResizing,
-            isEditingWidgets = isEditingWidgets
+            isEditingWidgets = isEditingWidgets,
+            isMovingWidgetArea = isMovingWidgetArea
         )
-        LauncherRail(viewModel, enabled = !isResizing && !isEditingWidgets)
+        LauncherRail(viewModel, enabled = !isEditingHome)
         LauncherDoneButton(viewModel, widgetViewModel)
         LauncherMenu(viewModel)
         LauncherWidgetMenu(widgetViewModel)
+        if (isMovingWidgetArea) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeTouches(onGestureEnd = widgetViewModel::finishMoveWidgetArea)
+            )
+        }
+        moveState?.let { state ->
+            MoveWidgetAreaPanel(
+                state = state,
+                onDraftChange = widgetViewModel::setDraftOffset,
+                onStep = widgetViewModel::stepOffset,
+                onReset = widgetViewModel::resetOffset,
+                onDone = widgetViewModel::finishMoveWidgetArea,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .safeDrawingPadding()
+            )
+        }
         if (addFlowState is AddWidgetFlowState.Picking) {
             AppWidgetPickerSheet(
                 state = addFlowState as AddWidgetFlowState.Picking,
@@ -474,7 +503,8 @@ private fun LauncherContent(
     widgetViewModel: WidgetAreaViewModel,
     onItemLaunch: (Launchable) -> Unit,
     isResizing: Boolean,
-    isEditingWidgets: Boolean
+    isEditingWidgets: Boolean,
+    isMovingWidgetArea: Boolean
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
@@ -505,9 +535,10 @@ private fun LauncherContent(
     Box(modifier) {
         // Kept composed under the App List so returning to Home never rebuilds it.
         if (home != null) {
+            val isEditingHome: Boolean = home.isEditingFavorites || isResizing || isEditingWidgets || isMovingWidgetArea
             val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
                 viewModel = widgetViewModel,
-                menuEnabled = !home.isEditingFavorites && !isResizing && !isEditingWidgets
+                menuEnabled = !isEditingHome
             )
             LauncherHome(
                 modifier = Modifier
@@ -716,6 +747,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.Resize,
                     WidgetMenuAction.Reconfigure,
                     WidgetMenuAction.ReplaceHeader,
@@ -877,6 +909,9 @@ fun LauncherHome(
                         bottom = homeEdgePadding
                     )
                 ) {
+                    item(key = WIDGET_AREA_OFFSET_KEY) {
+                        WidgetAreaTopOffsetSpacer(ui = widgetArea)
+                    }
                     widgetAreaItems(
                         ui = widgetArea,
                         reorderableState = reorderState,

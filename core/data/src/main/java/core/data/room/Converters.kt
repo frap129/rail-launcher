@@ -12,6 +12,7 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetKind
+import core.data.widgets.WidgetSpacing
 
 private const val TAP_TARGET_NONE: String = "none"
 private const val TAP_TARGET_LAUNCHABLE_PREFIX: String = "launchable:"
@@ -41,6 +42,12 @@ class Converters {
 
     @TypeConverter
     fun fromStringToWidgetAreaHeightLimit(limit: String): WidgetAreaHeightLimit = WidgetAreaHeightLimit.fromName(limit)
+
+    @TypeConverter
+    fun fromWidgetSpacingToInt(spacing: WidgetSpacing): Int = spacing.dp
+
+    @TypeConverter
+    fun fromIntToWidgetSpacing(dp: Int): WidgetSpacing = WidgetSpacing.fromDp(dp)
 
     @TypeConverter
     fun fromClockStyleToString(style: ClockStyle): String = style.name

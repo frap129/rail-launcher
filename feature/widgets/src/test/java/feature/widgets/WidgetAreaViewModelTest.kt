@@ -32,6 +32,7 @@ import core.data.time.ClockReading
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
+import core.data.widgets.HomeHeightState
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
@@ -48,6 +49,7 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetRecord
 import core.data.widgets.WidgetSize
+import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import java.time.Instant
 import java.time.ZoneId
@@ -359,6 +361,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.UpcomingEvents,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
@@ -399,7 +402,10 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openEmptyAreaMenu()
             val menu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
-            assertEquals(listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.WidgetSettings), menu.items.map { item -> item.id })
+            assertEquals(
+                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.MoveWidgetArea, WidgetMenuAction.WidgetSettings),
+                menu.items.map { item -> item.id }
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -411,7 +417,12 @@ class WidgetAreaViewModelTest {
             viewModel.openEmptyAreaMenu()
             val menu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.RestoreHeader, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.RestoreHeader,
+                    WidgetMenuAction.MoveWidgetArea,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 menu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -999,8 +1010,165 @@ class WidgetAreaViewModelTest {
         assertSame(previous, changed.listState)
     }
 
+    @Test
+    fun `starting Move Widget Area is ignored outside the None mode`() = runTest {
+        val homeEditState: HomeEditState = HomeEditState()
+        homeEditState.tryEnter(HomeEditMode.Favorites)
+        val viewModel: WidgetAreaViewModel = createViewModel(homeEditState = homeEditState)
+        collectMoveState(viewModel)
+
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+
+        assertNull(viewModel.moveState.value)
+        assertEquals(HomeEditMode.Favorites, homeEditState.mode.value)
+    }
+
+    @Test
+    fun `Move Widget Area starts at the persisted offset and caps at half Home`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 24)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectMoveState(viewModel)
+        viewModel.setHomeHeight(800)
+
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+
+        val state: MoveWidgetAreaState = viewModel.moveState.value!!
+        assertEquals(24, state.draftOffsetDp)
+        assertEquals(400, state.maxOffsetDp)
+        assertTrue(state.canMoveUp)
+        assertTrue(state.canMoveDown)
+    }
+
+    @Test
+    fun `Move Widget Area steps and snaps the draft offset`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+        collectMoveState(viewModel)
+        viewModel.setHomeHeight(800)
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+
+        viewModel.stepOffset(MoveWidgetAreaStep.Up)
+        assertEquals(0, viewModel.moveState.value?.draftOffsetDp)
+        viewModel.stepOffset(MoveWidgetAreaStep.Down)
+        assertEquals(8, viewModel.moveState.value?.draftOffsetDp)
+
+        viewModel.setDraftOffset(13)
+        assertEquals(16, viewModel.moveState.value?.draftOffsetDp)
+        viewModel.setDraftOffset(10_000)
+        assertEquals(400, viewModel.moveState.value?.draftOffsetDp)
+        assertFalse(viewModel.moveState.value!!.canMoveDown)
+
+        viewModel.resetOffset()
+        assertEquals(0, viewModel.moveState.value?.draftOffsetDp)
+        assertFalse(viewModel.moveState.value!!.canMoveUp)
+    }
+
+    @Test
+    fun `finishing Move Widget Area persists the draft and exits the mode`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel =
+            createViewModel(settingsRepository = settingsRepository, homeEditState = homeEditState)
+        collectMoveState(viewModel)
+        viewModel.setHomeHeight(800)
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+
+        viewModel.setDraftOffset(16)
+        viewModel.finishMoveWidgetArea()
+        advanceUntilIdle()
+
+        assertNull(viewModel.moveState.value)
+        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+        assertEquals(16, settingsRepository.areaUpdates.last().topOffsetDp)
+    }
+
+    @Test
+    fun `Back and Home intent save the Move Widget Area offset`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectMoveState(viewModel)
+        viewModel.setHomeHeight(800)
+
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+        viewModel.setDraftOffset(8)
+        assertTrue(viewModel.onBack())
+        advanceUntilIdle()
+        assertEquals(8, settingsRepository.areaUpdates.last().topOffsetDp)
+
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+        viewModel.setDraftOffset(16)
+        assertTrue(viewModel.onHomeIntent())
+        advanceUntilIdle()
+        assertEquals(16, settingsRepository.areaUpdates.last().topOffsetDp)
+    }
+
+    @Test
+    fun `effective offset uses the draft while moving and the persisted value after`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 8)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectWidgetAreaState(viewModel)
+        collectMoveState(viewModel)
+        viewModel.setHomeHeight(800)
+
+        viewModel.startMoveWidgetArea()
+        advanceUntilIdle()
+        viewModel.setDraftOffset(24)
+        assertEquals(24, viewModel.widgetAreaState.value.topOffsetDp)
+
+        viewModel.finishMoveWidgetArea()
+        advanceUntilIdle()
+        assertEquals(24, viewModel.widgetAreaState.value.topOffsetDp)
+        assertEquals(24, settingsRepository.widgetAreaSettings.first().topOffsetDp)
+    }
+
+    @Test
+    fun `clamps a persisted offset at render time without rewriting it`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 400)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectWidgetAreaState(viewModel)
+        collectMoveState(viewModel)
+
+        viewModel.setHomeHeight(100)
+        advanceUntilIdle()
+
+        assertEquals(48, viewModel.widgetAreaState.value.topOffsetDp)
+        assertEquals(400, settingsRepository.widgetAreaSettings.first().topOffsetDp)
+    }
+
+    @Test
+    fun `exposes widget spacing from settings and applies changes live`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(widgetSpacing = WidgetSpacing.LARGE)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectWidgetAreaState(viewModel)
+
+        assertEquals(24, viewModel.widgetAreaState.value.widgetSpacingDp)
+
+        settingsRepository.setWidgetSpacing(WidgetSpacing.EXTRA_LARGE)
+        advanceUntilIdle()
+
+        assertEquals(32, viewModel.widgetAreaState.value.widgetSpacingDp)
+    }
+
     private fun TestScope.collectWidgetAreaState(viewModel: WidgetAreaViewModel) {
         backgroundScope.launch { viewModel.widgetAreaState.collect {} }
+        advanceUntilIdle()
+    }
+
+    private fun TestScope.collectMoveState(viewModel: WidgetAreaViewModel) {
+        backgroundScope.launch { viewModel.moveState.collect {} }
         advanceUntilIdle()
     }
 
@@ -1018,7 +1186,8 @@ class WidgetAreaViewModelTest {
         widgetLifecycleReconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(
             dao = FakeWidgetAreaDao(),
             host = appWidgetHost
-        )
+        ),
+        homeHeightState: HomeHeightState = HomeHeightState()
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
@@ -1032,7 +1201,8 @@ class WidgetAreaViewModelTest {
         savedStateHandle = savedStateHandle,
         removeAppWidget = RemoveAppWidget(repository = repository, host = appWidgetHost),
         addFlowPendingIds = addFlowPendingIds,
-        widgetLifecycleReconciler = widgetLifecycleReconciler
+        widgetLifecycleReconciler = widgetLifecycleReconciler,
+        homeHeightState = homeHeightState
     )
 
     @Test
@@ -1293,6 +1463,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1323,6 +1494,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1350,6 +1522,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1579,6 +1752,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1609,6 +1783,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1636,6 +1811,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -2199,6 +2375,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings

@@ -229,6 +229,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.UpcomingEvents -> R.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.AddWidget -> R.string.add_widget
+    WidgetMenuAction.MoveWidgetArea -> R.string.move_widget_area
     WidgetMenuAction.Resize -> R.string.resize_widget
     WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
@@ -248,6 +249,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.UpcomingEvents -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.ClockStyle -> FontAwesomeIcons.Solid.Font
     WidgetMenuAction.AddWidget -> FontAwesomeIcons.Solid.PlusSquare
+    WidgetMenuAction.MoveWidgetArea -> FontAwesomeIcons.Solid.ArrowsAltV
     WidgetMenuAction.Resize -> FontAwesomeIcons.Solid.ArrowsAltV
     WidgetMenuAction.Reconfigure -> FontAwesomeIcons.Solid.Cog
     WidgetMenuAction.RemoveHeader -> FontAwesomeIcons.Solid.TrashAlt

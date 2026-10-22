@@ -45,6 +45,15 @@ interface IWidgetSettingsRepository {
         updateWidgetAreaIfChanged { settings -> settings.copy(heightLimit = limit) }
     }
 
+    suspend fun setTopOffsetDp(offsetDp: Int) {
+        val snapped: Int = WidgetAreaSettings.snapOffsetToStep(offsetDp = offsetDp)
+        updateWidgetAreaIfChanged { settings -> settings.copy(topOffsetDp = snapped) }
+    }
+
+    suspend fun setWidgetSpacing(spacing: WidgetSpacing) {
+        updateWidgetAreaIfChanged { settings -> settings.copy(widgetSpacing = spacing) }
+    }
+
     suspend fun setClockVisible(visible: Boolean) {
         updateIfChanged { settings -> settings.withClockVisible(visible) }
     }

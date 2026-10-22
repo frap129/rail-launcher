@@ -53,4 +53,40 @@ class WidgetAreaSettingsTest {
         assertEquals(8, WidgetAreaSettingsRecord(maxStackPages = 12).toDomain().maxStackPages)
         assertEquals(2, WidgetAreaSettingsRecord(maxStackPages = 0).toDomain().maxStackPages)
     }
+
+    @Test
+    fun `defaults to no offset and default widget spacing`() {
+        val settings: WidgetAreaSettings = WidgetAreaSettings()
+
+        assertEquals(0, settings.topOffsetDp)
+        assertEquals(WidgetSpacing.DEFAULT, settings.widgetSpacing)
+    }
+
+    @Test
+    fun `round trips the offset and spacing through a settings record`() {
+        val settings: WidgetAreaSettings = WidgetAreaSettings(
+            topOffsetDp = 24,
+            widgetSpacing = WidgetSpacing.EXTRA_LARGE
+        )
+
+        val record: WidgetAreaSettingsRecord = WidgetAreaSettingsRecord.from(settings)
+
+        assertEquals(settings, record.toDomain())
+        assertEquals(24, record.topOffsetDp)
+        assertEquals(32, record.widgetSpacing.dp)
+    }
+
+    @Test
+    fun `coerces a corrupt stored offset and falls back for unknown spacing`() {
+        assertEquals(0, WidgetAreaSettingsRecord(topOffsetDp = -8).toDomain().topOffsetDp)
+        assertEquals(16, WidgetAreaSettingsRecord(topOffsetDp = 13).toDomain().topOffsetDp)
+        assertEquals(WidgetSpacing.DEFAULT, WidgetSpacing.fromDp(12))
+        assertEquals(WidgetSpacing.LARGE, WidgetSpacing.fromDp(24))
+    }
+
+    @Test
+    fun `rejects an offset off the step grid`() {
+        assertThrows(IllegalArgumentException::class.java) { WidgetAreaSettings(topOffsetDp = 4) }
+        assertThrows(IllegalArgumentException::class.java) { WidgetAreaSettings(topOffsetDp = -8) }
+    }
 }

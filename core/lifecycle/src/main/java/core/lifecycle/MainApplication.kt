@@ -41,6 +41,7 @@ import core.data.time.AndroidDatePatternSource
 import core.data.time.IClockSource
 import core.data.time.IDatePatternSource
 import core.data.widgets.AppWidgetHostCallbacks
+import core.data.widgets.HomeHeightState
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAddFlowPendingIdsImpl
 import core.data.widgets.IAppWidgetHostSource
@@ -157,6 +158,7 @@ class MainApplication :
         single { RemoveAppWidget(get(), get()) }
         single<ICalendarEventSource> { AndroidCalendarEventSource(androidContext()) }
         single { HomeEditState() }
+        single { HomeHeightState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
         single<IBatterySource> { AndroidBatterySource(androidContext()) }
         single<IDatePatternSource> { AndroidDatePatternSource() }
@@ -182,7 +184,8 @@ class MainApplication :
                 launchableRepository = get(),
                 calendarEventSource = get(),
                 appWidgetHost = get(),
-                removeWidgetUseCase = get()
+                removeWidgetUseCase = get(),
+                homeHeightState = get()
             )
         }
         viewModel {
@@ -199,7 +202,8 @@ class MainApplication :
                 batterySource = get(),
                 removeAppWidget = get(),
                 addFlowPendingIds = get(),
-                widgetLifecycleReconciler = get()
+                widgetLifecycleReconciler = get(),
+                homeHeightState = get()
             )
         }
     }
