@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
  * works with [MediaSessionSnapshot] values and [MediaCommand]s.
  */
 interface IMediaSessionSource {
-    /** Whether Rail's notification listener is enabled in system settings. */
+    /** Whether Rail's notification listener can currently list and control MediaSessions. */
     val hasAccess: StateFlow<Boolean>
 
     /** Active sessions in the system's ordering, while notification access is granted. */
