@@ -10,7 +10,6 @@
     <string name="show_header">Show Header</string>
     <string name="clock">Clock</string>
     <string name="date">Date</string>
-    <string name="clock_style">Clock Style</string>
     <string name="time_format">Time format</string>
     <string name="time_format_system">System</string>
     <string name="time_format_12_hour">12-hour</string>
@@ -34,7 +33,6 @@
     <string name="tap_action_system_default">System default</string>
     <string name="tap_action_nothing">Nothing</string>
     <string name="tap_action_search">Search</string>
-    <string name="upcoming_events">Upcoming events</string>
     <string name="show_upcoming_events">Show upcoming events</string>
     <string name="calendar_access_off">Calendar access is off</string>
     <string name="grant">Grant</string>
@@ -56,10 +54,6 @@
     <string name="other_calendars">Other</string>
     <string name="work_profile">Work</string>
     <string name="app_widgets">App Widgets</string>
-    <string name="add_widget">Add widget</string>
-    <string name="remove_widget">Remove widget</string>
-    <string name="widget_removed">Widget removed</string>
-    <string name="done">Done</string>
     <string name="widget_area">Widget Area</string>
     <string name="limit_widget_area_height">Limit Widget Area height</string>
     <string name="widget_area_scrolls_when_needed">The Widget Area scrolls when widgets don\'t fit</string>
@@ -67,15 +61,11 @@
     <string name="maximum_height">Maximum height</string>
     <string name="top_offset">Top offset</string>
     <string name="spacing_between_widgets">Spacing between widgets</string>
-    <string name="offset_dp">%1$d dp</string>
-    <string name="reset">Reset</string>
     <string name="spacing_none">None</string>
     <string name="spacing_small">Small</string>
     <string name="spacing_default">Default</string>
     <string name="spacing_large">Large</string>
     <string name="spacing_extra_large">Extra large</string>
-    <string name="move_up">Move up</string>
-    <string name="move_down">Move down</string>
     <string name="height_half">Half of the screen</string>
     <string name="height_two_thirds">Two-thirds of the screen</string>
     <string name="height_three_quarters">Three-quarters of the screen</string>

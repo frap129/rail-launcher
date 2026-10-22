@@ -7,7 +7,7 @@ android {
 }
 dependencies {
     implementation(project(":feature:launcher"))
-    implementation(project(":feature:widgets"))
+    implementation(project(":core:widgets"))
     implementation(project(":core:data"))
     implementation(project(":core:util"))
     implementation(project(":feature:settings"))

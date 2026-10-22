@@ -9,8 +9,8 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
-import feature.widgets.HomeEditMode
-import feature.widgets.HomeEditState
+import feature.launcher.widgets.HomeEditMode
+import feature.launcher.widgets.HomeEditState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
