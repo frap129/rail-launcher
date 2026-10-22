@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -473,6 +474,7 @@ private fun HeaderTapTargetBox(
     }
 }
 
+@Composable
 private fun tapModifier(
     isClickable: Boolean,
     menuEnabled: Boolean,
@@ -480,16 +482,23 @@ private fun tapModifier(
     tapTarget: HeaderTapTarget,
     onTapTarget: (HeaderTapTarget) -> Unit,
     onLongPress: () -> Unit
-): Modifier = when {
-    isClickable -> Modifier.combinedClickable(
-        onClickLabel = clickLabel,
-        onLongClick = if (menuEnabled) onLongPress else null,
-        onClick = { onTapTarget(tapTarget) }
-    )
+): Modifier {
+    val currentOnLongPress: () -> Unit = rememberUpdatedState(onLongPress).value
+    return when {
+        isClickable -> Modifier.combinedClickable(
+            onClickLabel = clickLabel,
+            onLongClick = if (menuEnabled) onLongPress else null,
+            onClick = { onTapTarget(tapTarget) }
+        )
 
-    menuEnabled -> Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onLongPress() }) }
-
-    else -> Modifier.pointerInput(Unit) { detectTapGestures(onTap = {}) }
+        else -> Modifier.pointerInput(menuEnabled) {
+            if (menuEnabled) {
+                detectTapGestures(onLongPress = { currentOnLongPress() })
+            } else {
+                detectTapGestures(onTap = {})
+            }
+        }
+    }
 }
 
 @Composable
