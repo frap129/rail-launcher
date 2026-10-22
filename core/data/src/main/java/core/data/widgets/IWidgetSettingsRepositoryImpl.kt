@@ -7,6 +7,7 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -39,6 +40,7 @@ class IWidgetSettingsRepositoryImpl(
     private val headerSettingsDao: HeaderSettingsDao,
     private val eventSettingsDao: EventSettingsDao,
     private val widgetAreaSettingsDao: WidgetAreaSettingsDao,
+    private val mediaPlayerSettingsDao: MediaPlayerSettingsDao,
     launchableRepository: ILaunchableRepository
 ) : IWidgetSettingsRepository {
     private val cleanupMutex: Mutex = Mutex()
@@ -71,6 +73,8 @@ class IWidgetSettingsRepositoryImpl(
 
     override val widgetAreaSettings: Flow<WidgetAreaSettings> = widgetAreaSettingsDao.observe().distinctUntilChanged()
 
+    override val mediaPlayerSettings: Flow<MediaPlayerSettings> = mediaPlayerSettingsDao.observe().distinctUntilChanged()
+
     override suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings) {
         headerSettingsDao.update(transform)
     }
@@ -81,5 +85,9 @@ class IWidgetSettingsRepositoryImpl(
 
     override suspend fun updateWidgetAreaSettings(transform: (WidgetAreaSettings) -> WidgetAreaSettings) {
         widgetAreaSettingsDao.update(transform)
+    }
+
+    override suspend fun updateMediaPlayerSettings(transform: (MediaPlayerSettings) -> MediaPlayerSettings) {
+        mediaPlayerSettingsDao.update(transform)
     }
 }

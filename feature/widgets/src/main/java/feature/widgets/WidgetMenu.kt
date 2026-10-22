@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -32,10 +32,13 @@ import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.ExchangeAlt
 import compose.icons.fontawesomeicons.solid.Font
 import compose.icons.fontawesomeicons.solid.GripVertical
+import compose.icons.fontawesomeicons.solid.Music
+import compose.icons.fontawesomeicons.solid.Play
 import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
+import core.data.icons.model.Icon
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
 
@@ -83,21 +86,20 @@ fun WidgetMenu(
         }
 
         is WidgetMenuState.AppWidgetMenu -> Column(modifier = modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AsyncImage(
-                    model = state.icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-                Text(
-                    text = state.label,
-                    modifier = Modifier.padding(start = 12.dp),
-                    style = MaterialTheme.typography.headlineMedium
+            WidgetMenuTitle(icon = state.icon, label = state.label)
+            state.items.forEach { item ->
+                WidgetMenuRow(
+                    item = item,
+                    onToggle = onToggle,
+                    onAction = onAction,
+                    onChoiceClick = onChoiceClick,
+                    onChoiceSelected = onChoiceSelected
                 )
             }
+        }
+
+        is WidgetMenuState.MediaPlayerMenu -> Column(modifier = modifier.fillMaxWidth()) {
+            WidgetMenuTitle(icon = state.icon, label = state.label)
             state.items.forEach { item ->
                 WidgetMenuRow(
                     item = item,
@@ -119,6 +121,25 @@ fun WidgetMenu(
 }
 
 @Composable
+private fun WidgetMenuTitle(icon: Icon, label: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            model = icon,
+            contentDescription = null,
+            modifier = Modifier.size(40.dp)
+        )
+        Text(
+            text = label,
+            modifier = Modifier.padding(start = 12.dp),
+            style = MaterialTheme.typography.headlineMedium
+        )
+    }
+}
+
+@Composable
 private fun WidgetMenuRow(
     item: WidgetMenuItem,
     onToggle: (WidgetMenuAction, Boolean) -> Unit,
@@ -127,23 +148,28 @@ private fun WidgetMenuRow(
     onChoiceSelected: (WidgetMenuAction, WidgetMenuChoiceKey) -> Unit
 ) {
     when (item) {
-        is WidgetMenuItem.Toggle -> ToggleRow(item = item, onToggle = onToggle)
+        is WidgetMenuItem.Toggle -> ToggleRow(item = item, onToggle = onToggle, onAction = onAction)
         is WidgetMenuItem.Action -> ActionRow(item = item, onAction = onAction)
         is WidgetMenuItem.Choice -> ChoiceRow(item = item, onChoiceClick = onChoiceClick, onChoiceSelected = onChoiceSelected)
     }
 }
 
 @Composable
-private fun ToggleRow(item: WidgetMenuItem.Toggle, onToggle: (WidgetMenuAction, Boolean) -> Unit) {
+private fun ToggleRow(item: WidgetMenuItem.Toggle, onToggle: (WidgetMenuAction, Boolean) -> Unit, onAction: (WidgetMenuAction) -> Unit) {
+    val toggleModifier: Modifier = if (item.rowOpensAction) {
+        Modifier.clickable(role = Role.Button) { onAction(item.id) }
+    } else {
+        Modifier.toggleable(
+            value = item.checked,
+            enabled = item.enabled,
+            role = Role.Switch,
+            onValueChange = { checked -> onToggle(item.id, checked) }
+        )
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .toggleable(
-                value = item.checked,
-                enabled = item.enabled,
-                role = Role.Switch,
-                onValueChange = { checked -> onToggle(item.id, checked) }
-            )
+            .then(toggleModifier)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -154,7 +180,15 @@ private fun ToggleRow(item: WidgetMenuItem.Toggle, onToggle: (WidgetMenuAction, 
                 Text(text = stringResource(supportingText), style = MaterialTheme.typography.bodySmall)
             }
         }
-        Switch(checked = item.checked, onCheckedChange = null, enabled = item.enabled)
+        Switch(
+            checked = item.checked,
+            onCheckedChange = if (item.rowOpensAction) {
+                { checked -> onToggle(item.id, checked) }
+            } else {
+                null
+            },
+            enabled = item.enabled
+        )
     }
 }
 
@@ -168,7 +202,10 @@ private fun ActionRow(item: WidgetMenuItem.Action, onAction: (WidgetMenuAction) 
         verticalAlignment = Alignment.CenterVertically
     ) {
         WidgetMenuIcon(action = item.id)
-        Text(text = stringResource(item.id.label()), style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = item.labelArg?.let { arg -> stringResource(item.id.label(), arg) } ?: stringResource(item.id.label()),
+            style = MaterialTheme.typography.titleLarge
+        )
     }
 }
 
@@ -215,7 +252,7 @@ private fun ChoiceRow(
 
 @Composable
 private fun WidgetMenuIcon(action: WidgetMenuAction) {
-    Icon(
+    MaterialIcon(
         modifier = Modifier.size(56.dp).padding(10.dp),
         imageVector = action.icon(),
         contentDescription = null
@@ -240,6 +277,9 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.ExtendUnderRail -> R.string.extend_under_rail
     WidgetMenuAction.EditWidgets -> R.string.edit_widgets
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
+    WidgetMenuAction.MediaPlayer -> R.string.media_player
+    WidgetMenuAction.OpenMediaPlayer -> R.string.open_app
+    WidgetMenuAction.MediaPlayerSettings -> R.string.media_player_settings
 }
 
 private fun WidgetMenuAction.icon(): ImageVector = when (this) {
@@ -260,4 +300,7 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.ExtendUnderRail -> FontAwesomeIcons.Solid.ArrowsAltH
     WidgetMenuAction.EditWidgets -> FontAwesomeIcons.Solid.GripVertical
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH
+    WidgetMenuAction.MediaPlayer -> FontAwesomeIcons.Solid.Music
+    WidgetMenuAction.OpenMediaPlayer -> FontAwesomeIcons.Solid.Play
+    WidgetMenuAction.MediaPlayerSettings -> FontAwesomeIcons.Solid.SlidersH
 }

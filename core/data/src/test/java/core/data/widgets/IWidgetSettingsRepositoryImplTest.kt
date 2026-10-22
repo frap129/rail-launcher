@@ -12,6 +12,7 @@ import core.data.prefs.HeaderTapSetting
 import core.data.testing.FakeEventSettingsDao
 import core.data.testing.FakeHeaderSettingsDao
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakeMediaPlayerSettingsDao
 import core.data.testing.FakeWidgetAreaSettingsDao
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -103,6 +104,25 @@ class IWidgetSettingsRepositoryImplTest {
         assertFalse(settings.heightLimitEnabled)
         assertEquals(WidgetAreaHeightLimit.THREE_QUARTERS, settings.heightLimit)
         assertEquals(settings, requireNotNull(areaSettingsDao.getRow()).toDomain())
+    }
+
+    @Test
+    fun `returns Media Player settings defaults when the row is absent`() = runTest {
+        val repository: IWidgetSettingsRepository =
+            createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = FakeMediaPlayerSettingsDao())
+
+        assertEquals(MediaPlayerSettings.Default, repository.mediaPlayerSettings.first())
+    }
+
+    @Test
+    fun `persists the Media Player enabled switch`() = runTest {
+        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+
+        repository.setMediaPlayerEnabled(true)
+
+        assertTrue(repository.mediaPlayerSettings.first().enabled)
+        assertTrue(requireNotNull(dao.getRow()).enabled)
     }
 
     @Test
@@ -201,6 +221,7 @@ class IWidgetSettingsRepositoryImplTest {
         dao: FakeHeaderSettingsDao,
         eventSettingsDao: FakeEventSettingsDao = FakeEventSettingsDao(),
         areaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
+        mediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao(),
         isLoaded: Boolean = true,
         launchables: FakeLaunchableRepository = FakeLaunchableRepository(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(keptLaunchable))),
@@ -210,6 +231,7 @@ class IWidgetSettingsRepositoryImplTest {
         headerSettingsDao = dao,
         eventSettingsDao = eventSettingsDao,
         widgetAreaSettingsDao = areaSettingsDao,
+        mediaPlayerSettingsDao = mediaPlayerSettingsDao,
         launchableRepository = launchables
     )
 

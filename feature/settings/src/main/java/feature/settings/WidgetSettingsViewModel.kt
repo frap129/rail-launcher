@@ -9,6 +9,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
+import core.data.media.IMediaSessionSource
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
@@ -25,6 +26,7 @@ import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
+import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetAreaHeightLimit
@@ -95,6 +97,7 @@ data class WidgetSettingsAppWidget(
 )
 
 data class WidgetSettingsUiState(
+    val isLoaded: Boolean = false,
     val headerShown: Boolean = true,
     val clockVisible: Boolean = true,
     val dateVisible: Boolean = true,
@@ -132,20 +135,28 @@ data class WidgetSettingsUiState(
     val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT,
     val topOffsetDp: Int = 0,
     val widgetSpacing: WidgetSpacing = WidgetSpacing.DEFAULT,
-    val homeHeightDp: Int? = null
+    val homeHeightDp: Int? = null,
+    val mediaPlayerEnabled: Boolean = false,
+    val notificationAccess: Boolean = false
 )
 
 private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
+
+private data class MediaSettingsState(val settings: MediaPlayerSettings, val hasAccess: Boolean)
 
 private data class WidgetSettingsRows(
     val places: List<WidgetPlace>,
     val appWidgets: List<WidgetSettingsAppWidget>,
     val areaSettings: WidgetAreaSettings,
-    val homeHeightDp: Int?
+    val homeHeightDp: Int?,
+    val mediaPlayerEnabled: Boolean,
+    val notificationAccess: Boolean
 )
 
 sealed interface WidgetSettingsEvent {
     data object RequestCalendarPermission : WidgetSettingsEvent
+
+    data object RequestNotificationAccess : WidgetSettingsEvent
 
     data class ShowCalendarPermissionDenied(val permanentlyDenied: Boolean) : WidgetSettingsEvent
 
@@ -165,7 +176,8 @@ class WidgetSettingsViewModel(
     private val calendarEventSource: ICalendarEventSource,
     private val appWidgetHost: IAppWidgetHostSource,
     private val removeWidgetUseCase: RemoveAppWidget,
-    private val homeHeightState: HomeHeightState
+    private val homeHeightState: HomeHeightState,
+    private val mediaSessionSource: IMediaSessionSource
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
@@ -204,12 +216,17 @@ class WidgetSettingsViewModel(
         areaRepository.places,
         appWidgetHost.providers,
         settingsRepository.widgetAreaSettings,
-        homeHeightState.heightDp
-    ) { places, providers, areaSettings, homeHeightDp ->
+        homeHeightState.heightDp,
+        combine(settingsRepository.mediaPlayerSettings, mediaSessionSource.hasAccess) { settings, access ->
+            MediaSettingsState(settings = settings, hasAccess = access)
+        }
+    ) { places, providers, areaSettings, homeHeightDp, media ->
         WidgetSettingsRows(
             places = places,
             areaSettings = areaSettings,
             homeHeightDp = homeHeightDp,
+            mediaPlayerEnabled = media.settings.enabled,
+            notificationAccess = media.hasAccess,
             appWidgets = places.flatMap { place ->
                 place.widgets.filterIsInstance<PlacedWidget.AppWidget>().map { widget ->
                     val info: WidgetProviderInfo? = providers.firstOrNull { provider ->
@@ -240,6 +257,7 @@ class WidgetSettingsViewModel(
         val timeTapTarget: HeaderTapSetting = settings.resolvedTimeTapTarget.resolved(launchableState)
         val dateTapTarget: HeaderTapSetting = settings.resolvedDateTapTarget.resolved(launchableState)
         WidgetSettingsUiState(
+            isLoaded = true,
             headerShown = places.any { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } },
             clockVisible = settings.clockVisible,
             dateVisible = settings.dateVisible,
@@ -279,7 +297,9 @@ class WidgetSettingsViewModel(
             heightLimit = rows.areaSettings.heightLimit,
             topOffsetDp = rows.areaSettings.topOffsetDp,
             widgetSpacing = rows.areaSettings.widgetSpacing,
-            homeHeightDp = rows.homeHeightDp
+            homeHeightDp = rows.homeHeightDp,
+            mediaPlayerEnabled = rows.mediaPlayerEnabled,
+            notificationAccess = rows.notificationAccess
         )
     }.stateIn(
         scope = viewModelScope,
@@ -425,6 +445,19 @@ class WidgetSettingsViewModel(
 
     fun refreshCalendarPermission() {
         calendarPermissionGate.refreshPermission()
+    }
+
+    fun refreshMediaAccess() {
+        mediaSessionSource.refreshAccess()
+    }
+
+    fun setMediaPlayerEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerEnabled(enabled)
+            if (enabled && !mediaSessionSource.hasAccess.value) {
+                eventChannel.send(WidgetSettingsEvent.RequestNotificationAccess)
+            }
+        }
     }
 
     fun openAddWidget() {

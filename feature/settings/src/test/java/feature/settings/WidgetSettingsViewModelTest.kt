@@ -19,6 +19,7 @@ import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakeMediaSessionSource
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
@@ -524,6 +525,30 @@ class WidgetSettingsViewModelTest {
         deeplink = "rail://${name.lowercase()}"
     )
 
+    @Test
+    fun `enabling the Media Player without access requests notification access`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource(hasAccess = false)
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = mediaSessionSource
+        )
+        viewModel.events.test {
+            viewModel.setMediaPlayerEnabled(true)
+            assertEquals(WidgetSettingsEvent.RequestNotificationAccess, awaitItem())
+            assertTrue(settingsRepository.mediaPlayerUpdates.last().enabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `refreshing Media access asks the source to recheck`() = runTest {
+        val mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource(hasAccess = false)
+        val viewModel: WidgetSettingsViewModel = createViewModel(mediaSessionSource = mediaSessionSource)
+        viewModel.refreshMediaAccess()
+        assertEquals(1, mediaSessionSource.refreshCount)
+    }
+
     private fun createViewModel(
         settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         areaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
@@ -531,7 +556,8 @@ class WidgetSettingsViewModelTest {
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
         appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
-        homeHeightState: HomeHeightState = HomeHeightState()
+        homeHeightState: HomeHeightState = HomeHeightState(),
+        mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource()
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
         settingsRepository = settingsRepository,
         areaRepository = areaRepository,
@@ -554,7 +580,8 @@ class WidgetSettingsViewModelTest {
         calendarEventSource = calendarEventSource,
         appWidgetHost = appWidgetHost,
         removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost),
-        homeHeightState = homeHeightState
+        homeHeightState = homeHeightState,
+        mediaSessionSource = mediaSessionSource
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(

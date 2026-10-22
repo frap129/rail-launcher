@@ -131,6 +131,8 @@ import core.ui.model.data.Destination
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.FLEXIBLE_SPACER_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
+import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.model.data.favoriteKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
@@ -145,6 +147,7 @@ import feature.widgets.CappedWidgetArea
 import feature.widgets.EditMergeState
 import feature.widgets.MoveWidgetAreaPanel
 import feature.widgets.MoveWidgetAreaState
+import feature.widgets.NotificationAccessDialog
 import feature.widgets.RESIZE_DIMMED_ALPHA
 import feature.widgets.ResizeState
 import feature.widgets.UndoAction
@@ -190,8 +193,6 @@ private val railHorizontalOffset: Dp = (-16).dp
 private val sheetDragHandleHeight: Dp = 10.dp
 private val snackbarBottomPadding: Dp = 80.dp
 
-private const val WIDGETS_SETTINGS_ROUTE: String = "settings/widgets"
-
 private const val DEFAULT_FADE_IN_MILLIS: Int = 5
 private const val DEFAULT_FADE_IN_DELAY_MILLIS: Int = 5
 private const val DEFAULT_FADE_OUT_MILLIS: Int = 5
@@ -230,6 +231,7 @@ fun LauncherScreen(
     val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
     val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
+    var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: AppWidgetViewCache = koinInject()
@@ -250,7 +252,10 @@ fun LauncherScreen(
     DisposableEffect(lifecycleOwner, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> widgetViewModel.refreshCalendarPermission()
+                Lifecycle.Event.ON_RESUME -> {
+                    widgetViewModel.refreshCalendarPermission()
+                    widgetViewModel.refreshMediaAccess()
+                }
 
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
 
@@ -311,6 +316,10 @@ fun LauncherScreen(
 
                 WidgetAreaEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
 
+                WidgetAreaEvent.NavigateToMediaPlayerSettings -> navController.navigate(WIDGETS_MEDIA_SETTINGS_ROUTE)
+
+                WidgetAreaEvent.RequestNotificationAccess -> showNotificationAccessDialog = true
+
                 is WidgetAreaEvent.LaunchBind -> {
                     try {
                         bindLauncher.launch(AppWidgetViews.bindIntent(context = context, request = event.request))
@@ -360,7 +369,10 @@ fun LauncherScreen(
                 }
 
                 is WidgetAreaEvent.ShowMessage -> coroutineScope.launch {
-                    snackbarHostState.showSnackbar(message = context.getString(event.message))
+                    snackbarHostState.showSnackbar(
+                        message =
+                        event.formatArg?.let { arg -> context.getString(event.message, arg) } ?: context.getString(event.message)
+                    )
                 }
 
                 is WidgetAreaEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
@@ -493,6 +505,9 @@ fun LauncherScreen(
                 }
             }
         )
+    }
+    if (showNotificationAccessDialog) {
+        NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
 }
 
@@ -756,7 +771,11 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings -> Unit
+                    WidgetMenuAction.WidgetSettings,
+                    WidgetMenuAction.OpenMediaPlayer,
+                    WidgetMenuAction.MediaPlayerSettings -> Unit
+
+                    WidgetMenuAction.MediaPlayer -> viewModel.setMediaPlayerEnabled(enabled = checked)
 
                     WidgetMenuAction.UpcomingEvents -> viewModel.setUpcomingEventsEnabled(checked)
                 }
