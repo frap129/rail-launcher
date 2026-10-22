@@ -140,14 +140,17 @@ class IAppWidgetHostSourceImpl(
 
     override fun providerInfo(id: AppWidgetId): WidgetProviderInfo? {
         val info: AppWidgetProviderInfo = appWidgetManager.getAppWidgetInfo(id.value) ?: return null
-        val provider: WidgetProvider = WidgetProvider(packageName = info.provider.packageName, className = info.provider.className)
-        cachedProviders.firstOrNull { cached -> cached.provider == provider }?.let { cached -> return cached }
         val user: UserHandle = ownerOf(info) ?: Process.myUserHandle()
-        return info.toWidgetProviderInfo(user = user, appIcon = Icon.ApplicationIcon(info.provider.packageName))
+        val provider: WidgetProvider = WidgetProvider(packageName = info.provider.packageName, className = info.provider.className)
+        val profileSerial: Long = userManager.getSerialNumberForUser(user)
+        val cached: WidgetProviderInfo? = cachedProviders.firstOrNull { cached ->
+            cached.provider == provider && cached.profileSerial == profileSerial
+        }
+        return info.toWidgetProviderInfo(
+            user = user,
+            appIcon = cached?.appIcon ?: Icon.ApplicationIcon(info.provider.packageName)
+        )
     }
-
-    override fun providerInfo(provider: WidgetProvider, profileSerial: Long): WidgetProviderInfo? =
-        cachedProviders.firstOrNull { cached -> cached.provider == provider && cached.profileSerial == profileSerial }
 
     override fun startListening() {
         appWidgetHost.startListening()

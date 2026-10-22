@@ -1712,9 +1712,7 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isReconfigurable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1744,9 +1742,7 @@ class WidgetAreaViewModelTest {
                 appWidgetPlace(placeId = 2L, widgetId = 2L, availability = WidgetAvailability.ProfilePaused)
             )
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isReconfigurable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1772,8 +1768,8 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isReconfigurable = true, hasConfigureActivity = false))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isReconfigurable = true, hasConfigureActivity = false)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
@@ -1800,9 +1796,7 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isReconfigurable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -2001,8 +1995,8 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
@@ -2033,8 +2027,8 @@ class WidgetAreaViewModelTest {
                 appWidgetPlace(placeId = 2L, widgetId = 2L, availability = WidgetAvailability.ProfilePaused)
             )
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
@@ -2061,9 +2055,7 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = false))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = false))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -2085,18 +2077,55 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
+    fun `offers Resize without the provider list having been collected`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 9))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        host.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 2L)
+            val menu: WidgetMenuState.AppWidgetMenu = expectState()
+            assertTrue(menu.items.map { item -> item.id }.contains(WidgetMenuAction.Resize))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `startResize uses provider bounds without the provider list having been collected`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, appWidgetId = 9))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        host.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(
+            minResizeHeightDp = 64,
+            maxResizeHeightDp = 160,
+            isVerticallyResizable = true
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+        viewModel.setHomeHeight(heightDp = 400)
+        viewModel.setWidgetAreaWidth(widthDp = 240)
+        viewModel.startResize(placeId = 2L)
+        advanceUntilIdle()
+
+        val state: ResizeState = viewModel.resizeState.value!!
+        assertEquals(64, state.bounds.minDp)
+        assertEquals(160, state.bounds.maxDp)
+        assertEquals(100, state.draftHeightDp)
+    }
+
+    @Test
     fun `startResize clamps to the provider bounds and steps in 8dp increments`() = runTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(
-                appWidgetProviderInfo(
-                    minHeightDp = 64,
-                    minResizeHeightDp = 64,
-                    maxResizeHeightDp = 160,
-                    isVerticallyResizable = true
-                )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(
+                minHeightDp = 64,
+                minResizeHeightDp = 64,
+                maxResizeHeightDp = 160,
+                isVerticallyResizable = true
             )
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
@@ -2131,9 +2160,7 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 400)
         viewModel.startResize(placeId = 2L)
@@ -2160,9 +2187,7 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 300))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 200)
         viewModel.startResize(placeId = 2L)
@@ -2179,8 +2204,8 @@ class WidgetAreaViewModelTest {
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
         val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             repository = repository,
@@ -2211,8 +2236,8 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 400)
@@ -2238,8 +2263,8 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240))
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 400)
@@ -2267,9 +2292,7 @@ class WidgetAreaViewModelTest {
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
         val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(
             repository = repository,
             homeEditState = homeEditState,
@@ -2294,9 +2317,7 @@ class WidgetAreaViewModelTest {
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
         val homeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true))
-        )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(
             repository = repository,
             homeEditState = homeEditState,
@@ -2314,10 +2335,8 @@ class WidgetAreaViewModelTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 400))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(
-                appWidgetProviderInfo(minResizeHeightDp = 48, maxResizeHeightDp = 200, isVerticallyResizable = true)
-            )
+        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(minResizeHeightDp = 48, maxResizeHeightDp = 200, isVerticallyResizable = true)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 600)
@@ -2747,6 +2766,17 @@ class WidgetAreaViewModelTest {
         isWorkProfile = false,
         isVerticallyResizable = isVerticallyResizable
     )
+
+    private fun hostWithProviderInfo(
+        info: WidgetProviderInfo,
+        appWidgetId: AppWidgetId = AppWidgetId(9),
+        bindResults: List<Boolean> = emptyList()
+    ): FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+        initialProviders = listOf(info),
+        bindResults = bindResults
+    ).apply {
+        providerInfoById[appWidgetId] = info
+    }
 
     private fun appWidgetPlace(
         placeId: Long,

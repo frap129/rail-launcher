@@ -224,7 +224,7 @@ internal class WidgetResizeController(
     }
 
     private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
-        appWidgetHost.providerInfo(provider = widget.provider, profileSerial = widget.profileSerial)
+        appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
 
     private fun ResizeState.withDraft(heightDp: Int): ResizeState {
         val homeHeightDp: Int = homeHeight.value ?: Int.MAX_VALUE

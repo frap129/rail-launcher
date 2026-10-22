@@ -14,9 +14,8 @@ internal suspend fun clampDissolvedPlace(dao: WidgetAreaDao, host: IAppWidgetHos
         dao.setPlaceHeight(placeId = placeId, heightDp = null)
         return
     }
-    val provider: WidgetProvider = widget.provider?.let(WidgetProvider::fromKey) ?: return
-    val profileSerial: Long = widget.profileSerial ?: return
-    val info: WidgetProviderInfo = host.providerInfo(provider, profileSerial) ?: return
+    val appWidgetId: Int = widget.appWidgetId ?: return
+    val info: WidgetProviderInfo = host.providerInfo(AppWidgetId(appWidgetId)) ?: return
     val heightDp: Int = place.heightDp ?: return
     val bounds: ResizeBounds = ResizeBounds.from(info)
     dao.setPlaceHeight(placeId = placeId, heightDp = bounds.clamp(heightDp = heightDp, homeHeightDp = Int.MAX_VALUE))
