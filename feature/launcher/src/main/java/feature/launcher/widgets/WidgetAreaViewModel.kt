@@ -140,8 +140,8 @@ data class PendingWidget(
 sealed interface AddWidgetFlowState {
     data object Idle : AddWidgetFlowState
 
-    /** The Add below / Add to stack choice shown before the picker. */
-    data class ChoosingPlacement(val origin: AddWidgetOrigin, val canStack: Boolean) : AddWidgetFlowState
+    /** The Add below / Add next to choice shown before the picker. */
+    data class ChoosingPlacement(val origin: AddWidgetOrigin, val canAddToStack: Boolean) : AddWidgetFlowState
 
     data class Picking(val origin: AddWidgetOrigin, val query: String, val groups: List<PickerGroup>) : AddWidgetFlowState
 
@@ -1199,7 +1199,7 @@ class WidgetAreaViewModel(
 
             AddWidgetPlacement.IntoStack -> {
                 val placeId: Long? = (choosing.origin.insertAt as? InsertPosition.Below)?.placeId
-                if (choosing.canStack && placeId != null) {
+                if (choosing.canAddToStack && placeId != null) {
                     choosing.origin.copy(insertAt = InsertPosition.IntoStack(placeId = placeId))
                 } else {
                     choosing.origin
@@ -1354,7 +1354,7 @@ class WidgetAreaViewModel(
             val origin: AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = place.id))
             val maxStackPages: Int = settingsRepository.widgetAreaSettings.first().maxStackPages
             if (place.widgets.size < maxStackPages) {
-                addFlow.value = AddWidgetFlowState.ChoosingPlacement(origin = origin, canStack = true)
+                addFlow.value = AddWidgetFlowState.ChoosingPlacement(origin = origin, canAddToStack = true)
             } else {
                 startAdd(origin = origin)
             }

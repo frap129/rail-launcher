@@ -845,7 +845,7 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `choosing Add to stack appends a page and makes it current`() = runTest {
+    fun `choosing Add next to appends a page and makes it current`() = runTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
         val viewModel: WidgetAreaViewModel = createViewModel(
             repository = repository,

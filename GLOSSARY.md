@@ -49,7 +49,7 @@ Apps whose media sessions never trigger the Media Player. Exclusion is by packag
 _Avoid_: Ignored apps, blocked apps, media blacklist
 
 **Widget Stack**:
-Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways.
+Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways. Adding a Widget with **Add next to** places it in the same place as the Widget it was added from, as a new Stack page.
 _Avoid_: Carousel, pager
 
 **Stack page**:

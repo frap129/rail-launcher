@@ -34,7 +34,9 @@
     <string name="collapse_stack">Collapse stack</string>
     <string name="stack_page_of">Page %1$d of %2$d</string>
     <string name="add_below">Add below</string>
-    <string name="add_to_stack">Add to stack</string>
+    <string name="add_below_supporting_text">Gets its own place under this widget</string>
+    <string name="add_next_to">Add next to</string>
+    <string name="add_next_to_supporting_text">Adds another Stack page here; swipe sideways between them</string>
     <string name="stack_full">Stack is full</string>
     <string name="reorder_widget">Reorder %1$s</string>
     <string name="add_widget_title">Add widget</string>
