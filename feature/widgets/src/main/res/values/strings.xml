@@ -88,6 +88,8 @@
     <string name="app_info">App info</string>
     <string name="open_app">Open %1$s</string>
     <string name="media_player_settings">Media Player settings</string>
+    <string name="exclude_media_app">Exclude %1$s</string>
+    <string name="media_player_excluded">%1$s excluded</string>
     <string name="media_previous">Previous</string>
     <string name="media_play">Play</string>
     <string name="media_pause">Pause</string>

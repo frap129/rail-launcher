@@ -54,14 +54,64 @@ class MediaPlayerSelectorTest {
         assertNull(MediaPlayerSelector.selectSession(sessions = sessions, settings = MediaPlayerSettings(enabled = true)))
     }
 
+    @Test
+    fun `skips excluded packages`() {
+        val excluded: MediaSessionSnapshot = session(
+            key = "excluded",
+            packageName = "com.example.video",
+            appLabel = "Video",
+            state = PlaybackStatus.PLAYING
+        )
+        val allowed: MediaSessionSnapshot = session(key = "allowed", state = PlaybackStatus.PLAYING)
+        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(excluded, allowed),
+            settings = MediaPlayerSettings(enabled = true, excludedPackages = setOf("com.example.video"))
+        )
+        assertEquals(allowed, selected)
+    }
+
+    @Test
+    fun `shows a paused session when show when paused is on`() {
+        val paused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
+        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(paused),
+            settings = MediaPlayerSettings(enabled = true, showWhenPaused = true)
+        )
+        assertEquals(paused, selected)
+    }
+
+    @Test
+    fun `skips a paused session when show when paused is off`() {
+        val paused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
+        assertNull(
+            MediaPlayerSelector.selectSession(
+                sessions = listOf(paused),
+                settings = MediaPlayerSettings(enabled = true, showWhenPaused = false)
+            )
+        )
+    }
+
+    @Test
+    fun `lets a lower playing session win over a higher paused session when show when paused is off`() {
+        val paused: MediaSessionSnapshot = session(key = "paused", state = PlaybackStatus.PAUSED)
+        val playing: MediaSessionSnapshot = session(key = "playing", state = PlaybackStatus.PLAYING)
+        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(paused, playing),
+            settings = MediaPlayerSettings(enabled = true, showWhenPaused = false)
+        )
+        assertEquals(playing, selected)
+    }
+
     private fun session(
         key: String = "session",
         title: String = "Song",
+        packageName: String = "com.example.music",
+        appLabel: String = "Music",
         state: PlaybackStatus = PlaybackStatus.PLAYING
     ): MediaSessionSnapshot = MediaSessionSnapshot(
         key = MediaSessionKey(value = key),
-        packageName = "com.example.music",
-        appLabel = "Music",
+        packageName = packageName,
+        appLabel = appLabel,
         title = title,
         artist = "Artist",
         artwork = null,

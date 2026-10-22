@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.media.MediaCommand
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetWidth
 import core.ui.composables.OutlinedText
@@ -208,6 +209,12 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
 fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifier: Modifier = Modifier) {
     val state: WidgetAreaState = ui.state
     val actions: WidgetAreaActions = ui.actions
+    val mediaPlayerVisible: Boolean = ui.mediaPlayer is MediaPlayerUiState.Visible
+    LaunchedEffect(mediaPlayerVisible, state.mediaPlayerPlacement) {
+        if (mediaPlayerVisible && state.mediaPlayerPlacement == MediaPlayerPlacement.TOP_OF_WIDGET_AREA) {
+            state.listState.animateScrollToItem(index = 0)
+        }
+    }
     val reorderState: ReorderableLazyListState = rememberReorderableLazyListState(state.listState) { from, to ->
         if (isPlaceKey(from.key) && isPlaceKey(to.key)) {
             actions.onMovePlace(from.index, to.index)
@@ -279,6 +286,15 @@ fun LazyListScope.widgetAreaItems(
     homeHeightDp: Int
 ) {
     val state: WidgetAreaState = ui.state
+    val placement: MediaPlayerPlacement = (ui.mediaPlayer as? MediaPlayerUiState.Visible)?.placement
+        ?: state.mediaPlayerPlacement
+    val mediaAtTop: Boolean = placement == MediaPlayerPlacement.TOP_OF_WIDGET_AREA
+    val spacing: Dp = state.widgetSpacingDp.dp
+    val mediaTopSpacing: Dp = if (mediaAtTop) 0.dp else spacing
+    val mediaBottomSpacing: Dp = if (mediaAtTop && state.hasWidgets) spacing else 0.dp
+    if (mediaAtTop) {
+        mediaPlayerItem(ui = ui, topSpacing = mediaTopSpacing, bottomSpacing = mediaBottomSpacing)
+    }
     if (!state.hasWidgets) {
         item(key = WIDGET_AREA_EMPTY_KEY) {
             EmptyWidgetArea(
@@ -287,10 +303,7 @@ fun LazyListScope.widgetAreaItems(
                 onLongPress = ui.actions.onEmptyAreaLongPress
             )
         }
-        mediaPlayerItem(ui)
-        return
-    }
-    if (state.isEditing) {
+    } else if (state.isEditing) {
         itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
             ReorderableItem(state = reorderableState, key = placeKey(place.id)) { isDragging ->
                 Column {
@@ -340,7 +353,9 @@ fun LazyListScope.widgetAreaItems(
             )
         }
     }
-    mediaPlayerItem(ui)
+    if (!mediaAtTop) {
+        mediaPlayerItem(ui = ui, topSpacing = mediaTopSpacing, bottomSpacing = mediaBottomSpacing)
+    }
 }
 
 /** The leading Home spacer that moves the uncapped Widget Area down by the set offset. */

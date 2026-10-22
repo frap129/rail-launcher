@@ -3,6 +3,7 @@ package feature.settings
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.apps.model.App
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.icons.model.Icon
@@ -26,6 +27,7 @@ import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
@@ -85,6 +87,11 @@ data class TapActionPickerState(
     val launchables: List<TapActionLaunchable> = emptyList()
 )
 
+/** One app offered in the Media Player exclusion list. */
+data class ExcludableApp(val packageName: String, val label: String, val icon: Icon, val isExcluded: Boolean)
+
+data class MediaPlayerExclusionsState(val query: String = "", val isLoaded: Boolean = false, val apps: List<ExcludableApp> = emptyList())
+
 /** One placed App Widget row in Settings. */
 data class WidgetSettingsAppWidget(
     val widgetId: Long,
@@ -137,6 +144,10 @@ data class WidgetSettingsUiState(
     val widgetSpacing: WidgetSpacing = WidgetSpacing.DEFAULT,
     val homeHeightDp: Int? = null,
     val mediaPlayerEnabled: Boolean = false,
+    val showWhenPaused: Boolean = true,
+    val showArtwork: Boolean = true,
+    val mediaPlayerPlacement: MediaPlayerPlacement = MediaPlayerPlacement.BELOW_WIDGET_AREA,
+    val excludedMediaPlayerPackages: Set<String> = emptySet(),
     val notificationAccess: Boolean = false
 )
 
@@ -149,7 +160,7 @@ private data class WidgetSettingsRows(
     val appWidgets: List<WidgetSettingsAppWidget>,
     val areaSettings: WidgetAreaSettings,
     val homeHeightDp: Int?,
-    val mediaPlayerEnabled: Boolean,
+    val mediaPlayerSettings: MediaPlayerSettings,
     val notificationAccess: Boolean
 )
 
@@ -181,6 +192,8 @@ class WidgetSettingsViewModel(
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
+    private val exclusionsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    private val exclusionQuery: MutableStateFlow<String> = MutableStateFlow("")
     private val eventChannel: Channel<WidgetSettingsEvent> = Channel(Channel.BUFFERED)
     private val calendarPermissionGate: CalendarPermissionGate = CalendarPermissionGate(calendarEventSource)
 
@@ -225,7 +238,7 @@ class WidgetSettingsViewModel(
             places = places,
             areaSettings = areaSettings,
             homeHeightDp = homeHeightDp,
-            mediaPlayerEnabled = media.settings.enabled,
+            mediaPlayerSettings = media.settings,
             notificationAccess = media.hasAccess,
             appWidgets = places.flatMap { place ->
                 place.widgets.filterIsInstance<PlacedWidget.AppWidget>().map { widget ->
@@ -298,7 +311,11 @@ class WidgetSettingsViewModel(
             topOffsetDp = rows.areaSettings.topOffsetDp,
             widgetSpacing = rows.areaSettings.widgetSpacing,
             homeHeightDp = rows.homeHeightDp,
-            mediaPlayerEnabled = rows.mediaPlayerEnabled,
+            mediaPlayerEnabled = rows.mediaPlayerSettings.enabled,
+            showWhenPaused = rows.mediaPlayerSettings.showWhenPaused,
+            showArtwork = rows.mediaPlayerSettings.showArtwork,
+            mediaPlayerPlacement = rows.mediaPlayerSettings.placement,
+            excludedMediaPlayerPackages = rows.mediaPlayerSettings.excludedPackages,
             notificationAccess = rows.notificationAccess
         )
     }.stateIn(
@@ -324,6 +341,31 @@ class WidgetSettingsViewModel(
                         icon = launchable.icon
                     )
                 }
+            )
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        initialValue = null
+    )
+
+    val mediaPlayerExclusions: StateFlow<MediaPlayerExclusionsState?> = combine(
+        exclusionsOpen,
+        exclusionQuery,
+        launchableRepository.launchableState,
+        settingsRepository.mediaPlayerSettings
+    ) { open, query, launchableState, settings ->
+        if (!open) {
+            null
+        } else {
+            MediaPlayerExclusionsState(
+                query = query,
+                isLoaded = launchableState.isLoaded,
+                apps = excludableApps(
+                    launchables = launchableState.launchables,
+                    excludedPackages = settings.excludedPackages,
+                    query = query
+                )
             )
         }
     }.stateIn(
@@ -460,6 +502,43 @@ class WidgetSettingsViewModel(
         }
     }
 
+    fun setShowWhenPaused(show: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerShowWhenPaused(show)
+        }
+    }
+
+    fun setShowArtwork(show: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerShowArtwork(show)
+        }
+    }
+
+    fun setPlacement(placement: MediaPlayerPlacement) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerPlacement(placement)
+        }
+    }
+
+    fun openExcludedApps() {
+        exclusionQuery.value = ""
+        exclusionsOpen.value = true
+    }
+
+    fun closeExcludedApps() {
+        exclusionsOpen.value = false
+    }
+
+    fun setExclusionQuery(query: String) {
+        exclusionQuery.value = query
+    }
+
+    fun setExcluded(packageName: String, excluded: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerPackageExcluded(packageName = packageName, excluded = excluded)
+        }
+    }
+
     fun openAddWidget() {
         viewModelScope.launch {
             eventChannel.send(WidgetSettingsEvent.StartAddWidget)
@@ -554,6 +633,37 @@ internal fun filterLaunchables(launchables: List<Launchable>, query: String): Li
         return launchables
     }
     return launchables.filter { launchable -> launchable.name.normalizedForSearch().contains(normalizedQuery) }
+}
+
+/** The installed apps offered in the Media Player exclusion list, excluded apps first. */
+internal fun excludableApps(launchables: List<Launchable>, excludedPackages: Set<String>, query: String): List<ExcludableApp> =
+    filterExcludableApps(
+        apps = launchables.filterIsInstance<App>()
+            .distinctBy { app -> app.packageName }
+            .map { app ->
+                ExcludableApp(
+                    packageName = app.packageName,
+                    label = app.name,
+                    icon = app.icon,
+                    isExcluded = app.packageName in excludedPackages
+                )
+            },
+        query = query
+    )
+
+/** Sorts excluded apps first and filters by label or package name. */
+internal fun filterExcludableApps(apps: List<ExcludableApp>, query: String): List<ExcludableApp> {
+    val normalizedQuery: String = query.normalizedForSearch()
+    return apps
+        .filter { app ->
+            normalizedQuery.isEmpty() ||
+                app.label.normalizedForSearch().contains(normalizedQuery) ||
+                app.packageName.normalizedForSearch().contains(normalizedQuery)
+        }
+        .sortedWith(
+            compareByDescending<ExcludableApp> { app -> app.isExcluded }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { app -> app.label }
+        )
 }
 
 private fun String.normalizedForSearch(): String =

@@ -88,4 +88,17 @@
     <string name="notification_access">Notification access</string>
     <string name="notification_access_allowed">Allowed</string>
     <string name="notification_access_not_allowed">Not allowed — tap to allow</string>
+    <string name="show_when_paused">Show when paused</string>
+    <string name="show_artwork">Show artwork</string>
+    <string name="position">Position</string>
+    <string name="below_widget_area">Below Widget Area</string>
+    <string name="top_of_widget_area">Top of Widget Area</string>
+    <string name="excluded_apps">Excluded apps</string>
+    <string name="none">None</string>
+    <plurals name="excluded_apps_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="search_apps">Search apps</string>
+    <string name="no_apps_found">No apps found</string>
 </resources>

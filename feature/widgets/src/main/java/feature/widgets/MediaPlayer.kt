@@ -64,21 +64,29 @@ import core.data.media.PlaybackStatus
 private val mediaPlayerShape: RoundedCornerShape = RoundedCornerShape(24.dp)
 private val mediaArtworkShape: RoundedCornerShape = RoundedCornerShape(12.dp)
 private val mediaPlayerMinHeight: Dp = 96.dp
+private val mediaPlayerCompactMinHeight: Dp = 72.dp
+private val mediaPlayerPadding: Dp = 16.dp
+private val mediaPlayerCompactPadding: Dp = 12.dp
+private val mediaPlayerCompactIconSize: Dp = 24.dp
 private const val MEDIA_PLAYER_ANIMATION_MILLIS: Int = 200
 
 internal const val MEDIA_PLAYER_KEY: String = "mediaPlayer"
 
-/** Adds the Media Player below the Widget Area's places. */
-fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi) {
-    val spacingDp: Int = ui.state.widgetSpacingDp
+/** Adds the Media Player at the Widget Area position chosen in Settings. */
+fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp) {
     item(key = MEDIA_PLAYER_KEY) {
-        MediaPlayerSlot(ui = ui, topSpacing = spacingDp.dp)
+        MediaPlayerSlot(
+            ui = ui,
+            topSpacing = topSpacing,
+            bottomSpacing = bottomSpacing,
+            modifier = Modifier.animateItem(placementSpec = tween(MEDIA_PLAYER_ANIMATION_MILLIS))
+        )
     }
 }
 
 /** Keeps the last session composed while the Media Player animates away. */
 @Composable
-fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, modifier: Modifier = Modifier) {
+fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, modifier: Modifier = Modifier) {
     val mediaPlayer: MediaPlayerUiState = ui.mediaPlayer
     var retained: MediaPlayerUiState.Visible? by remember { mutableStateOf(null) }
     if (mediaPlayer is MediaPlayerUiState.Visible) {
@@ -104,6 +112,7 @@ fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, modifier: Modifier = Modif
                         onCommand = ui.actions.onMediaCommand
                     )
                 )
+                Spacer(modifier = Modifier.height(bottomSpacing))
             }
         }
     }
@@ -119,7 +128,7 @@ fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = mediaPlayerMinHeight)
+            .defaultMinSize(minHeight = if (state.showArtwork) mediaPlayerMinHeight else mediaPlayerCompactMinHeight)
             .clip(mediaPlayerShape)
             .background(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = SURFACE_ALPHA))
             .semantics {
@@ -139,14 +148,22 @@ fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, 
                     onLongPress = { actions.onLongPress() }
                 )
             }
-            .padding(16.dp),
+            .padding(horizontal = mediaPlayerPadding, vertical = if (state.showArtwork) mediaPlayerPadding else mediaPlayerCompactPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        MediaArtworkImage(
-            artwork = session.artwork,
-            appPackageName = session.packageName,
-            modifier = Modifier.size(64.dp).clip(mediaArtworkShape)
-        )
+        if (state.showArtwork) {
+            MediaArtworkImage(
+                artwork = session.artwork,
+                appPackageName = session.packageName,
+                modifier = Modifier.size(64.dp).clip(mediaArtworkShape)
+            )
+        } else {
+            AsyncImage(
+                model = Icon.ApplicationIcon(packageName = session.packageName),
+                contentDescription = null,
+                modifier = Modifier.size(mediaPlayerCompactIconSize)
+            )
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -168,20 +185,22 @@ fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, 
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(
-                    model = Icon.ApplicationIcon(packageName = session.packageName),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = session.appLabel,
-                    modifier = Modifier.padding(start = 6.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (state.showArtwork) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = Icon.ApplicationIcon(packageName = session.packageName),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = session.appLabel,
+                        modifier = Modifier.padding(start = 6.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         MediaControls(session = session, onCommand = actions.onCommand)

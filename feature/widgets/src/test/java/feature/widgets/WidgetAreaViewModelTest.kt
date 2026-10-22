@@ -39,6 +39,7 @@ import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.HomeHeightState
 import core.data.widgets.InsertPosition
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
@@ -1320,6 +1321,107 @@ class WidgetAreaViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(settingsRepository.mediaPlayerUpdates.last().enabled)
+    }
+
+    @Test
+    fun `exposes the Media Player placement and artwork options`() = runTest {
+        val session: MediaSessionSnapshot = mediaSession()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialMediaPlayerSettings = MediaPlayerSettings(
+                    enabled = true,
+                    placement = MediaPlayerPlacement.TOP_OF_WIDGET_AREA,
+                    showArtwork = false
+                )
+            ),
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session))
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(
+                MediaPlayerUiState.Visible(
+                    session = session,
+                    placement = MediaPlayerPlacement.TOP_OF_WIDGET_AREA,
+                    showArtwork = false
+                ),
+                expectMostRecentItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `excluding the shown app emits Undo and selects the next session`() = runTest {
+        val first: MediaSessionSnapshot =
+            mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
+        val second: MediaSessionSnapshot =
+            mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(first, second))
+        )
+        backgroundScope.launch { viewModel.mediaPlayerState.collect {} }
+        advanceUntilIdle()
+        assertEquals(MediaPlayerUiState.Visible(session = first), viewModel.mediaPlayerState.value)
+        viewModel.events.test {
+            viewModel.excludeMediaApp()
+            assertEquals(
+                WidgetAreaEvent.ShowUndo(
+                    action = UndoAction.IncludeMediaApp(packageName = first.packageName, appLabel = first.appLabel)
+                ),
+                awaitItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+        advanceUntilIdle()
+        assertEquals(MediaPlayerUiState.Visible(session = second), viewModel.mediaPlayerState.value)
+    }
+
+    @Test
+    fun `undoing an exclusion restores the excluded app`() = runTest {
+        val first: MediaSessionSnapshot =
+            mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
+        val second: MediaSessionSnapshot =
+            mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(first, second))
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Visible(session = first), expectMostRecentItem())
+            viewModel.excludeMediaApp()
+            advanceUntilIdle()
+            assertEquals(MediaPlayerUiState.Visible(session = second), expectMostRecentItem())
+            viewModel.undo(action = UndoAction.IncludeMediaApp(packageName = first.packageName))
+            advanceUntilIdle()
+            assertEquals(MediaPlayerUiState.Visible(session = first), expectMostRecentItem())
+            assertTrue(settingsRepository.mediaPlayerUpdates.last().excludedPackages.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `Media Player menu offers excluding the shown app`() = runTest {
+        val session: MediaSessionSnapshot = mediaSession(appLabel = "Video")
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            ),
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session))
+        )
+        viewModel.menuState.test {
+            viewModel.openMediaPlayerMenu()
+            val menu: WidgetMenuState.MediaPlayerMenu = expectMostRecentItem() as WidgetMenuState.MediaPlayerMenu
+            val exclude: WidgetMenuItem.Action = menu.items[1] as WidgetMenuItem.Action
+            assertEquals(WidgetMenuAction.ExcludeMediaApp, exclude.id)
+            assertEquals("Video", exclude.labelArg)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     private fun createViewModel(
@@ -2679,12 +2781,14 @@ class WidgetAreaViewModelTest {
         key: String = "session",
         title: String = "Song",
         artist: String? = "Artist",
+        packageName: String = "com.example.music",
+        appLabel: String = "Music",
         state: PlaybackStatus = PlaybackStatus.PLAYING,
         actions: Set<MediaCommand> = setOf(MediaCommand.Play, MediaCommand.Pause)
     ): MediaSessionSnapshot = MediaSessionSnapshot(
         key = MediaSessionKey(value = key),
-        packageName = "com.example.music",
-        appLabel = "Music",
+        packageName = packageName,
+        appLabel = appLabel,
         title = title,
         artist = artist,
         artwork = null,

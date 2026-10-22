@@ -148,6 +148,7 @@ import feature.widgets.EditMergeState
 import feature.widgets.MoveWidgetAreaPanel
 import feature.widgets.MoveWidgetAreaState
 import feature.widgets.NotificationAccessDialog
+import feature.widgets.R as WidgetsR
 import feature.widgets.RESIZE_DIMMED_ALPHA
 import feature.widgets.ResizeState
 import feature.widgets.UndoAction
@@ -282,16 +283,23 @@ fun LauncherScreen(
         widgetViewModel.events.collect { event ->
             when (event) {
                 is WidgetAreaEvent.ShowUndo -> coroutineScope.launch {
+                    val action: UndoAction = event.action
                     val result: SnackbarResult = snackbarHostState.showSnackbar(
-                        message = when (event.action) {
+                        message = when (action) {
                             is UndoAction.RemoveHeader -> headerRemovedMessage
+
                             is UndoAction.ReplaceHeader -> headerReplacedMessage
+
+                            is UndoAction.IncludeMediaApp -> context.getString(
+                                WidgetsR.string.media_player_excluded,
+                                action.appLabel
+                            )
                         },
                         actionLabel = undoLabel,
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        widgetViewModel.undo(action = event.action)
+                        widgetViewModel.undo(action = action)
                     }
                 }
 
@@ -773,6 +781,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings,
                     WidgetMenuAction.OpenMediaPlayer,
+                    WidgetMenuAction.ExcludeMediaApp,
                     WidgetMenuAction.MediaPlayerSettings -> Unit
 
                     WidgetMenuAction.MediaPlayer -> viewModel.setMediaPlayerEnabled(enabled = checked)

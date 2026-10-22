@@ -8,10 +8,14 @@ object MediaPlayerSelector {
         if (!settings.enabled) {
             return null
         }
-        return sessions.firstOrNull { session -> session.isEligible() }
+        return sessions.firstOrNull { session ->
+            session.packageName !in settings.excludedPackages && session.isEligible(showWhenPaused = settings.showWhenPaused)
+        }
     }
 
-    fun MediaSessionSnapshot.isEligible(): Boolean = title.isNotBlank() && state.showsMediaPlayer()
+    fun MediaSessionSnapshot.isEligible(showWhenPaused: Boolean): Boolean = title.isNotBlank() &&
+        state.showsMediaPlayer() &&
+        (showWhenPaused || state != PlaybackStatus.PAUSED)
 
     private fun PlaybackStatus.showsMediaPlayer(): Boolean = when (this) {
         PlaybackStatus.PLAYING,

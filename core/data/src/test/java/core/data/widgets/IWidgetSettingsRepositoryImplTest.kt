@@ -126,6 +126,40 @@ class IWidgetSettingsRepositoryImplTest {
     }
 
     @Test
+    fun `exposes the Media Player option defaults`() = runTest {
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val settings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
+        assertTrue(settings.showWhenPaused)
+        assertTrue(settings.showArtwork)
+        assertEquals(MediaPlayerPlacement.BELOW_WIDGET_AREA, settings.placement)
+        assertTrue(settings.excludedPackages.isEmpty())
+    }
+
+    @Test
+    fun `persists the Media Player display options`() = runTest {
+        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+        repository.setMediaPlayerShowWhenPaused(false)
+        repository.setMediaPlayerShowArtwork(false)
+        repository.setMediaPlayerPlacement(MediaPlayerPlacement.TOP_OF_WIDGET_AREA)
+        val settings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
+        assertFalse(settings.showWhenPaused)
+        assertFalse(settings.showArtwork)
+        assertEquals(MediaPlayerPlacement.TOP_OF_WIDGET_AREA, settings.placement)
+        assertEquals(settings, requireNotNull(dao.getRow()))
+    }
+
+    @Test
+    fun `adds and removes excluded Media Player packages`() = runTest {
+        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+        repository.setMediaPlayerPackageExcluded(packageName = "com.example.video", excluded = true)
+        repository.setMediaPlayerPackageExcluded(packageName = "com.example.music", excluded = true)
+        repository.setMediaPlayerPackageExcluded(packageName = "com.example.video", excluded = false)
+        assertEquals(setOf("com.example.music"), repository.mediaPlayerSettings.first().excludedPackages)
+    }
+
+    @Test
     fun `setClockVisible rejects hiding the last standing part`() = runTest {
         val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = true, dateVisible = false)
