@@ -12,7 +12,10 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationManagerCompat
+import core.data.retryWithExponentialBackoff
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 private const val SUBSCRIPTION_TIMEOUT_MS: Long = 5_000L
@@ -34,16 +38,32 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
     private val appContext: Context = context.applicationContext
     private val access: MutableStateFlow<Boolean> = MutableStateFlow(hasNotificationAccess())
 
+    /** Bumped when notification access or the listener connection changes to rebuild the session stream. */
+    private val subscriptionGeneration: MutableStateFlow<Long> = MutableStateFlow(0L)
+    private val mainHandler: Handler = Handler(Looper.getMainLooper())
+
     override val hasAccess: StateFlow<Boolean> = access.asStateFlow()
 
     private val lock: Any = Any()
     private val controllers: MutableMap<MediaSessionKey, MediaController> = mutableMapOf()
     private val callbacks: MutableMap<MediaSessionKey, MediaController.Callback> = mutableMapOf()
 
+    init {
+        scope.launch {
+            RailNotificationListener.connections.collect { connected ->
+                if (connected) {
+                    setAccess(true)
+                } else {
+                    restartSessions()
+                }
+            }
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val sessions: Flow<List<MediaSessionSnapshot>> = access
-        .flatMapLatest { granted ->
-            if (granted) activeSessions() else flowOf(emptyList())
+    override val sessions: Flow<List<MediaSessionSnapshot>> = subscriptionGeneration
+        .flatMapLatest {
+            if (access.value) activeSessions() else flowOf(emptyList())
         }
         .conflate()
         .shareIn(
@@ -53,6 +73,7 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
         )
 
     private fun activeSessions(): Flow<List<MediaSessionSnapshot>> = callbackFlow {
+        clearControllers()
         val manager: MediaSessionManager = appContext.getSystemService(MediaSessionManager::class.java)
         val listenerComponent: ComponentName = ComponentName(appContext, RailNotificationListener::class.java)
         val emitSessions: () -> Unit = { trySend(snapshots()) }
@@ -60,13 +81,18 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
             MediaSessionManager.OnActiveSessionsChangedListener { activeControllers ->
                 updateControllers(active = activeControllers.orEmpty(), onChanged = emitSessions)
             }
+        var isListening: Boolean = false
         try {
             updateControllers(active = manager.getActiveSessions(listenerComponent).orEmpty(), onChanged = emitSessions)
-            manager.addOnActiveSessionsChangedListener(activeListener, listenerComponent)
+            manager.addOnActiveSessionsChangedListener(activeListener, listenerComponent, mainHandler)
+            isListening = true
         } catch (exception: SecurityException) {
             Timber.w(exception, "Lost MediaSession access while listing sessions")
-            access.value = false
-            trySend(emptyList())
+            setAccess(false)
+        } finally {
+            if (!isListening) {
+                clearControllers()
+            }
         }
         awaitClose {
             try {
@@ -76,10 +102,22 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
             }
             clearControllers()
         }
-    }
+    }.retryWithExponentialBackoff()
 
     override fun refreshAccess() {
-        access.value = hasNotificationAccess()
+        val granted: Boolean = hasNotificationAccess()
+        if (access.value != granted) {
+            setAccess(granted)
+        }
+    }
+
+    private fun setAccess(granted: Boolean) {
+        access.value = granted
+        subscriptionGeneration.value += 1L
+    }
+
+    private fun restartSessions() {
+        subscriptionGeneration.value += 1L
     }
 
     override fun execute(key: MediaSessionKey, command: MediaCommand) {
@@ -124,34 +162,39 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
     private fun updateControllers(active: List<MediaController>, onChanged: () -> Unit) {
         synchronized(lock) {
             val ordered: LinkedHashMap<MediaSessionKey, MediaController> = LinkedHashMap()
-            active.forEach { controller ->
-                val key: MediaSessionKey = controller.key()
-                val existing: MediaController? = controllers[key]
-                val registered: MediaController = existing ?: controller.also {
-                    val callback: MediaController.Callback = object : MediaController.Callback() {
-                        override fun onMetadataChanged(metadata: MediaMetadata?) = onChanged()
-
-                        override fun onPlaybackStateChanged(state: PlaybackState?) = onChanged()
-
-                        override fun onSessionDestroyed() {
-                            synchronized(lock) {
-                                if (controllers[key] === it) {
-                                    controllers.remove(key)
-                                    callbacks.remove(key)
-                                }
-                            }
-                            it.unregisterCallback(this)
-                            onChanged()
+            val newlyRegistered: MutableList<Pair<MediaSessionKey, MediaController>> = mutableListOf()
+            try {
+                active.forEach { controller ->
+                    val key: MediaSessionKey = controller.key()
+                    val existing: MediaController? = controllers[key]
+                    if (existing != null) {
+                        ordered[key] = existing
+                    } else {
+                        val callback: MediaController.Callback = createCallback(
+                            key = key,
+                            controller = controller,
+                            onChanged = onChanged
+                        )
+                        callbacks[key] = callback
+                        try {
+                            controller.registerCallback(callback, mainHandler)
+                        } catch (exception: RuntimeException) {
+                            callbacks.remove(key)
+                            throw exception
                         }
+                        newlyRegistered += key to controller
+                        ordered[key] = controller
                     }
-                    callbacks[key] = callback
-                    it.registerCallback(callback)
                 }
-                ordered[key] = registered
+            } catch (exception: RuntimeException) {
+                newlyRegistered.forEach { (key, controller) ->
+                    unregister(key = key, controller = controller)
+                }
+                throw exception
             }
             controllers.forEach { (key, controller) ->
                 if (key !in ordered) {
-                    callbacks.remove(key)?.let { callback -> controller.unregisterCallback(callback) }
+                    unregister(key = key, controller = controller)
                 }
             }
             controllers.clear()
@@ -160,10 +203,32 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
         onChanged()
     }
 
+    private fun createCallback(key: MediaSessionKey, controller: MediaController, onChanged: () -> Unit): MediaController.Callback =
+        object : MediaController.Callback() {
+            override fun onMetadataChanged(metadata: MediaMetadata?) = onChanged()
+
+            override fun onPlaybackStateChanged(state: PlaybackState?) = onChanged()
+
+            override fun onSessionDestroyed() {
+                synchronized(lock) {
+                    if (controllers[key] === controller) {
+                        controllers.remove(key)
+                        callbacks.remove(key)
+                    }
+                }
+                controller.unregisterCallback(this)
+                onChanged()
+            }
+        }
+
+    private fun unregister(key: MediaSessionKey, controller: MediaController) {
+        callbacks.remove(key)?.let { callback -> controller.unregisterCallback(callback) }
+    }
+
     private fun clearControllers() {
         synchronized(lock) {
             controllers.forEach { (key, controller) ->
-                callbacks[key]?.let { callback -> controller.unregisterCallback(callback) }
+                unregister(key = key, controller = controller)
             }
             controllers.clear()
             callbacks.clear()
