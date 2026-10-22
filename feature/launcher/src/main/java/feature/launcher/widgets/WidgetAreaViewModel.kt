@@ -1324,7 +1324,7 @@ class WidgetAreaViewModel(
     }
 
     private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
-        appWidgetHost.providerInfo(provider = widget.provider, profileSerial = widget.profileSerial)
+        appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
 
     private suspend fun findAppWidget(widgetId: Long): PlacedWidget.AppWidget? = repository.places.first()
         .asSequence()

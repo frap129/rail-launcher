@@ -21,6 +21,7 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
 
     val boundIdsState: MutableSet<AppWidgetId> = mutableSetOf()
     val availabilityResults: MutableMap<AppWidgetId, WidgetAvailability> = mutableMapOf()
+    val providerInfoById: MutableMap<AppWidgetId, WidgetProviderInfo> = mutableMapOf()
     var defaultAvailability: WidgetAvailability = WidgetAvailability.Available
 
     val allocatedIds: MutableList<AppWidgetId> = mutableListOf()
@@ -49,10 +50,7 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
     override fun availability(id: AppWidgetId, provider: WidgetProvider, profileSerial: Long): WidgetAvailability =
         availabilityResults[id] ?: defaultAvailability
 
-    override fun providerInfo(id: AppWidgetId): WidgetProviderInfo? = null
-
-    override fun providerInfo(provider: WidgetProvider, profileSerial: Long): WidgetProviderInfo? =
-        providersState.value.firstOrNull { info -> info.provider == provider && info.profileSerial == profileSerial }
+    override fun providerInfo(id: AppWidgetId): WidgetProviderInfo? = providerInfoById[id]
 
     override fun startListening() {
         isListening = true

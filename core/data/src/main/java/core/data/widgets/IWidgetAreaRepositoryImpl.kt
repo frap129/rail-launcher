@@ -67,13 +67,7 @@ class IWidgetAreaRepositoryImpl(
     }
 
     private fun WidgetRecord.resizeBounds(): ResizeBounds {
-        val storedProvider: WidgetProvider? = provider?.let(WidgetProvider::fromKey)
-        val storedProfileSerial: Long? = profileSerial
-        val info: WidgetProviderInfo? = if (storedProvider != null && storedProfileSerial != null) {
-            appWidgetHost.providerInfo(provider = storedProvider, profileSerial = storedProfileSerial)
-        } else {
-            null
-        }
+        val info: WidgetProviderInfo? = appWidgetId?.let { id -> appWidgetHost.providerInfo(id = AppWidgetId(id)) }
         return appWidgetResizeBounds(providerInfo = info, defaultHeightDp = defaultHeightDp)
     }
 

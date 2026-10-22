@@ -68,10 +68,8 @@ interface IAppWidgetHostSource {
     /** The current availability of a placed App Widget. */
     fun availability(id: AppWidgetId, provider: WidgetProvider, profileSerial: Long): WidgetAvailability
 
+    /** Provider details looked up directly from the system for a bound App Widget. */
     fun providerInfo(id: AppWidgetId): WidgetProviderInfo?
-
-    /** Provider details from the last provider scan, without another system lookup. */
-    fun providerInfo(provider: WidgetProvider, profileSerial: Long): WidgetProviderInfo?
 
     fun startListening()
 
