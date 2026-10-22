@@ -7,20 +7,22 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,13 +64,23 @@ import core.data.media.MediaSessionSnapshot
 import core.data.media.PlaybackStatus
 import feature.launcher.R
 
-private val mediaPlayerShape: RoundedCornerShape = RoundedCornerShape(24.dp)
-private val mediaArtworkShape: RoundedCornerShape = RoundedCornerShape(12.dp)
-private val mediaPlayerMinHeight: Dp = 96.dp
-private val mediaPlayerCompactMinHeight: Dp = 72.dp
-private val mediaPlayerPadding: Dp = 16.dp
-private val mediaPlayerCompactPadding: Dp = 12.dp
-private val mediaPlayerCompactIconSize: Dp = 24.dp
+private val mediaArtworkSize: Dp = 80.dp
+private val mediaArtworkShape: RoundedCornerShape = RoundedCornerShape(2.dp)
+private val mediaArtworkBorderWidth: Dp = 1.dp
+private const val MEDIA_ARTWORK_BORDER_ALPHA: Float = 0.5f
+private val mediaArtworkSpacing: Dp = 16.dp
+private val mediaArtistSourceSpacing: Dp = 8.dp
+private val mediaSourceIconSize: Dp = 14.dp
+private val mediaSourceSpacing: Dp = 4.dp
+private val mediaControlsTopSpacing: Dp = 6.dp
+private val mediaControlsSpacing: Dp = 4.dp
+private val mediaControlSize: Dp = 44.dp
+private val mediaControlIconSize: Dp = 22.dp
+private val mediaPlayButtonSize: Dp = 40.dp
+private val mediaPlayButtonBorderWidth: Dp = 1.dp
+private val mediaPlayIconSize: Dp = 20.dp
+private val mediaAppIconSize: Dp = 32.dp
+private val mediaPlayerVerticalPadding: Dp = 4.dp
 private const val MEDIA_PLAYER_ANIMATION_MILLIS: Int = 200
 
 internal const val MEDIA_PLAYER_KEY: String = "mediaPlayer"
@@ -119,7 +131,7 @@ fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, modifie
     }
 }
 
-/** The round-cornered Media Player card. */
+/** The transparent Media Player row shown over the wallpaper. */
 @Composable
 fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, modifier: Modifier = Modifier) {
     val session: MediaSessionSnapshot = state.session
@@ -129,9 +141,7 @@ fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = if (state.showArtwork) mediaPlayerMinHeight else mediaPlayerCompactMinHeight)
-            .clip(mediaPlayerShape)
-            .background(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = SURFACE_ALPHA))
+            .padding(vertical = mediaPlayerVerticalPadding)
             .semantics {
                 role = Role.Button
                 onClick(label = openLabel) {
@@ -148,106 +158,165 @@ fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, 
                     onTap = { actions.onOpen() },
                     onLongPress = { actions.onLongPress() }
                 )
-            }
-            .padding(horizontal = mediaPlayerPadding, vertical = if (state.showArtwork) mediaPlayerPadding else mediaPlayerCompactPadding),
-        verticalAlignment = Alignment.CenterVertically
+            },
+        verticalAlignment = Alignment.Top
     ) {
         if (state.showArtwork) {
-            MediaArtworkImage(
-                artwork = session.artwork,
-                appPackageName = session.packageName,
-                modifier = Modifier.size(64.dp).clip(mediaArtworkShape)
-            )
+            Box(
+                modifier = Modifier
+                    .size(mediaArtworkSize)
+                    .clip(mediaArtworkShape)
+            ) {
+                MediaArtworkImage(
+                    artwork = session.artwork,
+                    appPackageName = session.packageName,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            width = mediaArtworkBorderWidth,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = MEDIA_ARTWORK_BORDER_ALPHA),
+                            shape = mediaArtworkShape
+                        )
+                )
+            }
         } else {
             AsyncImage(
                 model = Icon.ApplicationIcon(packageName = session.packageName),
                 contentDescription = null,
-                modifier = Modifier.size(mediaPlayerCompactIconSize)
+                modifier = Modifier.size(mediaAppIconSize)
             )
         }
         Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 12.dp)
-                .semantics(mergeDescendants = true) { contentDescription = description }
+                .weight(1f, fill = false)
+                .padding(start = mediaArtworkSpacing),
+            horizontalAlignment = Alignment.Start
         ) {
-            Text(
-                text = session.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleMedium
-            )
-            session.artist?.let { artist ->
+            Column(
+                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description }
+            ) {
                 Text(
-                    text = artist,
+                    text = session.title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            }
-            if (state.showArtwork) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(
-                        model = Icon.ApplicationIcon(packageName = session.packageName),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = session.appLabel,
-                        modifier = Modifier.padding(start = 6.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    session.artist?.let { artist ->
+                        Text(
+                            text = artist,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(mediaArtistSourceSpacing))
+                    }
+                    MediaSourceLabel(session = session)
                 }
             }
+            Spacer(modifier = Modifier.height(mediaControlsTopSpacing))
+            MediaControls(
+                session = session,
+                onCommand = actions.onCommand,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
         }
-        MediaControls(session = session, onCommand = actions.onCommand)
     }
 }
 
 @Composable
-private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaCommand) -> Unit) {
-    if (MediaCommand.Previous in session.actions) {
-        MediaControlButton(
-            icon = FontAwesomeIcons.Solid.StepBackward,
-            contentDescription = stringResource(R.string.media_previous),
-            onClick = { onCommand(MediaCommand.Previous) }
+private fun MediaSourceLabel(session: MediaSessionSnapshot) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        AsyncImage(
+            model = Icon.ApplicationIcon(packageName = session.packageName),
+            contentDescription = null,
+            modifier = Modifier.size(mediaSourceIconSize)
+        )
+        Text(
+            text = session.appLabel,
+            modifier = Modifier.padding(start = mediaSourceSpacing),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    val playCommand: MediaCommand? = playPauseCommand(session = session)
-    if (playCommand != null) {
-        FilledTonalIconButton(
-            onClick = { onCommand(playCommand) },
-            modifier = Modifier.size(48.dp)
-        ) {
-            MaterialIcon(
-                imageVector = if (playCommand == MediaCommand.Pause) {
-                    FontAwesomeIcons.Solid.Pause
-                } else {
-                    FontAwesomeIcons.Solid.Play
-                },
-                contentDescription = stringResource(
-                    if (playCommand == MediaCommand.Pause) R.string.media_pause else R.string.media_play
-                )
+}
+
+@Composable
+private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaCommand) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(mediaControlsSpacing)
+    ) {
+        if (MediaCommand.Previous in session.actions) {
+            MediaControlButton(
+                icon = FontAwesomeIcons.Solid.StepBackward,
+                contentDescription = stringResource(R.string.media_previous),
+                onClick = { onCommand(MediaCommand.Previous) }
             )
         }
-    }
-    if (MediaCommand.Next in session.actions) {
-        MediaControlButton(
-            icon = FontAwesomeIcons.Solid.StepForward,
-            contentDescription = stringResource(R.string.media_next),
-            onClick = { onCommand(MediaCommand.Next) }
-        )
+        val playCommand: MediaCommand? = playPauseCommand(session = session)
+        if (playCommand != null) {
+            PlayPauseButton(
+                command = playCommand,
+                onClick = { onCommand(playCommand) }
+            )
+        }
+        if (MediaCommand.Next in session.actions) {
+            MediaControlButton(
+                icon = FontAwesomeIcons.Solid.StepForward,
+                contentDescription = stringResource(R.string.media_next),
+                onClick = { onCommand(MediaCommand.Next) }
+            )
+        }
     }
 }
 
 @Composable
 private fun MediaControlButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        MaterialIcon(imageVector = icon, contentDescription = contentDescription)
+    IconButton(onClick = onClick, modifier = Modifier.size(mediaControlSize)) {
+        MaterialIcon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(mediaControlIconSize),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun PlayPauseButton(command: MediaCommand, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(mediaPlayButtonSize)
+            .clip(CircleShape)
+            .border(
+                width = mediaPlayButtonBorderWidth,
+                color = MaterialTheme.colorScheme.onSurface,
+                shape = CircleShape
+            )
+    ) {
+        MaterialIcon(
+            imageVector = if (command == MediaCommand.Pause) {
+                FontAwesomeIcons.Solid.Pause
+            } else {
+                FontAwesomeIcons.Solid.Play
+            },
+            contentDescription = stringResource(
+                if (command == MediaCommand.Pause) R.string.media_pause else R.string.media_play
+            ),
+            modifier = Modifier.size(mediaPlayIconSize),
+            tint = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -307,5 +376,3 @@ private val PLAYING_STATES: Set<PlaybackStatus> = setOf(
     PlaybackStatus.SKIPPING_TO_PREVIOUS,
     PlaybackStatus.SKIPPING_TO_QUEUE_ITEM
 )
-
-private const val SURFACE_ALPHA: Float = 0.85f
