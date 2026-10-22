@@ -373,7 +373,13 @@ private fun WidgetSettingsList(
             )
         }
         items(items = uiState.appWidgets, key = { widget -> widget.widgetId }) { widget ->
-            AppWidgetSettingsRow(widget = widget, onRemove = { viewModel.removeAppWidget(widget.widgetId) })
+            AppWidgetSettingsRow(
+                widget = widget,
+                onRemove = { viewModel.removeAppWidget(widget.widgetId) },
+                onExtendUnderRailChange = { extendsUnderRail ->
+                    viewModel.setExtendsUnderRail(widgetId = widget.widgetId, extendsUnderRail = extendsUnderRail)
+                }
+            )
         }
         item { SettingsSectionTitle(R.string.widget_stacks) }
         item {
@@ -396,30 +402,49 @@ private fun WidgetSettingsList(
 }
 
 @Composable
-private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(widget.label) },
-        supportingContent = if (widget.isWorkProfile) {
-            { Text(stringResource(R.string.work_profile)) }
-        } else {
-            null
-        },
-        leadingContent = {
-            AsyncImage(
-                model = widget.icon,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp)
-            )
-        },
-        trailingContent = {
-            IconButton(onClick = onRemove) {
-                Icon(
-                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                    contentDescription = stringResource(R.string.remove_widget)
+private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -> Unit, onExtendUnderRailChange: (Boolean) -> Unit) {
+    var expanded by remember(widget.widgetId) { mutableStateOf(false) }
+    Column {
+        ListItem(
+            modifier = Modifier.clickable { expanded = !expanded },
+            headlineContent = { Text(widget.label) },
+            supportingContent = if (widget.isWorkProfile) {
+                { Text(stringResource(R.string.work_profile)) }
+            } else {
+                null
+            },
+            leadingContent = {
+                AsyncImage(
+                    model = widget.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
                 )
+            },
+            trailingContent = {
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                        contentDescription = stringResource(R.string.remove_widget)
+                    )
+                }
             }
+        )
+        if (expanded) {
+            SettingsSwitchRow(
+                title = stringResource(feature.widgets.R.string.extend_under_rail),
+                checked = widget.extendsUnderRail,
+                onCheckedChange = onExtendUnderRailChange,
+                enabled = widget.canExtendUnderRail,
+                supportingText = stringResource(
+                    if (widget.canExtendUnderRail) {
+                        feature.widgets.R.string.extend_under_rail_supporting_text
+                    } else {
+                        feature.widgets.R.string.not_available_in_stack
+                    }
+                )
+            )
         }
-    )
+    }
 }
 
 @Composable

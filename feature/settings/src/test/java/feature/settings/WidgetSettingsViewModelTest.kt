@@ -264,6 +264,17 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
+    fun `stores Extend under Rail for an App Widget`() = runTest {
+        val areaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(areaRepository = areaRepository)
+
+        viewModel.setExtendsUnderRail(widgetId = 12L, extendsUnderRail = true)
+        advanceUntilIdle()
+
+        assertEquals(listOf(12L to true), areaRepository.extendsUnderRailUpdates)
+    }
+
+    @Test
     fun `shows the Header as hidden when it is missing`() = runTest {
         val viewModel: WidgetSettingsViewModel = createViewModel(areaRepository = FakeWidgetAreaRepository())
 

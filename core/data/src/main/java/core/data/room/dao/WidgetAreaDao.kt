@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.PlaceDraft
+import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetPlaceRecord
@@ -36,6 +37,9 @@ abstract class WidgetAreaDao {
 
     @Query("SELECT * FROM widget_places WHERE id = :placeId")
     abstract suspend fun getPlace(placeId: Long): WidgetPlaceRecord?
+
+    @Query("SELECT * FROM widget_places WHERE position = :position LIMIT 1")
+    abstract suspend fun getPlaceAtPosition(position: Int): WidgetPlaceRecord?
 
     @Query("UPDATE widget_places SET height_dp = :heightDp WHERE id = :placeId")
     abstract suspend fun setPlaceHeight(placeId: Long, heightDp: Int?)
@@ -145,6 +149,90 @@ abstract class WidgetAreaDao {
         }
         deleteWidgets(ids)
         deleteEmptyPlaces()
+    }
+
+    @Query("UPDATE widgets SET extends_under_rail = :extendsUnderRail WHERE id = :widgetId AND kind = 'APP_WIDGET'")
+    abstract suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean)
+
+    @Transaction
+    open suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo? {
+        val widget: WidgetRecord = getWidget(widgetId)?.takeIf { widget -> widget.kind == WidgetKind.APP_WIDGET } ?: return null
+        val header: WidgetRecord = getHeaders().firstOrNull() ?: return null
+        if (header.placeId == widget.placeId) {
+            return null
+        }
+        val headerPlace: WidgetPlaceRecord = getPlace(header.placeId) ?: return null
+        val widgetPlace: WidgetPlaceRecord = getPlace(widget.placeId) ?: return null
+        val targetIsStack: Boolean = getWidgetsForPlace(header.placeId).any { page -> page.id != header.id }
+        deleteWidgets(listOf(header.id))
+        moveWidget(widgetId = widget.id, placeId = header.placeId, position = header.pagePosition)
+        setCurrentPage(placeId = header.placeId, page = header.pagePosition)
+        if (!targetIsStack) {
+            setPlaceHeight(placeId = header.placeId, heightDp = widgetPlace.heightDp)
+        }
+        normalizePlace(placeId = widget.placeId)
+        return ReplaceHeaderUndo(
+            widgetId = widget.id,
+            headerPlaceId = header.placeId,
+            headerPosition = headerPlace.position,
+            headerPagePosition = header.pagePosition,
+            headerHeightDp = headerPlace.heightDp,
+            headerCurrentPage = headerPlace.currentPage,
+            widgetPlaceId = widget.placeId,
+            widgetPosition = widgetPlace.position,
+            widgetPagePosition = widget.pagePosition,
+            widgetHeightDp = widgetPlace.heightDp,
+            widgetCurrentPage = widgetPlace.currentPage
+        )
+    }
+
+    @Transaction
+    open suspend fun undoReplaceHeader(undo: ReplaceHeaderUndo) {
+        getWidget(undo.widgetId)?.let { widget ->
+            val widgetPlaceId: Long = ensurePlaceForUndo(
+                placeId = undo.widgetPlaceId,
+                position = undo.widgetPosition,
+                heightDp = undo.widgetHeightDp,
+                currentPage = undo.widgetCurrentPage
+            )
+            moveWidget(widgetId = widget.id, placeId = widgetPlaceId, position = undo.widgetPagePosition)
+            setPlaceHeight(placeId = widgetPlaceId, heightDp = undo.widgetHeightDp)
+            setCurrentPage(placeId = widgetPlaceId, page = undo.widgetCurrentPage)
+        }
+        if (getHeaders().isNotEmpty()) {
+            return
+        }
+        val headerPlaceId: Long = ensurePlaceForUndo(
+            placeId = undo.headerPlaceId,
+            position = undo.headerPosition,
+            heightDp = undo.headerHeightDp,
+            currentPage = undo.headerCurrentPage
+        )
+        insertWidget(
+            WidgetRecord(
+                placeId = headerPlaceId,
+                pagePosition = undo.headerPagePosition,
+                kind = WidgetKind.HEADER
+            )
+        )
+        setPlaceHeight(placeId = headerPlaceId, heightDp = undo.headerHeightDp)
+        setCurrentPage(placeId = headerPlaceId, page = undo.headerCurrentPage)
+    }
+
+    private suspend fun ensurePlaceForUndo(placeId: Long, position: Int, heightDp: Int?, currentPage: Int): Long {
+        getPlace(placeId)?.let { return placeId }
+        if (getPlaceAtPosition(position) != null) {
+            shiftPositionsFrom(position)
+        }
+        insertPlace(
+            WidgetPlaceRecord(
+                id = placeId,
+                position = position,
+                heightDp = heightDp,
+                currentPage = currentPage
+            )
+        )
+        return placeId
     }
 
     @Transaction

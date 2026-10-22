@@ -4,6 +4,19 @@ package core.data.widgets
 data class WidgetPlace(val id: Long, val heightDp: Int?, val currentPage: Int, val widgets: List<PlacedWidget>) {
     /** True when this place pages sideways as a Widget Stack. */
     val isStack: Boolean get() = widgets.size > 1
+
+    /** How wide this place is laid out; only a lone App Widget can extend under the Rail. */
+    val widthMode: WidgetWidth
+        get() {
+            val widget: PlacedWidget.AppWidget = widgets.singleOrNull() as? PlacedWidget.AppWidget ?: return WidgetWidth.Inset
+            return if (widget.extendsUnderRail) WidgetWidth.UnderRail else WidgetWidth.Inset
+        }
+}
+
+/** How wide a Widget is laid out relative to the Rail's touch column. */
+enum class WidgetWidth {
+    Inset,
+    UnderRail
 }
 
 /** A Widget stored in a [WidgetPlace]. */

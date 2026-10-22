@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IWidgetAreaRepositoryImplTest {
@@ -416,6 +417,173 @@ class IWidgetAreaRepositoryImplTest {
         val places: List<WidgetPlace> = repository.places.first()
         assertEquals(2, places.size)
         assertEquals(listOf(10L, 20L), places.flatMap { place -> place.widgets }.map { widget -> widget.id })
+    }
+
+    @Test
+    fun `replaceHeader moves a single widget into the Header place and deletes its old place`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0).copy(heightDp = 64),
+                place(id = 2L, position = 1).copy(heightDp = 120)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+
+        val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
+
+        assertEquals(1L, undo.headerPlaceId)
+        assertEquals(0, undo.headerPosition)
+        assertEquals(64, undo.headerHeightDp)
+        assertEquals(2L, undo.widgetPlaceId)
+        assertEquals(1, undo.widgetPosition)
+        assertEquals(120, undo.widgetHeightDp)
+        repository.places.test {
+            val places: List<WidgetPlace> = awaitItem()
+            assertEquals(listOf(1L), places.map { place -> place.id })
+            assertEquals(120, places.single().heightDp)
+            assertEquals(listOf(20L), places.single().widgets.map { widget -> widget.id })
+            assertEquals(42, (places.single().widgets.single() as PlacedWidget.AppWidget).appWidgetId)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(dao.getPlace(placeId = 2L))
+    }
+
+    @Test
+    fun `replaceHeader moves the widget into a stack page and keeps the stack height`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0).copy(heightDp = 200),
+                place(id = 2L, position = 1).copy(heightDp = 120)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 11L, placeId = 1L, pagePosition = 1, appWidgetId = 41),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+
+        val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
+
+        assertEquals(200, undo.headerHeightDp)
+        repository.places.test {
+            val place: WidgetPlace = awaitItem().single()
+            assertEquals(1L, place.id)
+            assertEquals(200, place.heightDp)
+            assertEquals(listOf(20L, 11L), place.widgets.map { widget -> widget.id })
+            assertEquals(0, place.currentPage)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(dao.getPlace(placeId = 2L))
+    }
+
+    @Test
+    fun `undoReplaceHeader restores places, heights and page positions`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0).copy(heightDp = 64),
+                place(id = 2L, position = 1).copy(heightDp = 120)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+        val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
+
+        repository.undoReplaceHeader(undo = undo)
+
+        repository.places.test {
+            val places: List<WidgetPlace> = awaitItem()
+            assertEquals(listOf(1L, 2L), places.map { place -> place.id })
+            assertEquals(listOf(64, 120), places.map { place -> place.heightDp })
+            assertTrue(places.first().widgets.single() is PlacedWidget.Header)
+            assertEquals(20L, places.last().widgets.single().id)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf(1L, 2L), dao.getPlaceIds())
+    }
+
+    @Test
+    fun `undoReplaceHeader restores only the Header after the widget is uninstalled`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0).copy(heightDp = 64),
+                place(id = 2L, position = 1).copy(heightDp = 120)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+        val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
+        dao.deleteByAppWidgetIds(listOf(42))
+
+        repository.undoReplaceHeader(undo = undo)
+
+        repository.places.test {
+            val place: WidgetPlace = awaitItem().single()
+            assertEquals(1L, place.id)
+            assertEquals(64, place.heightDp)
+            assertTrue(place.widgets.single() is PlacedWidget.Header)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `setExtendsUnderRail only widens lone widgets`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                place(id = 2L, position = 1)
+            ),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L),
+                appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 43),
+                appWidget(id = 21L, placeId = 2L, pagePosition = 1, appWidgetId = 44)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+
+        repository.setExtendsUnderRail(widgetId = 10L, extendsUnderRail = true)
+        repository.setExtendsUnderRail(widgetId = 20L, extendsUnderRail = true)
+
+        repository.places.test {
+            val places: List<WidgetPlace> = awaitItem()
+            assertEquals(WidgetWidth.UnderRail, places.first().widthMode)
+            assertEquals(WidgetWidth.Inset, places.last().widthMode)
+            assertEquals(true, (places.first().widgets.single() as PlacedWidget.AppWidget).extendsUnderRail)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `undoReplaceHeader shifts a place that took the old position`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                place(id = 2L, position = 1).copy(heightDp = 120)
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
+            )
+        )
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
+        val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
+        val addedPlaceId: Long = dao.insertPlace(WidgetPlaceRecord(position = 1))
+
+        repository.undoReplaceHeader(undo = undo)
+
+        assertEquals(1, dao.getPlace(placeId = 2L)?.position)
+        assertEquals(2, dao.getPlace(placeId = addedPlaceId)?.position)
+        assertEquals(listOf(1L, 2L, addedPlaceId), dao.getPlaceIds())
     }
 
     private suspend fun repository(

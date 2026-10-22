@@ -6,6 +6,7 @@ import core.data.widgets.HeaderRemoval
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
+import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetPlace
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,9 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
 
     val removedHeaders: MutableList<Long?> = mutableListOf()
     val restoredHeaders: MutableList<HeaderRemoval> = mutableListOf()
+    val replacedWidgetIds: MutableList<Long> = mutableListOf()
+    val undoneReplaceHeaders: MutableList<ReplaceHeaderUndo> = mutableListOf()
+    val extendsUnderRailUpdates: MutableList<Pair<Long, Boolean>> = mutableListOf()
     val addedAppWidgets: MutableList<AddAppWidget> = mutableListOf()
     val heightUpdates: MutableList<Pair<Long, Int?>> = mutableListOf()
     val currentPageUpdates: MutableList<Pair<Long, Int>> = mutableListOf()
@@ -85,6 +89,144 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
         )
         storedPlaces.update { places ->
             places.toMutableList().apply { add(targetPosition, headerPlace) }
+        }
+    }
+
+    override suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo? {
+        val places: List<WidgetPlace> = storedPlaces.value
+        val headerPlaceIndex: Int = places.indexOfFirst { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }
+        val widgetPlaceIndex: Int = places.indexOfFirst { place -> place.widgets.any { widget -> widget.id == widgetId } }
+        if (headerPlaceIndex < 0 || widgetPlaceIndex < 0 || headerPlaceIndex == widgetPlaceIndex) {
+            return null
+        }
+        val headerPlace: WidgetPlace = places[headerPlaceIndex]
+        val widgetPlace: WidgetPlace = places[widgetPlaceIndex]
+        val header: PlacedWidget.Header = headerPlace.widgets.filterIsInstance<PlacedWidget.Header>().first()
+        val widget: PlacedWidget.AppWidget = widgetPlace.widgets
+            .filterIsInstance<PlacedWidget.AppWidget>()
+            .firstOrNull { candidate -> candidate.id == widgetId }
+            ?: return null
+        val headerPagePosition: Int = headerPlace.widgets.indexOf(header)
+        val targetIsStack: Boolean = headerPlace.widgets.size > 1
+        val updatedHeaderPlace: WidgetPlace = headerPlace.copy(
+            widgets = headerPlace.widgets.map { page -> if (page.id == header.id) widget else page },
+            currentPage = headerPagePosition,
+            heightDp = if (targetIsStack) headerPlace.heightDp else widgetPlace.heightDp
+        )
+        val remainingWidgets: List<PlacedWidget> = widgetPlace.widgets.filterNot { page -> page.id == widget.id }
+        val updatedPlaces: List<WidgetPlace> = places
+            .mapIndexed { index, place ->
+                when (index) {
+                    headerPlaceIndex -> updatedHeaderPlace
+                    widgetPlaceIndex -> if (remainingWidgets.isEmpty()) place else place.dissolved(remainingWidgets)
+                    else -> place
+                }
+            }
+            .filterNot { place -> place.widgets.isEmpty() }
+        storedPlaces.value = updatedPlaces
+        replacedWidgetIds.add(widgetId)
+        return ReplaceHeaderUndo(
+            widgetId = widget.id,
+            headerPlaceId = headerPlace.id,
+            headerPosition = headerPlaceIndex,
+            headerPagePosition = headerPagePosition,
+            headerHeightDp = headerPlace.heightDp,
+            headerCurrentPage = headerPlace.currentPage,
+            widgetPlaceId = widgetPlace.id,
+            widgetPosition = widgetPlaceIndex,
+            widgetPagePosition = widgetPlace.widgets.indexOf(widget),
+            widgetHeightDp = widgetPlace.heightDp,
+            widgetCurrentPage = widgetPlace.currentPage
+        )
+    }
+
+    override suspend fun undoReplaceHeader(undo: ReplaceHeaderUndo) {
+        undoneReplaceHeaders.add(undo)
+        val updated: MutableList<WidgetPlace> = storedPlaces.value.toMutableList()
+        val widget: PlacedWidget.AppWidget? = updated
+            .flatMap { place -> place.widgets }
+            .filterIsInstance<PlacedWidget.AppWidget>()
+            .firstOrNull { candidate -> candidate.id == undo.widgetId }
+        if (widget != null) {
+            val currentIndex: Int = updated.indexOfFirst { place -> place.widgets.any { page -> page.id == widget.id } }
+            if (currentIndex >= 0) {
+                val remaining: List<PlacedWidget> = updated[currentIndex].widgets.filterNot { page -> page.id == widget.id }
+                if (remaining.isEmpty()) {
+                    updated.removeAt(currentIndex)
+                } else {
+                    updated[currentIndex] = updated[currentIndex].dissolved(remaining)
+                }
+            }
+            val widgetPlaceIndex: Int = updated.indexOfFirst { place -> place.id == undo.widgetPlaceId }
+            if (widgetPlaceIndex >= 0) {
+                val place: WidgetPlace = updated[widgetPlaceIndex]
+                val pages: MutableList<PlacedWidget> = place.widgets.toMutableList()
+                pages.add(index = undo.widgetPagePosition.coerceIn(0, pages.size), element = widget)
+                updated[widgetPlaceIndex] = place.copy(
+                    widgets = pages,
+                    heightDp = undo.widgetHeightDp,
+                    currentPage = undo.widgetCurrentPage.coerceIn(0, pages.lastIndex)
+                )
+            } else {
+                updated.add(
+                    undo.widgetPosition.coerceIn(0, updated.size),
+                    WidgetPlace(
+                        id = undo.widgetPlaceId,
+                        heightDp = undo.widgetHeightDp,
+                        currentPage = undo.widgetCurrentPage.coerceAtLeast(0),
+                        widgets = listOf(widget)
+                    )
+                )
+            }
+        }
+        val hasHeader: Boolean = updated.any { place -> place.widgets.any { page -> page is PlacedWidget.Header } }
+        if (!hasHeader) {
+            val headerPlaceIndex: Int = updated.indexOfFirst { place -> place.id == undo.headerPlaceId }
+            val header: PlacedWidget.Header = PlacedWidget.Header(id = nextWidgetId++)
+            if (headerPlaceIndex >= 0) {
+                val place: WidgetPlace = updated[headerPlaceIndex]
+                val pages: MutableList<PlacedWidget> = place.widgets.toMutableList()
+                pages.add(index = undo.headerPagePosition.coerceIn(0, pages.size), element = header)
+                updated[headerPlaceIndex] = place.copy(
+                    widgets = pages,
+                    heightDp = undo.headerHeightDp,
+                    currentPage = undo.headerCurrentPage.coerceIn(0, pages.lastIndex)
+                )
+            } else {
+                updated.add(
+                    undo.headerPosition.coerceIn(0, updated.size),
+                    WidgetPlace(
+                        id = undo.headerPlaceId,
+                        heightDp = undo.headerHeightDp,
+                        currentPage = undo.headerCurrentPage.coerceAtLeast(0),
+                        widgets = listOf(header)
+                    )
+                )
+            }
+        }
+        storedPlaces.value = updated
+    }
+
+    override suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
+        val place: WidgetPlace? = storedPlaces.value.firstOrNull { place ->
+            place.widgets.any { widget -> widget.id == widgetId }
+        }
+        if (place?.isStack == true) {
+            return
+        }
+        extendsUnderRailUpdates.add(widgetId to extendsUnderRail)
+        storedPlaces.update { places ->
+            places.map { place ->
+                place.copy(
+                    widgets = place.widgets.map { widget ->
+                        if (widget is PlacedWidget.AppWidget && widget.id == widgetId) {
+                            widget.copy(extendsUnderRail = extendsUnderRail)
+                        } else {
+                            widget
+                        }
+                    }
+                )
+            }
         }
     }
 

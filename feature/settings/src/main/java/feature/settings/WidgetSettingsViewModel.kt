@@ -81,7 +81,15 @@ data class TapActionPickerState(
 )
 
 /** One placed App Widget row in Settings. */
-data class WidgetSettingsAppWidget(val widgetId: Long, val appWidgetId: Int, val label: String, val icon: Icon, val isWorkProfile: Boolean)
+data class WidgetSettingsAppWidget(
+    val widgetId: Long,
+    val appWidgetId: Int,
+    val label: String,
+    val icon: Icon,
+    val isWorkProfile: Boolean,
+    val extendsUnderRail: Boolean,
+    val canExtendUnderRail: Boolean
+)
 
 data class WidgetSettingsUiState(
     val headerShown: Boolean = true,
@@ -200,7 +208,9 @@ class WidgetSettingsViewModel(
                         appWidgetId = widget.appWidgetId,
                         label = info.labelOr(provider = widget.provider),
                         icon = info.iconOr(provider = widget.provider),
-                        isWorkProfile = info?.isWorkProfile ?: false
+                        isWorkProfile = info?.isWorkProfile ?: false,
+                        extendsUnderRail = widget.extendsUnderRail,
+                        canExtendUnderRail = !place.isStack
                     )
                 }
             }
@@ -415,6 +425,12 @@ class WidgetSettingsViewModel(
     fun setStackIndicatorVisible(visible: Boolean) {
         viewModelScope.launch {
             settingsRepository.setStackIndicatorVisible(visible)
+        }
+    }
+
+    fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
+        viewModelScope.launch {
+            areaRepository.setExtendsUnderRail(widgetId = widgetId, extendsUnderRail = extendsUnderRail)
         }
     }
 

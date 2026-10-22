@@ -40,8 +40,23 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
 
     override suspend fun getPlace(placeId: Long): WidgetPlaceRecord? = places.value.firstOrNull { place -> place.id == placeId }
 
+    override suspend fun getPlaceAtPosition(position: Int): WidgetPlaceRecord? =
+        places.value.firstOrNull { place -> place.position == position }
+
     override suspend fun setCurrentPage(placeId: Long, page: Int) {
         places.update { current -> current.map { place -> if (place.id == placeId) place.copy(currentPage = page) else place } }
+    }
+
+    override suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
+        widgets.update { current ->
+            current.map { widget ->
+                if (widget.id == widgetId && widget.kind == WidgetKind.APP_WIDGET) {
+                    widget.copy(extendsUnderRail = extendsUnderRail)
+                } else {
+                    widget
+                }
+            }
+        }
     }
 
     override suspend fun getWidget(widgetId: Long): WidgetRecord? = widgets.value.firstOrNull { widget -> widget.id == widgetId }

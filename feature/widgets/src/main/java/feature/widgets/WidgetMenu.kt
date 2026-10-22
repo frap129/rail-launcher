@@ -23,11 +23,13 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.ArrowsAltH
 import compose.icons.fontawesomeicons.solid.ArrowsAltV
 import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Cog
+import compose.icons.fontawesomeicons.solid.ExchangeAlt
 import compose.icons.fontawesomeicons.solid.Font
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.PlusSquare
@@ -233,6 +235,8 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.RemoveFromStack -> R.string.remove_from_stack
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.RemoveWidget -> R.string.remove_widget
+    WidgetMenuAction.ReplaceHeader -> R.string.replace_header
+    WidgetMenuAction.ExtendUnderRail -> R.string.extend_under_rail
     WidgetMenuAction.EditWidgets -> R.string.edit_widgets
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
 }
@@ -250,6 +254,8 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.RemoveFromStack -> FontAwesomeIcons.Solid.TrashAlt
     WidgetMenuAction.RestoreHeader -> FontAwesomeIcons.Solid.Th
     WidgetMenuAction.RemoveWidget -> FontAwesomeIcons.Solid.TrashAlt
+    WidgetMenuAction.ReplaceHeader -> FontAwesomeIcons.Solid.ExchangeAlt
+    WidgetMenuAction.ExtendUnderRail -> FontAwesomeIcons.Solid.ArrowsAltH
     WidgetMenuAction.EditWidgets -> FontAwesomeIcons.Solid.GripVertical
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH
 }

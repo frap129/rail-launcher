@@ -55,6 +55,10 @@
     <string name="widget_size_dp">%1$d × %2$d dp</string>
     <string name="widget_preview">Preview of %1$s</string>
     <string name="remove_widget">Remove widget</string>
+    <string name="replace_header">Replace Header</string>
+    <string name="extend_under_rail">Extend under Rail</string>
+    <string name="extend_under_rail_supporting_text">Taps near the right edge may scroll the Rail</string>
+    <string name="not_available_in_stack">Not available in a stack</string>
     <string name="widget_removed">Widget removed</string>
     <string name="couldnt_add_widget">Couldn\'t add widget</string>
     <string name="widget_updating">Updating…</string>

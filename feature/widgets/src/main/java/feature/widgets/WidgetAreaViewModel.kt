@@ -30,6 +30,7 @@ import core.data.widgets.InsertPosition
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
+import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetAreaSettings
@@ -169,6 +170,8 @@ enum class WidgetMenuAction {
     UpcomingEvents,
     ClockStyle,
     AddWidget,
+    ReplaceHeader,
+    ExtendUnderRail,
     Resize,
     Reconfigure,
     RemoveHeader,
@@ -179,8 +182,14 @@ enum class WidgetMenuAction {
     WidgetSettings
 }
 
+sealed interface UndoAction {
+    data class RemoveHeader(val removal: HeaderRemoval) : UndoAction
+
+    data class ReplaceHeader(val undo: ReplaceHeaderUndo) : UndoAction
+}
+
 sealed interface WidgetAreaEvent {
-    data class ShowUndo(val removal: HeaderRemoval) : WidgetAreaEvent
+    data class ShowUndo(val action: UndoAction) : WidgetAreaEvent
 
     data object RequestCalendarPermission : WidgetAreaEvent
 
@@ -536,7 +545,7 @@ class WidgetAreaViewModel(
                 repository.removeHeaderPage(widgetId = widgetId)
             } ?: return@launch
             menuTarget.value = null
-            eventChannel.send(WidgetAreaEvent.ShowUndo(removal = removal))
+            eventChannel.send(WidgetAreaEvent.ShowUndo(action = UndoAction.RemoveHeader(removal = removal)))
         }
     }
 
@@ -547,13 +556,32 @@ class WidgetAreaViewModel(
         }
     }
 
-    fun undoRemoveHeader(removal: HeaderRemoval) {
+    fun replaceHeader(widgetId: Long) {
         viewModelScope.launch {
-            repository.restoreHeader(
-                position = removal.position,
-                placeId = removal.placeId,
-                pagePosition = removal.pagePosition
-            )
+            val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = widgetId) ?: return@launch
+            clampStackHeight(placeId = undo.headerPlaceId)
+            menuTarget.value = null
+            eventChannel.send(WidgetAreaEvent.ShowUndo(action = UndoAction.ReplaceHeader(undo = undo)))
+        }
+    }
+
+    fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
+        viewModelScope.launch {
+            repository.setExtendsUnderRail(widgetId = widgetId, extendsUnderRail = extendsUnderRail)
+        }
+    }
+
+    fun undo(action: UndoAction) {
+        viewModelScope.launch {
+            when (action) {
+                is UndoAction.RemoveHeader -> repository.restoreHeader(
+                    position = action.removal.position,
+                    placeId = action.removal.placeId,
+                    pagePosition = action.removal.pagePosition
+                )
+
+                is UndoAction.ReplaceHeader -> repository.undoReplaceHeader(undo = action.undo)
+            }
         }
     }
 
@@ -821,6 +849,10 @@ class WidgetAreaViewModel(
         when (action) {
             WidgetMenuAction.AddWidget -> startAddFromMenu()
 
+            WidgetMenuAction.ReplaceHeader -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
+                replaceHeader(widgetId = target.widgetId)
+            }
+
             WidgetMenuAction.Resize -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
                 startResizeForWidget(widgetId = target.widgetId)
             }
@@ -852,7 +884,8 @@ class WidgetAreaViewModel(
             WidgetMenuAction.Clock,
             WidgetMenuAction.Date,
             WidgetMenuAction.Battery,
-            WidgetMenuAction.UpcomingEvents -> Unit
+            WidgetMenuAction.UpcomingEvents,
+            WidgetMenuAction.ExtendUnderRail -> Unit
         }
     }
 
@@ -1013,11 +1046,7 @@ class WidgetAreaViewModel(
         viewModelScope.launch {
             val places: List<WidgetPlace> = repository.places.first()
             val place: WidgetPlace? = when (target) {
-                is WidgetMenuTarget.Header -> places.firstOrNull { candidate ->
-                    candidate.widgets.any { widget ->
-                        widget is PlacedWidget.Header && (target.widgetId == null || widget.id == target.widgetId)
-                    }
-                }
+                is WidgetMenuTarget.Header -> places.headerPlace(widgetId = target.widgetId)
 
                 is WidgetMenuTarget.AppWidget -> places.firstOrNull { candidate ->
                     candidate.widgets.any { widget -> widget.id == target.widgetId }
@@ -1227,11 +1256,7 @@ class WidgetAreaViewModel(
         headerHeightDp: Int?
     ): WidgetMenuState = when (this) {
         is WidgetMenuTarget.Header -> {
-            val place: WidgetPlace? = places.firstOrNull { candidate ->
-                candidate.widgets.any { widget ->
-                    widget is PlacedWidget.Header && (widgetId == null || widget.id == widgetId)
-                }
-            }
+            val place: WidgetPlace? = places.headerPlace(widgetId = widgetId)
             if (place == null) {
                 WidgetMenuState.Closed
             } else {
@@ -1247,7 +1272,7 @@ class WidgetAreaViewModel(
         }
 
         WidgetMenuTarget.ClockStyle -> {
-            if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
+            if (!places.hasHeader()) {
                 WidgetMenuState.Closed
             } else {
                 WidgetMenuState.ClockStyleChooser(
@@ -1273,6 +1298,7 @@ class WidgetAreaViewModel(
                 } else {
                     info?.let(ResizeBounds::from)
                 }
+                val headerPlace: WidgetPlace? = places.headerPlace()
                 WidgetMenuState.AppWidgetMenu(
                     widgetId = widget.id,
                     appWidgetId = AppWidgetId(widget.appWidgetId),
@@ -1287,6 +1313,21 @@ class WidgetAreaViewModel(
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Reconfigure))
                         }
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
+                        if (headerPlace != null && headerPlace.id != place.id) {
+                            add(WidgetMenuItem.Action(id = WidgetMenuAction.ReplaceHeader))
+                        }
+                        add(
+                            WidgetMenuItem.Toggle(
+                                id = WidgetMenuAction.ExtendUnderRail,
+                                checked = widget.extendsUnderRail,
+                                enabled = !place.isStack,
+                                supportingText = if (place.isStack) {
+                                    R.string.not_available_in_stack
+                                } else {
+                                    R.string.extend_under_rail_supporting_text
+                                }
+                            )
+                        )
                         add(
                             WidgetMenuItem.Action(
                                 id = if (place.isStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveWidget
@@ -1345,11 +1386,17 @@ class WidgetAreaViewModel(
 
     private fun emptyAreaMenuItems(places: List<WidgetPlace>): List<WidgetMenuItem> = buildList {
         add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
-        if (places.none { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }) {
+        if (!places.hasHeader()) {
             add(WidgetMenuItem.Action(id = WidgetMenuAction.RestoreHeader))
         }
         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
     }
+
+    private fun List<WidgetPlace>.headerPlace(widgetId: Long? = null): WidgetPlace? = firstOrNull { place ->
+        place.widgets.any { widget -> widget is PlacedWidget.Header && (widgetId == null || widget.id == widgetId) }
+    }
+
+    private fun List<WidgetPlace>.hasHeader(): Boolean = headerPlace() != null
 
     private fun WidgetPlace.toModel(
         reading: ClockReading,
@@ -1404,7 +1451,8 @@ class WidgetAreaViewModel(
             id = id,
             heightDp = resolvedHeightDp,
             currentPage = currentPage.coerceIn(0, widgetModels.lastIndex),
-            widgets = widgetModels
+            widgets = widgetModels,
+            widthMode = widthMode
         )
     }
 
