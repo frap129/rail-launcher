@@ -71,3 +71,15 @@ _Avoid_: Resize screen, resize drag
 **Widget Area**:
 The region at the top of Home, above Favorites, holding an ordered column of Widgets and Widget Stacks.
 _Avoid_: Widget page, widget list
+
+**Move Widget Area**:
+The Home edit mode that moves the Widget Area, and everything below it, down by a top offset.
+_Avoid_: Move clock, shift widgets
+
+**Top offset**:
+How far down Home the Widget Area starts, from 0 to half of Home's safe height in 8dp steps.
+_Avoid_: Widget padding, top margin
+
+**Widget spacing**:
+The gap between Widget Area places, chosen from None, Small, Default, Large and Extra large.
+_Avoid_: Widget padding, place margin

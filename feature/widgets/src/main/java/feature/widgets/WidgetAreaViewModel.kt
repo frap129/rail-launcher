@@ -23,6 +23,7 @@ import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.HeaderRemoval
+import core.data.widgets.HomeHeightState
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
@@ -92,6 +93,15 @@ enum class AddWidgetPlacement {
     Below,
     IntoStack
 }
+
+/** One step of the Move Widget Area adjuster. */
+enum class MoveWidgetAreaStep {
+    Up,
+    Down
+}
+
+/** The live Move Widget Area adjuster state. */
+data class MoveWidgetAreaState(val draftOffsetDp: Int, val maxOffsetDp: Int, val canMoveUp: Boolean, val canMoveDown: Boolean)
 
 /** One app's App Widget providers in the picker. */
 data class PickerGroup(
@@ -172,6 +182,7 @@ enum class WidgetMenuAction {
     UpcomingEvents,
     ClockStyle,
     AddWidget,
+    MoveWidgetArea,
     ReplaceHeader,
     ExtendUnderRail,
     Resize,
@@ -260,7 +271,8 @@ class WidgetAreaViewModel(
     batterySource: IBatterySource,
     private val removeAppWidget: RemoveAppWidget,
     private val addFlowPendingIds: IAddFlowPendingIds,
-    private val widgetLifecycleReconciler: WidgetLifecycleReconciler
+    private val widgetLifecycleReconciler: WidgetLifecycleReconciler,
+    private val homeHeightState: HomeHeightState
 ) : ViewModel() {
     private val providers: StateFlow<List<WidgetProviderInfo>> = appWidgetHost.providers
         .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = emptyList())
@@ -295,6 +307,16 @@ class WidgetAreaViewModel(
         }
     )
     val resizeState: StateFlow<ResizeState?> = resizeController.resizeState
+
+    private val moveDraft: MutableStateFlow<Int?> = MutableStateFlow(null)
+    private val animateMoveOffset: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val moveState: StateFlow<MoveWidgetAreaState?> = combine(moveDraft, resizeController.homeHeightDp) { draft, homeHeightDp ->
+        draft?.let { offsetDp -> toMoveState(offsetDp = offsetDp, homeHeightDp = homeHeightDp) }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        initialValue = null
+    )
 
     init {
         restorePendingWidget()
@@ -400,14 +422,39 @@ class WidgetAreaViewModel(
         )
     }
 
+    private data class HomePresentationState(
+        val editDraft: WidgetEditDraft?,
+        val headerHeightDp: Int?,
+        val listState: LazyListState,
+        val moveDraft: Int?,
+        val animateMoveOffset: Boolean
+    )
+
+    private val homePresentationState: Flow<HomePresentationState> = combine(
+        editDraft,
+        headerHeightDp,
+        widgetAreaListState,
+        moveDraft,
+        animateMoveOffset
+    ) { draft, headerHeight, listState, move, animate ->
+        HomePresentationState(
+            editDraft = draft,
+            headerHeightDp = headerHeight,
+            listState = listState,
+            moveDraft = move,
+            animateMoveOffset = animate
+        )
+    }
+
     val widgetAreaState: StateFlow<WidgetAreaState> = combine(
         widgetAreaContent,
         resizeController.homeHeightDp,
-        editDraft,
-        headerHeightDp,
-        widgetAreaListState
-    ) { content, homeHeightDp, draft, headerHeight, listState ->
+        homePresentationState
+    ) { content, homeHeightDp, presentation ->
+        val draft: WidgetEditDraft? = presentation.editDraft
         val orderedPlaces: List<WidgetPlace> = draft?.toPlaces(content.places) ?: content.places
+        val requestedOffsetDp: Int = presentation.moveDraft ?: content.widgetAreaSettings.topOffsetDp
+        val topOffsetDp: Int = clampOffset(offsetDp = requestedOffsetDp, homeHeightDp = homeHeightDp)
         WidgetAreaState(
             places = orderedPlaces.mapNotNull { place ->
                 place.toModel(
@@ -418,7 +465,7 @@ class WidgetAreaViewModel(
                     events = content.events,
                     eventSettings = content.eventSettings,
                     homeHeightDp = homeHeightDp,
-                    headerHeightDp = headerHeight
+                    headerHeightDp = presentation.headerHeightDp
                 )
             },
             hasWidgets = orderedPlaces.isNotEmpty(),
@@ -426,7 +473,10 @@ class WidgetAreaViewModel(
             stackIndicatorVisible = content.widgetAreaSettings.stackIndicatorVisible,
             maxStackPages = content.widgetAreaSettings.maxStackPages,
             layout = content.widgetAreaSettings.toLayout(),
-            listState = listState
+            topOffsetDp = topOffsetDp,
+            widgetSpacingDp = content.widgetAreaSettings.widgetSpacing.dp,
+            animateOffset = presentation.animateMoveOffset,
+            listState = presentation.listState
         )
     }.stateIn(
         scope = viewModelScope,
@@ -812,7 +862,10 @@ class WidgetAreaViewModel(
         calendarPermissionGate.refreshPermission()
     }
 
-    fun setHomeHeight(heightDp: Int) = resizeController.setHomeHeight(heightDp = heightDp)
+    fun setHomeHeight(heightDp: Int) {
+        homeHeightState.setHeight(heightDp = heightDp)
+        resizeController.setHomeHeight(heightDp = heightDp)
+    }
 
     fun setWidgetAreaWidth(widthDp: Int) = resizeController.setWidgetAreaWidth(widthDp = widthDp)
 
@@ -840,19 +893,93 @@ class WidgetAreaViewModel(
 
     fun finishResize() = resizeController.finishResize()
 
-    fun onBack(): Boolean = finishEditingOrResize(fallback = resizeController::onBack)
+    /** Opens the Move Widget Area adjuster without saving until it is finished. */
+    fun startMoveWidgetArea() {
+        if (homeEditState.mode.value != HomeEditMode.None) {
+            return
+        }
+        menuTarget.value = null
+        viewModelScope.launch {
+            val settings: WidgetAreaSettings = settingsRepository.widgetAreaSettings.first()
+            if (!homeEditState.tryEnter(HomeEditMode.MovingWidgetArea)) {
+                return@launch
+            }
+            animateMoveOffset.value = false
+            moveDraft.value = clampOffset(offsetDp = settings.topOffsetDp, homeHeightDp = resizeController.homeHeightDp.value)
+        }
+    }
+
+    fun setDraftOffset(offsetDp: Int) = updateDraftOffset(offsetDp = offsetDp, animate = false)
+
+    fun stepOffset(step: MoveWidgetAreaStep) {
+        val current: Int = moveDraft.value ?: return
+        val delta: Int = if (step == MoveWidgetAreaStep.Up) -WidgetAreaSettings.OFFSET_STEP_DP else WidgetAreaSettings.OFFSET_STEP_DP
+        updateDraftOffset(offsetDp = current + delta, animate = true)
+    }
+
+    fun resetOffset() = updateDraftOffset(offsetDp = 0, animate = true)
+
+    fun finishMoveWidgetArea() {
+        val draft: Int = moveDraft.value ?: return
+        moveDraft.value = null
+        animateMoveOffset.value = false
+        homeEditState.exit(HomeEditMode.MovingWidgetArea)
+        val offsetDp: Int = clampOffset(offsetDp = draft, homeHeightDp = resizeController.homeHeightDp.value)
+        viewModelScope.launch {
+            settingsRepository.updateWidgetAreaSettings { settings -> settings.copy(topOffsetDp = offsetDp) }
+        }
+    }
+
+    private fun updateDraftOffset(offsetDp: Int, animate: Boolean) {
+        if (moveDraft.value == null) {
+            return
+        }
+        animateMoveOffset.value = animate
+        moveDraft.value = clampOffset(
+            offsetDp = WidgetAreaSettings.snapOffsetToStep(offsetDp = offsetDp),
+            homeHeightDp = resizeController.homeHeightDp.value
+        )
+    }
+
+    private fun toMoveState(offsetDp: Int, homeHeightDp: Int?): MoveWidgetAreaState {
+        val maxOffsetDp: Int = maxOffsetDp(homeHeightDp = homeHeightDp)
+        val clamped: Int = offsetDp.coerceIn(0, maxOffsetDp)
+        return MoveWidgetAreaState(
+            draftOffsetDp = clamped,
+            maxOffsetDp = maxOffsetDp,
+            canMoveUp = clamped > 0,
+            canMoveDown = clamped < maxOffsetDp
+        )
+    }
+
+    private fun maxOffsetDp(homeHeightDp: Int?): Int {
+        val heightDp: Int = homeHeightDp ?: return 0
+        return WidgetAreaSettings.maxOffsetDp(homeHeightDp = heightDp)
+    }
+
+    private fun clampOffset(offsetDp: Int, homeHeightDp: Int?): Int = if (homeHeightDp == null) {
+        offsetDp.coerceAtLeast(0)
+    } else {
+        offsetDp.coerceIn(0, maxOffsetDp(homeHeightDp = homeHeightDp))
+    }
+
+    fun onBack(): Boolean = finishEditingOrMove(fallback = resizeController::onBack)
 
     fun onHomeIntent(): Boolean {
         widgetAreaListState.value = LazyListState()
-        return finishEditingOrResize(fallback = resizeController::onHomeIntent)
+        return finishEditingOrMove(fallback = resizeController::onHomeIntent)
     }
 
-    private fun finishEditingOrResize(fallback: () -> Boolean): Boolean {
-        if (editDraft.value == null) {
-            return fallback()
+    private fun finishEditingOrMove(fallback: () -> Boolean): Boolean {
+        if (editDraft.value != null) {
+            finishEditingWidgets()
+            return true
         }
-        finishEditingWidgets()
-        return true
+        if (moveDraft.value != null) {
+            finishMoveWidgetArea()
+            return true
+        }
+        return fallback()
     }
 
     fun openAppWidgetMenu(widgetId: Long) {
@@ -864,6 +991,8 @@ class WidgetAreaViewModel(
     fun onMenuAction(action: WidgetMenuAction) {
         when (action) {
             WidgetMenuAction.AddWidget -> startAddFromMenu()
+
+            WidgetMenuAction.MoveWidgetArea -> startMoveWidgetArea()
 
             WidgetMenuAction.ReplaceHeader -> (menuTarget.value as? WidgetMenuTarget.AppWidget)?.let { target ->
                 replaceHeader(widgetId = target.widgetId)
@@ -1344,6 +1473,7 @@ class WidgetAreaViewModel(
                                 }
                             )
                         )
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea))
                         add(
                             WidgetMenuItem.Action(
                                 id = if (place.isStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveWidget
@@ -1393,6 +1523,7 @@ class WidgetAreaViewModel(
         ),
         WidgetMenuItem.Action(id = WidgetMenuAction.ClockStyle),
         WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget),
+        WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea),
         WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets),
         WidgetMenuItem.Action(
             id = if (isInStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveHeader
@@ -1405,6 +1536,7 @@ class WidgetAreaViewModel(
         if (!places.hasHeader()) {
             add(WidgetMenuItem.Action(id = WidgetMenuAction.RestoreHeader))
         }
+        add(WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea))
         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
     }
 

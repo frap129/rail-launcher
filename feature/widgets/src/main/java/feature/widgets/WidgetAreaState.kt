@@ -12,6 +12,7 @@ import core.data.prefs.HeaderSize
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
+import core.data.widgets.WidgetSpacing
 import core.data.widgets.WidgetWidth
 
 /** How Home lays out the Widget Area. */
@@ -32,6 +33,9 @@ data class WidgetAreaState(
     val stackIndicatorVisible: Boolean = true,
     val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
     val layout: WidgetAreaLayout = WidgetAreaLayout.Capped(fraction = WidgetAreaHeightLimit.DEFAULT.fraction),
+    val topOffsetDp: Int = 0,
+    val widgetSpacingDp: Int = WidgetSpacing.DEFAULT.dp,
+    val animateOffset: Boolean = false,
     val listState: LazyListState = LazyListState()
 )
 

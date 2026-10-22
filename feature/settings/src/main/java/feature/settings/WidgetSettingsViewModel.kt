@@ -21,6 +21,7 @@ import core.data.prefs.TimeFormat
 import core.data.prefs.is24Hour
 import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
+import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
@@ -30,6 +31,7 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.WidgetSpacing
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import feature.widgets.CalendarPermissionDecision
@@ -127,7 +129,10 @@ data class WidgetSettingsUiState(
     val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
     val stackIndicatorVisible: Boolean = true,
     val heightLimitEnabled: Boolean = true,
-    val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT
+    val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT,
+    val topOffsetDp: Int = 0,
+    val widgetSpacing: WidgetSpacing = WidgetSpacing.DEFAULT,
+    val homeHeightDp: Int? = null
 )
 
 private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
@@ -135,7 +140,8 @@ private data class EventSettingsState(val settings: EventSettings, val hasPermis
 private data class WidgetSettingsRows(
     val places: List<WidgetPlace>,
     val appWidgets: List<WidgetSettingsAppWidget>,
-    val areaSettings: WidgetAreaSettings
+    val areaSettings: WidgetAreaSettings,
+    val homeHeightDp: Int?
 )
 
 sealed interface WidgetSettingsEvent {
@@ -158,7 +164,8 @@ class WidgetSettingsViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val calendarEventSource: ICalendarEventSource,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val removeWidgetUseCase: RemoveAppWidget
+    private val removeWidgetUseCase: RemoveAppWidget,
+    private val homeHeightState: HomeHeightState
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
@@ -196,11 +203,13 @@ class WidgetSettingsViewModel(
     private val widgetRows: Flow<WidgetSettingsRows> = combine(
         areaRepository.places,
         appWidgetHost.providers,
-        settingsRepository.widgetAreaSettings
-    ) { places, providers, areaSettings ->
+        settingsRepository.widgetAreaSettings,
+        homeHeightState.heightDp
+    ) { places, providers, areaSettings, homeHeightDp ->
         WidgetSettingsRows(
             places = places,
             areaSettings = areaSettings,
+            homeHeightDp = homeHeightDp,
             appWidgets = places.flatMap { place ->
                 place.widgets.filterIsInstance<PlacedWidget.AppWidget>().map { widget ->
                     val info: WidgetProviderInfo? = providers.firstOrNull { provider ->
@@ -267,7 +276,10 @@ class WidgetSettingsViewModel(
             maxStackPages = rows.areaSettings.maxStackPages,
             stackIndicatorVisible = rows.areaSettings.stackIndicatorVisible,
             heightLimitEnabled = rows.areaSettings.heightLimitEnabled,
-            heightLimit = rows.areaSettings.heightLimit
+            heightLimit = rows.areaSettings.heightLimit,
+            topOffsetDp = rows.areaSettings.topOffsetDp,
+            widgetSpacing = rows.areaSettings.widgetSpacing,
+            homeHeightDp = rows.homeHeightDp
         )
     }.stateIn(
         scope = viewModelScope,
@@ -442,6 +454,18 @@ class WidgetSettingsViewModel(
     fun setHeightLimit(limit: WidgetAreaHeightLimit) {
         viewModelScope.launch {
             settingsRepository.setHeightLimit(limit)
+        }
+    }
+
+    fun setTopOffsetDp(offsetDp: Int) {
+        viewModelScope.launch {
+            settingsRepository.setTopOffsetDp(offsetDp)
+        }
+    }
+
+    fun setWidgetSpacing(spacing: WidgetSpacing) {
+        viewModelScope.launch {
+            settingsRepository.setWidgetSpacing(spacing)
         }
     }
 

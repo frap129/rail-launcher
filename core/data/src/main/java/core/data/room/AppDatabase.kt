@@ -36,7 +36,7 @@ import core.data.widgets.WidgetRecord
         WidgetRecord::class,
         WidgetAreaSettingsRecord::class
     ],
-    version = 12
+    version = 13
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

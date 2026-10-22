@@ -65,6 +65,17 @@
     <string name="widget_area_scrolls_when_needed">The Widget Area scrolls when widgets don\'t fit</string>
     <string name="home_scrolls_as_one_page">Home scrolls as one page</string>
     <string name="maximum_height">Maximum height</string>
+    <string name="top_offset">Top offset</string>
+    <string name="spacing_between_widgets">Spacing between widgets</string>
+    <string name="offset_dp">%1$d dp</string>
+    <string name="reset">Reset</string>
+    <string name="spacing_none">None</string>
+    <string name="spacing_small">Small</string>
+    <string name="spacing_default">Default</string>
+    <string name="spacing_large">Large</string>
+    <string name="spacing_extra_large">Extra large</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
     <string name="height_half">Half of the screen</string>
     <string name="height_two_thirds">Two-thirds of the screen</string>
     <string name="height_three_quarters">Three-quarters of the screen</string>

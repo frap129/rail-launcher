@@ -23,6 +23,7 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
+import core.data.widgets.HomeHeightState
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
@@ -529,7 +530,8 @@ class WidgetSettingsViewModelTest {
         clockSource: FakeClockSource = FakeClockSource(reading()),
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
-        appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
+        homeHeightState: HomeHeightState = HomeHeightState()
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
         settingsRepository = settingsRepository,
         areaRepository = areaRepository,
@@ -551,7 +553,8 @@ class WidgetSettingsViewModelTest {
         launchableRepository = launchableRepository,
         calendarEventSource = calendarEventSource,
         appWidgetHost = appWidgetHost,
-        removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost)
+        removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost),
+        homeHeightState = homeHeightState
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(

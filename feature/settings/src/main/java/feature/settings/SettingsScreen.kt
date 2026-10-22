@@ -5,6 +5,10 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Insets
+import android.view.WindowInsets
+import android.view.WindowManager
+import android.view.WindowMetrics
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -110,12 +114,15 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
+import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.util.openApplicationDetailsSettings
 import feature.widgets.AppWidgetViewCache
 import feature.widgets.HeaderClockStyleChooser
+import feature.widgets.MoveWidgetAreaSlider
+import feature.widgets.MoveWidgetAreaStep
 import feature.widgets.labelResource
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -365,6 +372,20 @@ private fun WidgetSettingsList(
                 value = stringResource(uiState.heightLimit.labelResource()),
                 enabled = uiState.heightLimitEnabled,
                 onClick = { onDialogClick(WidgetSettingsDialog.HeightLimit) }
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.top_offset),
+                value = stringResource(R.string.offset_dp, uiState.topOffsetDp),
+                onClick = { onDialogClick(WidgetSettingsDialog.TopOffset) }
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.spacing_between_widgets),
+                value = stringResource(uiState.widgetSpacing.labelResource()),
+                onClick = { onDialogClick(WidgetSettingsDialog.WidgetSpacing) }
             )
         }
         item { SettingsSectionTitle(R.string.header) }
@@ -910,6 +931,26 @@ private fun WidgetSettingsDialogContent(
             onDismiss = onDismiss
         )
 
+        WidgetSettingsDialog.TopOffset -> TopOffsetDialog(
+            offsetDp = uiState.topOffsetDp,
+            homeHeightDp = uiState.homeHeightDp,
+            onOffsetChange = viewModel::setTopOffsetDp,
+            onDismiss = onDismiss
+        )
+
+        WidgetSettingsDialog.WidgetSpacing -> SingleChoiceDialog(
+            title = stringResource(R.string.spacing_between_widgets),
+            options = WidgetSpacing.entries.map { spacing ->
+                SingleChoiceOption(value = spacing, label = stringResource(spacing.labelResource()))
+            },
+            selected = uiState.widgetSpacing,
+            onSelect = { spacing ->
+                viewModel.setWidgetSpacing(spacing)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+
         WidgetSettingsDialog.Calendars -> CalendarSelectionDialog(
             calendars = uiState.calendars,
             excludedCalendarIds = uiState.excludedCalendarIds,
@@ -931,6 +972,8 @@ private enum class WidgetSettingsDialog {
     EventCount,
     MaxStackPages,
     HeightLimit,
+    TopOffset,
+    WidgetSpacing,
     Calendars
 }
 
@@ -1143,8 +1186,72 @@ private fun WidgetAreaHeightLimit.labelResource(): Int = when (this) {
     WidgetAreaHeightLimit.THREE_QUARTERS -> R.string.height_three_quarters
 }
 
+@StringRes
+private fun WidgetSpacing.labelResource(): Int = when (this) {
+    WidgetSpacing.NONE -> R.string.spacing_none
+    WidgetSpacing.SMALL -> R.string.spacing_small
+    WidgetSpacing.DEFAULT -> R.string.spacing_default
+    WidgetSpacing.LARGE -> R.string.spacing_large
+    WidgetSpacing.EXTRA_LARGE -> R.string.spacing_extra_large
+}
+
 @Composable
-private fun SettingsActionRow(title: String, value: String, enabled: Boolean, onClick: () -> Unit, supportingText: String? = null) {
+private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (Int) -> Unit, onDismiss: () -> Unit) {
+    val context: Context = LocalContext.current
+    val maxOffsetDp: Int = remember(context, homeHeightDp) {
+        homeHeightDp?.let(WidgetAreaSettings::maxOffsetDp) ?: displayMaxOffsetDp(context = context)
+    }
+    val currentOffsetDp: Int = offsetDp.coerceIn(0, maxOffsetDp)
+    val valueLabel: String = stringResource(R.string.offset_dp, currentOffsetDp)
+    val step: Int = WidgetAreaSettings.OFFSET_STEP_DP
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.top_offset)) },
+        text = {
+            Column {
+                MoveWidgetAreaSlider(
+                    offsetDp = currentOffsetDp,
+                    maxOffsetDp = maxOffsetDp,
+                    canMoveUp = currentOffsetDp > 0,
+                    canMoveDown = currentOffsetDp < maxOffsetDp,
+                    onOffsetChange = onOffsetChange,
+                    onStep = { direction: MoveWidgetAreaStep ->
+                        val delta: Int = if (direction == MoveWidgetAreaStep.Up) -step else step
+                        onOffsetChange((currentOffsetDp + delta).coerceIn(0, maxOffsetDp))
+                    }
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = valueLabel, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.weight(1f))
+                    TextButton(onClick = { onOffsetChange(0) }) {
+                        Text(text = stringResource(R.string.reset))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.done))
+            }
+        }
+    )
+}
+
+private fun displayMaxOffsetDp(context: Context): Int {
+    val windowManager: WindowManager = context.getSystemService(WindowManager::class.java)
+    val metrics: WindowMetrics = windowManager.currentWindowMetrics
+    val insets: Insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars())
+    val safeHeightPx: Int = metrics.bounds.height() - insets.top - insets.bottom
+    val density: Float = context.resources.displayMetrics.density
+    val safeHeightDp: Int = (safeHeightPx / density).toInt()
+    return WidgetAreaSettings.maxOffsetDp(homeHeightDp = safeHeightDp)
+}
+
+@Composable
+private fun SettingsActionRow(title: String, value: String, onClick: () -> Unit, enabled: Boolean = true, supportingText: String? = null) {
     ListItem(
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
         headlineContent = { Text(title) },

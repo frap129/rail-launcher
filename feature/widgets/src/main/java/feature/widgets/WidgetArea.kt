@@ -9,6 +9,8 @@ import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,7 +32,6 @@ import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -89,10 +90,13 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
 
 private val emptyWidgetAreaHeight: Dp = 96.dp
+private val minWidgetAreaContentHeight: Dp = 48.dp
 private const val RESIZE_TOOLBAR_SPACE_DP: Int = 128
 private const val WIDGET_AREA_HEIGHT_ANIMATION_MILLIS: Int = 200
+private const val WIDGET_AREA_OFFSET_ANIMATION_MILLIS: Int = 150
 private val widgetAreaFadeHeight: Dp = 16.dp
 private const val WIDGET_AREA_EMPTY_KEY: String = "widgetAreaEmpty"
+const val WIDGET_AREA_OFFSET_KEY: String = "widgetAreaOffset"
 private val stackIndicatorHeight: Dp = ResizeBounds.STACK_INDICATOR_HEIGHT_DP.dp
 private val stackIndicatorDotSize: Dp = 6.dp
 private val stackIndicatorGap: Dp = 6.dp
@@ -192,6 +196,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifie
     }
     val mergeState: EditMergeState = remember { EditMergeState() }
     val density: Density = LocalDensity.current
+    val topOffsetDp: Int = rememberAnimatedTopOffsetDp(state = state)
     val contentHeightPx: Int? by remember(state.listState) {
         derivedStateOf {
             val layoutInfo: LazyListLayoutInfo = state.listState.layoutInfo
@@ -206,6 +211,8 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifie
     val areaHeight: Dp = contentHeightPx?.let { heightPx ->
         with(density) { heightPx.toDp() }.coerceAtMost(maxHeight)
     } ?: maxHeight
+    val topPadding: Dp = (homeEdgePadding + topOffsetDp.dp)
+        .coerceAtMost((maxHeight - minWidgetAreaContentHeight).coerceAtLeast(0.dp))
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val widgetAreaWidthDp: Int = (maxWidth - homeEdgePadding - homeRailTouchInset).value.roundToInt()
         LaunchedEffect(widgetAreaWidthDp) {
@@ -227,7 +234,11 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifie
             LazyColumn(
                 state = state.listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = homeEdgePadding, top = homeEdgePadding, end = homeEdgePadding)
+                contentPadding = PaddingValues(
+                    start = homeEdgePadding,
+                    top = topPadding,
+                    end = homeEdgePadding
+                )
             ) {
                 widgetAreaItems(
                     ui = ui,
@@ -262,47 +273,76 @@ fun LazyListScope.widgetAreaItems(
     if (state.isEditing) {
         itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
             ReorderableItem(state = reorderableState, key = placeKey(place.id)) { isDragging ->
-                val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-                val editablePlace: WidgetPlaceModel = place.copy(widthMode = WidgetWidth.Inset)
-                EditablePlaceItem(
-                    place = editablePlace,
-                    index = index,
-                    places = state.places,
-                    mergeState = mergeState,
-                    isDragging = isDragging,
-                    isExpanded = place.id in ui.editDraft?.expandedPlaceIds.orEmpty(),
-                    maxStackPages = state.maxStackPages,
-                    onMovePlace = ui.actions.onMovePlace,
-                    onRemovePlace = ui.actions.onRemovePlace,
-                    onToggleExpand = ui.actions.onToggleExpand,
-                    onMovePage = ui.actions.onMovePage,
-                    onRemovePage = ui.actions.onRemovePage,
-                    onSplitPage = ui.actions.onSplitPage,
-                    onMergePlace = ui.actions.onMergePlace,
-                    handleModifier = Modifier.draggableHandle(
-                        onDragStarted = { hapticFeedback.performLongPressHaptic() }
-                    )
-                ) { contentModifier ->
-                    placeContent(
-                        ui = ui,
+                Column {
+                    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+                    val editablePlace: WidgetPlaceModel = place.copy(widthMode = WidgetWidth.Inset)
+                    EditablePlaceItem(
                         place = editablePlace,
-                        heightDp = place.heightDp,
-                        menuEnabled = false,
-                        isResizing = false,
-                        modifier = contentModifier
-                    )
+                        index = index,
+                        places = state.places,
+                        mergeState = mergeState,
+                        isDragging = isDragging,
+                        isExpanded = place.id in ui.editDraft?.expandedPlaceIds.orEmpty(),
+                        maxStackPages = state.maxStackPages,
+                        onMovePlace = ui.actions.onMovePlace,
+                        onRemovePlace = ui.actions.onRemovePlace,
+                        onToggleExpand = ui.actions.onToggleExpand,
+                        onMovePage = ui.actions.onMovePage,
+                        onRemovePage = ui.actions.onRemovePage,
+                        onSplitPage = ui.actions.onSplitPage,
+                        onMergePlace = ui.actions.onMergePlace,
+                        handleModifier = Modifier.draggableHandle(
+                            onDragStarted = { hapticFeedback.performLongPressHaptic() }
+                        )
+                    ) { contentModifier ->
+                        placeContent(
+                            ui = ui,
+                            place = editablePlace,
+                            heightDp = place.heightDp,
+                            menuEnabled = false,
+                            isResizing = false,
+                            modifier = contentModifier
+                        )
+                    }
+                    if (index != state.places.lastIndex) {
+                        Box(Modifier.fillMaxWidth().height(state.widgetSpacingDp.dp))
+                    }
                 }
             }
         }
     } else {
-        items(state.places, key = { place -> placeKey(place.id) }) { place ->
-            WidgetAreaPlace(ui = ui, place = place, homeHeightDp = homeHeightDp)
+        itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
+            WidgetAreaPlace(
+                ui = ui,
+                place = place,
+                homeHeightDp = homeHeightDp,
+                bottomSpacing = if (index != state.places.lastIndex) state.widgetSpacingDp.dp else 0.dp
+            )
         }
     }
 }
 
+/** The leading Home spacer that moves the uncapped Widget Area down by the set offset. */
 @Composable
-private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeightDp: Int) {
+fun WidgetAreaTopOffsetSpacer(ui: WidgetAreaUi, modifier: Modifier = Modifier) {
+    val state: WidgetAreaState = ui.state
+    val offsetDp: Int = rememberAnimatedTopOffsetDp(state = state)
+    Box(modifier = modifier.fillMaxWidth().height(offsetDp.dp))
+}
+
+@Composable
+private fun rememberAnimatedTopOffsetDp(state: WidgetAreaState): Int = animateIntAsState(
+    targetValue = state.topOffsetDp,
+    animationSpec = if (state.animateOffset) {
+        tween(durationMillis = WIDGET_AREA_OFFSET_ANIMATION_MILLIS)
+    } else {
+        snap()
+    },
+    label = "widgetAreaTopOffset"
+).value
+
+@Composable
+private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeightDp: Int, bottomSpacing: Dp) {
     val actions: WidgetAreaActions = ui.actions
     val placeResize: ResizeState? = ui.resize?.takeIf { resize -> resize.placeId == place.id }
     if (placeResize != null) {
@@ -320,7 +360,7 @@ private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeigh
                 heightDp = placeResize.draftHeightDp,
                 menuEnabled = false,
                 isResizing = true,
-                modifier = Modifier.consumeTouches()
+                modifier = Modifier.consumeTouches().padding(bottom = bottomSpacing)
             )
         }
     } else {
@@ -340,6 +380,7 @@ private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeigh
                         Modifier
                     }
                 )
+                .padding(bottom = bottomSpacing)
         )
     }
 }
