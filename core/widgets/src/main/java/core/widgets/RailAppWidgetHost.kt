@@ -122,10 +122,6 @@ class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
             cancel.recycle()
         }
     }
-
-    private fun detachFromParent() {
-        (parent as? ViewGroup)?.removeView(this)
-    }
 }
 
 /** One RailAppWidgetHostView per App Widget id, kept for the process lifetime. */
@@ -133,11 +129,9 @@ class AppWidgetViewCache(private val context: Context, private val host: AppWidg
     private val views: MutableMap<Int, RailAppWidgetHostView> = mutableMapOf()
     private val reportedSizes: MutableMap<Int, ReportedSize> = mutableMapOf()
 
+    /** Returns the cached view, which may still be attached to its current holder. */
     fun getOrCreate(id: AppWidgetId): RailAppWidgetHostView? {
-        views[id.value]?.let { view ->
-            view.detachFromParent()
-            return view
-        }
+        views[id.value]?.let { view -> return view }
         val info: AppWidgetProviderInfo = AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return null
         val view: RailAppWidgetHostView = host.createView(context, id.value, info) as RailAppWidgetHostView
         view.setPadding(0, 0, 0, 0)
@@ -145,11 +139,11 @@ class AppWidgetViewCache(private val context: Context, private val host: AppWidg
         return view
     }
 
-    /** Re-applies the provider info after the provider becomes available again. */
-    fun refresh(id: AppWidgetId) {
-        val view: RailAppWidgetHostView = views[id.value] ?: return
-        val info: AppWidgetProviderInfo = AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return
-        view.setAppWidget(id.value, info)
+    /** Returns the cached view detached from its previous holder, ready to attach to a new one. */
+    fun takeForAttach(id: AppWidgetId): RailAppWidgetHostView? {
+        val view: RailAppWidgetHostView = views[id.value] ?: return null
+        view.detachFromParent()
+        return view
     }
 
     fun remove(id: AppWidgetId) {
