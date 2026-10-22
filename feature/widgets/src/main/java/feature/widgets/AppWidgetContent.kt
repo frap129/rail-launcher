@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -63,6 +65,7 @@ fun AppWidgetContent(
         onDispose { view.onLongPress = null }
     }
     var measuredWidthPx: Int by remember { mutableIntStateOf(0) }
+    val disallowInterceptTouchEvent: RequestDisallowInterceptTouchEvent = remember { RequestDisallowInterceptTouchEvent() }
     LaunchedEffect(widget.appWidgetId, height, measuredWidthPx) {
         if (isResizing || measuredWidthPx <= 0) {
             return@LaunchedEffect
@@ -76,6 +79,7 @@ fun AppWidgetContent(
             .fillMaxWidth()
             .height(height.dp)
             .clipToBounds()
+            .pointerInteropFilter(requestDisallowInterceptTouchEvent = disallowInterceptTouchEvent) { false }
             .onSizeChanged { size -> measuredWidthPx = size.width },
         update = { hostView ->
             hostView.onLongPress = if (menuEnabled) {

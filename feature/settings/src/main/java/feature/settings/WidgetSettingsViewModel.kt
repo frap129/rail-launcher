@@ -26,6 +26,7 @@ import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
+import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
@@ -124,7 +125,9 @@ data class WidgetSettingsUiState(
     val calendars: List<CalendarInfo> = emptyList(),
     val appWidgets: List<WidgetSettingsAppWidget> = emptyList(),
     val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
-    val stackIndicatorVisible: Boolean = true
+    val stackIndicatorVisible: Boolean = true,
+    val heightLimitEnabled: Boolean = true,
+    val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT
 )
 
 private data class EventSettingsState(val settings: EventSettings, val hasPermission: Boolean, val calendars: List<CalendarInfo>)
@@ -262,7 +265,9 @@ class WidgetSettingsViewModel(
             calendars = eventSettingsState.calendars,
             appWidgets = rows.appWidgets,
             maxStackPages = rows.areaSettings.maxStackPages,
-            stackIndicatorVisible = rows.areaSettings.stackIndicatorVisible
+            stackIndicatorVisible = rows.areaSettings.stackIndicatorVisible,
+            heightLimitEnabled = rows.areaSettings.heightLimitEnabled,
+            heightLimit = rows.areaSettings.heightLimit
         )
     }.stateIn(
         scope = viewModelScope,
@@ -425,6 +430,18 @@ class WidgetSettingsViewModel(
     fun setStackIndicatorVisible(visible: Boolean) {
         viewModelScope.launch {
             settingsRepository.setStackIndicatorVisible(visible)
+        }
+    }
+
+    fun setHeightLimitEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setHeightLimitEnabled(enabled)
+        }
+    }
+
+    fun setHeightLimit(limit: WidgetAreaHeightLimit) {
+        viewModelScope.launch {
+            settingsRepository.setHeightLimit(limit)
         }
     }
 

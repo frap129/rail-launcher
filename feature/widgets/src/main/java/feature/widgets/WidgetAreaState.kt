@@ -1,6 +1,7 @@
 package feature.widgets
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import core.data.icons.model.Icon
@@ -8,18 +9,30 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetWidth
 
+/** How Home lays out the Widget Area. */
+sealed interface WidgetAreaLayout {
+    data class Capped(val fraction: Float) : WidgetAreaLayout
+
+    data object Uncapped : WidgetAreaLayout
+}
+
+internal fun WidgetAreaSettings.toLayout(): WidgetAreaLayout =
+    if (heightLimitEnabled) WidgetAreaLayout.Capped(fraction = heightLimit.fraction) else WidgetAreaLayout.Uncapped
+
 /** What the Widget Area shows once the first clock reading has arrived. */
-@Immutable
 data class WidgetAreaState(
     val places: List<WidgetPlaceModel> = emptyList(),
     val hasWidgets: Boolean = places.isNotEmpty(),
     val isEditing: Boolean = false,
     val stackIndicatorVisible: Boolean = true,
-    val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES
+    val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
+    val layout: WidgetAreaLayout = WidgetAreaLayout.Capped(fraction = WidgetAreaHeightLimit.DEFAULT.fraction),
+    val listState: LazyListState = LazyListState()
 )
 
 @Immutable

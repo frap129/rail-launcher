@@ -37,6 +37,14 @@ interface IWidgetSettingsRepository {
         updateWidgetAreaIfChanged { settings -> settings.copy(stackIndicatorVisible = visible) }
     }
 
+    suspend fun setHeightLimitEnabled(enabled: Boolean) {
+        updateWidgetAreaIfChanged { settings -> settings.copy(heightLimitEnabled = enabled) }
+    }
+
+    suspend fun setHeightLimit(limit: WidgetAreaHeightLimit) {
+        updateWidgetAreaIfChanged { settings -> settings.copy(heightLimit = limit) }
+    }
+
     suspend fun setClockVisible(visible: Boolean) {
         updateIfChanged { settings -> settings.withClockVisible(visible) }
     }

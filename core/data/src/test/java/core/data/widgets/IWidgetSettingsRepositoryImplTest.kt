@@ -89,6 +89,23 @@ class IWidgetSettingsRepositoryImplTest {
     }
 
     @Test
+    fun `persists Widget Area height limit settings`() = runTest {
+        val areaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao()
+        val repository: IWidgetSettingsRepository = createRepository(
+            dao = FakeHeaderSettingsDao(),
+            areaSettingsDao = areaSettingsDao
+        )
+
+        repository.setHeightLimitEnabled(false)
+        repository.setHeightLimit(WidgetAreaHeightLimit.THREE_QUARTERS)
+
+        val settings: WidgetAreaSettings = repository.widgetAreaSettings.first()
+        assertFalse(settings.heightLimitEnabled)
+        assertEquals(WidgetAreaHeightLimit.THREE_QUARTERS, settings.heightLimit)
+        assertEquals(settings, requireNotNull(areaSettingsDao.getRow()).toDomain())
+    }
+
+    @Test
     fun `setClockVisible rejects hiding the last standing part`() = runTest {
         val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = true, dateVisible = false)
@@ -183,6 +200,7 @@ class IWidgetSettingsRepositoryImplTest {
     private fun createRepository(
         dao: FakeHeaderSettingsDao,
         eventSettingsDao: FakeEventSettingsDao = FakeEventSettingsDao(),
+        areaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
         isLoaded: Boolean = true,
         launchables: FakeLaunchableRepository = FakeLaunchableRepository(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(keptLaunchable))),
@@ -191,7 +209,7 @@ class IWidgetSettingsRepositoryImplTest {
     ): IWidgetSettingsRepository = IWidgetSettingsRepositoryImpl(
         headerSettingsDao = dao,
         eventSettingsDao = eventSettingsDao,
-        widgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
+        widgetAreaSettingsDao = areaSettingsDao,
         launchableRepository = launchables
     )
 

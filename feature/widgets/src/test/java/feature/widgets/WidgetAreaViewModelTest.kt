@@ -1,5 +1,6 @@
 package feature.widgets
 
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
@@ -36,6 +37,7 @@ import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetAreaEdit
+import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetKind
@@ -52,12 +54,16 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -921,6 +927,81 @@ class WidgetAreaViewModelTest {
         viewModel.toggleStackExpanded(placeId = 1L)
 
         assertTrue(1L in viewModel.editState.value!!.expandedPlaceIds)
+    }
+
+    @Test
+    fun `Widget Area layout follows the height settings`() = runTest {
+        val defaultViewModel: WidgetAreaViewModel = createViewModel()
+        collectWidgetAreaState(defaultViewModel)
+        assertEquals(
+            WidgetAreaLayout.Capped(fraction = 2f / 3f),
+            defaultViewModel.widgetAreaState.value.layout
+        )
+
+        val uncappedViewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialAreaSettings = WidgetAreaSettings(heightLimitEnabled = false)
+            )
+        )
+        collectWidgetAreaState(uncappedViewModel)
+        assertEquals(WidgetAreaLayout.Uncapped, uncappedViewModel.widgetAreaState.value.layout)
+        val halfViewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialAreaSettings = WidgetAreaSettings(heightLimit = WidgetAreaHeightLimit.HALF)
+            )
+        )
+        collectWidgetAreaState(halfViewModel)
+        assertEquals(
+            WidgetAreaLayout.Capped(fraction = 0.5f),
+            halfViewModel.widgetAreaState.value.layout
+        )
+    }
+
+    @Test
+    fun `Home intent recreates the Widget Area list state`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+        collectWidgetAreaState(viewModel)
+        val previous: LazyListState = viewModel.widgetAreaState.value.listState
+
+        viewModel.onHomeIntent()
+        advanceUntilIdle()
+
+        assertNotSame(previous, viewModel.widgetAreaState.value.listState)
+    }
+
+    @Test
+    fun `toggling the height limit resets the Widget Area list state`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectWidgetAreaState(viewModel)
+        val previous: LazyListState = viewModel.widgetAreaState.value.listState
+
+        settingsRepository.setHeightLimitEnabled(false)
+        advanceUntilIdle()
+
+        val changed: WidgetAreaState = viewModel.widgetAreaState.value
+        assertEquals(WidgetAreaLayout.Uncapped, changed.layout)
+        assertNotSame(previous, changed.listState)
+    }
+
+    @Test
+    fun `changing the cap fraction keeps the Widget Area list state`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+        collectWidgetAreaState(viewModel)
+        val previous: LazyListState = viewModel.widgetAreaState.value.listState
+
+        settingsRepository.setHeightLimit(WidgetAreaHeightLimit.HALF)
+        advanceUntilIdle()
+
+        val changed: WidgetAreaState = viewModel.widgetAreaState.value
+        assertEquals(WidgetAreaLayout.Capped(fraction = 0.5f), changed.layout)
+        assertSame(previous, changed.listState)
+    }
+
+    private fun TestScope.collectWidgetAreaState(viewModel: WidgetAreaViewModel) {
+        backgroundScope.launch { viewModel.widgetAreaState.collect {} }
+        advanceUntilIdle()
     }
 
     private fun createViewModel(

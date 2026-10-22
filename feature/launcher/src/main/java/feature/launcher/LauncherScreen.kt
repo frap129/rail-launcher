@@ -23,6 +23,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -63,6 +66,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,9 +82,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
@@ -92,6 +98,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -121,7 +128,10 @@ import core.ui.composables.scrollrail.ScrollRail
 import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.homeEdgePadding
 import core.ui.model.data.Destination
+import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
+import core.ui.model.data.FLEXIBLE_SPACER_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.model.data.favoriteKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
@@ -131,22 +141,30 @@ import feature.widgets.AddWidgetPlacement
 import feature.widgets.AppWidgetPickerSheet
 import feature.widgets.AppWidgetViewCache
 import feature.widgets.AppWidgetViews
+import feature.widgets.CappedWidgetArea
+import feature.widgets.EditMergeState
 import feature.widgets.RESIZE_DIMMED_ALPHA
 import feature.widgets.ResizeState
 import feature.widgets.UndoAction
-import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
+import feature.widgets.WidgetAreaLayout
+import feature.widgets.WidgetAreaResizeAutoScroll
+import feature.widgets.WidgetAreaUi
 import feature.widgets.WidgetAreaViewModel
 import feature.widgets.WidgetEditDraft
 import feature.widgets.WidgetMenu
 import feature.widgets.WidgetMenuAction
 import feature.widgets.WidgetMenuState
+import feature.widgets.rememberWidgetAreaUi
+import feature.widgets.widgetAreaItems
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 val launcherDestination = Destination(
@@ -222,6 +240,7 @@ fun LauncherScreen(
         }
     val launchItem: (Launchable) -> Unit = { launchable ->
         launchable.launch(context)
+        widgetViewModel.onHomeIntent()
         viewModel.onLaunchableLaunched()
     }
     DisposableEffect(lifecycleOwner, widgetViewModel) {
@@ -486,6 +505,10 @@ private fun LauncherContent(
     Box(modifier) {
         // Kept composed under the App List so returning to Home never rebuilds it.
         if (home != null) {
+            val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
+                viewModel = widgetViewModel,
+                menuEnabled = !home.isEditingFavorites && !isResizing && !isEditingWidgets
+            )
             LauncherHome(
                 modifier = Modifier
                     .fillMaxSize()
@@ -506,13 +529,13 @@ private fun LauncherContent(
                     }
                     .then(if (isHomeVisible) Modifier else hiddenHomeModifier),
                 home = home,
+                widgetArea = widgetArea,
                 itemActions = itemActions,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
-                onResizeOutsideTap = widgetViewModel::finishResize,
-                widgetContent = { WidgetArea(menuEnabled = !home.isEditingFavorites && !isResizing && !isEditingWidgets) }
+                onResizeOutsideTap = widgetViewModel::finishResize
             )
         }
         FocusRevealContent(
@@ -749,93 +772,263 @@ private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStac
     }
 }
 
+private data class HomeInteraction(
+    val menuEnabled: Boolean,
+    val isResizing: Boolean,
+    val isEditingWidgets: Boolean,
+    val onResizeOutsideTap: () -> Unit
+)
+
 @Composable
 fun LauncherHome(
     modifier: Modifier = Modifier,
     home: LauncherUiState.Home,
+    widgetArea: WidgetAreaUi,
     itemActions: LauncherItemActions,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit = {},
     isResizing: Boolean = false,
     isEditingWidgets: Boolean = false,
-    onResizeOutsideTap: () -> Unit = {},
-    widgetContent: @Composable () -> Unit = {}
+    onResizeOutsideTap: () -> Unit = {}
 ) {
-    val reorderableListState = rememberReorderableLazyListState(home.lazyListState) { from, to ->
-        onFavoriteMoved(from.index, to.index)
-    }
-    val hapticFeedback = LocalHapticFeedback.current
-    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        widgetContent()
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .pointerInput(home.isEditingFavorites, isResizing, isEditingWidgets) {
-                    if (!home.isEditingFavorites && !isResizing && !isEditingWidgets) {
-                        detectTapGestures(
-                            onLongPress = {
-                                hapticFeedback.performLongPressHaptic()
-                                onEmptyAreaLongPress()
-                            }
-                        )
+    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val layout: WidgetAreaLayout = widgetArea.state.layout
+    val layoutMode: Boolean = layout is WidgetAreaLayout.Capped
+    val menuEnabled: Boolean = widgetArea.actions.menuEnabled
+    val interaction: HomeInteraction = HomeInteraction(
+        menuEnabled = menuEnabled,
+        isResizing = isResizing,
+        isEditingWidgets = isEditingWidgets,
+        onResizeOutsideTap = onResizeOutsideTap
+    )
+    BoxWithConstraints(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+        val homeHeightDp: Int = maxHeight.value.roundToInt()
+        LaunchedEffect(homeHeightDp) {
+            if (homeHeightDp > 0) {
+                widgetArea.actions.onHomeHeight(homeHeightDp)
+            }
+        }
+        LaunchedEffect(layoutMode) {
+            home.lazyListState.scrollToItem(0)
+        }
+        when (layout) {
+            is WidgetAreaLayout.Capped -> {
+                val cappedHeight: Dp = (maxHeight * layout.fraction).coerceAtLeast(0.dp)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CappedWidgetArea(
+                        ui = widgetArea,
+                        maxHeight = cappedHeight,
+                        homeHeightDp = homeHeightDp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    FavoritesBottomArea(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        home = home,
+                        itemActions = itemActions,
+                        onFavoriteMoved = onFavoriteMoved,
+                        onEmptyAreaLongPress = onEmptyAreaLongPress,
+                        interaction = interaction
+                    )
+                }
+            }
+
+            WidgetAreaLayout.Uncapped -> {
+                val placeIds: List<Long> = remember(widgetArea.state.places) {
+                    widgetArea.state.places.map { place -> place.id }
+                }
+                val favoriteKeys: List<String> = remember(home.favorites) { home.favorites.map { favorite -> favorite.key } }
+                val reorderState: ReorderableLazyListState = rememberHomeReorderState(
+                    listState = home.lazyListState,
+                    favoriteKeys = favoriteKeys,
+                    onMoveFavorite = onFavoriteMoved,
+                    placeIds = placeIds,
+                    onMovePlace = widgetArea.actions.onMovePlace
+                )
+                val mergeState: EditMergeState = remember { EditMergeState() }
+                val density: Density = LocalDensity.current
+                val spacerHeightPx: Int by remember(home.lazyListState) {
+                    derivedStateOf {
+                        val layoutInfo: LazyListLayoutInfo = home.lazyListState.layoutInfo
+                        val spacerVisible: Boolean = layoutInfo.visibleItemsInfo.any { item -> item.key == FLEXIBLE_SPACER_KEY }
+                        if (!spacerVisible || layoutInfo.visibleItemsInfo.size != layoutInfo.totalItemsCount) {
+                            0
+                        } else {
+                            val viewport: Int = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset -
+                                layoutInfo.beforeContentPadding - layoutInfo.afterContentPadding
+                            flexibleSpacerHeight(
+                                viewport = viewport,
+                                itemSizes = layoutInfo.visibleItemsInfo
+                                    .filter { item -> item.key != FLEXIBLE_SPACER_KEY }
+                                    .map { item -> item.size }
+                            )
+                        }
                     }
                 }
-                .then(
-                    if (isResizing) {
-                        Modifier.consumeTouches(onGestureEnd = onResizeOutsideTap)
-                    } else {
-                        Modifier
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("launcherHome"),
+                    state = home.lazyListState,
+                    verticalArrangement = Arrangement.Top,
+                    contentPadding = PaddingValues(
+                        start = homeEdgePadding,
+                        top = homeEdgePadding,
+                        end = homeEdgePadding,
+                        bottom = homeEdgePadding
+                    )
+                ) {
+                    widgetAreaItems(
+                        ui = widgetArea,
+                        reorderableState = reorderState,
+                        mergeState = mergeState,
+                        homeHeightDp = homeHeightDp
+                    )
+                    item(key = FLEXIBLE_SPACER_KEY) {
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(with(density) { spacerHeightPx.toDp() })
+                                .pointerInput(menuEnabled, interaction.isResizing) {
+                                    if (interaction.isResizing) {
+                                        detectTapGestures(onTap = { interaction.onResizeOutsideTap() })
+                                    } else if (menuEnabled) {
+                                        detectTapGestures(
+                                            onLongPress = {
+                                                hapticFeedback.performLongPressHaptic()
+                                                onEmptyAreaLongPress()
+                                            }
+                                        )
+                                    }
+                                }
+                        )
                     }
-                )
-        )
+                    favoriteItems(
+                        home = home,
+                        itemActions = itemActions,
+                        reorderableState = reorderState,
+                        blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
+                        onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null
+                    )
+                }
+                WidgetAreaResizeAutoScroll(ui = widgetArea, listState = home.lazyListState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesBottomArea(
+    modifier: Modifier,
+    home: LauncherUiState.Home,
+    itemActions: LauncherItemActions,
+    onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
+    onEmptyAreaLongPress: () -> Unit,
+    interaction: HomeInteraction
+) {
+    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val favoriteKeys: List<String> = remember(home.favorites) { home.favorites.map { favorite -> favorite.key } }
+    val reorderState: ReorderableLazyListState = rememberHomeReorderState(
+        listState = home.lazyListState,
+        favoriteKeys = favoriteKeys,
+        onMoveFavorite = onFavoriteMoved
+    )
+    Box(
+        modifier = modifier
+            .pointerInput(interaction.menuEnabled) {
+                if (interaction.menuEnabled) {
+                    detectTapGestures(
+                        onLongPress = {
+                            hapticFeedback.performLongPressHaptic()
+                            onEmptyAreaLongPress()
+                        }
+                    )
+                }
+            }
+            .then(
+                if (interaction.isResizing) {
+                    Modifier.consumeTouches(onGestureEnd = interaction.onResizeOutsideTap)
+                } else if (interaction.isEditingWidgets) {
+                    Modifier.consumeTouches()
+                } else {
+                    Modifier
+                }
+            )
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .alpha(if (isResizing || isEditingWidgets) RESIZE_DIMMED_ALPHA else 1f)
-                .then(
-                    if (isResizing) {
-                        Modifier.consumeTouches(onGestureEnd = onResizeOutsideTap)
-                    } else if (isEditingWidgets) {
-                        Modifier.consumeTouches()
-                    } else {
-                        Modifier
-                    }
-                )
+                .align(Alignment.BottomCenter)
+                .alpha(if (interaction.isResizing || interaction.isEditingWidgets) RESIZE_DIMMED_ALPHA else 1f)
                 .testTag("launcherHome"),
             state = home.lazyListState,
             verticalArrangement = Arrangement.Bottom,
             contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
-            if (home.favorites.isEmpty()) {
-                item {
-                    OutlinedText(
-                        text = stringResource(R.string.favorites_empty_hint),
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.titleMedium
+            favoriteItems(home = home, itemActions = itemActions, reorderableState = reorderState)
+        }
+    }
+}
+
+@Composable
+private fun rememberHomeReorderState(
+    listState: LazyListState,
+    favoriteKeys: List<String>,
+    onMoveFavorite: (Int, Int) -> Unit,
+    placeIds: List<Long> = emptyList(),
+    onMovePlace: (Int, Int) -> Unit = { _, _ -> }
+): ReorderableLazyListState = rememberReorderableLazyListState(listState) { from, to ->
+    when (val reorder = resolveHomeReorder(from.key, to.key, placeIds, favoriteKeys)) {
+        is HomeReorder.Place -> onMovePlace(reorder.fromIndex, reorder.toIndex)
+        is HomeReorder.Favorite -> onMoveFavorite(reorder.fromIndex, reorder.toIndex)
+        null -> Unit
+    }
+}
+
+private fun LazyListScope.favoriteItems(
+    home: LauncherUiState.Home,
+    itemActions: LauncherItemActions,
+    reorderableState: ReorderableLazyListState,
+    blockInteraction: Boolean = false,
+    onBlockedGestureEnd: (() -> Unit)? = null
+) {
+    if (home.favorites.isEmpty()) {
+        item(key = FAVORITES_EMPTY_HINT_KEY) {
+            OutlinedText(
+                text = stringResource(R.string.favorites_empty_hint),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    } else {
+        items(home.favorites, key = { favorite -> favoriteKey(favorite.key) }) { favorite ->
+            ReorderableItem(
+                state = reorderableState,
+                key = favoriteKey(favorite.key),
+                enabled = home.isEditingFavorites
+            ) { _ ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = if (blockInteraction) {
+                        Modifier.consumeTouches(onGestureEnd = onBlockedGestureEnd)
+                    } else {
+                        Modifier
+                    }
+                ) {
+                    LauncherItem(
+                        item = favorite,
+                        isEditingFavorites = home.isEditingFavorites,
+                        isFavorite = true,
+                        itemActions = itemActions,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-            } else {
-                items(home.favorites, key = { favorite -> favorite.key }) { favorite ->
-                    ReorderableItem(reorderableListState, key = favorite.key, enabled = home.isEditingFavorites) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            LauncherItem(
-                                item = favorite,
-                                isEditingFavorites = home.isEditingFavorites,
-                                isFavorite = true,
-                                itemActions = itemActions,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (home.isEditingFavorites) {
-                                DragHandle(
-                                    modifier = Modifier
-                                        .padding(end = dragHandleEndPadding)
-                                        .draggableHandle(),
-                                    contentDescription = stringResource(R.string.reorder_favorite, favorite.name)
-                                )
-                            }
-                        }
+                    if (home.isEditingFavorites) {
+                        DragHandle(
+                            modifier = Modifier
+                                .padding(end = dragHandleEndPadding)
+                                .draggableHandle(),
+                            contentDescription = stringResource(R.string.reorder_favorite, favorite.name)
+                        )
                     }
                 }
             }
@@ -932,7 +1125,7 @@ fun LauncherItem(
     itemActions: LauncherItemActions,
     modifier: Modifier = Modifier
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
+    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val currentItem: Launchable by rememberUpdatedState(item)
     val currentItemActions: LauncherItemActions by rememberUpdatedState(itemActions)
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {

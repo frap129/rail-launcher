@@ -1,6 +1,5 @@
 package feature.widgets
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -19,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -72,117 +73,111 @@ private val DRAG_ELEVATION = 8.dp
 private const val LIFT_ANIMATION_MILLIS: Int = 120
 private const val MERGE_HOVER_MILLIS: Long = 400L
 
-/** The reorderable list of Widget places shown during Edit Widgets. */
+/** The shared drag state for merging one Widget Area place into another. */
+@Stable
+class EditMergeState {
+    val bounds: MutableMap<Long, Rect> = mutableStateMapOf()
+    var mergeSourceId: Long? by mutableStateOf(null)
+    var mergeTargetId: Long? by mutableStateOf(null)
+    var mergeHoverStartedAt: Long by mutableLongStateOf(0L)
+    var sourceCoordinates: LayoutCoordinates? by mutableStateOf(null)
+}
+
+/** One reorderable Widget place inside Edit Widgets. */
 @Composable
-internal fun EditableWidgetArea(
+internal fun EditablePlaceItem(
+    place: WidgetPlaceModel,
+    index: Int,
     places: List<WidgetPlaceModel>,
-    expandedPlaceIds: Set<Long>,
+    mergeState: EditMergeState,
+    isDragging: Boolean,
+    isExpanded: Boolean,
     maxStackPages: Int,
-    onMovePlace: (fromIndex: Int, toIndex: Int) -> Unit,
+    onMovePlace: (Int, Int) -> Unit,
     onRemovePlace: (Long) -> Unit,
     onToggleExpand: (Long) -> Unit,
-    onMovePage: (placeId: Long, fromIndex: Int, toIndex: Int) -> Unit,
-    onRemovePage: (placeId: Long, widgetId: Long) -> Unit,
-    onSplitPage: (placeId: Long, widgetId: Long, toIndex: Int) -> Unit,
-    onMergePlace: (sourcePlaceId: Long, targetPlaceId: Long) -> Unit,
-    placeContent: @Composable (WidgetPlaceModel, Modifier) -> Unit,
-    modifier: Modifier = Modifier
+    onMovePage: (Long, Int, Int) -> Unit,
+    onRemovePage: (Long, Long) -> Unit,
+    onSplitPage: (Long, Long, Int) -> Unit,
+    onMergePlace: (Long, Long) -> Unit,
+    handleModifier: Modifier,
+    modifier: Modifier = Modifier,
+    content: @Composable (Modifier) -> Unit
 ) {
-    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    val bounds: MutableMap<Long, Rect> = remember { mutableStateMapOf() }
-    var mergeSourceId: Long? by remember { mutableStateOf(null) }
-    var mergeTargetId: Long? by remember { mutableStateOf(null) }
-    var mergeHoverStartedAt: Long by remember { mutableLongStateOf(0L) }
-    var sourceCoordinates: LayoutCoordinates? by remember { mutableStateOf(null) }
+    val mergeEligible: Boolean = place.widgets.size == 1
 
-    fun updateMergeTarget(rootPosition: androidx.compose.ui.geometry.Offset) {
-        val sourceId: Long = mergeSourceId ?: return
-        val candidate: Long? = bounds.entries
+    fun updateMergeTarget(rootPosition: Offset) {
+        val sourceId: Long = mergeState.mergeSourceId ?: return
+        val candidate: Long? = mergeState.bounds.entries
             .firstOrNull { (placeId, rect) -> placeId != sourceId && rect.contains(rootPosition) }
             ?.key
-        if (candidate != mergeTargetId) {
-            mergeTargetId = candidate
-            mergeHoverStartedAt = System.currentTimeMillis()
+        if (candidate != mergeState.mergeTargetId) {
+            mergeState.mergeTargetId = candidate
+            mergeState.mergeHoverStartedAt = System.currentTimeMillis()
         }
     }
 
-    ReorderableColumn(
-        list = places,
-        onSettle = onMovePlace,
-        onMove = { hapticFeedback.performSegmentTickHaptic() },
-        modifier = modifier.animateContentSize()
-    ) { index, place, isDragging ->
-        key(place.id) {
-            ReorderableItem {
-                val mergeEligible: Boolean = place.widgets.size == 1
-                EditablePlace(
-                    place = place,
-                    isDragging = isDragging,
-                    isExpanded = place.id in expandedPlaceIds,
-                    isMergeTarget = mergeTargetId == place.id,
-                    canMerge = mergeEligible,
-                    onRemove = { onRemovePlace(place.id) },
-                    onMoveUp = { onMovePlace(index, index - 1) },
-                    onMoveDown = { onMovePlace(index, index + 1) },
-                    onToggleExpand = { onToggleExpand(place.id) },
-                    onMovePage = { from, to -> onMovePage(place.id, from, to) },
-                    onRemovePage = { widgetId -> onRemovePage(place.id, widgetId) },
-                    onSplitPage = { widgetId -> onSplitPage(place.id, widgetId, index + 1) },
-                    onSplitAt = { widgetId, rootY ->
-                        val targetIndex: Int = places.indexOfFirst { candidate ->
-                            candidate.id != place.id &&
-                                bounds[candidate.id]?.contains(
-                                    androidx.compose.ui.geometry.Offset(0f, rootY)
-                                ) == true
-                        }.takeIf { target -> target >= 0 } ?: places.size
-                        onSplitPage(place.id, widgetId, targetIndex)
-                    },
-                    maxStackPages = maxStackPages,
-                    handleModifier = Modifier.draggableHandle(
-                        onDragStarted = { hapticFeedback.performLongPressHaptic() }
-                    ),
-                    modifier = Modifier.onGloballyPositioned { coordinates ->
-                        val topLeft: androidx.compose.ui.geometry.Offset = coordinates.localToRoot(androidx.compose.ui.geometry.Offset.Zero)
-                        bounds[place.id] = Rect(
-                            offset = topLeft,
-                            size = androidx.compose.ui.geometry.Size(
-                                width = coordinates.size.width.toFloat(),
-                                height = coordinates.size.height.toFloat()
-                            )
-                        )
-                        if (mergeSourceId == place.id) {
-                            sourceCoordinates = coordinates
-                        }
-                    },
-                    onMergeDragStart = {
-                        if (mergeEligible) {
-                            mergeSourceId = place.id
-                            mergeTargetId = null
-                            mergeHoverStartedAt = 0L
-                        }
-                    },
-                    onMergeDrag = { position ->
-                        val coordinates: LayoutCoordinates = sourceCoordinates ?: return@EditablePlace
-                        updateMergeTarget(coordinates.localToRoot(position))
-                    },
-                    onMergeDragEnd = {
-                        val sourceId: Long = mergeSourceId ?: return@EditablePlace
-                        val targetId: Long = mergeTargetId ?: return@EditablePlace
-                        if (System.currentTimeMillis() - mergeHoverStartedAt >= MERGE_HOVER_MILLIS) {
-                            onMergePlace(sourceId, targetId)
-                        }
-                        mergeSourceId = null
-                        mergeTargetId = null
-                    },
-                    onMergeDragCancel = {
-                        mergeSourceId = null
-                        mergeTargetId = null
-                    }
-                ) { contentModifier ->
-                    placeContent(place, contentModifier)
-                }
+    EditablePlace(
+        place = place,
+        isDragging = isDragging,
+        isExpanded = isExpanded,
+        isMergeTarget = mergeState.mergeTargetId == place.id,
+        canMerge = mergeEligible,
+        onRemove = { onRemovePlace(place.id) },
+        onMoveUp = { onMovePlace(index, index - 1) },
+        onMoveDown = { onMovePlace(index, index + 1) },
+        onToggleExpand = { onToggleExpand(place.id) },
+        onMovePage = { from, to -> onMovePage(place.id, from, to) },
+        onRemovePage = { widgetId -> onRemovePage(place.id, widgetId) },
+        onSplitPage = { widgetId -> onSplitPage(place.id, widgetId, index + 1) },
+        onSplitAt = { widgetId, rootY ->
+            val targetIndex: Int = places.indexOfFirst { candidate ->
+                candidate.id != place.id &&
+                    mergeState.bounds[candidate.id]?.contains(Offset(0f, rootY)) == true
+            }.takeIf { target -> target >= 0 } ?: places.size
+            onSplitPage(place.id, widgetId, targetIndex)
+        },
+        maxStackPages = maxStackPages,
+        handleModifier = handleModifier,
+        modifier = modifier.onGloballyPositioned { coordinates ->
+            val topLeft: Offset = coordinates.localToRoot(Offset.Zero)
+            mergeState.bounds[place.id] = Rect(
+                offset = topLeft,
+                size = androidx.compose.ui.geometry.Size(
+                    width = coordinates.size.width.toFloat(),
+                    height = coordinates.size.height.toFloat()
+                )
+            )
+            if (mergeState.mergeSourceId == place.id) {
+                mergeState.sourceCoordinates = coordinates
             }
+        },
+        onMergeDragStart = {
+            if (mergeEligible) {
+                mergeState.mergeSourceId = place.id
+                mergeState.mergeTargetId = null
+                mergeState.mergeHoverStartedAt = 0L
+            }
+        },
+        onMergeDrag = { position ->
+            val coordinates: LayoutCoordinates = mergeState.sourceCoordinates ?: return@EditablePlace
+            updateMergeTarget(coordinates.localToRoot(position))
+        },
+        onMergeDragEnd = {
+            val sourceId: Long = mergeState.mergeSourceId ?: return@EditablePlace
+            val targetId: Long = mergeState.mergeTargetId ?: return@EditablePlace
+            if (System.currentTimeMillis() - mergeState.mergeHoverStartedAt >= MERGE_HOVER_MILLIS) {
+                onMergePlace(sourceId, targetId)
+            }
+            mergeState.mergeSourceId = null
+            mergeState.mergeTargetId = null
+        },
+        onMergeDragCancel = {
+            mergeState.mergeSourceId = null
+            mergeState.mergeTargetId = null
         }
+    ) { contentModifier ->
+        content(contentModifier)
     }
 }
 

@@ -1,6 +1,7 @@
 package feature.widgets
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -56,6 +57,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -271,6 +273,7 @@ class WidgetAreaViewModel(
     private val editMutex: Mutex = Mutex()
 
     private val headerHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
+    private val widgetAreaListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
     private val pageSettleJobs: MutableMap<Long, Job> = mutableMapOf()
 
     private val resizeController: WidgetResizeController = WidgetResizeController(
@@ -310,6 +313,13 @@ class WidgetAreaViewModel(
             repository.places.collect { places ->
                 editDraft.update { draft -> draft?.reconciledWith(places) }
             }
+        }
+        viewModelScope.launch {
+            settingsRepository.widgetAreaSettings
+                .map { settings -> settings.heightLimitEnabled }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { widgetAreaListState.value = LazyListState() }
         }
     }
 
@@ -394,8 +404,9 @@ class WidgetAreaViewModel(
         widgetAreaContent,
         resizeController.homeHeightDp,
         editDraft,
-        headerHeightDp
-    ) { content, homeHeightDp, draft, headerHeight ->
+        headerHeightDp,
+        widgetAreaListState
+    ) { content, homeHeightDp, draft, headerHeight, listState ->
         val orderedPlaces: List<WidgetPlace> = draft?.toPlaces(content.places) ?: content.places
         WidgetAreaState(
             places = orderedPlaces.mapNotNull { place ->
@@ -413,7 +424,9 @@ class WidgetAreaViewModel(
             hasWidgets = orderedPlaces.isNotEmpty(),
             isEditing = draft != null,
             stackIndicatorVisible = content.widgetAreaSettings.stackIndicatorVisible,
-            maxStackPages = content.widgetAreaSettings.maxStackPages
+            maxStackPages = content.widgetAreaSettings.maxStackPages,
+            layout = content.widgetAreaSettings.toLayout(),
+            listState = listState
         )
     }.stateIn(
         scope = viewModelScope,
@@ -829,7 +842,10 @@ class WidgetAreaViewModel(
 
     fun onBack(): Boolean = finishEditingOrResize(fallback = resizeController::onBack)
 
-    fun onHomeIntent(): Boolean = finishEditingOrResize(fallback = resizeController::onHomeIntent)
+    fun onHomeIntent(): Boolean {
+        widgetAreaListState.value = LazyListState()
+        return finishEditingOrResize(fallback = resizeController::onHomeIntent)
+    }
 
     private fun finishEditingOrResize(fallback: () -> Boolean): Boolean {
         if (editDraft.value == null) {

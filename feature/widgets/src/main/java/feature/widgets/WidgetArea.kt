@@ -8,32 +8,55 @@ import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.widget.Toast
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -45,6 +68,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
@@ -53,147 +77,357 @@ import core.data.widgets.WidgetWidth
 import core.ui.composables.OutlinedText
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
+import core.ui.model.data.isPlaceKey
+import core.ui.model.data.placeKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import org.koin.androidx.compose.koinViewModel
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.ReorderableLazyListState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
 
 private val emptyWidgetAreaHeight: Dp = 96.dp
 private const val RESIZE_TOOLBAR_SPACE_DP: Int = 128
+private const val WIDGET_AREA_HEIGHT_ANIMATION_MILLIS: Int = 200
+private val widgetAreaFadeHeight: Dp = 16.dp
+private const val WIDGET_AREA_EMPTY_KEY: String = "widgetAreaEmpty"
 private val stackIndicatorHeight: Dp = ResizeBounds.STACK_INDICATOR_HEIGHT_DP.dp
 private val stackIndicatorDotSize: Dp = 6.dp
 private val stackIndicatorGap: Dp = 6.dp
 
-/** The standalone Widget Area, rendered above Favorites on Home. */
+/** The Widget Area callbacks shared by the Capped and Uncapped Home layouts. */
+@Immutable
+data class WidgetAreaActions(
+    val menuEnabled: Boolean,
+    val onHomeHeight: (Int) -> Unit,
+    val onWidgetAreaWidth: (Int) -> Unit,
+    val onTapTarget: (HeaderTapTarget) -> Unit,
+    val onHeaderLongPress: (Long) -> Unit,
+    val onHeaderHeight: (Int) -> Unit,
+    val onAppWidgetLongPress: (Long) -> Unit,
+    val onAppWidgetUnpause: (Long) -> Unit,
+    val onPageSettled: (Long, Int) -> Unit,
+    val onEmptyAreaLongPress: () -> Unit,
+    val onFinishResize: () -> Unit,
+    val onDragResize: (Float) -> Unit,
+    val onStepResize: (ResizeStep) -> Unit,
+    val onResetResize: () -> Unit,
+    val onMovePlace: (Int, Int) -> Unit,
+    val onRemovePlace: (Long) -> Unit,
+    val onToggleExpand: (Long) -> Unit,
+    val onMovePage: (Long, Int, Int) -> Unit,
+    val onRemovePage: (Long, Long) -> Unit,
+    val onSplitPage: (Long, Long, Int) -> Unit,
+    val onMergePlace: (Long, Long) -> Unit
+)
+
+/** The Widget Area state and callbacks read by Home. */
+@Stable
+class WidgetAreaUi(val state: WidgetAreaState, val resize: ResizeState?, val editDraft: WidgetEditDraft?, val actions: WidgetAreaActions)
+
+/** Collects the Widget Area and builds its Home actions. */
 @Composable
-fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewModel: WidgetAreaViewModel = koinViewModel()) {
+fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = true): WidgetAreaUi {
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
     val context: Context = LocalContext.current
-    val hapticFeedback = LocalHapticFeedback.current
-    val openHeaderMenu: (Long) -> Unit = { widgetId ->
-        if (menuEnabled) {
-            hapticFeedback.performLongPressHaptic()
-            viewModel.openHeaderMenu(widgetId = widgetId)
+    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val actions: WidgetAreaActions = remember(viewModel, menuEnabled, context, hapticFeedback) {
+        WidgetAreaActions(
+            menuEnabled = menuEnabled,
+            onHomeHeight = viewModel::setHomeHeight,
+            onWidgetAreaWidth = viewModel::setWidgetAreaWidth,
+            onTapTarget = context::openHeaderTapTarget,
+            onHeaderLongPress = { widgetId ->
+                if (menuEnabled) {
+                    hapticFeedback.performLongPressHaptic()
+                    viewModel.openHeaderMenu(widgetId = widgetId)
+                }
+            },
+            onHeaderHeight = viewModel::setHeaderHeight,
+            onAppWidgetLongPress = { widgetId ->
+                if (menuEnabled) {
+                    hapticFeedback.performLongPressHaptic()
+                    viewModel.openAppWidgetMenu(widgetId = widgetId)
+                }
+            },
+            onAppWidgetUnpause = viewModel::unpauseWorkProfile,
+            onPageSettled = viewModel::onPageSettled,
+            onEmptyAreaLongPress = {
+                if (menuEnabled) {
+                    hapticFeedback.performLongPressHaptic()
+                    viewModel.openEmptyAreaMenu()
+                }
+            },
+            onFinishResize = viewModel::finishResize,
+            onDragResize = viewModel::dragResize,
+            onStepResize = viewModel::stepResize,
+            onResetResize = viewModel::resetResize,
+            onMovePlace = viewModel::moveWidgetPlace,
+            onRemovePlace = viewModel::removeWidgetPlaceInEdit,
+            onToggleExpand = viewModel::toggleStackExpanded,
+            onMovePage = viewModel::movePage,
+            onRemovePage = viewModel::removePageInEdit,
+            onSplitPage = viewModel::splitPage,
+            onMergePlace = viewModel::mergePlace
+        )
+    }
+    return remember(state, resize, editDraft, actions) {
+        WidgetAreaUi(state = state, resize = resize, editDraft = editDraft, actions = actions)
+    }
+}
+
+/** The scrollable, height-capped Widget Area shown above Favorites when the limit is on. */
+@Composable
+fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifier: Modifier = Modifier) {
+    val state: WidgetAreaState = ui.state
+    val actions: WidgetAreaActions = ui.actions
+    val reorderState: ReorderableLazyListState = rememberReorderableLazyListState(state.listState) { from, to ->
+        if (isPlaceKey(from.key) && isPlaceKey(to.key)) {
+            actions.onMovePlace(from.index, to.index)
         }
     }
-    val openEmptyAreaMenu: () -> Unit = {
-        if (menuEnabled) {
-            hapticFeedback.performLongPressHaptic()
-            viewModel.openEmptyAreaMenu()
+    val mergeState: EditMergeState = remember { EditMergeState() }
+    val density: Density = LocalDensity.current
+    val contentHeightPx: Int? by remember(state.listState) {
+        derivedStateOf {
+            val layoutInfo: LazyListLayoutInfo = state.listState.layoutInfo
+            if (layoutInfo.totalItemsCount > 0 && layoutInfo.visibleItemsInfo.size == layoutInfo.totalItemsCount) {
+                layoutInfo.visibleItemsInfo.sumOf { item -> item.size } +
+                    layoutInfo.beforeContentPadding + layoutInfo.afterContentPadding
+            } else {
+                null
+            }
         }
     }
-    val placeContent: @Composable (WidgetPlaceModel, Int?, Boolean, Boolean, Modifier) -> Unit =
-        { place, heightDp, placeMenuEnabled, placeIsResizing, placeModifier ->
-            WidgetPlaceContent(
-                place = place,
-                heightDp = heightDp,
-                menuEnabled = placeMenuEnabled,
-                isResizing = placeIsResizing,
-                stackIndicatorVisible = state.stackIndicatorVisible,
-                onTapTarget = context::openHeaderTapTarget,
-                onHeaderLongPress = openHeaderMenu,
-                onHeaderHeight = viewModel::setHeaderHeight,
-                onAppWidgetLongPress = viewModel::openAppWidgetMenu,
-                onAppWidgetUnpause = viewModel::unpauseWorkProfile,
-                onPageSettled = viewModel::onPageSettled,
-                userScrollEnabled = placeMenuEnabled && !placeIsResizing,
-                modifier = placeModifier
-            )
-        }
+    val areaHeight: Dp = contentHeightPx?.let { heightPx ->
+        with(density) { heightPx.toDp() }.coerceAtMost(maxHeight)
+    } ?: maxHeight
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val homeHeightDp: Int = maxHeight.value.roundToInt()
-        val widgetAreaWidthDp: Int = (maxWidth.value - homeEdgePadding.value - homeRailTouchInset.value).roundToInt()
-        LaunchedEffect(homeHeightDp) {
-            viewModel.setHomeHeight(heightDp = homeHeightDp)
-        }
+        val widgetAreaWidthDp: Int = (maxWidth - homeEdgePadding - homeRailTouchInset).value.roundToInt()
         LaunchedEffect(widgetAreaWidthDp) {
-            viewModel.setWidgetAreaWidth(widthDp = widgetAreaWidthDp)
+            if (widgetAreaWidthDp > 0) {
+                actions.onWidgetAreaWidth(widgetAreaWidthDp)
+            }
         }
-        if (resize != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .consumeTouches(onGestureEnd = viewModel::finishResize)
-            )
-        }
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = homeEdgePadding,
-                    top = homeEdgePadding,
-                    end = homeEdgePadding
-                )
-        ) {
-            if (state.hasWidgets) {
-                if (state.isEditing) {
-                    EditableWidgetArea(
-                        places = state.places,
-                        expandedPlaceIds = editDraft?.expandedPlaceIds.orEmpty(),
-                        maxStackPages = state.maxStackPages,
-                        onMovePlace = viewModel::moveWidgetPlace,
-                        onRemovePlace = viewModel::removeWidgetPlaceInEdit,
-                        onToggleExpand = viewModel::toggleStackExpanded,
-                        onMovePage = viewModel::movePage,
-                        onRemovePage = viewModel::removePageInEdit,
-                        onSplitPage = viewModel::splitPage,
-                        onMergePlace = viewModel::mergePlace,
-                        placeContent = { place, contentModifier ->
-                            placeContent(place.copy(widthMode = WidgetWidth.Inset), place.heightDp, false, false, contentModifier)
-                        }
-                    )
-                } else {
-                    state.places.forEach { place ->
-                        val placeResize: ResizeState? = resize?.takeIf { resizing -> resizing.placeId == place.id }
-                        if (placeResize != null) {
-                            ResizeOverlay(
-                                state = placeResize,
-                                onDrag = viewModel::dragResize,
-                                onStep = viewModel::stepResize,
-                                onReset = viewModel::resetResize,
-                                onDone = viewModel::finishResize,
-                                toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
-                            ) {
-                                placeContent(
-                                    place,
-                                    placeResize.draftHeightDp,
-                                    false,
-                                    true,
-                                    Modifier.consumeTouches()
-                                )
-                            }
-                        } else {
-                            val dimmed: Boolean = resize != null
-                            placeContent(
-                                place,
-                                place.heightDp,
-                                menuEnabled && !dimmed,
-                                false,
-                                Modifier
-                                    .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
-                                    .then(
-                                        if (dimmed) {
-                                            Modifier.consumeTouches(onGestureEnd = viewModel::finishResize)
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                            )
-                        }
-                    }
+                .animateContentSize(animationSpec = tween(durationMillis = WIDGET_AREA_HEIGHT_ANIMATION_MILLIS))
+                .height(areaHeight)
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawWidgetAreaFade(listState = state.listState)
                 }
-            } else {
-                EmptyWidgetArea(
-                    menuEnabled = menuEnabled && resize == null && !state.isEditing,
-                    showNoWidgets = state.isEditing,
-                    onLongPress = openEmptyAreaMenu
+        ) {
+            LazyColumn(
+                state = state.listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = homeEdgePadding, top = homeEdgePadding, end = homeEdgePadding)
+            ) {
+                widgetAreaItems(
+                    ui = ui,
+                    reorderableState = reorderState,
+                    mergeState = mergeState,
+                    homeHeightDp = homeHeightDp
                 )
             }
         }
+    }
+    WidgetAreaResizeAutoScroll(ui = ui, listState = state.listState)
+}
+
+/** Adds the Widget Area places to an existing Home column. */
+fun LazyListScope.widgetAreaItems(
+    ui: WidgetAreaUi,
+    reorderableState: ReorderableLazyListState,
+    mergeState: EditMergeState,
+    homeHeightDp: Int
+) {
+    val state: WidgetAreaState = ui.state
+    if (!state.hasWidgets) {
+        item(key = WIDGET_AREA_EMPTY_KEY) {
+            EmptyWidgetArea(
+                menuEnabled = ui.actions.menuEnabled && ui.resize == null && !state.isEditing,
+                showNoWidgets = state.isEditing,
+                onLongPress = ui.actions.onEmptyAreaLongPress
+            )
+        }
+        return
+    }
+    if (state.isEditing) {
+        itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
+            ReorderableItem(state = reorderableState, key = placeKey(place.id)) { isDragging ->
+                val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+                val editablePlace: WidgetPlaceModel = place.copy(widthMode = WidgetWidth.Inset)
+                EditablePlaceItem(
+                    place = editablePlace,
+                    index = index,
+                    places = state.places,
+                    mergeState = mergeState,
+                    isDragging = isDragging,
+                    isExpanded = place.id in ui.editDraft?.expandedPlaceIds.orEmpty(),
+                    maxStackPages = state.maxStackPages,
+                    onMovePlace = ui.actions.onMovePlace,
+                    onRemovePlace = ui.actions.onRemovePlace,
+                    onToggleExpand = ui.actions.onToggleExpand,
+                    onMovePage = ui.actions.onMovePage,
+                    onRemovePage = ui.actions.onRemovePage,
+                    onSplitPage = ui.actions.onSplitPage,
+                    onMergePlace = ui.actions.onMergePlace,
+                    handleModifier = Modifier.draggableHandle(
+                        onDragStarted = { hapticFeedback.performLongPressHaptic() }
+                    )
+                ) { contentModifier ->
+                    placeContent(
+                        ui = ui,
+                        place = editablePlace,
+                        heightDp = place.heightDp,
+                        menuEnabled = false,
+                        isResizing = false,
+                        modifier = contentModifier
+                    )
+                }
+            }
+        }
+    } else {
+        items(state.places, key = { place -> placeKey(place.id) }) { place ->
+            WidgetAreaPlace(ui = ui, place = place, homeHeightDp = homeHeightDp)
+        }
+    }
+}
+
+@Composable
+private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeightDp: Int) {
+    val actions: WidgetAreaActions = ui.actions
+    val placeResize: ResizeState? = ui.resize?.takeIf { resize -> resize.placeId == place.id }
+    if (placeResize != null) {
+        ResizeOverlay(
+            state = placeResize,
+            onDrag = actions.onDragResize,
+            onStep = actions.onStepResize,
+            onReset = actions.onResetResize,
+            onDone = actions.onFinishResize,
+            toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
+        ) {
+            placeContent(
+                ui = ui,
+                place = place,
+                heightDp = placeResize.draftHeightDp,
+                menuEnabled = false,
+                isResizing = true,
+                modifier = Modifier.consumeTouches()
+            )
+        }
+    } else {
+        val dimmed: Boolean = ui.resize != null
+        placeContent(
+            ui = ui,
+            place = place,
+            heightDp = place.heightDp,
+            menuEnabled = actions.menuEnabled && !dimmed,
+            isResizing = false,
+            modifier = Modifier
+                .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
+                .then(
+                    if (dimmed) {
+                        Modifier.consumeTouches(onGestureEnd = actions.onFinishResize)
+                    } else {
+                        Modifier
+                    }
+                )
+        )
+    }
+}
+
+@Composable
+private fun placeContent(
+    ui: WidgetAreaUi,
+    place: WidgetPlaceModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    modifier: Modifier
+) {
+    WidgetPlaceContent(
+        place = place,
+        heightDp = heightDp,
+        menuEnabled = menuEnabled,
+        isResizing = isResizing,
+        stackIndicatorVisible = ui.state.stackIndicatorVisible,
+        onTapTarget = ui.actions.onTapTarget,
+        onHeaderLongPress = ui.actions.onHeaderLongPress,
+        onHeaderHeight = ui.actions.onHeaderHeight,
+        onAppWidgetLongPress = ui.actions.onAppWidgetLongPress,
+        onAppWidgetUnpause = ui.actions.onAppWidgetUnpause,
+        onPageSettled = ui.actions.onPageSettled,
+        userScrollEnabled = menuEnabled && !isResizing,
+        modifier = modifier
+    )
+}
+
+/** Keeps the bottom of the place being resized inside [listState]'s viewport. */
+@Composable
+fun WidgetAreaResizeAutoScroll(ui: WidgetAreaUi, listState: LazyListState) {
+    val resize: ResizeState = ui.resize ?: return
+    val placeIndex: Int = ui.state.places.indexOfFirst { place -> place.id == resize.placeId }
+    if (placeIndex < 0) {
+        return
+    }
+    LaunchedEffect(listState, resize.placeId, resize.draftHeightDp) {
+        val placeItemKey: String = placeKey(resize.placeId)
+        val initialLayoutInfo: LazyListLayoutInfo = listState.layoutInfo
+        if (initialLayoutInfo.visibleItemsInfo.none { item -> item.key == placeItemKey }) {
+            listState.animateScrollToItem(index = placeIndex)
+        }
+        val layoutInfo: LazyListLayoutInfo = listState.layoutInfo
+        val visibleInfo: LazyListItemInfo = layoutInfo.visibleItemsInfo.firstOrNull { item -> item.key == placeItemKey }
+            ?: return@LaunchedEffect
+        val viewportStart: Int = layoutInfo.viewportStartOffset + layoutInfo.beforeContentPadding
+        val viewportEnd: Int = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding
+        val overflow: Int = visibleInfo.offset + visibleInfo.size - viewportEnd
+        if (overflow > 0) {
+            listState.scrollBy(overflow.toFloat())
+        } else if (visibleInfo.size <= viewportEnd - viewportStart && visibleInfo.offset < viewportStart) {
+            listState.scrollBy((visibleInfo.offset - viewportStart).toFloat())
+        }
+    }
+}
+
+private fun DrawScope.drawWidgetAreaFade(listState: LazyListState) {
+    val fadeHeightPx: Float = widgetAreaFadeHeight.toPx()
+    if (fadeHeightPx <= 0f) {
+        return
+    }
+    val isScrolledFromTop: Boolean = listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+    if (isScrolledFromTop) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Black, Color.Transparent),
+                startY = 0f,
+                endY = fadeHeightPx
+            ),
+            topLeft = Offset.Zero,
+            size = Size(width = size.width, height = fadeHeightPx.coerceAtMost(size.height)),
+            blendMode = BlendMode.DstOut
+        )
+    }
+    if (listState.canScrollForward) {
+        val fadeTop: Float = (size.height - fadeHeightPx).coerceAtLeast(0f)
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color.Black),
+                startY = fadeTop,
+                endY = size.height
+            ),
+            topLeft = Offset(x = 0f, y = fadeTop),
+            size = Size(width = size.width, height = size.height - fadeTop),
+            blendMode = BlendMode.DstOut
+        )
     }
 }
 
@@ -397,7 +631,7 @@ private fun WidgetPageContent(
 ) {
     when (widget) {
         is HeaderModel -> {
-            val density = LocalDensity.current
+            val density: Density = LocalDensity.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
