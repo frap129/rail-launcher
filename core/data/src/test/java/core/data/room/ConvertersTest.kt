@@ -7,6 +7,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.widgets.MediaPlayerPlacement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -75,12 +76,23 @@ class ConvertersTest {
     @Test
     fun `round trips a set of profile-qualified calendar ids`() {
         val ids: Set<String> = setOf("42", "w:7", "w:103")
-
         assertEquals(ids, converters.fromStringToCalendarIdSet(converters.fromCalendarIdSetToString(ids)))
     }
 
     @Test
     fun `decodes an empty calendar id string as an empty set`() {
         assertTrue(converters.fromStringToCalendarIdSet("").isEmpty())
+    }
+
+    @Test
+    fun `round trips Media Player placements by name`() {
+        MediaPlayerPlacement.entries.forEach { placement ->
+            assertEquals(placement, converters.fromStringToMediaPlayerPlacement(converters.fromMediaPlayerPlacementToString(placement)))
+        }
+    }
+
+    @Test
+    fun `falls back to below the Widget Area for an unknown Media Player placement`() {
+        assertEquals(MediaPlayerPlacement.BELOW_WIDGET_AREA, converters.fromStringToMediaPlayerPlacement("UNKNOWN"))
     }
 }

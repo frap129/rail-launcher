@@ -9,6 +9,7 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
@@ -35,6 +36,7 @@ data class WidgetAreaState(
     val layout: WidgetAreaLayout = WidgetAreaLayout.Capped(fraction = WidgetAreaHeightLimit.DEFAULT.fraction),
     val topOffsetDp: Int = 0,
     val widgetSpacingDp: Int = WidgetSpacing.DEFAULT.dp,
+    val mediaPlayerPlacement: MediaPlayerPlacement = MediaPlayerPlacement.BELOW_WIDGET_AREA,
     val animateOffset: Boolean = false,
     val listState: LazyListState = LazyListState()
 )

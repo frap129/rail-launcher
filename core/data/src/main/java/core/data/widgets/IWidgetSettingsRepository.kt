@@ -38,9 +38,30 @@ interface IWidgetSettingsRepository {
     }
 
     suspend fun setMediaPlayerEnabled(enabled: Boolean) {
-        val current: MediaPlayerSettings = mediaPlayerSettings.first()
-        if (current.enabled != enabled) {
-            updateMediaPlayerSettings { settings -> settings.copy(enabled = enabled) }
+        updateMediaPlayerIfChanged { settings -> settings.copy(enabled = enabled) }
+    }
+
+    suspend fun setMediaPlayerShowWhenPaused(showWhenPaused: Boolean) {
+        updateMediaPlayerIfChanged { settings -> settings.copy(showWhenPaused = showWhenPaused) }
+    }
+
+    suspend fun setMediaPlayerShowArtwork(showArtwork: Boolean) {
+        updateMediaPlayerIfChanged { settings -> settings.copy(showArtwork = showArtwork) }
+    }
+
+    suspend fun setMediaPlayerPlacement(placement: MediaPlayerPlacement) {
+        updateMediaPlayerIfChanged { settings -> settings.copy(placement = placement) }
+    }
+
+    suspend fun setMediaPlayerPackageExcluded(packageName: String, excluded: Boolean) {
+        updateMediaPlayerIfChanged { settings ->
+            settings.copy(
+                excludedPackages = if (excluded) {
+                    settings.excludedPackages + packageName
+                } else {
+                    settings.excludedPackages - packageName
+                }
+            )
         }
     }
 
@@ -106,22 +127,23 @@ interface IWidgetSettingsRepository {
 }
 
 private suspend fun IWidgetSettingsRepository.updateIfChanged(transform: (HeaderSettings) -> HeaderSettings) {
-    val current: HeaderSettings = headerSettings.first()
-    if (transform(current) != current) {
-        updateHeaderSettings(transform)
-    }
+    applyIfChanged(current = headerSettings.first(), transform = transform, update = ::updateHeaderSettings)
 }
 
 private suspend fun IWidgetSettingsRepository.updateEventIfChanged(transform: (EventSettings) -> EventSettings) {
-    val current: EventSettings = eventSettings.first()
-    if (transform(current) != current) {
-        updateEventSettings(transform)
-    }
+    applyIfChanged(current = eventSettings.first(), transform = transform, update = ::updateEventSettings)
 }
 
 private suspend fun IWidgetSettingsRepository.updateWidgetAreaIfChanged(transform: (WidgetAreaSettings) -> WidgetAreaSettings) {
-    val current: WidgetAreaSettings = widgetAreaSettings.first()
+    applyIfChanged(current = widgetAreaSettings.first(), transform = transform, update = ::updateWidgetAreaSettings)
+}
+
+private suspend fun IWidgetSettingsRepository.updateMediaPlayerIfChanged(transform: (MediaPlayerSettings) -> MediaPlayerSettings) {
+    applyIfChanged(current = mediaPlayerSettings.first(), transform = transform, update = ::updateMediaPlayerSettings)
+}
+
+private suspend fun <T> applyIfChanged(current: T, transform: (T) -> T, update: suspend ((T) -> T) -> Unit) {
     if (transform(current) != current) {
-        updateWidgetAreaSettings(transform)
+        update(transform)
     }
 }

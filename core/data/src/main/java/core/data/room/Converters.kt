@@ -10,6 +10,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetSpacing
@@ -105,6 +106,13 @@ class Converters {
         value.startsWith(TAP_TARGET_LAUNCHABLE_PREFIX) -> HeaderTapSetting.Launchable(value.removePrefix(TAP_TARGET_LAUNCHABLE_PREFIX))
         else -> HeaderTapSetting.SystemDefault
     }
+
+    @TypeConverter
+    fun fromMediaPlayerPlacementToString(placement: MediaPlayerPlacement): String = placement.name
+
+    @TypeConverter
+    fun fromStringToMediaPlayerPlacement(placement: String): MediaPlayerPlacement =
+        MediaPlayerPlacement.entries.firstOrNull { entry -> entry.name == placement } ?: MediaPlayerPlacement.BELOW_WIDGET_AREA
 
     @TypeConverter
     fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)

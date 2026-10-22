@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
@@ -61,6 +62,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -84,7 +86,10 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -114,6 +119,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
@@ -141,6 +147,11 @@ private const val HEADER_SECTION_ROWS = 5
 private const val EVENTS_SECTION_ROWS = 2
 private const val APP_WIDGET_HEADER_ROWS = 2
 private const val STACKS_SECTION_ROWS = 3
+
+private val exclusionsContentPadding: Dp = 16.dp
+private val exclusionsHeaderStartPadding: Dp = 4.dp
+private val exclusionsHeaderPadding: Dp = 8.dp
+private val exclusionsAppIconSize: Dp = 40.dp
 
 private fun mediaSectionIndex(appWidgetCount: Int): Int = WIDGET_AREA_SECTION_ROWS +
     HEADER_SECTION_ROWS +
@@ -277,6 +288,7 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
 fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: WidgetSettingsViewModel = koinViewModel()) {
     val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
     val tapActionPicker: TapActionPickerState? by viewModel.tapActionPicker.collectAsState()
+    val mediaPlayerExclusions: MediaPlayerExclusionsState? by viewModel.mediaPlayerExclusions.collectAsState()
     val context: Context = LocalContext.current
     val appWidgetViewCache: AppWidgetViewCache = koinInject()
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
@@ -366,6 +378,14 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
             uiState = uiState,
             viewModel = viewModel,
             onDismiss = { openDialog = null }
+        )
+    }
+    mediaPlayerExclusions?.let { state ->
+        MediaPlayerExclusionsDialog(
+            state = state,
+            onQueryChange = viewModel::setExclusionQuery,
+            onExcludedChange = viewModel::setExcluded,
+            onDismiss = viewModel::closeExcludedApps
         )
     }
     if (showPermissionDialog) {
@@ -509,7 +529,52 @@ private fun WidgetSettingsList(
                 onClick = onNotificationAccessClick
             )
         }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_when_paused),
+                checked = uiState.showWhenPaused,
+                enabled = uiState.mediaPlayerEnabled,
+                onCheckedChange = viewModel::setShowWhenPaused
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_artwork),
+                checked = uiState.showArtwork,
+                enabled = uiState.mediaPlayerEnabled,
+                onCheckedChange = viewModel::setShowArtwork
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.position),
+                value = stringResource(uiState.mediaPlayerPlacement.labelResource()),
+                enabled = uiState.mediaPlayerEnabled,
+                onClick = { onDialogClick(WidgetSettingsDialog.MediaPosition) }
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.excluded_apps),
+                value = "",
+                supportingText = excludedAppsSummary(count = uiState.excludedMediaPlayerPackages.size),
+                enabled = uiState.mediaPlayerEnabled,
+                onClick = viewModel::openExcludedApps
+            )
+        }
     }
+}
+
+@Composable
+private fun excludedAppsSummary(count: Int): String = if (count == 0) {
+    stringResource(R.string.none)
+} else {
+    pluralStringResource(R.plurals.excluded_apps_count, count, count)
+}
+
+private fun MediaPlayerPlacement.labelResource(): Int = when (this) {
+    MediaPlayerPlacement.BELOW_WIDGET_AREA -> R.string.below_widget_area
+    MediaPlayerPlacement.TOP_OF_WIDGET_AREA -> R.string.top_of_widget_area
 }
 
 @Composable
@@ -1026,6 +1091,19 @@ private fun WidgetSettingsDialogContent(
             },
             onDismiss = onDismiss
         )
+
+        WidgetSettingsDialog.MediaPosition -> SingleChoiceDialog(
+            title = stringResource(R.string.position),
+            options = MediaPlayerPlacement.entries.map { placement ->
+                SingleChoiceOption(value = placement, label = stringResource(placement.labelResource()))
+            },
+            selected = uiState.mediaPlayerPlacement,
+            onSelect = { placement ->
+                viewModel.setPlacement(placement)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
     }
 }
 
@@ -1040,7 +1118,83 @@ private enum class WidgetSettingsDialog {
     HeightLimit,
     TopOffset,
     WidgetSpacing,
-    Calendars
+    Calendars,
+    MediaPosition
+}
+
+@Composable
+private fun MediaPlayerExclusionsDialog(
+    state: MediaPlayerExclusionsState,
+    onQueryChange: (String) -> Unit,
+    onExcludedChange: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(
+                        start = exclusionsHeaderStartPadding,
+                        top = exclusionsHeaderPadding,
+                        end = exclusionsHeaderPadding
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(CoreUiR.string.cancel))
+                    }
+                    Text(
+                        text = stringResource(R.string.excluded_apps),
+                        modifier = Modifier.padding(start = exclusionsHeaderPadding),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = exclusionsContentPadding,
+                        vertical = exclusionsHeaderPadding
+                    ),
+                    placeholder = { Text(stringResource(R.string.search_apps)) },
+                    singleLine = true
+                )
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(items = state.apps, key = { app -> app.packageName }) { app ->
+                        ListItem(
+                            modifier = Modifier.clickable { onExcludedChange(app.packageName, !app.isExcluded) },
+                            headlineContent = { Text(app.label) },
+                            leadingContent = {
+                                AsyncImage(
+                                    model = app.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(exclusionsAppIconSize)
+                                )
+                            },
+                            trailingContent = {
+                                Checkbox(
+                                    checked = app.isExcluded,
+                                    onCheckedChange = { checked -> onExcludedChange(app.packageName, checked) }
+                                )
+                            }
+                        )
+                    }
+                    if (state.isLoaded && state.apps.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.no_apps_found),
+                                modifier = Modifier.padding(exclusionsContentPadding),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

@@ -44,6 +44,10 @@ _Avoid_: Shortcut, click action, gesture
 The built-in Widget that appears on Home while an app is playing media and shows its playback controls.
 _Avoid_: Media card, music widget, now playing
 
+**Excluded apps**:
+Apps whose media sessions never trigger the Media Player. Exclusion is by package and stays stored even when the app is uninstalled.
+_Avoid_: Ignored apps, blocked apps, media blacklist
+
 **Widget Stack**:
 Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways.
 _Avoid_: Carousel, pager

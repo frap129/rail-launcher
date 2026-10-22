@@ -25,6 +25,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.ArrowsAltH
 import compose.icons.fontawesomeicons.solid.ArrowsAltV
+import compose.icons.fontawesomeicons.solid.Ban
 import compose.icons.fontawesomeicons.solid.BatteryThreeQuarters
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
@@ -279,6 +280,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
     WidgetMenuAction.MediaPlayer -> R.string.media_player
     WidgetMenuAction.OpenMediaPlayer -> R.string.open_app
+    WidgetMenuAction.ExcludeMediaApp -> R.string.exclude_media_app
     WidgetMenuAction.MediaPlayerSettings -> R.string.media_player_settings
 }
 
@@ -302,5 +304,6 @@ private fun WidgetMenuAction.icon(): ImageVector = when (this) {
     WidgetMenuAction.WidgetSettings -> FontAwesomeIcons.Solid.SlidersH
     WidgetMenuAction.MediaPlayer -> FontAwesomeIcons.Solid.Music
     WidgetMenuAction.OpenMediaPlayer -> FontAwesomeIcons.Solid.Play
+    WidgetMenuAction.ExcludeMediaApp -> FontAwesomeIcons.Solid.Ban
     WidgetMenuAction.MediaPlayerSettings -> FontAwesomeIcons.Solid.SlidersH
 }

@@ -3,6 +3,7 @@ package feature.settings
 import app.cash.turbine.test
 import core.data.calendar.CalendarInfo
 import core.data.icons.model.Icon
+import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.BatteryVisibility
@@ -25,6 +26,8 @@ import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.time.ClockReading
 import core.data.widgets.HomeHeightState
+import core.data.widgets.MediaPlayerPlacement
+import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
@@ -547,6 +550,68 @@ class WidgetSettingsViewModelTest {
         val viewModel: WidgetSettingsViewModel = createViewModel(mediaSessionSource = mediaSessionSource)
         viewModel.refreshMediaAccess()
         assertEquals(1, mediaSessionSource.refreshCount)
+    }
+
+    @Test
+    fun `sorts excluded Media Player apps first and filters the list`() {
+        val apps: List<ExcludableApp> = listOf(
+            ExcludableApp(
+                packageName = "com.example.music",
+                label = "Music",
+                icon = Icon.ApplicationIcon(packageName = "com.example.music"),
+                isExcluded = false
+            ),
+            ExcludableApp(
+                packageName = "com.example.video",
+                label = "Video",
+                icon = Icon.ApplicationIcon(packageName = "com.example.video"),
+                isExcluded = true
+            ),
+            ExcludableApp(
+                packageName = "com.example.maps",
+                label = "Maps",
+                icon = Icon.ApplicationIcon(packageName = "com.example.maps"),
+                isExcluded = false
+            )
+        )
+        val sorted: List<ExcludableApp> = filterExcludableApps(apps = apps, query = "")
+        assertEquals(listOf("Video", "Maps", "Music"), sorted.map { app -> app.label })
+        assertTrue(sorted.first().isExcluded)
+        val filtered: List<ExcludableApp> = filterExcludableApps(apps = apps, query = "ma")
+        assertEquals(listOf("Maps"), filtered.map { app -> app.label })
+    }
+
+    @Test
+    fun `opens and closes the exclusion list`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel()
+        viewModel.mediaPlayerExclusions.test {
+            assertNull(expectMostRecentItem())
+            viewModel.openExcludedApps()
+            val opened: MediaPlayerExclusionsState = requireNotNull(expectMostRecentItem())
+            assertTrue(opened.isLoaded)
+            assertTrue(opened.apps.isEmpty())
+            viewModel.closeExcludedApps()
+            assertNull(expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `persists the Media Player options`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+        viewModel.setShowWhenPaused(false)
+        viewModel.setShowArtwork(false)
+        viewModel.setPlacement(MediaPlayerPlacement.TOP_OF_WIDGET_AREA)
+        viewModel.setExcluded(packageName = "com.example.video", excluded = true)
+        advanceUntilIdle()
+        val expected: MediaPlayerSettings = MediaPlayerSettings(
+            showWhenPaused = false,
+            showArtwork = false,
+            placement = MediaPlayerPlacement.TOP_OF_WIDGET_AREA,
+            excludedPackages = setOf("com.example.video")
+        )
+        assertEquals(expected, settingsRepository.mediaPlayerUpdates.last())
     }
 
     private fun createViewModel(

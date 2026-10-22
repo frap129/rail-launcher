@@ -207,6 +207,7 @@ enum class WidgetMenuAction {
     WidgetSettings,
     MediaPlayer,
     OpenMediaPlayer,
+    ExcludeMediaApp,
     MediaPlayerSettings
 }
 
@@ -214,6 +215,8 @@ sealed interface UndoAction {
     data class RemoveHeader(val removal: HeaderRemoval) : UndoAction
 
     data class ReplaceHeader(val undo: ReplaceHeaderUndo) : UndoAction
+
+    data class IncludeMediaApp(val packageName: String, val appLabel: String = packageName) : UndoAction
 }
 
 sealed interface WidgetAreaEvent {
@@ -476,8 +479,9 @@ class WidgetAreaViewModel(
     val widgetAreaState: StateFlow<WidgetAreaState> = combine(
         widgetAreaContent,
         resizeController.homeHeightDp,
-        homePresentationState
-    ) { content, homeHeightDp, presentation ->
+        homePresentationState,
+        settingsRepository.mediaPlayerSettings
+    ) { content, homeHeightDp, presentation, mediaPlayerSettings ->
         val draft: WidgetEditDraft? = presentation.editDraft
         val orderedPlaces: List<WidgetPlace> = draft?.toPlaces(content.places) ?: content.places
         val requestedOffsetDp: Int = presentation.moveDraft ?: content.widgetAreaSettings.topOffsetDp
@@ -502,6 +506,7 @@ class WidgetAreaViewModel(
             layout = content.widgetAreaSettings.toLayout(),
             topOffsetDp = topOffsetDp,
             widgetSpacingDp = content.widgetAreaSettings.widgetSpacing.dp,
+            mediaPlayerPlacement = mediaPlayerSettings.placement,
             animateOffset = presentation.animateMoveOffset,
             listState = presentation.listState
         )
@@ -525,12 +530,13 @@ class WidgetAreaViewModel(
 
     val mediaPlayerState: StateFlow<MediaPlayerUiState> = combine(
         selectedMediaSession,
+        settingsRepository.mediaPlayerSettings,
         homeEditState.mode
-    ) { session, mode ->
+    ) { session, settings, mode ->
         if (session == null || mode != HomeEditMode.None) {
             MediaPlayerUiState.Hidden
         } else {
-            MediaPlayerUiState.Visible(session = session)
+            MediaPlayerUiState.Visible(session = session, placement = settings.placement, showArtwork = settings.showArtwork)
         }
     }.stateIn(
         scope = viewModelScope,
@@ -701,6 +707,11 @@ class WidgetAreaViewModel(
                 )
 
                 is UndoAction.ReplaceHeader -> repository.undoReplaceHeader(undo = action.undo)
+
+                is UndoAction.IncludeMediaApp -> settingsRepository.setMediaPlayerPackageExcluded(
+                    packageName = action.packageName,
+                    excluded = false
+                )
             }
         }
     }
@@ -899,6 +910,19 @@ class WidgetAreaViewModel(
         menuTarget.value = null
         viewModelScope.launch {
             eventChannel.send(WidgetAreaEvent.NavigateToMediaPlayerSettings)
+        }
+    }
+
+    fun excludeMediaApp() {
+        val session: MediaSessionSnapshot = (mediaPlayerState.value as? MediaPlayerUiState.Visible)?.session ?: return
+        menuTarget.value = null
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerPackageExcluded(packageName = session.packageName, excluded = true)
+            eventChannel.send(
+                WidgetAreaEvent.ShowUndo(
+                    action = UndoAction.IncludeMediaApp(packageName = session.packageName, appLabel = session.appLabel)
+                )
+            )
         }
     }
 
@@ -1133,6 +1157,8 @@ class WidgetAreaViewModel(
             WidgetMenuAction.MediaPlayer -> setMediaPlayerEnabled(enabled = true)
 
             WidgetMenuAction.OpenMediaPlayer -> openMediaPlayer()
+
+            WidgetMenuAction.ExcludeMediaApp -> excludeMediaApp()
 
             WidgetMenuAction.MediaPlayerSettings -> openMediaPlayerSettings()
 
@@ -1552,6 +1578,7 @@ class WidgetAreaViewModel(
                     label = mediaSession.appLabel,
                     items = listOf(
                         WidgetMenuItem.Action(id = WidgetMenuAction.OpenMediaPlayer, labelArg = mediaSession.appLabel),
+                        WidgetMenuItem.Action(id = WidgetMenuAction.ExcludeMediaApp, labelArg = mediaSession.appLabel),
                         WidgetMenuItem.Action(id = WidgetMenuAction.MediaPlayerSettings)
                     )
                 )
