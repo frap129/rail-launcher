@@ -9,24 +9,35 @@ import androidx.room.PrimaryKey
 data class WidgetAreaSettingsRecord(
     @PrimaryKey val id: Int = 0,
     @ColumnInfo(name = "max_stack_pages", defaultValue = "4") val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
-    @ColumnInfo(name = "stack_indicator_visible", defaultValue = "1") val stackIndicatorVisible: Boolean = true
+    @ColumnInfo(name = "stack_indicator_visible", defaultValue = "1") val stackIndicatorVisible: Boolean = true,
+    @ColumnInfo(name = "height_limit_enabled", defaultValue = "1") val heightLimitEnabled: Boolean = true,
+    @ColumnInfo(name = "height_limit", defaultValue = "TWO_THIRDS") val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT
 ) {
     /** Reads the row as a valid domain value, coercing a corrupt range back into bounds. */
     fun toDomain(): WidgetAreaSettings = WidgetAreaSettings(
         maxStackPages = maxStackPages.coerceIn(WidgetAreaSettings.MIN_STACK_PAGES, WidgetAreaSettings.MAX_STACK_PAGES),
-        stackIndicatorVisible = stackIndicatorVisible
+        stackIndicatorVisible = stackIndicatorVisible,
+        heightLimitEnabled = heightLimitEnabled,
+        heightLimit = heightLimit
     )
 
     companion object {
         fun from(settings: WidgetAreaSettings): WidgetAreaSettingsRecord = WidgetAreaSettingsRecord(
             maxStackPages = settings.maxStackPages,
-            stackIndicatorVisible = settings.stackIndicatorVisible
+            stackIndicatorVisible = settings.stackIndicatorVisible,
+            heightLimitEnabled = settings.heightLimitEnabled,
+            heightLimit = settings.heightLimit
         )
     }
 }
 
-/** The User's Widget Stack preferences. */
-data class WidgetAreaSettings(val maxStackPages: Int = DEFAULT_MAX_STACK_PAGES, val stackIndicatorVisible: Boolean = true) {
+/** The User's Widget Area preferences. */
+data class WidgetAreaSettings(
+    val maxStackPages: Int = DEFAULT_MAX_STACK_PAGES,
+    val stackIndicatorVisible: Boolean = true,
+    val heightLimitEnabled: Boolean = true,
+    val heightLimit: WidgetAreaHeightLimit = WidgetAreaHeightLimit.DEFAULT
+) {
     init {
         require(maxStackPages in MIN_STACK_PAGES..MAX_STACK_PAGES) {
             "maxStackPages must be between $MIN_STACK_PAGES and $MAX_STACK_PAGES"

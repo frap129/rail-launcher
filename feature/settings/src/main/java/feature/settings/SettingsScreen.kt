@@ -108,6 +108,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
@@ -343,6 +344,29 @@ private fun WidgetSettingsList(
     onAddWidget: () -> Unit
 ) {
     LazyColumn {
+        item { SettingsSectionTitle(R.string.widget_area) }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.limit_widget_area_height),
+                checked = uiState.heightLimitEnabled,
+                onCheckedChange = viewModel::setHeightLimitEnabled,
+                supportingText = stringResource(
+                    if (uiState.heightLimitEnabled) {
+                        R.string.widget_area_scrolls_when_needed
+                    } else {
+                        R.string.home_scrolls_as_one_page
+                    }
+                )
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.maximum_height),
+                value = stringResource(uiState.heightLimit.labelResource()),
+                enabled = uiState.heightLimitEnabled,
+                onClick = { onDialogClick(WidgetSettingsDialog.HeightLimit) }
+            )
+        }
         item { SettingsSectionTitle(R.string.header) }
         item { HeaderVisibilityRows(uiState = uiState, viewModel = viewModel) }
         item {
@@ -873,6 +897,19 @@ private fun WidgetSettingsDialogContent(
             onDismiss = onDismiss
         )
 
+        WidgetSettingsDialog.HeightLimit -> SingleChoiceDialog(
+            title = stringResource(R.string.maximum_height),
+            options = WidgetAreaHeightLimit.entries.map { limit ->
+                SingleChoiceOption(value = limit, label = stringResource(limit.labelResource()))
+            },
+            selected = uiState.heightLimit,
+            onSelect = { limit ->
+                viewModel.setHeightLimit(limit)
+                onDismiss()
+            },
+            onDismiss = onDismiss
+        )
+
         WidgetSettingsDialog.Calendars -> CalendarSelectionDialog(
             calendars = uiState.calendars,
             excludedCalendarIds = uiState.excludedCalendarIds,
@@ -893,6 +930,7 @@ private enum class WidgetSettingsDialog {
     EventLookahead,
     EventCount,
     MaxStackPages,
+    HeightLimit,
     Calendars
 }
 
@@ -1096,6 +1134,13 @@ private fun HeaderSize.labelResource(): Int = when (this) {
     HeaderSize.DEFAULT -> R.string.size_default
     HeaderSize.LARGE -> R.string.size_large
     HeaderSize.EXTRA_LARGE -> R.string.size_extra_large
+}
+
+@StringRes
+private fun WidgetAreaHeightLimit.labelResource(): Int = when (this) {
+    WidgetAreaHeightLimit.HALF -> R.string.height_half
+    WidgetAreaHeightLimit.TWO_THIRDS -> R.string.height_two_thirds
+    WidgetAreaHeightLimit.THREE_QUARTERS -> R.string.height_three_quarters
 }
 
 @Composable

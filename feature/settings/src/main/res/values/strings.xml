@@ -60,6 +60,14 @@
     <string name="remove_widget">Remove widget</string>
     <string name="widget_removed">Widget removed</string>
     <string name="done">Done</string>
+    <string name="widget_area">Widget Area</string>
+    <string name="limit_widget_area_height">Limit Widget Area height</string>
+    <string name="widget_area_scrolls_when_needed">The Widget Area scrolls when widgets don\'t fit</string>
+    <string name="home_scrolls_as_one_page">Home scrolls as one page</string>
+    <string name="maximum_height">Maximum height</string>
+    <string name="height_half">Half of the screen</string>
+    <string name="height_two_thirds">Two-thirds of the screen</string>
+    <string name="height_three_quarters">Three-quarters of the screen</string>
     <string name="widget_stacks">Widget Stacks</string>
     <string name="max_stack_pages">Maximum pages per stack</string>
     <string name="page_indicator">Page indicator</string>
