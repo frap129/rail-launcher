@@ -477,7 +477,7 @@ fun LauncherScreen(
         }
         if (addFlowState is AddWidgetFlowState.ChoosingPlacement) {
             AddPlacementSheet(
-                canStack = (addFlowState as AddWidgetFlowState.ChoosingPlacement).canStack,
+                canAddToStack = (addFlowState as AddWidgetFlowState.ChoosingPlacement).canAddToStack,
                 onBelow = { widgetViewModel.choosePlacement(AddWidgetPlacement.Below) },
                 onIntoStack = { widgetViewModel.choosePlacement(AddWidgetPlacement.IntoStack) },
                 onDismiss = widgetViewModel::cancelAdd
@@ -798,7 +798,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit, onDismiss: () -> Unit) {
+private fun AddPlacementSheet(canAddToStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         dragHandle = { Spacer(Modifier.fillMaxWidth().height(sheetDragHandleHeight)) },
         onDismissRequest = onDismiss
@@ -809,25 +809,32 @@ private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStac
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 style = MaterialTheme.typography.headlineMedium
             )
-            Text(
-                text = stringResource(R.string.add_below),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onBelow)
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                style = MaterialTheme.typography.titleLarge
+            PlacementChoice(
+                label = stringResource(R.string.add_below),
+                supportingText = stringResource(R.string.add_below_supporting_text),
+                onClick = onBelow
             )
-            if (canStack) {
-                Text(
-                    text = stringResource(R.string.add_to_stack),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onIntoStack)
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    style = MaterialTheme.typography.titleLarge
+            if (canAddToStack) {
+                PlacementChoice(
+                    label = stringResource(R.string.add_next_to),
+                    supportingText = stringResource(R.string.add_next_to_supporting_text),
+                    onClick = onIntoStack
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlacementChoice(label: String, supportingText: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Text(text = label, style = MaterialTheme.typography.titleLarge)
+        Text(text = supportingText, style = MaterialTheme.typography.bodySmall)
     }
 }
 
