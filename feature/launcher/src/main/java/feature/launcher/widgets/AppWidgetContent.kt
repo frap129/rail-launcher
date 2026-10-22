@@ -1,6 +1,7 @@
 package feature.launcher.widgets
 
 import android.os.Build
+import android.util.SparseIntArray
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.RequestDisallowInterceptTouchEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -44,9 +46,16 @@ fun AppWidgetContent(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val uiMode: Int = LocalConfiguration.current.uiMode
     val height: Int = heightDp ?: widget.minHeightDp.coerceAtLeast(MIN_APP_WIDGET_HEIGHT_DP)
+    val appWidgetId: AppWidgetId = remember(widget.appWidgetId) { AppWidgetId(widget.appWidgetId) }
     val view: RailAppWidgetHostView? = if (widget.availability == WidgetAvailability.Available) {
-        cache.getOrCreate(AppWidgetId(widget.appWidgetId))
+        remember(appWidgetId, cache) { cache.getOrCreate(appWidgetId) }
+    } else {
+        null
+    }
+    val colorResources: SparseIntArray? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        remember(context, uiMode) { AppWidgetViews.colorResources(context) }
     } else {
         null
     }
@@ -61,23 +70,29 @@ fun AppWidgetContent(
         )
         return
     }
-    LaunchedEffect(widget.appWidgetId) {
-        cache.refresh(AppWidgetId(widget.appWidgetId))
+    LaunchedEffect(view, colorResources) {
+        if (colorResources != null) {
+            view.setColorResources(colorResources)
+        }
     }
-    DisposableEffect(widget.id) {
-        onDispose { view.onLongPress = null }
+    DisposableEffect(view) {
+        onDispose {
+            if (view.parent == null) {
+                view.onLongPress = null
+            }
+        }
     }
     var measuredWidthPx: Int by remember { mutableIntStateOf(0) }
     val disallowInterceptTouchEvent: RequestDisallowInterceptTouchEvent = remember { RequestDisallowInterceptTouchEvent() }
-    LaunchedEffect(widget.appWidgetId, height, measuredWidthPx) {
+    LaunchedEffect(appWidgetId, height, measuredWidthPx) {
         if (isResizing || measuredWidthPx <= 0) {
             return@LaunchedEffect
         }
         val widthDp: Int = with(density) { measuredWidthPx.toDp().value.roundToInt() }
-        cache.reportSizeIfChanged(id = AppWidgetId(widget.appWidgetId), widthDp = widthDp, heightDp = height)
+        cache.reportSizeIfChanged(id = appWidgetId, widthDp = widthDp, heightDp = height)
     }
     AndroidView(
-        factory = { view },
+        factory = { cache.takeForAttach(appWidgetId) ?: view },
         modifier = modifier
             .fillMaxWidth()
             .height(height.dp)
@@ -89,9 +104,6 @@ fun AppWidgetContent(
                 { onLongPress(widget.id) }
             } else {
                 null
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                hostView.setColorResources(AppWidgetViews.colorResources(context))
             }
         }
     )
