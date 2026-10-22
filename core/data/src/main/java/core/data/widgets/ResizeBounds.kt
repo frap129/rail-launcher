@@ -54,10 +54,17 @@ fun PlacedWidget.resizeBounds(headerHeightDp: Int?, providerInfo: (PlacedWidget.
             isResizable = false
         )
 
-        is PlacedWidget.AppWidget -> providerInfo(this)?.let(ResizeBounds::from)
-            ?: ResizeBounds(
-                minDp = maxOf(ResizeBounds.MIN_HEIGHT_DP, defaultHeightDp ?: ResizeBounds.MIN_HEIGHT_DP),
-                maxDp = null,
-                isResizable = false
-            )
+        is PlacedWidget.AppWidget -> appWidgetResizeBounds(
+            providerInfo = providerInfo(this),
+            defaultHeightDp = defaultHeightDp
+        )
     }
+
+/** Bounds for an App Widget from provider info, falling back to its stored default height. */
+internal fun appWidgetResizeBounds(providerInfo: WidgetProviderInfo?, defaultHeightDp: Int?): ResizeBounds =
+    providerInfo?.let(ResizeBounds::from)
+        ?: ResizeBounds(
+            minDp = maxOf(ResizeBounds.MIN_HEIGHT_DP, defaultHeightDp ?: ResizeBounds.MIN_HEIGHT_DP),
+            maxDp = null,
+            isResizable = false
+        )

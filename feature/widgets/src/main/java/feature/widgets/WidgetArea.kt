@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.widgets.ResizeBounds
+import core.data.widgets.WidgetWidth
 import core.ui.composables.OutlinedText
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailTouchInset
@@ -125,7 +126,7 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                 .padding(
                     start = homeEdgePadding,
                     top = homeEdgePadding,
-                    end = homeRailTouchInset
+                    end = homeEdgePadding
                 )
         ) {
             if (state.hasWidgets) {
@@ -142,7 +143,7 @@ fun WidgetArea(modifier: Modifier = Modifier, menuEnabled: Boolean = true, viewM
                         onSplitPage = viewModel::splitPage,
                         onMergePlace = viewModel::mergePlace,
                         placeContent = { place, contentModifier ->
-                            placeContent(place, place.heightDp, false, false, contentModifier)
+                            placeContent(place.copy(widthMode = WidgetWidth.Inset), place.heightDp, false, false, contentModifier)
                         }
                     )
                 } else {
@@ -201,6 +202,7 @@ private fun EmptyWidgetArea(menuEnabled: Boolean, showNoWidgets: Boolean, onLong
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(end = WidgetWidth.Inset.endPadding())
             .height(emptyWidgetAreaHeight)
             .pointerInput(menuEnabled) {
                 if (menuEnabled) {
@@ -234,6 +236,7 @@ private fun WidgetPlaceContent(
     userScrollEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val endPadding: Dp = place.widthMode.endPadding()
     if (place.isStack) {
         WidgetStack(
             place = place,
@@ -248,10 +251,10 @@ private fun WidgetPlaceContent(
             onAppWidgetUnpause = onAppWidgetUnpause,
             onPageSettled = onPageSettled,
             userScrollEnabled = menuEnabled && !isResizing,
-            modifier = modifier
+            modifier = modifier.padding(end = endPadding)
         )
     } else {
-        Column(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = modifier.fillMaxWidth().padding(end = endPadding)) {
             place.widgets.forEach { widget ->
                 WidgetPageContent(
                     widget = widget,
@@ -419,6 +422,11 @@ private fun WidgetPageContent(
             onUnpause = onAppWidgetUnpause
         )
     }
+}
+
+private fun WidgetWidth.endPadding(): Dp = when (this) {
+    WidgetWidth.Inset -> homeRailTouchInset - homeEdgePadding
+    WidgetWidth.UnderRail -> 0.dp
 }
 
 private fun Context.openHeaderTapTarget(target: HeaderTapTarget) {

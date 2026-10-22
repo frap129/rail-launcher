@@ -10,6 +10,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
+import core.data.widgets.WidgetWidth
 
 /** What the Widget Area shows once the first clock reading has arrived. */
 @Immutable
@@ -22,7 +23,13 @@ data class WidgetAreaState(
 )
 
 @Immutable
-data class WidgetPlaceModel(val id: Long, val heightDp: Int?, val currentPage: Int = 0, val widgets: List<WidgetModel>) {
+data class WidgetPlaceModel(
+    val id: Long,
+    val heightDp: Int?,
+    val currentPage: Int = 0,
+    val widgets: List<WidgetModel>,
+    val widthMode: WidgetWidth = WidgetWidth.Inset
+) {
     val isStack: Boolean get() = widgets.size > 1
 }
 

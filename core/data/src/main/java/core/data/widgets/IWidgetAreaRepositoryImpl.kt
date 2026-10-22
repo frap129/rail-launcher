@@ -36,6 +36,47 @@ class IWidgetAreaRepositoryImpl(
 
     override suspend fun removeHeaderPage(widgetId: Long): HeaderRemoval? = widgetAreaDao.removeHeader(widgetId = widgetId)
 
+    override suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo? {
+        val undo: ReplaceHeaderUndo = widgetAreaDao.replaceHeader(widgetId = widgetId) ?: return null
+        clampStackPlace(placeId = undo.headerPlaceId)
+        clampDissolvedPlace(dao = widgetAreaDao, host = appWidgetHost, placeId = undo.widgetPlaceId)
+        return undo
+    }
+
+    override suspend fun undoReplaceHeader(undo: ReplaceHeaderUndo) {
+        widgetAreaDao.undoReplaceHeader(undo = undo)
+    }
+
+    override suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
+        val widget: WidgetRecord = widgetAreaDao.getWidget(widgetId) ?: return
+        if (widgetAreaDao.getWidgetsForPlace(widget.placeId).size > 1) {
+            return
+        }
+        widgetAreaDao.setExtendsUnderRail(widgetId = widgetId, extendsUnderRail = extendsUnderRail)
+    }
+
+    /** Clamps a stack to the intersection of the resize bounds of every page. */
+    private suspend fun clampStackPlace(placeId: Long) {
+        val pages: List<WidgetRecord> = widgetAreaDao.getWidgetsForPlace(placeId)
+        if (pages.size < 2) {
+            return
+        }
+        val heightDp: Int = widgetAreaDao.getPlace(placeId)?.heightDp ?: return
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(pages.map { page -> page.resizeBounds() })
+        widgetAreaDao.setPlaceHeight(placeId = placeId, heightDp = bounds.clamp(heightDp = heightDp, homeHeightDp = Int.MAX_VALUE))
+    }
+
+    private fun WidgetRecord.resizeBounds(): ResizeBounds {
+        val storedProvider: WidgetProvider? = provider?.let(WidgetProvider::fromKey)
+        val storedProfileSerial: Long? = profileSerial
+        val info: WidgetProviderInfo? = if (storedProvider != null && storedProfileSerial != null) {
+            appWidgetHost.providerInfo(provider = storedProvider, profileSerial = storedProfileSerial)
+        } else {
+            null
+        }
+        return appWidgetResizeBounds(providerInfo = info, defaultHeightDp = defaultHeightDp)
+    }
+
     override suspend fun restoreHeader(position: Int, placeId: Long?, pagePosition: Int) {
         widgetAreaDao.restoreHeader(position = position, placeId = placeId, pagePosition = pagePosition)
     }

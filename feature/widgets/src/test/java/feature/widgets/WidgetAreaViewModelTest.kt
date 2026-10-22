@@ -434,7 +434,9 @@ class WidgetAreaViewModelTest {
             viewModel.removeHeader()
             assertEquals(
                 WidgetAreaEvent.ShowUndo(
-                    removal = HeaderRemoval(position = 0, placeId = 1L, pagePosition = 0)
+                    action = UndoAction.RemoveHeader(
+                        removal = HeaderRemoval(position = 0, placeId = 1L, pagePosition = 0)
+                    )
                 ),
                 awaitItem()
             )
@@ -473,13 +475,13 @@ class WidgetAreaViewModelTest {
             listOf(appWidgetPlace, headerPlace.copy(id = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
-        var removal: HeaderRemoval? = null
+        var removal: UndoAction.RemoveHeader? = null
         viewModel.events.test {
             viewModel.removeHeader()
             val event: WidgetAreaEvent.ShowUndo = awaitItem() as WidgetAreaEvent.ShowUndo
-            removal = event.removal
+            removal = event.action as UndoAction.RemoveHeader
         }
-        viewModel.undoRemoveHeader(removal = removal!!)
+        viewModel.undo(action = removal!!)
         advanceUntilIdle()
         assertEquals(listOf(1), repository.restoredHeaders.map { restored -> restored.position })
     }
@@ -1208,6 +1210,8 @@ class WidgetAreaViewModelTest {
                 listOf(
                     WidgetMenuAction.Reconfigure,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1236,6 +1240,8 @@ class WidgetAreaViewModelTest {
             assertEquals(
                 listOf(
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1261,6 +1267,8 @@ class WidgetAreaViewModelTest {
             assertEquals(
                 listOf(
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1488,6 +1496,8 @@ class WidgetAreaViewModelTest {
                 listOf(
                     WidgetMenuAction.Resize,
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1516,6 +1526,8 @@ class WidgetAreaViewModelTest {
             assertEquals(
                 listOf(
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -1541,6 +1553,8 @@ class WidgetAreaViewModelTest {
             assertEquals(
                 listOf(
                     WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
                     WidgetMenuAction.RemoveWidget,
                     WidgetMenuAction.EditWidgets,
                     WidgetMenuAction.WidgetSettings
@@ -2030,6 +2044,155 @@ class WidgetAreaViewModelTest {
         )
         advanceUntilIdle()
         assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
+    }
+
+    @Test
+    fun `hides Replace Header when there is no Header`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 1L)
+            val menu: WidgetMenuState.AppWidgetMenu = expectState()
+            assertFalse(menu.items.any { item -> item.id == WidgetMenuAction.ReplaceHeader })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides Replace Header when the Header shares the widget's stack`() = runTest {
+        val stack: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(
+                PlacedWidget.Header(id = 1L),
+                PlacedWidget.AppWidget(
+                    id = 2L,
+                    appWidgetId = 9,
+                    provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+                    profileSerial = 0L,
+                    extendsUnderRail = false
+                )
+            )
+        )
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(stack))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 2L)
+            val menu: WidgetMenuState.AppWidgetMenu = expectState()
+            assertFalse(menu.items.any { item -> item.id == WidgetMenuAction.ReplaceHeader })
+            val extend: WidgetMenuItem.Toggle = menu.items
+                .filterIsInstance<WidgetMenuItem.Toggle>()
+                .first { item -> item.id == WidgetMenuAction.ExtendUnderRail }
+            assertFalse(extend.enabled)
+            assertEquals(R.string.not_available_in_stack, extend.supportingText)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `shows Replace Header when a Header exists outside the widget's place`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 2L)
+            val menu: WidgetMenuState.AppWidgetMenu = expectState()
+            assertEquals(
+                listOf(
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.ReplaceHeader,
+                    WidgetMenuAction.ExtendUnderRail,
+                    WidgetMenuAction.RemoveWidget,
+                    WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.WidgetSettings
+                ),
+                menu.items.map { item -> item.id }
+            )
+            val extend: WidgetMenuItem.Toggle = menu.items
+                .filterIsInstance<WidgetMenuItem.Toggle>()
+                .single { item -> item.id == WidgetMenuAction.ExtendUnderRail }
+            assertTrue(extend.enabled)
+            assertEquals(R.string.extend_under_rail_supporting_text, extend.supportingText)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `replaces the Header, emits Undo and undoes through the repository`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+        var action: UndoAction.ReplaceHeader? = null
+
+        viewModel.events.test {
+            viewModel.replaceHeader(widgetId = 2L)
+            val event: WidgetAreaEvent.ShowUndo = awaitItem() as WidgetAreaEvent.ShowUndo
+            action = event.action as UndoAction.ReplaceHeader
+            assertEquals(1L, action!!.undo.headerPlaceId)
+            assertEquals(2L, action!!.undo.widgetPlaceId)
+        }
+        assertEquals(listOf(2L), repository.replacedWidgetIds)
+        assertEquals(WidgetMenuState.Closed, viewModel.menuState.value)
+
+        viewModel.undo(action = action!!)
+        advanceUntilIdle()
+        assertEquals(1, repository.undoneReplaceHeaders.size)
+    }
+
+    @Test
+    fun `stores Extend under Rail only for a lone widget`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+
+        viewModel.setExtendsUnderRail(widgetId = 1L, extendsUnderRail = true)
+        advanceUntilIdle()
+        assertEquals(listOf(1L to true), repository.extendsUnderRailUpdates)
+
+        val stacked: WidgetPlace = WidgetPlace(
+            id = 1L,
+            heightDp = null,
+            currentPage = 0,
+            widgets = listOf(
+                PlacedWidget.AppWidget(
+                    id = 1L,
+                    appWidgetId = 9,
+                    provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+                    profileSerial = 0L,
+                    extendsUnderRail = false
+                ),
+                PlacedWidget.AppWidget(
+                    id = 2L,
+                    appWidgetId = 10,
+                    provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+                    profileSerial = 0L,
+                    extendsUnderRail = false
+                )
+            )
+        )
+        val stackedRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(stacked))
+        val stackedViewModel: WidgetAreaViewModel = createViewModel(repository = stackedRepository)
+        stackedViewModel.setExtendsUnderRail(widgetId = 1L, extendsUnderRail = true)
+        advanceUntilIdle()
+        assertTrue(stackedRepository.extendsUnderRailUpdates.isEmpty())
     }
 
     private fun appWidgetProviderInfo(

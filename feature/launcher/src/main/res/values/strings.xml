@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="header_removed">Header removed</string>
+    <string name="header_replaced">Header replaced</string>
     <string name="undo">Undo</string>
     <string name="launcher_done">Done</string>
     <string name="launcher_reset">Reset</string>

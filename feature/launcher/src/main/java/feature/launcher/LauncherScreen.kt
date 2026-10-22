@@ -133,6 +133,7 @@ import feature.widgets.AppWidgetViewCache
 import feature.widgets.AppWidgetViews
 import feature.widgets.RESIZE_DIMMED_ALPHA
 import feature.widgets.ResizeState
+import feature.widgets.UndoAction
 import feature.widgets.WidgetArea
 import feature.widgets.WidgetAreaEvent
 import feature.widgets.WidgetAreaViewModel
@@ -202,6 +203,7 @@ fun LauncherScreen(
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val headerRemovedMessage: String = stringResource(R.string.header_removed)
+    val headerReplacedMessage: String = stringResource(R.string.header_replaced)
     val undoLabel: String = stringResource(R.string.undo)
     val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
     val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
@@ -252,12 +254,15 @@ fun LauncherScreen(
             when (event) {
                 is WidgetAreaEvent.ShowUndo -> coroutineScope.launch {
                     val result: SnackbarResult = snackbarHostState.showSnackbar(
-                        message = headerRemovedMessage,
+                        message = when (event.action) {
+                            is UndoAction.RemoveHeader -> headerRemovedMessage
+                            is UndoAction.ReplaceHeader -> headerReplacedMessage
+                        },
                         actionLabel = undoLabel,
                         duration = SnackbarDuration.Short
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        widgetViewModel.undoRemoveHeader(removal = event.removal)
+                        widgetViewModel.undo(action = event.action)
                     }
                 }
 
@@ -681,11 +686,16 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.Date -> viewModel.setDateVisible(checked)
 
+                    WidgetMenuAction.ExtendUnderRail -> (state as? WidgetMenuState.AppWidgetMenu)?.let { menu ->
+                        viewModel.setExtendsUnderRail(widgetId = menu.widgetId, extendsUnderRail = checked)
+                    }
+
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.Resize,
                     WidgetMenuAction.Reconfigure,
+                    WidgetMenuAction.ReplaceHeader,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.RemoveFromStack,
                     WidgetMenuAction.RestoreHeader,

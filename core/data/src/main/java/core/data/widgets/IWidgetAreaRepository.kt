@@ -32,9 +32,33 @@ data class WidgetAreaEdit(val places: List<PlaceDraft>, val removedWidgetIds: Se
 /** Where a removed Header used to live, for Undo. */
 data class HeaderRemoval(val position: Int, val placeId: Long, val pagePosition: Int)
 
+/** Everything Undo needs to restore a Header replaced by an App Widget. */
+data class ReplaceHeaderUndo(
+    val widgetId: Long,
+    val headerPlaceId: Long,
+    val headerPosition: Int,
+    val headerPagePosition: Int,
+    val headerHeightDp: Int?,
+    val headerCurrentPage: Int,
+    val widgetPlaceId: Long,
+    val widgetPosition: Int,
+    val widgetPagePosition: Int,
+    val widgetHeightDp: Int?,
+    val widgetCurrentPage: Int
+)
+
 interface IWidgetAreaRepository {
     /** The Widget Area places in display order. Places without Widgets are dropped. */
     val places: Flow<List<WidgetPlace>>
+
+    /** Moves [widgetId] into the Header's place and removes the Header, returning how to undo it. */
+    suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo?
+
+    /** Restores the Header and [ReplaceHeaderUndo.widgetId] to their places from before Replace Header. */
+    suspend fun undoReplaceHeader(undo: ReplaceHeaderUndo)
+
+    /** Stores whether a lone App Widget extends under the Rail. */
+    suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean)
 
     /** Removes the Header, returning where it used to live. */
     suspend fun removeHeader(): HeaderRemoval?
