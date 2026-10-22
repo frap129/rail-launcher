@@ -138,33 +138,32 @@ import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
 import core.util.toDp
-import feature.widgets.AddWidgetFlowState
-import feature.widgets.AddWidgetPlacement
-import feature.widgets.AppWidgetPickerSheet
-import feature.widgets.AppWidgetViewCache
-import feature.widgets.AppWidgetViews
-import feature.widgets.CappedWidgetArea
-import feature.widgets.EditMergeState
-import feature.widgets.MoveWidgetAreaPanel
-import feature.widgets.MoveWidgetAreaState
-import feature.widgets.NotificationAccessDialog
-import feature.widgets.R as WidgetsR
-import feature.widgets.RESIZE_DIMMED_ALPHA
-import feature.widgets.ResizeState
-import feature.widgets.UndoAction
-import feature.widgets.WIDGET_AREA_OFFSET_KEY
-import feature.widgets.WidgetAreaEvent
-import feature.widgets.WidgetAreaLayout
-import feature.widgets.WidgetAreaResizeAutoScroll
-import feature.widgets.WidgetAreaTopOffsetSpacer
-import feature.widgets.WidgetAreaUi
-import feature.widgets.WidgetAreaViewModel
-import feature.widgets.WidgetEditDraft
-import feature.widgets.WidgetMenu
-import feature.widgets.WidgetMenuAction
-import feature.widgets.WidgetMenuState
-import feature.widgets.rememberWidgetAreaUi
-import feature.widgets.widgetAreaItems
+import core.widgets.AppWidgetViewCache
+import core.widgets.NotificationAccessDialog
+import feature.launcher.widgets.AddWidgetFlowState
+import feature.launcher.widgets.AddWidgetPlacement
+import feature.launcher.widgets.AppWidgetPickerSheet
+import feature.launcher.widgets.AppWidgetViews
+import feature.launcher.widgets.CappedWidgetArea
+import feature.launcher.widgets.EditMergeState
+import feature.launcher.widgets.MoveWidgetAreaPanel
+import feature.launcher.widgets.MoveWidgetAreaState
+import feature.launcher.widgets.RESIZE_DIMMED_ALPHA
+import feature.launcher.widgets.ResizeState
+import feature.launcher.widgets.UndoAction
+import feature.launcher.widgets.WIDGET_AREA_OFFSET_KEY
+import feature.launcher.widgets.WidgetAreaEvent
+import feature.launcher.widgets.WidgetAreaLayout
+import feature.launcher.widgets.WidgetAreaResizeAutoScroll
+import feature.launcher.widgets.WidgetAreaTopOffsetSpacer
+import feature.launcher.widgets.WidgetAreaUi
+import feature.launcher.widgets.WidgetAreaViewModel
+import feature.launcher.widgets.WidgetEditDraft
+import feature.launcher.widgets.WidgetMenu
+import feature.launcher.widgets.WidgetMenuAction
+import feature.launcher.widgets.WidgetMenuState
+import feature.launcher.widgets.rememberWidgetAreaUi
+import feature.launcher.widgets.widgetAreaItems
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
@@ -291,7 +290,7 @@ fun LauncherScreen(
                             is UndoAction.ReplaceHeader -> headerReplacedMessage
 
                             is UndoAction.IncludeMediaApp -> context.getString(
-                                WidgetsR.string.media_player_excluded,
+                                R.string.media_player_excluded,
                                 action.appLabel
                             )
                         },
@@ -806,12 +805,12 @@ private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStac
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(feature.widgets.R.string.add_widget_title),
+                text = stringResource(R.string.add_widget_title),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 style = MaterialTheme.typography.headlineMedium
             )
             Text(
-                text = stringResource(feature.widgets.R.string.add_below),
+                text = stringResource(R.string.add_below),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onBelow)
@@ -820,7 +819,7 @@ private fun AddPlacementSheet(canStack: Boolean, onBelow: () -> Unit, onIntoStac
             )
             if (canStack) {
                 Text(
-                    text = stringResource(feature.widgets.R.string.add_to_stack),
+                    text = stringResource(R.string.add_to_stack),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onIntoStack)

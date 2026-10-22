@@ -127,13 +127,13 @@ import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.util.openApplicationDetailsSettings
-import feature.widgets.AppWidgetViewCache
-import feature.widgets.HeaderClockStyleChooser
-import feature.widgets.MoveWidgetAreaSlider
-import feature.widgets.MoveWidgetAreaStep
-import feature.widgets.NotificationAccessDialog
-import feature.widgets.labelResource
-import feature.widgets.openRailNotificationListenerSettings
+import core.widgets.AppWidgetViewCache
+import core.widgets.HeaderClockStyleChooser
+import core.widgets.MoveWidgetAreaSlider
+import core.widgets.NotificationAccessDialog
+import core.widgets.R as CoreWidgetsR
+import core.widgets.labelResource
+import core.widgets.openRailNotificationListenerSettings
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -440,7 +440,7 @@ private fun WidgetSettingsList(
         item {
             SettingsActionRow(
                 title = stringResource(R.string.top_offset),
-                value = stringResource(R.string.offset_dp, uiState.topOffsetDp),
+                value = stringResource(CoreWidgetsR.string.offset_dp, uiState.topOffsetDp),
                 onClick = { onDialogClick(WidgetSettingsDialog.TopOffset) }
             )
         }
@@ -469,12 +469,12 @@ private fun WidgetSettingsList(
             )
         }
         item { HeaderTapActionRows(uiState = uiState, onTapActionClick = onTapActionClick) }
-        item { SettingsSectionTitle(R.string.upcoming_events) }
+        item { SettingsSectionTitle(CoreWidgetsR.string.upcoming_events) }
         item { EventSettingsRows(uiState = uiState, viewModel = viewModel, onDialogClick = onDialogClick) }
         item { SettingsSectionTitle(R.string.app_widgets) }
         item {
             SettingsActionRow(
-                title = stringResource(R.string.add_widget),
+                title = stringResource(CoreWidgetsR.string.add_widget),
                 value = "",
                 enabled = true,
                 onClick = onAddWidget
@@ -506,7 +506,7 @@ private fun WidgetSettingsList(
                 onCheckedChange = viewModel::setStackIndicatorVisible
             )
         }
-        item { SettingsSectionTitle(feature.widgets.R.string.media_player) }
+        item { SettingsSectionTitle(CoreWidgetsR.string.media_player) }
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.show_media_player),
@@ -600,22 +600,22 @@ private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -
                 IconButton(onClick = onRemove) {
                     Icon(
                         imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                        contentDescription = stringResource(R.string.remove_widget)
+                        contentDescription = stringResource(CoreWidgetsR.string.remove_widget)
                     )
                 }
             }
         )
         if (expanded) {
             SettingsSwitchRow(
-                title = stringResource(feature.widgets.R.string.extend_under_rail),
+                title = stringResource(CoreWidgetsR.string.extend_under_rail),
                 checked = widget.extendsUnderRail,
                 onCheckedChange = onExtendUnderRailChange,
                 enabled = widget.canExtendUnderRail,
                 supportingText = stringResource(
                     if (widget.canExtendUnderRail) {
-                        feature.widgets.R.string.extend_under_rail_supporting_text
+                        CoreWidgetsR.string.extend_under_rail_supporting_text
                     } else {
-                        feature.widgets.R.string.not_available_in_stack
+                        CoreWidgetsR.string.not_available_in_stack
                     }
                 )
             )
@@ -747,7 +747,7 @@ private fun HeaderFormatRows(
 ) {
     Column {
         SettingsActionRow(
-            title = stringResource(R.string.clock_style),
+            title = stringResource(CoreWidgetsR.string.clock_style_title),
             value = stringResource(uiState.clockStyle.labelResource()),
             enabled = uiState.headerShown,
             onClick = onClockStyleClick
@@ -1242,7 +1242,7 @@ private fun CalendarSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(calendars.map { calendar -> calendar.calendarKey }.toSet() - selectedKeys) }) {
-                Text(stringResource(R.string.done))
+                Text(stringResource(CoreWidgetsR.string.done))
             }
         },
         dismissButton = {
@@ -1422,7 +1422,7 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
         homeHeightDp?.let(WidgetAreaSettings::maxOffsetDp) ?: displayMaxOffsetDp(context = context)
     }
     val currentOffsetDp: Int = offsetDp.coerceIn(0, maxOffsetDp)
-    val valueLabel: String = stringResource(R.string.offset_dp, currentOffsetDp)
+    val valueLabel: String = stringResource(CoreWidgetsR.string.offset_dp, currentOffsetDp)
     val step: Int = WidgetAreaSettings.OFFSET_STEP_DP
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1435,10 +1435,8 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
                     canMoveUp = currentOffsetDp > 0,
                     canMoveDown = currentOffsetDp < maxOffsetDp,
                     onOffsetChange = onOffsetChange,
-                    onStep = { direction: MoveWidgetAreaStep ->
-                        val delta: Int = if (direction == MoveWidgetAreaStep.Up) -step else step
-                        onOffsetChange((currentOffsetDp + delta).coerceIn(0, maxOffsetDp))
-                    }
+                    onMoveUp = { onOffsetChange((currentOffsetDp - step).coerceIn(0, maxOffsetDp)) },
+                    onMoveDown = { onOffsetChange((currentOffsetDp + step).coerceIn(0, maxOffsetDp)) }
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1447,14 +1445,14 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
                     Text(text = valueLabel, style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.weight(1f))
                     TextButton(onClick = { onOffsetChange(0) }) {
-                        Text(text = stringResource(R.string.reset))
+                        Text(text = stringResource(CoreWidgetsR.string.reset))
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.done))
+                Text(text = stringResource(CoreWidgetsR.string.done))
             }
         }
     )

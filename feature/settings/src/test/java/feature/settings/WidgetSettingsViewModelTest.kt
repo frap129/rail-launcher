@@ -31,7 +31,7 @@ import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
-import feature.widgets.HeaderFormatter
+import core.widgets.HeaderFormatter
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale

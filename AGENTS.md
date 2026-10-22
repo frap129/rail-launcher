@@ -18,7 +18,9 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - `app` (`dev.maples.rail`): a thin `MainActivity` that lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`, plus `SystemBarIconContrast` (system-bar icon-tone decision logic, unit-tested).
 - `core:lifecycle`: `MainApplication` (set in app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB. New repos/ViewModels must be registered here; it depends on the feature modules for that reason. Also `HomeSignals`, the activity-owned HOME-press channel exposed as a `Flow`.
 - `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP). No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
+- `core:widgets`: the presentation slice shared by both features: Header rendering/formatting, the clock-style chooser, the Move Widget Area slider, the notification-access dialog and the App Widget host view cache.
 - `core:ui` (shared Compose, theme, `ScrollRail`, `Destination` model), `core:util`, `feature:launcher`, `feature:settings`.
+- Feature modules must not depend on other feature modules; the Android library convention plugin fails the build when one declares such a dependency.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.
 - `core:baselineprofile` is a `com.android.test` module with its own hard-coded SDK/Java 11 config; don't apply convention plugins to it.
 
