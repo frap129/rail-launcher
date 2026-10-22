@@ -16,11 +16,15 @@ interface IWidgetSettingsRepository {
 
     val widgetAreaSettings: Flow<WidgetAreaSettings>
 
+    val mediaPlayerSettings: Flow<MediaPlayerSettings>
+
     suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings)
 
     suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings)
 
     suspend fun updateWidgetAreaSettings(transform: (WidgetAreaSettings) -> WidgetAreaSettings)
+
+    suspend fun updateMediaPlayerSettings(transform: (MediaPlayerSettings) -> MediaPlayerSettings)
 
     suspend fun setMaxStackPages(maxStackPages: Int) {
         updateWidgetAreaIfChanged { settings ->
@@ -30,6 +34,13 @@ interface IWidgetSettingsRepository {
                     WidgetAreaSettings.MAX_STACK_PAGES
                 )
             )
+        }
+    }
+
+    suspend fun setMediaPlayerEnabled(enabled: Boolean) {
+        val current: MediaPlayerSettings = mediaPlayerSettings.first()
+        if (current.enabled != enabled) {
+            updateMediaPlayerSettings { settings -> settings.copy(enabled = enabled) }
         }
     }
 

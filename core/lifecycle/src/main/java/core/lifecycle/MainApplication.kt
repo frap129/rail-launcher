@@ -24,6 +24,11 @@ import core.data.icons.IconFetcher
 import core.data.icons.IconKeyer
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
+import core.data.media.IMediaSessionSource
+import core.data.media.IMediaSessionSourceImpl
+import core.data.media.MediaArtworkFetcher
+import core.data.media.MediaArtworkKeyer
+import core.data.media.MediaArtworkStore
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
@@ -32,6 +37,7 @@ import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
+import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
@@ -132,6 +138,7 @@ class MainApplication :
         single<FavoriteDao> { database.getFavoriteDao() }
         single<WidgetAreaDao> { database.getWidgetAreaDao() }
         single<WidgetAreaSettingsDao> { database.getWidgetAreaSettingsDao() }
+        single<MediaPlayerSettingsDao> { database.getMediaPlayerSettingsDao() }
     }
 
     /**
@@ -147,7 +154,15 @@ class MainApplication :
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
-        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get()) }
+        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
+        single { MediaArtworkStore() }
+        single<IMediaSessionSource> {
+            IMediaSessionSourceImpl(
+                context = androidContext(),
+                scope = get(named(APP_SCOPE_QUALIFIER)),
+                artworkStore = get()
+            )
+        }
         single { AppWidgetHostCallbacks() }
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
@@ -185,7 +200,8 @@ class MainApplication :
                 calendarEventSource = get(),
                 appWidgetHost = get(),
                 removeWidgetUseCase = get(),
-                homeHeightState = get()
+                homeHeightState = get(),
+                mediaSessionSource = get()
             )
         }
         viewModel {
@@ -203,7 +219,8 @@ class MainApplication :
                 removeAppWidget = get(),
                 addFlowPendingIds = get(),
                 widgetLifecycleReconciler = get(),
-                homeHeightState = get()
+                homeHeightState = get(),
+                mediaSessionSource = get()
             )
         }
     }
@@ -280,6 +297,8 @@ class MainApplication :
         .components {
             add(IconKeyer())
             add(IconFetcher.Factory())
+            add(MediaArtworkKeyer())
+            add(MediaArtworkFetcher.Factory(store = get()))
         }
         .build()
 }

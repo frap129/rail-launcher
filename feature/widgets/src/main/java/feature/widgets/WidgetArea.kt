@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.data.media.MediaCommand
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetWidth
 import core.ui.composables.OutlinedText
@@ -124,12 +125,21 @@ data class WidgetAreaActions(
     val onMovePage: (Long, Int, Int) -> Unit,
     val onRemovePage: (Long, Long) -> Unit,
     val onSplitPage: (Long, Long, Int) -> Unit,
-    val onMergePlace: (Long, Long) -> Unit
+    val onMergePlace: (Long, Long) -> Unit,
+    val onMediaPlayerOpen: () -> Unit,
+    val onMediaPlayerLongPress: () -> Unit,
+    val onMediaCommand: (MediaCommand) -> Unit
 )
 
 /** The Widget Area state and callbacks read by Home. */
 @Stable
-class WidgetAreaUi(val state: WidgetAreaState, val resize: ResizeState?, val editDraft: WidgetEditDraft?, val actions: WidgetAreaActions)
+class WidgetAreaUi(
+    val state: WidgetAreaState,
+    val resize: ResizeState?,
+    val editDraft: WidgetEditDraft?,
+    val mediaPlayer: MediaPlayerUiState,
+    val actions: WidgetAreaActions
+)
 
 /** Collects the Widget Area and builds its Home actions. */
 @Composable
@@ -137,6 +147,7 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
+    val mediaPlayer: MediaPlayerUiState by viewModel.mediaPlayerState.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val actions: WidgetAreaActions = remember(viewModel, menuEnabled, context, hapticFeedback) {
@@ -176,11 +187,19 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
             onMovePage = viewModel::movePage,
             onRemovePage = viewModel::removePageInEdit,
             onSplitPage = viewModel::splitPage,
-            onMergePlace = viewModel::mergePlace
+            onMergePlace = viewModel::mergePlace,
+            onMediaPlayerOpen = viewModel::openMediaPlayer,
+            onMediaPlayerLongPress = {
+                if (menuEnabled) {
+                    hapticFeedback.performLongPressHaptic()
+                    viewModel.openMediaPlayerMenu()
+                }
+            },
+            onMediaCommand = viewModel::onMediaCommand
         )
     }
-    return remember(state, resize, editDraft, actions) {
-        WidgetAreaUi(state = state, resize = resize, editDraft = editDraft, actions = actions)
+    return remember(state, resize, editDraft, mediaPlayer, actions) {
+        WidgetAreaUi(state = state, resize = resize, editDraft = editDraft, mediaPlayer = mediaPlayer, actions = actions)
     }
 }
 
@@ -268,6 +287,7 @@ fun LazyListScope.widgetAreaItems(
                 onLongPress = ui.actions.onEmptyAreaLongPress
             )
         }
+        mediaPlayerItem(ui)
         return
     }
     if (state.isEditing) {
@@ -320,6 +340,7 @@ fun LazyListScope.widgetAreaItems(
             )
         }
     }
+    mediaPlayerItem(ui)
 }
 
 /** The leading Home spacer that moves the uncapped Widget Area down by the set offset. */

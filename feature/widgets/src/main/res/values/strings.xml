@@ -78,4 +78,23 @@
     <string name="reset">Reset</string>
     <string name="done">Done</string>
     <string name="couldnt_open_widget_settings">Couldn\'t open widget settings</string>
+    <string name="media_player">Media Player</string>
+    <string name="needs_notification_access">Needs notification access</string>
+    <string name="allow_notification_access_title">Allow notification access</string>
+    <string name="allow_notification_access_body">Rail needs notification access to see what’s playing and control playback. Rail doesn’t read or store your notifications.</string>
+    <string name="allow_notification_access_sideloaded">If the switch is greyed out, open Rail’s App info, tap ⋮ and choose Allow restricted settings.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="not_now">Not now</string>
+    <string name="app_info">App info</string>
+    <string name="open_app">Open %1$s</string>
+    <string name="media_player_settings">Media Player settings</string>
+    <string name="media_previous">Previous</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_next">Next</string>
+    <string name="media_open_player">Open player</string>
+    <string name="media_player_menu">Media Player menu</string>
+    <string name="media_player_announcement">%1$s, %2$s, playing in %3$s</string>
+    <string name="media_player_announcement_no_artist">%1$s, playing in %2$s</string>
+    <string name="couldnt_open_app">Couldn\'t open %1$s</string>
 </resources>

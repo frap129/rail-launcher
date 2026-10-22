@@ -9,6 +9,10 @@ import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.media.MediaCommand
+import core.data.media.MediaSessionKey
+import core.data.media.MediaSessionSnapshot
+import core.data.media.PlaybackStatus
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.EventSettings
@@ -24,6 +28,7 @@ import core.data.testing.FakeCalendarEventSource
 import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakeMediaSessionSource
 import core.data.testing.FakeWidgetAreaDao
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
@@ -34,6 +39,7 @@ import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.HomeHeightState
 import core.data.widgets.InsertPosition
+import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
@@ -363,6 +369,7 @@ class WidgetAreaViewModelTest {
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.EditWidgets,
+                    WidgetMenuAction.MediaPlayer,
                     WidgetMenuAction.RemoveHeader,
                     WidgetMenuAction.WidgetSettings
                 ),
@@ -1172,6 +1179,149 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
     }
 
+    @Test
+    fun `shows the system's first eligible Media session`() = runTest {
+        val first: MediaSessionSnapshot = mediaSession(key = "first", title = "First")
+        val second: MediaSessionSnapshot = mediaSession(key = "second", title = "Second")
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(first, second))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = mediaSessionSource
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Visible(session = first), expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides the Media Player when disabled or without notification access`() = runTest {
+        val session: MediaSessionSnapshot = mediaSession()
+        val disabled: WidgetAreaViewModel = createViewModel(
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session))
+        )
+        disabled.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        val enabledSettings: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val noAccess: WidgetAreaViewModel = createViewModel(
+            settingsRepository = enabledSettings,
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session), hasAccess = false)
+        )
+        noAccess.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides the Media Player when no session is active`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            ),
+            mediaSessionSource = FakeMediaSessionSource()
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `marks the Header Media Player toggle as needing notification access`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(
+                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            ),
+            mediaSessionSource = FakeMediaSessionSource(hasAccess = false)
+        )
+        viewModel.menuState.test {
+            viewModel.openHeaderMenu()
+            val menu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
+            val toggle: WidgetMenuItem.Toggle =
+                menu.items.single { item -> item.id == WidgetMenuAction.MediaPlayer } as WidgetMenuItem.Toggle
+            assertEquals(R.string.needs_notification_access, toggle.supportingText)
+            assertTrue(toggle.rowOpensAction)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides the Media Player while a Home edit mode is active`() = runTest {
+        val session: MediaSessionSnapshot = mediaSession()
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val homeEditState: HomeEditState = HomeEditState()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            homeEditState = homeEditState,
+            mediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session))
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Visible(session = session), expectMostRecentItem())
+            homeEditState.tryEnter(HomeEditMode.MovingWidgetArea)
+            assertEquals(MediaPlayerUiState.Hidden, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `opens the Media Player menu and forwards transport commands`() = runTest {
+        val session: MediaSessionSnapshot = mediaSession(
+            key = "first",
+            actions = setOf(MediaCommand.Play, MediaCommand.Pause, MediaCommand.Next)
+        )
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        )
+        val mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource(initialSessions = listOf(session))
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = mediaSessionSource
+        )
+        viewModel.mediaPlayerState.test {
+            assertEquals(MediaPlayerUiState.Visible(session = session), expectMostRecentItem())
+            viewModel.menuState.test {
+                viewModel.openMediaPlayerMenu()
+                val menu: WidgetMenuState.MediaPlayerMenu = expectMostRecentItem() as WidgetMenuState.MediaPlayerMenu
+                assertEquals(session.appLabel, menu.label)
+                cancelAndIgnoreRemainingEvents()
+            }
+            viewModel.onMediaCommand(MediaCommand.Pause)
+            viewModel.onMediaCommand(MediaCommand.Next)
+            viewModel.openMediaPlayer()
+            assertEquals(
+                listOf(session.key to MediaCommand.Pause, session.key to MediaCommand.Next),
+                mediaSessionSource.commands
+            )
+            assertEquals(listOf(session.key), mediaSessionSource.opened)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `enabling the Media Player without notification access requests it`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            mediaSessionSource = FakeMediaSessionSource(hasAccess = false)
+        )
+        viewModel.events.test {
+            viewModel.setMediaPlayerEnabled(enabled = true)
+            assertEquals(WidgetAreaEvent.RequestNotificationAccess, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(settingsRepository.mediaPlayerUpdates.last().enabled)
+    }
+
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
@@ -1187,7 +1337,8 @@ class WidgetAreaViewModelTest {
             dao = FakeWidgetAreaDao(),
             host = appWidgetHost
         ),
-        homeHeightState: HomeHeightState = HomeHeightState()
+        homeHeightState: HomeHeightState = HomeHeightState(),
+        mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource()
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
@@ -1202,7 +1353,8 @@ class WidgetAreaViewModelTest {
         removeAppWidget = RemoveAppWidget(repository = repository, host = appWidgetHost),
         addFlowPendingIds = addFlowPendingIds,
         widgetLifecycleReconciler = widgetLifecycleReconciler,
-        homeHeightState = homeHeightState
+        homeHeightState = homeHeightState,
+        mediaSessionSource = mediaSessionSource
     )
 
     @Test
@@ -2521,6 +2673,23 @@ class WidgetAreaViewModelTest {
         zoneId = zoneId,
         locale = locale,
         isSystem24Hour = isSystem24Hour
+    )
+
+    private fun mediaSession(
+        key: String = "session",
+        title: String = "Song",
+        artist: String? = "Artist",
+        state: PlaybackStatus = PlaybackStatus.PLAYING,
+        actions: Set<MediaCommand> = setOf(MediaCommand.Play, MediaCommand.Pause)
+    ): MediaSessionSnapshot = MediaSessionSnapshot(
+        key = MediaSessionKey(value = key),
+        packageName = "com.example.music",
+        appLabel = "Music",
+        title = title,
+        artist = artist,
+        artwork = null,
+        state = state,
+        actions = actions
     )
 
     private fun testLaunchable(name: String = "Example", deeplink: String = "rail://example"): RailLaunchable = RailLaunchable(

@@ -13,6 +13,10 @@ import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
+import core.data.media.IMediaSessionSource
+import core.data.media.MediaCommand
+import core.data.media.MediaPlayerSelector
+import core.data.media.MediaSessionSnapshot
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.EventSettings
@@ -29,6 +33,7 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
+import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
@@ -150,16 +155,23 @@ sealed interface WidgetMenuState {
         val items: List<WidgetMenuItem>
     ) : WidgetMenuState
 
+    data class MediaPlayerMenu(val icon: Icon, val label: String, val items: List<WidgetMenuItem>) : WidgetMenuState
+
     data class ClockStyleChooser(val selected: ClockStyle, val previews: List<HeaderModel>) : WidgetMenuState
 }
 
 sealed interface WidgetMenuItem {
     val id: WidgetMenuAction
 
-    data class Toggle(override val id: WidgetMenuAction, val checked: Boolean, val enabled: Boolean, val supportingText: Int? = null) :
-        WidgetMenuItem
+    data class Toggle(
+        override val id: WidgetMenuAction,
+        val checked: Boolean,
+        val enabled: Boolean,
+        val supportingText: Int? = null,
+        val rowOpensAction: Boolean = false
+    ) : WidgetMenuItem
 
-    data class Action(override val id: WidgetMenuAction) : WidgetMenuItem
+    data class Action(override val id: WidgetMenuAction, val labelArg: String? = null) : WidgetMenuItem
 
     data class Choice(
         override val id: WidgetMenuAction,
@@ -192,7 +204,10 @@ enum class WidgetMenuAction {
     RemoveWidget,
     RemoveFromStack,
     EditWidgets,
-    WidgetSettings
+    WidgetSettings,
+    MediaPlayer,
+    OpenMediaPlayer,
+    MediaPlayerSettings
 }
 
 sealed interface UndoAction {
@@ -210,6 +225,10 @@ sealed interface WidgetAreaEvent {
 
     data object NavigateToWidgetSettings : WidgetAreaEvent
 
+    data object NavigateToMediaPlayerSettings : WidgetAreaEvent
+
+    data object RequestNotificationAccess : WidgetAreaEvent
+
     data class LaunchBind(val request: BindRequest) : WidgetAreaEvent
 
     data class LaunchConfigure(val id: AppWidgetId) : WidgetAreaEvent
@@ -218,7 +237,7 @@ sealed interface WidgetAreaEvent {
 
     data class RequestQuietModeOff(val profileSerial: Long) : WidgetAreaEvent
 
-    data class ShowMessage(@StringRes val message: Int) : WidgetAreaEvent
+    data class ShowMessage(@StringRes val message: Int, val formatArg: String? = null) : WidgetAreaEvent
 
     data class RemoveHostView(val appWidgetId: AppWidgetId) : WidgetAreaEvent
 
@@ -235,6 +254,8 @@ private sealed interface WidgetMenuTarget {
     data object ClockStyle : WidgetMenuTarget
 
     data class AppWidget(val widgetId: Long) : WidgetMenuTarget
+
+    data object MediaPlayer : WidgetMenuTarget
 }
 
 private data class HeaderSettingsAndBattery(val settings: HeaderSettings, val battery: BatteryStatus?)
@@ -243,7 +264,12 @@ private data class EventSettingsState(val settings: EventSettings, val hasPermis
 
 private data class EventData(val events: List<UpcomingEvent>, val settings: EventSettings)
 
-private data class MenuSettings(val header: HeaderSettingsAndBattery, val events: EventSettingsState)
+private data class MenuSettings(
+    val header: HeaderSettingsAndBattery,
+    val events: EventSettingsState,
+    val mediaPlayer: MediaPlayerSettings,
+    val notificationAccess: Boolean
+)
 
 private data class MenuContext(val target: WidgetMenuTarget?, val expandedChoice: WidgetMenuAction?)
 
@@ -272,7 +298,8 @@ class WidgetAreaViewModel(
     private val removeAppWidget: RemoveAppWidget,
     private val addFlowPendingIds: IAddFlowPendingIds,
     private val widgetLifecycleReconciler: WidgetLifecycleReconciler,
-    private val homeHeightState: HomeHeightState
+    private val homeHeightState: HomeHeightState,
+    private val mediaSessionSource: IMediaSessionSource
 ) : ViewModel() {
     private val providers: StateFlow<List<WidgetProviderInfo>> = appWidgetHost.providers
         .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = emptyList())
@@ -488,12 +515,40 @@ class WidgetAreaViewModel(
     private val expandedChoice: MutableStateFlow<WidgetMenuAction?> = MutableStateFlow(null)
     private val calendarPermissionGate: CalendarPermissionGate = CalendarPermissionGate(calendarEventSource)
 
+    private val selectedMediaSession: Flow<MediaSessionSnapshot?> = combine(
+        settingsRepository.mediaPlayerSettings,
+        mediaSessionSource.sessions,
+        mediaSessionSource.hasAccess
+    ) { settings, sessions, hasAccess ->
+        if (hasAccess) MediaPlayerSelector.selectSession(sessions = sessions, settings = settings) else null
+    }
+
+    val mediaPlayerState: StateFlow<MediaPlayerUiState> = combine(
+        selectedMediaSession,
+        homeEditState.mode
+    ) { session, mode ->
+        if (session == null || mode != HomeEditMode.None) {
+            MediaPlayerUiState.Hidden
+        } else {
+            MediaPlayerUiState.Visible(session = session)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        initialValue = MediaPlayerUiState.Hidden
+    )
+
     private val menuContext: Flow<MenuContext> = combine(menuTarget, expandedChoice) { target, expanded ->
         MenuContext(target = target, expandedChoice = expanded)
     }
 
-    private val menuSettings: Flow<MenuSettings> = combine(settingsAndBattery, eventSettingsState) { header, events ->
-        MenuSettings(header = header, events = events)
+    private val menuSettings: Flow<MenuSettings> = combine(
+        settingsAndBattery,
+        eventSettingsState,
+        settingsRepository.mediaPlayerSettings,
+        mediaSessionSource.hasAccess
+    ) { header, events, mediaPlayer, hasAccess ->
+        MenuSettings(header = header, events = events, mediaPlayer = mediaPlayer, notificationAccess = hasAccess)
     }
 
     private data class MenuPlaceState(
@@ -515,8 +570,9 @@ class WidgetAreaViewModel(
     val menuState: StateFlow<WidgetMenuState> = combine(
         menuContext,
         menuSettings,
-        menuPlaceState
-    ) { context, menuSettings, placeState ->
+        menuPlaceState,
+        selectedMediaSession
+    ) { context, menuSettings, placeState, mediaSession ->
         if (placeState.mode != HomeEditMode.None) {
             WidgetMenuState.Closed
         } else {
@@ -525,7 +581,8 @@ class WidgetAreaViewModel(
                 menuSettings = menuSettings,
                 reading = placeState.reading,
                 expandedChoice = context.expandedChoice,
-                headerHeightDp = placeState.headerHeightDp
+                headerHeightDp = placeState.headerHeightDp,
+                mediaSession = mediaSession
             )
         }
     }.stateIn(
@@ -822,6 +879,53 @@ class WidgetAreaViewModel(
         }
     }
 
+    fun openMediaPlayerMenu() {
+        if (homeEditState.mode.value == HomeEditMode.None) {
+            menuTarget.value = WidgetMenuTarget.MediaPlayer
+        }
+    }
+
+    fun openMediaPlayer() {
+        val session: MediaSessionSnapshot = (mediaPlayerState.value as? MediaPlayerUiState.Visible)?.session ?: return
+        menuTarget.value = null
+        if (!mediaSessionSource.open(key = session.key)) {
+            viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_open_app, formatArg = session.appLabel))
+            }
+        }
+    }
+
+    fun openMediaPlayerSettings() {
+        menuTarget.value = null
+        viewModelScope.launch {
+            eventChannel.send(WidgetAreaEvent.NavigateToMediaPlayerSettings)
+        }
+    }
+
+    fun onMediaCommand(command: MediaCommand) {
+        val session: MediaSessionSnapshot = (mediaPlayerState.value as? MediaPlayerUiState.Visible)?.session ?: return
+        mediaSessionSource.execute(key = session.key, command = command)
+    }
+
+    fun setMediaPlayerEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setMediaPlayerEnabled(enabled)
+            if (enabled && !mediaSessionSource.hasAccess.value) {
+                eventChannel.send(WidgetAreaEvent.RequestNotificationAccess)
+            }
+        }
+    }
+
+    fun showNotificationAccess() {
+        viewModelScope.launch {
+            eventChannel.send(WidgetAreaEvent.RequestNotificationAccess)
+        }
+    }
+
+    fun refreshMediaAccess() {
+        mediaSessionSource.refreshAccess()
+    }
+
     fun setUpcomingEventsEnabled(enabled: Boolean) {
         if (!enabled) {
             viewModelScope.launch {
@@ -1026,6 +1130,12 @@ class WidgetAreaViewModel(
 
             WidgetMenuAction.WidgetSettings -> openWidgetSettings()
 
+            WidgetMenuAction.MediaPlayer -> setMediaPlayerEnabled(enabled = true)
+
+            WidgetMenuAction.OpenMediaPlayer -> openMediaPlayer()
+
+            WidgetMenuAction.MediaPlayerSettings -> openMediaPlayerSettings()
+
             WidgetMenuAction.Clock,
             WidgetMenuAction.Date,
             WidgetMenuAction.Battery,
@@ -1198,7 +1308,8 @@ class WidgetAreaViewModel(
                 }
 
                 WidgetMenuTarget.EmptyArea,
-                WidgetMenuTarget.ClockStyle -> null
+                WidgetMenuTarget.ClockStyle,
+                WidgetMenuTarget.MediaPlayer -> null
             }
             if (place == null) {
                 startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
@@ -1398,7 +1509,8 @@ class WidgetAreaViewModel(
         menuSettings: MenuSettings,
         reading: ClockReading,
         expandedChoice: WidgetMenuAction?,
-        headerHeightDp: Int?
+        headerHeightDp: Int?,
+        mediaSession: MediaSessionSnapshot?
     ): WidgetMenuState = when (this) {
         is WidgetMenuTarget.Header -> {
             val place: WidgetPlace? = places.headerPlace(widgetId = widgetId)
@@ -1409,6 +1521,8 @@ class WidgetAreaViewModel(
                     items = headerMenuItems(
                         settings = menuSettings.header.settings,
                         eventSettings = menuSettings.events,
+                        mediaPlayer = menuSettings.mediaPlayer,
+                        notificationAccess = menuSettings.notificationAccess,
                         expandedChoice = expandedChoice,
                         isInStack = place.isStack
                     )
@@ -1429,12 +1543,27 @@ class WidgetAreaViewModel(
 
         WidgetMenuTarget.EmptyArea -> WidgetMenuState.EmptyAreaMenu(items = emptyAreaMenuItems(places))
 
+        WidgetMenuTarget.MediaPlayer -> {
+            if (mediaSession == null) {
+                WidgetMenuState.Closed
+            } else {
+                WidgetMenuState.MediaPlayerMenu(
+                    icon = Icon.ApplicationIcon(packageName = mediaSession.packageName),
+                    label = mediaSession.appLabel,
+                    items = listOf(
+                        WidgetMenuItem.Action(id = WidgetMenuAction.OpenMediaPlayer, labelArg = mediaSession.appLabel),
+                        WidgetMenuItem.Action(id = WidgetMenuAction.MediaPlayerSettings)
+                    )
+                )
+            }
+        }
+
         is WidgetMenuTarget.AppWidget -> {
             val place: WidgetPlace? = places.firstOrNull { candidate -> candidate.widgets.any { widget -> widget.id == widgetId } }
             val widget: PlacedWidget.AppWidget? = place?.widgets
                 ?.filterIsInstance<PlacedWidget.AppWidget>()
                 ?.firstOrNull { candidate -> candidate.id == widgetId }
-            if (widget == null || place == null) {
+            if (place == null || widget == null) {
                 WidgetMenuState.Closed
             } else {
                 val info: WidgetProviderInfo? = providerInfoFor(widget)
@@ -1492,6 +1621,8 @@ class WidgetAreaViewModel(
     private fun headerMenuItems(
         settings: HeaderSettings,
         eventSettings: EventSettingsState,
+        mediaPlayer: MediaPlayerSettings,
+        notificationAccess: Boolean,
         expandedChoice: WidgetMenuAction?,
         isInStack: Boolean
     ): List<WidgetMenuItem> = listOf(
@@ -1525,6 +1656,13 @@ class WidgetAreaViewModel(
         WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget),
         WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea),
         WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets),
+        WidgetMenuItem.Toggle(
+            id = WidgetMenuAction.MediaPlayer,
+            checked = mediaPlayer.enabled,
+            enabled = true,
+            supportingText = if (mediaPlayer.enabled && !notificationAccess) R.string.needs_notification_access else null,
+            rowOpensAction = mediaPlayer.enabled && !notificationAccess
+        ),
         WidgetMenuItem.Action(
             id = if (isInStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveHeader
         ),

@@ -30,7 +30,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -123,23 +125,43 @@ import feature.widgets.AppWidgetViewCache
 import feature.widgets.HeaderClockStyleChooser
 import feature.widgets.MoveWidgetAreaSlider
 import feature.widgets.MoveWidgetAreaStep
+import feature.widgets.NotificationAccessDialog
 import feature.widgets.labelResource
+import feature.widgets.openRailNotificationListenerSettings
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 private const val SCREEN_ARGUMENT = "screen"
+private const val SECTION_ARGUMENT = "section"
 private const val SETTINGS_ROUTE = "settings"
+private const val MEDIA_SECTION = "media"
+private const val WIDGET_AREA_SECTION_ROWS = 5
+private const val HEADER_SECTION_ROWS = 5
+private const val EVENTS_SECTION_ROWS = 2
+private const val APP_WIDGET_HEADER_ROWS = 2
+private const val STACKS_SECTION_ROWS = 3
+
+private fun mediaSectionIndex(appWidgetCount: Int): Int = WIDGET_AREA_SECTION_ROWS +
+    HEADER_SECTION_ROWS +
+    EVENTS_SECTION_ROWS +
+    APP_WIDGET_HEADER_ROWS +
+    appWidgetCount +
+    STACKS_SECTION_ROWS
 
 @SuppressLint("RestrictedApi")
 val settingsDestination = Destination(
-    route = "$SETTINGS_ROUTE/{$SCREEN_ARGUMENT}",
+    route = "$SETTINGS_ROUTE/{$SCREEN_ARGUMENT}?$SECTION_ARGUMENT={$SECTION_ARGUMENT}",
     content = { navController, backStackEntry ->
         SettingsScreen(navController, backStackEntry)
     },
     arguments = listOf(
         navArgument(SCREEN_ARGUMENT) {
             defaultValue = SettingsScreen.Main.key
+        },
+        navArgument(SECTION_ARGUMENT) {
+            nullable = true
+            defaultValue = null
         }
     ),
     deepLinks = listOf(
@@ -157,6 +179,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
     val screen: SettingsScreen = remember {
         SettingsScreen.entries.find { it.key == backStackEntry.arguments?.getString(SCREEN_ARGUMENT) } ?: SettingsScreen.Main
     }
+    val section: String? = backStackEntry.arguments?.getString(SECTION_ARGUMENT)
 
     Scaffold(
         modifier = Modifier.background(theme.surface),
@@ -205,6 +228,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 )
 
                 SettingsScreen.Widgets -> SettingsWidgetsScreen(
+                    section = section,
                     onAddWidget = {
                         navController.getBackStackEntry("launcher").savedStateHandle[HOME_ADD_WIDGET_REQUEST_KEY] = true
                         navController.popBackStack("launcher", inclusive = false)
@@ -250,7 +274,7 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
 }
 
 @Composable
-fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsViewModel = koinViewModel()) {
+fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: WidgetSettingsViewModel = koinViewModel()) {
     val uiState: WidgetSettingsUiState by viewModel.uiState.collectAsState()
     val tapActionPicker: TapActionPickerState? by viewModel.tapActionPicker.collectAsState()
     val context: Context = LocalContext.current
@@ -258,9 +282,12 @@ fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsView
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val activity: Activity? = remember(context) { context.findActivity() }
+    val listState = rememberLazyListState()
+    var scrolledToMedia: Boolean by remember { mutableStateOf(false) }
     var showClockStyleChooser: Boolean by remember { mutableStateOf(false) }
     var openDialog: WidgetSettingsDialog? by remember { mutableStateOf(null) }
     var showPermissionDialog: Boolean by remember { mutableStateOf(false) }
+    var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     val permissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
@@ -272,6 +299,8 @@ fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsView
                 WidgetSettingsEvent.RequestCalendarPermission -> permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
 
                 is WidgetSettingsEvent.ShowCalendarPermissionDenied -> showPermissionDialog = true
+
+                WidgetSettingsEvent.RequestNotificationAccess -> showNotificationAccessDialog = true
 
                 WidgetSettingsEvent.StartAddWidget -> onAddWidget()
 
@@ -288,6 +317,7 @@ fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsView
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshCalendarPermission()
+                viewModel.refreshMediaAccess()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -297,15 +327,23 @@ fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsView
         WidgetSettingsList(
             uiState = uiState,
             viewModel = viewModel,
+            listState = listState,
             onClockStyleClick = { showClockStyleChooser = true },
             onDialogClick = { dialog -> openDialog = dialog },
             onTapActionClick = viewModel::openTapActionPicker,
-            onAddWidget = viewModel::openAddWidget
+            onAddWidget = viewModel::openAddWidget,
+            onNotificationAccessClick = { context.openRailNotificationListenerSettings() }
         )
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
         )
+    }
+    LaunchedEffect(section, uiState.isLoaded, uiState.appWidgets.size) {
+        if (section == MEDIA_SECTION && uiState.isLoaded && !scrolledToMedia) {
+            listState.scrollToItem(index = mediaSectionIndex(appWidgetCount = uiState.appWidgets.size))
+            scrolledToMedia = true
+        }
     }
     if (showClockStyleChooser) {
         ClockStyleChooserSheet(
@@ -339,18 +377,23 @@ fun SettingsWidgetsScreen(onAddWidget: () -> Unit, viewModel: WidgetSettingsView
             }
         )
     }
+    if (showNotificationAccessDialog) {
+        NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
+    }
 }
 
 @Composable
 private fun WidgetSettingsList(
     uiState: WidgetSettingsUiState,
     viewModel: WidgetSettingsViewModel,
+    listState: LazyListState,
     onClockStyleClick: () -> Unit,
     onDialogClick: (WidgetSettingsDialog) -> Unit,
     onTapActionClick: (HeaderTapTargetPart) -> Unit,
-    onAddWidget: () -> Unit
+    onAddWidget: () -> Unit,
+    onNotificationAccessClick: () -> Unit
 ) {
-    LazyColumn {
+    LazyColumn(state = listState) {
         item { SettingsSectionTitle(R.string.widget_area) }
         item {
             SettingsSwitchRow(
@@ -441,6 +484,29 @@ private fun WidgetSettingsList(
                 title = stringResource(R.string.page_indicator),
                 checked = uiState.stackIndicatorVisible,
                 onCheckedChange = viewModel::setStackIndicatorVisible
+            )
+        }
+        item { SettingsSectionTitle(feature.widgets.R.string.media_player) }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_media_player),
+                checked = uiState.mediaPlayerEnabled,
+                supportingText = stringResource(R.string.media_player_summary),
+                onCheckedChange = viewModel::setMediaPlayerEnabled
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.notification_access),
+                value = stringResource(
+                    if (uiState.notificationAccess) {
+                        R.string.notification_access_allowed
+                    } else {
+                        R.string.notification_access_not_allowed
+                    }
+                ),
+                enabled = uiState.mediaPlayerEnabled,
+                onClick = onNotificationAccessClick
             )
         }
     }
