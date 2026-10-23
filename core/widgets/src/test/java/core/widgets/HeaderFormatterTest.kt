@@ -77,7 +77,7 @@ class HeaderFormatterTest {
     @Test
     fun `does not leak a locale day period prefix into stacked hours`() {
         val formatter: HeaderFormatter = HeaderFormatter(
-            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm", "EEEEMMMMd" to "EEEE, MMMM d"))
+            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
         )
         val header: HeaderModel = formatter.format(
             id = 1L,
@@ -92,7 +92,7 @@ class HeaderFormatterTest {
     @Test
     fun `keeps the locale day period position in 12-hour display`() {
         val formatter: HeaderFormatter = HeaderFormatter(
-            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm", "EEEEMMMMd" to "EEEE, MMMM d"))
+            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
         )
         val withMarker: HeaderModel = formatter.format(
             id = 1L,
@@ -106,6 +106,25 @@ class HeaderFormatterTest {
         )
         assertEquals("오후 2:05", withMarker.time?.text)
         assertEquals("2:05", withoutMarker.time?.text)
+    }
+
+    @Test
+    fun `speaks the time with the locale pattern`() {
+        val patternSource: FakeDatePatternSource = FakeDatePatternSource(
+            overrides = mapOf("hm" to "h.mm a", "Hm" to "HH.mm")
+        )
+
+        val twelveHour: HeaderModel = format(
+            settings = HeaderSettings(timeFormat = TimeFormat.H12),
+            datePatternSource = patternSource
+        )
+        val twentyFourHour: HeaderModel = format(
+            settings = HeaderSettings(timeFormat = TimeFormat.H24),
+            datePatternSource = patternSource
+        )
+
+        assertEquals("2.05 PM", twelveHour.time?.spokenText)
+        assertEquals("14.05", twentyFourHour.time?.spokenText)
     }
 
     @Test
@@ -410,13 +429,17 @@ class HeaderFormatterTest {
         isWorkProfile = false
     )
 
-    private fun format(settings: HeaderSettings, isSystem24Hour: Boolean = false, battery: BatteryStatus? = null): HeaderModel =
-        HeaderFormatter(FakeDatePatternSource()).format(
-            id = 1L,
-            reading = reading(isSystem24Hour = isSystem24Hour),
-            settings = settings,
-            battery = battery
-        )
+    private fun format(
+        settings: HeaderSettings,
+        isSystem24Hour: Boolean = false,
+        battery: BatteryStatus? = null,
+        datePatternSource: IDatePatternSource = FakeDatePatternSource()
+    ): HeaderModel = HeaderFormatter(datePatternSource).format(
+        id = 1L,
+        reading = reading(isSystem24Hour = isSystem24Hour),
+        settings = settings,
+        battery = battery
+    )
 
     private fun time(settings: HeaderSettings, isSystem24Hour: Boolean): String? = format(settings, isSystem24Hour).time?.text
 

@@ -32,32 +32,50 @@ class HeaderSettingsTest {
     }
 
     @Test
-    fun `restores the clock when the battery stops being a standing part`() {
-        val batteryOnly: HeaderSettings = HeaderSettings(
+    fun `rejects hiding the last visible Header part`() {
+        val inputSettings: HeaderSettings = HeaderSettings(
             clockVisible = false,
             dateVisible = false,
             batteryVisibility = BatteryVisibility.ALWAYS
         )
+        val hiddenVisibilities: List<BatteryVisibility> = BatteryVisibility.entries
+            .filter { visibility -> visibility != BatteryVisibility.ALWAYS }
 
-        val updated: HeaderSettings = batteryOnly.withBatteryVisibility(BatteryVisibility.NEVER)
+        hiddenVisibilities.forEach { hiddenVisibility ->
+            val actualSettings: HeaderSettings = inputSettings.withBatteryVisibility(hiddenVisibility)
 
-        assertTrue(updated.clockVisible)
-        assertFalse(updated.dateVisible)
-        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
+            assertEquals(BatteryVisibility.ALWAYS, actualSettings.batteryVisibility)
+            assertFalse(actualSettings.clockVisible)
+            assertFalse(actualSettings.dateVisible)
+        }
     }
 
     @Test
-    fun `keeps a battery-only Header while the battery stays always visible`() {
-        val batteryOnly: HeaderSettings = HeaderSettings(
+    fun `never re-enables a hidden clock when the battery visibility changes`() {
+        val baseSettings: HeaderSettings = HeaderSettings(
             clockVisible = false,
-            dateVisible = false,
-            batteryVisibility = BatteryVisibility.NEVER
+            dateVisible = true,
+            batteryVisibility = BatteryVisibility.ALWAYS
+        )
+        val transitions: List<Pair<BatteryVisibility, BatteryVisibility>> = listOf(
+            BatteryVisibility.ALWAYS to BatteryVisibility.NEVER,
+            BatteryVisibility.NEVER to BatteryVisibility.ALWAYS,
+            BatteryVisibility.CHARGING_OR_LOW to BatteryVisibility.ALWAYS
         )
 
-        val updated: HeaderSettings = batteryOnly.withBatteryVisibility(BatteryVisibility.ALWAYS)
+        transitions.forEach { (inputVisibility, expectedVisibility) ->
+            val inputSettings: HeaderSettings = baseSettings.copy(batteryVisibility = inputVisibility)
+            val actualSettings: HeaderSettings = inputSettings.withBatteryVisibility(expectedVisibility)
 
-        assertFalse(updated.clockVisible)
-        assertFalse(updated.dateVisible)
-        assertEquals(BatteryVisibility.ALWAYS, updated.batteryVisibility)
+            assertFalse(actualSettings.clockVisible)
+            assertEquals(expectedVisibility, actualSettings.batteryVisibility)
+        }
+    }
+
+    @Test
+    fun `allows a conditional battery only while another part is visible`() {
+        assertTrue(canSetBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW, clockVisible = false, dateVisible = true))
+        assertFalse(canSetBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW, clockVisible = false, dateVisible = false))
+        assertTrue(canSetBatteryVisibility(BatteryVisibility.ALWAYS, clockVisible = false, dateVisible = false))
     }
 }

@@ -28,8 +28,6 @@ private const val HOUR_PATTERN_12_HOUR: String = "h"
 private const val HOUR_PATTERN_24_HOUR: String = "H"
 private const val MINUTE_PATTERN: String = "mm"
 private const val DAY_PERIOD_PATTERN: String = "a"
-private const val SPOKEN_TIME_PATTERN_12_HOUR: String = "h:mm a"
-private const val SPOKEN_TIME_PATTERN_24_HOUR: String = "HH:mm"
 private const val PREVIEW_ID: Long = 0L
 private const val LOW_BATTERY_PERCENT: Int = 20
 private const val WEEKDAY_SKELETON: String = "EEEE"
@@ -274,7 +272,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, private
         showAmPm: Boolean,
         style: ClockStyle
     ): HeaderTimeModel {
-        val spokenText: String = format(dateTime, spokenPattern(is24Hour), reading.locale)
+        val spokenText: String = format(dateTime, timePattern(reading, is24Hour), reading.locale)
         val common: HeaderTimeModel = HeaderTimeModel(
             text = null,
             hourText = null,
@@ -325,8 +323,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, private
     }
 
     private fun displayPattern(reading: ClockReading, is24Hour: Boolean, showAmPm: Boolean): String {
-        val skeleton: String = if (is24Hour) TIME_SKELETON_24_HOUR else TIME_SKELETON_12_HOUR
-        val pattern: String = datePatternSource.bestPattern(skeleton, reading.locale)
+        val pattern: String = timePattern(reading, is24Hour)
         if (is24Hour) {
             return pattern
         }
@@ -334,7 +331,10 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, private
         return if (showAmPm) twelveHour else twelveHour.replace(DAY_PERIOD_REGEX, "").trim()
     }
 
-    private fun spokenPattern(is24Hour: Boolean): String = if (is24Hour) SPOKEN_TIME_PATTERN_24_HOUR else SPOKEN_TIME_PATTERN_12_HOUR
+    private fun timePattern(reading: ClockReading, is24Hour: Boolean): String {
+        val skeleton: String = if (is24Hour) TIME_SKELETON_24_HOUR else TIME_SKELETON_12_HOUR
+        return datePatternSource.bestPattern(skeleton, reading.locale)
+    }
 
     private fun format(dateTime: ZonedDateTime, pattern: String, locale: Locale): String =
         DateTimeFormatter.ofPattern(pattern, locale).format(dateTime)

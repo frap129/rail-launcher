@@ -56,7 +56,7 @@ import compose.icons.fontawesomeicons.solid.ExternalLinkAlt
 import compose.icons.fontawesomeicons.solid.MinusCircle
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
-import core.ui.layout.dragHandleRailGap
+import core.ui.layout.dragHandleEndPadding
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
 import core.widgets.AppWidgetModel
@@ -345,7 +345,7 @@ private fun EditablePlace(
         DragHandle(
             modifier = handleModifier
                 .align(if (isTall) Alignment.TopEnd else Alignment.CenterEnd)
-                .padding(top = handleTopPadding, end = dragHandleRailGap),
+                .padding(top = handleTopPadding, end = dragHandleEndPadding),
             contentDescription = reorderLabel
         )
     }

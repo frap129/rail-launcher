@@ -23,6 +23,7 @@ import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
+import core.data.prefs.canSetBatteryVisibility
 import core.data.time.ClockReading
 import core.data.time.IClockSource
 import core.data.widgets.AddAppWidget
@@ -194,7 +195,7 @@ sealed interface WidgetMenuItem {
 @JvmInline
 value class WidgetMenuChoiceKey(val value: String)
 
-data class WidgetMenuChoiceOption(val key: WidgetMenuChoiceKey, @StringRes val label: Int)
+data class WidgetMenuChoiceOption(val key: WidgetMenuChoiceKey, @StringRes val label: Int, val enabled: Boolean = true)
 
 enum class WidgetMenuAction {
     Clock,
@@ -1664,12 +1665,12 @@ class WidgetAreaViewModel(
                             )
                         )
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea))
+                        add(WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets))
                         add(
                             WidgetMenuItem.Action(
                                 id = if (place.isStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveWidget
                             )
                         )
-                        add(WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets))
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
                     }
                 )
@@ -1703,7 +1704,11 @@ class WidgetAreaViewModel(
             id = WidgetMenuAction.Battery,
             valueLabel = settings.batteryVisibility.labelResource(),
             options = BatteryVisibility.entries.map { visibility ->
-                WidgetMenuChoiceOption(key = WidgetMenuChoiceKey(visibility.name), label = visibility.labelResource())
+                WidgetMenuChoiceOption(
+                    key = WidgetMenuChoiceKey(visibility.name),
+                    label = visibility.labelResource(),
+                    enabled = settings.canSetBatteryVisibility(visibility)
+                )
             },
             selectedKey = WidgetMenuChoiceKey(settings.batteryVisibility.name),
             expanded = expandedChoice == WidgetMenuAction.Battery

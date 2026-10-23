@@ -240,7 +240,22 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
-    fun `restores the clock when the battery stops being always visible`() = runTest {
+    fun `never re-enables a hidden clock when the battery stops being always visible`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.setBatteryVisibility(BatteryVisibility.NEVER)
+        advanceUntilIdle()
+
+        val actualSettings: HeaderSettings = settingsRepository.updates.single()
+        assertEquals(BatteryVisibility.NEVER, actualSettings.batteryVisibility)
+        assertFalse(actualSettings.clockVisible)
+    }
+
+    @Test
+    fun `rejects hiding the last visible Header part with the battery`() = runTest {
         val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
             HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
         )
@@ -249,9 +264,7 @@ class WidgetSettingsViewModelTest {
         viewModel.setBatteryVisibility(BatteryVisibility.NEVER)
         advanceUntilIdle()
 
-        val updated: HeaderSettings = settingsRepository.updates.single()
-        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
-        assertTrue(updated.clockVisible)
+        assertTrue(settingsRepository.updates.isEmpty())
     }
 
     @Test

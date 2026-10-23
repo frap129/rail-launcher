@@ -119,6 +119,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.prefs.canSetBatteryVisibility
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
@@ -1014,7 +1015,15 @@ private fun WidgetSettingsDialogContent(
         WidgetSettingsDialog.Battery -> SingleChoiceDialog(
             title = stringResource(CoreUiR.string.battery),
             options = BatteryVisibility.entries.map { visibility ->
-                SingleChoiceOption(value = visibility, label = stringResource(visibility.labelResource()))
+                SingleChoiceOption(
+                    value = visibility,
+                    label = stringResource(visibility.labelResource()),
+                    enabled = canSetBatteryVisibility(
+                        visibility = visibility,
+                        clockVisible = uiState.clockVisible,
+                        dateVisible = uiState.dateVisible
+                    )
+                )
             },
             selected = uiState.batteryVisibility,
             onSelect = { visibility ->
@@ -1346,7 +1355,7 @@ private fun Context.findActivity(): Activity? {
     return current as? Activity
 }
 
-private data class SingleChoiceOption<T>(val value: T, val label: String)
+private data class SingleChoiceOption<T>(val value: T, val label: String, val enabled: Boolean = true)
 
 @Composable
 private fun <T> SingleChoiceDialog(
@@ -1367,13 +1376,14 @@ private fun <T> SingleChoiceDialog(
                             .fillMaxWidth()
                             .selectable(
                                 selected = option.value == selected,
+                                enabled = option.enabled,
                                 role = Role.RadioButton,
                                 onClick = { onSelect(option.value) }
                             )
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(selected = option.value == selected, onClick = null)
+                        RadioButton(selected = option.value == selected, onClick = null, enabled = option.enabled)
                         Text(text = option.label, modifier = Modifier.padding(start = 16.dp))
                     }
                 }
