@@ -31,7 +31,7 @@ interface ICalendarEventSource {
 
     val calendars: Flow<List<CalendarInfo>>
 
-    fun events(windowEndMillis: Long): Flow<List<UpcomingEvent>>
+    fun events(lookaheadHours: Int): Flow<List<UpcomingEvent>>
 
     fun refreshPermission()
 }
