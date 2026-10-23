@@ -140,6 +140,7 @@ value class WidgetMenuChoiceKey(val value: String)
 data class WidgetMenuChoiceOption(val key: WidgetMenuChoiceKey, @StringRes val label: Int, val enabled: Boolean = true)
 
 enum class WidgetMenuAction {
+    EditFavorites,
     Clock,
     Date,
     Battery,
@@ -181,6 +182,8 @@ sealed interface WidgetAreaEvent {
     data object NavigateToWidgetSettings : WidgetAreaEvent
 
     data object NavigateToMediaPlayerSettings : WidgetAreaEvent
+
+    data object EditFavorites : WidgetAreaEvent
 
     data object RequestNotificationAccess : WidgetAreaEvent
 
@@ -1094,6 +1097,13 @@ class WidgetAreaViewModel(
 
             WidgetMenuAction.MediaPlayerSettings -> openMediaPlayerSettings()
 
+            WidgetMenuAction.EditFavorites -> {
+                menuTarget.value = null
+                viewModelScope.launch {
+                    eventChannel.send(WidgetAreaEvent.EditFavorites)
+                }
+            }
+
             WidgetMenuAction.Clock,
             WidgetMenuAction.Date,
             WidgetMenuAction.Battery,
@@ -1400,6 +1410,7 @@ class WidgetAreaViewModel(
     )
 
     private fun emptyAreaMenuItems(places: List<WidgetPlace>): List<WidgetMenuItem> = buildList {
+        add(WidgetMenuItem.Action(id = WidgetMenuAction.EditFavorites))
         add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
         if (!places.hasHeader()) {
             add(WidgetMenuItem.Action(id = WidgetMenuAction.RestoreHeader))

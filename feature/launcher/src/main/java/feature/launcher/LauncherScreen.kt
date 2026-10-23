@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -66,7 +65,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -86,7 +84,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
@@ -98,7 +95,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -131,7 +127,6 @@ import core.ui.layout.homeEdgePadding
 import core.ui.layout.minTouchTargetSize
 import core.ui.model.data.Destination
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
-import core.ui.model.data.FLEXIBLE_SPACER_KEY
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
@@ -290,7 +285,7 @@ fun LauncherScreen(
             appWidgetHostSource.stopListening()
         }
     }
-    LaunchedEffect(widgetViewModel) {
+    LaunchedEffect(viewModel, widgetViewModel) {
         widgetViewModel.events.collect { event ->
             when (event) {
                 is WidgetAreaEvent.ShowUndo -> coroutineScope.launch {
@@ -336,6 +331,8 @@ fun LauncherScreen(
                 WidgetAreaEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
 
                 WidgetAreaEvent.NavigateToMediaPlayerSettings -> navController.navigate(WIDGETS_MEDIA_SETTINGS_ROUTE)
+
+                WidgetAreaEvent.EditFavorites -> viewModel.editFavorites()
 
                 WidgetAreaEvent.RequestNotificationAccess -> showNotificationAccessDialog = true
 
@@ -787,6 +784,7 @@ private fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 
                     WidgetMenuAction.Battery,
                     WidgetMenuAction.ClockStyle,
+                    WidgetMenuAction.EditFavorites,
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.MoveWidgetArea,
                     WidgetMenuAction.Resize,
@@ -927,28 +925,19 @@ fun LauncherHome(
                     onMovePlace = widgetArea.actions.onMovePlace
                 )
                 val mergeState: EditMergeState = remember { EditMergeState() }
-                val density: Density = LocalDensity.current
-                val spacerHeightPx: Int by remember(home.lazyListState) {
-                    derivedStateOf {
-                        val layoutInfo: LazyListLayoutInfo = home.lazyListState.layoutInfo
-                        val spacerVisible: Boolean = layoutInfo.visibleItemsInfo.any { item -> item.key == FLEXIBLE_SPACER_KEY }
-                        if (!spacerVisible || layoutInfo.visibleItemsInfo.size != layoutInfo.totalItemsCount) {
-                            0
-                        } else {
-                            val viewport: Int = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset -
-                                layoutInfo.beforeContentPadding - layoutInfo.afterContentPadding
-                            flexibleSpacerHeight(
-                                viewport = viewport,
-                                itemSizes = layoutInfo.visibleItemsInfo
-                                    .filter { item -> item.key != FLEXIBLE_SPACER_KEY }
-                                    .map { item -> item.size }
-                            )
-                        }
-                    }
-                }
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .pointerInput(interaction.isResizing) {
+                            if (interaction.isResizing) {
+                                detectTapGestures(onTap = { interaction.onResizeOutsideTap() })
+                            }
+                        }
+                        .homeEmptyAreaLongPress(
+                            hapticFeedback = hapticFeedback,
+                            enabled = menuEnabled && !interaction.isResizing,
+                            onLongPress = onEmptyAreaLongPress
+                        )
                         .testTag("launcherHome"),
                     state = home.lazyListState,
                     verticalArrangement = Arrangement.Top,
@@ -967,25 +956,6 @@ fun LauncherHome(
                         reorderableState = reorderState,
                         mergeState = mergeState
                     )
-                    item(key = FLEXIBLE_SPACER_KEY) {
-                        Spacer(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(with(density) { spacerHeightPx.toDp() })
-                                .pointerInput(menuEnabled, interaction.isResizing) {
-                                    if (interaction.isResizing) {
-                                        detectTapGestures(onTap = { interaction.onResizeOutsideTap() })
-                                    } else if (menuEnabled) {
-                                        detectTapGestures(
-                                            onLongPress = {
-                                                hapticFeedback.performLongPressHaptic()
-                                                onEmptyAreaLongPress()
-                                            }
-                                        )
-                                    }
-                                }
-                        )
-                    }
                     favoriteItems(
                         home = home,
                         itemActions = itemActions,
@@ -999,6 +969,18 @@ fun LauncherHome(
         }
     }
 }
+
+private fun Modifier.homeEmptyAreaLongPress(hapticFeedback: HapticFeedback, enabled: Boolean, onLongPress: () -> Unit): Modifier =
+    pointerInput(enabled) {
+        if (enabled) {
+            detectTapGestures(
+                onLongPress = {
+                    hapticFeedback.performLongPressHaptic()
+                    onLongPress()
+                }
+            )
+        }
+    }
 
 @Composable
 private fun FavoritesBottomArea(
@@ -1018,16 +1000,11 @@ private fun FavoritesBottomArea(
     )
     Box(
         modifier = modifier
-            .pointerInput(interaction.menuEnabled) {
-                if (interaction.menuEnabled) {
-                    detectTapGestures(
-                        onLongPress = {
-                            hapticFeedback.performLongPressHaptic()
-                            onEmptyAreaLongPress()
-                        }
-                    )
-                }
-            }
+            .homeEmptyAreaLongPress(
+                hapticFeedback = hapticFeedback,
+                enabled = interaction.menuEnabled,
+                onLongPress = onEmptyAreaLongPress
+            )
             .then(
                 if (interaction.isResizing) {
                     Modifier.consumeTouches(onGestureEnd = interaction.onResizeOutsideTap)
@@ -1042,11 +1019,11 @@ private fun FavoritesBottomArea(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .align(Alignment.BottomCenter)
+                .align(Alignment.TopCenter)
                 .alpha(if (interaction.isResizing || interaction.isEditingWidgets) RESIZE_DIMMED_ALPHA else 1f)
                 .testTag("launcherHome"),
             state = home.lazyListState,
-            verticalArrangement = Arrangement.Bottom,
+            verticalArrangement = Arrangement.Top,
             contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
             favoriteItems(home = home, itemActions = itemActions, reorderableState = reorderState)

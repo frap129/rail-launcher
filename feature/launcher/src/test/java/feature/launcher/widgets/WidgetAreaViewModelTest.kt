@@ -417,7 +417,12 @@ class WidgetAreaViewModelTest {
             viewModel.openEmptyAreaMenu()
             val actualMenu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
             assertEquals(
-                listOf(WidgetMenuAction.AddWidget, WidgetMenuAction.MoveWidgetArea, WidgetMenuAction.WidgetSettings),
+                listOf(
+                    WidgetMenuAction.EditFavorites,
+                    WidgetMenuAction.AddWidget,
+                    WidgetMenuAction.MoveWidgetArea,
+                    WidgetMenuAction.WidgetSettings
+                ),
                 actualMenu.items.map { item -> item.id }
             )
             cancelAndIgnoreRemainingEvents()
@@ -432,6 +437,7 @@ class WidgetAreaViewModelTest {
             val actualMenu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
             assertEquals(
                 listOf(
+                    WidgetMenuAction.EditFavorites,
                     WidgetMenuAction.AddWidget,
                     WidgetMenuAction.RestoreHeader,
                     WidgetMenuAction.MoveWidgetArea,
@@ -523,6 +529,15 @@ class WidgetAreaViewModelTest {
         viewModel.events.test {
             viewModel.openWidgetSettings()
             assertEquals(WidgetAreaEvent.NavigateToWidgetSettings, awaitItem())
+        }
+    }
+
+    @Test
+    fun `requests Edit Favorites from the empty area menu`() = runTest {
+        val actualViewModel: WidgetAreaViewModel = createViewModel()
+        actualViewModel.events.test {
+            actualViewModel.onMenuAction(WidgetMenuAction.EditFavorites)
+            assertEquals(WidgetAreaEvent.EditFavorites, awaitItem())
         }
     }
 
