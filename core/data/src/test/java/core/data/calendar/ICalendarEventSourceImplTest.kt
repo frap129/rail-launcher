@@ -33,7 +33,7 @@ private const val LOOKAHEAD_HOURS: Int = 2
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class AndroidCalendarEventSourceTest {
+class ICalendarEventSourceImplTest {
     @Test
     fun `rolls the window across midnight and emits tomorrow events`() = runTest {
         val context: Context = RuntimeEnvironment.getApplication()
@@ -49,7 +49,7 @@ class AndroidCalendarEventSourceTest {
             current = Instant.parse("2026-10-22T23:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: AndroidCalendarEventSource = source(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
@@ -80,7 +80,7 @@ class AndroidCalendarEventSourceTest {
             current = Instant.parse("2026-10-22T23:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: AndroidCalendarEventSource = source(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
@@ -111,7 +111,7 @@ class AndroidCalendarEventSourceTest {
             current = Instant.parse("2026-10-22T03:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: AndroidCalendarEventSource = source(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
@@ -130,8 +130,8 @@ class AndroidCalendarEventSourceTest {
         }
     }
 
-    private fun source(context: Context, time: MutableTime, scheduler: TestCoroutineScheduler): AndroidCalendarEventSource =
-        AndroidCalendarEventSource(
+    private fun createSource(context: Context, time: MutableTime, scheduler: TestCoroutineScheduler): ICalendarEventSourceImpl =
+        ICalendarEventSourceImpl(
             context = context,
             now = { time.current },
             zoneId = { time.zone },

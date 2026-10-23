@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.shareIn
 
 private const val SUBSCRIPTION_TIMEOUT_MS: Long = 5_000L
 
-class AndroidBatterySource(context: Context, scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)) :
+class IBatterySourceImpl(context: Context, scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)) :
     IBatterySource {
     private val appContext: Context = context.applicationContext
 

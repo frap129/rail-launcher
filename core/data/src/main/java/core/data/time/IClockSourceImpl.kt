@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 
 private const val MILLIS_PER_MINUTE: Long = 60_000L
 
-class AndroidClockSource(private val context: Context) : IClockSource {
+class IClockSourceImpl(private val context: Context) : IClockSource {
     override val readings: Flow<ClockReading> = channelFlow {
         fun emitReading() {
             trySend(readClock())
