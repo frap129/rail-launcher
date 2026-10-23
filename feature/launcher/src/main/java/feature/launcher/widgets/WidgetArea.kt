@@ -81,7 +81,6 @@ import core.ui.composables.OutlinedText
 import core.ui.layout.homeContentEndInset
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.insetWidgetContentWidth
-import core.ui.model.data.isPlaceKey
 import core.ui.model.data.placeKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
@@ -90,7 +89,10 @@ import core.widgets.HeaderContent
 import core.widgets.HeaderModel
 import core.widgets.HeaderTapTarget
 import core.widgets.WidgetModel
+import feature.launcher.HomeReorder
 import feature.launcher.R
+import feature.launcher.ReorderRow
+import feature.launcher.resolvePlaceReorder
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import sh.calvin.reorderable.ReorderableItem
@@ -220,8 +222,15 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
         }
     }
     val reorderState: ReorderableLazyListState = rememberReorderableLazyListState(state.listState) { from, to ->
-        if (isPlaceKey(from.key) && isPlaceKey(to.key)) {
-            actions.onMovePlace(from.index, to.index)
+        val rows: List<ReorderRow> = state.listState.layoutInfo.visibleItemsInfo.map { item -> ReorderRow(item.index, item.key) }
+        val reorder: HomeReorder.Place? = resolvePlaceReorder(
+            rows = rows,
+            fromListIndex = from.index,
+            toListIndex = to.index,
+            placeIds = state.placeIds
+        )
+        if (reorder != null) {
+            actions.onMovePlace(reorder.fromIndex, reorder.toIndex)
         }
     }
     val mergeState: EditMergeState = remember { EditMergeState() }

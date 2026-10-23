@@ -32,7 +32,10 @@ data class WidgetAreaState(
     val mediaPlayerPlacement: MediaPlayerPlacement = MediaPlayerPlacement.BELOW_WIDGET_AREA,
     val animateOffset: Boolean = false,
     val listState: LazyListState = LazyListState()
-)
+) {
+    /** The place IDs in the same order as [places]. */
+    val placeIds: List<Long> = places.map { place -> place.id }
+}
 
 @Immutable
 data class WidgetPlaceModel(

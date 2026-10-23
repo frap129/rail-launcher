@@ -917,9 +917,7 @@ fun LauncherHome(
             }
 
             WidgetAreaLayout.Uncapped -> {
-                val placeIds: List<Long> = remember(widgetArea.state.places) {
-                    widgetArea.state.places.map { place -> place.id }
-                }
+                val placeIds: List<Long> = widgetArea.state.placeIds
                 val favoriteKeys: List<String> = remember(home.favorites) { home.favorites.map { favorite -> favorite.key } }
                 val reorderState: ReorderableLazyListState = rememberHomeReorderState(
                     listState = home.lazyListState,
