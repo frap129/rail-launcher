@@ -60,7 +60,7 @@ class WidgetAreaSeedCallbackTest {
     private suspend fun assertSingleSeededHeader(database: AppDatabase) {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         val places: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, host, reconciler).places.first()
         assertEquals(1, places.size)

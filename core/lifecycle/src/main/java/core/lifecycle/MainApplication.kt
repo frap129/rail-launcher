@@ -58,16 +58,19 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IAppWidgetHostSourceImpl
 import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IHeaderSettingsActionsImpl
+import core.data.widgets.IRemoveAppWidget
+import core.data.widgets.IRemoveAppWidgetImpl
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetAreaRepositoryImpl
+import core.data.widgets.IWidgetLifecycleReconciler
+import core.data.widgets.IWidgetLifecycleReconcilerImpl
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
-import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetAreaSeedCallback
-import core.data.widgets.WidgetLifecycleReconciler
 import core.util.screenHeightPx
-import core.widgets.AppWidgetViewCache
 import core.widgets.HeaderFormatter
+import core.widgets.IAppWidgetViewCache
+import core.widgets.IAppWidgetViewCacheImpl
 import core.widgets.IHeaderTapTargetResolver
 import core.widgets.IHeaderTapTargetResolverImpl
 import core.widgets.RailAppWidgetHost
@@ -77,6 +80,8 @@ import feature.launcher.ListOffsets
 import feature.launcher.widgets.HomeEditState
 import feature.launcher.widgets.IWidgetAddController
 import feature.launcher.widgets.IWidgetAddControllerImpl
+import feature.launcher.widgets.IWidgetResizeController
+import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.settings.SettingsViewModel
 import feature.settings.WidgetSettingsViewModel
@@ -179,10 +184,10 @@ class MainApplication :
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
         single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
-        single { WidgetLifecycleReconciler(get(), get()) }
+        single<IWidgetLifecycleReconciler> { IWidgetLifecycleReconcilerImpl(get(), get()) }
         single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
-        single { AppWidgetViewCache(androidContext(), get()) }
-        single { RemoveAppWidget(get(), get()) }
+        single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
+        single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
         single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext()) }
         factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
@@ -197,6 +202,14 @@ class MainApplication :
                 homeEditState = get(),
                 savedStateHandle = savedStateHandle,
                 pendingIds = get()
+            )
+        }
+        factory<IWidgetResizeController> {
+            IWidgetResizeControllerImpl(
+                repository = get(),
+                appWidgetHost = get(),
+                settingsRepository = get(),
+                homeEditState = get()
             )
         }
         single { HomeEditState() }
@@ -226,7 +239,7 @@ class MainApplication :
                 launchableRepository = get(),
                 calendarEventSource = get(),
                 appWidgetHost = get(),
-                removeWidgetUseCase = get(),
+                removeAppWidget = get(),
                 homeHeightState = get(),
                 mediaSessionSource = get(),
                 headerSettingsActions = get(),
@@ -251,7 +264,8 @@ class MainApplication :
                 homeHeightState = get(),
                 mediaSessionSource = get(),
                 headerSettingsActions = get(),
-                tapTargetResolver = get()
+                tapTargetResolver = get(),
+                resizeController = get()
             )
         }
     }
@@ -278,7 +292,7 @@ class MainApplication :
     }
 
     private fun startWidgetLifecycle() {
-        val reconciler: WidgetLifecycleReconciler = get()
+        val reconciler: IWidgetLifecycleReconciler = get()
         val pendingIds: IAddFlowPendingIds = get()
         val hostSource: IAppWidgetHostSource = get()
         val launchableRepository: ILaunchableRepository = get()

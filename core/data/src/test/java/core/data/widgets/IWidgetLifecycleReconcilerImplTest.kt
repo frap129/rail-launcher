@@ -9,13 +9,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class WidgetLifecycleReconcilerTest {
+class IWidgetLifecycleReconcilerImplTest {
     @Test
     fun `frees system ids with no stored row`() = runTest {
         val dao: FakeWidgetAreaDao = FakeWidgetAreaDao()
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         host.boundIdsState.addAll(listOf(AppWidgetId(7), AppWidgetId(8)))
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
 
@@ -28,7 +28,7 @@ class WidgetLifecycleReconcilerTest {
         val dao: FakeWidgetAreaDao = FakeWidgetAreaDao()
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         host.boundIdsState.add(AppWidgetId(7))
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(7)))
 
@@ -42,7 +42,7 @@ class WidgetLifecycleReconcilerTest {
             initialWidgets = listOf(appWidget(appWidgetId = 42))
         )
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.removedIds.test {
             reconciler.reconcileAtStartup(pendingIds = emptySet())
@@ -61,7 +61,7 @@ class WidgetLifecycleReconcilerTest {
             initialWidgets = listOf(appWidget(appWidgetId = 42))
         )
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(42)))
 
@@ -76,7 +76,7 @@ class WidgetLifecycleReconcilerTest {
         )
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         host.defaultAvailability = WidgetAvailability.Gone
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.removedIds.test {
             reconciler.removeGoneProviders()
@@ -97,7 +97,7 @@ class WidgetLifecycleReconcilerTest {
         )
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         host.defaultAvailability = WidgetAvailability.Updating
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.removeGoneProviders()
 
@@ -109,7 +109,7 @@ class WidgetLifecycleReconcilerTest {
     fun `reconciles at startup only once`() = runTest {
         val dao: FakeWidgetAreaDao = FakeWidgetAreaDao()
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         host.boundIdsState.add(AppWidgetId(9))

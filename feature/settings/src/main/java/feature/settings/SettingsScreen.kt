@@ -130,8 +130,8 @@ import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.util.openApplicationDetailsSettings
-import core.widgets.AppWidgetViewCache
 import core.widgets.HeaderClockStyleChooser
+import core.widgets.IAppWidgetViewCache
 import core.widgets.MoveWidgetAreaSlider
 import core.widgets.NotificationAccessDialog
 import core.widgets.R as CoreWidgetsR
@@ -311,7 +311,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     val tapActionPicker: TapActionPickerState? by viewModel.tapActionPicker.collectAsState()
     val mediaPlayerExclusions: MediaPlayerExclusionsState? by viewModel.mediaPlayerExclusions.collectAsState()
     val context: Context = LocalContext.current
-    val appWidgetViewCache: AppWidgetViewCache = koinInject()
+    val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val activity: Activity? = remember(context) { context.findActivity() }
@@ -504,7 +504,7 @@ private fun WidgetSettingsList(
         items(items = uiState.appWidgets, key = { widget -> widget.widgetId }) { widget ->
             AppWidgetSettingsRow(
                 widget = widget,
-                onRemove = { viewModel.removeAppWidget(widget.widgetId) },
+                onRemove = { viewModel.removeWidget(widget.widgetId) },
                 onExtendUnderRailChange = { extendsUnderRail ->
                     viewModel.setExtendsUnderRail(widgetId = widget.widgetId, extendsUnderRail = extendsUnderRail)
                 }

@@ -26,12 +26,12 @@ import core.data.widgets.AppWidgetId
 import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
+import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
-import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
@@ -187,7 +187,7 @@ class WidgetSettingsViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val calendarEventSource: ICalendarEventSource,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val removeWidgetUseCase: RemoveAppWidget,
+    private val removeAppWidget: IRemoveAppWidget,
     private val homeHeightState: HomeHeightState,
     private val mediaSessionSource: IMediaSessionSource,
     private val headerSettingsActions: IHeaderSettingsActions,
@@ -589,9 +589,9 @@ class WidgetSettingsViewModel(
         }
     }
 
-    fun removeAppWidget(widgetId: Long) {
+    fun removeWidget(widgetId: Long) {
         viewModelScope.launch {
-            val appWidgetId: AppWidgetId = removeWidgetUseCase(widgetId = widgetId) ?: return@launch
+            val appWidgetId: AppWidgetId = removeAppWidget(widgetId = widgetId) ?: return@launch
             eventChannel.send(WidgetSettingsEvent.AppWidgetRemoved(appWidgetId = appWidgetId))
             eventChannel.send(WidgetSettingsEvent.ShowMessage(message = CoreWidgetsR.string.widget_removed))
         }

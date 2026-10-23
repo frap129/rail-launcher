@@ -24,7 +24,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetAvailability
 import core.widgets.AppWidgetModel
-import core.widgets.AppWidgetViewCache
+import core.widgets.IAppWidgetViewCache
 import core.widgets.RailAppWidgetHostView
 import kotlin.math.roundToInt
 import org.koin.compose.koinInject
@@ -42,7 +42,7 @@ fun AppWidgetContent(
     onLongPress: (Long) -> Unit,
     onUnpause: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    cache: AppWidgetViewCache = koinInject()
+    cache: IAppWidgetViewCache = koinInject()
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current

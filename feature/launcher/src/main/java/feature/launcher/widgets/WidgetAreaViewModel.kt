@@ -30,18 +30,18 @@ import core.data.widgets.HeaderRemoval
 import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
+import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetLifecycleReconciler
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
-import core.data.widgets.RemoveAppWidget
 import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
-import core.data.widgets.WidgetLifecycleReconciler
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
@@ -250,13 +250,14 @@ class WidgetAreaViewModel(
     private val calendarEventSource: ICalendarEventSource,
     private val appWidgetHost: IAppWidgetHostSource,
     batterySource: IBatterySource,
-    private val removeAppWidget: RemoveAppWidget,
+    private val removeAppWidget: IRemoveAppWidget,
     private val addFlowController: IWidgetAddController,
-    private val widgetLifecycleReconciler: WidgetLifecycleReconciler,
+    private val widgetLifecycleReconciler: IWidgetLifecycleReconciler,
     private val homeHeightState: HomeHeightState,
     private val mediaSessionSource: IMediaSessionSource,
     private val headerSettingsActions: IHeaderSettingsActions,
-    private val tapTargetResolver: IHeaderTapTargetResolver
+    private val tapTargetResolver: IHeaderTapTargetResolver,
+    private val resizeController: IWidgetResizeController
 ) : ViewModel() {
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlowController.state
 
@@ -271,24 +272,6 @@ class WidgetAreaViewModel(
     private val widgetAreaListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
     private val pageSettleJobs: MutableMap<Long, Job> = mutableMapOf()
 
-    private val resizeController: WidgetResizeController = WidgetResizeController(
-        repository = repository,
-        appWidgetHost = appWidgetHost,
-        settingsRepository = settingsRepository,
-        homeEditState = homeEditState,
-        scope = viewModelScope,
-        onReportSize = { appWidgetIds, widthDp, heightDp ->
-            viewModelScope.launch {
-                eventChannel.send(
-                    WidgetAreaEvent.ReportWidgetSize(
-                        appWidgetIds = appWidgetIds,
-                        widthDp = widthDp,
-                        heightDp = heightDp
-                    )
-                )
-            }
-        }
-    )
     val resizeState: StateFlow<ResizeState?> = resizeController.resizeState
 
     private val moveDraft: MutableStateFlow<Int?> = MutableStateFlow(null)
@@ -321,6 +304,7 @@ class WidgetAreaViewModel(
         viewModelScope.launch {
             repository.places.collect { places ->
                 editDraft.update { draft -> draft?.reconciledWith(places) }
+                resizeController.onPlacesChanged(places = places)
             }
         }
         viewModelScope.launch {
@@ -957,7 +941,18 @@ class WidgetAreaViewModel(
 
     fun resetResize() = resizeController.resetResize()
 
-    fun finishResize() = resizeController.finishResize()
+    fun finishResize() {
+        finishResizeIfResizing()
+    }
+
+    private fun finishResizeIfResizing(): Boolean {
+        val finish: ResizeFinish = resizeController.finishResize() ?: return false
+        viewModelScope.launch {
+            val report: WidgetSizeReport = resizeController.persistResize(finish = finish) ?: return@launch
+            eventChannel.send(report.toEvent())
+        }
+        return true
+    }
 
     /** Opens the Move Widget Area adjuster without saving until it is finished. */
     fun startMoveWidgetArea() {
@@ -1029,11 +1024,11 @@ class WidgetAreaViewModel(
         offsetDp.coerceIn(0, maxOffsetDp(homeHeightDp = homeHeightDp))
     }
 
-    fun onBack(): Boolean = finishEditingOrMove(fallback = resizeController::onBack)
+    fun onBack(): Boolean = finishEditingOrMove(fallback = ::finishResizeIfResizing)
 
     fun onHomeIntent(): Boolean {
         widgetAreaListState.value = LazyListState()
-        return finishEditingOrMove(fallback = resizeController::onHomeIntent)
+        return finishEditingOrMove(fallback = ::finishResizeIfResizing)
     }
 
     private fun finishEditingOrMove(fallback: () -> Boolean): Boolean {
@@ -1158,10 +1153,19 @@ class WidgetAreaViewModel(
     }
 
     private suspend fun handleStackGrown(placeId: Long?) {
-        if (placeId != null) {
-            resizeController.onStackGrown(placeId = placeId, headerHeightDp = headerHeightDp.value)
+        if (placeId == null) {
+            return
         }
+        val report: WidgetSizeReport = resizeController.onStackGrown(placeId = placeId, headerHeightDp = headerHeightDp.value)
+            ?: return
+        eventChannel.send(report.toEvent())
     }
+
+    private fun WidgetSizeReport.toEvent(): WidgetAreaEvent.ReportWidgetSize = WidgetAreaEvent.ReportWidgetSize(
+        appWidgetIds = appWidgetIds,
+        widthDp = widthDp,
+        heightDp = heightDp
+    )
 
     fun removeWidget(widgetId: Long) {
         viewModelScope.launch {

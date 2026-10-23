@@ -28,33 +28,34 @@ import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakeMediaSessionSource
-import core.data.testing.FakeWidgetAreaDao
+import core.data.testing.FakeRemoveAppWidget
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
+import core.data.testing.appWidgetPlace
 import core.data.testing.createHeaderSettingsActions
+import core.data.testing.headerPlace
+import core.data.testing.stackPlace
 import core.data.time.ClockReading
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.HomeHeightState
+import core.data.widgets.IRemoveAppWidget
+import core.data.widgets.IWidgetLifecycleReconciler
 import core.data.widgets.InsertPosition
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
-import core.data.widgets.RemoveAppWidget
+import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
-import core.data.widgets.WidgetKind
-import core.data.widgets.WidgetLifecycleReconciler
 import core.data.widgets.WidgetPlace
-import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
-import core.data.widgets.WidgetRecord
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import core.widgets.AppWidgetModel
@@ -70,6 +71,10 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -1508,9 +1513,17 @@ class WidgetAreaViewModelTest {
             initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true)),
             bindResults = listOf(true)
         )
-        val actualViewModel: WidgetAreaViewModel = createViewModel(repository = mockRepository, appWidgetHost = mockHost)
-        actualViewModel.setHomeHeight(heightDp = 400)
-        actualViewModel.setWidgetAreaWidth(widthDp = 240)
+        val report: WidgetSizeReport = WidgetSizeReport(
+            appWidgetIds = listOf(AppWidgetId(1)),
+            widthDp = 240,
+            heightDp = 64
+        )
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController(stackGrownReport = report)
+        val actualViewModel: WidgetAreaViewModel = createViewModel(
+            repository = mockRepository,
+            appWidgetHost = mockHost,
+            resizeController = resizeController
+        )
         actualViewModel.openHeaderMenu()
         actualViewModel.startAddFromMenu()
         advanceUntilIdle()
@@ -1520,10 +1533,102 @@ class WidgetAreaViewModelTest {
             actualViewModel.pickProvider(provider = appWidgetProviderInfo(isVerticallyResizable = true))
             advanceUntilIdle()
 
-            val actualEvent: WidgetAreaEvent = awaitItem()
-            assertTrue(actualEvent is WidgetAreaEvent.ReportWidgetSize)
+            assertEquals(
+                WidgetAreaEvent.ReportWidgetSize(
+                    appWidgetIds = listOf(AppWidgetId(1)),
+                    widthDp = 240,
+                    heightDp = 64
+                ),
+                awaitItem()
+            )
+            assertEquals(listOf(1L), resizeController.stackGrownPlaceIds)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    private fun resizeState(): ResizeState = ResizeState(
+        placeId = 2L,
+        bounds = ResizeBounds(minDp = 48, maxDp = 240),
+        defaultHeightDp = 48,
+        draftHeightDp = 112
+    )
+
+    private class TestWidgetResizeController(
+        override val resizeState: MutableStateFlow<ResizeState?> = MutableStateFlow(null),
+        override val homeHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null),
+        private val startResult: Boolean = true,
+        private val finish: ResizeFinish? = null,
+        private val report: WidgetSizeReport? = null,
+        val stackGrownReport: WidgetSizeReport? = null
+    ) : IWidgetResizeController {
+        val startedPlaceIds: MutableList<Long> = mutableListOf()
+        val persistedFinishes: MutableList<ResizeFinish> = mutableListOf()
+        val stackGrownPlaceIds: MutableList<Long> = mutableListOf()
+        val widgetAreaWidths: MutableList<Int> = mutableListOf()
+        val placesChanges: MutableList<List<WidgetPlace>> = mutableListOf()
+        var finishedCount: Int = 0
+
+        override fun setHomeHeight(heightDp: Int) {
+            homeHeightDp.value = heightDp
+        }
+
+        override fun setWidgetAreaWidth(widthDp: Int) {
+            widgetAreaWidths += widthDp
+        }
+
+        override suspend fun startResize(placeId: Long, headerHeightDp: Int?): Boolean {
+            startedPlaceIds += placeId
+            return startResult
+        }
+
+        override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?): Boolean = startResult
+
+        override fun dragResize(deltaDp: Float) = Unit
+
+        override fun resetResize() = Unit
+
+        override fun finishResize(): ResizeFinish? {
+            if (resizeState.value == null) {
+                return null
+            }
+            finishedCount += 1
+            resizeState.value = null
+            return finish
+        }
+
+        override suspend fun persistResize(finish: ResizeFinish): WidgetSizeReport? {
+            persistedFinishes += finish
+            return report
+        }
+
+        override fun cancelResize() {
+            resizeState.value = null
+        }
+
+        override fun onPlacesChanged(places: List<WidgetPlace>) {
+            placesChanges += places
+        }
+
+        override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport? {
+            stackGrownPlaceIds += placeId
+            return stackGrownReport
+        }
+
+        override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) = Unit
+    }
+
+    private class TestWidgetLifecycleReconciler : IWidgetLifecycleReconciler {
+        private val removed: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(extraBufferCapacity = 1)
+        override val isStartupReconciled: StateFlow<Boolean> = MutableStateFlow(true)
+        override val removedIds: Flow<AppWidgetId> = removed
+
+        fun emitRemovedId(id: AppWidgetId) {
+            removed.tryEmit(id)
+        }
+
+        override suspend fun reconcileAtStartup(pendingIds: Set<AppWidgetId>) = Unit
+
+        override suspend fun removeGoneProviders() = Unit
     }
 
     private fun createViewModel(
@@ -1535,12 +1640,11 @@ class WidgetAreaViewModelTest {
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
         batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false)),
         appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
-        widgetLifecycleReconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(
-            dao = FakeWidgetAreaDao(),
-            host = appWidgetHost
-        ),
+        widgetLifecycleReconciler: IWidgetLifecycleReconciler = TestWidgetLifecycleReconciler(),
         homeHeightState: HomeHeightState = HomeHeightState(),
-        mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource()
+        mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource(),
+        resizeController: IWidgetResizeController = TestWidgetResizeController(),
+        removeAppWidget: IRemoveAppWidget = FakeRemoveAppWidget()
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = repository,
         clockSource = clockSource,
@@ -1551,7 +1655,7 @@ class WidgetAreaViewModelTest {
         calendarEventSource = calendarEventSource,
         batterySource = batterySource,
         appWidgetHost = appWidgetHost,
-        removeAppWidget = RemoveAppWidget(repository = repository, host = appWidgetHost),
+        removeAppWidget = removeAppWidget,
         addFlowController = createAddController(
             repository = repository,
             appWidgetHost = appWidgetHost,
@@ -1565,22 +1669,19 @@ class WidgetAreaViewModelTest {
             settingsRepository = settingsRepository,
             calendarEventSource = calendarEventSource
         ),
-        tapTargetResolver = IHeaderTapTargetResolverImpl()
+        tapTargetResolver = IHeaderTapTargetResolverImpl(),
+        resizeController = resizeController
     )
 
     @Test
-    fun `remove widget deletes the row, the system id and the cached view`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
-        )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+    fun `remove widget reports the freed system id and host view`() = runTest {
+        val removeAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget(result = AppWidgetId(9))
+        val viewModel: WidgetAreaViewModel = createViewModel(removeAppWidget = removeAppWidget)
         viewModel.events.test {
             viewModel.removeWidget(widgetId = 2L)
             assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
             assertEquals(WidgetAreaEvent.ShowMessage(CoreWidgetsR.string.widget_removed), awaitItem())
-            assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
-            assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+            assertEquals(listOf(2L), removeAppWidget.removedWidgetIds)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1738,37 +1839,14 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `drops cached host views when reconciliation removes a widget`() = runTest {
-        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
-            initialWidgets = listOf(
-                WidgetRecord(
-                    placeId = 1L,
-                    pagePosition = 0,
-                    kind = WidgetKind.APP_WIDGET,
-                    appWidgetId = 9,
-                    provider = "com.example/ExampleWidget",
-                    profileSerial = 0L
-                )
-            )
-        )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        host.defaultAvailability = WidgetAvailability.Gone
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = host,
-            widgetLifecycleReconciler = reconciler
-        )
+        val reconciler: TestWidgetLifecycleReconciler = TestWidgetLifecycleReconciler()
+        val viewModel: WidgetAreaViewModel = createViewModel(widgetLifecycleReconciler = reconciler)
         advanceUntilIdle()
         viewModel.events.test {
-            reconciler.removeGoneProviders()
+            reconciler.emitRemovedId(id = AppWidgetId(9))
             assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-        assertTrue(dao.getAppWidgets().isEmpty())
     }
 
     @Test
@@ -1862,229 +1940,111 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `startResize uses provider bounds without the provider list having been collected`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, appWidgetId = 9))
-        )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        host.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(
-            minResizeHeightDp = 64,
-            maxResizeHeightDp = 160,
-            isVerticallyResizable = true
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.setWidgetAreaWidth(widthDp = 240)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-
-        val state: ResizeState = viewModel.resizeState.value!!
-        assertEquals(64, state.bounds.minDp)
-        assertEquals(160, state.bounds.maxDp)
-        assertEquals(100, state.draftHeightDp)
-    }
-
-    @Test
-    fun `startResize clamps the draft to the provider bounds`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
-        )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
-            appWidgetProviderInfo(
-                minHeightDp = 64,
-                minResizeHeightDp = 64,
-                maxResizeHeightDp = 160,
-                isVerticallyResizable = true
-            )
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.setWidgetAreaWidth(widthDp = 240)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-
-        val state: ResizeState = viewModel.resizeState.value!!
-        assertEquals(100, state.draftHeightDp)
-        assertEquals(64, state.bounds.minDp)
-        assertEquals(160, state.bounds.maxDp)
-
-        viewModel.dragResize(deltaDp = 1_000f)
-        assertEquals(160, viewModel.resizeState.value!!.draftHeightDp)
-        viewModel.dragResize(deltaDp = -1_000f)
-        assertEquals(64, viewModel.resizeState.value!!.draftHeightDp)
-    }
-
-    @Test
-    fun `dragResize accumulates fractional drag and snaps to the 8dp grid`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
-        )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-
-        viewModel.dragResize(deltaDp = 4f)
-        assertEquals(104, viewModel.resizeState.value!!.draftHeightDp)
-        viewModel.dragResize(deltaDp = 3f)
-        assertEquals(104, viewModel.resizeState.value!!.draftHeightDp)
-        viewModel.dragResize(deltaDp = 5f)
-        assertEquals(112, viewModel.resizeState.value!!.draftHeightDp)
-
-        viewModel.dragResize(deltaDp = 1_000f)
-        assertEquals(400, viewModel.resizeState.value!!.draftHeightDp)
-
-        viewModel.dragResize(deltaDp = -1_000f)
-        assertEquals(48, viewModel.resizeState.value!!.draftHeightDp)
-    }
-
-    @Test
-    fun `caps the draft at a smaller Home height`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 300))
-        )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 200)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-
-        assertEquals(200, viewModel.resizeState.value!!.draftHeightDp)
-        viewModel.setHomeHeight(heightDp = 120)
-        assertEquals(120, viewModel.resizeState.value!!.draftHeightDp)
-    }
-
-    @Test
-    fun `finishResize persists the draft height and reports one size`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
-        )
-        val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
-            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
-        )
+    fun `startResize delegates to the controller and closes the menu`() = runTest {
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController(startResult = true)
         val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            homeEditState = homeEditState,
-            appWidgetHost = host
+            repository = FakeWidgetAreaRepository(listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))),
+            resizeController = resizeController
         )
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.setWidgetAreaWidth(widthDp = 240)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-        viewModel.dragResize(deltaDp = 8f)
-
-        viewModel.events.test {
-            viewModel.finishResize()
-            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112), awaitItem())
-            expectNoEvents()
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 2L)
+            expectState<WidgetMenuState.AppWidgetMenu>()
+            viewModel.startResize(placeId = 2L)
+            advanceUntilIdle()
+            assertEquals(listOf(2L), resizeController.startedPlaceIds)
+            assertEquals(WidgetMenuState.Closed, expectMostRecentItem())
             cancelAndIgnoreRemainingEvents()
         }
-        advanceUntilIdle()
-        assertNull(viewModel.resizeState.value)
-        assertEquals(HomeEditMode.None, homeEditState.mode.value)
-        assertEquals(listOf(2L to 112), repository.heightUpdates)
-        assertEquals(112, repository.places.first().first { place -> place.id == 2L }.heightDp)
     }
 
     @Test
-    fun `finishResize at the provider default stores null`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
+    fun `finishResize persists through the controller and emits its size report`() = runTest {
+        val finish: ResizeFinish = ResizeFinish(
+            placeId = 2L,
+            storedHeightDp = 112,
+            appWidgetIds = listOf(AppWidgetId(9)),
+            widthDp = 240,
+            heightDp = 112
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
-            appWidgetProviderInfo(minHeightDp = 64, minResizeHeightDp = 48, isVerticallyResizable = true, maxResizeHeightDp = 240)
+        val report: WidgetSizeReport = WidgetSizeReport(
+            appWidgetIds = listOf(AppWidgetId(9)),
+            widthDp = 240,
+            heightDp = 112
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.setWidgetAreaWidth(widthDp = 240)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-        val resizeState: ResizeState = viewModel.resizeState.value!!
-        viewModel.dragResize(deltaDp = (resizeState.defaultHeightDp - resizeState.draftHeightDp).toFloat())
-        assertEquals(64, viewModel.resizeState.value!!.draftHeightDp)
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController(
+            resizeState = MutableStateFlow(resizeState()),
+            finish = finish,
+            report = report
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(resizeController = resizeController)
 
         viewModel.events.test {
             viewModel.finishResize()
-            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 64), awaitItem())
+            advanceUntilIdle()
+            assertEquals(
+                WidgetAreaEvent.ReportWidgetSize(appWidgetIds = listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112),
+                awaitItem()
+            )
+            assertEquals(listOf(finish), resizeController.persistedFinishes)
+            assertNull(resizeController.resizeState.value)
             cancelAndIgnoreRemainingEvents()
         }
-        advanceUntilIdle()
-        assertEquals(listOf(2L to null), repository.heightUpdates)
-        assertNull(repository.places.first().first { place -> place.id == 2L }.heightDp)
     }
 
     @Test
-    fun `Back and Home persist the draft and are consumed while resizing`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
+    fun `Back and Home finish Resize and are consumed while resizing`() = runTest {
+        val finish: ResizeFinish = ResizeFinish(
+            placeId = 2L,
+            storedHeightDp = 112,
+            appWidgetIds = listOf(AppWidgetId(9)),
+            widthDp = 240,
+            heightDp = 112
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
-            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController(
+            resizeState = MutableStateFlow(resizeState()),
+            finish = finish
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.setHomeHeight(heightDp = 400)
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-        viewModel.dragResize(deltaDp = 8f)
+        val viewModel: WidgetAreaViewModel = createViewModel(resizeController = resizeController)
+
         assertTrue(viewModel.onBack())
         advanceUntilIdle()
-        assertEquals(112, repository.places.first().first { place -> place.id == 2L }.heightDp)
-
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-        viewModel.dragResize(deltaDp = 8f)
+        resizeController.resizeState.value = resizeState()
         assertTrue(viewModel.onHomeIntent())
         advanceUntilIdle()
-        assertEquals(120, repository.places.first().first { place -> place.id == 2L }.heightDp)
 
+        assertEquals(2, resizeController.finishedCount)
+        assertNull(resizeController.resizeState.value)
         assertFalse(viewModel.onBack())
         assertFalse(viewModel.onHomeIntent())
     }
 
     @Test
-    fun `removing the widget cancels Resize without persisting`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
-        )
-        val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            homeEditState = homeEditState,
-            appWidgetHost = host
-        )
+    fun `forwards the Home height and Widget Area width to the resize controller`() = runTest {
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController()
+        val viewModel: WidgetAreaViewModel = createViewModel(resizeController = resizeController)
+
         viewModel.setHomeHeight(heightDp = 400)
-        viewModel.startResize(placeId = 2L)
+        viewModel.setWidgetAreaWidth(widthDp = 240)
+
+        assertEquals(400, resizeController.homeHeightDp.value)
+        assertEquals(listOf(240), resizeController.widgetAreaWidths)
+    }
+
+    @Test
+    fun `forwards current places to the resize controller`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val resizeController: TestWidgetResizeController = TestWidgetResizeController()
+        createViewModel(repository = repository, resizeController = resizeController)
         advanceUntilIdle()
-        viewModel.dragResize(deltaDp = 8f)
+
+        assertEquals(listOf(1L, 2L), resizeController.placesChanges.last().map { place -> place.id })
 
         repository.removeWidget(widgetId = 2L)
         advanceUntilIdle()
 
-        assertNull(viewModel.resizeState.value)
-        assertEquals(HomeEditMode.None, homeEditState.mode.value)
-        assertTrue(repository.heightUpdates.isEmpty())
-    }
-
-    @Test
-    fun `startResize is ignored while another Home edit mode is active`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
-        )
-        val homeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            homeEditState = homeEditState,
-            appWidgetHost = host
-        )
-        viewModel.startResize(placeId = 2L)
-        advanceUntilIdle()
-
-        assertNull(viewModel.resizeState.value)
-        assertEquals(HomeEditMode.Favorites, homeEditState.mode.value)
+        assertEquals(listOf(1L), resizeController.placesChanges.last().map { place -> place.id })
     }
 
     @Test

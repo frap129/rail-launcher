@@ -235,7 +235,7 @@ class IWidgetAreaRepositoryImplTest {
         )
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         host.boundIdsState.add(AppWidgetId(42))
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
         val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao, host, reconciler)
         repository.places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
@@ -610,7 +610,7 @@ class IWidgetAreaRepositoryImplTest {
         host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
     ): IWidgetAreaRepositoryImpl {
         host.boundIdsState.addAll(dao.allAppWidgetIds().map { id -> AppWidgetId(id) })
-        val reconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(dao = dao, host = host)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         return IWidgetAreaRepositoryImpl(dao, host, reconciler)
     }
