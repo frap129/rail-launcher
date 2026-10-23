@@ -9,8 +9,8 @@ class ExcludedPackagesConvertersTest {
 
     @Test
     fun `round trips excluded packages`() {
-        val packages: Set<String> = setOf("com.example.video", "com.example.navigation")
-        assertEquals(packages, converters.fromStringToExcludedPackages(converters.fromExcludedPackagesToString(packages)))
+        val inputPackages: Set<String> = setOf("com.example.video", "com.example.navigation")
+        assertEquals(inputPackages, converters.fromStringToExcludedPackages(converters.fromExcludedPackagesToString(inputPackages)))
     }
 
     @Test

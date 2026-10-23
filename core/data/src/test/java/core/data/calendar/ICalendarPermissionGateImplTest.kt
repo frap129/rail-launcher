@@ -10,9 +10,9 @@ class ICalendarPermissionGateImplTest {
         val mockCalendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = true)
         val gate: ICalendarPermissionGate = ICalendarPermissionGateImpl(mockCalendarEventSource)
 
-        val actual: CalendarPermissionDecision = gate.decideEnable()
+        val actualDecision: CalendarPermissionDecision = gate.decideEnable()
 
-        assertEquals(CalendarPermissionDecision.Enable, actual)
+        assertEquals(CalendarPermissionDecision.Enable, actualDecision)
     }
 
     @Test
@@ -20,9 +20,9 @@ class ICalendarPermissionGateImplTest {
         val mockCalendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false)
         val gate: ICalendarPermissionGate = ICalendarPermissionGateImpl(mockCalendarEventSource)
 
-        val actual: CalendarPermissionDecision = gate.decideEnable()
+        val actualDecision: CalendarPermissionDecision = gate.decideEnable()
 
-        assertEquals(CalendarPermissionDecision.Request, actual)
+        assertEquals(CalendarPermissionDecision.Request, actualDecision)
     }
 
     @Test
@@ -30,9 +30,9 @@ class ICalendarPermissionGateImplTest {
         val mockCalendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false)
         val gate: ICalendarPermissionGate = ICalendarPermissionGateImpl(mockCalendarEventSource)
 
-        val actual: CalendarPermissionDecision = gate.onPermissionResult(granted = true, canAskAgain = true)
+        val actualDecision: CalendarPermissionDecision = gate.onPermissionResult(granted = true, canAskAgain = true)
 
-        assertEquals(CalendarPermissionDecision.Enable, actual)
+        assertEquals(CalendarPermissionDecision.Enable, actualDecision)
         assertEquals(1, mockCalendarEventSource.refreshCount)
     }
 
@@ -41,9 +41,9 @@ class ICalendarPermissionGateImplTest {
         val mockCalendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false)
         val gate: ICalendarPermissionGate = ICalendarPermissionGateImpl(mockCalendarEventSource)
 
-        val actual: CalendarPermissionDecision = gate.onPermissionResult(granted = false, canAskAgain = true)
+        val actualDecision: CalendarPermissionDecision = gate.onPermissionResult(granted = false, canAskAgain = true)
 
-        assertEquals(CalendarPermissionDecision.Denied(permanentlyDenied = false), actual)
+        assertEquals(CalendarPermissionDecision.Denied(permanentlyDenied = false), actualDecision)
     }
 
     @Test
@@ -52,9 +52,9 @@ class ICalendarPermissionGateImplTest {
         val gate: ICalendarPermissionGate = ICalendarPermissionGateImpl(mockCalendarEventSource)
         gate.onPermissionResult(granted = false, canAskAgain = false)
 
-        val actual: CalendarPermissionDecision = gate.decideEnable()
+        val actualDecision: CalendarPermissionDecision = gate.decideEnable()
 
-        assertEquals(CalendarPermissionDecision.Denied(permanentlyDenied = true), actual)
+        assertEquals(CalendarPermissionDecision.Denied(permanentlyDenied = true), actualDecision)
     }
 
     @Test
@@ -66,8 +66,8 @@ class ICalendarPermissionGateImplTest {
         gate.refreshPermission()
         mockCalendarEventSource.setPermission(granted = false)
 
-        val actual: CalendarPermissionDecision = gate.decideEnable()
+        val actualDecision: CalendarPermissionDecision = gate.decideEnable()
 
-        assertEquals(CalendarPermissionDecision.Request, actual)
+        assertEquals(CalendarPermissionDecision.Request, actualDecision)
     }
 }

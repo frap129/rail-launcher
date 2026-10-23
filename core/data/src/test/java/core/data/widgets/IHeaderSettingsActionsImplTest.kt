@@ -53,8 +53,8 @@ class IHeaderSettingsActionsImplTest {
             initialEventSettings = EventSettings(enabled = true)
         )
         val actions: IHeaderSettingsActions = createHeaderSettingsActions(settingsRepository = mockSettingsRepository)
-        val actual: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = false)
-        assertEquals(UpcomingEventsOutcome.NoAction, actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = false)
+        assertEquals(UpcomingEventsOutcome.NoAction, actualOutcome)
         assertEquals(false, mockSettingsRepository.eventUpdates.single().enabled)
     }
 
@@ -65,8 +65,8 @@ class IHeaderSettingsActionsImplTest {
             settingsRepository = mockSettingsRepository,
             calendarEventSource = FakeCalendarEventSource(hasPermission = true)
         )
-        val actual: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
-        assertEquals(UpcomingEventsOutcome.NoAction, actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
+        assertEquals(UpcomingEventsOutcome.NoAction, actualOutcome)
         assertEquals(true, mockSettingsRepository.eventUpdates.single().enabled)
     }
 
@@ -77,8 +77,8 @@ class IHeaderSettingsActionsImplTest {
             settingsRepository = mockSettingsRepository,
             calendarEventSource = FakeCalendarEventSource(hasPermission = false)
         )
-        val actual: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
-        assertEquals(UpcomingEventsOutcome.RequestPermission, actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
+        assertEquals(UpcomingEventsOutcome.RequestPermission, actualOutcome)
         assertTrue(mockSettingsRepository.eventUpdates.isEmpty())
     }
 
@@ -90,8 +90,8 @@ class IHeaderSettingsActionsImplTest {
             calendarEventSource = FakeCalendarEventSource(hasPermission = false)
         )
         actions.onCalendarPermissionResult(granted = false, canAskAgain = false)
-        val actual: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
-        assertEquals(UpcomingEventsOutcome.PermissionDenied(permanentlyDenied = true), actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.setUpcomingEventsEnabled(enabled = true)
+        assertEquals(UpcomingEventsOutcome.PermissionDenied(permanentlyDenied = true), actualOutcome)
         assertTrue(mockSettingsRepository.eventUpdates.isEmpty())
     }
 
@@ -104,8 +104,8 @@ class IHeaderSettingsActionsImplTest {
             settingsRepository = mockSettingsRepository,
             calendarEventSource = mockCalendarEventSource
         )
-        val actual: UpcomingEventsOutcome = actions.onCalendarPermissionResult(granted = true, canAskAgain = true)
-        assertEquals(UpcomingEventsOutcome.NoAction, actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.onCalendarPermissionResult(granted = true, canAskAgain = true)
+        assertEquals(UpcomingEventsOutcome.NoAction, actualOutcome)
         assertEquals(1, mockCalendarEventSource.refreshCount)
         assertEquals(true, mockSettingsRepository.eventUpdates.single().enabled)
     }
@@ -117,8 +117,8 @@ class IHeaderSettingsActionsImplTest {
             settingsRepository = mockSettingsRepository,
             calendarEventSource = FakeCalendarEventSource(hasPermission = false)
         )
-        val actual: UpcomingEventsOutcome = actions.onCalendarPermissionResult(granted = false, canAskAgain = true)
-        assertEquals(UpcomingEventsOutcome.PermissionDenied(permanentlyDenied = false), actual)
+        val actualOutcome: UpcomingEventsOutcome = actions.onCalendarPermissionResult(granted = false, canAskAgain = true)
+        assertEquals(UpcomingEventsOutcome.PermissionDenied(permanentlyDenied = false), actualOutcome)
         assertTrue(mockSettingsRepository.eventUpdates.isEmpty())
     }
 

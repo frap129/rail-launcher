@@ -26,16 +26,16 @@ private val EXPECTED_COLLECTION_TIMES_MS: List<Long> = listOf(
 class RetryingFlowTest {
     @Test
     fun `backs off exponentially up to a one minute cap`() = runTest {
-        val remainingFailures: AtomicInteger = AtomicInteger(EXPECTED_COLLECTION_COUNT - 1)
-        val collectionTimes: MutableList<Long> = mutableListOf()
-        val failingUpstream: Flow<Unit> = flow {
-            collectionTimes += currentTime
-            if (remainingFailures.getAndDecrement() > 0) {
+        val inputRemainingFailures: AtomicInteger = AtomicInteger(EXPECTED_COLLECTION_COUNT - 1)
+        val actualObservedCollectionTimes: MutableList<Long> = mutableListOf()
+        val inputFailingUpstream: Flow<Unit> = flow {
+            actualObservedCollectionTimes += currentTime
+            if (inputRemainingFailures.getAndDecrement() > 0) {
                 throw IllegalStateException("Upstream failure")
             }
             emit(Unit)
         }
-        failingUpstream.retryWithExponentialBackoff().collect()
-        assertEquals(EXPECTED_COLLECTION_TIMES_MS, collectionTimes)
+        inputFailingUpstream.retryWithExponentialBackoff().collect()
+        assertEquals(EXPECTED_COLLECTION_TIMES_MS, actualObservedCollectionTimes)
     }
 }

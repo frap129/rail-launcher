@@ -8,12 +8,12 @@ import org.junit.Test
 class WidgetAreaSettingsTest {
     @Test
     fun `defaults to four pages, a visible indicator, and a two thirds cap`() {
-        val settings: WidgetAreaSettings = WidgetAreaSettings()
+        val inputSettings: WidgetAreaSettings = WidgetAreaSettings()
 
-        assertEquals(4, settings.maxStackPages)
-        assertTrue(settings.stackIndicatorVisible)
-        assertTrue(settings.heightLimitEnabled)
-        assertEquals(WidgetAreaHeightLimit.TWO_THIRDS, settings.heightLimit)
+        assertEquals(4, inputSettings.maxStackPages)
+        assertTrue(inputSettings.stackIndicatorVisible)
+        assertTrue(inputSettings.heightLimitEnabled)
+        assertEquals(WidgetAreaHeightLimit.TWO_THIRDS, inputSettings.heightLimit)
     }
 
     @Test
@@ -25,15 +25,15 @@ class WidgetAreaSettingsTest {
 
     @Test
     fun `round trips the height limit through a settings record`() {
-        val settings: WidgetAreaSettings = WidgetAreaSettings(
+        val inputSettings: WidgetAreaSettings = WidgetAreaSettings(
             heightLimitEnabled = false,
             heightLimit = WidgetAreaHeightLimit.THREE_QUARTERS
         )
 
-        val record: WidgetAreaSettingsRecord = WidgetAreaSettingsRecord.from(settings)
+        val actualRecord: WidgetAreaSettingsRecord = WidgetAreaSettingsRecord.from(inputSettings)
 
-        assertEquals(settings, record.toDomain())
-        assertEquals("THREE_QUARTERS", record.heightLimit.name)
+        assertEquals(inputSettings, actualRecord.toDomain())
+        assertEquals("THREE_QUARTERS", actualRecord.heightLimit.name)
     }
 
     @Test
@@ -56,24 +56,24 @@ class WidgetAreaSettingsTest {
 
     @Test
     fun `defaults to no offset and default widget spacing`() {
-        val settings: WidgetAreaSettings = WidgetAreaSettings()
+        val inputSettings: WidgetAreaSettings = WidgetAreaSettings()
 
-        assertEquals(0, settings.topOffsetDp)
-        assertEquals(WidgetSpacing.DEFAULT, settings.widgetSpacing)
+        assertEquals(0, inputSettings.topOffsetDp)
+        assertEquals(WidgetSpacing.DEFAULT, inputSettings.widgetSpacing)
     }
 
     @Test
     fun `round trips the offset and spacing through a settings record`() {
-        val settings: WidgetAreaSettings = WidgetAreaSettings(
+        val inputSettings: WidgetAreaSettings = WidgetAreaSettings(
             topOffsetDp = 24,
             widgetSpacing = WidgetSpacing.EXTRA_LARGE
         )
 
-        val record: WidgetAreaSettingsRecord = WidgetAreaSettingsRecord.from(settings)
+        val actualRecord: WidgetAreaSettingsRecord = WidgetAreaSettingsRecord.from(inputSettings)
 
-        assertEquals(settings, record.toDomain())
-        assertEquals(24, record.topOffsetDp)
-        assertEquals(32, record.widgetSpacing.dp)
+        assertEquals(inputSettings, actualRecord.toDomain())
+        assertEquals(24, actualRecord.topOffsetDp)
+        assertEquals(32, actualRecord.widgetSpacing.dp)
     }
 
     @Test

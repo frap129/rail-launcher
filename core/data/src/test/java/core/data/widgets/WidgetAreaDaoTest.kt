@@ -18,9 +18,9 @@ import org.robolectric.annotation.Config
 class WidgetAreaDaoTest {
     @Test
     fun `removeWidget deletes the widget and its empty place`() = runTest {
-        val database: AppDatabase = createInMemoryDatabase()
+        val mockDatabase: AppDatabase = createInMemoryDatabase()
         try {
-            val dao = database.getWidgetAreaDao()
+            val dao = mockDatabase.getWidgetAreaDao()
             val placeId: Long = dao.insertPlace(WidgetPlaceRecord(position = 0))
             val widgetId: Long = dao.insertWidget(
                 WidgetRecord(
@@ -33,21 +33,21 @@ class WidgetAreaDaoTest {
                 )
             )
 
-            val removedAppWidgetId: Int? = dao.removeWidget(widgetId)
+            val actualRemovedAppWidgetId: Int? = dao.removeWidget(widgetId)
 
-            assertEquals(42, removedAppWidgetId)
+            assertEquals(42, actualRemovedAppWidgetId)
             assertTrue(dao.observeWidgets().first().isEmpty())
             assertTrue(dao.observePlaces().first().isEmpty())
         } finally {
-            database.close()
+            mockDatabase.close()
         }
     }
 
     @Test
     fun `setPlaceHeight round-trips a height and null`() = runTest {
-        val database: AppDatabase = createInMemoryDatabase()
+        val mockDatabase: AppDatabase = createInMemoryDatabase()
         try {
-            val dao = database.getWidgetAreaDao()
+            val dao = mockDatabase.getWidgetAreaDao()
             val placeId: Long = dao.insertPlace(WidgetPlaceRecord(position = 0))
             dao.insertWidget(WidgetRecord(placeId = placeId, pagePosition = 0, kind = WidgetKind.APP_WIDGET, appWidgetId = 42))
 
@@ -57,7 +57,7 @@ class WidgetAreaDaoTest {
             dao.setPlaceHeight(placeId = placeId, heightDp = null)
             assertNull(dao.observePlaces().first().single().heightDp)
         } finally {
-            database.close()
+            mockDatabase.close()
         }
     }
 }

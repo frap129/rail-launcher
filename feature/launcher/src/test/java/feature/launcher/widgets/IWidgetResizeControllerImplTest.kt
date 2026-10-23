@@ -19,33 +19,33 @@ import org.junit.Test
 class IWidgetResizeControllerImplTest {
     @Test
     fun `startResize uses provider bounds without the provider list having been collected`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, appWidgetId = 9))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        host.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        mockHost.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(
             minResizeHeightDp = 64,
             maxResizeHeightDp = 160,
             isVerticallyResizable = true
         )
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
         controller.setWidgetAreaWidth(widthDp = 240)
 
         assertTrue(controller.startResize(placeId = 2L))
 
-        val state: ResizeState = controller.resizeState.value!!
-        assertEquals(64, state.bounds.minDp)
-        assertEquals(160, state.bounds.maxDp)
-        assertEquals(100, state.draftHeightDp)
+        val actualState: ResizeState = controller.resizeState.value!!
+        assertEquals(64, actualState.bounds.minDp)
+        assertEquals(160, actualState.bounds.maxDp)
+        assertEquals(100, actualState.draftHeightDp)
     }
 
     @Test
     fun `startResize clamps the draft to the provider bounds`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
             appWidgetProviderInfo(
                 minHeightDp = 64,
                 minResizeHeightDp = 64,
@@ -53,15 +53,15 @@ class IWidgetResizeControllerImplTest {
                 isVerticallyResizable = true
             )
         )
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
         controller.setWidgetAreaWidth(widthDp = 240)
         controller.startResize(placeId = 2L)
 
-        val state: ResizeState = controller.resizeState.value!!
-        assertEquals(100, state.draftHeightDp)
-        assertEquals(64, state.bounds.minDp)
-        assertEquals(160, state.bounds.maxDp)
+        val actualState: ResizeState = controller.resizeState.value!!
+        assertEquals(100, actualState.draftHeightDp)
+        assertEquals(64, actualState.bounds.minDp)
+        assertEquals(160, actualState.bounds.maxDp)
 
         controller.dragResize(deltaDp = 1_000f)
         assertEquals(160, controller.resizeState.value!!.draftHeightDp)
@@ -71,11 +71,11 @@ class IWidgetResizeControllerImplTest {
 
     @Test
     fun `dragResize accumulates fractional drag and snaps to the 8dp grid`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
         controller.startResize(placeId = 2L)
 
@@ -95,11 +95,11 @@ class IWidgetResizeControllerImplTest {
 
     @Test
     fun `caps the draft at a smaller Home height`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 300))
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 200)
         controller.startResize(placeId = 2L)
 
@@ -110,131 +110,131 @@ class IWidgetResizeControllerImplTest {
 
     @Test
     fun `finishResize persists the draft height and reports one size`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
             appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val controller: IWidgetResizeController = createController(
-            repository = repository,
-            host = host,
-            homeEditState = homeEditState
+            mockRepository = mockRepository,
+            mockHost = mockHost,
+            homeEditState = inputHomeEditState
         )
         controller.setHomeHeight(heightDp = 400)
         controller.setWidgetAreaWidth(widthDp = 240)
         controller.startResize(placeId = 2L)
         controller.dragResize(deltaDp = 8f)
 
-        val finish: ResizeFinish = controller.finishResize()!!
-        val report: WidgetSizeReport = controller.persistResize(finish = finish)!!
+        val actualFinish: ResizeFinish = controller.finishResize()!!
+        val actualReport: WidgetSizeReport = controller.persistResize(finish = actualFinish)!!
 
-        assertEquals(listOf(2L to 112), repository.heightUpdates)
-        assertEquals(112, repository.places.first().first { place -> place.id == 2L }.heightDp)
-        assertEquals(WidgetSizeReport(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112), report)
+        assertEquals(listOf(2L to 112), mockRepository.heightUpdates)
+        assertEquals(112, mockRepository.places.first().first { place -> place.id == 2L }.heightDp)
+        assertEquals(WidgetSizeReport(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112), actualReport)
         assertNull(controller.resizeState.value)
-        assertEquals(HomeEditMode.None, homeEditState.mode.value)
+        assertEquals(HomeEditMode.None, inputHomeEditState.mode.value)
     }
 
     @Test
     fun `finishResize at the provider default stores null`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
             appWidgetProviderInfo(minHeightDp = 64, minResizeHeightDp = 48, isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
         controller.setWidgetAreaWidth(widthDp = 240)
         controller.startResize(placeId = 2L)
-        val resizeState: ResizeState = controller.resizeState.value!!
-        controller.dragResize(deltaDp = (resizeState.defaultHeightDp - resizeState.draftHeightDp).toFloat())
+        val actualResizeState: ResizeState = controller.resizeState.value!!
+        controller.dragResize(deltaDp = (actualResizeState.defaultHeightDp - actualResizeState.draftHeightDp).toFloat())
         assertEquals(64, controller.resizeState.value!!.draftHeightDp)
 
-        val finish: ResizeFinish = controller.finishResize()!!
-        val report: WidgetSizeReport = controller.persistResize(finish = finish)!!
+        val actualFinish: ResizeFinish = controller.finishResize()!!
+        val actualReport: WidgetSizeReport = controller.persistResize(finish = actualFinish)!!
 
-        assertEquals(listOf(2L to null), repository.heightUpdates)
-        assertNull(repository.places.first().first { place -> place.id == 2L }.heightDp)
-        assertEquals(WidgetSizeReport(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 64), report)
+        assertEquals(listOf(2L to null), mockRepository.heightUpdates)
+        assertNull(mockRepository.places.first().first { place -> place.id == 2L }.heightDp)
+        assertEquals(WidgetSizeReport(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 64), actualReport)
     }
 
     @Test
     fun `startResize is ignored while another Home edit mode is active`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val homeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val controller: IWidgetResizeController = createController(
-            repository = repository,
-            host = host,
-            homeEditState = homeEditState
+            mockRepository = mockRepository,
+            mockHost = mockHost,
+            homeEditState = inputHomeEditState
         )
 
         assertFalse(controller.startResize(placeId = 2L))
 
         assertNull(controller.resizeState.value)
-        assertEquals(HomeEditMode.Favorites, homeEditState.mode.value)
+        assertEquals(HomeEditMode.Favorites, inputHomeEditState.mode.value)
     }
 
     @Test
     fun `cancels Resize when its place disappears without persisting`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
-        val homeEditState: HomeEditState = HomeEditState()
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
         val controller: IWidgetResizeController = createController(
-            repository = repository,
-            host = host,
-            homeEditState = homeEditState
+            mockRepository = mockRepository,
+            mockHost = mockHost,
+            homeEditState = inputHomeEditState
         )
         controller.setHomeHeight(heightDp = 400)
         controller.startResize(placeId = 2L)
         controller.dragResize(deltaDp = 8f)
 
-        repository.removeWidget(widgetId = 2L)
-        controller.onPlacesChanged(places = repository.places.first())
+        mockRepository.removeWidget(widgetId = 2L)
+        controller.onPlacesChanged(places = mockRepository.places.first())
 
         assertNull(controller.resizeState.value)
-        assertEquals(HomeEditMode.None, homeEditState.mode.value)
-        assertTrue(repository.heightUpdates.isEmpty())
+        assertEquals(HomeEditMode.None, inputHomeEditState.mode.value)
+        assertTrue(mockRepository.heightUpdates.isEmpty())
     }
 
     @Test
     fun `onStackGrown clamps the stored height and reports the page size`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(stackPlace().copy(heightDp = 300))
         )
-        val host: FakeAppWidgetHostSource = hostWithProviderInfo(
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
             appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200)
         )
-        val controller: IWidgetResizeController = createController(repository = repository, host = host)
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
         controller.setWidgetAreaWidth(widthDp = 240)
 
-        val report: WidgetSizeReport = controller.onStackGrown(placeId = 1L, headerHeightDp = 100)!!
+        val actualReport: WidgetSizeReport = controller.onStackGrown(placeId = 1L, headerHeightDp = 100)!!
 
-        assertEquals(listOf(1L to 200), repository.heightUpdates)
-        assertEquals(200, repository.places.first().first { place -> place.id == 1L }.heightDp)
-        assertEquals(listOf(AppWidgetId(9)), report.appWidgetIds)
+        assertEquals(listOf(1L to 200), mockRepository.heightUpdates)
+        assertEquals(200, mockRepository.places.first().first { place -> place.id == 1L }.heightDp)
+        assertEquals(listOf(AppWidgetId(9)), actualReport.appWidgetIds)
     }
 
     private fun hostWithProviderInfo(info: WidgetProviderInfo): FakeAppWidgetHostSource =
         FakeAppWidgetHostSource().apply { providerInfoById[AppWidgetId(9)] = info }
 
     private fun createController(
-        repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
-        host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
-        settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
+        mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
+        mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
+        mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),
         homeEditState: HomeEditState = HomeEditState()
     ): IWidgetResizeController = IWidgetResizeControllerImpl(
-        repository = repository,
-        appWidgetHost = host,
-        settingsRepository = settingsRepository,
+        repository = mockRepository,
+        appWidgetHost = mockHost,
+        settingsRepository = mockSettingsRepository,
         homeEditState = homeEditState
     )
 }

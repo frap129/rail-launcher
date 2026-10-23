@@ -13,29 +13,29 @@ import org.junit.Test
 class IRemoveAppWidgetImplTest {
     @Test
     fun `removes the stored widget, frees its system id and returns the id`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 9))
         )
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val removeAppWidget: IRemoveAppWidget = IRemoveAppWidgetImpl(repository = repository, host = host)
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val removeAppWidget: IRemoveAppWidget = IRemoveAppWidgetImpl(repository = mockRepository, host = mockHost)
 
-        val removed: AppWidgetId = removeAppWidget(widgetId = 2L)!!
+        val actualRemoved: AppWidgetId = removeAppWidget(widgetId = 2L)!!
 
-        assertEquals(AppWidgetId(9), removed)
-        assertEquals(listOf(AppWidgetId(9)), host.deletedIds)
-        assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+        assertEquals(AppWidgetId(9), actualRemoved)
+        assertEquals(listOf(AppWidgetId(9)), mockHost.deletedIds)
+        assertEquals(listOf(1L), mockRepository.places.first().map { place -> place.id })
     }
 
     @Test
     fun `returns null and keeps the system id when the widget is gone`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val removeAppWidget: IRemoveAppWidget = IRemoveAppWidgetImpl(repository = repository, host = host)
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val removeAppWidget: IRemoveAppWidget = IRemoveAppWidgetImpl(repository = mockRepository, host = mockHost)
 
-        val removed: AppWidgetId? = removeAppWidget(widgetId = 99L)
+        val actualRemoved: AppWidgetId? = removeAppWidget(widgetId = 99L)
 
-        assertNull(removed)
-        assertEquals(emptyList<AppWidgetId>(), host.deletedIds)
-        assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
+        assertNull(actualRemoved)
+        assertEquals(emptyList<AppWidgetId>(), mockHost.deletedIds)
+        assertEquals(listOf(1L), mockRepository.places.first().map { place -> place.id })
     }
 }

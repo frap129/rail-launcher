@@ -28,22 +28,22 @@ private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IFavoritesRepositoryImplTest {
-    private val launchable: Launchable = createLaunchable(name = "App")
+    private val inputLaunchable: Launchable = createLaunchable(name = "App")
 
     @Test
     fun `drops repeated Favorites values`() = runTest {
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(inputRecords)
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(inputRecords)
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
         repository.favorites.test {
-            assertEquals(listOf(launchable), awaitItem())
-            favoriteDao.reemit(inputRecords)
+            assertEquals(listOf(inputLaunchable), awaitItem())
+            mockFavoriteDao.reemit(inputRecords)
             runCurrent()
             expectNoEvents()
         }
@@ -51,243 +51,243 @@ class IFavoritesRepositoryImplTest {
 
     @Test
     fun `collecting Favorites does not remove stale records`() = runTest {
-        val staleLaunchable: Launchable = createLaunchable(name = "Stale")
+        val inputStaleLaunchable: Launchable = createLaunchable(name = "Stale")
         val inputRecords: List<FavoriteRecord> = listOf(
-            FavoriteRecord(key = launchable.key, position = FIRST_POSITION),
-            FavoriteRecord(key = staleLaunchable.key, position = SECOND_POSITION)
+            FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION),
+            FavoriteRecord(key = inputStaleLaunchable.key, position = SECOND_POSITION)
         )
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and collection is observed in isolation.
-        favoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
         repository.favorites.test {
-            assertEquals(listOf(launchable), awaitItem())
+            assertEquals(listOf(inputLaunchable), awaitItem())
             expectNoEvents()
         }
-        assertEquals(inputRecords, favoriteDao.records)
+        assertEquals(inputRecords, mockFavoriteDao.records)
     }
 
     @Test
     fun `removes a Favorite when its Launchable disappears`() = runTest {
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
-        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
-            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
         )
-        createRepository(favoriteDao = favoriteDao, launchableRepository = launchableRepository)
-        launchableRepository.setGroups(groups = emptyList())
+        createRepository(mockFavoriteDao = mockFavoriteDao, mockLaunchableRepository = mockLaunchableRepository)
+        mockLaunchableRepository.setGroups(groups = emptyList())
         runCurrent()
-        assertTrue(favoriteDao.records.isEmpty())
+        assertTrue(mockFavoriteDao.records.isEmpty())
     }
 
     @Test
     fun `does not restore a removed Favorite when its Launchable reappears`() = runTest {
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
-        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
-            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
         )
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = launchableRepository
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = mockLaunchableRepository
         )
         runCurrent()
         repository.favorites.test {
-            assertEquals(listOf(launchable), awaitItem())
-            launchableRepository.setGroups(groups = emptyList())
+            assertEquals(listOf(inputLaunchable), awaitItem())
+            mockLaunchableRepository.setGroups(groups = emptyList())
             assertEquals(emptyList<Launchable>(), awaitItem())
             runCurrent()
-            launchableRepository.setGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable))))
+            mockLaunchableRepository.setGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable))))
             runCurrent()
             expectNoEvents()
         }
-        assertTrue(favoriteDao.records.isEmpty())
+        assertTrue(mockFavoriteDao.records.isEmpty())
     }
 
     @Test
     fun `does not remove Favorites while the Launchables are loading`() = runTest {
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
-        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
-        createRepository(favoriteDao = favoriteDao, launchableRepository = launchableRepository)
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        createRepository(mockFavoriteDao = mockFavoriteDao, mockLaunchableRepository = mockLaunchableRepository)
         runCurrent()
-        assertEquals(inputRecords, favoriteDao.records)
-        launchableRepository.setGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable))))
+        assertEquals(inputRecords, mockFavoriteDao.records)
+        mockLaunchableRepository.setGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable))))
         runCurrent()
-        assertEquals(inputRecords, favoriteDao.records)
+        assertEquals(inputRecords, mockFavoriteDao.records)
     }
 
     @Test
     fun `reports whether a Launchable is a Favorite`() = runTest {
-        val otherLaunchable: Launchable = createLaunchable(name = "Other")
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+            initialRecords = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         )
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable, otherLaunchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable, inputOtherLaunchable)))
             )
         )
         runCurrent()
-        assertTrue(repository.isFavorite(launchable).first())
-        assertFalse(repository.isFavorite(otherLaunchable).first())
+        assertTrue(repository.isFavorite(inputLaunchable).first())
+        assertFalse(repository.isFavorite(inputOtherLaunchable).first())
     }
 
     @Test
     fun `reports a stale record as not a Favorite`() = runTest {
-        val otherLaunchable: Launchable = createLaunchable(name = "Other")
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+            initialRecords = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         )
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and isFavorite must ignore it.
-        favoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(otherLaunchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputOtherLaunchable)))
             )
         )
         runCurrent()
-        assertEquals(1, favoriteDao.records.size)
-        assertFalse(repository.isFavorite(launchable).first())
+        assertEquals(1, mockFavoriteDao.records.size)
+        assertFalse(repository.isFavorite(inputLaunchable).first())
     }
 
     @Test
     fun `reflects an added Favorite in isFavorite immediately`() = runTest {
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
-        repository.add(launchable)
-        assertTrue(repository.isFavorite(launchable).first())
+        repository.add(inputLaunchable)
+        assertTrue(repository.isFavorite(inputLaunchable).first())
     }
 
     @Test
     fun `reflects a removed Favorite in isFavorite immediately`() = runTest {
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+            initialRecords = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         )
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
-        repository.remove(launchable)
-        assertFalse(repository.isFavorite(launchable).first())
+        repository.remove(inputLaunchable)
+        assertFalse(repository.isFavorite(inputLaunchable).first())
     }
 
     @Test
     fun `stops waiting for a Favorite to become visible after a timeout`() = runTest {
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao()
-        favoriteDao.isAddEnabled = false
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+        mockFavoriteDao.isAddEnabled = false
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
-        val addJob: Deferred<Unit> = async { repository.add(launchable) }
+        val actualAddJob: Deferred<Unit> = async { repository.add(inputLaunchable) }
         runCurrent()
         advanceTimeBy(RESOLUTION_TIMEOUT_MS - 1)
-        assertFalse(addJob.isCompleted)
+        assertFalse(actualAddJob.isCompleted)
         advanceTimeBy(2)
-        assertTrue(addJob.isCompleted)
+        assertTrue(actualAddJob.isCompleted)
     }
 
     @Test
     fun `keeps removing stale Favorites after a failed remove`() = runTest {
-        val staleLaunchable: Launchable = createLaunchable(name = "Stale")
-        val remainingLaunchable: Launchable = createLaunchable(name = "Remaining")
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = staleLaunchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
-        favoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
-        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
-            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(staleLaunchable, remainingLaunchable)))
+        val inputStaleLaunchable: Launchable = createLaunchable(name = "Stale")
+        val inputRemainingLaunchable: Launchable = createLaunchable(name = "Remaining")
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputStaleLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputStaleLaunchable, inputRemainingLaunchable)))
         )
-        createRepository(favoriteDao = favoriteDao, launchableRepository = launchableRepository)
-        launchableRepository.setGroups(
-            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(remainingLaunchable)))
+        createRepository(mockFavoriteDao = mockFavoriteDao, mockLaunchableRepository = mockLaunchableRepository)
+        mockLaunchableRepository.setGroups(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputRemainingLaunchable)))
         )
         runCurrent()
-        assertEquals(inputRecords, favoriteDao.records)
-        favoriteDao.add(remainingLaunchable.key)
+        assertEquals(inputRecords, mockFavoriteDao.records)
+        mockFavoriteDao.add(inputRemainingLaunchable.key)
         runCurrent()
         assertEquals(
-            listOf(FavoriteRecord(key = remainingLaunchable.key, position = SECOND_POSITION)),
-            favoriteDao.records
+            listOf(FavoriteRecord(key = inputRemainingLaunchable.key, position = SECOND_POSITION)),
+            mockFavoriteDao.records
         )
-        launchableRepository.setGroups(groups = emptyList())
+        mockLaunchableRepository.setGroups(groups = emptyList())
         runCurrent()
-        assertTrue(favoriteDao.records.isEmpty())
+        assertTrue(mockFavoriteDao.records.isEmpty())
     }
 
     @Test
     fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
-        val otherLaunchable: Launchable = createLaunchable(name = "Other")
-        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable, otherLaunchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable, inputOtherLaunchable)))
             )
         )
         runCurrent()
-        assertEquals(listOf(launchable), repository.favorites.first())
-        favoriteDao.failNextObserve(IllegalStateException("Favorites upstream failure"))
-        favoriteDao.add(otherLaunchable.key)
+        assertEquals(listOf(inputLaunchable), repository.favorites.first())
+        mockFavoriteDao.failNextObserve(IllegalStateException("Favorites upstream failure"))
+        mockFavoriteDao.add(inputOtherLaunchable.key)
         runCurrent()
-        assertEquals(listOf(launchable), repository.favorites.first())
+        assertEquals(listOf(inputLaunchable), repository.favorites.first())
         advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
         runCurrent()
-        assertEquals(listOf(launchable), repository.favorites.first())
+        assertEquals(listOf(inputLaunchable), repository.favorites.first())
         advanceTimeBy(1)
         runCurrent()
-        assertEquals(listOf(launchable, otherLaunchable), repository.favorites.first())
+        assertEquals(listOf(inputLaunchable, inputOtherLaunchable), repository.favorites.first())
     }
 
     @Test
     fun `shares one Favorites subscription between readers and the cleanup job`() = runTest {
-        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(FavoriteRecord(key = launchable.key, position = FIRST_POSITION))
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+            initialRecords = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         )
         val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = favoriteDao,
-            launchableRepository = FakeLaunchableRepository(
-                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(launchable)))
+            mockFavoriteDao = mockFavoriteDao,
+            mockLaunchableRepository = FakeLaunchableRepository(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputLaunchable)))
             )
         )
         runCurrent()
         repository.favorites.first()
-        repository.isFavorite(launchable).first()
-        repository.isFavorite(launchable).first()
+        repository.isFavorite(inputLaunchable).first()
+        repository.isFavorite(inputLaunchable).first()
         runCurrent()
-        assertEquals(1, favoriteDao.observeAllSubscriptionCount)
+        assertEquals(1, mockFavoriteDao.observeAllSubscriptionCount)
     }
 }
 
 private fun TestScope.createRepository(
-    favoriteDao: FakeFavoriteDao,
-    launchableRepository: FakeLaunchableRepository
+    mockFavoriteDao: FakeFavoriteDao,
+    mockLaunchableRepository: FakeLaunchableRepository
 ): IFavoritesRepositoryImpl = IFavoritesRepositoryImpl(
-    favoriteDao = favoriteDao,
-    launchableRepository = launchableRepository,
+    favoriteDao = mockFavoriteDao,
+    launchableRepository = mockLaunchableRepository,
     scope = backgroundScope
 )
 

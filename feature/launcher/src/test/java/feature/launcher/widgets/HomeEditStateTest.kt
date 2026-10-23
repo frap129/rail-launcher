@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeEditStateTest {
-    private val modes: List<HomeEditMode> = listOf(
+    private val inputModes: List<HomeEditMode> = listOf(
         HomeEditMode.Favorites,
         HomeEditMode.Resizing(placeId = 7L),
         HomeEditMode.Widgets
@@ -19,7 +19,7 @@ class HomeEditStateTest {
 
     @Test
     fun `enters each mode from None`() {
-        modes.forEach { mode ->
+        inputModes.forEach { mode ->
             val state: HomeEditState = HomeEditState()
             assertTrue(state.tryEnter(mode))
             assertEquals(mode, state.mode.value)
@@ -35,8 +35,8 @@ class HomeEditStateTest {
 
     @Test
     fun `rejects every mode while another mode is active`() {
-        modes.forEach { active ->
-            modes.forEach { requested ->
+        inputModes.forEach { active ->
+            inputModes.forEach { requested ->
                 val state: HomeEditState = HomeEditState()
                 assertTrue(state.tryEnter(active))
                 assertFalse(state.tryEnter(requested))
@@ -47,13 +47,13 @@ class HomeEditStateTest {
 
     @Test
     fun `exits only the active mode`() {
-        modes.forEach { active ->
-            modes.forEach { requestedExit ->
+        inputModes.forEach { active ->
+            inputModes.forEach { requestedExit ->
                 val state: HomeEditState = HomeEditState()
                 assertTrue(state.tryEnter(active))
                 state.exit(requestedExit)
-                val expected: HomeEditMode = if (active == requestedExit) HomeEditMode.None else active
-                assertEquals(expected, state.mode.value)
+                val expectedMode: HomeEditMode = if (active == requestedExit) HomeEditMode.None else active
+                assertEquals(expectedMode, state.mode.value)
             }
         }
     }

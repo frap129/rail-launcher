@@ -36,26 +36,26 @@ private const val LOOKAHEAD_HOURS: Int = 2
 class ICalendarEventSourceImplTest {
     @Test
     fun `rolls the window across midnight and emits tomorrow events`() = runTest {
-        val context: Context = RuntimeEnvironment.getApplication()
-        val tomorrowEvent: UpcomingEvent = event(
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val inputTomorrowEvent: UpcomingEvent = event(
             eventId = 1,
             title = "Tomorrow",
             begin = "2026-10-23T02:00:00Z",
             end = "2026-10-23T02:30:00Z"
         )
-        val provider: RecordingCalendarProvider = RecordingCalendarProvider(events = listOf(tomorrowEvent))
-        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, provider)
-        val time: MutableTime = MutableTime(
+        val mockProvider: RecordingCalendarProvider = RecordingCalendarProvider(events = listOf(inputTomorrowEvent))
+        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, mockProvider)
+        val mockTime: MutableTime = MutableTime(
             current = Instant.parse("2026-10-22T23:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = inputContext, time = mockTime, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
             assertEquals(emptyList<UpcomingEvent>(), awaitItem())
 
-            time.current = Instant.parse("2026-10-23T00:05:00Z")
+            mockTime.current = Instant.parse("2026-10-23T00:05:00Z")
             advanceTimeBy(EVENT_RECHECK_INTERVAL_MS + MILLIS_PER_MINUTE)
             runCurrent()
 
@@ -64,30 +64,30 @@ class ICalendarEventSourceImplTest {
                     window(start = "2026-10-22T00:00:00Z", end = "2026-10-23T01:50:00Z"),
                     window(start = "2026-10-23T00:00:00Z", end = "2026-10-23T02:05:00Z")
                 ),
-                provider.queriedWindows()
+                mockProvider.queriedWindows()
             )
-            assertEquals(listOf(tomorrowEvent), awaitItem())
+            assertEquals(listOf(inputTomorrowEvent), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
     fun `rechecks the window on a calendar content change`() = runTest {
-        val context: Context = RuntimeEnvironment.getApplication()
-        val provider: RecordingCalendarProvider = RecordingCalendarProvider()
-        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, provider)
-        val time: MutableTime = MutableTime(
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val mockProvider: RecordingCalendarProvider = RecordingCalendarProvider()
+        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, mockProvider)
+        val mockTime: MutableTime = MutableTime(
             current = Instant.parse("2026-10-22T23:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = inputContext, time = mockTime, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
             assertEquals(emptyList<UpcomingEvent>(), awaitItem())
 
-            time.current = Instant.parse("2026-10-23T00:05:00Z")
-            context.contentResolver.notifyChange(CalendarContract.Instances.CONTENT_URI, null)
+            mockTime.current = Instant.parse("2026-10-23T00:05:00Z")
+            inputContext.contentResolver.notifyChange(CalendarContract.Instances.CONTENT_URI, null)
             shadowOf(Looper.getMainLooper()).idle()
             runCurrent()
 
@@ -96,7 +96,7 @@ class ICalendarEventSourceImplTest {
                     window(start = "2026-10-22T00:00:00Z", end = "2026-10-23T01:50:00Z"),
                     window(start = "2026-10-23T00:00:00Z", end = "2026-10-23T02:05:00Z")
                 ),
-                provider.queriedWindows()
+                mockProvider.queriedWindows()
             )
             cancelAndIgnoreRemainingEvents()
         }
@@ -104,27 +104,27 @@ class ICalendarEventSourceImplTest {
 
     @Test
     fun `uses the current time zone on every recheck`() = runTest {
-        val context: Context = RuntimeEnvironment.getApplication()
-        val provider: RecordingCalendarProvider = RecordingCalendarProvider()
-        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, provider)
-        val time: MutableTime = MutableTime(
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val mockProvider: RecordingCalendarProvider = RecordingCalendarProvider()
+        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, mockProvider)
+        val mockTime: MutableTime = MutableTime(
             current = Instant.parse("2026-10-22T03:50:00Z"),
             zone = ZoneId.of("UTC")
         )
-        val source: ICalendarEventSourceImpl = createSource(context = context, time = time, scheduler = testScheduler)
+        val source: ICalendarEventSourceImpl = createSource(context = inputContext, time = mockTime, scheduler = testScheduler)
 
         source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
             runCurrent()
             assertEquals(emptyList<UpcomingEvent>(), awaitItem())
 
-            time.current = Instant.parse("2026-10-22T05:05:00Z")
-            time.zone = ZoneId.of("America/New_York")
+            mockTime.current = Instant.parse("2026-10-22T05:05:00Z")
+            mockTime.zone = ZoneId.of("America/New_York")
             advanceTimeBy(EVENT_RECHECK_INTERVAL_MS + MILLIS_PER_MINUTE)
             runCurrent()
 
             assertEquals(
                 window(start = "2026-10-22T04:00:00Z", end = "2026-10-22T07:05:00Z"),
-                provider.queriedWindows().last()
+                mockProvider.queriedWindows().last()
             )
             cancelAndIgnoreRemainingEvents()
         }

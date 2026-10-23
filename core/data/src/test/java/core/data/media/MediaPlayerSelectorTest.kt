@@ -8,27 +8,27 @@ import org.junit.Test
 class MediaPlayerSelectorTest {
     @Test
     fun `returns null while the Media Player is disabled`() {
-        val session: MediaSessionSnapshot = session(title = "Song", state = PlaybackStatus.PLAYING)
+        val inputSession: MediaSessionSnapshot = session(title = "Song", state = PlaybackStatus.PLAYING)
 
-        assertNull(MediaPlayerSelector.selectSession(sessions = listOf(session), settings = MediaPlayerSettings(enabled = false)))
+        assertNull(MediaPlayerSelector.selectSession(sessions = listOf(inputSession), settings = MediaPlayerSettings(enabled = false)))
     }
 
     @Test
     fun `picks the first eligible session in system order`() {
-        val first: MediaSessionSnapshot = session(key = "first", title = "First", state = PlaybackStatus.PAUSED)
-        val second: MediaSessionSnapshot = session(key = "second", title = "Second", state = PlaybackStatus.PLAYING)
+        val inputFirst: MediaSessionSnapshot = session(key = "first", title = "First", state = PlaybackStatus.PAUSED)
+        val inputSecond: MediaSessionSnapshot = session(key = "second", title = "Second", state = PlaybackStatus.PLAYING)
 
-        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
-            sessions = listOf(first, second),
+        val actualSelected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(inputFirst, inputSecond),
             settings = MediaPlayerSettings(enabled = true)
         )
 
-        assertEquals(first, selected)
+        assertEquals(inputFirst, actualSelected)
     }
 
     @Test
     fun `skips blank, stopped, none and error sessions`() {
-        val sessions: List<MediaSessionSnapshot> = listOf(
+        val inputSessions: List<MediaSessionSnapshot> = listOf(
             session(key = "blank", title = " ", state = PlaybackStatus.PLAYING),
             session(key = "stopped", title = "Stopped", state = PlaybackStatus.STOPPED),
             session(key = "none", title = "None", state = PlaybackStatus.NONE),
@@ -36,56 +36,56 @@ class MediaPlayerSelectorTest {
             session(key = "buffering", title = "Buffering", state = PlaybackStatus.BUFFERING)
         )
 
-        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
-            sessions = sessions,
+        val actualSelected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = inputSessions,
             settings = MediaPlayerSettings(enabled = true)
         )
 
-        assertEquals("buffering", selected?.key?.value)
+        assertEquals("buffering", actualSelected?.key?.value)
     }
 
     @Test
     fun `returns null when no session is eligible`() {
-        val sessions: List<MediaSessionSnapshot> = listOf(
+        val inputSessions: List<MediaSessionSnapshot> = listOf(
             session(title = "", state = PlaybackStatus.PLAYING),
             session(title = "Stopped", state = PlaybackStatus.STOPPED)
         )
 
-        assertNull(MediaPlayerSelector.selectSession(sessions = sessions, settings = MediaPlayerSettings(enabled = true)))
+        assertNull(MediaPlayerSelector.selectSession(sessions = inputSessions, settings = MediaPlayerSettings(enabled = true)))
     }
 
     @Test
     fun `skips excluded packages`() {
-        val excluded: MediaSessionSnapshot = session(
+        val inputExcluded: MediaSessionSnapshot = session(
             key = "excluded",
             packageName = "com.example.video",
             appLabel = "Video",
             state = PlaybackStatus.PLAYING
         )
-        val allowed: MediaSessionSnapshot = session(key = "allowed", state = PlaybackStatus.PLAYING)
-        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
-            sessions = listOf(excluded, allowed),
+        val inputAllowed: MediaSessionSnapshot = session(key = "allowed", state = PlaybackStatus.PLAYING)
+        val actualSelected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(inputExcluded, inputAllowed),
             settings = MediaPlayerSettings(enabled = true, excludedPackages = setOf("com.example.video"))
         )
-        assertEquals(allowed, selected)
+        assertEquals(inputAllowed, actualSelected)
     }
 
     @Test
     fun `shows a paused session when show when paused is on`() {
-        val paused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
-        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
-            sessions = listOf(paused),
+        val inputPaused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
+        val actualSelected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(inputPaused),
             settings = MediaPlayerSettings(enabled = true, showWhenPaused = true)
         )
-        assertEquals(paused, selected)
+        assertEquals(inputPaused, actualSelected)
     }
 
     @Test
     fun `skips a paused session when show when paused is off`() {
-        val paused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
+        val inputPaused: MediaSessionSnapshot = session(state = PlaybackStatus.PAUSED)
         assertNull(
             MediaPlayerSelector.selectSession(
-                sessions = listOf(paused),
+                sessions = listOf(inputPaused),
                 settings = MediaPlayerSettings(enabled = true, showWhenPaused = false)
             )
         )
@@ -93,13 +93,13 @@ class MediaPlayerSelectorTest {
 
     @Test
     fun `lets a lower playing session win over a higher paused session when show when paused is off`() {
-        val paused: MediaSessionSnapshot = session(key = "paused", state = PlaybackStatus.PAUSED)
-        val playing: MediaSessionSnapshot = session(key = "playing", state = PlaybackStatus.PLAYING)
-        val selected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
-            sessions = listOf(paused, playing),
+        val inputPaused: MediaSessionSnapshot = session(key = "paused", state = PlaybackStatus.PAUSED)
+        val inputPlaying: MediaSessionSnapshot = session(key = "playing", state = PlaybackStatus.PLAYING)
+        val actualSelected: MediaSessionSnapshot? = MediaPlayerSelector.selectSession(
+            sessions = listOf(inputPaused, inputPlaying),
             settings = MediaPlayerSettings(enabled = true, showWhenPaused = false)
         )
-        assertEquals(playing, selected)
+        assertEquals(inputPlaying, actualSelected)
     }
 
     private fun session(
