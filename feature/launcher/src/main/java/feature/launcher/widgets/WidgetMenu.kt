@@ -43,7 +43,6 @@ import core.data.icons.model.Icon
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
 import core.widgets.HeaderClockStyleChooser
-import core.widgets.R as CoreWidgetsR
 import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */
@@ -268,21 +267,21 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Clock -> R.string.widget_clock
     WidgetMenuAction.Date -> R.string.widget_date
     WidgetMenuAction.Battery -> CoreUiR.string.battery
-    WidgetMenuAction.UpcomingEvents -> CoreWidgetsR.string.upcoming_events
+    WidgetMenuAction.UpcomingEvents -> CoreUiR.string.upcoming_events
     WidgetMenuAction.ClockStyle -> R.string.clock_style
-    WidgetMenuAction.AddWidget -> CoreWidgetsR.string.add_widget
+    WidgetMenuAction.AddWidget -> CoreUiR.string.add_widget
     WidgetMenuAction.MoveWidgetArea -> R.string.move_widget_area
     WidgetMenuAction.Resize -> R.string.resize_widget
     WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RemoveFromStack -> R.string.remove_from_stack
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
-    WidgetMenuAction.RemoveWidget -> CoreWidgetsR.string.remove_widget
+    WidgetMenuAction.RemoveWidget -> CoreUiR.string.remove_widget
     WidgetMenuAction.ReplaceHeader -> R.string.replace_header
-    WidgetMenuAction.ExtendUnderRail -> CoreWidgetsR.string.extend_under_rail
+    WidgetMenuAction.ExtendUnderRail -> CoreUiR.string.extend_under_rail
     WidgetMenuAction.EditWidgets -> R.string.edit_widgets
     WidgetMenuAction.WidgetSettings -> R.string.widget_settings
-    WidgetMenuAction.MediaPlayer -> CoreWidgetsR.string.media_player
+    WidgetMenuAction.MediaPlayer -> CoreUiR.string.media_player
     WidgetMenuAction.OpenMediaPlayer -> R.string.open_app
     WidgetMenuAction.ExcludeMediaApp -> R.string.exclude_media_app
     WidgetMenuAction.MediaPlayerSettings -> R.string.media_player_settings

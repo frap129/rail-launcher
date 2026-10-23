@@ -33,10 +33,10 @@ import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
 import core.widgets.HeaderFormatter
 import core.widgets.IHeaderTapTargetResolverImpl
-import core.widgets.R as CoreWidgetsR
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -281,7 +281,7 @@ class WidgetSettingsViewModelTest {
             viewModel.removeWidget(widgetId = 2L)
 
             assertEquals(WidgetSettingsEvent.AppWidgetRemoved(appWidgetId = AppWidgetId(9)), awaitItem())
-            assertEquals(WidgetSettingsEvent.ShowMessage(message = CoreWidgetsR.string.widget_removed), awaitItem())
+            assertEquals(WidgetSettingsEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
             assertEquals(listOf(2L), mockRemoveAppWidget.removedWidgetIds)
             cancelAndIgnoreRemainingEvents()
         }

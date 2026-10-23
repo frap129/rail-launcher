@@ -2,12 +2,18 @@
 <resources>
     <string name="header_last_part_supporting_text">Use Remove Header to hide the Header</string>
     <string name="battery">Battery</string>
-    <string name="battery_never">Never</string>
-    <string name="battery_always">Always</string>
-    <string name="battery_charging_or_low">When charging or low</string>
-    <string name="calendar_permission_needed">Rail needs calendar access to show events</string>
     <string name="calendar_permission_denied_title">Calendar access is off</string>
     <string name="calendar_permission_denied_message">Rail needs calendar access to show events. Enable it in app settings.</string>
     <string name="open_settings">Open settings</string>
     <string name="cancel">Cancel</string>
+    <string name="media_player">Media Player</string>
+    <string name="extend_under_rail">Extend under Rail</string>
+    <string name="extend_under_rail_supporting_text">Taps near the right edge may scroll the Rail</string>
+    <string name="not_available_in_stack">Not available in a stack</string>
+    <string name="add_widget">Add widget</string>
+    <string name="done">Done</string>
+    <string name="remove_widget">Remove widget</string>
+    <string name="reset">Reset</string>
+    <string name="upcoming_events">Upcoming events</string>
+    <string name="widget_removed">Widget removed</string>
 </resources>

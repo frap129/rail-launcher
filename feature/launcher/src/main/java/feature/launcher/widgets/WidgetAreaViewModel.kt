@@ -52,7 +52,6 @@ import core.widgets.AppWidgetModel
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
 import core.widgets.IHeaderTapTargetResolver
-import core.widgets.R as CoreWidgetsR
 import core.widgets.WidgetModel
 import core.widgets.labelResource
 import feature.launcher.R
@@ -1172,7 +1171,7 @@ class WidgetAreaViewModel(
             val appWidgetId: AppWidgetId = removeAppWidget(widgetId = widgetId) ?: return@launch
             menuTarget.value = null
             eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = appWidgetId))
-            eventChannel.send(WidgetAreaEvent.ShowMessage(message = CoreWidgetsR.string.widget_removed))
+            eventChannel.send(WidgetAreaEvent.ShowMessage(message = CoreUiR.string.widget_removed))
         }
     }
 
@@ -1323,9 +1322,9 @@ class WidgetAreaViewModel(
                                 checked = widget.extendsUnderRail,
                                 enabled = !place.isStack,
                                 supportingText = if (place.isStack) {
-                                    CoreWidgetsR.string.not_available_in_stack
+                                    CoreUiR.string.not_available_in_stack
                                 } else {
-                                    CoreWidgetsR.string.extend_under_rail_supporting_text
+                                    CoreUiR.string.extend_under_rail_supporting_text
                                 }
                             )
                         )

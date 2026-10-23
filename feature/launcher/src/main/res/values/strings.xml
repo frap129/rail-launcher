@@ -3,8 +3,6 @@
     <string name="header_removed">Header removed</string>
     <string name="header_replaced">Header replaced</string>
     <string name="undo">Undo</string>
-    <string name="launcher_done">Done</string>
-    <string name="launcher_reset">Reset</string>
     <string name="app_info">App Info</string>
     <string name="edit_favorites">Edit Favorites</string>
     <string name="favorites_empty_hint">Long-press any app to add it to Favorites</string>
@@ -13,6 +11,7 @@
     <string name="reorder_favorite">Reorder %1$s</string>
     <string name="rename_item">Rename %1$s</string>
     <string name="cannot_open_launchable">Can\'t open %1$s</string>
+    <string name="calendar_permission_needed">Rail needs calendar access to show events</string>
     <string name="no_clock_app">No clock app</string>
     <string name="no_calendar_app">No calendar app</string>
     <string name="no_battery_usage_app">No battery usage screen</string>
@@ -39,7 +38,6 @@
     <string name="add_next_to_supporting_text">Adds another Stack page here; swipe sideways between them</string>
     <string name="stack_full">Stack is full</string>
     <string name="reorder_widget">Reorder %1$s</string>
-    <string name="add_widget_title">Add widget</string>
     <string name="clock_style">Clock Style…</string>
     <string name="search_widgets">Search widgets</string>
     <string name="no_widgets_found">No widgets found</string>

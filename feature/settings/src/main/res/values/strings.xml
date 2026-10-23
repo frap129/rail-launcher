@@ -34,14 +34,14 @@
     <string name="tap_action_nothing">Nothing</string>
     <string name="tap_action_search">Search</string>
     <string name="show_upcoming_events">Show upcoming events</string>
-    <string name="calendar_access_off">Calendar access is off</string>
+    <string name="back">Back</string>
     <string name="grant">Grant</string>
     <string name="event_lookahead">Lookahead</string>
     <plurals name="event_lookahead_hours">
         <item quantity="one">%1$d hour</item>
         <item quantity="other">%1$d hours</item>
     </plurals>
-    <string name="event_count">Number of events</string>
+    <string name="event_count_label">Number of events</string>
     <plurals name="event_count">
         <item quantity="one">%1$d event</item>
         <item quantity="other">%1$d events</item>

@@ -23,6 +23,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import core.ui.R as CoreUiR
 import core.ui.util.performSegmentTickHaptic
 import core.widgets.MoveWidgetAreaSlider
 import core.widgets.R as CoreWidgetsR
@@ -75,10 +76,10 @@ fun MoveWidgetAreaPanel(
                 Text(text = valueLabel, style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.weight(1f))
                 TextButton(onClick = onReset) {
-                    Text(text = stringResource(CoreWidgetsR.string.reset))
+                    Text(text = stringResource(CoreUiR.string.reset))
                 }
                 FilledTonalButton(onClick = onDone) {
-                    Text(text = stringResource(CoreWidgetsR.string.done))
+                    Text(text = stringResource(CoreUiR.string.done))
                 }
             }
         }
