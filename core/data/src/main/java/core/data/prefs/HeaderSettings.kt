@@ -61,6 +61,9 @@ fun HeaderSettings.withClockVisible(visible: Boolean): HeaderSettings =
 
 fun HeaderSettings.withDateVisible(visible: Boolean): HeaderSettings = if (!visible && !canHideDate) this else copy(dateVisible = visible)
 
+/** Reports whether this Tap action points at a Launchable that is not among [validKeys]. */
+fun HeaderTapSetting?.isStale(validKeys: Set<String>): Boolean = this is HeaderTapSetting.Launchable && key !in validKeys
+
 /**
  * Reports whether [visibility] can be selected without hiding the Header's last standing part.
  * A conditional battery only stands in when the Clock or Date is visible.

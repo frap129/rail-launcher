@@ -24,6 +24,7 @@ import core.data.testing.FakeMediaSessionSource
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
+import core.data.testing.createHeaderSettingsActions
 import core.data.time.ClockReading
 import core.data.widgets.HomeHeightState
 import core.data.widgets.MediaPlayerPlacement
@@ -32,6 +33,7 @@ import core.data.widgets.PlacedWidget
 import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
 import core.widgets.HeaderFormatter
+import core.widgets.IHeaderTapTargetResolverImpl
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -716,7 +718,12 @@ class WidgetSettingsViewModelTest {
         appWidgetHost = appWidgetHost,
         removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost),
         homeHeightState = homeHeightState,
-        mediaSessionSource = mediaSessionSource
+        mediaSessionSource = mediaSessionSource,
+        headerSettingsActions = createHeaderSettingsActions(
+            settingsRepository = settingsRepository,
+            calendarEventSource = calendarEventSource
+        ),
+        tapTargetResolver = IHeaderTapTargetResolverImpl()
     )
 
     private fun reading(isSystem24Hour: Boolean = false): ClockReading = ClockReading(

@@ -78,4 +78,15 @@ class HeaderSettingsTest {
         assertFalse(canSetBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW, clockVisible = false, dateVisible = false))
         assertTrue(canSetBatteryVisibility(BatteryVisibility.ALWAYS, clockVisible = false, dateVisible = false))
     }
+
+    @Test
+    fun `reports a Tap action as stale only when its Launchable key is missing`() {
+        val validKeys: Set<String> = setOf("rail://maps")
+        val missingSetting: HeaderTapSetting? = null
+        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isStale(validKeys = validKeys))
+        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isStale(validKeys = validKeys))
+        assertFalse(HeaderTapSetting.Nothing.isStale(validKeys = validKeys))
+        assertFalse(HeaderTapSetting.SystemDefault.isStale(validKeys = validKeys))
+        assertFalse(missingSetting.isStale(validKeys = validKeys))
+    }
 }
