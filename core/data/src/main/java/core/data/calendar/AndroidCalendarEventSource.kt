@@ -15,7 +15,6 @@ import android.os.Process
 import android.os.UserManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
-import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -51,7 +50,8 @@ internal data class EventQueryWindow(val startMillis: Long, val endMillis: Long)
 
 class AndroidCalendarEventSource(
     context: Context,
-    private val clock: Clock = Clock.systemDefaultZone(),
+    private val now: () -> Instant = Instant::now,
+    private val zoneId: () -> ZoneId = ZoneId::systemDefault,
     private val queryDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ICalendarEventSource {
     private val appContext: Context = context.applicationContext
@@ -70,11 +70,9 @@ class AndroidCalendarEventSource(
 
     override fun events(lookaheadHours: Int): Flow<List<UpcomingEvent>> = callbackFlow {
         val flowScope: ProducerScope<List<UpcomingEvent>> = this
-        val safeLookaheadHours: Int = lookaheadHours.coerceIn(1, MAX_EVENT_LOOKAHEAD_HOURS)
         fun recheck() {
             flowScope.launch(queryDispatcher) {
-                val window: EventQueryWindow = eventQueryWindow(lookaheadHours = safeLookaheadHours)
-                trySend(queryEvents(windowStartMillis = window.startMillis, windowEndMillis = window.endMillis))
+                trySend(queryEvents(window = eventQueryWindow(lookaheadHours = lookaheadHours)))
             }
         }
         val observer: ContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -150,10 +148,13 @@ class AndroidCalendarEventSource(
     }
 
     private fun eventQueryWindow(lookaheadHours: Int): EventQueryWindow {
-        val now: Instant = clock.instant()
-        val zoneId: ZoneId = clock.zone
-        val startMillis: Long = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant().toEpochMilli()
-        val endMillis: Long = now.toEpochMilli() + Duration.ofHours(lookaheadHours.toLong()).toMillis()
+        val currentInstant: Instant = now()
+        val currentZone: ZoneId = zoneId()
+        val startMillis: Long = currentInstant.atZone(currentZone).toLocalDate()
+            .atStartOfDay(currentZone)
+            .toInstant()
+            .toEpochMilli()
+        val endMillis: Long = currentInstant.plus(Duration.ofHours(lookaheadHours.toLong())).toEpochMilli()
         return EventQueryWindow(startMillis = startMillis, endMillis = endMillis)
     }
 
@@ -171,34 +172,28 @@ class AndroidCalendarEventSource(
         }
     }
 
-    private fun queryEvents(windowStartMillis: Long, windowEndMillis: Long): List<UpcomingEvent> = buildList {
-        addAll(queryEvents(uri = CalendarContract.Instances.CONTENT_URI, isWorkProfile = false, windowStartMillis, windowEndMillis))
+    private fun queryEvents(window: EventQueryWindow): List<UpcomingEvent> = buildList {
+        addAll(queryEvents(uri = CalendarContract.Instances.CONTENT_URI, isWorkProfile = false, window = window))
         if (crossProfileCalendarAccess() != CrossProfileCalendarAccess.Denied) {
             addAll(
                 queryEvents(
                     uri = CalendarContract.Instances.ENTERPRISE_CONTENT_URI,
                     isWorkProfile = true,
-                    windowStartMillis,
-                    windowEndMillis
+                    window = window
                 )
             )
         }
     }
 
-    private fun queryEvents(
-        uri: android.net.Uri,
-        isWorkProfile: Boolean,
-        windowStartMillis: Long,
-        windowEndMillis: Long
-    ): List<UpcomingEvent> {
+    private fun queryEvents(uri: android.net.Uri, isWorkProfile: Boolean, window: EventQueryWindow): List<UpcomingEvent> {
         val selection: String = "${CalendarContract.Instances.BEGIN} < ? AND ${CalendarContract.Instances.END} > ? AND " +
             "${CalendarContract.Instances.VISIBLE} = 1 AND " +
             "(${CalendarContract.Instances.SELF_ATTENDEE_STATUS} IS NULL OR " +
             "${CalendarContract.Instances.SELF_ATTENDEE_STATUS} != ?) AND " +
             "(${CalendarContract.Instances.STATUS} IS NULL OR ${CalendarContract.Instances.STATUS} != ?)"
         val selectionArgs: Array<String> = arrayOf(
-            windowEndMillis.toString(),
-            windowStartMillis.toString(),
+            window.endMillis.toString(),
+            window.startMillis.toString(),
             CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED.toString(),
             CalendarContract.Events.STATUS_CANCELED.toString()
         )
@@ -300,13 +295,13 @@ class AndroidCalendarEventSource(
         val flowScope: ProducerScope<List<T>> = this
         val observer: ContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                flowScope.launch(Dispatchers.IO) {
+                flowScope.launch(queryDispatcher) {
                     trySend(query())
                 }
             }
         }
         val registeredUris: List<android.net.Uri> = registerObservers(observer = observer, uris = calendarUris())
-        flowScope.launch(Dispatchers.IO) {
+        flowScope.launch(queryDispatcher) {
             trySend(query())
         }
         awaitClose {

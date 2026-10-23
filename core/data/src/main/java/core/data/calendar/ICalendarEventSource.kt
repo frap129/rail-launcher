@@ -31,6 +31,9 @@ interface ICalendarEventSource {
 
     val calendars: Flow<List<CalendarInfo>>
 
+    /**
+     * [lookaheadHours] must already be clamped; the window is recomputed from the current time and zone on every recheck.
+     */
     fun events(lookaheadHours: Int): Flow<List<UpcomingEvent>>
 
     fun refreshPermission()
