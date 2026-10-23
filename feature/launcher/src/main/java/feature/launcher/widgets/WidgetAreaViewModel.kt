@@ -48,6 +48,7 @@ import core.data.widgets.labelOr
 import core.data.widgets.resizeBounds
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.widgets.AppWidgetModel
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
@@ -79,7 +80,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
-private const val STATE_TIMEOUT_MS: Long = 5_000L
 private const val PAGE_SETTLE_DEBOUNCE_MS: Long = 300L
 
 /** One step of the Move Widget Area adjuster. */
@@ -279,7 +279,7 @@ class WidgetAreaViewModel(
         draft?.let { offsetDp -> toMoveState(offsetDp = offsetDp, homeHeightDp = homeHeightDp) }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = null
     )
 
@@ -449,7 +449,7 @@ class WidgetAreaViewModel(
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = WidgetAreaState()
     )
 
@@ -476,7 +476,7 @@ class WidgetAreaViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = MediaPlayerUiState.Hidden
     )
 
@@ -529,7 +529,7 @@ class WidgetAreaViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = WidgetMenuState.Closed
     )
 

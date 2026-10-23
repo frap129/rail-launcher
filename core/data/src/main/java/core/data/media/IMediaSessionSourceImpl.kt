@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.app.NotificationManagerCompat
 import core.data.retryWithExponentialBackoff
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -31,8 +32,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
-
-private const val SUBSCRIPTION_TIMEOUT_MS: Long = 5_000L
 
 class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private val artworkStore: MediaArtworkStore) : IMediaSessionSource {
     private val appContext: Context = context.applicationContext
@@ -68,7 +67,7 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
         .conflate()
         .shareIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             replay = 1
         )
 

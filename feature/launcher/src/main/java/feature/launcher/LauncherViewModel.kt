@@ -9,6 +9,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import feature.launcher.widgets.HomeEditMode
 import feature.launcher.widgets.HomeEditState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,8 +54,6 @@ sealed class LauncherMenuState {
     data class Menu(val item: Launchable) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
-
-private const val VIEW_MODEL_STATE_TIMEOUT_MS: Long = 5_000
 
 // Favorites missing from [keys] keep their relative order after the ordered ones.
 private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchable> {
@@ -127,7 +126,7 @@ class LauncherViewModel(
         .map { state -> state.groups.map { group -> group.label } }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(VIEW_MODEL_STATE_TIMEOUT_MS),
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = emptyList()
         )
 
@@ -142,7 +141,7 @@ class LauncherViewModel(
         .map { mode -> mode == HomeEditMode.Favorites }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(),
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = false
         )
 
@@ -157,7 +156,7 @@ class LauncherViewModel(
         if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys)
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(VIEW_MODEL_STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = emptyList()
     )
 
@@ -175,7 +174,7 @@ class LauncherViewModel(
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherUiState.Loading
     )
 
@@ -199,7 +198,7 @@ class LauncherViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherMenuState.Closed
     )
 
