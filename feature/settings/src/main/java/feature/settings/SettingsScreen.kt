@@ -1205,11 +1205,13 @@ private fun CalendarSelectionDialog(
     onDismiss: () -> Unit
 ) {
     val otherCalendars: String = stringResource(R.string.other_calendars)
+    val workProfile: String = stringResource(R.string.work_profile)
+    val workCalendar: String = stringResource(R.string.work_calendar)
     var selectedKeys: Set<String> by remember(calendars, excludedCalendarIds) {
         mutableStateOf(calendars.map { calendar -> calendar.calendarKey }.toSet() - excludedCalendarIds)
     }
     val groups: Map<String, List<CalendarInfo>> = calendars.groupBy { calendar ->
-        calendar.accountName.ifBlank { otherCalendars }
+        calendar.accountGroupLabel(otherCalendars = otherCalendars, workProfile = workProfile)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1253,8 +1255,17 @@ private fun CalendarSelectionDialog(
     )
 }
 
+private fun CalendarInfo.accountGroupLabel(otherCalendars: String, workProfile: String): String =
+    accountName.ifBlank { if (isWorkProfile) workProfile else otherCalendars }
+
+private fun CalendarInfo.selectionLabel(otherCalendars: String, workCalendar: String): String =
+    name.ifBlank { accountName.ifBlank { if (isWorkProfile) workCalendar else otherCalendars } }
+
 @Composable
 private fun CalendarSelectionRow(calendar: CalendarInfo, selected: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val otherCalendars: String = stringResource(R.string.other_calendars)
+    val workCalendar: String = stringResource(R.string.work_calendar)
+    val label: String = calendar.selectionLabel(otherCalendars = otherCalendars, workCalendar = workCalendar)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1270,11 +1281,11 @@ private fun CalendarSelectionRow(calendar: CalendarInfo, selected: Boolean, onCh
                 .background(color = Color(calendar.color), shape = CircleShape)
         )
         Text(
-            text = calendar.name,
+            text = label,
             modifier = Modifier.padding(start = 8.dp),
             style = MaterialTheme.typography.bodyLarge
         )
-        if (calendar.isWorkProfile) {
+        if (calendar.isWorkProfile && label != workCalendar) {
             Text(
                 text = stringResource(R.string.work_profile),
                 modifier = Modifier.padding(start = 8.dp),

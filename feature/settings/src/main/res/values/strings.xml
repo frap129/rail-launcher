@@ -53,6 +53,7 @@
     <string name="no_calendars">No calendars</string>
     <string name="other_calendars">Other</string>
     <string name="work_profile">Work</string>
+    <string name="work_calendar">Work calendar</string>
     <string name="app_widgets">App Widgets</string>
     <string name="widget_area">Widget Area</string>
     <string name="limit_widget_area_height">Limit Widget Area height</string>

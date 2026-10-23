@@ -11,10 +11,13 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
+import android.os.UserManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 private const val RECHECK_INTERVAL_MS: Long = 15 * 60 * 1_000L
 
@@ -91,8 +95,24 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
         Manifest.permission.READ_CALENDAR
     ) == PackageManager.PERMISSION_GRANTED
 
+    /** Whether a profile other than the current user exists; null when it cannot be determined. */
+    private fun hasSecondaryProfile(): Boolean? {
+        val userManager: UserManager = appContext.getSystemService(UserManager::class.java) ?: return null
+        return try {
+            userManager.userProfiles.any { profile -> profile != Process.myUserHandle() }
+        } catch (exception: Exception) {
+            Timber.w(exception, "Unable to enumerate user profiles")
+            null
+        }
+    }
+
     @Suppress("DEPRECATION")
     private fun crossProfileCalendarAccess(): CrossProfileCalendarAccess {
+        when (hasSecondaryProfile()) {
+            false -> return CrossProfileCalendarAccess.Denied
+            null -> return CrossProfileCalendarAccess.Unknown
+            true -> Unit
+        }
         val devicePolicyManager: DevicePolicyManager =
             appContext.getSystemService(DevicePolicyManager::class.java) ?: return CrossProfileCalendarAccess.Unknown
         val admin: ComponentName = deviceOwnerComponent(devicePolicyManager) ?: return CrossProfileCalendarAccess.Unknown
@@ -103,9 +123,8 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
             } else {
                 CrossProfileCalendarAccess.Denied
             }
-        } catch (exception: SecurityException) {
-            CrossProfileCalendarAccess.Unknown
-        } catch (exception: IllegalArgumentException) {
+        } catch (exception: Exception) {
+            Timber.w(exception, "Unable to read cross-profile calendar access")
             CrossProfileCalendarAccess.Unknown
         }
     }
@@ -199,17 +218,24 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
 
     private fun queryCalendars(uri: android.net.Uri, isWorkProfile: Boolean): List<CalendarInfo> = query(
         uri = uri,
-        projection = CALENDAR_PROJECTION,
+        projection = if (isWorkProfile) WORK_CALENDAR_PROJECTION else CALENDAR_PROJECTION,
         selection = "${CalendarContract.Calendars.VISIBLE} = 1",
         selectionArgs = null,
-        sortOrder = "${CalendarContract.Calendars.ACCOUNT_NAME} ASC"
-    ) { cursor ->
-        CalendarInfo(
-            id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)),
-            name = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)),
-            accountName = cursor.getString(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)).orEmpty(),
-            color = cursor.getInt(cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_COLOR)),
-            isWorkProfile = isWorkProfile
+        sortOrder = if (isWorkProfile) null else "${CalendarContract.Calendars.ACCOUNT_NAME} ASC"
+    ) { cursor -> cursor.toCalendar(isWorkProfile = isWorkProfile) }
+
+    private fun Cursor.toCalendar(isWorkProfile: Boolean): CalendarInfo {
+        val id: Long = getLong(getColumnIndexOrThrow(CalendarContract.Calendars._ID))
+        val color: Int = getInt(getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_COLOR))
+        if (isWorkProfile) {
+            return CalendarInfo(id = id, name = "", accountName = "", color = color, isWorkProfile = true)
+        }
+        return CalendarInfo(
+            id = id,
+            name = getString(getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)).orEmpty(),
+            accountName = getString(getColumnIndexOrThrow(CalendarContract.Calendars.ACCOUNT_NAME)).orEmpty(),
+            color = color,
+            isWorkProfile = false
         )
     }
 
@@ -225,15 +251,35 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
             appContext.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)
         } catch (exception: SecurityException) {
             return emptyList()
-        } catch (exception: IllegalArgumentException) {
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Timber.w(exception, "Calendar provider query failed for %s", uri)
             return emptyList()
         } ?: return emptyList()
-        return cursor.use { results ->
-            buildList {
-                while (results.moveToNext()) {
-                    add(mapper(results))
+        return try {
+            cursor.use { results ->
+                var hasLoggedRowFailure: Boolean = false
+                buildList {
+                    while (results.moveToNext()) {
+                        try {
+                            add(mapper(results))
+                        } catch (exception: CancellationException) {
+                            throw exception
+                        } catch (exception: Exception) {
+                            if (!hasLoggedRowFailure) {
+                                Timber.w(exception, "Skipping unreadable calendar provider rows from %s", uri)
+                                hasLoggedRowFailure = true
+                            }
+                        }
+                    }
                 }
             }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Timber.w(exception, "Calendar provider query failed for %s", uri)
+            emptyList()
         }
     }
 
@@ -284,5 +330,11 @@ private val CALENDAR_PROJECTION: Array<String> = arrayOf(
     CalendarContract.Calendars._ID,
     CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
     CalendarContract.Calendars.ACCOUNT_NAME,
+    CalendarContract.Calendars.CALENDAR_COLOR
+)
+
+/** The cross-profile provider rejects display names and account names, so work calendars are labelled in the UI. */
+private val WORK_CALENDAR_PROJECTION: Array<String> = arrayOf(
+    CalendarContract.Calendars._ID,
     CalendarContract.Calendars.CALENDAR_COLOR
 )
