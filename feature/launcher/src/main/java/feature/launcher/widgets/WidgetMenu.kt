@@ -240,13 +240,14 @@ private fun ChoiceRow(
                         .fillMaxWidth()
                         .selectable(
                             selected = option.key == item.selectedKey,
+                            enabled = option.enabled,
                             role = Role.RadioButton,
                             onClick = { onChoiceSelected(item.id, option.key) }
                         )
                         .padding(start = 76.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RadioButton(selected = option.key == item.selectedKey, onClick = null)
+                    RadioButton(selected = option.key == item.selectedKey, onClick = null, enabled = option.enabled)
                     Text(text = stringResource(option.label), modifier = Modifier.padding(start = 12.dp))
                 }
             }

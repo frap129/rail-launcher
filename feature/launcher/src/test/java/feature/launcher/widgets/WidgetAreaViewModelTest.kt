@@ -613,18 +613,40 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `restores the clock when the battery stops being always visible`() = runTest {
+    fun `never re-enables a hidden clock when the battery stops being always visible`() = runTest {
         val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
-            HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
+            HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
 
         viewModel.selectBatteryVisibility(BatteryVisibility.NEVER)
         advanceUntilIdle()
 
-        val updated: HeaderSettings = settingsRepository.updates.single()
-        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
-        assertTrue(updated.clockVisible)
+        val actualSettings: HeaderSettings = settingsRepository.updates.single()
+        assertEquals(BatteryVisibility.NEVER, actualSettings.batteryVisibility)
+        assertFalse(actualSettings.clockVisible)
+    }
+
+    @Test
+    fun `disables conditional battery options while the battery is the last visible part`() = runTest {
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(settingsRepository = settingsRepository)
+
+        viewModel.menuState.test {
+            viewModel.openHeaderMenu()
+            val menu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
+            val battery: WidgetMenuItem.Choice = menu.items[2] as WidgetMenuItem.Choice
+            val enabledByVisibility: Map<String, Boolean> = battery.options.associate { option ->
+                option.key.value to option.enabled
+            }
+
+            assertTrue(enabledByVisibility.getValue(BatteryVisibility.ALWAYS.name))
+            assertFalse(enabledByVisibility.getValue(BatteryVisibility.NEVER.name))
+            assertFalse(enabledByVisibility.getValue(BatteryVisibility.CHARGING_OR_LOW.name))
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -1821,19 +1843,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.Reconfigure,
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(reconfigure = true), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1851,18 +1861,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1879,18 +1878,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2106,19 +2094,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.Resize,
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(resize = true), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2138,18 +2114,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2164,18 +2129,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(), menu.items.map { item -> item.id })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2696,22 +2650,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Replace Header when the Header shares the widget's stack`() = runTest {
-        val stack: WidgetPlace = WidgetPlace(
-            id = 1L,
-            heightDp = null,
-            currentPage = 0,
-            widgets = listOf(
-                PlacedWidget.Header(id = 1L),
-                PlacedWidget.AppWidget(
-                    id = 2L,
-                    appWidgetId = 9,
-                    provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
-                    profileSerial = 0L,
-                    extendsUnderRail = false
-                )
-            )
-        )
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(stack))
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(stackPlace()))
         val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
             initialProviders = listOf(appWidgetProviderInfo())
         )
@@ -2731,6 +2670,26 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
+    fun `orders the stack page menu with Edit widgets before Remove from stack`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(stackPlace()))
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo())
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
+
+        viewModel.menuState.test {
+            viewModel.openAppWidgetMenu(widgetId = 2L)
+            val menu: WidgetMenuState.AppWidgetMenu = expectState()
+
+            assertEquals(
+                expectedAppWidgetMenuOrder(resize = true, replaceHeader = false, removeFromStack = true),
+                menu.items.map { item -> item.id }
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `shows Replace Header when a Header exists outside the widget's place`() = runTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
@@ -2743,18 +2702,7 @@ class WidgetAreaViewModelTest {
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
             val menu: WidgetMenuState.AppWidgetMenu = expectState()
-            assertEquals(
-                listOf(
-                    WidgetMenuAction.AddWidget,
-                    WidgetMenuAction.ReplaceHeader,
-                    WidgetMenuAction.ExtendUnderRail,
-                    WidgetMenuAction.MoveWidgetArea,
-                    WidgetMenuAction.RemoveWidget,
-                    WidgetMenuAction.EditWidgets,
-                    WidgetMenuAction.WidgetSettings
-                ),
-                menu.items.map { item -> item.id }
-            )
+            assertEquals(expectedAppWidgetMenuOrder(), menu.items.map { item -> item.id })
             val extend: WidgetMenuItem.Toggle = menu.items
                 .filterIsInstance<WidgetMenuItem.Toggle>()
                 .single { item -> item.id == WidgetMenuAction.ExtendUnderRail }
@@ -2825,6 +2773,33 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
         assertTrue(stackedRepository.extendsUnderRailUpdates.isEmpty())
     }
+
+    private fun expectedAppWidgetMenuOrder(
+        resize: Boolean = false,
+        reconfigure: Boolean = false,
+        replaceHeader: Boolean = true,
+        removeFromStack: Boolean = false
+    ): List<WidgetMenuAction> = buildList {
+        if (resize) add(WidgetMenuAction.Resize)
+        if (reconfigure) add(WidgetMenuAction.Reconfigure)
+        add(WidgetMenuAction.AddWidget)
+        if (replaceHeader) add(WidgetMenuAction.ReplaceHeader)
+        add(WidgetMenuAction.ExtendUnderRail)
+        add(WidgetMenuAction.MoveWidgetArea)
+        add(WidgetMenuAction.EditWidgets)
+        add(if (removeFromStack) WidgetMenuAction.RemoveFromStack else WidgetMenuAction.RemoveWidget)
+        add(WidgetMenuAction.WidgetSettings)
+    }
+
+    private fun stackPlace(): WidgetPlace = WidgetPlace(
+        id = 1L,
+        heightDp = null,
+        currentPage = 0,
+        widgets = listOf(
+            PlacedWidget.Header(id = 1L),
+            appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single()
+        )
+    )
 
     private fun appWidgetProviderInfo(
         provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),

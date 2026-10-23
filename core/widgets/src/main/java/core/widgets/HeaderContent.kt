@@ -76,6 +76,7 @@ fun HeaderContent(
     modifier: Modifier = Modifier,
     interactive: Boolean = true
 ) {
+    val eventStyle: TextStyle = MaterialTheme.typography.bodyLarge.scaled(model.size.secondaryMultiplier)
     if (model.style == ClockStyle.COMPACT) {
         HeaderCompactContent(
             model = model,
@@ -83,6 +84,7 @@ fun HeaderContent(
             interactive = interactive,
             onTapTarget = onTapTarget,
             onLongPress = onLongPress,
+            eventStyle = eventStyle,
             modifier = modifier
         )
         return
@@ -122,7 +124,7 @@ fun HeaderContent(
                 presentation = secondaryPresentation
             )
         }
-        HeaderEventLines(events = model.events, presentation = secondaryPresentation)
+        HeaderEventLines(events = model.events, presentation = secondaryPresentation, style = eventStyle)
     }
 }
 
@@ -255,6 +257,7 @@ private fun HeaderCompactContent(
     interactive: Boolean,
     onTapTarget: (HeaderTapTarget) -> Unit,
     onLongPress: () -> Unit,
+    eventStyle: TextStyle,
     modifier: Modifier = Modifier
 ) {
     val time: HeaderTimeModel? = model.time
@@ -316,24 +319,24 @@ private fun HeaderCompactContent(
                 }
             }
         }
-        HeaderEventLines(events = model.events, presentation = datePresentation)
+        HeaderEventLines(events = model.events, presentation = datePresentation, style = eventStyle)
     }
 }
 
 @Composable
-private fun HeaderEventLines(events: List<EventModel>, presentation: HeaderLinePresentation) {
+private fun HeaderEventLines(events: List<EventModel>, presentation: HeaderLinePresentation, style: TextStyle) {
     if (events.isEmpty()) {
         return
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         events.forEach { event ->
-            HeaderEventLine(event = event, presentation = presentation)
+            HeaderEventLine(event = event, presentation = presentation, style = style)
         }
     }
 }
 
 @Composable
-private fun HeaderEventLine(event: EventModel, presentation: HeaderLinePresentation) {
+private fun HeaderEventLine(event: EventModel, presentation: HeaderLinePresentation, style: TextStyle) {
     val clickLabel: String = stringResource(event.clickLabel, event.clickLabelArg)
     HeaderTapTargetBox(
         clickLabel = clickLabel,
@@ -351,7 +354,7 @@ private fun HeaderEventLine(event: EventModel, presentation: HeaderLinePresentat
             OutlinedText(
                 text = titleText,
                 modifier = Modifier.padding(start = eventDotSpacing).weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
+                style = style,
                 textAlign = presentation.alignment.textAlign(),
                 overflow = TextOverflow.Ellipsis,
                 maxLines = SINGLE_LINE
@@ -359,7 +362,7 @@ private fun HeaderEventLine(event: EventModel, presentation: HeaderLinePresentat
             if (event.suffix.isNotEmpty()) {
                 OutlinedText(
                     text = event.suffix,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = style,
                     maxLines = SINGLE_LINE
                 )
             }

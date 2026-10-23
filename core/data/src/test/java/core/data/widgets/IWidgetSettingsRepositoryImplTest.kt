@@ -172,7 +172,21 @@ class IWidgetSettingsRepositoryImplTest {
     }
 
     @Test
-    fun `setBatteryVisibility restores the clock when the battery stops standing`() = runTest {
+    fun `setBatteryVisibility never re-enables a hidden clock`() = runTest {
+        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+            HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+
+        repository.setBatteryVisibility(BatteryVisibility.NEVER)
+
+        val actualSettings: HeaderSettings = requireNotNull(dao.getRow())
+        assertEquals(BatteryVisibility.NEVER, actualSettings.batteryVisibility)
+        assertFalse(actualSettings.clockVisible)
+    }
+
+    @Test
+    fun `setBatteryVisibility rejects hiding the last visible part`() = runTest {
         val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
         )
@@ -180,9 +194,7 @@ class IWidgetSettingsRepositoryImplTest {
 
         repository.setBatteryVisibility(BatteryVisibility.NEVER)
 
-        val updated: HeaderSettings = requireNotNull(dao.getRow())
-        assertEquals(BatteryVisibility.NEVER, updated.batteryVisibility)
-        assertTrue(updated.clockVisible)
+        assertEquals(0, dao.upsertCount)
     }
 
     @Test

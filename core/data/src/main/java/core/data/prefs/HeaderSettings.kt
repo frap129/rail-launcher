@@ -61,13 +61,27 @@ fun HeaderSettings.withClockVisible(visible: Boolean): HeaderSettings =
 
 fun HeaderSettings.withDateVisible(visible: Boolean): HeaderSettings = if (!visible && !canHideDate) this else copy(dateVisible = visible)
 
-fun HeaderSettings.withBatteryVisibility(visibility: BatteryVisibility): HeaderSettings {
-    val restoresClock: Boolean = visibility != BatteryVisibility.ALWAYS && !clockVisible && !dateVisible
-    return copy(
-        batteryVisibility = visibility,
-        clockVisible = if (restoresClock) true else clockVisible
-    )
-}
+/**
+ * Reports whether [visibility] can be selected without hiding the Header's last standing part.
+ * A conditional battery only stands in when the Clock or Date is visible.
+ */
+fun canSetBatteryVisibility(visibility: BatteryVisibility, clockVisible: Boolean, dateVisible: Boolean): Boolean =
+    visibility == BatteryVisibility.ALWAYS || clockVisible || dateVisible
+
+/**
+ * Sets the battery visibility, refusing a non-[BatteryVisibility.ALWAYS] value while the Clock and Date are hidden.
+ * Never re-enables a hidden clock.
+ */
+fun HeaderSettings.withBatteryVisibility(visibility: BatteryVisibility): HeaderSettings =
+    if (canSetBatteryVisibility(visibility, clockVisible = clockVisible, dateVisible = dateVisible)) {
+        copy(batteryVisibility = visibility)
+    } else {
+        this
+    }
+
+/** Reports whether [visibility] can be selected without hiding this Header's last standing part. */
+fun HeaderSettings.canSetBatteryVisibility(visibility: BatteryVisibility): Boolean =
+    canSetBatteryVisibility(visibility = visibility, clockVisible = clockVisible, dateVisible = dateVisible)
 
 fun TimeFormat.is24Hour(isSystem24Hour: Boolean): Boolean = when (this) {
     TimeFormat.SYSTEM -> isSystem24Hour
