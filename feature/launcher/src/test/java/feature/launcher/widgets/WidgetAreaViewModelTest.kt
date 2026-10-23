@@ -2116,7 +2116,7 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `startResize clamps to the provider bounds and steps in 8dp increments`() = runTest {
+    fun `startResize clamps the draft to the provider bounds`() = runTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
@@ -2139,20 +2139,10 @@ class WidgetAreaViewModelTest {
         assertEquals(64, state.bounds.minDp)
         assertEquals(160, state.bounds.maxDp)
 
-        viewModel.stepResize(direction = ResizeStep.Decrease)
-        assertEquals(92, viewModel.resizeState.value!!.draftHeightDp)
-        viewModel.stepResize(direction = ResizeStep.Increase)
-        assertEquals(100, viewModel.resizeState.value!!.draftHeightDp)
-
-        repeat(20) { viewModel.stepResize(direction = ResizeStep.Increase) }
+        viewModel.dragResize(deltaDp = 1_000f)
         assertEquals(160, viewModel.resizeState.value!!.draftHeightDp)
-        assertFalse(viewModel.resizeState.value!!.canIncrease)
-        assertTrue(viewModel.resizeState.value!!.canDecrease)
-
-        repeat(30) { viewModel.stepResize(direction = ResizeStep.Decrease) }
+        viewModel.dragResize(deltaDp = -1_000f)
         assertEquals(64, viewModel.resizeState.value!!.draftHeightDp)
-        assertFalse(viewModel.resizeState.value!!.canDecrease)
-        assertTrue(viewModel.resizeState.value!!.canIncrease)
     }
 
     @Test
@@ -2175,11 +2165,9 @@ class WidgetAreaViewModelTest {
 
         viewModel.dragResize(deltaDp = 1_000f)
         assertEquals(400, viewModel.resizeState.value!!.draftHeightDp)
-        assertFalse(viewModel.resizeState.value!!.canIncrease)
 
         viewModel.dragResize(deltaDp = -1_000f)
         assertEquals(48, viewModel.resizeState.value!!.draftHeightDp)
-        assertFalse(viewModel.resizeState.value!!.canDecrease)
     }
 
     @Test
@@ -2216,41 +2204,41 @@ class WidgetAreaViewModelTest {
         viewModel.setWidgetAreaWidth(widthDp = 240)
         viewModel.startResize(placeId = 2L)
         advanceUntilIdle()
-        viewModel.stepResize(direction = ResizeStep.Increase)
+        viewModel.dragResize(deltaDp = 8f)
 
         viewModel.events.test {
             viewModel.finishResize()
-            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 108), awaitItem())
+            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112), awaitItem())
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }
         advanceUntilIdle()
         assertNull(viewModel.resizeState.value)
         assertEquals(HomeEditMode.None, homeEditState.mode.value)
-        assertEquals(listOf(2L to 108), repository.heightUpdates)
-        assertEquals(108, repository.places.first().first { place -> place.id == 2L }.heightDp)
+        assertEquals(listOf(2L to 112), repository.heightUpdates)
+        assertEquals(112, repository.places.first().first { place -> place.id == 2L }.heightDp)
     }
 
     @Test
-    fun `Reset finishes at the provider default and stores null`() = runTest {
+    fun `finishResize at the provider default stores null`() = runTest {
         val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100))
         )
         val host: FakeAppWidgetHostSource = hostWithProviderInfo(
-            appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
+            appWidgetProviderInfo(minHeightDp = 64, minResizeHeightDp = 48, isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
         viewModel.setHomeHeight(heightDp = 400)
         viewModel.setWidgetAreaWidth(widthDp = 240)
         viewModel.startResize(placeId = 2L)
         advanceUntilIdle()
-        viewModel.stepResize(direction = ResizeStep.Increase)
-        viewModel.resetResize()
-        assertEquals(48, viewModel.resizeState.value!!.draftHeightDp)
+        val resizeState: ResizeState = viewModel.resizeState.value!!
+        viewModel.dragResize(deltaDp = (resizeState.defaultHeightDp - resizeState.draftHeightDp).toFloat())
+        assertEquals(64, viewModel.resizeState.value!!.draftHeightDp)
 
         viewModel.events.test {
             viewModel.finishResize()
-            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 48), awaitItem())
+            assertEquals(WidgetAreaEvent.ReportWidgetSize(listOf(AppWidgetId(9)), widthDp = 240, heightDp = 64), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         advanceUntilIdle()
@@ -2270,17 +2258,17 @@ class WidgetAreaViewModelTest {
         viewModel.setHomeHeight(heightDp = 400)
         viewModel.startResize(placeId = 2L)
         advanceUntilIdle()
-        viewModel.stepResize(direction = ResizeStep.Increase)
+        viewModel.dragResize(deltaDp = 8f)
         assertTrue(viewModel.onBack())
         advanceUntilIdle()
-        assertEquals(108, repository.places.first().first { place -> place.id == 2L }.heightDp)
+        assertEquals(112, repository.places.first().first { place -> place.id == 2L }.heightDp)
 
         viewModel.startResize(placeId = 2L)
         advanceUntilIdle()
-        viewModel.stepResize(direction = ResizeStep.Increase)
+        viewModel.dragResize(deltaDp = 8f)
         assertTrue(viewModel.onHomeIntent())
         advanceUntilIdle()
-        assertEquals(116, repository.places.first().first { place -> place.id == 2L }.heightDp)
+        assertEquals(120, repository.places.first().first { place -> place.id == 2L }.heightDp)
 
         assertFalse(viewModel.onBack())
         assertFalse(viewModel.onHomeIntent())
@@ -2301,7 +2289,7 @@ class WidgetAreaViewModelTest {
         viewModel.setHomeHeight(heightDp = 400)
         viewModel.startResize(placeId = 2L)
         advanceUntilIdle()
-        viewModel.stepResize(direction = ResizeStep.Increase)
+        viewModel.dragResize(deltaDp = 8f)
 
         repository.removeWidget(widgetId = 2L)
         advanceUntilIdle()

@@ -99,7 +99,6 @@ import timber.log.Timber
 
 private val emptyWidgetAreaHeight: Dp = 96.dp
 private val minWidgetAreaContentHeight: Dp = 48.dp
-private const val RESIZE_TOOLBAR_SPACE_DP: Int = 128
 private const val WIDGET_AREA_HEIGHT_ANIMATION_MILLIS: Int = 200
 private const val WIDGET_AREA_OFFSET_ANIMATION_MILLIS: Int = 150
 private val widgetAreaFadeHeight: Dp = 16.dp
@@ -124,7 +123,6 @@ data class WidgetAreaActions(
     val onEmptyAreaLongPress: () -> Unit,
     val onFinishResize: () -> Unit,
     val onDragResize: (Float) -> Unit,
-    val onStepResize: (ResizeStep) -> Unit,
     val onResetResize: () -> Unit,
     val onMovePlace: (Int, Int) -> Unit,
     val onRemovePlace: (Long) -> Unit,
@@ -186,7 +184,6 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
             },
             onFinishResize = viewModel::finishResize,
             onDragResize = viewModel::dragResize,
-            onStepResize = viewModel::stepResize,
             onResetResize = viewModel::resetResize,
             onMovePlace = viewModel::moveWidgetPlace,
             onRemovePlace = viewModel::removeWidgetPlaceInEdit,
@@ -212,7 +209,7 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
 
 /** The scrollable, height-capped Widget Area shown above Favorites when the limit is on. */
 @Composable
-fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifier: Modifier = Modifier) {
+fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modifier) {
     val state: WidgetAreaState = ui.state
     val actions: WidgetAreaActions = ui.actions
     val mediaPlayerVisible: Boolean = ui.mediaPlayer is MediaPlayerUiState.Visible
@@ -275,8 +272,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifie
                 widgetAreaItems(
                     ui = ui,
                     reorderableState = reorderState,
-                    mergeState = mergeState,
-                    homeHeightDp = homeHeightDp
+                    mergeState = mergeState
                 )
             }
         }
@@ -285,12 +281,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, homeHeightDp: Int, modifie
 }
 
 /** Adds the Widget Area places to an existing Home column. */
-fun LazyListScope.widgetAreaItems(
-    ui: WidgetAreaUi,
-    reorderableState: ReorderableLazyListState,
-    mergeState: EditMergeState,
-    homeHeightDp: Int
-) {
+fun LazyListScope.widgetAreaItems(ui: WidgetAreaUi, reorderableState: ReorderableLazyListState, mergeState: EditMergeState) {
     val state: WidgetAreaState = ui.state
     val placement: MediaPlayerPlacement = (ui.mediaPlayer as? MediaPlayerUiState.Visible)?.placement
         ?: state.mediaPlayerPlacement
@@ -354,7 +345,6 @@ fun LazyListScope.widgetAreaItems(
             WidgetAreaPlace(
                 ui = ui,
                 place = place,
-                homeHeightDp = homeHeightDp,
                 bottomSpacing = if (index != state.places.lastIndex) state.widgetSpacingDp.dp else 0.dp
             )
         }
@@ -384,17 +374,14 @@ private fun rememberAnimatedTopOffsetDp(state: WidgetAreaState): Int = animateIn
 ).value
 
 @Composable
-private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, homeHeightDp: Int, bottomSpacing: Dp) {
+private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, bottomSpacing: Dp) {
     val actions: WidgetAreaActions = ui.actions
     val placeResize: ResizeState? = ui.resize?.takeIf { resize -> resize.placeId == place.id }
     if (placeResize != null) {
         ResizeOverlay(
             state = placeResize,
             onDrag = actions.onDragResize,
-            onStep = actions.onStepResize,
-            onReset = actions.onResetResize,
-            onDone = actions.onFinishResize,
-            toolbarAbove = placeResize.draftHeightDp > homeHeightDp - RESIZE_TOOLBAR_SPACE_DP
+            onReset = actions.onResetResize
         ) {
             placeContent(
                 ui = ui,

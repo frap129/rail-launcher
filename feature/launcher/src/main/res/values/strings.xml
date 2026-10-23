@@ -58,8 +58,7 @@
     <string name="resize_decrease_height">Decrease height</string>
     <string name="resize_increase_height">Increase height</string>
     <string name="resize_height">%1$d dp</string>
-    <string name="resize_reset">Reset</string>
-    <string name="resize_done">Done</string>
+    <string name="resize_reset">Reset height</string>
     <string name="move_widget_area">Move Widget Area</string>
     <string name="couldnt_open_widget_settings">Couldn\'t open widget settings</string>
     <string name="needs_notification_access">Needs notification access</string>
