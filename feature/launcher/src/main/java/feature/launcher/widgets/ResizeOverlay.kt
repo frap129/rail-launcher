@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import core.data.widgets.ResizeBounds
+import core.ui.layout.minTouchTargetSize
 import feature.launcher.R
 
 /** Dimming applied to Home content that is inert while one place is resized. */
@@ -93,7 +94,7 @@ private fun ResizeHandle(state: ResizeState, onDrag: (Float) -> Unit, onReset: (
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(minTouchTargetSize)
             .semantics {
                 contentDescription = handleDescription
                 stateDescription = heightDescription
