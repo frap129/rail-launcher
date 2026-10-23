@@ -33,11 +33,19 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 ## Style
 - ktlint `android_studio` style with experimental rules, max line 140, no wildcard imports (`.editorconfig`).
 - Logging via Timber, not `Log`.
+- Duplicated code or logic is never acceptable, however small. Before adding code, search for an existing implementation and reuse or extract it; this covers constants, strings, resources, helpers, state transitions and test setup. Fix every duplication a review finds unless a later ticket already covers it.
 
 ## Git / PRs
 - Conventional Commits with module scopes, e.g. `feat(core:data): ...`, `refactor(launcher): ...`.
 - PRs are squash-merged; PR title becomes the commit subject: allowed types `build ci docs feat fix perf refactor style test chore revert`, max 50 chars (72 with `allow-long-subject` label), no trailing punctuation.
 - PR body above `****` becomes the commit body: lines <= 72 chars and must contain a `ticket: ` trailer (see `.github/pull_request_template.md`).
+- Commit scopes name a real module (`core:widgets`, `launcher`), never a feature area such as `widgets`.
+
+### Ticket delivery
+
+- One commit per ticket: amend review fixes into that commit instead of adding new ones.
+- Do not push and do not close tickets unless asked.
+- Verify in order: `testDebugUnitTest` (with `--rerun` on the touched modules), `:app:assembleDebug`, `ktlintFormat`, then `ktlintCheck`.
 
 ## Agent skills
 
