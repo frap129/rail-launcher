@@ -7,12 +7,12 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "header_settings")
 data class HeaderSettings(
     @PrimaryKey val id: Int = 0,
-    val clockVisible: Boolean = true,
-    val dateVisible: Boolean = true,
-    val clockStyle: ClockStyle = ClockStyle.CLASSIC,
-    val timeFormat: TimeFormat = TimeFormat.SYSTEM,
-    val showAmPm: Boolean = false,
-    val dateFormat: DateFormatPreset = DateFormatPreset.FULL,
+    @ColumnInfo(name = "clock_visible") val clockVisible: Boolean = true,
+    @ColumnInfo(name = "date_visible") val dateVisible: Boolean = true,
+    @ColumnInfo(name = "clock_style") val clockStyle: ClockStyle = ClockStyle.CLASSIC,
+    @ColumnInfo(name = "time_format") val timeFormat: TimeFormat = TimeFormat.SYSTEM,
+    @ColumnInfo(name = "show_am_pm") val showAmPm: Boolean = false,
+    @ColumnInfo(name = "date_format") val dateFormat: DateFormatPreset = DateFormatPreset.FULL,
     val alignment: HeaderAlignment = HeaderAlignment.START,
     val size: HeaderSize = HeaderSize.DEFAULT,
     @ColumnInfo(name = "time_tap_target") val timeTapTarget: HeaderTapSetting? = null,

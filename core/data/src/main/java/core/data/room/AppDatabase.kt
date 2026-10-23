@@ -39,7 +39,7 @@ import core.data.widgets.WidgetRecord
         WidgetAreaSettingsRecord::class,
         MediaPlayerSettings::class
     ],
-    version = 15
+    version = 5
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
