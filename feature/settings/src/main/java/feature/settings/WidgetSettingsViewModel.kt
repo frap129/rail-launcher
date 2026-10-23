@@ -5,12 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
 import core.data.calendar.CalendarInfo
-import core.data.calendar.CalendarPermissionDecision
-import core.data.calendar.CalendarPermissionGate
 import core.data.calendar.ICalendarEventSource
+import core.data.calendar.UpcomingEventsOutcome
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
-import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.media.IMediaSessionSource
 import core.data.prefs.BatteryVisibility
@@ -27,6 +25,7 @@ import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
+import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.MediaPlayerPlacement
@@ -42,6 +41,7 @@ import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
+import core.widgets.IHeaderTapTargetResolver
 import core.widgets.R as CoreWidgetsR
 import java.text.Normalizer
 import java.util.Locale
@@ -189,14 +189,15 @@ class WidgetSettingsViewModel(
     private val appWidgetHost: IAppWidgetHostSource,
     private val removeWidgetUseCase: RemoveAppWidget,
     private val homeHeightState: HomeHeightState,
-    private val mediaSessionSource: IMediaSessionSource
+    private val mediaSessionSource: IMediaSessionSource,
+    private val headerSettingsActions: IHeaderSettingsActions,
+    private val tapTargetResolver: IHeaderTapTargetResolver
 ) : ViewModel() {
     private val pickerPart: MutableStateFlow<HeaderTapTargetPart?> = MutableStateFlow(null)
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
     private val exclusionsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val exclusionQuery: MutableStateFlow<String> = MutableStateFlow("")
     private val eventChannel: Channel<WidgetSettingsEvent> = Channel(Channel.BUFFERED)
-    private val calendarPermissionGate: CalendarPermissionGate = CalendarPermissionGate(calendarEventSource)
 
     val events: Flow<WidgetSettingsEvent> = eventChannel.receiveAsFlow()
 
@@ -268,8 +269,16 @@ class WidgetSettingsViewModel(
         eventSettingsState
     ) { rows, settings, reading, launchableState, eventSettingsState ->
         val places: List<WidgetPlace> = rows.places
-        val timeTapTarget: HeaderTapSetting = settings.resolvedTimeTapTarget.resolved(launchableState)
-        val dateTapTarget: HeaderTapSetting = settings.resolvedDateTapTarget.resolved(launchableState)
+        val timeTapTarget: HeaderTapSetting = tapTargetResolver.resolveSetting(
+            setting = settings.resolvedTimeTapTarget,
+            launchables = launchableState.launchables,
+            isLoaded = launchableState.isLoaded
+        )
+        val dateTapTarget: HeaderTapSetting = tapTargetResolver.resolveSetting(
+            setting = settings.resolvedDateTapTarget,
+            launchables = launchableState.launchables,
+            isLoaded = launchableState.isLoaded
+        )
         WidgetSettingsUiState(
             isLoaded = true,
             headerShown = places.any { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } },
@@ -387,24 +396,26 @@ class WidgetSettingsViewModel(
 
     fun setClockVisible(visible: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setClockVisible(visible)
+            headerSettingsActions.setClockVisible(visible = visible)
         }
     }
 
     fun setDateVisible(visible: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setDateVisible(visible)
+            headerSettingsActions.setDateVisible(visible = visible)
         }
     }
 
     fun setBatteryVisibility(visibility: BatteryVisibility) {
         viewModelScope.launch {
-            settingsRepository.setBatteryVisibility(visibility)
+            headerSettingsActions.setBatteryVisibility(visibility = visibility)
         }
     }
 
     fun setClockStyle(style: ClockStyle) {
-        updateHeaderSettings { settings -> settings.copy(clockStyle = style) }
+        viewModelScope.launch {
+            headerSettingsActions.setClockStyle(style = style)
+        }
     }
 
     fun setTimeFormat(format: TimeFormat) {
@@ -451,43 +462,33 @@ class WidgetSettingsViewModel(
     }
 
     fun setEventsEnabled(enabled: Boolean) {
-        if (!enabled) {
-            viewModelScope.launch {
-                settingsRepository.setEventsEnabled(false)
-            }
-            return
-        }
-        when (val decision: CalendarPermissionDecision = calendarPermissionGate.decideEnable()) {
-            CalendarPermissionDecision.Enable -> viewModelScope.launch {
-                settingsRepository.setEventsEnabled(true)
-            }
-
-            CalendarPermissionDecision.Request -> viewModelScope.launch {
-                eventChannel.send(WidgetSettingsEvent.RequestCalendarPermission)
-            }
-
-            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
-                eventChannel.send(WidgetSettingsEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
-            }
+        viewModelScope.launch {
+            handleUpcomingEventsOutcome(outcome = headerSettingsActions.setUpcomingEventsEnabled(enabled = enabled))
         }
     }
 
     fun onCalendarPermissionResult(granted: Boolean, canAskAgain: Boolean) {
-        when (val decision: CalendarPermissionDecision = calendarPermissionGate.onPermissionResult(granted, canAskAgain)) {
-            CalendarPermissionDecision.Enable -> viewModelScope.launch {
-                settingsRepository.setEventsEnabled(true)
-            }
+        viewModelScope.launch {
+            handleUpcomingEventsOutcome(
+                outcome = headerSettingsActions.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
+            )
+        }
+    }
 
-            CalendarPermissionDecision.Request -> Unit
+    private suspend fun handleUpcomingEventsOutcome(outcome: UpcomingEventsOutcome) {
+        when (outcome) {
+            UpcomingEventsOutcome.NoAction -> Unit
 
-            is CalendarPermissionDecision.Denied -> viewModelScope.launch {
-                eventChannel.send(WidgetSettingsEvent.ShowCalendarPermissionDenied(permanentlyDenied = decision.permanentlyDenied))
-            }
+            UpcomingEventsOutcome.RequestPermission -> eventChannel.send(WidgetSettingsEvent.RequestCalendarPermission)
+
+            is UpcomingEventsOutcome.PermissionDenied -> eventChannel.send(
+                WidgetSettingsEvent.ShowCalendarPermissionDenied(permanentlyDenied = outcome.permanentlyDenied)
+            )
         }
     }
 
     fun refreshCalendarPermission() {
-        calendarPermissionGate.refreshPermission()
+        headerSettingsActions.refreshCalendarPermission()
     }
 
     fun refreshMediaAccess() {
@@ -669,13 +670,6 @@ internal fun filterExcludableApps(apps: List<ExcludableApp>, query: String): Lis
 
 private fun String.normalizedForSearch(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD).replace(COMBINING_MARKS_REGEX, "").lowercase(Locale.ROOT)
-
-private fun HeaderTapSetting.resolved(state: LaunchableState): HeaderTapSetting =
-    if (state.isLoaded && this is HeaderTapSetting.Launchable && state.launchables.none { launchable -> launchable.key == key }) {
-        HeaderTapSetting.SystemDefault
-    } else {
-        this
-    }
 
 private fun HeaderTapSetting.toSummary(defaultResource: Int, launchables: List<Launchable>): TapActionSummary = TapActionSummary(
     setting = this,

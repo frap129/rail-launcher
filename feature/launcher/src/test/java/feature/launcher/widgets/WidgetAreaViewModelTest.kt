@@ -34,6 +34,7 @@ import core.data.testing.FakeWidgetAreaDao
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
+import core.data.testing.createHeaderSettingsActions
 import core.data.time.ClockReading
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
@@ -65,6 +66,7 @@ import core.widgets.HeaderFormatter
 import core.widgets.HeaderLineModel
 import core.widgets.HeaderModel
 import core.widgets.HeaderTapTarget
+import core.widgets.IHeaderTapTargetResolverImpl
 import core.widgets.R as CoreWidgetsR
 import feature.launcher.R
 import java.time.Instant
@@ -1509,7 +1511,12 @@ class WidgetAreaViewModelTest {
         addFlowPendingIds = addFlowPendingIds,
         widgetLifecycleReconciler = widgetLifecycleReconciler,
         homeHeightState = homeHeightState,
-        mediaSessionSource = mediaSessionSource
+        mediaSessionSource = mediaSessionSource,
+        headerSettingsActions = createHeaderSettingsActions(
+            settingsRepository = settingsRepository,
+            calendarEventSource = calendarEventSource
+        ),
+        tapTargetResolver = IHeaderTapTargetResolverImpl()
     )
 
     @Test

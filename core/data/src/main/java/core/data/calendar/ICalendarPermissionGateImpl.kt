@@ -1,25 +1,16 @@
 package core.data.calendar
 
-import core.data.calendar.ICalendarEventSource
-
-sealed interface CalendarPermissionDecision {
-    data object Enable : CalendarPermissionDecision
-
-    data object Request : CalendarPermissionDecision
-
-    data class Denied(val permanentlyDenied: Boolean) : CalendarPermissionDecision
-}
-
-class CalendarPermissionGate(private val calendarEventSource: ICalendarEventSource) {
+/** Memoizes a permanent denial until the system reports that permission is held again. */
+class ICalendarPermissionGateImpl(private val calendarEventSource: ICalendarEventSource) : ICalendarPermissionGate {
     private var permanentlyDenied: Boolean = false
 
-    fun decideEnable(): CalendarPermissionDecision = when {
+    override fun decideEnable(): CalendarPermissionDecision = when {
         calendarEventSource.hasPermission.value -> CalendarPermissionDecision.Enable
         permanentlyDenied -> CalendarPermissionDecision.Denied(permanentlyDenied = true)
         else -> CalendarPermissionDecision.Request
     }
 
-    fun onPermissionResult(granted: Boolean, canAskAgain: Boolean): CalendarPermissionDecision {
+    override fun onPermissionResult(granted: Boolean, canAskAgain: Boolean): CalendarPermissionDecision {
         calendarEventSource.refreshPermission()
         permanentlyDenied = !granted && !canAskAgain
         return if (granted) {
@@ -29,7 +20,10 @@ class CalendarPermissionGate(private val calendarEventSource: ICalendarEventSour
         }
     }
 
-    fun refreshPermission() {
+    override fun refreshPermission() {
         calendarEventSource.refreshPermission()
+        if (calendarEventSource.hasPermission.value) {
+            permanentlyDenied = false
+        }
     }
 }

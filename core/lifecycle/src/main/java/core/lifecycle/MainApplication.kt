@@ -16,6 +16,8 @@ import core.data.battery.AndroidBatterySource
 import core.data.battery.IBatterySource
 import core.data.calendar.AndroidCalendarEventSource
 import core.data.calendar.ICalendarEventSource
+import core.data.calendar.ICalendarPermissionGate
+import core.data.calendar.ICalendarPermissionGateImpl
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.IIconRepository
@@ -52,6 +54,8 @@ import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAddFlowPendingIdsImpl
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IAppWidgetHostSourceImpl
+import core.data.widgets.IHeaderSettingsActions
+import core.data.widgets.IHeaderSettingsActionsImpl
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetAreaRepositoryImpl
 import core.data.widgets.IWidgetSettingsRepository
@@ -62,6 +66,8 @@ import core.data.widgets.WidgetLifecycleReconciler
 import core.util.screenHeightPx
 import core.widgets.AppWidgetViewCache
 import core.widgets.HeaderFormatter
+import core.widgets.IHeaderTapTargetResolver
+import core.widgets.IHeaderTapTargetResolverImpl
 import core.widgets.RailAppWidgetHost
 import feature.launcher.AppWidgetResults
 import feature.launcher.LauncherViewModel
@@ -172,6 +178,11 @@ class MainApplication :
         single { AppWidgetViewCache(androidContext(), get()) }
         single { RemoveAppWidget(get(), get()) }
         single<ICalendarEventSource> { AndroidCalendarEventSource(androidContext()) }
+        factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
+        factory<IHeaderSettingsActions> {
+            IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
+        }
+        single<IHeaderTapTargetResolver> { IHeaderTapTargetResolverImpl() }
         single { HomeEditState() }
         single { HomeHeightState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
@@ -201,7 +212,9 @@ class MainApplication :
                 appWidgetHost = get(),
                 removeWidgetUseCase = get(),
                 homeHeightState = get(),
-                mediaSessionSource = get()
+                mediaSessionSource = get(),
+                headerSettingsActions = get(),
+                tapTargetResolver = get()
             )
         }
         viewModel {
@@ -220,7 +233,9 @@ class MainApplication :
                 addFlowPendingIds = get(),
                 widgetLifecycleReconciler = get(),
                 homeHeightState = get(),
-                mediaSessionSource = get()
+                mediaSessionSource = get(),
+                headerSettingsActions = get(),
+                tapTargetResolver = get()
             )
         }
     }

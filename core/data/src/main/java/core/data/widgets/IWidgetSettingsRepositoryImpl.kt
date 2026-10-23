@@ -4,7 +4,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
-import core.data.prefs.HeaderTapSetting
+import core.data.prefs.isStale
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.MediaPlayerSettingsDao
@@ -33,8 +33,6 @@ internal fun HeaderSettings.withoutStaleTapTargets(keys: Set<String>): HeaderSet
     timeTapTarget = timeTapTarget.takeUnless { setting -> setting.isStale(keys) },
     dateTapTarget = dateTapTarget.takeUnless { setting -> setting.isStale(keys) }
 )
-
-private fun HeaderTapSetting?.isStale(keys: Set<String>): Boolean = this is HeaderTapSetting.Launchable && key !in keys
 
 class IWidgetSettingsRepositoryImpl(
     private val headerSettingsDao: HeaderSettingsDao,
