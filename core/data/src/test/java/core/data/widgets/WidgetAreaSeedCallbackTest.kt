@@ -41,12 +41,12 @@ class WidgetAreaSeedCallbackTest {
         val databaseName: String = "widget-area-destructive-migration.db"
         context.deleteDatabase(databaseName)
         context.openOrCreateDatabase(databaseName, Context.MODE_PRIVATE, null).use { legacyDatabase ->
-            legacyDatabase.version = 3
+            legacyDatabase.version = 4
         }
 
         val database: AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
             .addCallback(WidgetAreaSeedCallback())
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(dropAllTables = false)
             .allowMainThreadQueries()
             .build()
         try {

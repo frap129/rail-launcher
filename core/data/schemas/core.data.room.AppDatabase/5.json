@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 10,
-    "identityHash": "95756c882501cecd97b99ba728f829a9",
+    "version": 5,
+    "identityHash": "631a003c6ded25c0f9a60545bf3372fa",
     "entities": [
       {
         "tableName": "icon_packs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `packageName` TEXT NOT NULL, `icon` TEXT NOT NULL, PRIMARY KEY(`packageName`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `package_name` TEXT NOT NULL, `icon` TEXT NOT NULL, PRIMARY KEY(`package_name`))",
         "fields": [
           {
             "fieldPath": "name",
@@ -16,7 +16,7 @@
           },
           {
             "fieldPath": "packageName",
-            "columnName": "packageName",
+            "columnName": "package_name",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -30,29 +30,29 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "packageName"
+            "package_name"
           ]
         }
       },
       {
         "tableName": "icons",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`componentName` TEXT NOT NULL, `packPackageName` TEXT NOT NULL, `resId` INTEGER NOT NULL, PRIMARY KEY(`componentName`, `packPackageName`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`component_name` TEXT NOT NULL, `pack_package_name` TEXT NOT NULL, `res_id` INTEGER NOT NULL, PRIMARY KEY(`component_name`, `pack_package_name`))",
         "fields": [
           {
             "fieldPath": "componentName",
-            "columnName": "componentName",
+            "columnName": "component_name",
             "affinity": "TEXT",
             "notNull": true
           },
           {
             "fieldPath": "packPackageName",
-            "columnName": "packPackageName",
+            "columnName": "pack_package_name",
             "affinity": "TEXT",
             "notNull": true
           },
           {
             "fieldPath": "resId",
-            "columnName": "resId",
+            "columnName": "res_id",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -60,8 +60,8 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "componentName",
-            "packPackageName"
+            "component_name",
+            "pack_package_name"
           ]
         }
       },
@@ -90,7 +90,7 @@
       },
       {
         "tableName": "settings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `iconPack` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `icon_pack` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -100,7 +100,7 @@
           },
           {
             "fieldPath": "iconPack",
-            "columnName": "iconPack",
+            "columnName": "icon_pack",
             "affinity": "TEXT"
           }
         ],
@@ -113,7 +113,7 @@
       },
       {
         "tableName": "header_settings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `clockVisible` INTEGER NOT NULL, `dateVisible` INTEGER NOT NULL, `clockStyle` TEXT NOT NULL, `timeFormat` TEXT NOT NULL, `showAmPm` INTEGER NOT NULL, `dateFormat` TEXT NOT NULL, `alignment` TEXT NOT NULL, `size` TEXT NOT NULL, `time_tap_target` TEXT, `date_tap_target` TEXT, `battery_visibility` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `clock_visible` INTEGER NOT NULL, `date_visible` INTEGER NOT NULL, `clock_style` TEXT NOT NULL, `time_format` TEXT NOT NULL, `show_am_pm` INTEGER NOT NULL, `date_format` TEXT NOT NULL, `alignment` TEXT NOT NULL, `size` TEXT NOT NULL, `time_tap_target` TEXT, `date_tap_target` TEXT, `battery_visibility` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -123,37 +123,37 @@
           },
           {
             "fieldPath": "clockVisible",
-            "columnName": "clockVisible",
+            "columnName": "clock_visible",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
             "fieldPath": "dateVisible",
-            "columnName": "dateVisible",
+            "columnName": "date_visible",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
             "fieldPath": "clockStyle",
-            "columnName": "clockStyle",
+            "columnName": "clock_style",
             "affinity": "TEXT",
             "notNull": true
           },
           {
             "fieldPath": "timeFormat",
-            "columnName": "timeFormat",
+            "columnName": "time_format",
             "affinity": "TEXT",
             "notNull": true
           },
           {
             "fieldPath": "showAmPm",
-            "columnName": "showAmPm",
+            "columnName": "show_am_pm",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
             "fieldPath": "dateFormat",
-            "columnName": "dateFormat",
+            "columnName": "date_format",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -387,11 +387,124 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "widget_area_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `max_stack_pages` INTEGER NOT NULL DEFAULT 4, `stack_indicator_visible` INTEGER NOT NULL DEFAULT 1, `height_limit_enabled` INTEGER NOT NULL DEFAULT 1, `height_limit` TEXT NOT NULL DEFAULT 'TWO_THIRDS', `top_offset_dp` INTEGER NOT NULL DEFAULT 0, `widget_spacing_dp` INTEGER NOT NULL DEFAULT 16, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxStackPages",
+            "columnName": "max_stack_pages",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "4"
+          },
+          {
+            "fieldPath": "stackIndicatorVisible",
+            "columnName": "stack_indicator_visible",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "heightLimitEnabled",
+            "columnName": "height_limit_enabled",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "heightLimit",
+            "columnName": "height_limit",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'TWO_THIRDS'"
+          },
+          {
+            "fieldPath": "topOffsetDp",
+            "columnName": "top_offset_dp",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "widgetSpacing",
+            "columnName": "widget_spacing_dp",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "16"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "media_player_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `enabled` INTEGER NOT NULL DEFAULT 0, `show_when_paused` INTEGER NOT NULL DEFAULT 1, `show_artwork` INTEGER NOT NULL DEFAULT 1, `placement` TEXT NOT NULL DEFAULT 'BELOW_WIDGET_AREA', `excluded_packages` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "enabled",
+            "columnName": "enabled",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "showWhenPaused",
+            "columnName": "show_when_paused",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "showArtwork",
+            "columnName": "show_artwork",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "placement",
+            "columnName": "placement",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'BELOW_WIDGET_AREA'"
+          },
+          {
+            "fieldPath": "excludedPackages",
+            "columnName": "excluded_packages",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '95756c882501cecd97b99ba728f829a9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '631a003c6ded25c0f9a60545bf3372fa')"
     ]
   }
 }

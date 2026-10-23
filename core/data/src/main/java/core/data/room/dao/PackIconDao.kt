@@ -13,10 +13,13 @@ interface PackIconDao {
     @Query("SELECT * FROM icons")
     suspend fun getAll(): List<Icon.PackIcon>
 
-    @Query("SELECT * FROM icons WHERE packPackageName = :packPackageName")
+    @Query("SELECT * FROM icons WHERE " + Icon.PackIcon.COLUMN_PACK_PACKAGE_NAME + " = :packPackageName")
     suspend fun getAllFromPack(packPackageName: String): List<Icon.PackIcon>
 
-    @Query("SELECT * FROM icons WHERE packPackageName = :packPackageName AND componentName = :componentName")
+    @Query(
+        "SELECT * FROM icons WHERE " + Icon.PackIcon.COLUMN_PACK_PACKAGE_NAME + " = :packPackageName AND " +
+            Icon.PackIcon.COLUMN_COMPONENT_NAME + " = :componentName"
+    )
     suspend fun getIcon(componentName: ComponentName, packPackageName: String): Icon.PackIcon?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
