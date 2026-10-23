@@ -444,6 +444,52 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
+    fun `lists calendars after permission is granted`() = runTest {
+        val calendars: List<CalendarInfo> = listOf(
+            CalendarInfo(id = 1L, name = "Personal", accountName = "me@example.com", color = 0, isWorkProfile = false)
+        )
+        val calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false, calendars = calendars)
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(initialEventSettings = EventSettings(enabled = false)),
+            calendarEventSource = calendarEventSource
+        )
+        viewModel.uiState.test {
+            advanceUntilIdle()
+            val before: WidgetSettingsUiState = expectMostRecentItem()
+            assertFalse(before.eventsEnabled)
+            assertTrue(before.calendars.isEmpty())
+            calendarEventSource.grantOnNextRefresh()
+            viewModel.onCalendarPermissionResult(granted = true, canAskAgain = true)
+            advanceUntilIdle()
+            val after: WidgetSettingsUiState = expectMostRecentItem()
+            assertTrue(after.eventsEnabled)
+            assertEquals(1, calendarEventSource.refreshCount)
+            assertEquals(calendars, after.calendars)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps calendars hidden while permission is denied`() = runTest {
+        val calendars: List<CalendarInfo> = listOf(
+            CalendarInfo(id = 1L, name = "Personal", accountName = "me@example.com", color = 0, isWorkProfile = false)
+        )
+        val calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(hasPermission = false, calendars = calendars)
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            settingsRepository = FakeWidgetSettingsRepository(initialEventSettings = EventSettings(enabled = true)),
+            calendarEventSource = calendarEventSource
+        )
+        viewModel.uiState.test {
+            advanceUntilIdle()
+            assertTrue(expectMostRecentItem().calendars.isEmpty())
+            calendarEventSource.setPermission(granted = true)
+            advanceUntilIdle()
+            assertEquals(calendars, expectMostRecentItem().calendars)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `prunes exclusions for calendars that no longer exist`() = runTest {
         val calendars: List<CalendarInfo> = listOf(
             CalendarInfo(id = 1L, name = "Personal", accountName = "me@example.com", color = 0, isWorkProfile = false)
