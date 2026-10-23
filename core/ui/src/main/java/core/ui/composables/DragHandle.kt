@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import core.ui.layout.minTouchTargetSize
 
-private val dragHandleSize = 48.dp
 private val dragHandleDotRadius = 3.dp
 private val dragHandleDotSpacing = 12.dp
 private val dragHandleOutlineWidth = 2.dp
@@ -24,7 +24,7 @@ fun DragHandle(modifier: Modifier = Modifier, contentDescription: String) {
     val outlineColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest
     Canvas(
         modifier = modifier
-            .size(dragHandleSize)
+            .size(minTouchTargetSize)
             .semantics { this.contentDescription = contentDescription }
     ) {
         val dotRadius: Float = dragHandleDotRadius.toPx()

@@ -128,6 +128,7 @@ import core.ui.composables.OutlinedText
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.homeEdgePadding
+import core.ui.layout.minTouchTargetSize
 import core.ui.model.data.Destination
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.FLEXIBLE_SPACER_KEY
@@ -188,7 +189,6 @@ val launcherDestination = Destination(
 )
 
 private val doneButtonPadding = 24.dp
-private val favoriteToggleSize = 48.dp
 private val favoriteStarSize = 28.dp
 private val favoriteStarOutlineSize = 36.dp
 private val contentHorizontalPadding: Dp = 32.dp
@@ -1254,7 +1254,7 @@ private fun FavoriteToggleStar(isFavorite: Boolean, onClick: () -> Unit) {
     val imageVector: ImageVector = if (isFavorite) FontAwesomeIcons.Solid.Star else FontAwesomeIcons.Regular.Star
     Box(
         modifier = Modifier
-            .size(favoriteToggleSize)
+            .size(minTouchTargetSize)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center

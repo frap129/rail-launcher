@@ -47,8 +47,8 @@ import compose.icons.fontawesomeicons.solid.Check
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.ui.composables.OutlinedText
+import core.ui.layout.minTouchTargetSize
 
-private val minTouchTargetHeight: Dp = 48.dp
 private val previewSpacing: Dp = 8.dp
 private val previewPadding: Dp = 20.dp
 private val selectedIconSize: Dp = 24.dp
@@ -469,7 +469,7 @@ private fun HeaderTapTargetBox(
     Box(
         modifier = Modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
-            .defaultMinSize(minHeight = minTouchTargetHeight)
+            .defaultMinSize(minHeight = minTouchTargetSize)
             .then(semanticsModifier),
         contentAlignment = presentation.alignment.contentAlignment()
     ) {

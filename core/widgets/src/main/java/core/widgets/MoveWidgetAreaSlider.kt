@@ -3,7 +3,6 @@ package core.widgets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -40,8 +39,7 @@ fun MoveWidgetAreaSlider(
     ) {
         IconButton(
             onClick = onMoveUp,
-            enabled = canMoveUp,
-            modifier = Modifier.size(48.dp)
+            enabled = canMoveUp
         ) {
             Icon(
                 imageVector = FontAwesomeIcons.Solid.ArrowUp,
@@ -61,8 +59,7 @@ fun MoveWidgetAreaSlider(
         )
         IconButton(
             onClick = onMoveDown,
-            enabled = canMoveDown,
-            modifier = Modifier.size(48.dp)
+            enabled = canMoveDown
         ) {
             Icon(
                 imageVector = FontAwesomeIcons.Solid.ArrowDown,

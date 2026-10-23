@@ -57,6 +57,7 @@ import compose.icons.fontawesomeicons.solid.MinusCircle
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.dragHandleEndPadding
+import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
 import core.widgets.AppWidgetModel
@@ -70,7 +71,6 @@ private val editablePlaceShape = RoundedCornerShape(12.dp)
 private val editablePlaceOutlineWidth = 2.dp
 private val editablePlacePadding = 8.dp
 private const val EDIT_SCRIM_ALPHA: Float = 0.40f
-private val removeControlSize = 48.dp
 private val removeIconSize = 32.dp
 private val topBandHeight = 160.dp
 private const val DRAG_SCALE: Float = 1.02f
@@ -301,7 +301,7 @@ private fun EditablePlace(
         ) {
             Box(
                 modifier = Modifier
-                    .size(removeControlSize)
+                    .size(minTouchTargetSize)
                     .background(color = MaterialTheme.colorScheme.errorContainer, shape = CircleShape)
                     .clickable(onClick = onRemove)
                     .semantics { contentDescription = removeLabel },
@@ -324,7 +324,7 @@ private fun EditablePlace(
             if (place.isStack) {
                 Box(
                     modifier = Modifier
-                        .size(removeControlSize)
+                        .size(minTouchTargetSize)
                         .clickable(onClick = onToggleExpand)
                         .semantics { contentDescription = expandLabel },
                     contentAlignment = Alignment.Center
@@ -338,7 +338,7 @@ private fun EditablePlace(
             }
         }
         val handleTopPadding: Dp = if (isTall) {
-            (topBandHeight - removeControlSize) / 2
+            (topBandHeight - minTouchTargetSize) / 2
         } else {
             0.dp
         }
@@ -412,7 +412,7 @@ private fun ExpandedPageRow(
     ) {
         Box(
             modifier = Modifier
-                .size(removeControlSize)
+                .size(minTouchTargetSize)
                 .clickable(onClick = onRemove)
                 .semantics { contentDescription = removeLabel },
             contentAlignment = Alignment.Center
@@ -433,7 +433,7 @@ private fun ExpandedPageRow(
         )
         Box(
             modifier = Modifier
-                .size(removeControlSize)
+                .size(minTouchTargetSize)
                 .onGloballyPositioned { layout -> coordinates = layout }
                 .pointerInput(widget.id) {
                     detectDragGesturesAfterLongPress(
