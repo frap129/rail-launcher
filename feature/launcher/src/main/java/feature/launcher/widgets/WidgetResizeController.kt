@@ -25,16 +25,8 @@ data class ResizeState(
     val bounds: ResizeBounds,
     val defaultHeightDp: Int,
     val draftHeightDp: Int,
-    val canDecrease: Boolean,
-    val canIncrease: Boolean,
     val indicatorVisible: Boolean = false
 )
-
-/** The direction of one Resize toolbar step. */
-enum class ResizeStep {
-    Decrease,
-    Increase
-}
 
 /** Owns Resize: provider bounds, the draft height, persistence, and one size report per session. */
 internal class WidgetResizeController(
@@ -126,10 +118,8 @@ internal class WidgetResizeController(
             bounds = bounds,
             defaultHeightDp = defaultHeightDp,
             draftHeightDp = draftHeightDp,
-            canDecrease = false,
-            canIncrease = false,
             indicatorVisible = indicatorVisible
-        ).withDraft(heightDp = draftHeightDp)
+        )
         return true
     }
 
@@ -153,17 +143,7 @@ internal class WidgetResizeController(
         resize.value = next
     }
 
-    fun stepResize(direction: ResizeStep) {
-        val state: ResizeState = resize.value ?: return
-        val delta: Int = when (direction) {
-            ResizeStep.Decrease -> -ResizeBounds.STEP_DP
-            ResizeStep.Increase -> ResizeBounds.STEP_DP
-        }
-        val heightDp: Int = state.draftHeightDp + delta
-        rawResizeHeightDp = heightDp.toFloat()
-        resize.value = state.withDraft(heightDp = heightDp)
-    }
-
+    /** Returns the draft to the provider default, which [finishResize] then stores as no override. */
     fun resetResize() {
         val state: ResizeState = resize.value ?: return
         rawResizeHeightDp = state.defaultHeightDp.toFloat()
@@ -228,12 +208,6 @@ internal class WidgetResizeController(
 
     private fun ResizeState.withDraft(heightDp: Int): ResizeState {
         val homeHeightDp: Int = homeHeight.value ?: Int.MAX_VALUE
-        val draftHeightDp: Int = bounds.clamp(heightDp = heightDp, homeHeightDp = homeHeightDp)
-        val upperBoundDp: Int = minOf(bounds.maxDp ?: homeHeightDp, homeHeightDp).coerceAtLeast(bounds.minDp)
-        return copy(
-            draftHeightDp = draftHeightDp,
-            canDecrease = draftHeightDp > bounds.minDp,
-            canIncrease = draftHeightDp < upperBoundDp
-        )
+        return copy(draftHeightDp = bounds.clamp(heightDp = heightDp, homeHeightDp = homeHeightDp))
     }
 }

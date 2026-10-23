@@ -884,7 +884,6 @@ fun LauncherHome(
                     CappedWidgetArea(
                         ui = widgetArea,
                         maxHeight = cappedHeight,
-                        homeHeightDp = homeHeightDp,
                         modifier = Modifier.fillMaxWidth()
                     )
                     FavoritesBottomArea(
@@ -949,8 +948,7 @@ fun LauncherHome(
                     widgetAreaItems(
                         ui = widgetArea,
                         reorderableState = reorderState,
-                        mergeState = mergeState,
-                        homeHeightDp = homeHeightDp
+                        mergeState = mergeState
                     )
                     item(key = FLEXIBLE_SPACER_KEY) {
                         Spacer(

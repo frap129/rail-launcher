@@ -1025,8 +1025,6 @@ class WidgetAreaViewModel(
 
     fun dragResize(deltaDp: Float) = resizeController.dragResize(deltaDp = deltaDp)
 
-    fun stepResize(direction: ResizeStep) = resizeController.stepResize(direction = direction)
-
     fun resetResize() = resizeController.resetResize()
 
     fun finishResize() = resizeController.finishResize()
