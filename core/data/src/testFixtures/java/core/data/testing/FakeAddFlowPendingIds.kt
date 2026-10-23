@@ -2,18 +2,17 @@ package core.data.testing
 
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAddFlowPendingIds
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 
 class FakeAddFlowPendingIds(initialIds: Set<AppWidgetId> = emptySet()) : IAddFlowPendingIds {
-    private val pending: MutableStateFlow<Set<AppWidgetId>> = MutableStateFlow(initialIds)
-
-    override val ids: StateFlow<Set<AppWidgetId>> = pending
+    var ids: Set<AppWidgetId> = initialIds
+        private set
 
     val updates: MutableList<Set<AppWidgetId>> = mutableListOf()
 
-    override fun set(ids: Set<AppWidgetId>) {
-        pending.value = ids
+    override suspend fun get(): Set<AppWidgetId> = ids
+
+    override suspend fun set(ids: Set<AppWidgetId>) {
+        this.ids = ids
         updates.add(ids)
     }
 }

@@ -2,7 +2,6 @@ package feature.launcher.widgets
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.battery.BatteryStatus
@@ -25,17 +24,14 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.canSetBatteryVisibility
 import core.data.time.ClockReading
 import core.data.time.IClockSource
-import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.HomeHeightState
-import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
-import core.data.widgets.InsertPosition
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
@@ -47,7 +43,6 @@ import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetLifecycleReconciler
 import core.data.widgets.WidgetPlace
-import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
@@ -61,7 +56,6 @@ import core.widgets.R as CoreWidgetsR
 import core.widgets.WidgetModel
 import core.widgets.labelResource
 import feature.launcher.R
-import java.text.Collator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -88,26 +82,6 @@ import timber.log.Timber
 
 private const val STATE_TIMEOUT_MS: Long = 5_000L
 private const val PAGE_SETTLE_DEBOUNCE_MS: Long = 300L
-private const val PENDING_APP_WIDGET_ID_KEY: String = "pendingAppWidgetId"
-private const val PENDING_PROVIDER_KEY: String = "pendingAppWidgetProvider"
-private const val PENDING_PROFILE_SERIAL_KEY: String = "pendingAppWidgetProfileSerial"
-private const val PENDING_NEEDS_CONFIGURATION_KEY: String = "pendingAppWidgetNeedsConfiguration"
-private const val PENDING_DEFAULT_HEIGHT_KEY: String = "pendingAppWidgetDefaultHeight"
-private const val PENDING_INSERT_BELOW_PLACE_ID_KEY: String = "pendingAppWidgetInsertBelowPlaceId"
-private const val PENDING_INSERT_STACK_PLACE_ID_KEY: String = "pendingAppWidgetInsertStackPlaceId"
-private const val PENDING_RETURN_TO_SETTINGS_KEY: String = "pendingAppWidgetReturnToSettings"
-private const val PENDING_PHASE_KEY: String = "pendingAppWidgetPhase"
-private const val PENDING_PHASE_BINDING: String = "binding"
-private const val PENDING_PHASE_CONFIGURING: String = "configuring"
-
-/** Where a picked App Widget is inserted and whether the flow returns to Settings. */
-data class AddWidgetOrigin(val insertAt: InsertPosition, val returnToSettings: Boolean = false)
-
-/** The two placements offered when adding from an existing Widget. */
-enum class AddWidgetPlacement {
-    Below,
-    IntoStack
-}
 
 /** One step of the Move Widget Area adjuster. */
 enum class MoveWidgetAreaStep {
@@ -118,38 +92,7 @@ enum class MoveWidgetAreaStep {
 /** The live Move Widget Area adjuster state. */
 data class MoveWidgetAreaState(val draftOffsetDp: Int, val maxOffsetDp: Int, val canMoveUp: Boolean, val canMoveDown: Boolean)
 
-/** One app's App Widget providers in the picker. */
-data class PickerGroup(
-    val appPackageName: String,
-    val appLabel: String,
-    val appIcon: Icon,
-    val isWorkProfile: Boolean,
-    val widgets: List<WidgetProviderInfo>
-)
-
-/** The allocated id and destination of an App Widget in the add flow. */
-data class PendingWidget(
-    val id: AppWidgetId,
-    val provider: WidgetProvider,
-    val profileSerial: Long,
-    val needsConfiguration: Boolean,
-    val defaultHeightDp: Int,
-    val origin: AddWidgetOrigin
-)
-
-sealed interface AddWidgetFlowState {
-    data object Idle : AddWidgetFlowState
-
-    /** The Add below / Add next to choice shown before the picker. */
-    data class ChoosingPlacement(val origin: AddWidgetOrigin, val canAddToStack: Boolean) : AddWidgetFlowState
-
-    data class Picking(val origin: AddWidgetOrigin, val query: String, val groups: List<PickerGroup>) : AddWidgetFlowState
-
-    data class Binding(val widget: PendingWidget) : AddWidgetFlowState
-
-    data class Configuring(val widget: PendingWidget) : AddWidgetFlowState
-}
-
+/** The long-press menu currently shown on Home. */
 sealed interface WidgetMenuState {
     data object Closed : WidgetMenuState
 
@@ -306,21 +249,19 @@ class WidgetAreaViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val calendarEventSource: ICalendarEventSource,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val savedStateHandle: SavedStateHandle,
     batterySource: IBatterySource,
     private val removeAppWidget: RemoveAppWidget,
-    private val addFlowPendingIds: IAddFlowPendingIds,
+    private val addFlowController: IWidgetAddController,
     private val widgetLifecycleReconciler: WidgetLifecycleReconciler,
     private val homeHeightState: HomeHeightState,
     private val mediaSessionSource: IMediaSessionSource,
     private val headerSettingsActions: IHeaderSettingsActions,
     private val tapTargetResolver: IHeaderTapTargetResolver
 ) : ViewModel() {
-    private val providers: StateFlow<List<WidgetProviderInfo>> = appWidgetHost.providers
-        .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = emptyList())
+    val addFlowState: StateFlow<AddWidgetFlowState> = addFlowController.state
 
-    private val addFlow: MutableStateFlow<AddWidgetFlowState> = MutableStateFlow(AddWidgetFlowState.Idle)
-    val addFlowState: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
+    private val eventChannel: Channel<WidgetAreaEvent> = Channel(Channel.BUFFERED)
+    val events: Flow<WidgetAreaEvent> = eventChannel.receiveAsFlow()
 
     private val editDraft: MutableStateFlow<WidgetEditDraft?> = MutableStateFlow(null)
     val editState: StateFlow<WidgetEditDraft?> = editDraft.asStateFlow()
@@ -361,11 +302,15 @@ class WidgetAreaViewModel(
     )
 
     init {
-        restorePendingWidget()
         viewModelScope.launch {
-            providers.collect { providerList ->
-                val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return@collect
-                addFlow.value = picking.copy(groups = pickerGroups(providers = providerList, query = picking.query))
+            addFlowController.events.collect { event -> eventChannel.send(event) }
+        }
+        viewModelScope.launch {
+            addFlowController.restore()
+        }
+        viewModelScope.launch {
+            appWidgetHost.providers.collect { providerList ->
+                addFlowController.updateProviders(providers = providerList)
             }
         }
         viewModelScope.launch {
@@ -605,9 +550,6 @@ class WidgetAreaViewModel(
         initialValue = WidgetMenuState.Closed
     )
 
-    private val eventChannel: Channel<WidgetAreaEvent> = Channel(Channel.BUFFERED)
-    val events: Flow<WidgetAreaEvent> = eventChannel.receiveAsFlow()
-
     fun openHeaderMenu(widgetId: Long? = null) {
         if (homeEditState.mode.value == HomeEditMode.None) {
             menuTarget.value = WidgetMenuTarget.Header(widgetId = widgetId)
@@ -693,7 +635,7 @@ class WidgetAreaViewModel(
     fun replaceHeader(widgetId: Long) {
         viewModelScope.launch {
             val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = widgetId) ?: return@launch
-            clampStackHeight(placeId = undo.headerPlaceId)
+            resizeController.clampStackHeight(placeId = undo.headerPlaceId, headerHeightDp = headerHeightDp.value)
             menuTarget.value = null
             eventChannel.send(WidgetAreaEvent.ShowUndo(action = UndoAction.ReplaceHeader(undo = undo)))
         }
@@ -1167,33 +1109,17 @@ class WidgetAreaViewModel(
     }
 
     fun startAdd(origin: AddWidgetOrigin): Boolean {
-        if (homeEditState.mode.value != HomeEditMode.None) {
-            return false
+        val started: Boolean = addFlowController.start(origin = origin)
+        if (started) {
+            menuTarget.value = null
         }
-        menuTarget.value = null
-        addFlow.value = AddWidgetFlowState.Picking(
-            origin = origin,
-            query = "",
-            groups = pickerGroups(providers = providers.value, query = "")
-        )
-        return true
+        return started
     }
 
     fun choosePlacement(placement: AddWidgetPlacement) {
-        val choosing: AddWidgetFlowState.ChoosingPlacement = addFlow.value as? AddWidgetFlowState.ChoosingPlacement ?: return
-        val origin: AddWidgetOrigin = when (placement) {
-            AddWidgetPlacement.Below -> choosing.origin
-
-            AddWidgetPlacement.IntoStack -> {
-                val placeId: Long? = (choosing.origin.insertAt as? InsertPosition.Below)?.placeId
-                if (choosing.canAddToStack && placeId != null) {
-                    choosing.origin.copy(insertAt = InsertPosition.IntoStack(placeId = placeId))
-                } else {
-                    choosing.origin
-                }
-            }
+        if (addFlowController.choosePlacement(placement = placement)) {
+            menuTarget.value = null
         }
-        startAdd(origin = origin)
     }
 
     fun onPageSettled(placeId: Long, page: Int) {
@@ -1205,83 +1131,35 @@ class WidgetAreaViewModel(
         }
     }
 
-    fun setPickerQuery(query: String) {
-        val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return
-        addFlow.value = picking.copy(
-            query = query,
-            groups = pickerGroups(providers = providers.value, query = query)
-        )
-    }
+    fun setPickerQuery(query: String) = addFlowController.setQuery(query = query)
 
     fun pickProvider(provider: WidgetProviderInfo) {
-        val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return
-        val isStillOffered: Boolean = providers.value.any { available ->
-            available.provider == provider.provider && available.profileSerial == provider.profileSerial
-        }
-        if (!isStillOffered) {
-            addFlow.value = AddWidgetFlowState.Idle
-            viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
-            }
-            returnToSettingsIfRequested(origin = picking.origin)
-            return
-        }
-        val id: AppWidgetId = appWidgetHost.allocateId()
-        val pending: PendingWidget = PendingWidget(
-            id = id,
-            provider = provider.provider,
-            profileSerial = provider.profileSerial,
-            needsConfiguration = provider.needsConfiguration,
-            defaultHeightDp = provider.minHeightDp,
-            origin = picking.origin
-        )
-        addFlow.value = AddWidgetFlowState.Binding(widget = pending)
-        persistPending(pending = pending, phase = PENDING_PHASE_BINDING)
-        val request: BindRequest = BindRequest(id = id, provider = provider.provider, profileSerial = provider.profileSerial)
-        if (appWidgetHost.bindIfAllowed(request = request)) {
-            continueAfterBind(pending = pending)
-        } else {
-            viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.LaunchBind(request = request))
-            }
+        viewModelScope.launch {
+            handleStackGrown(placeId = addFlowController.pick(provider = provider))
         }
     }
 
     fun cancelAdd() {
-        when (val state: AddWidgetFlowState = addFlow.value) {
-            AddWidgetFlowState.Idle -> Unit
-
-            is AddWidgetFlowState.ChoosingPlacement -> {
-                addFlow.value = AddWidgetFlowState.Idle
-                returnToSettingsIfRequested(origin = state.origin)
-            }
-
-            is AddWidgetFlowState.Picking -> {
-                addFlow.value = AddWidgetFlowState.Idle
-                returnToSettingsIfRequested(origin = state.origin)
-            }
-
-            is AddWidgetFlowState.Binding -> cancelPending(pending = state.widget)
-
-            is AddWidgetFlowState.Configuring -> cancelPending(pending = state.widget)
+        viewModelScope.launch {
+            addFlowController.cancel()
         }
     }
 
     fun onBindResult(granted: Boolean) {
-        val binding: AddWidgetFlowState.Binding = addFlow.value as? AddWidgetFlowState.Binding ?: return
-        if (granted) {
-            continueAfterBind(pending = binding.widget)
-        } else {
-            failAdd(id = binding.widget.id, returnToSettings = binding.widget.origin.returnToSettings)
+        viewModelScope.launch {
+            handleStackGrown(placeId = addFlowController.onBindResult(granted = granted))
         }
     }
 
     fun onConfigureResult(ok: Boolean) {
-        val configuring: AddWidgetFlowState.Configuring = addFlow.value as? AddWidgetFlowState.Configuring ?: return
-        if (ok) {
-            placeWidget(pending = configuring.widget)
-        } else {
-            failAdd(id = configuring.widget.id, returnToSettings = configuring.widget.origin.returnToSettings)
+        viewModelScope.launch {
+            handleStackGrown(placeId = addFlowController.onConfigureResult(ok = ok))
+        }
+    }
+
+    private suspend fun handleStackGrown(placeId: Long?) {
+        if (placeId != null) {
+            resizeController.onStackGrown(placeId = placeId, headerHeightDp = headerHeightDp.value)
         }
     }
 
@@ -1332,228 +1210,20 @@ class WidgetAreaViewModel(
     fun startAddFromMenu() {
         val target: WidgetMenuTarget = menuTarget.value ?: return
         viewModelScope.launch {
-            val places: List<WidgetPlace> = repository.places.first()
-            val place: WidgetPlace? = when (target) {
-                is WidgetMenuTarget.Header -> places.headerPlace(widgetId = target.widgetId)
-
-                is WidgetMenuTarget.AppWidget -> places.firstOrNull { candidate ->
-                    candidate.widgets.any { widget -> widget.id == target.widgetId }
-                }
-
-                WidgetMenuTarget.EmptyArea,
-                WidgetMenuTarget.ClockStyle,
-                WidgetMenuTarget.MediaPlayer -> null
-            }
-            if (place == null) {
-                startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
-                return@launch
-            }
-            val origin: AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = place.id))
-            val maxStackPages: Int = settingsRepository.widgetAreaSettings.first().maxStackPages
-            if (place.widgets.size < maxStackPages) {
-                addFlow.value = AddWidgetFlowState.ChoosingPlacement(origin = origin, canAddToStack = true)
-            } else {
-                startAdd(origin = origin)
+            if (addFlowController.startFromMenu(target = target.toAddTarget())) {
+                menuTarget.value = null
             }
         }
     }
 
-    private fun continueAfterBind(pending: PendingWidget) {
-        if (pending.needsConfiguration) {
-            addFlow.value = AddWidgetFlowState.Configuring(widget = pending)
-            persistPending(pending = pending, phase = PENDING_PHASE_CONFIGURING)
-            viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.LaunchConfigure(id = pending.id))
-            }
-        } else {
-            placeWidget(pending = pending)
-        }
-    }
+    private fun WidgetMenuTarget.toAddTarget(): AddWidgetTarget = when (this) {
+        is WidgetMenuTarget.Header -> AddWidgetTarget.Header(widgetId = widgetId)
 
-    private fun placeWidget(pending: PendingWidget) {
-        viewModelScope.launch {
-            val placed: Result<Long> = runCatching {
-                repository.addAppWidget(
-                    request = AddAppWidget(
-                        appWidgetId = pending.id,
-                        provider = pending.provider,
-                        profileSerial = pending.profileSerial,
-                        insertAt = pending.origin.insertAt,
-                        defaultHeightDp = pending.defaultHeightDp
-                    )
-                )
-            }
-            if (placed.isFailure) {
-                failAdd(id = pending.id, returnToSettings = pending.origin.returnToSettings)
-                return@launch
-            }
-            val stackPlaceId: Long? = (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
-            if (stackPlaceId != null) {
-                clampStackHeight(placeId = stackPlaceId)
-                reportStackSize(placeId = stackPlaceId)
-            }
-            clearPending()
-            addFlow.value = AddWidgetFlowState.Idle
-            returnToSettingsIfRequested(origin = pending.origin)
-        }
-    }
+        is WidgetMenuTarget.AppWidget -> AddWidgetTarget.Widget(widgetId = widgetId)
 
-    private suspend fun clampStackHeight(placeId: Long) {
-        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
-        val bounds: ResizeBounds = ResizeBounds.stackBounds(
-            place.widgets.map { widget ->
-                widget.resizeBounds(headerHeightDp.value, ::providerInfoFor)
-            }
-        )
-        val storedHeight: Int = place.heightDp ?: return
-        val homeHeight: Int = resizeController.homeHeightDp.value ?: Int.MAX_VALUE
-        val clamped: Int = bounds.clamp(heightDp = storedHeight, homeHeightDp = homeHeight)
-        if (clamped != storedHeight) {
-            repository.setPlaceHeight(placeId = placeId, heightDp = clamped)
-        }
-    }
-
-    private suspend fun reportStackSize(placeId: Long) {
-        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
-        val appWidgetIds: List<AppWidgetId> = place.widgets
-            .filterIsInstance<PlacedWidget.AppWidget>()
-            .map { widget -> AppWidgetId(widget.appWidgetId) }
-        val defaults: List<Int> = place.widgets.mapNotNull { widget ->
-            (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
-                providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
-            }
-        }
-        val heightDp: Int = place.heightDp ?: defaults.maxOrNull() ?: return
-        val widthDp: Int = resizeController.widgetAreaWidth
-        if (appWidgetIds.isEmpty() || widthDp <= 0) {
-            return
-        }
-        val indicatorVisible: Boolean = place.isStack &&
-            settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
-        val pageHeightDp: Int = (heightDp - if (indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0).coerceAtLeast(1)
-        eventChannel.send(
-            WidgetAreaEvent.ReportWidgetSize(
-                appWidgetIds = appWidgetIds,
-                widthDp = widthDp,
-                heightDp = pageHeightDp
-            )
-        )
-    }
-
-    private fun WidgetPlace.toAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = id))
-
-    private fun cancelPending(pending: PendingWidget) {
-        appWidgetHost.deleteId(id = pending.id)
-        clearPending()
-        addFlow.value = AddWidgetFlowState.Idle
-        returnToSettingsIfRequested(origin = pending.origin)
-    }
-
-    private fun returnToSettingsIfRequested(origin: AddWidgetOrigin) {
-        if (origin.returnToSettings) {
-            viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.ReturnToSettings)
-            }
-        }
-    }
-
-    private fun failAdd(id: AppWidgetId, returnToSettings: Boolean = false) {
-        appWidgetHost.deleteId(id = id)
-        clearPending()
-        addFlow.value = AddWidgetFlowState.Idle
-        viewModelScope.launch {
-            eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
-            if (returnToSettings) {
-                eventChannel.send(WidgetAreaEvent.ReturnToSettings)
-            }
-        }
-    }
-
-    private fun restorePendingWidget() {
-        val pendingId: Int = savedStateHandle.get<Int>(PENDING_APP_WIDGET_ID_KEY) ?: return
-        val providerKey: String? = savedStateHandle.get<String>(PENDING_PROVIDER_KEY)
-        val provider: WidgetProvider? = providerKey?.let(WidgetProvider::fromKey)
-        val profileSerial: Long? = savedStateHandle.get<Long>(PENDING_PROFILE_SERIAL_KEY)
-        if (provider == null || profileSerial == null) {
-            failAdd(
-                id = AppWidgetId(pendingId),
-                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false
-            )
-            return
-        }
-        val stackPlaceId: Long? = savedStateHandle.get<Long>(PENDING_INSERT_STACK_PLACE_ID_KEY)
-        val belowPlaceId: Long? = savedStateHandle.get<Long>(PENDING_INSERT_BELOW_PLACE_ID_KEY)
-        val insertAt: InsertPosition = when {
-            stackPlaceId != null -> InsertPosition.IntoStack(placeId = stackPlaceId)
-            belowPlaceId != null -> InsertPosition.Below(placeId = belowPlaceId)
-            else -> InsertPosition.End
-        }
-        val pending: PendingWidget = PendingWidget(
-            id = AppWidgetId(pendingId),
-            provider = provider,
-            profileSerial = profileSerial,
-            needsConfiguration = savedStateHandle.get<Boolean>(PENDING_NEEDS_CONFIGURATION_KEY) ?: false,
-            defaultHeightDp = savedStateHandle.get<Int>(PENDING_DEFAULT_HEIGHT_KEY) ?: 0,
-            origin = AddWidgetOrigin(
-                insertAt = insertAt,
-                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false
-            )
-        )
-        addFlowPendingIds.set(setOf(pending.id))
-        addFlow.value = if (savedStateHandle.get<String>(PENDING_PHASE_KEY) == PENDING_PHASE_CONFIGURING) {
-            AddWidgetFlowState.Configuring(widget = pending)
-        } else {
-            AddWidgetFlowState.Binding(widget = pending)
-        }
-    }
-
-    private fun persistPending(pending: PendingWidget, phase: String) {
-        savedStateHandle[PENDING_APP_WIDGET_ID_KEY] = pending.id.value
-        savedStateHandle[PENDING_PROVIDER_KEY] = pending.provider.key
-        savedStateHandle[PENDING_PROFILE_SERIAL_KEY] = pending.profileSerial
-        savedStateHandle[PENDING_NEEDS_CONFIGURATION_KEY] = pending.needsConfiguration
-        savedStateHandle[PENDING_DEFAULT_HEIGHT_KEY] = pending.defaultHeightDp
-        savedStateHandle[PENDING_INSERT_BELOW_PLACE_ID_KEY] = (pending.origin.insertAt as? InsertPosition.Below)?.placeId
-        savedStateHandle[PENDING_INSERT_STACK_PLACE_ID_KEY] = (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
-        savedStateHandle[PENDING_RETURN_TO_SETTINGS_KEY] = pending.origin.returnToSettings
-        savedStateHandle[PENDING_PHASE_KEY] = phase
-        addFlowPendingIds.set(setOf(pending.id))
-    }
-
-    private fun clearPending() {
-        savedStateHandle.remove<Int>(PENDING_APP_WIDGET_ID_KEY)
-        savedStateHandle.remove<String>(PENDING_PROVIDER_KEY)
-        savedStateHandle.remove<Long>(PENDING_PROFILE_SERIAL_KEY)
-        savedStateHandle.remove<Boolean>(PENDING_NEEDS_CONFIGURATION_KEY)
-        savedStateHandle.remove<Int>(PENDING_DEFAULT_HEIGHT_KEY)
-        savedStateHandle.remove<Long>(PENDING_INSERT_BELOW_PLACE_ID_KEY)
-        savedStateHandle.remove<Long>(PENDING_INSERT_STACK_PLACE_ID_KEY)
-        savedStateHandle.remove<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY)
-        savedStateHandle.remove<String>(PENDING_PHASE_KEY)
-        addFlowPendingIds.set(emptySet())
-    }
-
-    private fun pickerGroups(providers: List<WidgetProviderInfo>, query: String): List<PickerGroup> {
-        val filter: String = query.trim()
-        val collator: Collator = Collator.getInstance()
-        return providers
-            .filter { provider ->
-                filter.isEmpty() ||
-                    provider.appLabel.contains(filter, ignoreCase = true) ||
-                    provider.label.contains(filter, ignoreCase = true)
-            }
-            .groupBy { provider -> provider.appPackageName to provider.profileSerial }
-            .map { (_, widgets) ->
-                val first: WidgetProviderInfo = widgets.first()
-                PickerGroup(
-                    appPackageName = first.appPackageName,
-                    appLabel = first.appLabel,
-                    appIcon = first.appIcon,
-                    isWorkProfile = first.isWorkProfile,
-                    widgets = widgets.sortedWith(compareBy(collator) { widget -> widget.label })
-                )
-            }
-            .sortedWith(compareBy(collator) { group -> group.appLabel })
+        WidgetMenuTarget.EmptyArea,
+        WidgetMenuTarget.ClockStyle,
+        WidgetMenuTarget.MediaPlayer -> AddWidgetTarget.Empty
     }
 
     private fun WidgetMenuTarget?.toMenuState(
@@ -1734,12 +1404,6 @@ class WidgetAreaViewModel(
         add(WidgetMenuItem.Action(id = WidgetMenuAction.MoveWidgetArea))
         add(WidgetMenuItem.Action(id = WidgetMenuAction.WidgetSettings))
     }
-
-    private fun List<WidgetPlace>.headerPlace(widgetId: Long? = null): WidgetPlace? = firstOrNull { place ->
-        place.widgets.any { widget -> widget is PlacedWidget.Header && (widgetId == null || widget.id == widgetId) }
-    }
-
-    private fun List<WidgetPlace>.hasHeader(): Boolean = headerPlace() != null
 
     private fun WidgetPlace.toModel(
         reading: ClockReading,

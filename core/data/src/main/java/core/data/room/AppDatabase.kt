@@ -17,10 +17,12 @@ import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
+import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.widgets.MediaPlayerSettings
+import core.data.widgets.PendingAppWidgetRecord
 import core.data.widgets.WidgetAreaSettingsRecord
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
@@ -37,9 +39,10 @@ import core.data.widgets.WidgetRecord
         WidgetPlaceRecord::class,
         WidgetRecord::class,
         WidgetAreaSettingsRecord::class,
-        MediaPlayerSettings::class
+        MediaPlayerSettings::class,
+        PendingAppWidgetRecord::class
     ],
-    version = 5
+    version = 6
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -53,4 +56,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getWidgetAreaDao(): WidgetAreaDao
     abstract fun getWidgetAreaSettingsDao(): WidgetAreaSettingsDao
     abstract fun getMediaPlayerSettingsDao(): MediaPlayerSettingsDao
+    abstract fun getPendingAppWidgetDao(): PendingAppWidgetDao
 }
