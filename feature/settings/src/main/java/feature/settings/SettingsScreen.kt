@@ -126,6 +126,8 @@ import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
+import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.OneShotRequest
 import core.util.openApplicationDetailsSettings
 import core.widgets.AppWidgetViewCache
 import core.widgets.HeaderClockStyleChooser
@@ -181,6 +183,27 @@ val settingsDestination = Destination(
     enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150)) },
     exitTransition = { fadeOut(animationSpec = tween(durationMillis = 100, delayMillis = 100)) }
 )
+
+/**
+ * Leaves Settings for Home and asks it to open the App Widget picker.
+ *
+ * A deep link can open Settings without a Home entry below it, so fall back
+ * to clearing the Settings entries and navigating to Home.
+ */
+private fun NavController.startAddWidgetOnHome() {
+    val hasHomeOnBackStack: Boolean = popBackStack(LAUNCHER_ROUTE, inclusive = false)
+    if (!hasHomeOnBackStack) {
+        val settingsId: Int? = currentDestination?.id
+        while (settingsId != null && currentDestination?.id == settingsId && popBackStack()) {
+            // Keep popping until every Settings screen is gone.
+        }
+        navigate(LAUNCHER_ROUTE)
+    }
+    OneShotRequest(
+        savedStateHandle = getBackStackEntry(LAUNCHER_ROUTE).savedStateHandle,
+        key = HOME_ADD_WIDGET_REQUEST_KEY
+    ).request()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -240,10 +263,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 
                 SettingsScreen.Widgets -> SettingsWidgetsScreen(
                     section = section,
-                    onAddWidget = {
-                        navController.getBackStackEntry("launcher").savedStateHandle[HOME_ADD_WIDGET_REQUEST_KEY] = true
-                        navController.popBackStack("launcher", inclusive = false)
-                    }
+                    onAddWidget = { navController.startAddWidgetOnHome() }
                 )
             }
         }

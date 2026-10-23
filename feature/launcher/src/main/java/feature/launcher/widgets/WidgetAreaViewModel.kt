@@ -1178,9 +1178,9 @@ class WidgetAreaViewModel(
         }
     }
 
-    fun startAdd(origin: AddWidgetOrigin) {
+    fun startAdd(origin: AddWidgetOrigin): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
-            return
+            return false
         }
         menuTarget.value = null
         addFlow.value = AddWidgetFlowState.Picking(
@@ -1188,6 +1188,7 @@ class WidgetAreaViewModel(
             query = "",
             groups = pickerGroups(providers = providers.value, query = "")
         )
+        return true
     }
 
     fun choosePlacement(placement: AddWidgetPlacement) {
@@ -1234,6 +1235,7 @@ class WidgetAreaViewModel(
             viewModelScope.launch {
                 eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
             }
+            returnToSettingsIfRequested(origin = picking.origin)
             return
         }
         val id: AppWidgetId = appWidgetHost.allocateId()
@@ -1258,13 +1260,22 @@ class WidgetAreaViewModel(
     }
 
     fun cancelAdd() {
-        val state: AddWidgetFlowState = addFlow.value
-        when (state) {
+        when (val state: AddWidgetFlowState = addFlow.value) {
             AddWidgetFlowState.Idle -> Unit
-            is AddWidgetFlowState.ChoosingPlacement -> addFlow.value = AddWidgetFlowState.Idle
-            is AddWidgetFlowState.Picking -> addFlow.value = AddWidgetFlowState.Idle
-            is AddWidgetFlowState.Binding -> failAdd(id = state.widget.id)
-            is AddWidgetFlowState.Configuring -> failAdd(id = state.widget.id)
+
+            is AddWidgetFlowState.ChoosingPlacement -> {
+                addFlow.value = AddWidgetFlowState.Idle
+                returnToSettingsIfRequested(origin = state.origin)
+            }
+
+            is AddWidgetFlowState.Picking -> {
+                addFlow.value = AddWidgetFlowState.Idle
+                returnToSettingsIfRequested(origin = state.origin)
+            }
+
+            is AddWidgetFlowState.Binding -> cancelPending(pending = state.widget)
+
+            is AddWidgetFlowState.Configuring -> cancelPending(pending = state.widget)
         }
     }
 
@@ -1273,7 +1284,7 @@ class WidgetAreaViewModel(
         if (granted) {
             continueAfterBind(pending = binding.widget)
         } else {
-            failAdd(id = binding.widget.id)
+            failAdd(id = binding.widget.id, returnToSettings = binding.widget.origin.returnToSettings)
         }
     }
 
@@ -1282,7 +1293,7 @@ class WidgetAreaViewModel(
         if (ok) {
             placeWidget(pending = configuring.widget)
         } else {
-            failAdd(id = configuring.widget.id)
+            failAdd(id = configuring.widget.id, returnToSettings = configuring.widget.origin.returnToSettings)
         }
     }
 
@@ -1385,7 +1396,7 @@ class WidgetAreaViewModel(
                 )
             }
             if (placed.isFailure) {
-                failAdd(id = pending.id)
+                failAdd(id = pending.id, returnToSettings = pending.origin.returnToSettings)
                 return@launch
             }
             val stackPlaceId: Long? = (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
@@ -1395,9 +1406,7 @@ class WidgetAreaViewModel(
             }
             clearPending()
             addFlow.value = AddWidgetFlowState.Idle
-            if (pending.origin.returnToSettings) {
-                eventChannel.send(WidgetAreaEvent.ReturnToSettings)
-            }
+            returnToSettingsIfRequested(origin = pending.origin)
         }
     }
 
@@ -1445,12 +1454,30 @@ class WidgetAreaViewModel(
 
     private fun WidgetPlace.toAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = id))
 
-    private fun failAdd(id: AppWidgetId) {
+    private fun cancelPending(pending: PendingWidget) {
+        appWidgetHost.deleteId(id = pending.id)
+        clearPending()
+        addFlow.value = AddWidgetFlowState.Idle
+        returnToSettingsIfRequested(origin = pending.origin)
+    }
+
+    private fun returnToSettingsIfRequested(origin: AddWidgetOrigin) {
+        if (origin.returnToSettings) {
+            viewModelScope.launch {
+                eventChannel.send(WidgetAreaEvent.ReturnToSettings)
+            }
+        }
+    }
+
+    private fun failAdd(id: AppWidgetId, returnToSettings: Boolean = false) {
         appWidgetHost.deleteId(id = id)
         clearPending()
         addFlow.value = AddWidgetFlowState.Idle
         viewModelScope.launch {
             eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
+            if (returnToSettings) {
+                eventChannel.send(WidgetAreaEvent.ReturnToSettings)
+            }
         }
     }
 
@@ -1460,7 +1487,10 @@ class WidgetAreaViewModel(
         val provider: WidgetProvider? = providerKey?.let(WidgetProvider::fromKey)
         val profileSerial: Long? = savedStateHandle.get<Long>(PENDING_PROFILE_SERIAL_KEY)
         if (provider == null || profileSerial == null) {
-            failAdd(id = AppWidgetId(pendingId))
+            failAdd(
+                id = AppWidgetId(pendingId),
+                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false
+            )
             return
         }
         val stackPlaceId: Long? = savedStateHandle.get<Long>(PENDING_INSERT_STACK_PLACE_ID_KEY)

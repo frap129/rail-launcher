@@ -120,6 +120,7 @@ import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.widgets.IAppWidgetHostSource
+import core.data.widgets.InsertPosition
 import core.ui.R as CoreUiR
 import core.ui.composables.DragHandle
 import core.ui.composables.FocusRevealContent
@@ -130,7 +131,10 @@ import core.ui.layout.homeEdgePadding
 import core.ui.model.data.Destination
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.FLEXIBLE_SPACER_KEY
+import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.OneShotRequest
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.model.data.favoriteKey
@@ -141,6 +145,7 @@ import core.util.toDp
 import core.widgets.AppWidgetViewCache
 import core.widgets.NotificationAccessDialog
 import feature.launcher.widgets.AddWidgetFlowState
+import feature.launcher.widgets.AddWidgetOrigin
 import feature.launcher.widgets.AddWidgetPlacement
 import feature.launcher.widgets.AppWidgetPickerSheet
 import feature.launcher.widgets.AppWidgetViews
@@ -175,7 +180,7 @@ import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 val launcherDestination = Destination(
-    route = "launcher",
+    route = LAUNCHER_ROUTE,
     content = { navController, backStackEntry ->
         LauncherScreen(navController, backStackEntry)
     },
@@ -230,11 +235,18 @@ fun LauncherScreen(
     val undoLabel: String = stringResource(R.string.undo)
     val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
     val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
+    val finishEditingHomeMessage: String = stringResource(R.string.finish_editing_home)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: AppWidgetViewCache = koinInject()
+    val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
+        OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
+    }
+    val addWidgetRequest: OneShotRequest = remember(backStackEntry) {
+        OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_ADD_WIDGET_REQUEST_KEY)
+    }
     val bindLauncher: ManagedActivityResultLauncher<Intent, ActivityResult> =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             widgetViewModel.onBindResult(granted = result.resultCode == Activity.RESULT_OK)
@@ -399,19 +411,26 @@ fun LauncherScreen(
             }
         }
     }
-    LaunchedEffect(backStackEntry) {
-        backStackEntry.savedStateHandle
-            .getStateFlow(HOME_INTENT_REQUEST_KEY, false)
-            .collect { requested ->
-                if (requested) {
-                    backStackEntry.savedStateHandle[HOME_INTENT_REQUEST_KEY] = false
-                    val wasEditingHome: Boolean =
-                        widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
-                    if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
-                        viewModel.onHomeIntent()
-                    }
+    LaunchedEffect(homeIntentRequest) {
+        homeIntentRequest.collectRequests {
+            val wasEditingHome: Boolean =
+                widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
+            if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
+                viewModel.onHomeIntent()
+            }
+        }
+    }
+    LaunchedEffect(addWidgetRequest) {
+        addWidgetRequest.collectRequests {
+            val started: Boolean = widgetViewModel.startAdd(
+                origin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
+            )
+            if (!started) {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(message = finishEditingHomeMessage)
                 }
             }
+        }
     }
     LaunchedEffect(appWidgetResults) {
         appWidgetResults.results.collect { result ->

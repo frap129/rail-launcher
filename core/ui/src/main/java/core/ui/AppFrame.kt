@@ -17,6 +17,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.model.data.OneShotRequest
 import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -48,9 +49,14 @@ fun App(
 
     LaunchedEffect(homeSignals) {
         homeSignals.collect {
-            navController.popBackStack(startDestination, inclusive = false)
-            navController.getBackStackEntry(startDestination)
-                .savedStateHandle[HOME_INTENT_REQUEST_KEY] = true
+            val homeOnBackStack: Boolean = navController.popBackStack(startDestination, inclusive = false)
+            if (!homeOnBackStack) {
+                navController.navigate(startDestination)
+            }
+            OneShotRequest(
+                savedStateHandle = navController.getBackStackEntry(startDestination).savedStateHandle,
+                key = HOME_INTENT_REQUEST_KEY
+            ).request()
         }
     }
 
