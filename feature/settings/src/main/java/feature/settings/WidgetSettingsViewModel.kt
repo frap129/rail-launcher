@@ -23,7 +23,6 @@ import core.data.prefs.TimeFormat
 import core.data.prefs.is24Hour
 import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
-import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IRemoveAppWidget
@@ -39,6 +38,7 @@ import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSpacing
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
+import core.ui.layout.HomeHeightState
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
 import core.widgets.IHeaderTapTargetResolver

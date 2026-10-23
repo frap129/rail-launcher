@@ -28,12 +28,12 @@ import core.data.testing.MainDispatcherRule
 import core.data.testing.createHeaderSettingsActions
 import core.data.time.ClockReading
 import core.data.widgets.AppWidgetId
-import core.data.widgets.HomeHeightState
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
+import core.ui.layout.HomeHeightState
 import core.widgets.HeaderFormatter
 import core.widgets.IHeaderTapTargetResolverImpl
 import core.widgets.R as CoreWidgetsR

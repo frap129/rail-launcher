@@ -51,7 +51,6 @@ import core.data.time.IClockSourceImpl
 import core.data.time.IDatePatternSource
 import core.data.time.IDatePatternSourceImpl
 import core.data.widgets.AppWidgetHostCallbacks
-import core.data.widgets.HomeHeightState
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAddFlowPendingIdsImpl
 import core.data.widgets.IAppWidgetHostSource
@@ -67,6 +66,7 @@ import core.data.widgets.IWidgetLifecycleReconcilerImpl
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import core.data.widgets.WidgetAreaSeedCallback
+import core.ui.layout.HomeHeightState
 import core.util.screenHeightPx
 import core.widgets.HeaderFormatter
 import core.widgets.IAppWidgetViewCache
