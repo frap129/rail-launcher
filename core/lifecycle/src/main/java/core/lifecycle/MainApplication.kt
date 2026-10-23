@@ -165,9 +165,9 @@ class MainApplication :
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
-        single<IAppRepository> { IAppRepositoryImpl(androidContext()) }
-        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get()) }
-        single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get()) }
+        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
@@ -215,7 +215,7 @@ class MainApplication :
         single { HomeEditState() }
         single { HomeHeightState() }
         single<IClockSource> { IClockSourceImpl(androidContext()) }
-        single<IBatterySource> { IBatterySourceImpl(androidContext()) }
+        single<IBatterySource> { IBatterySourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IDatePatternSource> { IDatePatternSourceImpl() }
         single { HeaderFormatter(get(), androidContext().resources) }
     }

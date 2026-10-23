@@ -11,6 +11,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -123,12 +124,16 @@ class IPreferencesRepositoryImplTest {
         assertEquals(Settings(iconPack = null), actual)
     }
 
-    private fun createRepository(
+    private fun TestScope.createRepository(
         inputCustomizations: List<LaunchableCustomization> = emptyList(),
         inputSettings: Settings = Settings(),
         mockLaunchableCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao(inputCustomizations),
         mockSettingsDao: FakeSettingsDao = FakeSettingsDao(inputSettings)
-    ): IPreferencesRepository = IPreferencesRepositoryImpl(mockLaunchableCustomizationDao, mockSettingsDao)
+    ): IPreferencesRepository = IPreferencesRepositoryImpl(
+        launchableCustomizationDao = mockLaunchableCustomizationDao,
+        settingsDao = mockSettingsDao,
+        scope = backgroundScope
+    )
 
     private fun createLaunchable(): Launchable = RailLaunchable(
         defaultName = "Original Item",

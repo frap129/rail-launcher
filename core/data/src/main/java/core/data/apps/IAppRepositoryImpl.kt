@@ -7,14 +7,16 @@ import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.os.UserManager
 import core.data.apps.model.App
-import core.util.launchInBackground
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
-class IAppRepositoryImpl(context: Context) : IAppRepository {
+class IAppRepositoryImpl(context: Context, private val scope: CoroutineScope) : IAppRepository {
     private val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
     private val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
@@ -23,9 +25,9 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            launchInBackground {
+            scope.launch(Dispatchers.IO) {
                 if (_apps.value == null) {
-                    return@launchInBackground
+                    return@launch
                 }
                 val action = intent.action
                 if (Intent.ACTION_PACKAGE_ADDED == action) {
@@ -41,7 +43,7 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
                 } else if (Intent.ACTION_PACKAGE_REMOVED == action) {
                     // App updates arrive as REMOVED with EXTRA_REPLACING; keep the app.
                     if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
-                        return@launchInBackground
+                        return@launch
                     }
                     val packageName = intent.data!!.schemeSpecificPart
                     val remainingApps: List<App> = getAppInfo(packageName)
@@ -64,7 +66,7 @@ class IAppRepositoryImpl(context: Context) : IAppRepository {
     }
 
     init {
-        launchInBackground {
+        scope.launch(Dispatchers.IO) {
             _apps.value = getAppsList(context)
             apps.value?.forEach {
                 Timber.d("added ${it.name}")

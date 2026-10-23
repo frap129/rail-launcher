@@ -11,13 +11,19 @@ import core.data.icons.model.IconPack
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.util.getIconsFromPack
-import core.util.launchInBackground
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-class IIconRepositoryImpl(private val context: Context, private val iconPackDao: CustomIconPackDao, private val iconDao: PackIconDao) :
-    IIconRepository {
+class IIconRepositoryImpl(
+    private val context: Context,
+    private val iconPackDao: CustomIconPackDao,
+    private val iconDao: PackIconDao,
+    private val scope: CoroutineScope
+) : IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
         Intent("com.novalauncher.THEME"),
@@ -32,14 +38,14 @@ class IIconRepositoryImpl(private val context: Context, private val iconPackDao:
 
     private val appChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            launchInBackground {
+            scope.launch(Dispatchers.IO) {
                 updateIconPacks()
             }
         }
     }
 
     init {
-        launchInBackground {
+        scope.launch(Dispatchers.IO) {
             updateIconPacks()
         }
 
