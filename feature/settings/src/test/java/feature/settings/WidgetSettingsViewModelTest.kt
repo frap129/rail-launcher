@@ -551,6 +551,17 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
+    fun `add widget opens the Home picker`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel()
+
+        viewModel.events.test {
+            viewModel.openAddWidget()
+            assertEquals(WidgetSettingsEvent.StartAddWidget, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `saves event options`() = runTest {
         val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
         val viewModel: WidgetSettingsViewModel = createViewModel(settingsRepository = settingsRepository)

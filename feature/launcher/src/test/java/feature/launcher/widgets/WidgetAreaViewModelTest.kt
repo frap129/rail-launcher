@@ -1432,6 +1432,8 @@ class WidgetAreaViewModelTest {
         }
     }
 
+    private fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
+
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
         clockSource: FakeClockSource = FakeClockSource(reading()),
@@ -1644,11 +1646,92 @@ class WidgetAreaViewModelTest {
             appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
         )
         viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End, returnToSettings = true))
+            viewModel.startAdd(settingsAddOrigin())
             viewModel.pickProvider(appWidgetProviderInfo())
             advanceUntilIdle()
             assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
             assertEquals(2, repository.places.first().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `cancelling an add started from Settings returns to Settings`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+        viewModel.events.test {
+            viewModel.startAdd(settingsAddOrigin())
+            viewModel.cancelAdd()
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `denied bind for an add started from Settings returns to Settings`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            appWidgetHost = FakeAppWidgetHostSource(
+                initialProviders = listOf(appWidgetProviderInfo()),
+                bindResults = listOf(false)
+            )
+        )
+        viewModel.events.test {
+            viewModel.startAdd(settingsAddOrigin())
+            viewModel.pickProvider(appWidgetProviderInfo())
+            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
+            viewModel.onBindResult(granted = false)
+            assertEquals(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `cancelling while configuring returns to Settings without an error`() = runTest {
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo()),
+            bindResults = listOf(true)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(settingsAddOrigin())
+            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
+            assertEquals(WidgetAreaEvent.LaunchConfigure(id = AppWidgetId(1)), awaitItem())
+            viewModel.cancelAdd()
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `cancelling while binding returns to Settings without an error`() = runTest {
+        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo()),
+            bindResults = listOf(false)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
+        viewModel.events.test {
+            viewModel.startAdd(settingsAddOrigin())
+            viewModel.pickProvider(appWidgetProviderInfo())
+            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
+            viewModel.cancelAdd()
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `cancelling an add started from the menu stays on Home`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+        viewModel.events.test {
+            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+            viewModel.cancelAdd()
+            expectNoEvents()
+            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1702,7 +1785,7 @@ class WidgetAreaViewModelTest {
         viewModel.openHeaderMenu()
         viewModel.openEmptyAreaMenu()
         viewModel.openAppWidgetMenu(widgetId = 2L)
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
+        assertFalse(viewModel.startAdd(AddWidgetOrigin(InsertPosition.End)))
         assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
         assertEquals(WidgetMenuState.Closed, viewModel.menuState.value)
     }
