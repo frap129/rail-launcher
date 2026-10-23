@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.onStart
 class IWidgetAreaRepositoryImpl(
     private val widgetAreaDao: WidgetAreaDao,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val lifecycleReconciler: WidgetLifecycleReconciler
+    private val lifecycleReconciler: IWidgetLifecycleReconciler
 ) : IWidgetAreaRepository {
     override val places: Flow<List<WidgetPlace>> = combine(
         widgetAreaDao.observePlaces(),

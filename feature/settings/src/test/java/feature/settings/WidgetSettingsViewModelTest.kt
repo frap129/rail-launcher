@@ -21,19 +21,22 @@ import core.data.testing.FakeClockSource
 import core.data.testing.FakeDatePatternSource
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakeMediaSessionSource
+import core.data.testing.FakeRemoveAppWidget
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.MainDispatcherRule
 import core.data.testing.createHeaderSettingsActions
 import core.data.time.ClockReading
+import core.data.widgets.AppWidgetId
 import core.data.widgets.HomeHeightState
+import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PlacedWidget
-import core.data.widgets.RemoveAppWidget
 import core.data.widgets.WidgetPlace
 import core.widgets.HeaderFormatter
 import core.widgets.IHeaderTapTargetResolverImpl
+import core.widgets.R as CoreWidgetsR
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -267,6 +270,21 @@ class WidgetSettingsViewModelTest {
         advanceUntilIdle()
 
         assertTrue(settingsRepository.updates.isEmpty())
+    }
+
+    @Test
+    fun `removing an App Widget reports its id and a confirmation`() = runTest {
+        val removeAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget(result = AppWidgetId(9))
+        val viewModel: WidgetSettingsViewModel = createViewModel(removeAppWidget = removeAppWidget)
+
+        viewModel.events.test {
+            viewModel.removeWidget(widgetId = 2L)
+
+            assertEquals(WidgetSettingsEvent.AppWidgetRemoved(appWidgetId = AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetSettingsEvent.ShowMessage(message = CoreWidgetsR.string.widget_removed), awaitItem())
+            assertEquals(listOf(2L), removeAppWidget.removedWidgetIds)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -693,6 +711,7 @@ class WidgetSettingsViewModelTest {
         launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList()),
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
         appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
+        removeAppWidget: IRemoveAppWidget = FakeRemoveAppWidget(),
         homeHeightState: HomeHeightState = HomeHeightState(),
         mediaSessionSource: FakeMediaSessionSource = FakeMediaSessionSource()
     ): WidgetSettingsViewModel = WidgetSettingsViewModel(
@@ -716,7 +735,7 @@ class WidgetSettingsViewModelTest {
         launchableRepository = launchableRepository,
         calendarEventSource = calendarEventSource,
         appWidgetHost = appWidgetHost,
-        removeWidgetUseCase = RemoveAppWidget(repository = areaRepository, host = appWidgetHost),
+        removeAppWidget = removeAppWidget,
         homeHeightState = homeHeightState,
         mediaSessionSource = mediaSessionSource,
         headerSettingsActions = createHeaderSettingsActions(

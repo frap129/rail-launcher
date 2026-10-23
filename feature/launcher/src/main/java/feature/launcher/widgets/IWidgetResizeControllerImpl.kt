@@ -11,52 +11,32 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.resizeBounds
 import kotlin.math.roundToInt
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-
-/** The live vertical Resize mode of one Widget Area place. */
-data class ResizeState(
-    val placeId: Long,
-    val bounds: ResizeBounds,
-    val defaultHeightDp: Int,
-    val draftHeightDp: Int,
-    val indicatorVisible: Boolean = false
-)
 
 /** Owns Resize: provider bounds, the draft height, persistence, and one size report per session. */
-internal class WidgetResizeController(
+class IWidgetResizeControllerImpl(
     private val repository: IWidgetAreaRepository,
     private val appWidgetHost: IAppWidgetHostSource,
     private val settingsRepository: IWidgetSettingsRepository,
-    private val homeEditState: HomeEditState,
-    private val scope: CoroutineScope,
-    private val onReportSize: (appWidgetIds: List<AppWidgetId>, widthDp: Int, heightDp: Int) -> Unit
-) {
+    private val homeEditState: HomeEditState
+) : IWidgetResizeController {
     private val resize: MutableStateFlow<ResizeState?> = MutableStateFlow(null)
-    val resizeState: StateFlow<ResizeState?> = resize.asStateFlow()
+    override val resizeState: StateFlow<ResizeState?> = resize.asStateFlow()
 
     private val homeHeight: MutableStateFlow<Int?> = MutableStateFlow(null)
-    val homeHeightDp: StateFlow<Int?> = homeHeight.asStateFlow()
+    override val homeHeightDp: StateFlow<Int?> = homeHeight.asStateFlow()
 
     private var widgetAreaWidthDp: Int = 0
-    val widgetAreaWidth: Int get() = widgetAreaWidthDp
 
     private var rawResizeHeightDp: Float = 0f
     private var resizingAppWidgetIds: List<AppWidgetId> = emptyList()
 
-    init {
-        scope.launch {
-            repository.places.collect { places -> cancelIfGone(places) }
-        }
-    }
-
     /** Supplies the safe Home height so Resize can cap the widget and keep the handle reachable. */
-    fun setHomeHeight(heightDp: Int) {
+    override fun setHomeHeight(heightDp: Int) {
         if (heightDp <= 0) {
             return
         }
@@ -65,14 +45,14 @@ internal class WidgetResizeController(
     }
 
     /** Supplies the Widget Area width for the size report sent to the provider after Resize. */
-    fun setWidgetAreaWidth(widthDp: Int) {
+    override fun setWidgetAreaWidth(widthDp: Int) {
         if (widthDp > 0) {
             widgetAreaWidthDp = widthDp
         }
     }
 
     /** Enters Resize for [placeId], returning false when the place is not resizable right now. */
-    suspend fun startResize(placeId: Long, headerHeightDp: Int? = null): Boolean {
+    override suspend fun startResize(placeId: Long, headerHeightDp: Int?): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return false
         }
@@ -120,7 +100,7 @@ internal class WidgetResizeController(
     }
 
     /** Enters Resize for the place holding [widgetId]. */
-    suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int? = null): Boolean {
+    override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?): Boolean {
         val place: WidgetPlace = repository.places.first().firstOrNull { place ->
             place.widgets.any { widget -> widget.id == widgetId }
         } ?: return false
@@ -128,7 +108,7 @@ internal class WidgetResizeController(
     }
 
     /** Applies a fractional drag delta, snapping the accumulated height to the 8dp grid. */
-    fun dragResize(deltaDp: Float) {
+    override fun dragResize(deltaDp: Float) {
         val state: ResizeState = resize.value ?: return
         if (deltaDp == 0f) {
             return
@@ -140,15 +120,15 @@ internal class WidgetResizeController(
     }
 
     /** Returns the draft to the provider default, which [finishResize] then stores as no override. */
-    fun resetResize() {
+    override fun resetResize() {
         val state: ResizeState = resize.value ?: return
         rawResizeHeightDp = state.defaultHeightDp.toFloat()
         resize.value = state.withDraft(heightDp = state.defaultHeightDp)
     }
 
-    /** Persists the draft height and reports the shared page size once to every App Widget page. */
-    fun finishResize() {
-        val state: ResizeState = resize.value ?: return
+    /** Leaves Resize with the height persistence and size report it still needs. */
+    override fun finishResize(): ResizeFinish? {
+        val state: ResizeState = resize.value ?: return null
         resize.value = null
         homeEditState.exit(HomeEditMode.Resizing(placeId = state.placeId))
         val heightDp: Int = state.draftHeightDp
@@ -159,31 +139,43 @@ internal class WidgetResizeController(
         val storedHeightDp: Int? = heightDp.takeUnless { draft -> draft == effectiveDefaultHeightDp }
         val appWidgetIds: List<AppWidgetId> = resizingAppWidgetIds
         resizingAppWidgetIds = emptyList()
-        val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = state.indicatorVisible)
-        scope.launch {
-            repository.setPlaceHeight(placeId = state.placeId, heightDp = storedHeightDp)
-            if (appWidgetIds.isNotEmpty() && widgetAreaWidthDp > 0) {
-                onReportSize(appWidgetIds, widgetAreaWidthDp, pageHeightDp)
-            }
+        return ResizeFinish(
+            placeId = state.placeId,
+            storedHeightDp = storedHeightDp,
+            appWidgetIds = appWidgetIds,
+            widthDp = widgetAreaWidthDp,
+            heightDp = pageHeightDp(heightDp = heightDp, indicatorVisible = state.indicatorVisible)
+        )
+    }
+
+    override suspend fun persistResize(finish: ResizeFinish): WidgetSizeReport? {
+        repository.setPlaceHeight(placeId = finish.placeId, heightDp = finish.storedHeightDp)
+        if (finish.appWidgetIds.isEmpty() || finish.widthDp <= 0) {
+            return null
         }
+        return WidgetSizeReport(
+            appWidgetIds = finish.appWidgetIds,
+            widthDp = finish.widthDp,
+            heightDp = finish.heightDp
+        )
     }
 
     /** Leaves Resize without saving when the place disappears underneath the user. */
-    fun cancelResize() {
+    override fun cancelResize() {
         val state: ResizeState = resize.value ?: return
         resize.value = null
         resizingAppWidgetIds = emptyList()
         homeEditState.exit(HomeEditMode.Resizing(placeId = state.placeId))
     }
 
-    /** Clamps a stack that gained a page and reports the page size to its providers. */
-    suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?) {
+    /** Clamps a stack that gained a page and returns the page size to report to its providers. */
+    override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport? {
         clampStackHeight(placeId = placeId, headerHeightDp = headerHeightDp)
-        reportStackSize(placeId = placeId)
+        return reportStackSize(placeId = placeId)
     }
 
     /** Clamps a stack's stored height after the Header is replaced by a page. */
-    suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) {
+    override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) {
         val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
         val bounds: ResizeBounds = ResizeBounds.stackBounds(
             place.widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) }
@@ -196,21 +188,21 @@ internal class WidgetResizeController(
         }
     }
 
-    private suspend fun reportStackSize(placeId: Long) {
-        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
+    private suspend fun reportStackSize(placeId: Long): WidgetSizeReport? {
+        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return null
         val appWidgetIds: List<AppWidgetId> = place.widgets
             .filterIsInstance<PlacedWidget.AppWidget>()
             .map { widget -> AppWidgetId(widget.appWidgetId) }
         val defaults: List<Int> = defaultHeightsDp(place)
-        val heightDp: Int = place.heightDp ?: defaults.maxOrNull() ?: return
+        val heightDp: Int = place.heightDp ?: defaults.maxOrNull() ?: return null
         val widthDp: Int = widgetAreaWidthDp
         if (appWidgetIds.isEmpty() || widthDp <= 0) {
-            return
+            return null
         }
         val indicatorVisible: Boolean = place.isStack &&
             settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
         val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = indicatorVisible)
-        onReportSize(appWidgetIds, widthDp, pageHeightDp)
+        return WidgetSizeReport(appWidgetIds = appWidgetIds, widthDp = widthDp, heightDp = pageHeightDp)
     }
 
     private fun defaultHeightsDp(place: WidgetPlace): List<Int> = place.widgets.mapNotNull { widget ->
@@ -222,24 +214,9 @@ internal class WidgetResizeController(
     private fun pageHeightDp(heightDp: Int, indicatorVisible: Boolean): Int =
         (heightDp - if (indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0).coerceAtLeast(1)
 
-    /** Consumes Back while resizing; returns false so the launcher can handle it otherwise. */
-    fun onBack(): Boolean = consumeResize()
-
-    /** Consumes the Home intent while resizing. */
-    fun onHomeIntent(): Boolean = consumeResize()
-
-    private fun consumeResize(): Boolean {
-        if (resize.value == null) {
-            return false
-        }
-        finishResize()
-        return true
-    }
-
-    private fun cancelIfGone(places: List<WidgetPlace>) {
+    override fun onPlacesChanged(places: List<WidgetPlace>) {
         val state: ResizeState = resize.value ?: return
-        val place: WidgetPlace? = places.firstOrNull { place -> place.id == state.placeId }
-        if (place == null) {
+        if (places.none { place -> place.id == state.placeId }) {
             cancelResize()
         }
     }

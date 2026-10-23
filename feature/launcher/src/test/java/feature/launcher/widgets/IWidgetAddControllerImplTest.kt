@@ -6,6 +6,8 @@ import core.data.testing.FakeAddFlowPendingIds
 import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
+import core.data.testing.appWidgetPlace
+import core.data.testing.headerPlace
 import core.data.widgets.AppWidgetId
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget

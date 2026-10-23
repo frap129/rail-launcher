@@ -142,7 +142,7 @@ import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.util.openApplicationDetailsSettings
 import core.util.toDp
-import core.widgets.AppWidgetViewCache
+import core.widgets.IAppWidgetViewCache
 import core.widgets.NotificationAccessDialog
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.AddWidgetOrigin
@@ -240,7 +240,7 @@ fun LauncherScreen(
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
-    val appWidgetViewCache: AppWidgetViewCache = koinInject()
+    val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }

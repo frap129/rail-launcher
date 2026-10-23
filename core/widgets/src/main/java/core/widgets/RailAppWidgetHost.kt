@@ -3,18 +3,13 @@ package core.widgets
 import android.annotation.SuppressLint
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
-import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
-import android.os.Bundle
 import android.os.SystemClock
-import android.util.SizeF
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
-import android.view.ViewGroup
 import core.data.widgets.AppWidgetHostCallbacks
-import core.data.widgets.AppWidgetId
 
 /** The AppWidgetHost Rail owns for the process lifetime. */
 class RailAppWidgetHost(context: Context, hostId: Int, private val callbacks: AppWidgetHostCallbacks) : AppWidgetHost(context, hostId) {
@@ -122,60 +117,4 @@ class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
             cancel.recycle()
         }
     }
-}
-
-/** One RailAppWidgetHostView per App Widget id, kept for the process lifetime. */
-class AppWidgetViewCache(private val context: Context, private val host: AppWidgetHost) {
-    private val views: MutableMap<Int, RailAppWidgetHostView> = mutableMapOf()
-    private val reportedSizes: MutableMap<Int, ReportedSize> = mutableMapOf()
-
-    /** Returns the cached view, which may still be attached to its current holder. */
-    fun getOrCreate(id: AppWidgetId): RailAppWidgetHostView? {
-        views[id.value]?.let { view -> return view }
-        val info: AppWidgetProviderInfo = AppWidgetManager.getInstance(context).getAppWidgetInfo(id.value) ?: return null
-        val view: RailAppWidgetHostView = host.createView(context, id.value, info) as RailAppWidgetHostView
-        view.setPadding(0, 0, 0, 0)
-        views[id.value] = view
-        return view
-    }
-
-    /** Returns the cached view detached from its previous holder, ready to attach to a new one. */
-    fun takeForAttach(id: AppWidgetId): RailAppWidgetHostView? {
-        val view: RailAppWidgetHostView = views[id.value] ?: return null
-        view.detachFromParent()
-        return view
-    }
-
-    fun remove(id: AppWidgetId) {
-        views.remove(id.value)?.let { view ->
-            view.onLongPress = null
-            view.detachFromParent()
-        }
-        reportedSizes.remove(id.value)
-    }
-
-    /** Reports [widthDp] × [heightDp] unless the same size was already sent for this widget. */
-    fun reportSizeIfChanged(id: AppWidgetId, widthDp: Int, heightDp: Int) {
-        val view: RailAppWidgetHostView = views[id.value] ?: return
-        val reported: ReportedSize? = reportedSizes[id.value]
-        if (reported != null && reported.heightDp == heightDp && kotlin.math.abs(reported.widthDp - widthDp) <= 1) {
-            return
-        }
-        val options: Bundle = Bundle().apply {
-            putInt(AppWidgetManager.OPTION_APPWIDGET_HOST_CATEGORY, AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN)
-        }
-        view.updateAppWidgetSize(options, listOf(SizeF(widthDp.toFloat(), heightDp.toFloat())))
-        reportedSizes[id.value] = ReportedSize(widthDp = widthDp, heightDp = heightDp)
-    }
-
-    /** Reports the persisted Widget Area size to the providers of the resized place. */
-    fun updateSize(ids: List<AppWidgetId>, widthDp: Int, heightDp: Int) {
-        ids.forEach { id -> reportSizeIfChanged(id = id, widthDp = widthDp, heightDp = heightDp) }
-    }
-}
-
-private data class ReportedSize(val widthDp: Int, val heightDp: Int)
-
-private fun RailAppWidgetHostView.detachFromParent() {
-    (parent as? ViewGroup)?.removeView(this)
 }
