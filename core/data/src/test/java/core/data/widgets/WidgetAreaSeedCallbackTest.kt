@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 class WidgetAreaSeedCallbackTest {
     @Test
     fun `fresh database seeds one place with a Header`() = runTest {
-        val database: AppDatabase = Room.inMemoryDatabaseBuilder(
+        val mockDatabase: AppDatabase = Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
             AppDatabase::class.java
         )
@@ -29,43 +29,43 @@ class WidgetAreaSeedCallbackTest {
             .allowMainThreadQueries()
             .build()
         try {
-            assertSingleSeededHeader(database)
+            assertSingleSeededHeader(mockDatabase)
         } finally {
-            database.close()
+            mockDatabase.close()
         }
     }
 
     @Test
     fun `destructive migration seeds one place with a Header`() = runTest {
-        val context: Context = RuntimeEnvironment.getApplication()
-        val databaseName: String = "widget-area-destructive-migration.db"
-        context.deleteDatabase(databaseName)
-        context.openOrCreateDatabase(databaseName, Context.MODE_PRIVATE, null).use { legacyDatabase ->
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val inputDatabaseName: String = "widget-area-destructive-migration.db"
+        inputContext.deleteDatabase(inputDatabaseName)
+        inputContext.openOrCreateDatabase(inputDatabaseName, Context.MODE_PRIVATE, null).use { legacyDatabase ->
             legacyDatabase.version = 4
         }
 
-        val database: AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, databaseName)
+        val mockDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
             .addCallback(WidgetAreaSeedCallback())
             .fallbackToDestructiveMigration(dropAllTables = false)
             .allowMainThreadQueries()
             .build()
         try {
-            assertSingleSeededHeader(database)
+            assertSingleSeededHeader(mockDatabase)
         } finally {
-            database.close()
-            context.deleteDatabase(databaseName)
+            mockDatabase.close()
+            inputContext.deleteDatabase(inputDatabaseName)
         }
     }
 
     private suspend fun assertSingleSeededHeader(database: AppDatabase) {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = host)
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
-        val places: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, host, reconciler).places.first()
-        assertEquals(1, places.size)
-        val widgets: List<PlacedWidget> = places.single().widgets
-        assertEquals(1, widgets.size)
-        assertTrue(widgets.single() is PlacedWidget.Header)
+        val actualPlaces: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler).places.first()
+        assertEquals(1, actualPlaces.size)
+        val actualWidgets: List<PlacedWidget> = actualPlaces.single().widgets
+        assertEquals(1, actualWidgets.size)
+        assertTrue(actualWidgets.single() is PlacedWidget.Header)
     }
 }

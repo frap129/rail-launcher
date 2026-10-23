@@ -28,18 +28,18 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IWidgetSettingsRepositoryImplTest {
-    private val keptLaunchable: Launchable = testLaunchable(key = "kept")
+    private val inputKeptLaunchable: Launchable = testLaunchable(key = "kept")
 
     @Test
     fun `returns defaults when the settings row is absent`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
 
         assertEquals(HeaderSettings(), repository.headerSettings.first())
     }
 
     @Test
     fun `persists a transformed Header setting`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
 
         repository.updateHeaderSettings { settings -> settings.copy(clockVisible = false) }
 
@@ -48,26 +48,26 @@ class IWidgetSettingsRepositoryImplTest {
 
     @Test
     fun `returns Event settings defaults when the row is absent`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
 
         assertEquals(EventSettings(), repository.eventSettings.first())
     }
 
     @Test
     fun `round trips excluded calendar ids through Event settings`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
-        val excluded: Set<String> = setOf("42", "w:7")
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
+        val inputExcluded: Set<String> = setOf("42", "w:7")
 
-        repository.setExcludedCalendarIds(excluded)
+        repository.setExcludedCalendarIds(inputExcluded)
 
-        assertEquals(excluded, repository.eventSettings.first().excludedCalendarIds)
+        assertEquals(inputExcluded, repository.eventSettings.first().excludedCalendarIds)
     }
 
     @Test
     fun `clamps a stored event count on read`() = runTest {
         val repository: IWidgetSettingsRepository = createRepository(
-            dao = FakeHeaderSettingsDao(),
-            eventSettingsDao = FakeEventSettingsDao(EventSettings(maxEvents = 9))
+            mockHeaderSettingsDao = FakeHeaderSettingsDao(),
+            mockEventSettingsDao = FakeEventSettingsDao(EventSettings(maxEvents = 9))
         )
 
         assertEquals(3, repository.eventSettings.first().maxEvents)
@@ -75,84 +75,87 @@ class IWidgetSettingsRepositoryImplTest {
 
     @Test
     fun `persists Event settings through their setters`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
 
         repository.setEventsEnabled(true)
         repository.setEventLookaheadHours(24)
         repository.setEventMaxEvents(2)
         repository.setEventIncludeAllDay(false)
 
-        val settings: EventSettings = repository.eventSettings.first()
-        assertTrue(settings.enabled)
-        assertEquals(24, settings.lookaheadHours)
-        assertEquals(2, settings.maxEvents)
-        assertFalse(settings.includeAllDay)
+        val actualSettings: EventSettings = repository.eventSettings.first()
+        assertTrue(actualSettings.enabled)
+        assertEquals(24, actualSettings.lookaheadHours)
+        assertEquals(2, actualSettings.maxEvents)
+        assertFalse(actualSettings.includeAllDay)
     }
 
     @Test
     fun `persists Widget Area height limit settings`() = runTest {
-        val areaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao()
+        val mockAreaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao()
         val repository: IWidgetSettingsRepository = createRepository(
-            dao = FakeHeaderSettingsDao(),
-            areaSettingsDao = areaSettingsDao
+            mockHeaderSettingsDao = FakeHeaderSettingsDao(),
+            mockAreaSettingsDao = mockAreaSettingsDao
         )
 
         repository.setHeightLimitEnabled(false)
         repository.setHeightLimit(WidgetAreaHeightLimit.THREE_QUARTERS)
 
-        val settings: WidgetAreaSettings = repository.widgetAreaSettings.first()
-        assertFalse(settings.heightLimitEnabled)
-        assertEquals(WidgetAreaHeightLimit.THREE_QUARTERS, settings.heightLimit)
-        assertEquals(settings, requireNotNull(areaSettingsDao.getRow()).toDomain())
+        val actualSettings: WidgetAreaSettings = repository.widgetAreaSettings.first()
+        assertFalse(actualSettings.heightLimitEnabled)
+        assertEquals(WidgetAreaHeightLimit.THREE_QUARTERS, actualSettings.heightLimit)
+        assertEquals(actualSettings, requireNotNull(mockAreaSettingsDao.getRow()).toDomain())
     }
 
     @Test
     fun `returns Media Player settings defaults when the row is absent`() = runTest {
         val repository: IWidgetSettingsRepository =
-            createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = FakeMediaPlayerSettingsDao())
+            createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao(), mockMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao())
 
         assertEquals(MediaPlayerSettings.Default, repository.mediaPlayerSettings.first())
     }
 
     @Test
     fun `persists the Media Player enabled switch`() = runTest {
-        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+        val mockMediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository =
+            createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao(), mockMediaPlayerSettingsDao = mockMediaPlayerSettingsDao)
 
         repository.setMediaPlayerEnabled(true)
 
         assertTrue(repository.mediaPlayerSettings.first().enabled)
-        assertTrue(requireNotNull(dao.getRow()).enabled)
+        assertTrue(requireNotNull(mockMediaPlayerSettingsDao.getRow()).enabled)
     }
 
     @Test
     fun `exposes the Media Player option defaults`() = runTest {
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao())
-        val settings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
-        assertTrue(settings.showWhenPaused)
-        assertTrue(settings.showArtwork)
-        assertEquals(MediaPlayerPlacement.BELOW_WIDGET_AREA, settings.placement)
-        assertTrue(settings.excludedPackages.isEmpty())
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao())
+        val actualSettings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
+        assertTrue(actualSettings.showWhenPaused)
+        assertTrue(actualSettings.showArtwork)
+        assertEquals(MediaPlayerPlacement.BELOW_WIDGET_AREA, actualSettings.placement)
+        assertTrue(actualSettings.excludedPackages.isEmpty())
     }
 
     @Test
     fun `persists the Media Player display options`() = runTest {
-        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+        val mockMediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository =
+            createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao(), mockMediaPlayerSettingsDao = mockMediaPlayerSettingsDao)
         repository.setMediaPlayerShowWhenPaused(false)
         repository.setMediaPlayerShowArtwork(false)
         repository.setMediaPlayerPlacement(MediaPlayerPlacement.TOP_OF_WIDGET_AREA)
-        val settings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
-        assertFalse(settings.showWhenPaused)
-        assertFalse(settings.showArtwork)
-        assertEquals(MediaPlayerPlacement.TOP_OF_WIDGET_AREA, settings.placement)
-        assertEquals(settings, requireNotNull(dao.getRow()))
+        val actualSettings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
+        assertFalse(actualSettings.showWhenPaused)
+        assertFalse(actualSettings.showArtwork)
+        assertEquals(MediaPlayerPlacement.TOP_OF_WIDGET_AREA, actualSettings.placement)
+        assertEquals(actualSettings, requireNotNull(mockMediaPlayerSettingsDao.getRow()))
     }
 
     @Test
     fun `adds and removes excluded Media Player packages`() = runTest {
-        val dao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
-        val repository: IWidgetSettingsRepository = createRepository(dao = FakeHeaderSettingsDao(), mediaPlayerSettingsDao = dao)
+        val mockMediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao()
+        val repository: IWidgetSettingsRepository =
+            createRepository(mockHeaderSettingsDao = FakeHeaderSettingsDao(), mockMediaPlayerSettingsDao = mockMediaPlayerSettingsDao)
         repository.setMediaPlayerPackageExcluded(packageName = "com.example.video", excluded = true)
         repository.setMediaPlayerPackageExcluded(packageName = "com.example.music", excluded = true)
         repository.setMediaPlayerPackageExcluded(packageName = "com.example.video", excluded = false)
@@ -161,124 +164,125 @@ class IWidgetSettingsRepositoryImplTest {
 
     @Test
     fun `setClockVisible rejects hiding the last standing part`() = runTest {
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = true, dateVisible = false)
         )
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
 
         repository.setClockVisible(visible = false)
 
-        assertEquals(0, dao.upsertCount)
+        assertEquals(0, mockHeaderSettingsDao.upsertCount)
     }
 
     @Test
     fun `setBatteryVisibility never re-enables a hidden clock`() = runTest {
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS)
         )
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
 
         repository.setBatteryVisibility(BatteryVisibility.NEVER)
 
-        val actualSettings: HeaderSettings = requireNotNull(dao.getRow())
+        val actualSettings: HeaderSettings = requireNotNull(mockHeaderSettingsDao.getRow())
         assertEquals(BatteryVisibility.NEVER, actualSettings.batteryVisibility)
         assertFalse(actualSettings.clockVisible)
     }
 
     @Test
     fun `setBatteryVisibility rejects hiding the last visible part`() = runTest {
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
         )
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
 
         repository.setBatteryVisibility(BatteryVisibility.NEVER)
 
-        assertEquals(0, dao.upsertCount)
+        assertEquals(0, mockHeaderSettingsDao.upsertCount)
     }
 
     @Test
     fun `keeps a tap target whose Launchable exists`() = runTest {
-        val setting: HeaderTapSetting = HeaderTapSetting.Launchable(key = keptLaunchable.key)
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = setting))
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = inputSetting))
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
 
-        assertEquals(setting, repository.headerSettings.first().timeTapTarget)
-        assertEquals(setting, dao.getRow()?.timeTapTarget)
+        assertEquals(inputSetting, repository.headerSettings.first().timeTapTarget)
+        assertEquals(inputSetting, mockHeaderSettingsDao.getRow()?.timeTapTarget)
     }
 
     @Test
     fun `keeps a stale tap target until the Launchables load`() = runTest {
-        val staleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = staleSetting))
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = false)
+        val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = inputStaleSetting))
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = false)
 
-        assertEquals(staleSetting, repository.headerSettings.first().timeTapTarget)
-        assertEquals(staleSetting, dao.getRow()?.timeTapTarget)
+        assertEquals(inputStaleSetting, repository.headerSettings.first().timeTapTarget)
+        assertEquals(inputStaleSetting, mockHeaderSettingsDao.getRow()?.timeTapTarget)
     }
 
     @Test
     fun `clears a stale tap target once the Launchables load`() = runTest {
-        val staleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
-        val keptSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = keptLaunchable.key)
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
-            HeaderSettings(timeTapTarget = staleSetting, dateTapTarget = keptSetting)
+        val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
+        val inputKeptSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+            HeaderSettings(timeTapTarget = inputStaleSetting, dateTapTarget = inputKeptSetting)
         )
-        val launchables: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, launchables = launchables)
+        val mockLaunchables: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val repository: IWidgetSettingsRepository =
+            createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, mockLaunchables = mockLaunchables)
 
-        assertEquals(staleSetting, repository.headerSettings.first().timeTapTarget)
+        assertEquals(inputStaleSetting, repository.headerSettings.first().timeTapTarget)
 
-        launchables.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(keptLaunchable))))
+        mockLaunchables.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))))
 
-        val settings: HeaderSettings = repository.headerSettings.first()
-        assertNull(settings.timeTapTarget)
-        assertEquals(keptSetting, settings.dateTapTarget)
-        assertNull(dao.getRow()?.timeTapTarget)
-        assertEquals(keptSetting, dao.getRow()?.dateTapTarget)
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
+        assertNull(actualSettings.timeTapTarget)
+        assertEquals(inputKeptSetting, actualSettings.dateTapTarget)
+        assertNull(mockHeaderSettingsDao.getRow()?.timeTapTarget)
+        assertEquals(inputKeptSetting, mockHeaderSettingsDao.getRow()?.dateTapTarget)
     }
 
     @Test
     fun `does not clear Nothing or the system default`() = runTest {
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(
             HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = null)
         )
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
 
-        val settings: HeaderSettings = repository.headerSettings.first()
-        assertEquals(HeaderTapSetting.Nothing, settings.timeTapTarget)
-        assertNull(settings.dateTapTarget)
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
+        assertEquals(HeaderTapSetting.Nothing, actualSettings.timeTapTarget)
+        assertNull(actualSettings.dateTapTarget)
     }
 
     @Test
     fun `cleans up a stale target once for multiple collectors`() = runTest {
-        val staleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
-        val dao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = staleSetting))
-        val repository: IWidgetSettingsRepository = createRepository(dao = dao, isLoaded = true)
-        val settings = List(2) { async { repository.headerSettings.first() } }
+        val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
+        val mockHeaderSettingsDao: FakeHeaderSettingsDao = FakeHeaderSettingsDao(HeaderSettings(timeTapTarget = inputStaleSetting))
+        val repository: IWidgetSettingsRepository = createRepository(mockHeaderSettingsDao = mockHeaderSettingsDao, isLoaded = true)
+        val actualSettings = List(2) { async { repository.headerSettings.first() } }
 
         advanceUntilIdle()
-        settings.awaitAll()
+        actualSettings.awaitAll()
 
-        assertEquals(1, dao.upsertCount)
+        assertEquals(1, mockHeaderSettingsDao.upsertCount)
     }
 
     private fun createRepository(
-        dao: FakeHeaderSettingsDao,
-        eventSettingsDao: FakeEventSettingsDao = FakeEventSettingsDao(),
-        areaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
-        mediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao(),
+        mockHeaderSettingsDao: FakeHeaderSettingsDao,
+        mockEventSettingsDao: FakeEventSettingsDao = FakeEventSettingsDao(),
+        mockAreaSettingsDao: FakeWidgetAreaSettingsDao = FakeWidgetAreaSettingsDao(),
+        mockMediaPlayerSettingsDao: FakeMediaPlayerSettingsDao = FakeMediaPlayerSettingsDao(),
         isLoaded: Boolean = true,
-        launchables: FakeLaunchableRepository = FakeLaunchableRepository(
-            groups = listOf(LaunchableGroup.Builtin(items = listOf(keptLaunchable))),
+        mockLaunchables: FakeLaunchableRepository = FakeLaunchableRepository(
+            groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))),
             isLoaded = isLoaded
         )
     ): IWidgetSettingsRepository = IWidgetSettingsRepositoryImpl(
-        headerSettingsDao = dao,
-        eventSettingsDao = eventSettingsDao,
-        widgetAreaSettingsDao = areaSettingsDao,
-        mediaPlayerSettingsDao = mediaPlayerSettingsDao,
-        launchableRepository = launchables
+        headerSettingsDao = mockHeaderSettingsDao,
+        eventSettingsDao = mockEventSettingsDao,
+        widgetAreaSettingsDao = mockAreaSettingsDao,
+        mediaPlayerSettingsDao = mockMediaPlayerSettingsDao,
+        launchableRepository = mockLaunchables
     )
 
     private fun testLaunchable(key: String): Launchable = object : Launchable() {

@@ -26,9 +26,9 @@ import org.robolectric.annotation.Config
 class IBatterySourceImplTest {
     @Test
     fun `converts level and scale into a percentage`() {
-        val status: BatteryStatus? = createBatteryIntent(level = 42, scale = 50).toBatteryStatus()
+        val actualStatus: BatteryStatus? = createBatteryIntent(level = 42, scale = 50).toBatteryStatus()
 
-        assertEquals(BatteryStatus(percent = 84, isCharging = false), status)
+        assertEquals(BatteryStatus(percent = 84, isCharging = false), actualStatus)
     }
 
     @Test
@@ -39,10 +39,10 @@ class IBatterySourceImplTest {
 
     @Test
     fun `treats a plugged battery as charging`() {
-        val status: BatteryStatus? = createBatteryIntent(plugged = BatteryManager.BATTERY_PLUGGED_USB).toBatteryStatus()
+        val actualStatus: BatteryStatus? = createBatteryIntent(plugged = BatteryManager.BATTERY_PLUGGED_USB).toBatteryStatus()
 
-        assertFalse(status?.isCharging == false)
-        assertTrue(status?.isCharging == true)
+        assertFalse(actualStatus?.isCharging == false)
+        assertTrue(actualStatus?.isCharging == true)
     }
 
     @Test
@@ -57,13 +57,13 @@ class IBatterySourceImplTest {
 
     @Test
     fun `publishes the battery status broadcast`() = runTest {
-        val context: Context = RuntimeEnvironment.getApplication()
-        val source: IBatterySourceImpl = IBatterySourceImpl(context = context, scope = backgroundScope)
-        val batteryIntent: Intent = createBatteryIntent(level = 42, scale = 50)
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val source: IBatterySourceImpl = IBatterySourceImpl(context = inputContext, scope = backgroundScope)
+        val inputBatteryIntent: Intent = createBatteryIntent(level = 42, scale = 50)
 
         source.status.test {
             runCurrent()
-            context.sendBroadcast(batteryIntent)
+            inputContext.sendBroadcast(inputBatteryIntent)
             shadowOf(Looper.getMainLooper()).idle()
 
             assertEquals(BatteryStatus(percent = 84, isCharging = false), awaitItem())

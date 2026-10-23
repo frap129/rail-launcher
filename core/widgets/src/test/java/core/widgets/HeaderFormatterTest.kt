@@ -23,7 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HeaderFormatterTest {
-    private val reading: ClockReading = reading()
+    private val inputReading: ClockReading = reading()
 
     @Test
     fun `formats each time format against the system 24-hour flag`() {
@@ -35,43 +35,43 @@ class HeaderFormatterTest {
 
     @Test
     fun `shows AM PM only in effective 12-hour time`() {
-        val twelveHour: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = true))
-        assertEquals("2:05 PM", twelveHour.time?.text)
-        assertEquals("2:05 PM", twelveHour.time?.spokenText)
-        assertNull(twelveHour.time?.amPmText)
+        val actualTwelveHour: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = true))
+        assertEquals("2:05 PM", actualTwelveHour.time?.text)
+        assertEquals("2:05 PM", actualTwelveHour.time?.spokenText)
+        assertNull(actualTwelveHour.time?.amPmText)
 
-        val twentyFourHour: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H24, showAmPm = true))
-        assertEquals("14:05", twentyFourHour.time?.text)
-        assertEquals("14:05", twentyFourHour.time?.spokenText)
+        val actualTwentyFourHour: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H24, showAmPm = true))
+        assertEquals("14:05", actualTwentyFourHour.time?.text)
+        assertEquals("14:05", actualTwentyFourHour.time?.spokenText)
 
-        val systemTwentyFourHour: HeaderModel = format(
+        val actualSystemTwentyFourHour: HeaderModel = format(
             HeaderSettings(timeFormat = TimeFormat.SYSTEM, showAmPm = true),
             isSystem24Hour = true
         )
-        assertEquals("14:05", systemTwentyFourHour.time?.text)
+        assertEquals("14:05", actualSystemTwentyFourHour.time?.text)
 
-        val twelveHourWithoutMarker: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = false))
-        assertEquals("2:05", twelveHourWithoutMarker.time?.text)
-        assertEquals("2:05 PM", twelveHourWithoutMarker.time?.spokenText)
+        val actualTwelveHourWithoutMarker: HeaderModel = format(HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = false))
+        assertEquals("2:05", actualTwelveHourWithoutMarker.time?.text)
+        assertEquals("2:05 PM", actualTwelveHourWithoutMarker.time?.spokenText)
     }
 
     @Test
     fun `splits stacked time into hours minutes and AM PM`() {
-        val twelveHour: HeaderModel = format(
+        val actualTwelveHour: HeaderModel = format(
             HeaderSettings(clockStyle = ClockStyle.STACKED, timeFormat = TimeFormat.H12, showAmPm = true)
         )
-        assertNull(twelveHour.time?.text)
-        assertEquals("2", twelveHour.time?.hourText)
-        assertEquals("05", twelveHour.time?.minuteText)
-        assertEquals("PM", twelveHour.time?.amPmText)
-        assertEquals("2:05 PM", twelveHour.time?.spokenText)
+        assertNull(actualTwelveHour.time?.text)
+        assertEquals("2", actualTwelveHour.time?.hourText)
+        assertEquals("05", actualTwelveHour.time?.minuteText)
+        assertEquals("PM", actualTwelveHour.time?.amPmText)
+        assertEquals("2:05 PM", actualTwelveHour.time?.spokenText)
 
-        val twentyFourHour: HeaderModel = format(
+        val actualTwentyFourHour: HeaderModel = format(
             HeaderSettings(clockStyle = ClockStyle.STACKED, timeFormat = TimeFormat.H24, showAmPm = true)
         )
-        assertEquals("14", twentyFourHour.time?.hourText)
-        assertEquals("05", twentyFourHour.time?.minuteText)
-        assertNull(twentyFourHour.time?.amPmText)
+        assertEquals("14", actualTwentyFourHour.time?.hourText)
+        assertEquals("05", actualTwentyFourHour.time?.minuteText)
+        assertNull(actualTwentyFourHour.time?.amPmText)
     }
 
     @Test
@@ -79,14 +79,14 @@ class HeaderFormatterTest {
         val formatter: HeaderFormatter = HeaderFormatter(
             FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
         )
-        val header: HeaderModel = formatter.format(
+        val actualHeader: HeaderModel = formatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(clockStyle = ClockStyle.STACKED, timeFormat = TimeFormat.H12, showAmPm = true)
         )
-        assertEquals("2", header.time?.hourText)
-        assertEquals("05", header.time?.minuteText)
-        assertEquals("오후", header.time?.amPmText)
+        assertEquals("2", actualHeader.time?.hourText)
+        assertEquals("05", actualHeader.time?.minuteText)
+        assertEquals("오후", actualHeader.time?.amPmText)
     }
 
     @Test
@@ -94,54 +94,54 @@ class HeaderFormatterTest {
         val formatter: HeaderFormatter = HeaderFormatter(
             FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
         )
-        val withMarker: HeaderModel = formatter.format(
+        val actualWithMarker: HeaderModel = formatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = true)
         )
-        val withoutMarker: HeaderModel = formatter.format(
+        val actualWithoutMarker: HeaderModel = formatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = false)
         )
-        assertEquals("오후 2:05", withMarker.time?.text)
-        assertEquals("2:05", withoutMarker.time?.text)
+        assertEquals("오후 2:05", actualWithMarker.time?.text)
+        assertEquals("2:05", actualWithoutMarker.time?.text)
     }
 
     @Test
     fun `speaks the time with the locale pattern`() {
-        val patternSource: FakeDatePatternSource = FakeDatePatternSource(
+        val mockPatternSource: FakeDatePatternSource = FakeDatePatternSource(
             overrides = mapOf("hm" to "h.mm a", "Hm" to "HH.mm")
         )
 
-        val twelveHour: HeaderModel = format(
+        val actualTwelveHour: HeaderModel = format(
             settings = HeaderSettings(timeFormat = TimeFormat.H12),
-            datePatternSource = patternSource
+            datePatternSource = mockPatternSource
         )
-        val twentyFourHour: HeaderModel = format(
+        val actualTwentyFourHour: HeaderModel = format(
             settings = HeaderSettings(timeFormat = TimeFormat.H24),
-            datePatternSource = patternSource
+            datePatternSource = mockPatternSource
         )
 
-        assertEquals("2.05 PM", twelveHour.time?.spokenText)
-        assertEquals("14.05", twentyFourHour.time?.spokenText)
+        assertEquals("2.05 PM", actualTwelveHour.time?.spokenText)
+        assertEquals("14.05", actualTwentyFourHour.time?.spokenText)
     }
 
     @Test
     fun `requests and formats every date preset skeleton`() {
-        val skeletonSource: RecordingDatePatternSource = RecordingDatePatternSource()
-        val formatter: HeaderFormatter = HeaderFormatter(skeletonSource)
-        DateFormatPreset.entries.forEach { preset -> formatter.formatDate(reading, preset) }
-        assertEquals(DateFormatPreset.entries.map { preset -> preset.skeleton }, skeletonSource.requestedSkeletons)
+        val mockSkeletonSource: RecordingDatePatternSource = RecordingDatePatternSource()
+        val formatter: HeaderFormatter = HeaderFormatter(mockSkeletonSource)
+        DateFormatPreset.entries.forEach { preset -> formatter.formatDate(inputReading, preset) }
+        assertEquals(DateFormatPreset.entries.map { preset -> preset.skeleton }, mockSkeletonSource.requestedSkeletons)
         assertEquals(
             listOf("Tuesday, October 20", "Tue, Oct 20", "October 20", "Tuesday 20", "Tuesday", "10/20/2026"),
-            DateFormatPreset.entries.map { preset -> formatter.formatDate(reading, preset) }
+            DateFormatPreset.entries.map { preset -> formatter.formatDate(inputReading, preset) }
         )
     }
 
     @Test
     fun `carries the selected style alignment and size into the model`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(
                 clockStyle = ClockStyle.COMPACT,
                 dateFormat = DateFormatPreset.WEEKDAY,
@@ -149,225 +149,229 @@ class HeaderFormatterTest {
                 size = HeaderSize.LARGE
             )
         )
-        assertEquals(1L, header.id)
-        assertEquals(ClockStyle.COMPACT, header.style)
-        assertEquals(HeaderAlignment.CENTER, header.alignment)
-        assertEquals(HeaderSize.LARGE, header.size)
-        assertEquals("2:05", header.time?.text)
-        assertEquals("Tuesday", header.date?.text)
+        assertEquals(1L, actualHeader.id)
+        assertEquals(ClockStyle.COMPACT, actualHeader.style)
+        assertEquals(HeaderAlignment.CENTER, actualHeader.alignment)
+        assertEquals(HeaderSize.LARGE, actualHeader.size)
+        assertEquals("2:05", actualHeader.time?.text)
+        assertEquals("Tuesday", actualHeader.date?.text)
     }
 
     @Test
     fun `hides the battery when its visibility is Never`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.NEVER),
             battery = BatteryStatus(percent = 84, isCharging = true)
         )
 
-        assertNull(header.battery)
+        assertNull(actualHeader.battery)
     }
 
     @Test
     fun `always shows the battery when a status is available`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
             battery = BatteryStatus(percent = 84, isCharging = false)
         )
 
-        assertEquals("84%", header.battery?.text)
-        assertFalse(header.battery?.isCharging == true)
-        assertFalse(header.battery?.isLow == true)
-        assertEquals(84, header.battery?.percent)
-        assertEquals(R.string.battery_content_description, header.battery?.contentDescriptionRes)
+        assertEquals("84%", actualHeader.battery?.text)
+        assertFalse(actualHeader.battery?.isCharging == true)
+        assertFalse(actualHeader.battery?.isLow == true)
+        assertEquals(84, actualHeader.battery?.percent)
+        assertEquals(R.string.battery_content_description, actualHeader.battery?.contentDescriptionRes)
     }
 
     @Test
     fun `hides the battery when Always is selected without a status`() {
-        val header: HeaderModel = format(HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS))
+        val actualHeader: HeaderModel = format(HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS))
 
-        assertNull(header.battery)
+        assertNull(actualHeader.battery)
     }
 
     @Test
     fun `shows the battery while charging or at or below the low threshold`() {
-        val charging: HeaderModel = format(
+        val actualCharging: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
             battery = BatteryStatus(percent = 84, isCharging = true)
         )
-        assertEquals("84%", charging.battery?.text)
-        assertTrue(charging.battery?.isCharging == true)
-        assertFalse(charging.battery?.isLow == true)
-        assertEquals(84, charging.battery?.percent)
-        assertEquals(R.string.battery_content_description_charging, charging.battery?.contentDescriptionRes)
+        assertEquals("84%", actualCharging.battery?.text)
+        assertTrue(actualCharging.battery?.isCharging == true)
+        assertFalse(actualCharging.battery?.isLow == true)
+        assertEquals(84, actualCharging.battery?.percent)
+        assertEquals(R.string.battery_content_description_charging, actualCharging.battery?.contentDescriptionRes)
 
-        val low: HeaderModel = format(
+        val actualLow: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
             battery = BatteryStatus(percent = 20, isCharging = false)
         )
-        assertEquals("20%", low.battery?.text)
-        assertTrue(low.battery?.isLow == true)
+        assertEquals("20%", actualLow.battery?.text)
+        assertTrue(actualLow.battery?.isLow == true)
     }
 
     @Test
     fun `hides the battery above the low threshold when not charging`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW),
             battery = BatteryStatus(percent = 21, isCharging = false)
         )
 
-        assertNull(header.battery)
+        assertNull(actualHeader.battery)
     }
 
     @Test
     fun `does not mark a charging battery as low`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
             battery = BatteryStatus(percent = 20, isCharging = true)
         )
 
-        assertTrue(header.battery?.isCharging == true)
-        assertFalse(header.battery?.isLow == true)
+        assertTrue(actualHeader.battery?.isCharging == true)
+        assertFalse(actualHeader.battery?.isLow == true)
     }
 
     @Test
     fun `shows a full battery as charging`() {
-        val header: HeaderModel = format(
+        val actualHeader: HeaderModel = format(
             HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS),
             battery = BatteryStatus(percent = 100, isCharging = true)
         )
 
-        assertEquals("100%", header.battery?.text)
-        assertTrue(header.battery?.isCharging == true)
-        assertFalse(header.battery?.isLow == true)
-        assertEquals(100, header.battery?.percent)
-        assertEquals(R.string.battery_content_description_charging, header.battery?.contentDescriptionRes)
+        assertEquals("100%", actualHeader.battery?.text)
+        assertTrue(actualHeader.battery?.isCharging == true)
+        assertFalse(actualHeader.battery?.isLow == true)
+        assertEquals(100, actualHeader.battery?.percent)
+        assertEquals(R.string.battery_content_description_charging, actualHeader.battery?.contentDescriptionRes)
     }
 
     @Test
     fun `excludes events at the lookahead and now boundaries`() {
-        val lookaheadEnd: UpcomingEvent = event(title = "At window end", begin = "2026-10-20T15:05:00Z", end = "2026-10-20T15:30:00Z")
-        val endedNow: UpcomingEvent = event(title = "Ends now", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:05:00Z")
-        val inside: UpcomingEvent = event(title = "Inside", begin = "2026-10-20T15:04:00Z", end = "2026-10-20T15:05:00Z")
+        val inputLookaheadEnd: UpcomingEvent = event(title = "At window end", begin = "2026-10-20T15:05:00Z", end = "2026-10-20T15:30:00Z")
+        val inputEndedNow: UpcomingEvent = event(title = "Ends now", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:05:00Z")
+        val inputInside: UpcomingEvent = event(title = "Inside", begin = "2026-10-20T15:04:00Z", end = "2026-10-20T15:05:00Z")
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(lookaheadEnd, endedNow, inside),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputLookaheadEnd, inputEndedNow, inputInside),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 1)
         )
 
-        assertEquals(listOf("Inside · 15:04"), selected.map { model -> model.text })
+        assertEquals(listOf("Inside · 15:04"), actualSelected.map { model -> model.text })
     }
 
     @Test
     fun `orders ongoing timed events before upcoming events`() {
-        val upcoming: UpcomingEvent = event(title = "Later", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
-        val ongoingLater: UpcomingEvent = event(title = "Ongoing later", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T16:00:00Z")
-        val ongoingSooner: UpcomingEvent = event(title = "Ongoing sooner", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:30:00Z")
+        val inputUpcoming: UpcomingEvent = event(title = "Later", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+        val inputOngoingLater: UpcomingEvent = event(title = "Ongoing later", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T16:00:00Z")
+        val inputOngoingSooner: UpcomingEvent =
+            event(title = "Ongoing sooner", begin = "2026-10-20T13:00:00Z", end = "2026-10-20T14:30:00Z")
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(upcoming, ongoingLater, ongoingSooner),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputUpcoming, inputOngoingLater, inputOngoingSooner),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 3)
         )
 
         assertEquals(
             listOf("Ongoing sooner · until 14:30", "Ongoing later · until 16:00", "Later · 14:06"),
-            selected.map { model -> model.text }
+            actualSelected.map { model -> model.text }
         )
     }
 
     @Test
     fun `formats ongoing today tomorrow and untitled events`() {
-        val today: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T15:00:00Z")
-        val tomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-20T14:00:00Z", end = "2026-10-21T01:00:00Z")
-        val untitled: UpcomingEvent = event(title = "", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T14:30:00Z")
+        val inputToday: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T15:00:00Z")
+        val inputTomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-20T14:00:00Z", end = "2026-10-21T01:00:00Z")
+        val inputUntitled: UpcomingEvent = event(title = "", begin = "2026-10-20T14:00:00Z", end = "2026-10-20T14:30:00Z")
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(today, tomorrow, untitled),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputToday, inputTomorrow, inputUntitled),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 3)
         )
 
         assertEquals(
             listOf("(No title) · until 14:30", "Standup · until 15:00", "Release · until tomorrow 01:00"),
-            selected.map { model -> model.text }
+            actualSelected.map { model -> model.text }
         )
     }
 
     @Test
     fun `formats upcoming events by day`() {
-        val today: UpcomingEvent = event(title = "Today", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
-        val tomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-21T14:06:00Z", end = "2026-10-21T14:30:00Z")
-        val weekday: UpcomingEvent = event(title = "Weekday", begin = "2026-10-22T09:30:00Z", end = "2026-10-22T10:00:00Z")
+        val inputToday: UpcomingEvent = event(title = "Today", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+        val inputTomorrow: UpcomingEvent = event(title = "Release", begin = "2026-10-21T14:06:00Z", end = "2026-10-21T14:30:00Z")
+        val inputWeekday: UpcomingEvent = event(title = "Weekday", begin = "2026-10-22T09:30:00Z", end = "2026-10-22T10:00:00Z")
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(today, tomorrow, weekday),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputToday, inputTomorrow, inputWeekday),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 48, maxEvents = 3)
         )
 
         assertEquals(
             listOf("Today · 14:06", "Tomorrow · Release · 14:06", "Thursday · Weekday · 09:30"),
-            selected.map { model -> model.text }
+            actualSelected.map { model -> model.text }
         )
     }
 
     @Test
     fun `shows all-day events after timed events on the same day`() {
-        val allDay: UpcomingEvent = event(
+        val inputAllDay: UpcomingEvent = event(
             title = "Holiday",
             begin = "2026-10-20T00:00:00Z",
             end = "2026-10-21T00:00:00Z",
             allDay = true
         )
-        val timed: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
+        val inputTimed: UpcomingEvent = event(title = "Standup", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z")
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(allDay, timed),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputAllDay, inputTimed),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 12, includeAllDay = true, maxEvents = 2)
         )
 
-        assertEquals(listOf("Standup · 14:06", "Today · Holiday"), selected.map { model -> model.text })
+        assertEquals(listOf("Standup · 14:06", "Today · Holiday"), actualSelected.map { model -> model.text })
     }
 
     @Test
     fun `hides all-day events when they are disabled`() {
-        val allDay: UpcomingEvent = event(
+        val inputAllDay: UpcomingEvent = event(
             title = "Holiday",
             begin = "2026-10-20T00:00:00Z",
             end = "2026-10-21T00:00:00Z",
             allDay = true
         )
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(allDay),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputAllDay),
             eventSettings = EventSettings(enabled = true, includeAllDay = false)
         )
 
-        assertTrue(selected.isEmpty())
+        assertTrue(actualSelected.isEmpty())
     }
 
     @Test
     fun `expands a multi-day all-day event for each day it covers`() {
-        val allDay: UpcomingEvent = event(
+        val inputAllDay: UpcomingEvent = event(
             title = "Conference",
             begin = "2026-10-20T00:00:00Z",
             end = "2026-10-22T00:00:00Z",
             allDay = true
         )
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(allDay),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputAllDay),
             eventSettings = EventSettings(enabled = true, lookaheadHours = 48, includeAllDay = true, maxEvents = 3)
         )
 
-        assertEquals(listOf("Today · Conference", "Tomorrow · Conference"), selected.map { model -> model.text })
+        assertEquals(listOf("Today · Conference", "Tomorrow · Conference"), actualSelected.map { model -> model.text })
     }
 
     @Test
     fun `filters excluded calendars and limits the event count`() {
-        val excluded: UpcomingEvent = event(title = "Hidden", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 9L)
-        val first: UpcomingEvent = event(title = "First", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
-        val second: UpcomingEvent = event(title = "Second", begin = "2026-10-20T14:07:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
+        val inputExcluded: UpcomingEvent =
+            event(title = "Hidden", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 9L)
+        val inputFirst: UpcomingEvent =
+            event(title = "First", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
+        val inputSecond: UpcomingEvent =
+            event(title = "Second", begin = "2026-10-20T14:07:00Z", end = "2026-10-20T14:30:00Z", calendarId = 1L)
 
-        val selected: List<EventModel> = selectEvents(
-            events = listOf(excluded, first, second),
+        val actualSelected: List<EventModel> = selectEvents(
+            events = listOf(inputExcluded, inputFirst, inputSecond),
             eventSettings = EventSettings(
                 enabled = true,
                 lookaheadHours = 12,
@@ -376,22 +380,22 @@ class HeaderFormatterTest {
             )
         )
 
-        assertEquals(listOf("First · 14:06"), selected.map { model -> model.text })
+        assertEquals(listOf("First · 14:06"), actualSelected.map { model -> model.text })
     }
 
     @Test
     fun `carries the calendar color and event tap target into each line`() {
-        val selected: List<EventModel> = selectEvents(
+        val actualSelected: List<EventModel> = selectEvents(
             events = listOf(
                 event(title = "Standup", begin = "2026-10-20T14:06:00Z", end = "2026-10-20T14:30:00Z", color = 0xFF00FF00.toInt())
             ),
             eventSettings = EventSettings(enabled = true)
         )
 
-        val model: EventModel = selected.single()
-        assertEquals(androidx.compose.ui.graphics.Color(0xFF00FF00.toInt()), model.color)
-        assertEquals(R.string.open_event, model.clickLabel)
-        assertEquals("Standup", model.clickLabelArg)
+        val actualModel: EventModel = actualSelected.single()
+        assertEquals(androidx.compose.ui.graphics.Color(0xFF00FF00.toInt()), actualModel.color)
+        assertEquals(R.string.open_event, actualModel.clickLabel)
+        assertEquals("Standup", actualModel.clickLabelArg)
         assertEquals(
             HeaderTapTarget.OpenEvent(
                 eventId = 1L,
@@ -399,7 +403,7 @@ class HeaderFormatterTest {
                 endMillis = Instant.parse("2026-10-20T14:30:00Z").toEpochMilli(),
                 isWorkProfile = false
             ),
-            model.tapTarget
+            actualModel.tapTarget
         )
     }
 
@@ -408,7 +412,7 @@ class HeaderFormatterTest {
             events = events,
             eventSettings = eventSettings,
             headerSettings = HeaderSettings(timeFormat = TimeFormat.H24),
-            reading = reading
+            reading = inputReading
         )
 
     private fun event(

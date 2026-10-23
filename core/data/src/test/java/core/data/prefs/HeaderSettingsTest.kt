@@ -8,27 +8,27 @@ import org.junit.Test
 class HeaderSettingsTest {
     @Test
     fun `allows hiding the clock while the battery is always visible`() {
-        val settings: HeaderSettings = HeaderSettings(
+        val inputSettings: HeaderSettings = HeaderSettings(
             clockVisible = true,
             dateVisible = true,
             batteryVisibility = BatteryVisibility.ALWAYS
         )
 
-        val updated: HeaderSettings = settings.withClockVisible(visible = false)
+        val actualUpdated: HeaderSettings = inputSettings.withClockVisible(visible = false)
 
-        assertFalse(updated.clockVisible)
-        assertEquals(BatteryVisibility.ALWAYS, updated.batteryVisibility)
+        assertFalse(actualUpdated.clockVisible)
+        assertEquals(BatteryVisibility.ALWAYS, actualUpdated.batteryVisibility)
     }
 
     @Test
     fun `rejects hiding the clock when it is the only visible part`() {
-        val settings: HeaderSettings = HeaderSettings(
+        val inputSettings: HeaderSettings = HeaderSettings(
             clockVisible = true,
             dateVisible = false,
             batteryVisibility = BatteryVisibility.CHARGING_OR_LOW
         )
 
-        assertEquals(settings, settings.withClockVisible(visible = false))
+        assertEquals(inputSettings, inputSettings.withClockVisible(visible = false))
     }
 
     @Test
@@ -38,10 +38,10 @@ class HeaderSettingsTest {
             dateVisible = false,
             batteryVisibility = BatteryVisibility.ALWAYS
         )
-        val hiddenVisibilities: List<BatteryVisibility> = BatteryVisibility.entries
+        val inputHiddenVisibilities: List<BatteryVisibility> = BatteryVisibility.entries
             .filter { visibility -> visibility != BatteryVisibility.ALWAYS }
 
-        hiddenVisibilities.forEach { hiddenVisibility ->
+        inputHiddenVisibilities.forEach { hiddenVisibility ->
             val actualSettings: HeaderSettings = inputSettings.withBatteryVisibility(hiddenVisibility)
 
             assertEquals(BatteryVisibility.ALWAYS, actualSettings.batteryVisibility)
@@ -52,19 +52,19 @@ class HeaderSettingsTest {
 
     @Test
     fun `never re-enables a hidden clock when the battery visibility changes`() {
-        val baseSettings: HeaderSettings = HeaderSettings(
+        val inputBaseSettings: HeaderSettings = HeaderSettings(
             clockVisible = false,
             dateVisible = true,
             batteryVisibility = BatteryVisibility.ALWAYS
         )
-        val transitions: List<Pair<BatteryVisibility, BatteryVisibility>> = listOf(
+        val inputTransitions: List<Pair<BatteryVisibility, BatteryVisibility>> = listOf(
             BatteryVisibility.ALWAYS to BatteryVisibility.NEVER,
             BatteryVisibility.NEVER to BatteryVisibility.ALWAYS,
             BatteryVisibility.CHARGING_OR_LOW to BatteryVisibility.ALWAYS
         )
 
-        transitions.forEach { (inputVisibility, expectedVisibility) ->
-            val inputSettings: HeaderSettings = baseSettings.copy(batteryVisibility = inputVisibility)
+        inputTransitions.forEach { (inputVisibility, expectedVisibility) ->
+            val inputSettings: HeaderSettings = inputBaseSettings.copy(batteryVisibility = inputVisibility)
             val actualSettings: HeaderSettings = inputSettings.withBatteryVisibility(expectedVisibility)
 
             assertFalse(actualSettings.clockVisible)
@@ -81,12 +81,12 @@ class HeaderSettingsTest {
 
     @Test
     fun `reports a Tap action as stale only when its Launchable key is missing`() {
-        val validKeys: Set<String> = setOf("rail://maps")
-        val missingSetting: HeaderTapSetting? = null
-        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isStale(validKeys = validKeys))
-        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isStale(validKeys = validKeys))
-        assertFalse(HeaderTapSetting.Nothing.isStale(validKeys = validKeys))
-        assertFalse(HeaderTapSetting.SystemDefault.isStale(validKeys = validKeys))
-        assertFalse(missingSetting.isStale(validKeys = validKeys))
+        val inputValidKeys: Set<String> = setOf("rail://maps")
+        val inputMissingSetting: HeaderTapSetting? = null
+        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isStale(validKeys = inputValidKeys))
+        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isStale(validKeys = inputValidKeys))
+        assertFalse(HeaderTapSetting.Nothing.isStale(validKeys = inputValidKeys))
+        assertFalse(HeaderTapSetting.SystemDefault.isStale(validKeys = inputValidKeys))
+        assertFalse(inputMissingSetting.isStale(validKeys = inputValidKeys))
     }
 }

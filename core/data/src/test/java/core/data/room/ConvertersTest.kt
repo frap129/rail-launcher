@@ -57,13 +57,13 @@ class ConvertersTest {
 
     @Test
     fun `round trips every Header tap setting encoding`() {
-        val settings: List<HeaderTapSetting> = listOf(
+        val inputSettings: List<HeaderTapSetting> = listOf(
             HeaderTapSetting.Nothing,
             HeaderTapSetting.Launchable(key = "com.example.app_UserHandle{0}"),
             HeaderTapSetting.Launchable(key = "launchable:com.example/thing:extra")
         )
         assertEquals("none", converters.fromHeaderTapSettingToString(HeaderTapSetting.Nothing))
-        settings.forEach { setting ->
+        inputSettings.forEach { setting ->
             assertEquals(setting, converters.fromStringToHeaderTapSetting(converters.fromHeaderTapSettingToString(setting)))
         }
     }
@@ -75,8 +75,8 @@ class ConvertersTest {
 
     @Test
     fun `round trips a set of profile-qualified calendar ids`() {
-        val ids: Set<String> = setOf("42", "w:7", "w:103")
-        assertEquals(ids, converters.fromStringToCalendarIdSet(converters.fromCalendarIdSetToString(ids)))
+        val inputIds: Set<String> = setOf("42", "w:7", "w:103")
+        assertEquals(inputIds, converters.fromStringToCalendarIdSet(converters.fromCalendarIdSetToString(inputIds)))
     }
 
     @Test

@@ -24,31 +24,31 @@ class IHeaderTapTargetResolverImplTest {
     @Test
     fun `applies the system defaults when no tap action is set`() {
         val inputHeader: HeaderModel = header()
-        val actual: HeaderModel = resolver.applyTo(
+        val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = HeaderSettings(),
             launchables = emptyList(),
             atEpochMillis = nowMillis
         )
-        assertEquals(HeaderTapTarget.SystemAlarms, actual.time?.tapTarget)
-        assertEquals(R.string.open_alarms, actual.time?.clickLabel)
-        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actual.date?.tapTarget)
-        assertEquals(R.string.open_calendar, actual.date?.clickLabel)
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
+        assertEquals(R.string.open_alarms, actualHeader.time?.clickLabel)
+        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
+        assertEquals(R.string.open_calendar, actualHeader.date?.clickLabel)
     }
 
     @Test
     fun `applies Nothing to both Header lines`() {
         val inputHeader: HeaderModel = header()
-        val actual: HeaderModel = resolver.applyTo(
+        val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = HeaderTapSetting.Nothing),
             launchables = emptyList(),
             atEpochMillis = nowMillis
         )
-        assertEquals(HeaderTapTarget.None, actual.time?.tapTarget)
-        assertNull(actual.time?.clickLabel)
-        assertEquals(HeaderTapTarget.None, actual.date?.tapTarget)
-        assertNull(actual.date?.clickLabel)
+        assertEquals(HeaderTapTarget.None, actualHeader.time?.tapTarget)
+        assertNull(actualHeader.time?.clickLabel)
+        assertEquals(HeaderTapTarget.None, actualHeader.date?.tapTarget)
+        assertNull(actualHeader.date?.clickLabel)
     }
 
     @Test
@@ -58,17 +58,17 @@ class IHeaderTapTargetResolverImplTest {
             timeTapTarget = HeaderTapSetting.Launchable(key = mockLaunchable.key),
             dateTapTarget = HeaderTapSetting.Launchable(key = mockLaunchable.key)
         )
-        val actual: HeaderModel = resolver.applyTo(
+        val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
             launchables = listOf<Launchable>(mockLaunchable),
             atEpochMillis = nowMillis
         )
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actual.time?.tapTarget)
-        assertEquals(R.string.open_launchable, actual.time?.clickLabel)
-        assertEquals("Maps", actual.time?.clickLabelArg)
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actual.date?.tapTarget)
-        assertEquals("Maps", actual.date?.clickLabelArg)
+        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actualHeader.time?.tapTarget)
+        assertEquals(R.string.open_launchable, actualHeader.time?.clickLabel)
+        assertEquals("Maps", actualHeader.time?.clickLabelArg)
+        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actualHeader.date?.tapTarget)
+        assertEquals("Maps", actualHeader.date?.clickLabelArg)
     }
 
     @Test
@@ -78,36 +78,36 @@ class IHeaderTapTargetResolverImplTest {
             timeTapTarget = HeaderTapSetting.Launchable(key = "rail://uninstalled"),
             dateTapTarget = HeaderTapSetting.Launchable(key = "rail://uninstalled")
         )
-        val actual: HeaderModel = resolver.applyTo(
+        val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
             launchables = listOf<Launchable>(mockLaunchable),
             atEpochMillis = nowMillis
         )
-        assertEquals(HeaderTapTarget.SystemAlarms, actual.time?.tapTarget)
-        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actual.date?.tapTarget)
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
+        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
     }
 
     @Test
     fun `resolves a removed Launchable to the system default once loaded`() {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
-        val actual: HeaderTapSetting = resolver.resolveSetting(
+        val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
             launchables = listOf<Launchable>(mockLaunchable),
             isLoaded = true
         )
-        assertEquals(HeaderTapSetting.SystemDefault, actual)
+        assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
     }
 
     @Test
     fun `keeps a stored Launchable while Launchables are not loaded`() {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
-        val actual: HeaderTapSetting = resolver.resolveSetting(
+        val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
             launchables = emptyList(),
             isLoaded = false
         )
-        assertEquals(inputSetting, actual)
+        assertEquals(inputSetting, actualSetting)
     }
 
     @Test

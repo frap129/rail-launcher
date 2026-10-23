@@ -30,21 +30,21 @@ private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomizati
 class IPreferencesRepositoryImplTest {
     @Test
     fun `exposes launchable customizations from the DAO`() = runTest {
-        val expected: List<LaunchableCustomization> = listOf(
+        val expectedCustomizations: List<LaunchableCustomization> = listOf(
             LaunchableCustomization(key = "first", name = "First"),
             LaunchableCustomization(key = "second", name = "Second")
         )
-        val repository: IPreferencesRepository = createRepository(inputCustomizations = expected)
-        val actual: List<LaunchableCustomization> = repository.launchableCustomizations.first()
-        assertEquals(expected, actual)
+        val repository: IPreferencesRepository = createRepository(inputCustomizations = expectedCustomizations)
+        val actualCustomizations: List<LaunchableCustomization> = repository.launchableCustomizations.first()
+        assertEquals(expectedCustomizations, actualCustomizations)
     }
 
     @Test
     fun `exposes settings from the DAO`() = runTest {
-        val expected: Settings = Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE)
-        val repository: IPreferencesRepository = createRepository(inputSettings = expected)
-        val actual: Settings = repository.settings.first()
-        assertEquals(expected, actual)
+        val expectedSettings: Settings = Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE)
+        val repository: IPreferencesRepository = createRepository(inputSettings = expectedSettings)
+        val actualSettings: Settings = repository.settings.first()
+        assertEquals(expectedSettings, actualSettings)
     }
 
     @Test
@@ -55,9 +55,9 @@ class IPreferencesRepositoryImplTest {
         )
         val inputItem: Launchable = createLaunchable()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        val actual: LaunchableRename = mockLaunchableCustomizationDao.awaitRename()
-        assertEquals(inputItem.key, actual.key)
-        assertEquals(RENAMED_ITEM_NAME, actual.name)
+        val actualRename: LaunchableRename = mockLaunchableCustomizationDao.awaitRename()
+        assertEquals(inputItem.key, actualRename.key)
+        assertEquals(RENAMED_ITEM_NAME, actualRename.name)
     }
 
     @Test
@@ -91,8 +91,8 @@ class IPreferencesRepositoryImplTest {
         mockLaunchableCustomizationDao.awaitRename()
         repository.setItemName(item = inputItem, name = SECOND_RENAMED_ITEM_NAME)
         mockLaunchableCustomizationDao.awaitRename()
-        val actual: LaunchableCustomization = repository.launchableCustomizations.first().single()
-        assertEquals(SECOND_RENAMED_ITEM_NAME, actual.name)
+        val actualCustomization: LaunchableCustomization = repository.launchableCustomizations.first().single()
+        assertEquals(SECOND_RENAMED_ITEM_NAME, actualCustomization.name)
     }
 
     @Test
@@ -101,8 +101,8 @@ class IPreferencesRepositoryImplTest {
         val repository: IPreferencesRepository = createRepository(mockSettingsDao = mockSettingsDao)
         val inputIconPack: IconPack = createCustomIconPack()
         repository.setIconPack(iconPack = inputIconPack)
-        val actual: Settings = mockSettingsDao.awaitStoredSettings()
-        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actual)
+        val actualSettings: Settings = mockSettingsDao.awaitStoredSettings()
+        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
@@ -111,8 +111,8 @@ class IPreferencesRepositoryImplTest {
         val repository: IPreferencesRepository = createRepository(mockSettingsDao = mockSettingsDao)
         repository.setIconPack(iconPack = createCustomIconPack())
         mockSettingsDao.awaitStoredSettings()
-        val actual: Settings = repository.settings.first()
-        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actual)
+        val actualSettings: Settings = repository.settings.first()
+        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
@@ -120,8 +120,8 @@ class IPreferencesRepositoryImplTest {
         val mockSettingsDao: FakeSettingsDao = FakeSettingsDao()
         val repository: IPreferencesRepository = createRepository(mockSettingsDao = mockSettingsDao)
         repository.setIconPack(iconPack = IconPack.SystemIconPack)
-        val actual: Settings = mockSettingsDao.awaitStoredSettings()
-        assertEquals(Settings(iconPack = null), actual)
+        val actualSettings: Settings = mockSettingsDao.awaitStoredSettings()
+        assertEquals(Settings(iconPack = null), actualSettings)
     }
 
     private fun TestScope.createRepository(

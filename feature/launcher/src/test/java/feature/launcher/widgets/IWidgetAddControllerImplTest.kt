@@ -62,14 +62,14 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `start is ignored while another Home edit mode is active`() = runTest {
-        val mockHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
-        val actualController: IWidgetAddController = createAddController(homeEditState = mockHomeEditState)
+        val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(HomeEditMode.Favorites) }
+        val actualController: IWidgetAddController = createAddController(homeEditState = inputHomeEditState)
 
         val actualStarted: Boolean = actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
 
         assertFalse(actualStarted)
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-        assertEquals(HomeEditMode.Favorites, mockHomeEditState.mode.value)
+        assertEquals(HomeEditMode.Favorites, inputHomeEditState.mode.value)
     }
 
     @Test

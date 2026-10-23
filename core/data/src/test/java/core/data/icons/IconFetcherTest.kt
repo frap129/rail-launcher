@@ -22,21 +22,21 @@ private const val TEST_ICON_RES_ID: Int = android.R.drawable.ic_menu_help
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class IconFetcherTest {
-    private val options: Options = Options(RuntimeEnvironment.getApplication())
-    private val imageLoader: ImageLoader = ImageLoader.Builder(RuntimeEnvironment.getApplication()).build()
+    private val inputOptions: Options = Options(RuntimeEnvironment.getApplication())
+    private val inputImageLoader: ImageLoader = ImageLoader.Builder(RuntimeEnvironment.getApplication()).build()
 
     @Test
     fun `factory creates a fetcher for the icon`() {
         val inputIcon: Icon = Icon.RailIcon(TEST_ICON_RES_ID)
-        val actualFetcher: Fetcher = IconFetcher.Factory().create(inputIcon, options, imageLoader)
+        val actualFetcher: Fetcher = IconFetcher.Factory().create(inputIcon, inputOptions, inputImageLoader)
         assertTrue(actualFetcher is IconFetcher)
     }
 
     @Test
     fun `fetch loads a shareable image`(): Unit = runTest {
         val inputIcon: Icon = Icon.RailIcon(TEST_ICON_RES_ID)
-        val fetcher: Fetcher = IconFetcher.Factory().create(inputIcon, options, imageLoader)
-        val actualResult: FetchResult? = fetcher.fetch()
+        val actualFetcher: Fetcher = IconFetcher.Factory().create(inputIcon, inputOptions, inputImageLoader)
+        val actualResult: FetchResult? = actualFetcher.fetch()
         assertTrue(actualResult is ImageFetchResult)
         val actualImage: Image = (actualResult as ImageFetchResult).image
         assertNotNull(actualImage)
