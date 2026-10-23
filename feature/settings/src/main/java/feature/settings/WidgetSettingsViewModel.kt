@@ -40,6 +40,7 @@ import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
 import core.widgets.IHeaderTapTargetResolver
@@ -61,7 +62,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-private const val STATE_TIMEOUT_MS: Long = 5_000L
 private val COMBINING_MARKS_REGEX: Regex = Regex("\\p{M}+")
 
 data class DateFormatOption(val preset: DateFormatPreset, val label: String)
@@ -330,7 +330,7 @@ class WidgetSettingsViewModel(
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = WidgetSettingsUiState()
     )
 
@@ -355,7 +355,7 @@ class WidgetSettingsViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = null
     )
 
@@ -380,7 +380,7 @@ class WidgetSettingsViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(STATE_TIMEOUT_MS),
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = null
     )
 

@@ -13,6 +13,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.retryWithExponentialBackoff
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,7 +49,7 @@ class ILaunchableRepositoryImpl(
         .retryWithExponentialBackoff()
         .stateIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(SHARED_SUBSCRIPTION_TIMEOUT_MS),
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = LaunchableState(
                 groups = emptyList(),
                 launchables = emptyList(),

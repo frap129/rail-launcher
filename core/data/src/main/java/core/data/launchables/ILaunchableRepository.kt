@@ -2,6 +2,7 @@ package core.data.launchables
 
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -11,9 +12,6 @@ data class LaunchableState(val groups: List<LaunchableGroup>, val launchables: L
     val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
 }
 
-/** How long the shared Launchable State stays subscribed after the last collector leaves. */
-const val SHARED_SUBSCRIPTION_TIMEOUT_MS: Long = 5_000
-
 interface ILaunchableRepository {
     /** Every Launchable, apps and Rail entries, with customizations applied. */
     val launchables: Flow<List<Launchable>>
@@ -21,7 +19,7 @@ interface ILaunchableRepository {
     /**
      * The shared Launchable State, computed off the main thread. Starts with
      * [LaunchableState.isLoaded] false and keeps its upstream subscription for
-     * [SHARED_SUBSCRIPTION_TIMEOUT_MS] after the last collector leaves.
+     * [WHILE_SUBSCRIBED_TIMEOUT_MS] after the last collector leaves.
      */
     val launchableState: StateFlow<LaunchableState>
 }

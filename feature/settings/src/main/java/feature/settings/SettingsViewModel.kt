@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +27,11 @@ class SettingsViewModel(private val prefsRepo: IPreferencesRepository, private v
 
     val uiState: StateFlow<SettingsUiState> = combine(iconRepo.iconPacks, selectedIconPack) { iconPacks, selectedIconPack ->
         SettingsUiState(iconPacks, selectedIconPack)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), SettingsUiState(setOf(IconPack.SystemIconPack), IconPack.SystemIconPack))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        SettingsUiState(setOf(IconPack.SystemIconPack), IconPack.SystemIconPack)
+    )
 
     fun setIconPack(iconPack: IconPack) = prefsRepo.setIconPack(iconPack)
 }

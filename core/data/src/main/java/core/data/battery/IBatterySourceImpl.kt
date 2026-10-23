@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.core.content.ContextCompat
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -13,8 +14,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.shareIn
-
-private const val SUBSCRIPTION_TIMEOUT_MS: Long = 5_000L
 
 class IBatterySourceImpl(context: Context, private val scope: CoroutineScope) : IBatterySource {
     private val appContext: Context = context.applicationContext
@@ -36,7 +35,7 @@ class IBatterySourceImpl(context: Context, private val scope: CoroutineScope) : 
         .distinctUntilChanged()
         .shareIn(
             scope = scope,
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             replay = 1
         )
 }
