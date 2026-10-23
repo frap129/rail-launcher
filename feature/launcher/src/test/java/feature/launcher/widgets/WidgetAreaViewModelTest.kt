@@ -40,7 +40,6 @@ import core.data.time.ClockReading
 import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
-import core.data.widgets.HomeHeightState
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IWidgetLifecycleReconciler
 import core.data.widgets.InsertPosition
@@ -58,6 +57,7 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
+import core.ui.layout.HomeHeightState
 import core.widgets.AppWidgetModel
 import core.widgets.BatteryModel
 import core.widgets.HeaderFormatter

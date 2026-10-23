@@ -27,7 +27,6 @@ import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.HeaderRemoval
-import core.data.widgets.HomeHeightState
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IRemoveAppWidget
@@ -48,6 +47,7 @@ import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.data.widgets.resizeBounds
 import core.ui.R as CoreUiR
+import core.ui.layout.HomeHeightState
 import core.widgets.AppWidgetModel
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel

@@ -1,4 +1,4 @@
-package core.data.widgets
+package core.ui.layout
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
