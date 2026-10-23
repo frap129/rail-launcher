@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetHost
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.room.Room
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -41,6 +42,7 @@ import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
+import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
@@ -73,6 +75,8 @@ import feature.launcher.AppWidgetResults
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.launcher.widgets.HomeEditState
+import feature.launcher.widgets.IWidgetAddController
+import feature.launcher.widgets.IWidgetAddControllerImpl
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.settings.SettingsViewModel
 import feature.settings.WidgetSettingsViewModel
@@ -90,6 +94,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import timber.log.Timber
@@ -145,6 +150,7 @@ class MainApplication :
         single<WidgetAreaDao> { database.getWidgetAreaDao() }
         single<WidgetAreaSettingsDao> { database.getWidgetAreaSettingsDao() }
         single<MediaPlayerSettingsDao> { database.getMediaPlayerSettingsDao() }
+        single<PendingAppWidgetDao> { database.getPendingAppWidgetDao() }
     }
 
     /**
@@ -172,7 +178,7 @@ class MainApplication :
         single { AppWidgetHostCallbacks() }
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
-        single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(androidContext()) }
+        single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
         single { WidgetLifecycleReconciler(get(), get()) }
         single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
         single { AppWidgetViewCache(androidContext(), get()) }
@@ -183,6 +189,16 @@ class MainApplication :
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
         }
         single<IHeaderTapTargetResolver> { IHeaderTapTargetResolverImpl() }
+        factory<IWidgetAddController> { (savedStateHandle: SavedStateHandle) ->
+            IWidgetAddControllerImpl(
+                repository = get(),
+                appWidgetHost = get(),
+                settingsRepository = get(),
+                homeEditState = get(),
+                savedStateHandle = savedStateHandle,
+                pendingIds = get()
+            )
+        }
         single { HomeEditState() }
         single { HomeHeightState() }
         single<IClockSource> { AndroidClockSource(androidContext()) }
@@ -218,6 +234,7 @@ class MainApplication :
             )
         }
         viewModel {
+            val savedStateHandle: SavedStateHandle = get()
             WidgetAreaViewModel(
                 repository = get(),
                 clockSource = get(),
@@ -227,10 +244,9 @@ class MainApplication :
                 launchableRepository = get(),
                 calendarEventSource = get(),
                 appWidgetHost = get(),
-                savedStateHandle = get(),
                 batterySource = get(),
                 removeAppWidget = get(),
-                addFlowPendingIds = get(),
+                addFlowController = get { parametersOf(savedStateHandle) },
                 widgetLifecycleReconciler = get(),
                 homeHeightState = get(),
                 mediaSessionSource = get(),
@@ -275,7 +291,7 @@ class MainApplication :
                 }
                 isReconciled = true
                 appScope.launch(Dispatchers.IO) {
-                    reconciler.reconcileAtStartup(pendingIds = pendingIds.ids.value)
+                    reconciler.reconcileAtStartup(pendingIds = pendingIds.get())
                 }
             }
 

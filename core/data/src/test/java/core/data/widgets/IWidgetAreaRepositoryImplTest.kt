@@ -86,6 +86,25 @@ class IWidgetAreaRepositoryImplTest {
     }
 
     @Test
+    fun `restoreHeader inserts the Header into the saved place and shifts its pages`() = runTest {
+        val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(place(id = 1L, position = 0)),
+            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100))
+        )
+        val repository: IWidgetAreaRepository = repository(dao)
+
+        repository.restoreHeader(position = 0, placeId = 1L, pagePosition = 0)
+
+        val places: List<WidgetPlace> = repository.places.first()
+        assertEquals(listOf(1L), places.map { place -> place.id })
+        val place: WidgetPlace = places.single()
+        assertEquals(2, place.widgets.size)
+        assertTrue(place.widgets.first() is PlacedWidget.Header)
+        assertEquals(10L, place.widgets.last().id)
+        assertEquals(0, place.currentPage)
+    }
+
+    @Test
     fun `resolves and deletes duplicate Headers`() = runTest {
         val dao: FakeWidgetAreaDao = FakeWidgetAreaDao(
             initialPlaces = listOf(

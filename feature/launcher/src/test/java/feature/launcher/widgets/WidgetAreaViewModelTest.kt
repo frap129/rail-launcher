@@ -1,7 +1,6 @@
 package feature.launcher.widgets
 
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.battery.BatteryStatus
@@ -22,7 +21,6 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
-import core.data.testing.FakeAddFlowPendingIds
 import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeBatterySource
 import core.data.testing.FakeCalendarEventSource
@@ -57,7 +55,6 @@ import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetRecord
-import core.data.widgets.WidgetSize
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import core.widgets.AppWidgetModel
@@ -92,13 +89,6 @@ import org.junit.Test
 class WidgetAreaViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
-
-    private val headerPlace: WidgetPlace = WidgetPlace(
-        id = 1L,
-        heightDp = null,
-        currentPage = 0,
-        widgets = listOf(PlacedWidget.Header(id = 1L))
-    )
 
     @Test
     fun `emits one place with a Header by default`() = runTest {
@@ -859,57 +849,6 @@ class WidgetAreaViewModelTest {
     )
 
     @Test
-    fun `adding from a Header menu offers a placement choice below the cap`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = FakeWidgetAreaRepository(listOf(headerPlace)))
-
-        viewModel.openHeaderMenu()
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-
-        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.ChoosingPlacement)
-    }
-
-    @Test
-    fun `adding from a full stack skips the placement choice`() = runTest {
-        val stack: WidgetPlace = WidgetPlace(
-            id = 1L,
-            heightDp = null,
-            currentPage = 0,
-            widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = FakeWidgetAreaRepository(listOf(stack)),
-            settingsRepository = FakeWidgetSettingsRepository(initialAreaSettings = WidgetAreaSettings(maxStackPages = 2))
-        )
-
-        viewModel.openHeaderMenu(widgetId = 1L)
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-
-        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.Picking)
-    }
-
-    @Test
-    fun `choosing Add next to appends a page and makes it current`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        )
-
-        viewModel.openHeaderMenu()
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-        viewModel.choosePlacement(AddWidgetPlacement.IntoStack)
-        viewModel.pickProvider(appWidgetProviderInfo())
-        advanceUntilIdle()
-
-        val place: WidgetPlace = repository.places.first().single()
-        assertEquals(2, place.widgets.size)
-        assertEquals(1, place.currentPage)
-    }
-
-    @Test
     fun `a stack Header menu offers Remove from stack`() = runTest {
         val stack: WidgetPlace = WidgetPlace(
             id = 1L,
@@ -1477,7 +1416,115 @@ class WidgetAreaViewModelTest {
         }
     }
 
-    private fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
+    @Test
+    fun `Add widget from an App Widget menu starts below that widget`() = runTest {
+        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository)
+
+        viewModel.openAppWidgetMenu(widgetId = 2L)
+        viewModel.onMenuAction(WidgetMenuAction.AddWidget)
+        advanceUntilIdle()
+
+        val actualChoosing: AddWidgetFlowState.ChoosingPlacement =
+            viewModel.addFlowState.value as AddWidgetFlowState.ChoosingPlacement
+        assertEquals(InsertPosition.Below(placeId = 2L), actualChoosing.origin.insertAt)
+    }
+
+    @Test
+    fun `add flow events reach the launcher`() = runTest {
+        val actualViewModel: WidgetAreaViewModel = createViewModel()
+
+        actualViewModel.events.test {
+            actualViewModel.startAdd(origin = settingsAddOrigin())
+            actualViewModel.cancelAdd()
+
+            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `setPickerQuery reaches the picker state`() = runTest {
+        val actualViewModel: WidgetAreaViewModel = createViewModel()
+        actualViewModel.startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
+
+        actualViewModel.setPickerQuery(query = "mail")
+
+        val actualPicking: AddWidgetFlowState.Picking = actualViewModel.addFlowState.value as AddWidgetFlowState.Picking
+        assertEquals("mail", actualPicking.query)
+    }
+
+    @Test
+    fun `onBindResult places the App Widget after the dialog`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo()),
+            bindResults = listOf(false)
+        )
+        val actualViewModel: WidgetAreaViewModel = createViewModel(repository = mockRepository, appWidgetHost = mockHost)
+        advanceUntilIdle()
+        actualViewModel.startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
+        actualViewModel.pickProvider(provider = appWidgetProviderInfo())
+        advanceUntilIdle()
+
+        actualViewModel.onBindResult(granted = true)
+        advanceUntilIdle()
+
+        assertEquals(2, mockRepository.places.first().size)
+        assertEquals(AddWidgetFlowState.Idle, actualViewModel.addFlowState.value)
+    }
+
+    @Test
+    fun `onConfigureResult failure reports a message and deletes the id`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo(needsConfiguration = true)),
+            bindResults = listOf(true)
+        )
+        val actualViewModel: WidgetAreaViewModel = createViewModel(repository = mockRepository, appWidgetHost = mockHost)
+        advanceUntilIdle()
+        actualViewModel.events.test {
+            actualViewModel.startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
+            actualViewModel.pickProvider(provider = appWidgetProviderInfo(needsConfiguration = true))
+            advanceUntilIdle()
+            assertEquals(WidgetAreaEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
+
+            actualViewModel.onConfigureResult(ok = false)
+            advanceUntilIdle()
+
+            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
+        assertEquals(1, mockRepository.places.first().size)
+    }
+
+    @Test
+    fun `adding into a stack reports the grown page size`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(appWidgetProviderInfo(isVerticallyResizable = true)),
+            bindResults = listOf(true)
+        )
+        val actualViewModel: WidgetAreaViewModel = createViewModel(repository = mockRepository, appWidgetHost = mockHost)
+        actualViewModel.setHomeHeight(heightDp = 400)
+        actualViewModel.setWidgetAreaWidth(widthDp = 240)
+        actualViewModel.openHeaderMenu()
+        actualViewModel.startAddFromMenu()
+        advanceUntilIdle()
+        actualViewModel.choosePlacement(placement = AddWidgetPlacement.IntoStack)
+
+        actualViewModel.events.test {
+            actualViewModel.pickProvider(provider = appWidgetProviderInfo(isVerticallyResizable = true))
+            advanceUntilIdle()
+
+            val actualEvent: WidgetAreaEvent = awaitItem()
+            assertTrue(actualEvent is WidgetAreaEvent.ReportWidgetSize)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     private fun createViewModel(
         repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
@@ -1488,8 +1535,6 @@ class WidgetAreaViewModelTest {
         calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource(),
         batterySource: FakeBatterySource = FakeBatterySource(BatteryStatus(percent = 84, isCharging = false)),
         appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
-        savedStateHandle: SavedStateHandle = SavedStateHandle(),
-        addFlowPendingIds: FakeAddFlowPendingIds = FakeAddFlowPendingIds(),
         widgetLifecycleReconciler: WidgetLifecycleReconciler = WidgetLifecycleReconciler(
             dao = FakeWidgetAreaDao(),
             host = appWidgetHost
@@ -1506,9 +1551,13 @@ class WidgetAreaViewModelTest {
         calendarEventSource = calendarEventSource,
         batterySource = batterySource,
         appWidgetHost = appWidgetHost,
-        savedStateHandle = savedStateHandle,
         removeAppWidget = RemoveAppWidget(repository = repository, host = appWidgetHost),
-        addFlowPendingIds = addFlowPendingIds,
+        addFlowController = createAddController(
+            repository = repository,
+            appWidgetHost = appWidgetHost,
+            settingsRepository = settingsRepository,
+            homeEditState = homeEditState
+        ),
         widgetLifecycleReconciler = widgetLifecycleReconciler,
         homeHeightState = homeHeightState,
         mediaSessionSource = mediaSessionSource,
@@ -1518,298 +1567,6 @@ class WidgetAreaViewModelTest {
         ),
         tapTargetResolver = IHeaderTapTargetResolverImpl()
     )
-
-    @Test
-    fun `silent bind with no configuration places the App Widget at the end`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        val provider: WidgetProviderInfo = appWidgetProviderInfo()
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-        viewModel.pickProvider(provider)
-        advanceUntilIdle()
-        val places: List<WidgetPlace> = repository.places.first()
-        assertEquals(listOf(1L, 2L), places.map { place -> place.id })
-        val widget: PlacedWidget.AppWidget = places.last().widgets.single() as PlacedWidget.AppWidget
-        assertEquals(1, widget.appWidgetId)
-        assertEquals(provider.provider, widget.provider)
-        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-        assertEquals(listOf(AppWidgetId(1)), host.allocatedIds)
-        assertTrue(host.deletedIds.isEmpty())
-    }
-
-    @Test
-    fun `a refused silent bind launches the system dialog and a denial deletes the id`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(false))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-            viewModel.pickProvider(appWidgetProviderInfo())
-            val event: WidgetAreaEvent = awaitItem()
-            assertTrue(event is WidgetAreaEvent.LaunchBind)
-            viewModel.onBindResult(granted = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
-            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
-            assertEquals(listOf(headerPlace.id), repository.places.first().map { place -> place.id })
-            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `a granted bind places the App Widget after the dialog`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(false))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-        viewModel.pickProvider(appWidgetProviderInfo())
-        viewModel.onBindResult(granted = true)
-        advanceUntilIdle()
-        assertEquals(2, repository.places.first().size)
-        assertTrue(host.deletedIds.isEmpty())
-    }
-
-    @Test
-    fun `a provider that needs configuration launches it and cancelling deletes the id`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
-            assertEquals(WidgetAreaEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
-            viewModel.onConfigureResult(ok = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
-            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
-            assertEquals(1, repository.places.first().size)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `a provider that needs configuration places the App Widget when configuration succeeds`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
-            awaitItem()
-            viewModel.onConfigureResult(ok = true)
-            advanceUntilIdle()
-            assertEquals(2, repository.places.first().size)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `a provider with optional reconfigurable configuration is placed without launching configuration`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource =
-            FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        val viewModel: WidgetAreaViewModel = createViewModel(repository = repository, appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = false))
-            advanceUntilIdle()
-            expectNoEvents()
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertEquals(2, repository.places.first().size)
-    }
-
-    @Test
-    fun `cancelling the picker allocates nothing`() = runTest {
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-        assertTrue(viewModel.addFlowState.value is AddWidgetFlowState.Picking)
-        viewModel.cancelAdd()
-        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-        assertTrue(host.allocatedIds.isEmpty())
-    }
-
-    @Test
-    fun `add from the Header menu inserts directly below the Header`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        )
-        viewModel.openHeaderMenu()
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-        viewModel.choosePlacement(AddWidgetPlacement.Below)
-        viewModel.pickProvider(appWidgetProviderInfo())
-        advanceUntilIdle()
-        val places: List<WidgetPlace> = repository.places.first()
-        assertEquals(2, places.size)
-        assertTrue(places[1].widgets.single() is PlacedWidget.AppWidget)
-    }
-
-    @Test
-    fun `add from an App Widget menu inserts directly below that widget`() = runTest {
-        val first: WidgetPlace = headerPlace
-        val second: WidgetPlace = appWidgetPlace(placeId = 2L, widgetId = 2L)
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(first, second))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        )
-        viewModel.openAppWidgetMenu(widgetId = 2L)
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-        viewModel.choosePlacement(AddWidgetPlacement.Below)
-        viewModel.pickProvider(appWidgetProviderInfo())
-        advanceUntilIdle()
-        val places: List<WidgetPlace> = repository.places.first()
-        assertEquals(listOf(1L, 2L, 3L), places.map { place -> place.id })
-        assertTrue(places[2].widgets.single() is PlacedWidget.AppWidget)
-    }
-
-    @Test
-    fun `add from the empty area inserts at the end`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        )
-        viewModel.openEmptyAreaMenu()
-        viewModel.startAddFromMenu()
-        advanceUntilIdle()
-        viewModel.pickProvider(appWidgetProviderInfo())
-        advanceUntilIdle()
-        assertEquals(1, repository.places.first().size)
-    }
-
-    @Test
-    fun `add started from Settings returns to Settings after placing`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = FakeAppWidgetHostSource(initialProviders = listOf(appWidgetProviderInfo()), bindResults = listOf(true))
-        )
-        viewModel.events.test {
-            viewModel.startAdd(settingsAddOrigin())
-            viewModel.pickProvider(appWidgetProviderInfo())
-            advanceUntilIdle()
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
-            assertEquals(2, repository.places.first().size)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `cancelling an add started from Settings returns to Settings`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel()
-        viewModel.events.test {
-            viewModel.startAdd(settingsAddOrigin())
-            viewModel.cancelAdd()
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
-            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `denied bind for an add started from Settings returns to Settings`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            appWidgetHost = FakeAppWidgetHostSource(
-                initialProviders = listOf(appWidgetProviderInfo()),
-                bindResults = listOf(false)
-            )
-        )
-        viewModel.events.test {
-            viewModel.startAdd(settingsAddOrigin())
-            viewModel.pickProvider(appWidgetProviderInfo())
-            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
-            viewModel.onBindResult(granted = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget), awaitItem())
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `cancelling while configuring returns to Settings without an error`() = runTest {
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo()),
-            bindResults = listOf(true)
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(settingsAddOrigin())
-            viewModel.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
-            assertEquals(WidgetAreaEvent.LaunchConfigure(id = AppWidgetId(1)), awaitItem())
-            viewModel.cancelAdd()
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
-            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `cancelling while binding returns to Settings without an error`() = runTest {
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo()),
-            bindResults = listOf(false)
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
-        viewModel.events.test {
-            viewModel.startAdd(settingsAddOrigin())
-            viewModel.pickProvider(appWidgetProviderInfo())
-            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
-            viewModel.cancelAdd()
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
-            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-            assertEquals(listOf(AppWidgetId(1)), host.deletedIds)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `cancelling an add started from the menu stays on Home`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel()
-        viewModel.events.test {
-            viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-            viewModel.cancelAdd()
-            expectNoEvents()
-            assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun `picker groups by app, sorts by label and filters by query`() = runTest {
-        val alphaProvider: WidgetProvider = WidgetProvider(packageName = "com.alpha", className = "AlphaWidget")
-        val zetaProvider: WidgetProvider = WidgetProvider(packageName = "com.zeta", className = "ZetaWidget")
-        val alphaBeta: WidgetProvider = WidgetProvider(packageName = "com.alpha", className = "BetaWidget")
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(
-                appWidgetProviderInfo(provider = zetaProvider, appPackageName = "com.zeta", appLabel = "Zeta", label = "Clock"),
-                appWidgetProviderInfo(provider = alphaProvider, appPackageName = "com.alpha", appLabel = "Alpha", label = "Calendar"),
-                appWidgetProviderInfo(provider = alphaBeta, appPackageName = "com.alpha", appLabel = "Alpha", label = "Mail")
-            )
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-        advanceUntilIdle()
-        val picking: AddWidgetFlowState.Picking = viewModel.addFlowState.value as AddWidgetFlowState.Picking
-        assertEquals(listOf("Alpha", "Zeta"), picking.groups.map { group -> group.appLabel })
-        assertEquals(listOf("Calendar", "Mail"), picking.groups.first().widgets.map { widget -> widget.label })
-        viewModel.setPickerQuery("mail")
-        val filtered: AddWidgetFlowState.Picking = viewModel.addFlowState.value as AddWidgetFlowState.Picking
-        assertEquals(listOf("Mail"), filtered.groups.flatMap { group -> group.widgets.map { widget -> widget.label } })
-        viewModel.setPickerQuery("missing")
-        assertTrue((viewModel.addFlowState.value as AddWidgetFlowState.Picking).groups.isEmpty())
-    }
 
     @Test
     fun `remove widget deletes the row, the system id and the cached view`() = runTest {
@@ -1977,59 +1734,6 @@ class WidgetAreaViewModelTest {
             assertEquals(WidgetAreaEvent.RequestQuietModeOff(profileSerial = 12L), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun `rejects a pick when the provider is no longer offered`() = runTest {
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo())
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(appWidgetHost = host)
-        viewModel.startAdd(AddWidgetOrigin(InsertPosition.End))
-        host.setProviders(emptyList())
-        advanceUntilIdle()
-        viewModel.events.test {
-            viewModel.pickProvider(appWidgetProviderInfo())
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
-        assertTrue(host.allocatedIds.isEmpty())
-    }
-
-    @Test
-    fun `restores a pending configuration after process recreation`() = runTest {
-        val repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
-        val host: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(appWidgetProviderInfo()),
-            bindResults = listOf(true)
-        )
-        val savedStateHandle: SavedStateHandle = SavedStateHandle()
-        val first: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = host,
-            savedStateHandle = savedStateHandle
-        )
-        first.startAdd(AddWidgetOrigin(InsertPosition.End))
-        first.pickProvider(appWidgetProviderInfo(needsConfiguration = true))
-        advanceUntilIdle()
-        assertTrue(first.addFlowState.value is AddWidgetFlowState.Configuring)
-
-        val pendingIds: FakeAddFlowPendingIds = FakeAddFlowPendingIds()
-        val restored: WidgetAreaViewModel = createViewModel(
-            repository = repository,
-            appWidgetHost = host,
-            savedStateHandle = savedStateHandle,
-            addFlowPendingIds = pendingIds
-        )
-        assertTrue(restored.addFlowState.value is AddWidgetFlowState.Configuring)
-        assertEquals(setOf(AppWidgetId(1)), pendingIds.ids.value)
-
-        restored.onConfigureResult(ok = true)
-        advanceUntilIdle()
-
-        assertEquals(2, repository.places.first().size)
-        assertTrue(pendingIds.ids.value.isEmpty())
     }
 
     @Test
@@ -2798,49 +2502,6 @@ class WidgetAreaViewModelTest {
         add(WidgetMenuAction.WidgetSettings)
     }
 
-    private fun stackPlace(): WidgetPlace = WidgetPlace(
-        id = 1L,
-        heightDp = null,
-        currentPage = 0,
-        widgets = listOf(
-            PlacedWidget.Header(id = 1L),
-            appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single()
-        )
-    )
-
-    private fun appWidgetProviderInfo(
-        provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
-        appPackageName: String = provider.packageName,
-        appLabel: String = "Example",
-        label: String = "Example Widget",
-        needsConfiguration: Boolean = false,
-        profileSerial: Long = 0L,
-        isReconfigurable: Boolean = false,
-        hasConfigureActivity: Boolean = true,
-        minHeightDp: Int = 48,
-        minResizeHeightDp: Int = 48,
-        maxResizeHeightDp: Int? = null,
-        isVerticallyResizable: Boolean = false
-    ): WidgetProviderInfo = WidgetProviderInfo(
-        provider = provider,
-        profileSerial = profileSerial,
-        appPackageName = appPackageName,
-        appLabel = appLabel,
-        appIcon = Icon.ApplicationIcon(packageName = appPackageName),
-        label = label,
-        description = null,
-        defaultSize = WidgetSize(widthDp = 110, heightDp = minHeightDp),
-        cellSize = null,
-        minHeightDp = minHeightDp,
-        minResizeHeightDp = minResizeHeightDp,
-        maxResizeHeightDp = maxResizeHeightDp,
-        needsConfiguration = needsConfiguration,
-        isReconfigurable = isReconfigurable,
-        hasConfigureActivity = hasConfigureActivity,
-        isWorkProfile = false,
-        isVerticallyResizable = isVerticallyResizable
-    )
-
     private fun hostWithProviderInfo(
         info: WidgetProviderInfo,
         appWidgetId: AppWidgetId = AppWidgetId(9),
@@ -2851,31 +2512,6 @@ class WidgetAreaViewModelTest {
     ).apply {
         providerInfoById[appWidgetId] = info
     }
-
-    private fun appWidgetPlace(
-        placeId: Long,
-        widgetId: Long,
-        appWidgetId: Int = 9,
-        profileSerial: Long = 0L,
-        availability: WidgetAvailability = WidgetAvailability.Available,
-        defaultHeightDp: Int? = null,
-        heightDp: Int? = null
-    ): WidgetPlace = WidgetPlace(
-        id = placeId,
-        heightDp = heightDp,
-        currentPage = 0,
-        widgets = listOf(
-            PlacedWidget.AppWidget(
-                id = widgetId,
-                appWidgetId = appWidgetId,
-                provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
-                profileSerial = profileSerial,
-                extendsUnderRail = false,
-                availability = availability,
-                defaultHeightDp = defaultHeightDp
-            )
-        )
-    )
 
     private fun reading(
         at: String = "2026-10-20T14:05:00Z",

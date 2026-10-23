@@ -59,4 +59,4 @@ Default five-role vocabulary as beads labels (`needs-triage`, `needs-info`, `rea
 
 ### Domain docs
 
-Single-context: root `GLOSSARY.md` + `docs/adr/` (created lazily; none yet). See `docs/agents/domain.md`.
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.

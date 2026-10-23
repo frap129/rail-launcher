@@ -94,11 +94,7 @@ internal class WidgetResizeController(
         if (!homeEditState.tryEnter(HomeEditMode.Resizing(placeId = placeId))) {
             return false
         }
-        val defaults: List<Int> = place.widgets.mapNotNull { widget ->
-            (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
-                providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
-            }
-        }
+        val defaults: List<Int> = defaultHeightsDp(place)
         val defaultHeightDp: Int = if (place.isStack) {
             defaults.maxOrNull() ?: bounds.minDp
         } else {
@@ -163,8 +159,7 @@ internal class WidgetResizeController(
         val storedHeightDp: Int? = heightDp.takeUnless { draft -> draft == effectiveDefaultHeightDp }
         val appWidgetIds: List<AppWidgetId> = resizingAppWidgetIds
         resizingAppWidgetIds = emptyList()
-        val pageHeightDp: Int = (heightDp - if (state.indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0)
-            .coerceAtLeast(1)
+        val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = state.indicatorVisible)
         scope.launch {
             repository.setPlaceHeight(placeId = state.placeId, heightDp = storedHeightDp)
             if (appWidgetIds.isNotEmpty() && widgetAreaWidthDp > 0) {
@@ -180,6 +175,52 @@ internal class WidgetResizeController(
         resizingAppWidgetIds = emptyList()
         homeEditState.exit(HomeEditMode.Resizing(placeId = state.placeId))
     }
+
+    /** Clamps a stack that gained a page and reports the page size to its providers. */
+    suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?) {
+        clampStackHeight(placeId = placeId, headerHeightDp = headerHeightDp)
+        reportStackSize(placeId = placeId)
+    }
+
+    /** Clamps a stack's stored height after the Header is replaced by a page. */
+    suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) {
+        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
+        val bounds: ResizeBounds = ResizeBounds.stackBounds(
+            place.widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) }
+        )
+        val storedHeight: Int = place.heightDp ?: return
+        val homeHeight: Int = homeHeight.value ?: Int.MAX_VALUE
+        val clamped: Int = bounds.clamp(heightDp = storedHeight, homeHeightDp = homeHeight)
+        if (clamped != storedHeight) {
+            repository.setPlaceHeight(placeId = placeId, heightDp = clamped)
+        }
+    }
+
+    private suspend fun reportStackSize(placeId: Long) {
+        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
+        val appWidgetIds: List<AppWidgetId> = place.widgets
+            .filterIsInstance<PlacedWidget.AppWidget>()
+            .map { widget -> AppWidgetId(widget.appWidgetId) }
+        val defaults: List<Int> = defaultHeightsDp(place)
+        val heightDp: Int = place.heightDp ?: defaults.maxOrNull() ?: return
+        val widthDp: Int = widgetAreaWidthDp
+        if (appWidgetIds.isEmpty() || widthDp <= 0) {
+            return
+        }
+        val indicatorVisible: Boolean = place.isStack &&
+            settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
+        val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = indicatorVisible)
+        onReportSize(appWidgetIds, widthDp, pageHeightDp)
+    }
+
+    private fun defaultHeightsDp(place: WidgetPlace): List<Int> = place.widgets.mapNotNull { widget ->
+        (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
+            providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
+        }
+    }
+
+    private fun pageHeightDp(heightDp: Int, indicatorVisible: Boolean): Int =
+        (heightDp - if (indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0).coerceAtLeast(1)
 
     /** Consumes Back while resizing; returns false so the launcher can handle it otherwise. */
     fun onBack(): Boolean = consumeResize()
