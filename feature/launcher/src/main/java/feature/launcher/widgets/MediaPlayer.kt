@@ -62,6 +62,7 @@ import core.data.media.MediaArtwork
 import core.data.media.MediaCommand
 import core.data.media.MediaSessionSnapshot
 import core.data.media.PlaybackStatus
+import core.data.widgets.WidgetWidth
 import feature.launcher.R
 
 private val mediaArtworkSize: Dp = 80.dp
@@ -84,6 +85,9 @@ private val mediaPlayerVerticalPadding: Dp = 4.dp
 private const val MEDIA_PLAYER_ANIMATION_MILLIS: Int = 200
 
 internal const val MEDIA_PLAYER_KEY: String = "mediaPlayer"
+
+/** The Media Player is laid out as an inset Widget, so its controls stay clear of the Rail. */
+internal val mediaPlayerWidthMode: WidgetWidth = WidgetWidth.Inset
 
 /** Adds the Media Player at the Widget Area position chosen in Settings. */
 fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp) {
@@ -115,7 +119,7 @@ fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, modifie
     ) {
         val shown: MediaPlayerUiState.Visible? = mediaPlayer as? MediaPlayerUiState.Visible ?: retained
         if (shown != null) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.insetWidgetWidth(mediaPlayerWidthMode)) {
                 Spacer(modifier = Modifier.height(topSpacing))
                 MediaPlayer(
                     state = shown,

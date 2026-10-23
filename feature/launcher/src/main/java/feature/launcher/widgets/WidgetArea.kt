@@ -78,8 +78,9 @@ import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetWidth
 import core.ui.composables.OutlinedText
+import core.ui.layout.homeContentEndInset
 import core.ui.layout.homeEdgePadding
-import core.ui.layout.homeRailTouchInset
+import core.ui.layout.insetWidgetContentWidth
 import core.ui.model.data.isPlaceKey
 import core.ui.model.data.placeKey
 import core.ui.util.consumeTouches
@@ -243,7 +244,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
     val topPadding: Dp = (homeEdgePadding + topOffsetDp.dp)
         .coerceAtMost((maxHeight - minWidgetAreaContentHeight).coerceAtLeast(0.dp))
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val widgetAreaWidthDp: Int = (maxWidth - homeEdgePadding - homeRailTouchInset).value.roundToInt()
+        val widgetAreaWidthDp: Int = insetWidgetContentWidth(maxWidth).value.roundToInt()
         LaunchedEffect(widgetAreaWidthDp) {
             if (widgetAreaWidthDp > 0) {
                 actions.onWidgetAreaWidth(widgetAreaWidthDp)
@@ -505,8 +506,7 @@ private fun DrawScope.drawWidgetAreaFade(listState: LazyListState) {
 private fun EmptyWidgetArea(menuEnabled: Boolean, showNoWidgets: Boolean, onLongPress: () -> Unit) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = WidgetWidth.Inset.endPadding())
+            .insetWidgetWidth()
             .height(emptyWidgetAreaHeight)
             .pointerInput(menuEnabled) {
                 if (menuEnabled) {
@@ -540,7 +540,6 @@ private fun WidgetPlaceContent(
     userScrollEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val endPadding: Dp = place.widthMode.endPadding()
     if (place.isStack) {
         WidgetStack(
             place = place,
@@ -555,10 +554,10 @@ private fun WidgetPlaceContent(
             onAppWidgetUnpause = onAppWidgetUnpause,
             onPageSettled = onPageSettled,
             userScrollEnabled = menuEnabled && !isResizing,
-            modifier = modifier.padding(end = endPadding)
+            modifier = modifier
         )
     } else {
-        Column(modifier = modifier.fillMaxWidth().padding(end = endPadding)) {
+        Column(modifier = modifier.insetWidgetWidth(place.widthMode)) {
             place.widgets.forEach { widget ->
                 WidgetPageContent(
                     widget = widget,
@@ -617,7 +616,7 @@ private fun WidgetStack(
                 }
         }
     }
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.insetWidgetWidth(place.widthMode)) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
@@ -728,8 +727,12 @@ private fun WidgetPageContent(
     }
 }
 
-private fun WidgetWidth.endPadding(): Dp = when (this) {
-    WidgetWidth.Inset -> homeRailTouchInset - homeEdgePadding
+/** Fills the content width and keeps the Widget clear of the Rail's touch column according to [widthMode]. */
+internal fun Modifier.insetWidgetWidth(widthMode: WidgetWidth = WidgetWidth.Inset): Modifier =
+    fillMaxWidth().padding(end = widthMode.endInset())
+
+internal fun WidgetWidth.endInset(): Dp = when (this) {
+    WidgetWidth.Inset -> homeContentEndInset
     WidgetWidth.UnderRail -> 0.dp
 }
 
