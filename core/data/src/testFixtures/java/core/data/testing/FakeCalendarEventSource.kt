@@ -25,7 +25,7 @@ class FakeCalendarEventSource(
     private val subscribers: MutableStateFlow<Int> = MutableStateFlow(0)
 
     val activeSubscribers: Int get() = subscribers.value
-    val queriedWindowEnds: MutableList<Long> = mutableListOf()
+    val queriedLookaheadHours: MutableList<Int> = mutableListOf()
     var refreshCount: Int = 0
         private set
     private var grantOnRefresh: Boolean = false
@@ -37,8 +37,8 @@ class FakeCalendarEventSource(
         if (granted) calendarValues else flowOf(emptyList())
     }
 
-    override fun events(windowEndMillis: Long): Flow<List<UpcomingEvent>> {
-        queriedWindowEnds.add(windowEndMillis)
+    override fun events(lookaheadHours: Int): Flow<List<UpcomingEvent>> {
+        queriedLookaheadHours.add(lookaheadHours)
         return eventValues
             .onStart { subscribers.update { count -> count + 1 } }
             .onCompletion { subscribers.update { count -> count - 1 } }

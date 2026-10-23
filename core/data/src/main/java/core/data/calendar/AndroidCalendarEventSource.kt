@@ -15,9 +15,12 @@ import android.os.Process
 import android.os.UserManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
-import java.time.LocalDate
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -36,7 +39,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-private const val RECHECK_INTERVAL_MS: Long = 15 * 60 * 1_000L
+internal const val EVENT_RECHECK_INTERVAL_MS: Long = 15 * 60 * 1_000L
 
 private enum class CrossProfileCalendarAccess {
     Allowed,
@@ -44,7 +47,13 @@ private enum class CrossProfileCalendarAccess {
     Unknown
 }
 
-class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
+internal data class EventQueryWindow(val startMillis: Long, val endMillis: Long)
+
+class AndroidCalendarEventSource(
+    context: Context,
+    private val clock: Clock = Clock.systemDefaultZone(),
+    private val queryDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : ICalendarEventSource {
     private val appContext: Context = context.applicationContext
     private val permission: MutableStateFlow<Boolean> = MutableStateFlow(hasCalendarPermission())
 
@@ -59,12 +68,13 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
         }
     }.distinctUntilChanged()
 
-    override fun events(windowEndMillis: Long): Flow<List<UpcomingEvent>> = callbackFlow {
+    override fun events(lookaheadHours: Int): Flow<List<UpcomingEvent>> = callbackFlow {
         val flowScope: ProducerScope<List<UpcomingEvent>> = this
-        val windowStartMillis: Long = startOfTodayMillis()
+        val safeLookaheadHours: Int = lookaheadHours.coerceIn(1, MAX_EVENT_LOOKAHEAD_HOURS)
         fun recheck() {
-            flowScope.launch(Dispatchers.IO) {
-                trySend(queryEvents(windowStartMillis = windowStartMillis, windowEndMillis = windowEndMillis))
+            flowScope.launch(queryDispatcher) {
+                val window: EventQueryWindow = eventQueryWindow(lookaheadHours = safeLookaheadHours)
+                trySend(queryEvents(windowStartMillis = window.startMillis, windowEndMillis = window.endMillis))
             }
         }
         val observer: ContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -76,7 +86,7 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
         recheck()
         val ticker: Job = launch {
             while (isActive) {
-                delay(RECHECK_INTERVAL_MS)
+                delay(EVENT_RECHECK_INTERVAL_MS)
                 recheck()
             }
         }
@@ -139,10 +149,13 @@ class AndroidCalendarEventSource(context: Context) : ICalendarEventSource {
         null
     }
 
-    private fun startOfTodayMillis(): Long = LocalDate.now(ZoneId.systemDefault())
-        .atStartOfDay(ZoneId.systemDefault())
-        .toInstant()
-        .toEpochMilli()
+    private fun eventQueryWindow(lookaheadHours: Int): EventQueryWindow {
+        val now: Instant = clock.instant()
+        val zoneId: ZoneId = clock.zone
+        val startMillis: Long = now.atZone(zoneId).toLocalDate().atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val endMillis: Long = now.toEpochMilli() + Duration.ofHours(lookaheadHours.toLong()).toMillis()
+        return EventQueryWindow(startMillis = startMillis, endMillis = endMillis)
+    }
 
     private fun eventUris(): List<Uri> = buildList {
         add(CalendarContract.Instances.CONTENT_URI)

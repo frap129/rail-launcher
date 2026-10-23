@@ -10,8 +10,8 @@ import core.data.battery.IBatterySource
 import core.data.calendar.CalendarPermissionDecision
 import core.data.calendar.CalendarPermissionGate
 import core.data.calendar.ICalendarEventSource
-import core.data.calendar.MAX_EVENT_LOOKAHEAD_HOURS
 import core.data.calendar.UpcomingEvent
+import core.data.calendar.effectiveLookaheadHours
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
@@ -61,7 +61,6 @@ import core.widgets.labelResource
 import core.widgets.withTapTargets
 import feature.launcher.R
 import java.text.Collator
-import java.time.Duration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -412,10 +411,7 @@ class WidgetAreaViewModel(
     private val eventData: Flow<EventData> = eventSettingsState
         .flatMapLatest { state ->
             if (state.settings.enabled && state.hasPermission) {
-                val nowMillis: Long = clockSource.readings.first().instant.toEpochMilli()
-                calendarEventSource.events(
-                    windowEndMillis = nowMillis + Duration.ofHours(MAX_EVENT_LOOKAHEAD_HOURS.toLong()).toMillis()
-                )
+                calendarEventSource.events(lookaheadHours = state.settings.effectiveLookaheadHours())
             } else {
                 flowOf(emptyList())
             }

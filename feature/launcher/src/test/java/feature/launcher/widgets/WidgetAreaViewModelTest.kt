@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.battery.BatteryStatus
+import core.data.calendar.MAX_EVENT_LOOKAHEAD_HOURS
 import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.launchables.model.LaunchableGroup
@@ -758,6 +759,26 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
 
         assertTrue(settingsRepository.eventUpdates.last().enabled)
+    }
+
+    @Test
+    fun `requests calendar events with the effective lookahead`() = runTest {
+        val calendarEventSource: FakeCalendarEventSource = FakeCalendarEventSource()
+        val settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialEventSettings = EventSettings(enabled = true, lookaheadHours = 99)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            settingsRepository = settingsRepository,
+            calendarEventSource = calendarEventSource
+        )
+
+        viewModel.widgetAreaState.test {
+            expectMostRecentItem()
+            advanceUntilIdle()
+
+            assertEquals(listOf(MAX_EVENT_LOOKAHEAD_HOURS), calendarEventSource.queriedLookaheadHours)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
