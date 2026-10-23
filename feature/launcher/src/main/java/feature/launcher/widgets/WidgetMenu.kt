@@ -264,6 +264,7 @@ private fun WidgetMenuIcon(action: WidgetMenuAction) {
 }
 
 private fun WidgetMenuAction.label(): Int = when (this) {
+    WidgetMenuAction.EditFavorites -> R.string.edit_favorites
     WidgetMenuAction.Clock -> R.string.widget_clock
     WidgetMenuAction.Date -> R.string.widget_date
     WidgetMenuAction.Battery -> CoreUiR.string.battery
@@ -288,6 +289,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
 }
 
 private fun WidgetMenuAction.icon(): ImageVector = when (this) {
+    WidgetMenuAction.EditFavorites -> FontAwesomeIcons.Solid.GripVertical
     WidgetMenuAction.Clock -> FontAwesomeIcons.Solid.Clock
     WidgetMenuAction.Date -> FontAwesomeIcons.Solid.Calendar
     WidgetMenuAction.Battery -> FontAwesomeIcons.Solid.BatteryThreeQuarters
