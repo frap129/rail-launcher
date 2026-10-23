@@ -48,7 +48,7 @@ private enum class CrossProfileCalendarAccess {
 
 internal data class EventQueryWindow(val startMillis: Long, val endMillis: Long)
 
-class AndroidCalendarEventSource(
+class ICalendarEventSourceImpl(
     context: Context,
     private val now: () -> Instant = Instant::now,
     private val zoneId: () -> ZoneId = ZoneId::systemDefault,

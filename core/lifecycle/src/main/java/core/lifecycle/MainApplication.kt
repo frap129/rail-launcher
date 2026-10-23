@@ -13,10 +13,10 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
-import core.data.battery.AndroidBatterySource
 import core.data.battery.IBatterySource
-import core.data.calendar.AndroidCalendarEventSource
+import core.data.battery.IBatterySourceImpl
 import core.data.calendar.ICalendarEventSource
+import core.data.calendar.ICalendarEventSourceImpl
 import core.data.calendar.ICalendarPermissionGate
 import core.data.calendar.ICalendarPermissionGateImpl
 import core.data.favorites.IFavoritesRepository
@@ -46,10 +46,10 @@ import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
-import core.data.time.AndroidClockSource
-import core.data.time.AndroidDatePatternSource
 import core.data.time.IClockSource
+import core.data.time.IClockSourceImpl
 import core.data.time.IDatePatternSource
+import core.data.time.IDatePatternSourceImpl
 import core.data.widgets.AppWidgetHostCallbacks
 import core.data.widgets.HomeHeightState
 import core.data.widgets.IAddFlowPendingIds
@@ -183,7 +183,7 @@ class MainApplication :
         single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
         single { AppWidgetViewCache(androidContext(), get()) }
         single { RemoveAppWidget(get(), get()) }
-        single<ICalendarEventSource> { AndroidCalendarEventSource(androidContext()) }
+        single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext()) }
         factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
@@ -201,9 +201,9 @@ class MainApplication :
         }
         single { HomeEditState() }
         single { HomeHeightState() }
-        single<IClockSource> { AndroidClockSource(androidContext()) }
-        single<IBatterySource> { AndroidBatterySource(androidContext()) }
-        single<IDatePatternSource> { AndroidDatePatternSource() }
+        single<IClockSource> { IClockSourceImpl(androidContext()) }
+        single<IBatterySource> { IBatterySourceImpl(androidContext()) }
+        single<IDatePatternSource> { IDatePatternSourceImpl() }
         single { HeaderFormatter(get(), androidContext().resources) }
     }
 
