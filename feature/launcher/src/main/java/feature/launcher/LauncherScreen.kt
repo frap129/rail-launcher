@@ -233,7 +233,7 @@ fun LauncherScreen(
     val headerRemovedMessage: String = stringResource(R.string.header_removed)
     val headerReplacedMessage: String = stringResource(R.string.header_replaced)
     val undoLabel: String = stringResource(R.string.undo)
-    val calendarPermissionMessage: String = stringResource(CoreUiR.string.calendar_permission_needed)
+    val calendarPermissionMessage: String = stringResource(R.string.calendar_permission_needed)
     val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
     val finishEditingHomeMessage: String = stringResource(R.string.finish_editing_home)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
@@ -737,7 +737,7 @@ private fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetView
                 }
             }
         ) {
-            Text(stringResource(R.string.launcher_done))
+            Text(stringResource(CoreUiR.string.done))
         }
     }
 }
@@ -824,7 +824,7 @@ private fun AddPlacementSheet(canAddToStack: Boolean, onBelow: () -> Unit, onInt
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(R.string.add_widget_title),
+                text = stringResource(CoreUiR.string.add_widget),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 style = MaterialTheme.typography.headlineMedium
             )
@@ -1386,13 +1386,13 @@ fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel = koinVi
                 TextButton(
                     onClick = { nameEdit = item.defaultName }
                 ) {
-                    Text(stringResource(R.string.launcher_reset))
+                    Text(stringResource(CoreUiR.string.reset))
                 }
 
                 TextButton(
                     onClick = { viewModel.setItemName(item, nameEdit) }
                 ) {
-                    Text(stringResource(R.string.launcher_done))
+                    Text(stringResource(CoreUiR.string.done))
                 }
             }
         }

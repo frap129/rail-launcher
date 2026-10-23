@@ -238,7 +238,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = "back"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 }
@@ -490,12 +490,12 @@ private fun WidgetSettingsList(
             )
         }
         item { HeaderTapActionRows(uiState = uiState, onTapActionClick = onTapActionClick) }
-        item { SettingsSectionTitle(CoreWidgetsR.string.upcoming_events) }
+        item { SettingsSectionTitle(CoreUiR.string.upcoming_events) }
         item { EventSettingsRows(uiState = uiState, viewModel = viewModel, onDialogClick = onDialogClick) }
         item { SettingsSectionTitle(R.string.app_widgets) }
         item {
             SettingsActionRow(
-                title = stringResource(CoreWidgetsR.string.add_widget),
+                title = stringResource(CoreUiR.string.add_widget),
                 value = "",
                 enabled = true,
                 onClick = onAddWidget
@@ -527,7 +527,7 @@ private fun WidgetSettingsList(
                 onCheckedChange = viewModel::setStackIndicatorVisible
             )
         }
-        item { SettingsSectionTitle(CoreWidgetsR.string.media_player) }
+        item { SettingsSectionTitle(CoreUiR.string.media_player) }
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.show_media_player),
@@ -621,22 +621,22 @@ private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -
                 IconButton(onClick = onRemove) {
                     Icon(
                         imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                        contentDescription = stringResource(CoreWidgetsR.string.remove_widget)
+                        contentDescription = stringResource(CoreUiR.string.remove_widget)
                     )
                 }
             }
         )
         if (expanded) {
             SettingsSwitchRow(
-                title = stringResource(CoreWidgetsR.string.extend_under_rail),
+                title = stringResource(CoreUiR.string.extend_under_rail),
                 checked = widget.extendsUnderRail,
                 onCheckedChange = onExtendUnderRailChange,
                 enabled = widget.canExtendUnderRail,
                 supportingText = stringResource(
                     if (widget.canExtendUnderRail) {
-                        CoreWidgetsR.string.extend_under_rail_supporting_text
+                        CoreUiR.string.extend_under_rail_supporting_text
                     } else {
-                        CoreWidgetsR.string.not_available_in_stack
+                        CoreUiR.string.not_available_in_stack
                     }
                 )
             )
@@ -668,7 +668,7 @@ private fun EventSettingsRows(
         )
         if (uiState.eventsEnabled && !uiState.calendarAccess) {
             SettingsWarningRow(
-                title = stringResource(R.string.calendar_access_off),
+                title = stringResource(CoreUiR.string.calendar_permission_denied_title),
                 actionLabel = stringResource(R.string.grant),
                 onClick = { viewModel.setEventsEnabled(true) }
             )
@@ -680,7 +680,7 @@ private fun EventSettingsRows(
             onClick = { onDialogClick(WidgetSettingsDialog.EventLookahead) }
         )
         SettingsActionRow(
-            title = stringResource(R.string.event_count),
+            title = stringResource(R.string.event_count_label),
             value = pluralStringResource(R.plurals.event_count, uiState.eventMaxEvents, uiState.eventMaxEvents),
             enabled = uiState.eventsEnabled,
             onClick = { onDialogClick(WidgetSettingsDialog.EventCount) }
@@ -1050,7 +1050,7 @@ private fun WidgetSettingsDialogContent(
         )
 
         WidgetSettingsDialog.EventCount -> SingleChoiceDialog(
-            title = stringResource(R.string.event_count),
+            title = stringResource(R.string.event_count_label),
             options = EventSettings.EVENT_COUNT_OPTIONS.map { count ->
                 SingleChoiceOption(
                     value = count,
@@ -1273,7 +1273,7 @@ private fun CalendarSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(calendars.map { calendar -> calendar.calendarKey }.toSet() - selectedKeys) }) {
-                Text(stringResource(CoreWidgetsR.string.done))
+                Text(stringResource(CoreUiR.string.done))
             }
         },
         dismissButton = {
@@ -1486,14 +1486,14 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
                     Text(text = valueLabel, style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.weight(1f))
                     TextButton(onClick = { onOffsetChange(0) }) {
-                        Text(text = stringResource(CoreWidgetsR.string.reset))
+                        Text(text = stringResource(CoreUiR.string.reset))
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(CoreWidgetsR.string.done))
+                Text(text = stringResource(CoreUiR.string.done))
             }
         }
     )

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
+import core.ui.R as CoreUiR
 import feature.launcher.R
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
@@ -46,7 +47,7 @@ fun AppWidgetPickerSheet(
     ) {
         Column(modifier = Modifier.fillMaxHeight()) {
             Text(
-                text = stringResource(R.string.add_widget_title),
+                text = stringResource(CoreUiR.string.add_widget),
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 style = MaterialTheme.typography.headlineMedium
             )

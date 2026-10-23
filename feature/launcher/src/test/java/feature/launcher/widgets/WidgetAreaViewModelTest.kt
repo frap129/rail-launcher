@@ -673,7 +673,7 @@ class WidgetAreaViewModelTest {
             val actualMenu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
             val actualBattery: WidgetMenuItem.Choice = actualMenu.items[2] as WidgetMenuItem.Choice
             assertEquals(WidgetMenuAction.Battery, actualBattery.id)
-            assertEquals(CoreUiR.string.battery_never, actualBattery.valueLabel)
+            assertEquals(CoreWidgetsR.string.battery_never, actualBattery.valueLabel)
             assertEquals(
                 listOf("NEVER", "ALWAYS", "CHARGING_OR_LOW"),
                 actualBattery.options.map { option -> option.key.value }
@@ -1680,7 +1680,7 @@ class WidgetAreaViewModelTest {
         viewModel.events.test {
             viewModel.removeWidget(widgetId = 2L)
             assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
-            assertEquals(WidgetAreaEvent.ShowMessage(CoreWidgetsR.string.widget_removed), awaitItem())
+            assertEquals(WidgetAreaEvent.ShowMessage(CoreUiR.string.widget_removed), awaitItem())
             assertEquals(listOf(2L), mockRemoveAppWidget.removedWidgetIds)
             cancelAndIgnoreRemainingEvents()
         }
@@ -2335,7 +2335,7 @@ class WidgetAreaViewModelTest {
                 .filterIsInstance<WidgetMenuItem.Toggle>()
                 .first { item -> item.id == WidgetMenuAction.ExtendUnderRail }
             assertFalse(actualExtend.enabled)
-            assertEquals(CoreWidgetsR.string.not_available_in_stack, actualExtend.supportingText)
+            assertEquals(CoreUiR.string.not_available_in_stack, actualExtend.supportingText)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -2378,7 +2378,7 @@ class WidgetAreaViewModelTest {
                 .filterIsInstance<WidgetMenuItem.Toggle>()
                 .single { item -> item.id == WidgetMenuAction.ExtendUnderRail }
             assertTrue(actualExtend.enabled)
-            assertEquals(CoreWidgetsR.string.extend_under_rail_supporting_text, actualExtend.supportingText)
+            assertEquals(CoreUiR.string.extend_under_rail_supporting_text, actualExtend.supportingText)
             cancelAndIgnoreRemainingEvents()
         }
     }

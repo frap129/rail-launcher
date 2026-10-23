@@ -38,11 +38,11 @@ import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSpacing
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
 import core.widgets.IHeaderTapTargetResolver
-import core.widgets.R as CoreWidgetsR
 import java.text.Normalizer
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -593,7 +593,7 @@ class WidgetSettingsViewModel(
         viewModelScope.launch {
             val appWidgetId: AppWidgetId = removeAppWidget(widgetId = widgetId) ?: return@launch
             eventChannel.send(WidgetSettingsEvent.AppWidgetRemoved(appWidgetId = appWidgetId))
-            eventChannel.send(WidgetSettingsEvent.ShowMessage(message = CoreWidgetsR.string.widget_removed))
+            eventChannel.send(WidgetSettingsEvent.ShowMessage(message = CoreUiR.string.widget_removed))
         }
     }
 
