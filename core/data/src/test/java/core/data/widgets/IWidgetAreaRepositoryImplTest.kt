@@ -155,7 +155,7 @@ class IWidgetAreaRepositoryImplTest {
         )
         val repository: IWidgetAreaRepository = repository(mockDao)
         val inputProvider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "Widget")
-        repository.addAppWidget(
+        val actualAdded: AddedAppWidget = repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(42),
                 provider = inputProvider,
@@ -164,6 +164,7 @@ class IWidgetAreaRepositoryImplTest {
                 defaultHeightDp = 48
             )
         )
+        assertEquals(AddedAppWidget(widgetId = 11L, placeId = 3L), actualAdded)
         val actualPlaces: List<WidgetPlace> = repository.places.first()
         assertEquals(listOf(0, 1, 2), mockDao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
         val actualInserted: PlacedWidget.AppWidget = actualPlaces[1].widgets.single() as PlacedWidget.AppWidget
@@ -179,7 +180,7 @@ class IWidgetAreaRepositoryImplTest {
             initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
         val repository: IWidgetAreaRepository = repository(mockDao)
-        repository.addAppWidget(
+        val actualAdded: AddedAppWidget = repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(7),
                 provider = WidgetProvider(packageName = "com.example", className = "Widget"),
@@ -188,6 +189,7 @@ class IWidgetAreaRepositoryImplTest {
                 defaultHeightDp = 48
             )
         )
+        assertEquals(AddedAppWidget(widgetId = 11L, placeId = 2L), actualAdded)
         val actualPlaces: List<WidgetPlace> = repository.places.first()
         assertEquals(7, (actualPlaces.last().widgets.single() as PlacedWidget.AppWidget).appWidgetId)
     }
@@ -358,7 +360,7 @@ class IWidgetAreaRepositoryImplTest {
         )
         val repository: IWidgetAreaRepository = repository(mockDao)
 
-        repository.addAppWidget(
+        val actualAdded: AddedAppWidget = repository.addAppWidget(
             request = AddAppWidget(
                 appWidgetId = AppWidgetId(7),
                 provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
@@ -368,6 +370,7 @@ class IWidgetAreaRepositoryImplTest {
             )
         )
 
+        assertEquals(AddedAppWidget(widgetId = 11L, placeId = 1L), actualAdded)
         val actualPlace: WidgetPlace = repository.places.first().single()
         assertEquals(2, actualPlace.widgets.size)
         assertEquals(1, actualPlace.currentPage)

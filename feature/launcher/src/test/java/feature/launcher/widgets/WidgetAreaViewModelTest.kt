@@ -2460,6 +2460,17 @@ class WidgetAreaViewModelTest {
         assertTrue(mockStackedRepository.extendsUnderRailUpdates.isEmpty())
     }
 
+    @Test
+    fun `scroll to place requests are set and cleared`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+
+        viewModel.requestScrollToPlace(placeId = 2L)
+        assertEquals(2L, viewModel.scrollToPlaceId.value)
+
+        viewModel.onScrolledToPlace()
+        assertNull(viewModel.scrollToPlaceId.value)
+    }
+
     private fun expectedAppWidgetMenuOrder(
         resize: Boolean = false,
         reconfigure: Boolean = false,

@@ -1,6 +1,7 @@
 package core.data.testing
 
 import core.data.widgets.AddAppWidget
+import core.data.widgets.AddedAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.IWidgetAreaRepository
@@ -9,6 +10,7 @@ import core.data.widgets.PlacedWidget
 import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetPlace
+import core.data.widgets.placeOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -95,12 +97,12 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     override suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo? {
         val places: List<WidgetPlace> = storedPlaces.value
         val headerPlaceIndex: Int = places.indexOfFirst { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } }
-        val widgetPlaceIndex: Int = places.indexOfFirst { place -> place.widgets.any { widget -> widget.id == widgetId } }
-        if (headerPlaceIndex < 0 || widgetPlaceIndex < 0 || headerPlaceIndex == widgetPlaceIndex) {
+        val widgetPlace: WidgetPlace = places.placeOf(widgetId = widgetId) ?: return null
+        val widgetPlaceIndex: Int = places.indexOf(widgetPlace)
+        if (headerPlaceIndex < 0 || headerPlaceIndex == widgetPlaceIndex) {
             return null
         }
         val headerPlace: WidgetPlace = places[headerPlaceIndex]
-        val widgetPlace: WidgetPlace = places[widgetPlaceIndex]
         val header: PlacedWidget.Header = headerPlace.widgets.filterIsInstance<PlacedWidget.Header>().first()
         val widget: PlacedWidget.AppWidget = widgetPlace.widgets
             .filterIsInstance<PlacedWidget.AppWidget>()
@@ -148,13 +150,14 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
             .filterIsInstance<PlacedWidget.AppWidget>()
             .firstOrNull { candidate -> candidate.id == undo.widgetId }
         if (widget != null) {
-            val currentIndex: Int = updated.indexOfFirst { place -> place.widgets.any { page -> page.id == widget.id } }
-            if (currentIndex >= 0) {
-                val remaining: List<PlacedWidget> = updated[currentIndex].widgets.filterNot { page -> page.id == widget.id }
+            val currentPlace: WidgetPlace? = updated.placeOf(widgetId = widget.id)
+            if (currentPlace != null) {
+                val currentIndex: Int = updated.indexOf(currentPlace)
+                val remaining: List<PlacedWidget> = currentPlace.widgets.filterNot { page -> page.id == widget.id }
                 if (remaining.isEmpty()) {
                     updated.removeAt(currentIndex)
                 } else {
-                    updated[currentIndex] = updated[currentIndex].dissolved(remaining)
+                    updated[currentIndex] = currentPlace.dissolved(remaining)
                 }
             }
             val widgetPlaceIndex: Int = updated.indexOfFirst { place -> place.id == undo.widgetPlaceId }
@@ -208,9 +211,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     }
 
     override suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean) {
-        val place: WidgetPlace? = storedPlaces.value.firstOrNull { place ->
-            place.widgets.any { widget -> widget.id == widgetId }
-        }
+        val place: WidgetPlace? = storedPlaces.value.placeOf(widgetId = widgetId)
         if (place?.isStack == true) {
             return
         }
@@ -230,7 +231,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
         }
     }
 
-    override suspend fun addAppWidget(request: AddAppWidget): Long {
+    override suspend fun addAppWidget(request: AddAppWidget): AddedAppWidget {
         addedAppWidgets.add(request)
         val widgetId: Long = nextWidgetId++
         val widget: PlacedWidget.AppWidget = PlacedWidget.AppWidget(
@@ -241,21 +242,21 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
             extendsUnderRail = false,
             defaultHeightDp = request.defaultHeightDp
         )
-        when (val insertAt: InsertPosition = request.insertAt) {
+        val placeId: Long = when (val insertAt: InsertPosition = request.insertAt) {
             is InsertPosition.IntoStack -> {
                 val targetIndex: Int = storedPlaces.value.indexOfFirst { place -> place.id == insertAt.placeId }
-                if (targetIndex < 0) {
-                    return widgetId
-                }
-                storedPlaces.update { places ->
-                    places.mapIndexed { index, place ->
-                        if (index == targetIndex) {
-                            place.copy(widgets = place.widgets + widget, currentPage = place.widgets.size)
-                        } else {
-                            place
+                if (targetIndex >= 0) {
+                    storedPlaces.update { places ->
+                        places.mapIndexed { index, place ->
+                            if (index == targetIndex) {
+                                place.copy(widgets = place.widgets + widget, currentPage = place.widgets.size)
+                            } else {
+                                place
+                            }
                         }
                     }
                 }
+                insertAt.placeId
             }
 
             is InsertPosition.Below -> {
@@ -268,10 +269,10 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
 
             InsertPosition.End -> insertPlace(targetIndex = storedPlaces.value.size, widget = widget)
         }
-        return widgetId
+        return AddedAppWidget(widgetId = widgetId, placeId = placeId)
     }
 
-    private fun insertPlace(targetIndex: Int, widget: PlacedWidget) {
+    private fun insertPlace(targetIndex: Int, widget: PlacedWidget): Long {
         val place: WidgetPlace = WidgetPlace(
             id = nextPlaceId++,
             heightDp = null,
@@ -279,12 +280,11 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
             widgets = listOf(widget)
         )
         storedPlaces.update { places -> places.toMutableList().apply { add(targetIndex, place) } }
+        return place.id
     }
 
     override suspend fun removeWidget(widgetId: Long): AppWidgetId? {
-        val place: WidgetPlace = storedPlaces.value.firstOrNull { place ->
-            place.widgets.any { widget -> widget.id == widgetId }
-        } ?: return null
+        val place: WidgetPlace = storedPlaces.value.placeOf(widgetId = widgetId) ?: return null
         val widget: PlacedWidget = place.widgets.first { candidate -> candidate.id == widgetId }
         val remaining: List<PlacedWidget> = place.widgets.filterNot { candidate -> candidate.id == widgetId }
         storedPlaces.update { places ->

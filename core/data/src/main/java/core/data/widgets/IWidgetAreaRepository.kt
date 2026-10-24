@@ -23,6 +23,9 @@ data class AddAppWidget(
     val defaultHeightDp: Int
 )
 
+/** The inserted App Widget row and the place that now holds it. */
+data class AddedAppWidget(val widgetId: Long, val placeId: Long)
+
 /** One place in an Edit Widgets draft; a null [placeId] is a place created by splitting a stack. */
 data class PlaceDraft(val placeId: Long?, val widgetIds: List<Long>)
 
@@ -69,8 +72,8 @@ interface IWidgetAreaRepository {
     /** Restores the Header at [position] or into [placeId] at [pagePosition] when that place still exists. */
     suspend fun restoreHeader(position: Int = 0, placeId: Long? = null, pagePosition: Int = 0)
 
-    /** Inserts a place holding [request] (or appends a page for [InsertPosition.IntoStack]) and returns the Widget's row id. */
-    suspend fun addAppWidget(request: AddAppWidget): Long
+    /** Inserts a place holding [request] (or appends a page for [InsertPosition.IntoStack]) and returns the Widget's row id and place. */
+    suspend fun addAppWidget(request: AddAppWidget): AddedAppWidget
 
     /** Removes the Widget, dissolving a stack to one page and deleting an empty place; returns its system id. */
     suspend fun removeWidget(widgetId: Long): AppWidgetId?

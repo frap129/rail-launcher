@@ -45,6 +45,7 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
+import core.data.widgets.placeOf
 import core.data.widgets.resizeBounds
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
@@ -201,6 +202,8 @@ sealed interface WidgetAreaEvent {
 
     data class ReportWidgetSize(val appWidgetIds: List<AppWidgetId>, val widthDp: Int, val heightDp: Int) : WidgetAreaEvent
 
+    data class ScrollToPlace(val placeId: Long) : WidgetAreaEvent
+
     data object ReturnToSettings : WidgetAreaEvent
 }
 
@@ -262,6 +265,9 @@ class WidgetAreaViewModel(
     private val resizeController: IWidgetResizeController
 ) : ViewModel() {
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlowController.state
+
+    private val scrollToPlaceIdState: MutableStateFlow<Long?> = MutableStateFlow(null)
+    val scrollToPlaceId: StateFlow<Long?> = scrollToPlaceIdState.asStateFlow()
 
     private val eventChannel: Channel<WidgetAreaEvent> = Channel(Channel.BUFFERED)
     val events: Flow<WidgetAreaEvent> = eventChannel.receiveAsFlow()
@@ -1120,6 +1126,14 @@ class WidgetAreaViewModel(
         return started
     }
 
+    fun requestScrollToPlace(placeId: Long) {
+        scrollToPlaceIdState.value = placeId
+    }
+
+    fun onScrolledToPlace() {
+        scrollToPlaceIdState.value = null
+    }
+
     fun choosePlacement(placement: AddWidgetPlacement) {
         if (addFlowController.choosePlacement(placement = placement)) {
             menuTarget.value = null
@@ -1295,7 +1309,7 @@ class WidgetAreaViewModel(
         }
 
         is WidgetMenuTarget.AppWidget -> {
-            val place: WidgetPlace? = places.firstOrNull { candidate -> candidate.widgets.any { widget -> widget.id == widgetId } }
+            val place: WidgetPlace? = places.placeOf(widgetId = widgetId)
             val widget: PlacedWidget.AppWidget? = place?.widgets
                 ?.filterIsInstance<PlacedWidget.AppWidget>()
                 ?.firstOrNull { candidate -> candidate.id == widgetId }

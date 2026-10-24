@@ -277,6 +277,8 @@ fun LauncherScreen(
                     profileSerial = event.profileSerial
                 )
 
+                is WidgetAreaEvent.ScrollToPlace -> widgetViewModel.requestScrollToPlace(placeId = event.placeId)
+
                 WidgetAreaEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
             }
         }
