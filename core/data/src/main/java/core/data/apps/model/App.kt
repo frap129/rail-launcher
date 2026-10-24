@@ -2,6 +2,7 @@ package core.data.apps.model
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.LauncherApps
 import android.os.UserHandle
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
@@ -21,9 +22,10 @@ data class App(
 
     override fun withCustomization(appearance: LaunchableAppearance): App = copy(name = appearance.name, icon = appearance.icon)
 
-    override fun launch(context: Context) = context.startActivity(
-        context.packageManager.getLaunchIntentForPackage(packageName)
-    )
+    override fun launch(context: Context) {
+        val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
+        launcherApps.startMainActivity(componentName, profile, null, null)
+    }
 
     fun openAppInfo(context: Context) {
         context.openApplicationDetailsSettings()

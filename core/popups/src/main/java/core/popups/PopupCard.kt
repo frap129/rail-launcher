@@ -1,0 +1,205 @@
+package core.popups
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import core.data.shortcuts.ShortcutLaunchable
+
+private val cardCornerRadius = 24.dp
+private val cardShadowElevation = 6.dp
+private val cardVerticalPadding = 8.dp
+private val headerHeight = 56.dp
+private val headerHorizontalPadding = 16.dp
+private val headerIconSize = 32.dp
+private val headerIconGap = 12.dp
+private val shortcutRowHeight = 48.dp
+private val shortcutHorizontalPadding = 16.dp
+private val shortcutIconSize = 24.dp
+private val shortcutIconGap = 16.dp
+private val emptyStatePadding = 16.dp
+
+/** The floating card that shows one App's header and shortcuts. */
+@Composable
+fun PopupCard(
+    content: PopupContent,
+    onHeaderClick: () -> Unit,
+    onShortcutClick: (ShortcutLaunchable) -> Unit,
+    onRequestQuietModeOff: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val closeLabel: String = stringResource(R.string.close_popup)
+    val focusRequester: FocusRequester = remember { FocusRequester() }
+    Surface(
+        modifier = modifier
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(label = closeLabel) {
+                        onClose()
+                        true
+                    }
+                )
+            },
+        shape = RoundedCornerShape(cardCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = cardShadowElevation
+    ) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = cardVerticalPadding)
+        ) {
+            PopupHeader(
+                header = content.header,
+                focusRequester = focusRequester,
+                onClick = onHeaderClick
+            )
+            when (content.emptyReason) {
+                PopupEmptyReason.None -> content.shortcuts.forEach { shortcut ->
+                    PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) })
+                }
+
+                PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.no_shortcuts)
+
+                PopupEmptyReason.ShortcutsUnavailable -> PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+
+                PopupEmptyReason.ProfilePaused -> PopupEmptyState(
+                    messageResId = R.string.work_apps_paused,
+                    onTurnOn = onRequestQuietModeOff
+                )
+            }
+        }
+    }
+    LaunchedEffect(content.header.name) { focusRequester.requestFocus() }
+}
+
+@Composable
+private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: () -> Unit) {
+    val announcement: String = stringResource(R.string.popup_announcement, header.name)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(headerHeight)
+            .focusRequester(focusRequester)
+            .semantics {
+                contentDescription = announcement
+                heading()
+            }
+            .clickable(onClick = onClick)
+            .padding(horizontal = headerHorizontalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            modifier = Modifier.size(headerIconSize),
+            model = header.icon,
+            contentDescription = null
+        )
+        Spacer(Modifier.width(headerIconGap))
+        Text(
+            text = header.name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(shortcutRowHeight)
+            .clickable(onClick = onClick)
+            .padding(horizontal = shortcutHorizontalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            modifier = Modifier.size(shortcutIconSize),
+            model = shortcut.icon,
+            contentDescription = null
+        )
+        Spacer(Modifier.width(shortcutIconGap))
+        ShortcutLabel(shortcut = shortcut)
+    }
+}
+
+@Composable
+private fun ShortcutLabel(shortcut: ShortcutLaunchable) {
+    var useLongLabel: Boolean by remember(shortcut.longLabel, shortcut.shortLabel) { mutableStateOf(true) }
+    val label: String = if (useLongLabel) shortcut.longLabel else shortcut.shortLabel
+    Text(
+        text = label.ifBlank { shortcut.shortLabel },
+        style = MaterialTheme.typography.bodyLarge,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { result ->
+            if (useLongLabel && result.hasVisualOverflow && shortcut.shortLabel != shortcut.longLabel) {
+                useLongLabel = false
+            }
+        }
+    )
+}
+
+@Composable
+private fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(emptyStatePadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = stringResource(messageResId),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        if (onTurnOn != null) {
+            TextButton(onClick = onTurnOn) {
+                Text(stringResource(R.string.turn_on))
+            }
+        }
+    }
+}

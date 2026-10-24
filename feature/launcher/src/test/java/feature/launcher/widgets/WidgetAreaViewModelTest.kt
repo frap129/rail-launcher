@@ -57,6 +57,8 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
+import core.ui.layout.HomeEditMode
+import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.widgets.AppWidgetModel
 import core.widgets.BatteryModel

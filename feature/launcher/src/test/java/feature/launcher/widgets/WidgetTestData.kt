@@ -11,6 +11,7 @@ import core.data.widgets.InsertPosition
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
+import core.ui.layout.HomeEditState
 
 internal fun appWidgetProviderInfo(
     provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),

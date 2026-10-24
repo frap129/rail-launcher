@@ -48,6 +48,8 @@ import core.data.widgets.labelOr
 import core.data.widgets.placeOf
 import core.data.widgets.resizeBounds
 import core.ui.R as CoreUiR
+import core.ui.layout.HomeEditMode
+import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.widgets.AppWidgetModel

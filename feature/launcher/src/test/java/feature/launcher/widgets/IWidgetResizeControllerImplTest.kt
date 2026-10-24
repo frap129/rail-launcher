@@ -8,6 +8,8 @@ import core.data.testing.headerPlace
 import core.data.testing.stackPlace
 import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetProviderInfo
+import core.ui.layout.HomeEditMode
+import core.ui.layout.HomeEditState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

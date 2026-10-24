@@ -1,6 +1,7 @@
 package core.data.icons.model
 
 import android.content.ComponentName
+import android.os.UserHandle
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 
@@ -10,6 +11,8 @@ sealed class Icon {
     data class ActivityIcon(val componentName: ComponentName) : Icon()
 
     data class ApplicationIcon(val packageName: String) : Icon()
+
+    data class ShortcutIcon(val packageName: String, val shortcutId: String, val profile: UserHandle) : Icon()
 
     @Entity(
         tableName = "icons",

@@ -1,6 +1,7 @@
 package core.data.icons
 
 import android.content.ComponentName
+import android.os.UserHandle
 import coil3.request.Options
 import core.data.icons.model.Icon
 import core.data.testing.TEST_SDK
@@ -23,6 +24,9 @@ private const val SECOND_ICON_PACK_PACKAGE: String = "com.example.othericonpack"
 private const val PACK_ICON_RES_ID: Int = 10
 private const val SECOND_PACK_ICON_RES_ID: Int = 11
 private const val SHARED_IDENTITY: Int = 42
+private const val SHORTCUT_PACKAGE: String = "com.example.app"
+private const val SHORTCUT_ID: String = "shortcut-id"
+private const val SECOND_SHORTCUT_ID: String = "second-shortcut-id"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -30,6 +34,7 @@ class IconKeyerTest {
     private val keyer: IconKeyer = IconKeyer()
     private val options: Options = Options(RuntimeEnvironment.getApplication())
     private val componentName: ComponentName = ComponentName(APPLICATION_PACKAGE, ACTIVITY_CLASS)
+    private val profile: UserHandle = UserHandle.getUserHandleForUid(0)
 
     @Test
     fun `equal rail icons produce equal cache keys`() {
@@ -51,6 +56,22 @@ class IconKeyerTest {
         assertEqualKeys(
             Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
             Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+        )
+    }
+
+    @Test
+    fun `equal shortcut icons produce equal cache keys`() {
+        assertEqualKeys(
+            Icon.ShortcutIcon(SHORTCUT_PACKAGE, SHORTCUT_ID, profile),
+            Icon.ShortcutIcon(SHORTCUT_PACKAGE, SHORTCUT_ID, profile)
+        )
+    }
+
+    @Test
+    fun `shortcut icons with different ids produce different cache keys`() {
+        assertDifferentKeys(
+            Icon.ShortcutIcon(SHORTCUT_PACKAGE, SHORTCUT_ID, profile),
+            Icon.ShortcutIcon(SHORTCUT_PACKAGE, SECOND_SHORTCUT_ID, profile)
         )
     }
 

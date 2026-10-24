@@ -75,4 +75,6 @@
     <string name="couldnt_open_app">Couldn\'t open %1$s</string>
     <string name="couldnt_add_widget">Couldn\'t add widget</string>
     <string name="finish_editing_home">Finish editing Home before adding a widget</string>
+    <string name="open_popup">Open Pop-up</string>
+    <string name="couldnt_open_shortcut">Couldn\'t open shortcut</string>
 </resources>
