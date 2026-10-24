@@ -193,18 +193,18 @@ class IWidgetAreaRepositoryImpl(
         )
     }
 
-    override suspend fun addAppWidget(request: AddAppWidget): Long = widgetAreaDao.inTransaction {
+    override suspend fun addAppWidget(request: AddAppWidget): AddedAppWidget = widgetAreaDao.inTransaction {
         addAppWidgetRows(request = request)
     }
 
-    private suspend fun addAppWidgetRows(request: AddAppWidget): Long {
+    private suspend fun addAppWidgetRows(request: AddAppWidget): AddedAppWidget {
         val stackPlaceId: Long? = (request.insertAt as? InsertPosition.IntoStack)?.placeId
         if (stackPlaceId != null) {
             val pages: List<WidgetRecord> = widgetAreaDao.getWidgetsForPlace(stackPlaceId)
             val pagePosition: Int = (pages.maxOfOrNull { page -> page.pagePosition } ?: -1) + 1
             val widgetId: Long = insertAppWidget(placeId = stackPlaceId, pagePosition = pagePosition, request = request)
             widgetAreaDao.setCurrentPage(placeId = stackPlaceId, page = pagePosition)
-            return widgetId
+            return AddedAppWidget(widgetId = widgetId, placeId = stackPlaceId)
         }
         val belowPosition: Int? = (request.insertAt as? InsertPosition.Below)?.placeId?.let { placeId ->
             widgetAreaDao.getPlacePosition(placeId)
@@ -212,7 +212,8 @@ class IWidgetAreaRepositoryImpl(
         val position: Int = belowPosition?.plus(1) ?: (widgetAreaDao.getMaxPlacePosition() + 1)
         widgetAreaDao.shiftPositionsFrom(position)
         val placeId: Long = widgetAreaDao.insertPlace(WidgetPlaceRecord(position = position))
-        return insertAppWidget(placeId = placeId, pagePosition = 0, request = request)
+        val widgetId: Long = insertAppWidget(placeId = placeId, pagePosition = 0, request = request)
+        return AddedAppWidget(widgetId = widgetId, placeId = placeId)
     }
 
     private suspend fun insertAppWidget(placeId: Long, pagePosition: Int, request: AddAppWidget): Long = widgetAreaDao.insertWidget(

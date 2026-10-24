@@ -44,8 +44,10 @@ import feature.launcher.widgets.RESIZE_DIMMED_ALPHA
 import feature.launcher.widgets.WIDGET_AREA_OFFSET_KEY
 import feature.launcher.widgets.WidgetAreaLayout
 import feature.launcher.widgets.WidgetAreaResizeAutoScroll
+import feature.launcher.widgets.WidgetAreaScrollToPlaceEffect
 import feature.launcher.widgets.WidgetAreaTopOffsetSpacer
 import feature.launcher.widgets.WidgetAreaUi
+import feature.launcher.widgets.uncappedListPrefix
 import feature.launcher.widgets.widgetAreaItems
 import kotlin.math.roundToInt
 import sh.calvin.reorderable.ReorderableItem
@@ -124,6 +126,11 @@ fun LauncherHome(
                     onMovePlace = widgetArea.actions.onMovePlace
                 )
                 val mergeState: EditMergeState = remember { EditMergeState() }
+                WidgetAreaScrollToPlaceEffect(
+                    ui = widgetArea,
+                    listState = home.lazyListState,
+                    listPrefix = widgetArea.uncappedListPrefix
+                )
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -163,7 +170,11 @@ fun LauncherHome(
                         onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null
                     )
                 }
-                WidgetAreaResizeAutoScroll(ui = widgetArea, listState = home.lazyListState)
+                WidgetAreaResizeAutoScroll(
+                    ui = widgetArea,
+                    listState = home.lazyListState,
+                    listPrefix = widgetArea.uncappedListPrefix
+                )
             }
         }
     }

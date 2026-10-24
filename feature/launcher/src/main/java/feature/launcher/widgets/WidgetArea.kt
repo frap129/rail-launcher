@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListItemInfo
@@ -40,14 +41,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -95,6 +100,8 @@ import feature.launcher.ReorderRow
 import feature.launcher.resolvePlaceReorder
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -104,6 +111,7 @@ private val emptyWidgetAreaHeight: Dp = 96.dp
 private val minWidgetAreaContentHeight: Dp = 48.dp
 private const val WIDGET_AREA_HEIGHT_ANIMATION_MILLIS: Int = 200
 private const val WIDGET_AREA_OFFSET_ANIMATION_MILLIS: Int = 150
+private const val WIDGET_AREA_SCROLL_TO_PLACE_TIMEOUT_MS: Long = 1_000L
 private val widgetAreaFadeHeight: Dp = 16.dp
 private const val WIDGET_AREA_EMPTY_KEY: String = "widgetAreaEmpty"
 const val WIDGET_AREA_OFFSET_KEY: String = "widgetAreaOffset"
@@ -136,7 +144,8 @@ data class WidgetAreaActions(
     val onMergePlace: (Long, Long) -> Unit,
     val onMediaPlayerOpen: () -> Unit,
     val onMediaPlayerLongPress: () -> Unit,
-    val onMediaCommand: (MediaCommand) -> Unit
+    val onMediaCommand: (MediaCommand) -> Unit,
+    val onScrolledToPlace: () -> Unit
 )
 
 /** The Widget Area state and callbacks read by Home. */
@@ -146,6 +155,7 @@ class WidgetAreaUi(
     val resize: ResizeState?,
     val editDraft: WidgetEditDraft?,
     val mediaPlayer: MediaPlayerUiState,
+    val scrollToPlaceId: Long?,
     val actions: WidgetAreaActions
 )
 
@@ -156,6 +166,7 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
     val mediaPlayer: MediaPlayerUiState by viewModel.mediaPlayerState.collectAsState()
+    val scrollToPlaceId: Long? by viewModel.scrollToPlaceId.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val actions: WidgetAreaActions = remember(viewModel, menuEnabled, context, hapticFeedback) {
@@ -202,12 +213,57 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
                     viewModel.openMediaPlayerMenu()
                 }
             },
-            onMediaCommand = viewModel::onMediaCommand
+            onMediaCommand = viewModel::onMediaCommand,
+            onScrolledToPlace = viewModel::onScrolledToPlace
         )
     }
-    return remember(state, resize, editDraft, mediaPlayer, actions) {
-        WidgetAreaUi(state = state, resize = resize, editDraft = editDraft, mediaPlayer = mediaPlayer, actions = actions)
+    return remember(state, resize, editDraft, mediaPlayer, scrollToPlaceId, actions) {
+        WidgetAreaUi(
+            state = state,
+            resize = resize,
+            editDraft = editDraft,
+            mediaPlayer = mediaPlayer,
+            scrollToPlaceId = scrollToPlaceId,
+            actions = actions
+        )
     }
+}
+
+/** Whether the Media Player is laid out above the Widget places. */
+internal val WidgetAreaUi.mediaAtTop: Boolean
+    get() = ((mediaPlayer as? MediaPlayerUiState.Visible)?.placement ?: state.mediaPlayerPlacement) ==
+        MediaPlayerPlacement.TOP_OF_WIDGET_AREA
+
+/** The leading list items before the first place in the Capped layout. */
+internal val WidgetAreaUi.cappedListPrefix: Int
+    get() = if (mediaAtTop) 1 else 0
+
+/** The leading list items before the first place in the Uncapped layout, including the offset spacer. */
+internal val WidgetAreaUi.uncappedListPrefix: Int
+    get() = 1 + cappedListPrefix
+
+/**
+ * Sums the full heights of the visible items plus content padding, or returns null when the list
+ * has no items. The caller measures the list at the Widget Area cap, so the sum is the content
+ * height when it fits and at least the viewport height when it overflows.
+ */
+internal fun calculateVisibleItemsHeightPx(layoutInfo: LazyListLayoutInfo): Int? {
+    if (layoutInfo.totalItemsCount == 0) {
+        return null
+    }
+    return layoutInfo.visibleItemsInfo.sumOf { item -> item.size } +
+        layoutInfo.beforeContentPadding + layoutInfo.afterContentPadding
+}
+
+/** Caps the measured content height, using the full cap while the list is unmeasured. */
+internal fun calculateWidgetAreaHeightPx(layoutInfo: LazyListLayoutInfo, maxHeightPx: Int): Int =
+    calculateVisibleItemsHeightPx(layoutInfo = layoutInfo)?.coerceAtMost(maxHeightPx) ?: maxHeightPx
+
+/** The index to scroll to when the Media Player becomes visible, or null before the list has items. */
+internal fun mediaPlayerScrollTargetIndex(mediaAtTop: Boolean, totalItemsCount: Int): Int? = when {
+    mediaAtTop -> 0
+    totalItemsCount > 0 -> totalItemsCount - 1
+    else -> null
 }
 
 /** The scrollable, height-capped Widget Area shown above Favorites when the limit is on. */
@@ -216,11 +272,23 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
     val state: WidgetAreaState = ui.state
     val actions: WidgetAreaActions = ui.actions
     val mediaPlayerVisible: Boolean = ui.mediaPlayer is MediaPlayerUiState.Visible
-    LaunchedEffect(mediaPlayerVisible, state.mediaPlayerPlacement) {
-        if (mediaPlayerVisible && state.mediaPlayerPlacement == MediaPlayerPlacement.TOP_OF_WIDGET_AREA) {
-            state.listState.animateScrollToItem(index = 0)
+    val mediaPlayerWasVisible: MutableState<Boolean> = remember { mutableStateOf(mediaPlayerVisible) }
+    LaunchedEffect(mediaPlayerVisible, ui.mediaAtTop) {
+        val becameVisible: Boolean = mediaPlayerVisible && !mediaPlayerWasVisible.value
+        mediaPlayerWasVisible.value = mediaPlayerVisible
+        if (!becameVisible) {
+            return@LaunchedEffect
         }
+        val totalItemsCount: Int = if (ui.mediaAtTop) {
+            0
+        } else {
+            snapshotFlow { state.listState.layoutInfo.totalItemsCount }.first { count -> count > 0 }
+        }
+        val targetIndex: Int = mediaPlayerScrollTargetIndex(mediaAtTop = ui.mediaAtTop, totalItemsCount = totalItemsCount)
+            ?: return@LaunchedEffect
+        state.listState.animateScrollToItem(index = targetIndex)
     }
+    WidgetAreaScrollToPlaceEffect(ui = ui, listState = state.listState, listPrefix = ui.cappedListPrefix)
     val reorderState: ReorderableLazyListState = rememberReorderableLazyListState(state.listState) { from, to ->
         val rows: List<ReorderRow> = state.listState.layoutInfo.visibleItemsInfo.map { item -> ReorderRow(item.index, item.key) }
         val reorder: HomeReorder.Place? = resolvePlaceReorder(
@@ -236,20 +304,11 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
     val mergeState: EditMergeState = remember { EditMergeState() }
     val density: Density = LocalDensity.current
     val topOffsetDp: Int = rememberAnimatedTopOffsetDp(state = state)
-    val contentHeightPx: Int? by remember(state.listState) {
-        derivedStateOf {
-            val layoutInfo: LazyListLayoutInfo = state.listState.layoutInfo
-            if (layoutInfo.totalItemsCount > 0 && layoutInfo.visibleItemsInfo.size == layoutInfo.totalItemsCount) {
-                layoutInfo.visibleItemsInfo.sumOf { item -> item.size } +
-                    layoutInfo.beforeContentPadding + layoutInfo.afterContentPadding
-            } else {
-                null
-            }
-        }
+    val maxHeightPx: Int = with(density) { maxHeight.roundToPx() }
+    val areaHeightPx: Int by remember(state.listState, maxHeightPx) {
+        derivedStateOf { calculateWidgetAreaHeightPx(layoutInfo = state.listState.layoutInfo, maxHeightPx = maxHeightPx) }
     }
-    val areaHeight: Dp = contentHeightPx?.let { heightPx ->
-        with(density) { heightPx.toDp() }.coerceAtMost(maxHeight)
-    } ?: maxHeight
+    val areaHeight: Dp = with(density) { areaHeightPx.toDp() }
     val topPadding: Dp = (homeEdgePadding + topOffsetDp.dp)
         .coerceAtMost((maxHeight - minWidgetAreaContentHeight).coerceAtLeast(0.dp))
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -262,6 +321,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .clipToBounds()
                 .animateContentSize(animationSpec = tween(durationMillis = WIDGET_AREA_HEIGHT_ANIMATION_MILLIS))
                 .height(areaHeight)
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -272,7 +332,11 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
         ) {
             LazyColumn(
                 state = state.listState,
-                modifier = Modifier.fillMaxSize(),
+                // Always measure at the cap so the height calculation does not depend on the
+                // animated Box height; the Box clips the list to the measured content height.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .requiredHeight(maxHeight),
                 contentPadding = PaddingValues(
                     start = homeEdgePadding,
                     top = topPadding,
@@ -287,15 +351,40 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
             }
         }
     }
-    WidgetAreaResizeAutoScroll(ui = ui, listState = state.listState)
+    WidgetAreaResizeAutoScroll(
+        ui = ui,
+        listState = state.listState,
+        listPrefix = ui.cappedListPrefix
+    )
+}
+
+/**
+ * Scrolls the newly added place into view, then clears the request. Call it from the list that
+ * hosts the Widget Area with the number of items laid out before the first place.
+ */
+@Composable
+fun WidgetAreaScrollToPlaceEffect(ui: WidgetAreaUi, listState: LazyListState, listPrefix: Int) {
+    LaunchedEffect(ui.scrollToPlaceId, ui.state.placeIds, listState) {
+        val placeId: Long = ui.scrollToPlaceId ?: return@LaunchedEffect
+        val placeIndex: Int = ui.state.places.indexOfFirst { place -> place.id == placeId }
+        if (placeIndex < 0) {
+            delay(WIDGET_AREA_SCROLL_TO_PLACE_TIMEOUT_MS)
+            ui.actions.onScrolledToPlace()
+            return@LaunchedEffect
+        }
+        listState.scrollPlaceIntoView(
+            listIndex = listPrefix + placeIndex,
+            placeItemKey = placeKey(placeId),
+            keepBottomVisible = false
+        )
+        ui.actions.onScrolledToPlace()
+    }
 }
 
 /** Adds the Widget Area places to an existing Home column. */
 fun LazyListScope.widgetAreaItems(ui: WidgetAreaUi, reorderableState: ReorderableLazyListState, mergeState: EditMergeState) {
     val state: WidgetAreaState = ui.state
-    val placement: MediaPlayerPlacement = (ui.mediaPlayer as? MediaPlayerUiState.Visible)?.placement
-        ?: state.mediaPlayerPlacement
-    val mediaAtTop: Boolean = placement == MediaPlayerPlacement.TOP_OF_WIDGET_AREA
+    val mediaAtTop: Boolean = ui.mediaAtTop
     val spacing: Dp = state.widgetSpacingDp.dp
     val mediaTopSpacing: Dp = if (mediaAtTop) 0.dp else spacing
     val mediaBottomSpacing: Dp = if (mediaAtTop && state.hasWidgets) spacing else 0.dp
@@ -452,29 +541,62 @@ private fun placeContent(
 
 /** Keeps the bottom of the place being resized inside [listState]'s viewport. */
 @Composable
-fun WidgetAreaResizeAutoScroll(ui: WidgetAreaUi, listState: LazyListState) {
+fun WidgetAreaResizeAutoScroll(ui: WidgetAreaUi, listState: LazyListState, listPrefix: Int) {
     val resize: ResizeState = ui.resize ?: return
     val placeIndex: Int = ui.state.places.indexOfFirst { place -> place.id == resize.placeId }
     if (placeIndex < 0) {
         return
     }
     LaunchedEffect(listState, resize.placeId, resize.draftHeightDp) {
-        val placeItemKey: String = placeKey(resize.placeId)
-        val initialLayoutInfo: LazyListLayoutInfo = listState.layoutInfo
-        if (initialLayoutInfo.visibleItemsInfo.none { item -> item.key == placeItemKey }) {
-            listState.animateScrollToItem(index = placeIndex)
-        }
-        val layoutInfo: LazyListLayoutInfo = listState.layoutInfo
-        val visibleInfo: LazyListItemInfo = layoutInfo.visibleItemsInfo.firstOrNull { item -> item.key == placeItemKey }
-            ?: return@LaunchedEffect
-        val viewportStart: Int = layoutInfo.viewportStartOffset + layoutInfo.beforeContentPadding
-        val viewportEnd: Int = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding
-        val overflow: Int = visibleInfo.offset + visibleInfo.size - viewportEnd
-        if (overflow > 0) {
-            listState.scrollBy(overflow.toFloat())
-        } else if (visibleInfo.size <= viewportEnd - viewportStart && visibleInfo.offset < viewportStart) {
-            listState.scrollBy((visibleInfo.offset - viewportStart).toFloat())
-        }
+        listState.scrollPlaceIntoView(
+            listIndex = listPrefix + placeIndex,
+            placeItemKey = placeKey(resize.placeId),
+            keepBottomVisible = true
+        )
+    }
+}
+
+/**
+ * Scrolls [listIndex] into view by the smallest amount needed. When [keepBottomVisible] is true,
+ * a place taller than the viewport is aligned by its bottom; otherwise its top stays visible.
+ */
+internal suspend fun LazyListState.scrollPlaceIntoView(listIndex: Int, placeItemKey: String, keepBottomVisible: Boolean) {
+    val initialLayoutInfo: LazyListLayoutInfo = layoutInfo
+    if (initialLayoutInfo.visibleItemsInfo.none { item -> item.key == placeItemKey }) {
+        animateScrollToItem(index = listIndex)
+    }
+    val currentLayoutInfo: LazyListLayoutInfo = layoutInfo
+    val visibleInfo: LazyListItemInfo = currentLayoutInfo.visibleItemsInfo.firstOrNull { item -> item.key == placeItemKey }
+        ?: return
+    val delta: Int = calculateScrollIntoViewDelta(
+        itemOffset = visibleInfo.offset,
+        itemSize = visibleInfo.size,
+        viewportStart = currentLayoutInfo.viewportStartOffset + currentLayoutInfo.beforeContentPadding,
+        viewportEnd = currentLayoutInfo.viewportEndOffset - currentLayoutInfo.afterContentPadding,
+        keepBottomVisible = keepBottomVisible
+    )
+    if (delta != 0) {
+        scrollBy(delta.toFloat())
+    }
+}
+
+/** The smallest scroll delta that brings an item into view; zero when it is visible or cannot fit. */
+internal fun calculateScrollIntoViewDelta(
+    itemOffset: Int,
+    itemSize: Int,
+    viewportStart: Int,
+    viewportEnd: Int,
+    keepBottomVisible: Boolean
+): Int {
+    val viewportSize: Int = viewportEnd - viewportStart
+    val overflow: Int = itemOffset + itemSize - viewportEnd
+    if (overflow > 0) {
+        return if (keepBottomVisible || itemSize <= viewportSize) overflow else 0
+    }
+    return if (itemSize <= viewportSize && itemOffset < viewportStart) {
+        itemOffset - viewportStart
+    } else {
+        0
     }
 }
 

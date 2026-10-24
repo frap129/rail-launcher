@@ -9,6 +9,7 @@ import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.placeOf
 import core.data.widgets.resizeBounds
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,9 +102,7 @@ class IWidgetResizeControllerImpl(
 
     /** Enters Resize for the place holding [widgetId]. */
     override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?): Boolean {
-        val place: WidgetPlace = repository.places.first().firstOrNull { place ->
-            place.widgets.any { widget -> widget.id == widgetId }
-        } ?: return false
+        val place: WidgetPlace = repository.places.first().placeOf(widgetId = widgetId) ?: return false
         return startResize(placeId = place.id, headerHeightDp = headerHeightDp)
     }
 

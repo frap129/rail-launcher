@@ -13,6 +13,11 @@ data class WidgetPlace(val id: Long, val heightDp: Int?, val currentPage: Int, v
         }
 }
 
+/** The place holding the Widget with [widgetId], if any. */
+fun List<WidgetPlace>.placeOf(widgetId: Long): WidgetPlace? = firstOrNull { place ->
+    place.widgets.any { widget -> widget.id == widgetId }
+}
+
 /** How wide a Widget is laid out relative to the Rail's touch column. */
 enum class WidgetWidth {
     Inset,

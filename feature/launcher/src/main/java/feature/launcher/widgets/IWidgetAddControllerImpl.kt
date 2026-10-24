@@ -2,6 +2,7 @@ package feature.launcher.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import core.data.widgets.AddAppWidget
+import core.data.widgets.AddedAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.IAddFlowPendingIds
@@ -12,6 +13,7 @@ import core.data.widgets.InsertPosition
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.placeOf
 import feature.launcher.R
 import java.text.Collator
 import kotlinx.coroutines.channels.Channel
@@ -60,11 +62,13 @@ class IWidgetAddControllerImpl(
         }
         val places: List<WidgetPlace> = repository.places.first()
         val place: WidgetPlace? = when (target) {
-            is AddWidgetTarget.Header -> places.headerPlace(widgetId = target.widgetId)
-
-            is AddWidgetTarget.Widget -> places.firstOrNull { candidate ->
-                candidate.widgets.any { widget -> widget.id == target.widgetId }
+            is AddWidgetTarget.Header -> if (target.widgetId == null) {
+                places.headerPlace()
+            } else {
+                places.placeOf(widgetId = target.widgetId)
             }
+
+            is AddWidgetTarget.Widget -> places.placeOf(widgetId = target.widgetId)
 
             AddWidgetTarget.Empty -> null
         }
@@ -238,7 +242,7 @@ class IWidgetAddControllerImpl(
 
     /** Places the Widget and returns the stack that grew, when it joined one. */
     private suspend fun placeWidget(pending: PendingWidget): Long? {
-        val placed: Result<Long> = runCatching {
+        val placed: Result<AddedAppWidget> = runCatching {
             repository.addAppWidget(
                 request = AddAppWidget(
                     appWidgetId = pending.id,
@@ -253,8 +257,12 @@ class IWidgetAddControllerImpl(
             failAdd(id = pending.id, returnToSettings = pending.origin.returnToSettings)
             return null
         }
+        val added: AddedAppWidget = placed.getOrThrow()
         addFlow.value = AddWidgetFlowState.Idle
         clearPending()
+        if (!pending.origin.returnToSettings) {
+            eventChannel.send(WidgetAreaEvent.ScrollToPlace(placeId = added.placeId))
+        }
         returnToSettingsIfRequested(origin = pending.origin)
         return (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
     }

@@ -351,7 +351,7 @@ class IWidgetAddControllerImplTest {
 
             actualController.pick(provider = inputProvider)
 
-            expectNoEvents()
+            assertEquals(WidgetAreaEvent.ScrollToPlace(placeId = 2L), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(2, mockRepository.places.first().size)
