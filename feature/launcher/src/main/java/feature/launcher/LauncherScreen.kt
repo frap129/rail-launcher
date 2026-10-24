@@ -44,8 +44,11 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import core.data.launchables.model.Launchable
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
+import core.popups.PopupHost
+import core.popups.PopupViewModel
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -56,6 +59,8 @@ import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.util.consumeTouches
 import core.util.openApplicationDetailsSettings
+import core.util.requestQuietModeOff
+import core.util.userForSerial
 import core.widgets.IAppWidgetViewCache
 import core.widgets.NotificationAccessDialog
 import feature.launcher.widgets.AddWidgetFlowState
@@ -91,7 +96,8 @@ fun LauncherScreen(
     navController: NavController,
     backStackEntry: NavBackStackEntry,
     viewModel: LauncherViewModel = koinViewModel(),
-    widgetViewModel: WidgetAreaViewModel = koinViewModel()
+    widgetViewModel: WidgetAreaViewModel = koinViewModel(),
+    popupViewModel: PopupViewModel = koinViewModel()
 ) {
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
@@ -124,10 +130,21 @@ fun LauncherScreen(
             val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
+    val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val launchItem: (Launchable) -> Unit = { launchable ->
-        launchable.launch(context)
-        widgetViewModel.onHomeIntent()
-        viewModel.onLaunchableLaunched()
+        popupViewModel.onLaunched()
+        val didLaunch: Boolean = if (launchable is ShortcutLaunchable) {
+            launchShortcut(shortcut = launchable, context = context) {
+                coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
+            }
+        } else {
+            launchable.launch(context)
+            true
+        }
+        if (didLaunch) {
+            widgetViewModel.onHomeIntent()
+            viewModel.onLaunchableLaunched()
+        }
     }
     DisposableEffect(lifecycleOwner, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
@@ -140,6 +157,7 @@ fun LauncherScreen(
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
 
                 Lifecycle.Event.ON_STOP -> {
+                    popupViewModel.close()
                     widgetViewModel.finishResize()
                     widgetViewModel.finishEditingWidgets()
                     widgetViewModel.finishMoveWidgetArea()
@@ -272,10 +290,9 @@ fun LauncherScreen(
                     heightDp = event.heightDp
                 )
 
-                is WidgetAreaEvent.RequestQuietModeOff -> AppWidgetViews.requestQuietModeOff(
-                    context = context,
-                    profileSerial = event.profileSerial
-                )
+                is WidgetAreaEvent.RequestQuietModeOff -> context.userForSerial(event.profileSerial)?.let { profile ->
+                    context.requestQuietModeOff(profile)
+                }
 
                 is WidgetAreaEvent.ScrollToPlace -> widgetViewModel.requestScrollToPlace(placeId = event.placeId)
 
@@ -285,6 +302,7 @@ fun LauncherScreen(
     }
     LaunchedEffect(homeIntentRequest) {
         homeIntentRequest.collectRequests {
+            popupViewModel.onHomeIntent()
             val wasEditingHome: Boolean =
                 widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
             if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
@@ -321,7 +339,7 @@ fun LauncherScreen(
     val isMovingWidgetArea: Boolean = moveState != null
     val isEditingHome: Boolean = isResizing || isEditingWidgets || isMovingWidgetArea
     BackHandler {
-        if (!widgetViewModel.onBack()) {
+        if (!popupViewModel.onBack() && !widgetViewModel.onBack()) {
             viewModel.onBack()
         }
     }
@@ -331,11 +349,18 @@ fun LauncherScreen(
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem,
+            onItemSwipeOpen = popupViewModel::open,
+            onItemAnchorChanged = { owner, anchor -> popupViewModel.onAnchorChanged(owner.key, anchor) },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             isMovingWidgetArea = isMovingWidgetArea
         )
-        LauncherRail(viewModel, enabled = !isEditingHome)
+        PopupHost(
+            viewModel = popupViewModel,
+            onLaunch = launchItem,
+            modifier = Modifier.fillMaxSize()
+        )
+        LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupViewModel::close)
         LauncherDoneButton(viewModel, widgetViewModel)
         LauncherMenu(viewModel)
         LauncherWidgetMenu(widgetViewModel)
@@ -408,3 +433,16 @@ fun LauncherScreen(
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
 }
+
+private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFailure: () -> Unit): Boolean =
+    runCatching { shortcut.launch(context) }.fold(
+        onSuccess = { true },
+        onFailure = { exception ->
+            if (exception is ActivityNotFoundException || exception is SecurityException || exception is IllegalStateException) {
+                onFailure()
+                false
+            } else {
+                throw exception
+            }
+        }
+    )

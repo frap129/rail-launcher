@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.layout
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

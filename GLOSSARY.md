@@ -5,8 +5,20 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 ## Language
 
 **Launchable**:
-Anything the user can open from the launcher (an installed app, a Rail deeplink; later shortcuts and folders).
+Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink; later folders).
 _Avoid_: App (when meaning any launchable), item, entry
+
+**Pop-up**:
+The floating card attached to a row, opened by swiping the row toward the Rail, holding that App's shortcuts and, later, widgets, notifications and added items.
+_Avoid_: Popup, card menu, long-press menu
+
+**Shortcut**:
+A quick action published by an app, shown in a Pop-up and run without opening the app's main screen.
+_Avoid_: Deep link, quick action
+
+**Owner**:
+The App whose row a Pop-up is attached to; the Pop-up shows that App's header and shortcuts.
+_Avoid_: Parent, source app, host
 
 **Favorite**:
 A Launchable the user has pinned to Home, held in a user-defined order.

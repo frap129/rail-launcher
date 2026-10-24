@@ -35,17 +35,22 @@ import core.ui.composables.OutlinedText
 import kotlinx.coroutines.flow.StateFlow
 
 @Immutable
-data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>)
+data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
 
 // App List rows only read Favorites while Edit Favorites shows stars.
 @Composable
-internal fun rememberAppListRowState(isEditingFavorites: Boolean, favorites: StateFlow<List<Launchable>>): AppListRowState {
-    if (!isEditingFavorites) {
-        return AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet())
-    }
+internal fun rememberAppListRowState(
+    isEditingFavorites: Boolean,
+    favorites: StateFlow<List<Launchable>>,
+    isPopupSwipeEnabled: Boolean
+): AppListRowState {
     val favoriteList: List<Launchable> by favorites.collectAsState()
-    val favoriteKeys: Set<String> = rememberFavoriteKeySet(favoriteList)
-    return AppListRowState(isEditingFavorites = true, favoriteKeys = favoriteKeys)
+    val favoriteKeys: Set<String> = if (isEditingFavorites) rememberFavoriteKeySet(favoriteList) else emptySet()
+    return AppListRowState(
+        isEditingFavorites = isEditingFavorites,
+        favoriteKeys = favoriteKeys,
+        isPopupSwipeEnabled = isPopupSwipeEnabled
+    )
 }
 
 // A name starting with a Rail label (e.g. "⌂") forms an Initial group that
@@ -123,6 +128,7 @@ fun LauncherItemGroup(
                 item = item,
                 isEditingFavorites = rowState.isEditingFavorites,
                 isFavorite = item.key in rowState.favoriteKeys,
+                isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
                 itemActions = itemActions
             )
         }

@@ -1,0 +1,146 @@
+package core.popups
+
+import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import core.data.apps.model.App
+import core.data.launchables.model.Launchable
+import core.ui.util.consumeTouches
+import core.util.requestQuietModeOff
+
+private const val ENTER_DURATION_MILLIS: Int = 200
+private const val EXIT_DURATION_MILLIS: Int = 150
+private const val ENTER_START_SCALE: Float = 0.92f
+private const val EXIT_END_SCALE: Float = 0.96f
+private val emphasizedDecelerate: CubicBezierEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+
+/** Draws the outside-tap layer and the one open Pop-up above the launcher. */
+@Composable
+fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifier: Modifier = Modifier) {
+    val context: Context = LocalContext.current
+    val density: Density = LocalDensity.current
+    val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val popupState: PopupUiState by viewModel.popupState.collectAsState()
+    val openState: PopupUiState.Open? = popupState as? PopupUiState.Open
+    var shownState: PopupUiState.Open? by remember { mutableStateOf(null) }
+    var isExiting: Boolean by remember { mutableStateOf(false) }
+    var cardSize: IntSize by remember { mutableStateOf(IntSize.Zero) }
+    val progress: Animatable<Float, AnimationVector1D> = remember { Animatable(0f) }
+    val isOpen: Boolean = openState != null
+    SideEffect {
+        if (openState != null) {
+            shownState = openState
+        }
+    }
+    LaunchedEffect(isOpen, openState?.owner?.key) {
+        if (isOpen) {
+            isExiting = false
+            progress.snapTo(0f)
+            progress.animateTo(1f, tween(ENTER_DURATION_MILLIS, easing = emphasizedDecelerate))
+        } else if (shownState != null) {
+            isExiting = true
+            progress.animateTo(0f, tween(EXIT_DURATION_MILLIS))
+            shownState = null
+            isExiting = false
+        }
+    }
+    val displayState: PopupUiState.Open? = openState ?: shownState
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val window: IntRect = IntRect(left = 0, top = 0, right = constraints.maxWidth, bottom = constraints.maxHeight)
+        val safePadding: PaddingValues = WindowInsets.safeDrawing.asPaddingValues()
+        val safeInsets: PopupInsets = PopupInsets(
+            top = with(density) { safePadding.calculateTopPadding().roundToPx() },
+            bottom = with(density) { safePadding.calculateBottomPadding().roundToPx() }
+        )
+        val frame: PopupFrame? = displayState?.let { state ->
+            PopupPlacement.place(
+                anchor = state.anchor,
+                window = window,
+                safeInsets = safeInsets,
+                contentHeightPx = cardSize.height,
+                density = density.density,
+                isRtl = isRtl
+            )
+        }
+        if (isOpen || shownState != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .consumeTouches(onGestureEnd = viewModel::close)
+            )
+        }
+        if (displayState != null && frame != null) {
+            val pivotX: Float = if (cardSize.width == 0) {
+                0.5f
+            } else {
+                ((displayState.anchor.iconCenter.x - frame.offsetX) / cardSize.width).coerceIn(0f, 1f)
+            }
+            val pivotY: Float = if (cardSize.height == 0) {
+                0.5f
+            } else {
+                ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
+            }
+            PopupCard(
+                content = displayState.content,
+                onHeaderClick = { onLaunch(displayState.owner) },
+                onShortcutClick = { shortcut -> onLaunch(shortcut) },
+                onRequestQuietModeOff = {
+                    val owner: App? = displayState.owner as? App
+                    owner?.let { app ->
+                        context.requestQuietModeOff(app.profile)
+                        viewModel.reloadShortcuts()
+                    }
+                },
+                onClose = viewModel::close,
+                modifier = Modifier
+                    .offset { IntOffset(x = frame.offsetX, y = frame.offsetY) }
+                    .width(with(density) { frame.width.toDp() })
+                    .heightIn(max = with(density) { frame.maxHeight.toDp() })
+                    .onSizeChanged { size -> cardSize = size }
+                    .graphicsLayer {
+                        alpha = progress.value
+                        val scale: Float = if (isExiting) {
+                            1f - (1f - progress.value) * (1f - EXIT_END_SCALE)
+                        } else {
+                            ENTER_START_SCALE + progress.value * (1f - ENTER_START_SCALE)
+                        }
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(pivotFractionX = pivotX, pivotFractionY = pivotY)
+                    }
+            )
+        }
+    }
+}

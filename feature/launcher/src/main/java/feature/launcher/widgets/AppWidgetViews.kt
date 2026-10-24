@@ -12,14 +12,13 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Process
 import android.os.UserHandle
-import android.os.UserManager
 import android.util.SparseIntArray
 import androidx.annotation.RequiresApi
 import core.data.widgets.BindRequest
 import core.data.widgets.WidgetProviderInfo
+import core.util.userForSerial
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 
 /** Android-only rendering helpers for App Widgets. */
 object AppWidgetViews {
@@ -29,13 +28,13 @@ object AppWidgetViews {
             AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
             ComponentName(request.provider.packageName, request.provider.className)
         )
-        userForSerial(context, request.profileSerial)?.let { user ->
+        context.userForSerial(request.profileSerial)?.let { user ->
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, user)
         }
     }
 
     suspend fun loadPreview(context: Context, info: WidgetProviderInfo): Drawable? = withContext(Dispatchers.IO) {
-        val user: UserHandle = userForSerial(context, info.profileSerial) ?: Process.myUserHandle()
+        val user: UserHandle = context.userForSerial(info.profileSerial) ?: Process.myUserHandle()
         val manager: AppWidgetManager = AppWidgetManager.getInstance(context)
         val platformInfo: AppWidgetProviderInfo? = runCatching {
             manager.getInstalledProvidersForProfile(user)
@@ -61,7 +60,7 @@ object AppWidgetViews {
     }
 
     fun loadWorkBadge(context: Context, profileSerial: Long): Drawable? {
-        val user: UserHandle = userForSerial(context, profileSerial) ?: return null
+        val user: UserHandle = context.userForSerial(profileSerial) ?: return null
         return runCatching {
             context.packageManager.getUserBadgedIcon(ColorDrawable(Color.TRANSPARENT), user)
         }.getOrNull()
@@ -72,19 +71,6 @@ object AppWidgetViews {
         systemPaletteIds.forEach { resourceId ->
             append(resourceId, context.getColor(resourceId))
         }
-    }
-
-    /** Asks the system to leave quiet mode for the profile that owns [profileSerial]. */
-    fun requestQuietModeOff(context: Context, profileSerial: Long) {
-        val user: UserHandle = userForSerial(context, profileSerial) ?: return
-        val userManager: UserManager = context.getSystemService(UserManager::class.java)
-        runCatching { userManager.requestQuietModeEnabled(false, user) }
-            .onFailure { exception -> Timber.w(exception, "Could not leave quiet mode for profile %s", profileSerial) }
-    }
-
-    private fun userForSerial(context: Context, serial: Long): UserHandle? {
-        val userManager: UserManager = context.getSystemService(UserManager::class.java)
-        return userManager.userProfiles.firstOrNull { user -> userManager.getSerialNumberForUser(user) == serial }
     }
 
     private val systemPaletteIds: IntArray = intArrayOf(

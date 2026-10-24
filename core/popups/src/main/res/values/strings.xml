@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="no_shortcuts">No shortcuts</string>
+    <string name="set_rail_as_home_for_shortcuts">Set Rail as your home app to see shortcuts</string>
+    <string name="work_apps_paused">Work apps are paused</string>
+    <string name="turn_on">Turn on</string>
+    <string name="close_popup">Close Pop-up</string>
+    <string name="popup_announcement">%1$s Pop-up</string>
+</resources>

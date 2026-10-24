@@ -12,8 +12,8 @@ import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.MainDispatcherRule
-import feature.launcher.widgets.HomeEditMode
-import feature.launcher.widgets.HomeEditState
+import core.ui.layout.HomeEditMode
+import core.ui.layout.HomeEditState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job

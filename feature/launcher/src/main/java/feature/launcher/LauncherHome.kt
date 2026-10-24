@@ -73,6 +73,7 @@ fun LauncherHome(
     onEmptyAreaLongPress: () -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
+    isPopupSwipeEnabled: Boolean,
     onResizeOutsideTap: () -> Unit
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -110,6 +111,7 @@ fun LauncherHome(
                         itemActions = itemActions,
                         onFavoriteMoved = onFavoriteMoved,
                         onEmptyAreaLongPress = onEmptyAreaLongPress,
+                        isPopupSwipeEnabled = isPopupSwipeEnabled,
                         interaction = interaction
                     )
                 }
@@ -167,7 +169,8 @@ fun LauncherHome(
                         itemActions = itemActions,
                         reorderableState = reorderState,
                         blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
-                        onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null
+                        onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null,
+                        isPopupSwipeEnabled = isPopupSwipeEnabled
                     )
                 }
                 WidgetAreaResizeAutoScroll(
@@ -199,6 +202,7 @@ private fun FavoritesBottomArea(
     itemActions: LauncherItemActions,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
+    isPopupSwipeEnabled: Boolean,
     interaction: HomeInteraction
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -236,7 +240,12 @@ private fun FavoritesBottomArea(
             verticalArrangement = Arrangement.Top,
             contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
-            favoriteItems(home = home, itemActions = itemActions, reorderableState = reorderState)
+            favoriteItems(
+                home = home,
+                itemActions = itemActions,
+                reorderableState = reorderState,
+                isPopupSwipeEnabled = isPopupSwipeEnabled
+            )
         }
     }
 }
@@ -260,6 +269,7 @@ private fun LazyListScope.favoriteItems(
     home: LauncherUiState.Home,
     itemActions: LauncherItemActions,
     reorderableState: ReorderableLazyListState,
+    isPopupSwipeEnabled: Boolean,
     blockInteraction: Boolean = false,
     onBlockedGestureEnd: (() -> Unit)? = null
 ) {
@@ -290,6 +300,7 @@ private fun LazyListScope.favoriteItems(
                         item = favorite,
                         isEditingFavorites = home.isEditingFavorites,
                         isFavorite = true,
+                        isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
                         modifier = Modifier.weight(1f)
                     )

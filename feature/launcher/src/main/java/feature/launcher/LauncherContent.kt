@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.popups.PopupAnchor
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
@@ -68,21 +69,26 @@ internal fun LauncherContent(
     viewModel: LauncherViewModel,
     widgetViewModel: WidgetAreaViewModel,
     onItemLaunch: (Launchable) -> Unit,
+    onItemSwipeOpen: (Launchable, PopupAnchor) -> Unit,
+    onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     isMovingWidgetArea: Boolean
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
-    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch) {
+    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch, onItemSwipeOpen, onItemAnchorChanged) {
         LauncherItemActions(
             onItemLaunch = onItemLaunch,
             onItemLongPress = viewModel::openItemMenu,
-            onToggleFavorite = viewModel::toggleFavorite
+            onToggleFavorite = viewModel::toggleFavorite,
+            onItemSwipeOpen = onItemSwipeOpen,
+            onItemAnchorChanged = onItemAnchorChanged
         )
     }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
+    val isEditingHome: Boolean = home?.isEditingFavorites == true || isResizing || isEditingWidgets || isMovingWidgetArea
     val homeAlpha: State<Float> = animateFloatAsState(
         targetValue = if (isHomeVisible) 1f else 0f,
         animationSpec = if (isHomeVisible) {
@@ -102,7 +108,6 @@ internal fun LauncherContent(
     Box(modifier) {
         // Kept composed under the App List so returning to Home never rebuilds it.
         if (home != null) {
-            val isEditingHome: Boolean = home.isEditingFavorites || isResizing || isEditingWidgets || isMovingWidgetArea
             val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
                 viewModel = widgetViewModel,
                 menuEnabled = !isEditingHome
@@ -133,6 +138,7 @@ internal fun LauncherContent(
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
+                isPopupSwipeEnabled = !isEditingHome,
                 onResizeOutsideTap = widgetViewModel::finishResize
             )
         }
@@ -162,7 +168,11 @@ internal fun LauncherContent(
                 is LauncherUiState.Home, LauncherUiState.Loading -> {}
 
                 is LauncherUiState.AppList.Browsing -> {
-                    val rowState: AppListRowState = rememberAppListRowState(state.isEditingFavorites, viewModel.favorites)
+                    val rowState: AppListRowState = rememberAppListRowState(
+                        isEditingFavorites = state.isEditingFavorites,
+                        favorites = viewModel.favorites,
+                        isPopupSwipeEnabled = !isEditingHome
+                    )
                     LauncherAppList(
                         modifier = Modifier
                             .fillMaxSize()
@@ -177,7 +187,11 @@ internal fun LauncherContent(
                 }
 
                 is LauncherUiState.AppList.Scrolling -> {
-                    val rowState: AppListRowState = rememberAppListRowState(state.isEditingFavorites, viewModel.favorites)
+                    val rowState: AppListRowState = rememberAppListRowState(
+                        isEditingFavorites = state.isEditingFavorites,
+                        favorites = viewModel.favorites,
+                        isPopupSwipeEnabled = false
+                    )
                     LauncherItemGroup(
                         modifier = Modifier
                             .fillMaxSize()
@@ -209,7 +223,7 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
 }
 
 @Composable
-internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolean = true) {
+internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolean = true, onRailTouched: () -> Unit = {}) {
     val railLabels: List<String> by viewModel.railLabels.collectAsState()
     ScrollRail(
         modifier = Modifier
@@ -218,8 +232,14 @@ internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolea
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) },
         items = railLabels,
-        onScroll = viewModel::onRailPreview,
-        onScrollEnded = viewModel::onRailReleased,
+        onScroll = { index ->
+            onRailTouched()
+            viewModel.onRailPreview(index)
+        },
+        onScrollEnded = { index ->
+            onRailTouched()
+            viewModel.onRailReleased(index)
+        },
         enabled = enabled
     )
 }
