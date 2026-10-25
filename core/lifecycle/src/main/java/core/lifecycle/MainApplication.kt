@@ -259,7 +259,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel {
             val savedStateHandle: SavedStateHandle = get()
             PopupViewModel(

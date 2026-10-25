@@ -1,7 +1,11 @@
 package core.data.notifications
 
+import android.app.Notification
 import android.app.PendingIntent
+import android.app.RemoteInput
 import android.content.Context
+import android.content.Intent
+import android.os.Bundle
 import core.data.media.RailNotificationListener
 import core.data.popups.IPopupRepository
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -119,5 +123,29 @@ class INotificationSourceImpl(
         }
         relay.remove(key)
         relay.cancel(key)
+    }
+
+    override suspend fun runAction(key: String, index: Int, replyText: String?): Boolean {
+        val handle: NotificationHandle = relay.handle(key) ?: run {
+            Timber.w("Ignoring action %d on a notification without a handle", index)
+            return false
+        }
+        val action: Notification.Action = handle.actions.getOrNull(index) ?: run {
+            Timber.w("Ignoring action %d on a notification without that many actions", index)
+            return false
+        }
+        val intent: Intent = Intent()
+        val remoteInputs: List<RemoteInput> = action.remoteInputs?.toList().orEmpty()
+        if (replyText != null && remoteInputs.isNotEmpty()) {
+            val results: Bundle = Bundle().apply { putCharSequence(remoteInputs.first().resultKey, replyText) }
+            RemoteInput.addResultsToIntent(remoteInputs.toTypedArray(), intent, results)
+        }
+        return try {
+            action.actionIntent.send(appContext, 0, intent)
+            true
+        } catch (exception: PendingIntent.CanceledException) {
+            Timber.w(exception, "A notification action's intent was cancelled")
+            false
+        }
     }
 }

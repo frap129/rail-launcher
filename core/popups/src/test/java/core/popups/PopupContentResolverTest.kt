@@ -12,6 +12,8 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.TEST_SDK
+import core.data.testing.createApp
+import core.data.testing.createNotificationAction
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationSnapshot
 import org.junit.Assert.assertEquals
@@ -23,6 +25,7 @@ import org.robolectric.annotation.Config
 private const val OWNER_NAME: String = "Example"
 private const val FIRST_SHORTCUT_ID: String = "first"
 private const val SECOND_SHORTCUT_ID: String = "second"
+private const val SECOND_PACKAGE_NAME: String = "com.example.second"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -238,7 +241,7 @@ class PopupContentResolverTest {
             items = emptyList(),
             notifications = listOf(inputOwnNotification, inputOtherPackage, inputOtherProfile)
         )
-        assertEquals(listOf(inputOwnNotification), actualContent.ownerNotifications.map { row -> row.snapshot })
+        assertEquals(listOf(inputOwnNotification), actualContent.ownerNotifications)
         assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
     }
@@ -258,10 +261,13 @@ class PopupContentResolverTest {
 
     @Test
     fun `a notification with big text or actions is expandable`() {
-        val inputBigText: NotificationSnapshot = createNotificationSnapshot(key = "big-text", hasBigText = true)
-        val inputAction: NotificationSnapshot = createNotificationSnapshot(key = "action", hasActions = true)
-        val inputPlain: NotificationSnapshot = createNotificationSnapshot(key = "plain")
-        val actualRows: List<NotificationRow> = PopupContentResolver.notificationsFor(
+        val inputBigText: NotificationSnapshot = createNotificationSnapshot(key = "big-text", expandedBody = "Longer body")
+        val inputAction: NotificationSnapshot = createNotificationSnapshot(
+            key = "action",
+            actions = listOf(createNotificationAction())
+        )
+        val inputPlain: NotificationSnapshot = createNotificationSnapshot(key = "plain", body = "")
+        val actualRows: List<NotificationSnapshot> = PopupContentResolver.notificationsFor(
             owner = inputApp,
             notifications = listOf(inputBigText, inputAction, inputPlain)
         )
@@ -278,8 +284,119 @@ class PopupContentResolverTest {
             items = emptyList(),
             notifications = listOf(createNotificationSnapshot())
         )
-        assertEquals(emptyList<NotificationRow>(), actualContent.ownerNotifications)
+        assertEquals(emptyList<NotificationSnapshot>(), actualContent.ownerNotifications)
         assertEquals(PopupEmptyReason.FolderEmpty, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `groups each Folder member's notifications under its row`() {
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputSecondApp: App = createApp(name = "Second", packageName = SECOND_PACKAGE_NAME)
+        val inputFirstNotification: NotificationSnapshot = createNotificationSnapshot(key = "first", postTime = 2_000L)
+        val inputSecondNotification: NotificationSnapshot = createNotificationSnapshot(
+            key = "second",
+            packageName = SECOND_PACKAGE_NAME,
+            postTime = 1_000L
+        )
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputFolder,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputApp), PopupItem.Launchable(inputSecondApp)),
+            notifications = listOf(inputFirstNotification, inputSecondNotification)
+        )
+        assertEquals(
+            mapOf(
+                inputApp.key to listOf(inputFirstNotification),
+                inputSecondApp.key to listOf(inputSecondNotification)
+            ),
+            actualContent.itemNotifications
+        )
+        assertEquals(
+            listOf(PopupItem.Launchable(inputApp), PopupItem.Launchable(inputSecondApp)),
+            actualContent.items
+        )
+    }
+
+    @Test
+    fun `groups an added item's notifications under its row`() {
+        val inputNotification: NotificationSnapshot = createNotificationSnapshot()
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputApp)),
+            notifications = listOf(inputNotification)
+        )
+        assertEquals(mapOf(inputApp.key to listOf(inputNotification)), actualContent.itemNotifications)
+    }
+
+    @Test
+    fun `a member without notifications has no entry beneath it`() {
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputApp)),
+            notifications = listOf(createNotificationSnapshot(packageName = SECOND_PACKAGE_NAME))
+        )
+        assertEquals(emptyMap<String, List<NotificationSnapshot>>(), actualContent.itemNotifications)
+    }
+
+    @Test
+    fun `a member's notifications keep their newest-first order`() {
+        val inputNewer: NotificationSnapshot = createNotificationSnapshot(key = "newer", postTime = 2_000L)
+        val inputOlder: NotificationSnapshot = createNotificationSnapshot(key = "older", postTime = 1_000L)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputApp)),
+            notifications = listOf(inputNewer, inputOlder)
+        )
+        assertEquals(
+            listOf(inputNewer, inputOlder),
+            actualContent.itemNotifications.getValue(inputApp.key)
+        )
+    }
+
+    @Test
+    fun `a Rail item never has notifications beneath it`() {
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputOwner)),
+            notifications = listOf(createNotificationSnapshot())
+        )
+        assertEquals(emptyMap<String, List<NotificationSnapshot>>(), actualContent.itemNotifications)
+    }
+
+    @Test
+    fun `a Shortcut item never has notifications beneath it`() {
+        val inputShortcutItem: PopupItem.Shortcut = PopupItem.Shortcut(launchable = inputFirstShortcut, isEnabled = true)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(inputShortcutItem),
+            notifications = listOf(createNotificationSnapshot())
+        )
+        assertEquals(emptyMap<String, List<NotificationSnapshot>>(), actualContent.itemNotifications)
+    }
+
+    @Test
+    fun `a Folder with a member that has notifications is not empty`() {
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputFolder,
+            shortcuts = ShortcutsResult.Unavailable,
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(inputApp)),
+            notifications = listOf(createNotificationSnapshot())
+        )
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+        assertEquals(1, actualContent.itemNotifications.getValue(inputApp.key).size)
     }
 
     private fun createShortcut(id: String): ShortcutLaunchable = ShortcutLaunchable(

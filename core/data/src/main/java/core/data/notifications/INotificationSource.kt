@@ -21,4 +21,10 @@ interface INotificationSource {
 
     /** Cancels the clearable notification [key]. */
     suspend fun dismiss(key: String)
+
+    /**
+     * Runs the action at [index] on [key], filling [replyText] into its RemoteInput
+     * when the action accepts one. Returns false when the action is missing or failed.
+     */
+    suspend fun runAction(key: String, index: Int, replyText: String? = null): Boolean
 }

@@ -26,6 +26,15 @@
     <string name="notification_age_hours">%1$dh</string>
     <string name="notification_age_days">%1$dd</string>
     <string name="notification_age_weeks">%1$dw</string>
+    <string name="notification_expand">Expand</string>
+    <string name="notification_collapse">Collapse</string>
+    <string name="notification_dismiss">Dismiss</string>
+    <string name="notification_open">Open notification</string>
+    <string name="notification_announcement">Notification from %1$s, %2$s</string>
+    <string name="notification_more_actions">…</string>
+    <string name="notification_reply_hint">Reply</string>
+    <string name="notification_send">Send</string>
+    <string name="notification_sent">Sent</string>
     <string name="edit_folder">Edit Folder</string>
     <string name="delete_folder">Delete Folder</string>
     <string name="edit_folder_title">Edit %1$s</string>

@@ -10,7 +10,12 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.notifications.INotificationSource
+import core.data.notifications.NotificationSnapshot
+import core.data.popups.IPopupRepository
+import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.popups.PopupContentResolver
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.EventChannel
@@ -23,6 +28,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -65,6 +72,15 @@ sealed class LauncherMenuState {
 private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchable> {
     val indexByKey: Map<String, Int> = keys.withIndex().associate { (index, key) -> key to index }
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
+}
+
+/** The names of the Folder members whose App has at least one visible notification. */
+private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: List<NotificationSnapshot>): List<String> {
+    val notificationsByItem: Map<String, List<NotificationSnapshot>> =
+        PopupContentResolver.itemNotifications(items = items, notifications = notifications)
+    return items
+        .filter { item -> item.launchable.key in notificationsByItem }
+        .map { item -> item.launchable.name }
 }
 
 private data class RailNavigation(
@@ -120,6 +136,8 @@ class LauncherViewModel(
     private val prefsRepo: IPreferencesRepository,
     private val favoritesRepo: IFavoritesRepository,
     private val folderRepo: IFolderRepository,
+    private val popupRepo: IPopupRepository,
+    private val notificationSource: INotificationSource,
     private val homeEditState: HomeEditState
 ) : ViewModel() {
 
@@ -202,6 +220,50 @@ class LauncherViewModel(
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherUiState.Loading
     )
+
+    /** The items of every Folder, keyed by the Folder key. */
+    private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
+        .flatMapLatest { folders ->
+            if (folders.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(folders.map { folder -> popupRepo.items(ownerKey = folder.key) }) { folderItems ->
+                    folders.zip(folderItems).associate { (folder, items) -> folder.key to items }
+                }
+            }
+        }
+
+    /** The names of each Folder's members with notifications, in item order, keyed by the Folder key. */
+    val folderSummaries: StateFlow<Map<String, List<String>>> = combine(
+        folderMembers,
+        notificationSource.notifications
+    ) { members, notifications ->
+        if (notifications.isEmpty()) {
+            emptyMap()
+        } else {
+            members.mapValues { (_, items) ->
+                memberNamesWithNotifications(items = items, notifications = notifications)
+            }
+                .filterValues { names -> names.isNotEmpty() }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = emptyMap()
+    )
+
+    /** The Folder rows' summary lines, keyed by the Folder key. */
+    val folderSummaryLines: StateFlow<Map<String, String>> = folderSummaries
+        .map { summaries ->
+            summaries.mapNotNull { (folderKey, names) ->
+                folderSummaryLine(names = names)?.let { line -> folderKey to line }
+            }.toMap()
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = emptyMap()
+        )
 
     private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
     private val menuItem: MutableStateFlow<Launchable?> = MutableStateFlow(null)

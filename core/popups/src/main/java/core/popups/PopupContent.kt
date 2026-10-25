@@ -27,7 +27,9 @@ data class PopupContent(
     val header: PopupHeader,
     val shortcuts: List<ShortcutLaunchable>,
     val items: List<PopupItem>,
-    val ownerNotifications: List<NotificationRow>,
+    val ownerNotifications: List<NotificationSnapshot>,
+    /** The notifications shown under each added item's row, keyed by that item's Launchable key. */
+    val itemNotifications: Map<String, List<NotificationSnapshot>>,
     val emptyReason: PopupEmptyReason
 )
 
@@ -48,12 +50,13 @@ object PopupContentResolver {
             ShortcutsResult.Unavailable, ShortcutsResult.ProfilePaused -> emptyList()
         }
         val shownItems: List<PopupItem> = items.filterNot { item -> item is PopupItem.Shortcut && !item.isEnabled }
-        val shownNotifications: List<NotificationRow> = notificationsFor(owner = owner, notifications = notifications)
+        val shownNotifications: List<NotificationSnapshot> = notificationsFor(owner = owner, notifications = notifications)
         return PopupContent(
             header = PopupHeader(name = owner.name, icon = owner.icon),
             shortcuts = shownShortcuts,
             items = shownItems,
             ownerNotifications = shownNotifications,
+            itemNotifications = itemNotifications(items = shownItems, notifications = notifications),
             emptyReason = emptyReason(
                 owner = owner,
                 shortcuts = effectiveShortcuts,
@@ -64,14 +67,19 @@ object PopupContentResolver {
         )
     }
 
-    /** The App's notifications, collapsed, in the source's newest-first order. */
-    fun notificationsFor(owner: Launchable, notifications: List<NotificationSnapshot>): List<NotificationRow> {
+    /** The App's notifications, in the source's newest-first order. */
+    fun notificationsFor(owner: Launchable, notifications: List<NotificationSnapshot>): List<NotificationSnapshot> {
         val app: App = owner as? App ?: return emptyList()
         val appProfile: AppProfile = AppProfile(packageName = app.packageName, profile = app.profile)
-        return notifications
-            .filter { snapshot -> snapshot.owner == appProfile }
-            .map { snapshot -> NotificationRow(snapshot = snapshot, isExpandable = snapshot.hasBigText || snapshot.hasActions) }
+        return notifications.filter { snapshot -> snapshot.owner == appProfile }
     }
+
+    /** The notifications shown under each item's row, keyed by that item's Launchable key. */
+    fun itemNotifications(items: List<PopupItem>, notifications: List<NotificationSnapshot>): Map<String, List<NotificationSnapshot>> =
+        items.mapNotNull { item ->
+            val rows: List<NotificationSnapshot> = notificationsFor(owner = item.launchable, notifications = notifications)
+            if (rows.isEmpty()) null else item.launchable.key to rows
+        }.toMap()
 
     private fun emptyReason(
         owner: Launchable,

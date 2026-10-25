@@ -46,4 +46,5 @@
     <string name="widget_preview">Preview of %1$s</string>
     <string name="suggested">Suggested</string>
     <string name="couldnt_open_widget_settings">Couldn\'t open widget settings</string>
+    <string name="couldnt_send">Couldn\'t send</string>
 </resources>

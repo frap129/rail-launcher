@@ -20,7 +20,13 @@ object NotificationTextMapper {
             .sortedByDescending { snapshot -> snapshot.postTime }
     }
 
-    private fun NotificationRecord.body(): String = text.ifBlank { bigText }.ifBlank { lastMessage }
+    private fun NotificationRecord.body(): String = text.ifBlank { bigText }.ifBlank { messages.lastOrNull().orEmpty() }
+
+    private fun NotificationRecord.expandedBody(): String = when {
+        messages.isNotEmpty() -> messages.joinToString(separator = "\n")
+        bigText.isNotBlank() -> bigText
+        else -> body()
+    }
 
     private fun NotificationRecord.toSnapshot(): NotificationSnapshot = NotificationSnapshot(
         key = key,
@@ -29,8 +35,8 @@ object NotificationTextMapper {
         postTime = postTime,
         title = title,
         body = body(),
-        isClearable = isClearable,
-        hasBigText = bigText.isNotBlank(),
-        hasActions = hasActions
+        expandedBody = expandedBody(),
+        actions = actions,
+        isClearable = isClearable
     )
 }

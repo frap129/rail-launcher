@@ -56,6 +56,19 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val popupState: PopupUiState by viewModel.popupState.collectAsState()
     val resizeState: ResizeState? by viewModel.resizeState.collectAsState()
+    val expandedNotificationKeys: Set<String> by viewModel.expandedNotificationKeys.collectAsState()
+    val sentNotificationKeys: Set<String> by viewModel.sentNotificationKeys.collectAsState()
+    val notificationActions: PopupNotificationActions = remember(viewModel) {
+        PopupNotificationActions(
+            onOpen = { snapshot -> viewModel.onOpenNotification(key = snapshot.key) },
+            onDismiss = { snapshot -> viewModel.onDismissNotification(key = snapshot.key) },
+            onToggleExpanded = { snapshot -> viewModel.toggleNotificationExpanded(key = snapshot.key) },
+            onAction = { snapshot, index -> viewModel.runNotificationAction(key = snapshot.key, index = index) },
+            onReply = { snapshot, index, reply ->
+                viewModel.runNotificationAction(key = snapshot.key, index = index, replyText = reply)
+            }
+        )
+    }
     val openState: PopupUiState.Open? = popupState as? PopupUiState.Open
     var shownState: PopupUiState.Open? by remember { mutableStateOf(null) }
     var isExiting: Boolean by remember { mutableStateOf(false) }
@@ -131,12 +144,13 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                 widget = displayState.widget,
                 nowMillis = displayState.nowMillis,
                 resize = resizeState,
+                expandedNotificationKeys = expandedNotificationKeys,
+                sentNotificationKeys = sentNotificationKeys,
+                notificationActions = notificationActions,
                 onHeaderClick = headerClick,
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
-                onNotificationClick = { row -> viewModel.onOpenNotification(key = row.snapshot.key) },
-                onNotificationDismiss = { row -> viewModel.onDismissNotification(key = row.snapshot.key) },
                 onAddItems = viewModel::startFolderPicking,
                 onRequestQuietModeOff = {
                     val owner: App? = displayState.owner as? App

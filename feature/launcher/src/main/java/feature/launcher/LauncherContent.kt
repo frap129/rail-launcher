@@ -78,6 +78,7 @@ internal fun LauncherContent(
     isMovingWidgetArea: Boolean
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
+    val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged) {
         LauncherItemActions(
@@ -137,6 +138,7 @@ internal fun LauncherContent(
                 home = home,
                 widgetArea = widgetArea,
                 itemActions = itemActions,
+                folderSummaries = folderSummaries,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 isResizing = isResizing,
@@ -184,6 +186,7 @@ internal fun LauncherContent(
                         lazyListState = state.lazyListState,
                         rowState = rowState,
                         itemActions = itemActions,
+                        folderSummaries = folderSummaries,
                         topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
                         bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
                     )
@@ -201,7 +204,8 @@ internal fun LauncherContent(
                             .padding(start = contentHorizontalPadding, top = viewModel.listStartOffsetPx.toDp(context).dp),
                         group = state.group,
                         rowState = rowState,
-                        itemActions = itemActions
+                        itemActions = itemActions,
+                        folderSummaries = folderSummaries
                     )
                 }
             }
