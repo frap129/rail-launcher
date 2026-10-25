@@ -11,11 +11,15 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationSource
+import core.data.notifications.INotificationSourceImpl
 import core.data.popups.PopupItem
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.FakeAppWidgetHostSource
+import core.data.testing.FakeClockSource
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
@@ -26,9 +30,16 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
+import core.data.testing.TEST_NOTIFICATION_KEY
+import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.TEST_SDK
 import core.data.testing.appWidgetPlace
+import core.data.testing.createNotificationHandle
+import core.data.testing.createNotificationProfile
+import core.data.testing.createNotificationRecord
 import core.data.testing.popupStackPlace
+import core.data.time.ClockReading
+import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IRemoveAppWidgetImpl
@@ -48,9 +59,13 @@ import core.widgets.IWidgetResizeControllerImpl
 import core.widgets.WidgetEvent
 import core.widgets.testing.appWidgetProviderInfo
 import core.widgets.testing.createAddController
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -63,10 +78,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-private const val PACKAGE_NAME: String = "com.example.app"
 private const val ACTIVITY_NAME: String = "com.example.app.MainActivity"
+private val NOW: Instant = Instant.ofEpochMilli(10_000_000L)
 private val INPUT_ANCHOR: PopupAnchor = PopupAnchor(rowTop = 400, rowBottom = 464, iconCenter = Offset(32f, 432f))
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -76,11 +92,11 @@ class PopupViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
-    private val profile: UserHandle = UserHandle.getUserHandleForUid(0)
+    private val profile: UserHandle = createNotificationProfile()
     private val inputApp: App = App(
         defaultName = "Example",
         profile = profile,
-        componentName = ComponentName(PACKAGE_NAME, ACTIVITY_NAME)
+        componentName = ComponentName(TEST_NOTIFICATION_PACKAGE_NAME, ACTIVITY_NAME)
     )
     private val inputOtherApp: App = App(
         defaultName = "Other",
@@ -105,7 +121,7 @@ class PopupViewModelTest {
         LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
     )
     private val inputShortcut: ShortcutLaunchable = ShortcutLaunchable(
-        packageName = PACKAGE_NAME,
+        packageName = TEST_NOTIFICATION_PACKAGE_NAME,
         shortcutId = "shortcut-id",
         profile = profile,
         shortLabel = "Short label",
@@ -141,6 +157,7 @@ class PopupViewModelTest {
     private val fakeRemoveAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget()
     private val fakeWidgetSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
     private val fakeWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
+    private val mockNotificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
 
     @Test
     fun `starts closed`() = runTest {
@@ -148,6 +165,124 @@ class PopupViewModelTest {
         viewModel.popupState.test {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
         }
+    }
+
+    @Test
+    fun `shows the App's notifications in its Pop-up`() = runTest {
+        fakePopupRepository.setNotificationsEnabled(true)
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        mockNotificationRelay.post(record = createNotificationRecord(title = "Hello"), handle = createNotificationHandle())
+        runCurrent()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(listOf("Hello"), actualState.content.ownerNotifications.map { row -> row.snapshot.title })
+        assertEquals(NOW.toEpochMilli(), actualState.nowMillis)
+        assertEquals(PopupEmptyReason.None, actualState.content.emptyReason)
+    }
+
+    @Test
+    fun `advances notification ages with the clock`() = runTest {
+        fakePopupRepository.setNotificationsEnabled(true)
+        val mockClockSource: FakeClockSource = FakeClockSource(initialReading = clockReading(instant = NOW))
+        val viewModel: PopupViewModel = createViewModel(clockSource = mockClockSource)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        assertEquals(NOW.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
+
+        val inputLater: Instant = NOW.plusSeconds(360L)
+        mockClockSource.emit(reading = clockReading(instant = inputLater))
+        runCurrent()
+
+        assertEquals(inputLater.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
+    }
+
+    @Test
+    fun `tapping a notification opens it and closes the card`() = runTest {
+        fakePopupRepository.setNotificationsEnabled(true)
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        mockNotificationRelay.post(
+            record = createNotificationRecord(),
+            handle = createNotificationHandle(isAutoCancel = true)
+        )
+        runCurrent()
+
+        viewModel.onOpenNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+        assertNull(mockNotificationRelay.record(key = TEST_NOTIFICATION_KEY))
+    }
+
+    @Test
+    fun `dismissing the last notification closes a notifications-only card`() = runTest {
+        fakePopupRepository.setNotificationsEnabled(true)
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        runCurrent()
+        assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.ownerNotifications.size)
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+    }
+
+    @Test
+    fun `dismissing notifications keeps a card with shortcuts open`() = runTest {
+        fakePopupRepository.setNotificationsEnabled(true)
+        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        runCurrent()
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyList<NotificationRow>(), actualState.content.ownerNotifications)
+        assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
+    }
+
+    @Test
+    fun `revoking access clears the open card's notifications`() = runTest {
+        var inputAccess: Boolean = true
+        val notificationSource: INotificationSource = createNotificationSource(accessCheck = { inputAccess })
+        fakePopupRepository.setNotificationsEnabled(true)
+        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        val viewModel: PopupViewModel = createViewModel(notificationSource = notificationSource)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        runCurrent()
+        assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.ownerNotifications.size)
+
+        inputAccess = false
+        notificationSource.refreshAccess()
+        runCurrent()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyList<NotificationRow>(), actualState.content.ownerNotifications)
+        assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
     }
 
     @Test
@@ -275,10 +410,13 @@ class PopupViewModelTest {
             runCurrent()
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(inputApp, actualState.owner)
-            assertEquals(listOf(PACKAGE_NAME to profile), fakeShortcutSource.requests)
+            assertEquals(listOf(TEST_NOTIFICATION_PACKAGE_NAME to profile), fakeShortcutSource.requests)
             viewModel.reloadShortcuts()
             runCurrent()
-            assertEquals(listOf(PACKAGE_NAME to profile, PACKAGE_NAME to profile), fakeShortcutSource.requests)
+            assertEquals(
+                listOf(TEST_NOTIFICATION_PACKAGE_NAME to profile, TEST_NOTIFICATION_PACKAGE_NAME to profile),
+                fakeShortcutSource.requests
+            )
         }
     }
 
@@ -1633,7 +1771,7 @@ class PopupViewModelTest {
         assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
     }
 
-    private fun createWidgetViewModel(
+    private fun TestScope.createWidgetViewModel(
         widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
         providerInfo: WidgetProviderInfo? = appWidgetProviderInfo(isVerticallyResizable = true)
     ): PopupViewModel {
@@ -1660,7 +1798,7 @@ class PopupViewModelTest {
         providerInfos.forEach { (appWidgetId, info) -> providerInfoById[AppWidgetId(appWidgetId)] = info }
     }
 
-    private fun createStackViewModel(
+    private fun TestScope.createStackViewModel(
         mockRepository: FakeWidgetAreaRepository = stackRepository(),
         mockHost: FakeAppWidgetHostSource = stackHost(),
         mockSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository,
@@ -1672,18 +1810,22 @@ class PopupViewModelTest {
         removeAppWidget = removeAppWidget
     )
 
-    private fun createViewModel(
+    private fun TestScope.createViewModel(
         homeEditState: HomeEditState = inputHomeEditState,
         savedStateHandle: SavedStateHandle = inputSavedStateHandle,
         widgetRepository: FakeWidgetAreaRepository = fakeWidgetAreaRepository,
         appWidgetHost: FakeAppWidgetHostSource = fakeAppWidgetHost,
         removeAppWidget: IRemoveAppWidget = fakeRemoveAppWidget,
-        widgetSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository
+        widgetSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository,
+        notificationSource: INotificationSource = createNotificationSource(),
+        clockSource: IClockSource = FakeClockSource(initialReading = clockReading(instant = NOW))
     ): PopupViewModel = PopupViewModel(
         launchableRepository = fakeLaunchableRepository,
         shortcutSource = fakeShortcutSource,
         popupRepository = fakePopupRepository,
         folderRepository = fakeFolderRepository,
+        notificationSource = notificationSource,
+        clockSource = clockSource,
         homeEditState = homeEditState,
         widgetRepository = widgetRepository,
         addFlowController = createAddController(
@@ -1704,5 +1846,20 @@ class PopupViewModelTest {
         widgetLifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = FakeWidgetAreaDao(), host = appWidgetHost),
         widgetSettingsRepository = widgetSettingsRepository,
         savedStateHandle = savedStateHandle
+    )
+
+    private fun TestScope.createNotificationSource(accessCheck: () -> Boolean = { true }): INotificationSource = INotificationSourceImpl(
+        context = RuntimeEnvironment.getApplication(),
+        scope = backgroundScope,
+        popupRepository = fakePopupRepository,
+        relay = mockNotificationRelay,
+        isAccessGranted = { accessCheck() }
+    )
+
+    private fun clockReading(instant: Instant): ClockReading = ClockReading(
+        instant = instant,
+        zoneId = ZoneId.of("UTC"),
+        locale = Locale.US,
+        isSystem24Hour = true
     )
 }

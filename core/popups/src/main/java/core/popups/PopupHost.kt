@@ -129,11 +129,14 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
             PopupCard(
                 content = displayState.content,
                 widget = displayState.widget,
+                nowMillis = displayState.nowMillis,
                 resize = resizeState,
                 onHeaderClick = headerClick,
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
+                onNotificationClick = { row -> viewModel.onOpenNotification(key = row.snapshot.key) },
+                onNotificationDismiss = { row -> viewModel.onDismissNotification(key = row.snapshot.key) },
                 onAddItems = viewModel::startFolderPicking,
                 onRequestQuietModeOff = {
                     val owner: App? = displayState.owner as? App

@@ -9,6 +9,7 @@ import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.popups.PopupHiddenShortcut
 import core.data.popups.PopupItemRecord
+import core.data.popups.PopupSettingsRecord
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.LaunchableCustomization
@@ -48,9 +49,10 @@ import core.data.widgets.WidgetRecord
         PendingAppWidgetRecord::class,
         PopupHiddenShortcut::class,
         PopupItemRecord::class,
+        PopupSettingsRecord::class,
         FolderRecord::class
     ],
-    version = 10
+    version = 11
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

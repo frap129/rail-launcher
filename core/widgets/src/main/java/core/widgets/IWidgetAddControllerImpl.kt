@@ -18,14 +18,13 @@ import core.data.widgets.placeOf
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.util.EventChannel
 import java.text.Collator
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.receiveAsFlow
 
 private const val PENDING_PHASE_BINDING: String = "binding"
 private const val PENDING_PHASE_CONFIGURING: String = "configuring"
@@ -42,8 +41,8 @@ class IWidgetAddControllerImpl(
     private val addFlow: MutableStateFlow<AddWidgetFlowState> = MutableStateFlow(AddWidgetFlowState.Idle)
     override val state: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
 
-    private val eventChannel: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
-    override val events: Flow<WidgetEvent> = eventChannel.receiveAsFlow()
+    private val eventChannel: EventChannel<WidgetEvent> = EventChannel()
+    override val events: Flow<WidgetEvent> = eventChannel.flow
 
     private var providers: List<WidgetProviderInfo> = emptyList()
 

@@ -21,7 +21,7 @@
     <string name="clock_style_stacked">Stacked</string>
     <string name="clock_style_compact">Compact</string>
     <string name="allow_notification_access_title">Allow notification access</string>
-    <string name="allow_notification_access_body">Rail needs notification access to see what’s playing and control playback. Rail doesn’t read or store your notifications.</string>
+    <string name="allow_notification_access_body">Rail needs notification access to show notifications in Pop-ups and to see what’s playing in the Media Player. Notifications are read on this device only and are never stored or shared.</string>
     <string name="allow_notification_access_sideloaded">If the switch is greyed out, open Rail’s App info, tap ⋮ and choose Allow restricted settings.</string>
     <string name="notification_access_app_info">App info</string>
     <string name="not_now">Not now</string>

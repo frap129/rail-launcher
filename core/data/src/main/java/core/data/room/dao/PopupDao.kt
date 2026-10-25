@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import core.data.popups.PopupItemRecord
+import core.data.popups.PopupSettingsRecord
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -65,4 +66,10 @@ interface PopupDao {
 
     @Query("DELETE FROM popup_items WHERE item_key IN (:itemKeys)")
     suspend fun deleteItemsByKey(itemKeys: List<String>)
+
+    @Query("SELECT * FROM popup_settings WHERE id = 0")
+    fun observeSettings(): Flow<PopupSettingsRecord?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSettings(settings: PopupSettingsRecord)
 }

@@ -5,13 +5,14 @@ import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -39,13 +40,22 @@ data class PopupSettingsUiState(
     val folders: List<PopupSettingsFolder> = emptyList(),
     val selectedFolder: PopupSettingsFolder? = null,
     val isNewFolderDialogOpen: Boolean = false,
-    val isRenameDialogOpen: Boolean = false
+    val isRenameDialogOpen: Boolean = false,
+    val notificationsEnabled: Boolean = false,
+    val notificationAccess: Boolean = false
 )
 
-/** Owns the Settings list of every Folder, its actions sheet and its dialogs. */
+private data class PopupSettingsRows(
+    val folders: List<PopupSettingsFolder>,
+    val notificationsEnabled: Boolean,
+    val notificationAccess: Boolean
+)
+
+/** Owns the Settings list of every Folder, its actions sheet, its dialogs and the Notifications section. */
 class PopupSettingsViewModel(
     private val folderRepository: IFolderRepository,
     private val popupRepository: IPopupRepository,
+    private val notificationSource: INotificationSource,
     private val favoritesRepository: IFavoritesRepository,
     private val preferencesRepository: IPreferencesRepository
 ) : ViewModel() {
@@ -53,9 +63,13 @@ class PopupSettingsViewModel(
     private val newFolderDialogOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val renameDialogOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val folderCreations: EventChannel<Folder> = EventChannel()
+    private val eventChannel: EventChannel<WidgetSettingsEvent> = EventChannel()
 
     /** Folders created from Settings, for its "Folder created" Snackbar. */
-    val createdFolders: SharedFlow<Folder> = folderCreations.flow
+    val createdFolders: Flow<Folder> = folderCreations.flow
+
+    /** Events the Notifications section asks the screen to run. */
+    val events: Flow<WidgetSettingsEvent> = eventChannel.flow
 
     // Held eagerly so actions can resolve the selected Folder without a UI collector.
     private val folders: StateFlow<List<PopupSettingsFolder>> = combine(
@@ -77,24 +91,52 @@ class PopupSettingsViewModel(
         initialValue = emptyList()
     )
 
-    val uiState: StateFlow<PopupSettingsUiState> = combine(
+    private val rows: StateFlow<PopupSettingsRows> = combine(
         folders,
+        popupRepository.notificationsEnabled,
+        notificationSource.hasAccess
+    ) { folderRows, notificationsEnabled, notificationAccess ->
+        PopupSettingsRows(
+            folders = folderRows,
+            notificationsEnabled = notificationsEnabled,
+            notificationAccess = notificationAccess
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = PopupSettingsRows(folders = emptyList(), notificationsEnabled = false, notificationAccess = false)
+    )
+
+    val uiState: StateFlow<PopupSettingsUiState> = combine(
+        rows,
         selectedFolderKey,
         newFolderDialogOpen,
         renameDialogOpen
-    ) { rows, selectedKey, isNaming, isRenaming ->
-        val selectedFolder: PopupSettingsFolder? = rows.firstOrNull { row -> row.folder.key == selectedKey }
+    ) { settingsRows, selectedKey, isNaming, isRenaming ->
+        val selectedFolder: PopupSettingsFolder? = settingsRows.folders.firstOrNull { row -> row.folder.key == selectedKey }
         PopupSettingsUiState(
-            folders = rows,
+            folders = settingsRows.folders,
             selectedFolder = selectedFolder,
             isNewFolderDialogOpen = isNaming,
-            isRenameDialogOpen = isRenaming && selectedFolder != null
+            isRenameDialogOpen = isRenaming && selectedFolder != null,
+            notificationsEnabled = settingsRows.notificationsEnabled,
+            notificationAccess = settingsRows.notificationAccess
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = PopupSettingsUiState()
     )
+
+    /** Persists whether Pop-ups show notifications, explaining access when it is missing. */
+    fun setNotificationsEnabled(enabled: Boolean) {
+        launchLogged(message = "Failed to change whether Pop-ups show notifications") {
+            popupRepository.setNotificationsEnabled(enabled)
+        }
+        if (enabled && !notificationSource.hasAccess.value) {
+            eventChannel.trySend(WidgetSettingsEvent.RequestNotificationAccess)
+        }
+    }
 
     fun openActions(folder: Folder) {
         renameDialogOpen.value = false

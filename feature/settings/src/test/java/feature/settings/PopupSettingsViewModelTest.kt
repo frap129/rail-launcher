@@ -4,6 +4,8 @@ import app.cash.turbine.test
 import core.data.favorites.FavoriteRecord
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationSourceImpl
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
@@ -11,9 +13,11 @@ import core.data.testing.FakePopupRepository
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
+import core.data.testing.TEST_SDK
 import core.data.testing.createEagerFavoritesRepository
 import core.data.testing.createRailLaunchable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -23,6 +27,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 private const val FOLDER_NAME: String = "Work"
 private const val OTHER_FOLDER_NAME: String = "Play"
@@ -30,6 +38,8 @@ private const val RENAMED_FOLDER_NAME: String = "Hobbies"
 private const val BLANK_NAME: String = "   "
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupSettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
@@ -212,14 +222,67 @@ class PopupSettingsViewModelTest {
         )
     }
 
+    @Test
+    fun `shows the notification switch and access status`() = runTest {
+        val viewModel: PopupSettingsViewModel = createViewModel(accessCheck = { true })
+
+        viewModel.uiState.test {
+            val actualState: PopupSettingsUiState = expectMostRecentItem()
+            assertFalse(actualState.notificationsEnabled)
+            assertTrue(actualState.notificationAccess)
+        }
+    }
+
+    @Test
+    fun `turning notifications on without access asks to allow it`() = runTest {
+        val viewModel: PopupSettingsViewModel = createViewModel(accessCheck = { false })
+
+        viewModel.events.test {
+            viewModel.setNotificationsEnabled(true)
+            assertEquals(WidgetSettingsEvent.RequestNotificationAccess, awaitItem())
+        }
+    }
+
+    @Test
+    fun `turning notifications on with access does not ask to allow it`() = runTest {
+        val viewModel: PopupSettingsViewModel = createViewModel(accessCheck = { true })
+
+        viewModel.events.test {
+            viewModel.setNotificationsEnabled(true)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `persists whether Pop-ups show notifications`() = runTest {
+        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        val viewModel: PopupSettingsViewModel = createViewModel(mockPopupRepository = mockPopupRepository)
+
+        viewModel.uiState.test {
+            assertFalse(expectMostRecentItem().notificationsEnabled)
+            viewModel.setNotificationsEnabled(true)
+            advanceUntilIdle()
+            assertTrue(expectMostRecentItem().notificationsEnabled)
+        }
+        assertTrue(mockPopupRepository.notificationsEnabled.first())
+    }
+
     private fun TestScope.createViewModel(
         folders: List<Folder> = listOf(inputFolder),
         mockFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = folders),
         mockPopupRepository: FakePopupRepository = FakePopupRepository(),
-        mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+        mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
+        accessCheck: () -> Boolean = { true }
     ): PopupSettingsViewModel = PopupSettingsViewModel(
         folderRepository = mockFolderRepository,
         popupRepository = mockPopupRepository,
+        notificationSource = INotificationSourceImpl(
+            context = RuntimeEnvironment.getApplication(),
+            scope = backgroundScope,
+            popupRepository = mockPopupRepository,
+            relay = INotificationListenerRelayImpl(),
+            isAccessGranted = { accessCheck() }
+        ),
         favoritesRepository = createEagerFavoritesRepository(
             favoriteDao = mockFavoriteDao,
             launchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = folders)

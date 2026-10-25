@@ -16,8 +16,8 @@ import core.ui.layout.HomeEditState
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -166,12 +166,12 @@ class LauncherViewModel(
     private val folderEditRequests: EventChannel<Folder> = EventChannel()
 
     /** Folders created from Edit Favorites that the launcher should open for editing. */
-    val folderEdits: SharedFlow<Folder> = folderEditRequests.flow
+    val folderEdits: Flow<Folder> = folderEditRequests.flow
 
     private val foldersOnlyInSettingsRequests: EventChannel<Folder> = EventChannel()
 
     /** Folders removed from Favorites that are now reachable only from Settings. */
-    val foldersOnlyInSettings: SharedFlow<Folder> = foldersOnlyInSettingsRequests.flow
+    val foldersOnlyInSettings: Flow<Folder> = foldersOnlyInSettingsRequests.flow
 
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: StateFlow<List<Launchable>> = combine(

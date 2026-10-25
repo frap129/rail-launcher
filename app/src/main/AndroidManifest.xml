@@ -43,7 +43,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.service.notification.default_filter_types"
-                android:value="0" />
+                android:value="15" />
         </service>
     </application>
 

@@ -180,6 +180,13 @@ class IPopupRepositoryImpl(
         }
     }
 
+    override val notificationsEnabled: Flow<Boolean> = popupDao.observeSettings()
+        .map { settings -> settings?.notificationsEnabled ?: false }
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) {
+        popupDao.upsertSettings(settings = PopupSettingsRecord(notificationsEnabled = enabled))
+    }
+
     private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
         for (ownerKey in ownerKeys) {
             deleteStale(message = "Failed to remove Pop-up preferences for $ownerKey") {

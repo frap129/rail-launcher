@@ -1,8 +1,8 @@
 package core.lifecycle
 
+import core.util.EventChannel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
  * Pending HOME intent events for the launcher UI, owned by the activity.
@@ -14,21 +14,21 @@ import kotlinx.coroutines.flow.receiveAsFlow
  * rotating the device never resets Home scroll.
  *
  * Signals sent before a collector attaches stay queued until one does, and each
- * signal is consumed exactly once. A [Channel] is used instead of a replaying
- * SharedFlow so an already consumed signal is never re-delivered to a later
- * collector (e.g. a composition that re-collects after recreation), which would
- * wrongly reset the UI to Home. The channel is conflated because the reaction
+ * signal is consumed exactly once. A conflated [EventChannel] is used instead of
+ * a replaying flow so an already consumed signal is never re-delivered to a
+ * later collector (e.g. a composition that re-collects after recreation), which
+ * would wrongly reset the UI to Home. Conflation is safe because the reaction
  * is idempotent: pending duplicates only need to trigger it once.
  *
  * [events] has a single consumer: a second concurrent collector would steal
  * signals from the first.
  */
 class HomeSignals {
-    private val channel: Channel<Unit> = Channel(capacity = Channel.CONFLATED)
+    private val eventChannel: EventChannel<Unit> = EventChannel(capacity = Channel.CONFLATED)
 
-    val events: Flow<Unit> = channel.receiveAsFlow()
+    val events: Flow<Unit> = eventChannel.flow
 
     fun signal() {
-        channel.trySend(Unit)
+        eventChannel.trySend(Unit)
     }
 }

@@ -38,4 +38,10 @@ interface IPopupRepository {
 
     /** Deletes the stored Pop-up preferences of [ownerKey], which no longer exists, and frees its Widgets. */
     suspend fun deleteOwner(ownerKey: String): List<AppWidgetId>
+
+    /** Whether Pop-ups show their owners' notifications. Off by default. */
+    val notificationsEnabled: Flow<Boolean>
+
+    /** Persists whether Pop-ups show notifications. */
+    suspend fun setNotificationsEnabled(enabled: Boolean)
 }

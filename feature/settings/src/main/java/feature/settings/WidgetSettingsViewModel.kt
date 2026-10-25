@@ -41,6 +41,7 @@ import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
+import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
@@ -48,7 +49,6 @@ import core.widgets.IHeaderTapTargetResolver
 import java.text.Normalizer
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,7 +59,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -198,9 +197,9 @@ class WidgetSettingsViewModel(
     private val pickerQuery: MutableStateFlow<String> = MutableStateFlow("")
     private val exclusionsOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val exclusionQuery: MutableStateFlow<String> = MutableStateFlow("")
-    private val eventChannel: Channel<WidgetSettingsEvent> = Channel(Channel.BUFFERED)
+    private val eventChannel: EventChannel<WidgetSettingsEvent> = EventChannel()
 
-    val events: Flow<WidgetSettingsEvent> = eventChannel.receiveAsFlow()
+    val events: Flow<WidgetSettingsEvent> = eventChannel.flow
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val calendars: Flow<List<CalendarInfo>> = settingsRepository.eventSettings
