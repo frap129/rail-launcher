@@ -43,6 +43,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.regular.Star
 import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.popups.PopupAnchor
 import core.popups.popupSwipe
@@ -61,8 +62,9 @@ data class LauncherItemActions(
     val onItemLaunch: (Launchable) -> Unit,
     val onItemLongPress: (Launchable) -> Unit,
     val onToggleFavorite: (Launchable) -> Unit,
-    val onItemSwipeOpen: (Launchable, PopupAnchor) -> Unit,
-    val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit
+    val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
+    val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
+    val onNewFolder: () -> Unit
 )
 
 private class PopupAnchorHolder {
@@ -98,7 +100,8 @@ fun LauncherItem(
     val currentItemActions: LauncherItemActions by rememberUpdatedState(itemActions)
     val anchorHolder: PopupAnchorHolder = remember { PopupAnchorHolder() }
     val longPressGate: LongPressGate = remember { LongPressGate() }
-    val canOpenPopup: Boolean = isPopupSwipeEnabled && !isEditingFavorites && item is App
+    val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
+    val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -109,7 +112,13 @@ fun LauncherItem(
                     if (!isEditingFavorites) {
                         detectTapGestures(
                             onPress = { longPressGate.isFired = false },
-                            onTap = { currentItemActions.onItemLaunch(currentItem) },
+                            onTap = {
+                                if (currentItem is Folder && !isEditingFavorites) {
+                                    anchorHolder.anchor?.let { anchor -> currentItemActions.onItemOpenPopup(currentItem, anchor) }
+                                } else {
+                                    currentItemActions.onItemLaunch(currentItem)
+                                }
+                            },
                             onLongPress = {
                                 longPressGate.isFired = true
                                 currentItemActions.onItemLongPress(currentItem)
@@ -119,10 +128,10 @@ fun LauncherItem(
                     }
                 }
                 .popupSwipe(
-                    enabled = canOpenPopup,
+                    enabled = canSwipePopup,
                     isSwipeBlocked = { longPressGate.isFired },
                     onSwipeOpen = {
-                        anchorHolder.anchor?.let { anchor -> currentItemActions.onItemSwipeOpen(currentItem, anchor) }
+                        anchorHolder.anchor?.let { anchor -> currentItemActions.onItemOpenPopup(currentItem, anchor) }
                     }
                 )
                 .onGloballyPositioned { coordinates ->
@@ -150,7 +159,7 @@ fun LauncherItem(
                                     if (anchor == null) {
                                         false
                                     } else {
-                                        currentItemActions.onItemSwipeOpen(currentItem, anchor)
+                                        currentItemActions.onItemOpenPopup(currentItem, anchor)
                                         true
                                     }
                                 }

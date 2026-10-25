@@ -43,11 +43,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.popups.EditPopupSheet
+import core.popups.FolderDeleteDialog
 import core.popups.LaunchablePickerSheet
 import core.popups.PopupHost
 import core.popups.PopupMenuSheet
@@ -137,7 +139,10 @@ fun LauncherScreen(
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
-    val launchItem: (Launchable) -> Unit = { launchable ->
+    val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
+        if (launchable is Folder) {
+            return@launchItem
+        }
         popupViewModel.onLaunched()
         val didLaunch: Boolean = if (launchable is ShortcutLaunchable) {
             launchShortcut(shortcut = launchable, context = context) {
@@ -306,6 +311,9 @@ fun LauncherScreen(
             }
         }
     }
+    LaunchedEffect(viewModel, popupViewModel) {
+        viewModel.folderEdits.collect { folder -> popupViewModel.startEdit(folder) }
+    }
     LaunchedEffect(homeIntentRequest) {
         homeIntentRequest.collectRequests {
             popupViewModel.onHomeIntent()
@@ -342,6 +350,7 @@ fun LauncherScreen(
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
     val pickerState: PopupPickerState by popupViewModel.pickerState.collectAsState()
     val shortcutPickerState: ShortcutPickerState by popupViewModel.shortcutPickerState.collectAsState()
+    val isNewFolderDialogOpen: Boolean by viewModel.isNewFolderDialogOpen.collectAsState()
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
     val isMovingWidgetArea: Boolean = moveState != null
@@ -357,7 +366,7 @@ fun LauncherScreen(
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem,
-            onItemSwipeOpen = popupViewModel::open,
+            onItemOpenPopup = popupViewModel::open,
             onItemAnchorChanged = { owner, anchor -> popupViewModel.onAnchorChanged(owner.key, anchor) },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
@@ -369,10 +378,11 @@ fun LauncherScreen(
             modifier = Modifier.fillMaxSize()
         )
         LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupViewModel::close)
-        LauncherDoneButton(viewModel, widgetViewModel)
+        LauncherDoneButton(viewModel, widgetViewModel, popupViewModel)
         LauncherMenu(viewModel)
         PopupMenuSheet(popupViewModel)
         EditPopupSheet(popupViewModel)
+        FolderDeleteDialog(popupViewModel)
         if (pickerState is PopupPickerState.Picking) {
             LaunchablePickerSheet(
                 state = pickerState as PopupPickerState.Picking,
@@ -455,6 +465,9 @@ fun LauncherScreen(
     }
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
+    }
+    if (isNewFolderDialogOpen) {
+        NewFolderDialog(viewModel)
     }
 }
 

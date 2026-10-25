@@ -96,6 +96,22 @@ class IPreferencesRepositoryImplTest {
     }
 
     @Test
+    fun `a blank name resets the launchable to its default name`() = runTest {
+        val inputItem: Launchable = createLaunchable()
+        val mockLaunchableCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao(
+            inputCustomizations = listOf(LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME), OTHER_CUSTOMIZATION)
+        )
+        val repository: IPreferencesRepository = createRepository(
+            mockLaunchableCustomizationDao = mockLaunchableCustomizationDao
+        )
+
+        repository.setItemName(item = inputItem, name = "   ")
+        mockLaunchableCustomizationDao.awaitDelete()
+
+        assertEquals(listOf(OTHER_CUSTOMIZATION), repository.launchableCustomizations.first())
+    }
+
+    @Test
     fun `stores the selected custom icon pack through the DAO`() = runTest {
         val mockSettingsDao: FakeSettingsDao = FakeSettingsDao()
         val repository: IPreferencesRepository = createRepository(mockSettingsDao = mockSettingsDao)
@@ -154,6 +170,7 @@ private class FakeLaunchableCustomizationDao(inputCustomizations: List<Launchabl
     LaunchableCustomizationDao {
     private val customizations: MutableStateFlow<List<LaunchableCustomization>> = MutableStateFlow(inputCustomizations)
     private val renameSignals: Channel<Unit> = Channel(Channel.UNLIMITED)
+    private val deleteSignals: Channel<Unit> = Channel(Channel.UNLIMITED)
     private val recordedRenames: MutableList<LaunchableRename> = mutableListOf()
 
     override fun observeAll(): Flow<List<LaunchableCustomization>> = customizations
@@ -166,9 +183,18 @@ private class FakeLaunchableCustomizationDao(inputCustomizations: List<Launchabl
         renameSignals.send(Unit)
     }
 
+    override suspend fun delete(key: String) {
+        customizations.value = customizations.value.filterNot { customization -> customization.key == key }
+        deleteSignals.send(Unit)
+    }
+
     suspend fun awaitRename(): LaunchableRename = withContext(Dispatchers.Default) {
         withTimeout(WRITE_TIMEOUT_MS) { renameSignals.receive() }
         recordedRenames.last()
+    }
+
+    suspend fun awaitDelete(): Unit = withContext(Dispatchers.Default) {
+        withTimeout(WRITE_TIMEOUT_MS) { deleteSignals.receive() }
     }
 }
 

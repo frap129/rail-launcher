@@ -3,6 +3,8 @@ package core.data.launchables
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.folders.FolderRecord
+import core.data.folders.toFolder
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
@@ -13,6 +15,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.retryWithExponentialBackoff
+import core.data.room.dao.FolderDao
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +29,7 @@ class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
     private val iconRepository: IIconRepository,
     preferencesRepository: IPreferencesRepository,
+    folderDao: FolderDao,
     scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -42,9 +46,15 @@ class ILaunchableRepositoryImpl(
         appRepository.apps,
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
-        iconRepository.iconPacks
-    ) { appsOrNull, customizations, settings, _ ->
-        resolveState(appsOrNull = appsOrNull, customizations = customizations, settings = settings)
+        iconRepository.iconPacks,
+        folderDao.observeAll()
+    ) { appsOrNull, customizations, settings, _, folderRecords ->
+        resolveState(
+            appsOrNull = appsOrNull,
+            customizations = customizations,
+            settings = settings,
+            folderRecords = folderRecords
+        )
     }
         .retryWithExponentialBackoff()
         .stateIn(
@@ -62,7 +72,8 @@ class ILaunchableRepositoryImpl(
     private suspend fun resolveState(
         appsOrNull: List<App>?,
         customizations: List<LaunchableCustomization>,
-        settings: Settings
+        settings: Settings,
+        folderRecords: List<FolderRecord>
     ): LaunchableState {
         val apps: List<App> = appsOrNull.orEmpty()
         val names: Map<String, String?> = customizations.associate { it.key to it.name }
@@ -70,10 +81,11 @@ class ILaunchableRepositoryImpl(
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
+        val resolvedFolders: List<Launchable> = folderRecords.map { record -> record.toFolder(names = names) }
         val groups: List<LaunchableGroup> = resolvedApps.toLaunchableGroups(resolvedBuiltinGroup)
         return LaunchableState(
             groups = groups,
-            launchables = groups.toLaunchables(),
+            launchables = groups.toLaunchables() + resolvedFolders,
             isLoaded = appsOrNull != null
         )
     }

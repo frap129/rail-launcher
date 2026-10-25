@@ -15,4 +15,7 @@ interface LaunchableCustomizationDao {
             "ON CONFLICT(key) DO UPDATE SET name = :name"
     )
     suspend fun setName(key: String, name: String)
+
+    @Query("DELETE FROM launchable_customizations WHERE key = :key")
+    suspend fun delete(key: String)
 }

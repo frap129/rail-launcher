@@ -44,10 +44,18 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
             CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
                 state.items.forEach { item ->
                     when (item) {
-                        PopupMenuItem.EditPopup -> SheetMenuAction(
+                        PopupMenuItem.EditPopup, PopupMenuItem.EditFolder -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.PencilAlt,
-                            label = stringResource(CoreUiR.string.edit_popup),
+                            label = stringResource(
+                                if (item == PopupMenuItem.EditPopup) CoreUiR.string.edit_popup else R.string.edit_folder
+                            ),
                             onClick = { viewModel.startEdit(state.target) }
+                        )
+
+                        PopupMenuItem.DeleteFolder -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                            label = stringResource(R.string.delete_folder),
+                            onClick = viewModel::requestDeleteFolder
                         )
 
                         PopupMenuItem.RemoveFromPopup -> SheetMenuAction(

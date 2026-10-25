@@ -4,13 +4,16 @@ import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.testing.FakeFavoriteDao
+import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePreferencesRepository
+import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -1067,11 +1070,79 @@ class LauncherViewModelTest {
         assertFalse(viewModel.isEditingFavorites.value)
     }
 
+    @Test
+    fun `createFolder is ignored outside Edit Favorites`() = runTest {
+        val folderRepository: FakeFolderRepository = FakeFolderRepository()
+        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
+        viewModel.openNewFolderDialog()
+        assertFalse(viewModel.isNewFolderDialogOpen.value)
+        viewModel.createFolder("Work")
+        advanceUntilIdle()
+        assertTrue(folderRepository.createRequests.isEmpty())
+    }
+
+    @Test
+    fun `createFolder closes the dialog, creates a Folder and emits its editor request`() = runTest {
+        val folderRepository: FakeFolderRepository = FakeFolderRepository()
+        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
+        viewModel.editFavorites()
+        viewModel.openNewFolderDialog()
+        assertTrue(viewModel.isNewFolderDialogOpen.value)
+        viewModel.folderEdits.test {
+            viewModel.createFolder("Work")
+            assertFalse(viewModel.isNewFolderDialogOpen.value)
+            val folder: Folder = awaitItem()
+            assertEquals("Work", folder.name)
+        }
+        assertEquals(
+            listOf(FolderCreateRequest(name = "Work", initialItems = emptyList(), addToFavorites = true)),
+            folderRepository.createRequests
+        )
+    }
+
+    @Test
+    fun `createFolder appends the new Folder to the edited Favorites keys`() = runTest {
+        val folderRepository: FakeFolderRepository = FakeFolderRepository()
+        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
+        viewModel.editFavorites()
+        viewModel.folderEdits.test {
+            viewModel.createFolder("Work")
+            val folder: Folder = awaitItem()
+            assertEquals(listOf(folder.key), viewModel.editingFavoriteKeys)
+        }
+    }
+
+    @Test
+    fun `unstarring a Folder in Edit Favorites keeps the Folder`() = runTest {
+        val folder: Folder = Folder(folderId = 42L)
+        val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+            groups = inputGroups,
+            folders = listOf(folder)
+        )
+        val favoriteDao: FakeFavoriteDao = FakeFavoriteDao(
+            initialRecords = listOf(FavoriteRecord(key = folder.key, position = 0))
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = launchableRepository,
+            mockFavoriteDao = favoriteDao
+        )
+        viewModel.uiState.test {
+            assertEquals(listOf(folder), expectHome().favorites)
+            viewModel.editFavorites()
+            assertTrue(expectHome().isEditingFavorites)
+            viewModel.toggleFavorite(folder)
+            advanceUntilIdle()
+            assertTrue(expectHome().favorites.isEmpty())
+        }
+        assertTrue(launchableRepository.launchableState.value.launchables.any { launchable -> launchable.key == folder.key })
+    }
+
     // The production repository with FakeFavoriteDao exercises the resolution and
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun TestScope.createViewModel(
         mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = inputGroups),
         mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
+        mockFolderRepository: FakeFolderRepository = FakeFolderRepository(),
         inputHomeEditState: HomeEditState = HomeEditState()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
@@ -1084,6 +1155,7 @@ class LauncherViewModelTest {
             launchableRepository = mockLaunchableRepository,
             scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
         ),
+        folderRepo = mockFolderRepository,
         homeEditState = inputHomeEditState
     )
 

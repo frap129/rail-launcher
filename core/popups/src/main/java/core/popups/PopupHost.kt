@@ -112,12 +112,14 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
             } else {
                 ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
             }
+            val headerClick: (() -> Unit)? = (displayState.owner as? App)?.let { owner -> { onLaunch(owner) } }
             PopupCard(
                 content = displayState.content,
-                onHeaderClick = { onLaunch(displayState.owner) },
+                onHeaderClick = headerClick,
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
+                onAddItems = viewModel::startFolderPicking,
                 onRequestQuietModeOff = {
                     val owner: App? = displayState.owner as? App
                     owner?.let { app ->

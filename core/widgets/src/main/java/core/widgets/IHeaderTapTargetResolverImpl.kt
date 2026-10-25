@@ -1,6 +1,7 @@
 package core.widgets
 
 import androidx.annotation.StringRes
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
@@ -17,7 +18,9 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         if (!isLoaded) {
             return setting
         }
-        val validKeys: Set<String> = launchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
+        val validKeys: Set<String> = launchables
+            .filterNot { launchable -> launchable is Folder }
+            .mapTo(mutableSetOf()) { launchable -> launchable.key }
         return if (setting.isStale(validKeys = validKeys)) HeaderTapSetting.SystemDefault else setting
     }
 
@@ -39,7 +42,7 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         }
 
     private fun launchableTarget(setting: HeaderTapSetting.Launchable, launchables: List<Launchable>): HeaderTapTarget? =
-        launchables.firstOrNull { launchable -> launchable.key == setting.key }
+        launchables.firstOrNull { launchable -> launchable.key == setting.key && launchable !is Folder }
             ?.let { launchable -> HeaderTapTarget.LaunchLaunchable(launchable = launchable) }
 
     private fun HeaderTimeModel.withTapTarget(target: HeaderTapTarget): HeaderTimeModel = copy(

@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import core.data.favorites.FavoriteRecord
+import core.data.folders.FolderRecord
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.popups.PopupHiddenShortcut
@@ -15,6 +16,7 @@ import core.data.prefs.Settings
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
+import core.data.room.dao.FolderDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
@@ -45,9 +47,10 @@ import core.data.widgets.WidgetRecord
         MediaPlayerSettings::class,
         PendingAppWidgetRecord::class,
         PopupHiddenShortcut::class,
-        PopupItemRecord::class
+        PopupItemRecord::class,
+        FolderRecord::class
     ],
-    version = 8
+    version = 9
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -63,4 +66,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getMediaPlayerSettingsDao(): MediaPlayerSettingsDao
     abstract fun getPendingAppWidgetDao(): PendingAppWidgetDao
     abstract fun getPopupDao(): PopupDao
+    abstract fun getFolderDao(): FolderDao
 }

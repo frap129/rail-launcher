@@ -76,4 +76,6 @@
     <string name="finish_editing_home">Finish editing Home before adding a widget</string>
     <string name="open_popup">Open Pop-up</string>
     <string name="couldnt_open_shortcut">Couldn\'t open shortcut</string>
+    <string name="new_folder">New Folder</string>
+    <string name="create">Create</string>
 </resources>

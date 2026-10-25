@@ -8,5 +8,8 @@ interface IPreferencesRepository {
     val launchableCustomizations: Flow<List<LaunchableCustomization>>
     val settings: Flow<Settings>
     fun setItemName(item: Launchable, name: String)
+
+    /** Removes [item]'s stored customization so it uses its default name again. */
+    fun resetItemName(item: Launchable)
     fun setIconPack(iconPack: IconPack)
 }

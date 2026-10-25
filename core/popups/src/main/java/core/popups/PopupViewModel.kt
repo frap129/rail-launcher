@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
+import core.data.folders.Folder
+import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -37,7 +39,7 @@ import timber.log.Timber
 
 private val EMPTY_SHORTCUTS: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())
 
-private data class ShortcutTarget(val ownerKey: String, val packageName: String, val profile: UserHandle)
+private data class ShortcutTarget(val ownerKey: String, val packageName: String?, val profile: UserHandle?)
 
 private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnchor)
 
@@ -59,11 +61,14 @@ class PopupViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
     private val popupRepository: IPopupRepository,
+    private val folderRepository: IFolderRepository,
     private val homeEditState: HomeEditState
 ) : ViewModel() {
     private val openRequest: MutableStateFlow<OpenRequest?> = MutableStateFlow(null)
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
+    private val pickerTarget: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
     private val menuTarget: MutableStateFlow<MenuTarget?> = MutableStateFlow(null)
+    private val pendingFolderDelete: MutableStateFlow<Folder?> = MutableStateFlow(null)
     private val isPicking: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val isPickingShortcuts: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val cardShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(EMPTY_SHORTCUTS)
@@ -77,6 +82,11 @@ class PopupViewModel(
     private val cardItems: StateFlow<OwnerItems> = addedItems(openRequest.map { request -> request?.target })
 
     private val editItems: StateFlow<OwnerItems> = addedItems(editRequest)
+
+    private val pickerItems: StateFlow<OwnerItems> = addedItems(pickerTarget)
+
+    /** The Folder awaiting delete confirmation, if any. */
+    val folderDeleteState: StateFlow<Folder?> = pendingFolderDelete
 
     val popupState: StateFlow<PopupUiState> = combine(
         openRequest,
@@ -164,10 +174,10 @@ class PopupViewModel(
     )
 
     val pickerState: StateFlow<PopupPickerState> = combine(
-        editRequest,
+        pickerTarget,
         isPicking,
         launchableRepository.launchableState,
-        editItems
+        pickerItems
     ) { request, picking, launchableState, items ->
         if (request == null || !picking || !launchableState.isLoaded || items.ownerKey != request.ownerKey) {
             PopupPickerState.Closed
@@ -241,22 +251,22 @@ class PopupViewModel(
     }
 
     fun open(owner: Launchable, anchor: PopupAnchor) {
-        val app: App = owner as? App ?: return
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
+        val target: ShortcutTarget = targetFor(owner) ?: return
         menuTarget.value = null
+        pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
         cardShortcuts.value = EMPTY_SHORTCUTS
-        openRequest.value = OpenRequest(
-            target = ShortcutTarget(ownerKey = app.key, packageName = app.packageName, profile = app.profile),
-            anchor = anchor
-        )
+        openRequest.value = OpenRequest(target = target, anchor = anchor)
     }
 
     fun close() {
         menuTarget.value = null
+        pendingFolderDelete.value = null
+        pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
         editRequest.value = null
@@ -280,19 +290,19 @@ class PopupViewModel(
     }
 
     /**
-     * Opens the Edit Pop-up sheet for an App. Allowed on Home and during Edit
+     * Opens the editor for an App or Folder. Allowed on Home and during Edit
      * Favorites; ignored in every other Home edit mode.
      */
     fun startEdit(owner: Launchable) {
-        val app: App = owner as? App ?: return
         val mode: HomeEditMode = homeEditState.mode.value
         if (mode != HomeEditMode.None && mode != HomeEditMode.Favorites) {
             return
         }
+        val target: ShortcutTarget = targetFor(owner) ?: return
         menuTarget.value = null
+        pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
-        val target: ShortcutTarget = ShortcutTarget(ownerKey = app.key, packageName = app.packageName, profile = app.profile)
         if (editRequest.value != target) {
             editShortcuts.value = null
             editRequest.value = target
@@ -301,6 +311,7 @@ class PopupViewModel(
 
     fun finishEdit() {
         editRequest.value = null
+        pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
     }
@@ -329,21 +340,69 @@ class PopupViewModel(
         }
     }
 
+    /** Shows the delete confirmation for the Folder whose menu is open. */
+    fun requestDeleteFolder() {
+        val folder: Folder = (menuState.value as? PopupMenuState.Open)?.target as? Folder ?: return
+        requestDeleteFolder(folder)
+    }
+
+    /** Shows the delete confirmation for [folder]. */
+    fun requestDeleteFolder(folder: Folder) {
+        menuTarget.value = null
+        pendingFolderDelete.value = folder
+    }
+
+    fun cancelDeleteFolder() {
+        pendingFolderDelete.value = null
+    }
+
+    /** Deletes the confirmed Folder and everything belonging to it. */
+    fun confirmDeleteFolder() {
+        val folder: Folder = pendingFolderDelete.value ?: return
+        pendingFolderDelete.value = null
+        menuTarget.value = null
+        if (openRequest.value?.target?.ownerKey == folder.key) {
+            close()
+        }
+        if (editRequest.value?.ownerKey == folder.key) {
+            finishEdit()
+        }
+        updatePopup(message = "Failed to delete Folder ${folder.key}") {
+            folderRepository.delete(folder)
+        }
+    }
+
     fun startPicking() {
-        if (editRequest.value == null) {
+        val request: ShortcutTarget = editRequest.value ?: return
+        menuTarget.value = null
+        pickerTarget.value = request
+        isPicking.value = true
+    }
+
+    /** Opens the item picker straight from an empty Folder's card. */
+    fun startFolderPicking() {
+        if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
-        menuTarget.value = null
+        val request: ShortcutTarget = openRequest.value?.target ?: return
+        val owner: Launchable = launchableRepository.launchableState.value.launchables
+            .firstOrNull { launchable -> launchable.key == request.ownerKey }
+            ?: return
+        if (owner !is Folder) {
+            return
+        }
+        pickerTarget.value = request
         isPicking.value = true
     }
 
     fun confirmPicking(selectedInOrder: List<String>) {
-        val request: ShortcutTarget = editRequest.value ?: return
+        val request: ShortcutTarget = pickerTarget.value ?: return
         val picking: PopupPickerState.Picking = pickerState.value as? PopupPickerState.Picking ?: return
         val existingKeys: Set<String> = picking.selectedKeys
         val additions: List<String> = selectedInOrder.filterNot { key -> key in existingKeys }
         val removals: Set<String> = existingKeys - selectedInOrder.toSet()
         isPicking.value = false
+        pickerTarget.value = null
         updatePopup(message = "Failed to change the items in ${request.ownerKey}'s Pop-up") {
             popupRepository.setItems(ownerKey = request.ownerKey, add = additions, remove = removals)
         }
@@ -351,6 +410,7 @@ class PopupViewModel(
 
     fun cancelPicking() {
         isPicking.value = false
+        pickerTarget.value = null
     }
 
     fun startPickingShortcuts() {
@@ -451,8 +511,10 @@ class PopupViewModel(
         }
     }
 
-    private fun shortcutsFor(target: ShortcutTarget): Flow<ShortcutsResult> =
-        shortcutSource.shortcuts(packageName = target.packageName, profile = target.profile)
+    private fun shortcutsFor(target: ShortcutTarget): Flow<ShortcutsResult> {
+        val packageName: String = target.packageName ?: return flowOf(EMPTY_SHORTCUTS)
+        val profile: UserHandle = target.profile ?: return flowOf(EMPTY_SHORTCUTS)
+        return shortcutSource.shortcuts(packageName = packageName, profile = profile)
             .catch { exception ->
                 if (exception is CancellationException) {
                     throw exception
@@ -460,6 +522,7 @@ class PopupViewModel(
                 Timber.e(exception, "Popup shortcut collection failed")
                 emit(EMPTY_SHORTCUTS)
             }
+    }
 
     private fun hiddenShortcutIds(targets: Flow<ShortcutTarget?>): StateFlow<HiddenShortcutIds> = targets
         .map { target -> target?.ownerKey }
@@ -518,7 +581,7 @@ class PopupViewModel(
     private fun pickerGroups(ownerKey: String, groups: List<LaunchableGroup.Listed>): List<LaunchableGroup.Listed> =
         groups.mapNotNull { group ->
             val candidates: List<Launchable> =
-                group.items.filterNot { item -> item.key == ownerKey || item is ShortcutLaunchable }
+                group.items.filterNot { item -> item.key == ownerKey || item is ShortcutLaunchable || item is Folder }
             if (candidates.isEmpty()) {
                 null
             } else {
@@ -574,11 +637,26 @@ class PopupViewModel(
         if (isItem) {
             add(PopupMenuItem.RemoveFromPopup)
         }
-        if (!isItem && target is App) {
-            add(PopupMenuItem.EditPopup)
+        if (!isItem) {
+            when (target) {
+                is App -> add(PopupMenuItem.EditPopup)
+
+                is Folder -> {
+                    add(PopupMenuItem.EditFolder)
+                    add(PopupMenuItem.DeleteFolder)
+                }
+
+                else -> Unit
+            }
         }
         if (target is App || target is ShortcutLaunchable) {
             add(PopupMenuItem.AppInfo)
         }
+    }
+
+    private fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
+        is App -> ShortcutTarget(ownerKey = owner.key, packageName = owner.packageName, profile = owner.profile)
+        is Folder -> ShortcutTarget(ownerKey = owner.key, packageName = null, profile = null)
+        else -> null
     }
 }

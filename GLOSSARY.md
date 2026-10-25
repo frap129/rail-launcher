@@ -5,11 +5,15 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 ## Language
 
 **Launchable**:
-Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink; later folders).
+Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink, or a Folder).
 _Avoid_: App (when meaning any launchable), item, entry
 
+**Folder**:
+A Launchable that only opens a Pop-up listing the Launchables the user put in it.
+_Avoid_: Group, category, pop-up folder
+
 **Pop-up**:
-The floating card attached to a row, opened by swiping the row toward the Rail, holding that App's shortcuts and, later, widgets, notifications and added items.
+The floating card attached to a row, opened by swiping an App row or by tapping or swiping a Folder row, holding that Launchable's shortcuts, added items and, later, widgets and notifications.
 _Avoid_: Popup, card menu, long-press menu
 
 **Shortcut**:
@@ -21,7 +25,7 @@ A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays
 _Avoid_: Disabled shortcut, removed shortcut
 
 **Added item**:
-A Launchable the user added to a Pop-up from its edit sheet, shown below that App's Shortcuts. A Shortcut added this way is a Shortcut item.
+A Launchable the user added to a Pop-up from its edit sheet, shown below that Launchable's Shortcuts. A Shortcut added this way is a Shortcut item.
 _Avoid_: Pinned app, Pop-up favorite, item
 
 **Shortcut item**:
@@ -29,7 +33,7 @@ An added item that is a Shortcut. It stays in the Pop-up while the publishing ap
 _Avoid_: Pinned shortcut, added shortcut
 
 **Owner**:
-The App whose row a Pop-up is attached to; the Pop-up shows that App's header and shortcuts.
+The Launchable whose row a Pop-up is attached to; the Pop-up shows that Launchable's header, shortcuts and added items.
 _Avoid_: Parent, source app, host
 
 **Favorite**:

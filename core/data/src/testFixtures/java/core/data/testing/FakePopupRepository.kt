@@ -28,6 +28,9 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
     /** Every setItemOrder call, in order. */
     val itemOrders: MutableList<Pair<String, List<String>>> = mutableListOf()
 
+    /** Every deleteItemsByKey call, in order. */
+    val deletedItemKeys: MutableList<List<String>> = mutableListOf()
+
     override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = hiddenIdsByOwner.map { hiddenIds ->
         hiddenIds[ownerKey] ?: emptySet()
     }
@@ -72,6 +75,13 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
                 if (item.launchable.key in orderedKeys) orderedItems[nextIndex++] else item
             }
             current + (ownerKey to reordered)
+        }
+    }
+
+    override suspend fun deleteItemsByKey(itemKeys: List<String>) {
+        deletedItemKeys += itemKeys
+        itemsByOwner.update { current ->
+            current.mapValues { (_, items) -> items.filterNot { item -> item.launchable.key in itemKeys } }
         }
     }
 

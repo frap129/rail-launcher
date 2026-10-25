@@ -149,6 +149,16 @@ class IPopupRepositoryImpl(
         }
     }
 
+    override suspend fun deleteItemsByKey(itemKeys: List<String>) {
+        if (itemKeys.isEmpty()) {
+            return
+        }
+        itemMutex.withLock {
+            popupDao.deleteItemsByKey(itemKeys)
+            reapplyPins(affectedPins = pinsOf(itemKeys))
+        }
+    }
+
     private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
         for (ownerKey in ownerKeys) {
             deleteStale(message = "Failed to remove Pop-up preferences for $ownerKey") {
@@ -161,11 +171,8 @@ class IPopupRepositoryImpl(
         if (staleKeys.isEmpty()) {
             return
         }
-        itemMutex.withLock {
-            deleteStale(message = "Failed to remove ${staleKeys.size} stale Pop-up items") {
-                popupDao.deleteItemsByKey(staleKeys)
-                reapplyPins(affectedPins = pinsOf(staleKeys))
-            }
+        deleteStale(message = "Failed to remove ${staleKeys.size} stale Pop-up items") {
+            deleteItemsByKey(staleKeys)
         }
     }
 

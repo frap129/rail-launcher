@@ -21,6 +21,8 @@ import core.data.calendar.ICalendarPermissionGate
 import core.data.calendar.ICalendarPermissionGateImpl
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
+import core.data.folders.IFolderRepository
+import core.data.folders.IFolderRepositoryImpl
 import core.data.icons.IIconRepository
 import core.data.icons.IIconRepositoryImpl
 import core.data.icons.IconFetcher
@@ -40,6 +42,7 @@ import core.data.room.AppDatabase
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
+import core.data.room.dao.FolderDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
@@ -163,6 +166,7 @@ class MainApplication :
         single<MediaPlayerSettingsDao> { database.getMediaPlayerSettingsDao() }
         single<PendingAppWidgetDao> { database.getPendingAppWidgetDao() }
         single<PopupDao> { database.getPopupDao() }
+        single<FolderDao> { database.getFolderDao() }
     }
 
     /**
@@ -175,10 +179,11 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }
@@ -237,8 +242,8 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get()) }
-        viewModel { PopupViewModel(get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { PopupViewModel(get(), get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
         viewModel {
             WidgetSettingsViewModel(

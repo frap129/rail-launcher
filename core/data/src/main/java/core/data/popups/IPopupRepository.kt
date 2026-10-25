@@ -23,6 +23,9 @@ interface IPopupRepository {
     /** Removes the item [itemKey] from [ownerKey]'s Pop-up. Does nothing if it is not one. */
     suspend fun removeItem(ownerKey: String, itemKey: String)
 
+    /** Removes [itemKeys] from every Pop-up. */
+    suspend fun deleteItemsByKey(itemKeys: List<String>)
+
     /** Reorders [ownerKey]'s listed items to match [orderedItemKeys], leaving unlisted items in place. */
     suspend fun setItemOrder(ownerKey: String, orderedItemKeys: List<String>)
 
