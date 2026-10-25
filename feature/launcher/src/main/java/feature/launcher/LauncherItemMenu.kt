@@ -1,18 +1,14 @@
 package feature.launcher
 
 import android.content.Context
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -28,20 +24,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
+import compose.icons.fontawesomeicons.solid.PencilAlt
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
+import core.popups.PopupViewModel
 import core.ui.R as CoreUiR
+import core.ui.composables.LaunchableIcon
+import core.ui.composables.SheetDragHandle
+import core.ui.composables.SheetMenuAction
+import core.ui.composables.SheetTitle
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,7 +51,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel) {
         return
     }
     ModalBottomSheet(
-        dragHandle = { LauncherSheetDragHandle() },
+        dragHandle = { SheetDragHandle() },
         onDismissRequest = { viewModel.closeItemMenu() }
     ) {
         when (val currentMenuState: LauncherMenuState = menuState) {
@@ -64,59 +63,38 @@ internal fun LauncherMenu(viewModel: LauncherViewModel) {
 }
 
 @Composable
-private fun LauncherMenuAction(imageVector: ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(20.dp, 10.dp)
-    ) {
-        Image(
-            modifier = Modifier.size(56.dp).padding(10.dp),
-            imageVector = imageVector,
-            colorFilter = ColorFilter.tint(LocalContentColor.current),
-            contentDescription = label
-        )
-        Text(label)
-    }
-}
-
-@Composable
-internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
+internal fun LauncherItemMenu(
+    item: Launchable,
+    viewModel: LauncherViewModel = koinViewModel(),
+    popupViewModel: PopupViewModel = koinViewModel()
+) {
     val context: Context = LocalContext.current
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp, 10.dp)
-        ) {
-            LaunchableIcon(launchable = item)
-
-            Text(
-                text = item.name,
-                fontSize = 28.sp,
-                modifier = Modifier.clickable {
-                    viewModel.openItemRename(item)
-                }
-            )
-        }
+        SheetTitle(
+            launchable = item,
+            onNameClick = { viewModel.openItemRename(item) }
+        )
     }
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
-        LauncherMenuAction(
+        SheetMenuAction(
             imageVector = FontAwesomeIcons.Solid.GripVertical,
             label = stringResource(R.string.edit_favorites),
             onClick = { viewModel.editFavorites() }
         )
         if (item is App) {
-            LauncherMenuAction(
+            SheetMenuAction(
+                imageVector = FontAwesomeIcons.Solid.PencilAlt,
+                label = stringResource(CoreUiR.string.edit_popup),
+                onClick = {
+                    viewModel.closeItemMenu()
+                    popupViewModel.startEdit(item)
+                }
+            )
+            SheetMenuAction(
                 imageVector = FontAwesomeIcons.Solid.InfoCircle,
-                label = stringResource(R.string.app_info),
+                label = stringResource(CoreUiR.string.app_info),
                 onClick = { item.openAppInfo(context) }
             )
         }

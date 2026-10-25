@@ -47,7 +47,9 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
+import core.popups.EditPopupSheet
 import core.popups.PopupHost
+import core.popups.PopupMenuSheet
 import core.popups.PopupViewModel
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
@@ -363,6 +365,8 @@ fun LauncherScreen(
         LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupViewModel::close)
         LauncherDoneButton(viewModel, widgetViewModel)
         LauncherMenu(viewModel)
+        PopupMenuSheet(popupViewModel)
+        EditPopupSheet(popupViewModel)
         LauncherWidgetMenu(widgetViewModel)
         if (isMovingWidgetArea) {
             Box(

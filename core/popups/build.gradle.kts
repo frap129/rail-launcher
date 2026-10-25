@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:util"))
     implementation(project(":core:widgets"))
+    implementation(libs.icons.fontawesome)
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(libs.test.robolectric)
 }

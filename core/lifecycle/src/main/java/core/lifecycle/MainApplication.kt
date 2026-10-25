@@ -32,6 +32,8 @@ import core.data.media.IMediaSessionSourceImpl
 import core.data.media.MediaArtworkFetcher
 import core.data.media.MediaArtworkKeyer
 import core.data.media.MediaArtworkStore
+import core.data.popups.IPopupRepository
+import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
@@ -43,6 +45,7 @@ import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.PendingAppWidgetDao
+import core.data.room.dao.PopupDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
@@ -159,6 +162,7 @@ class MainApplication :
         single<WidgetAreaSettingsDao> { database.getWidgetAreaSettingsDao() }
         single<MediaPlayerSettingsDao> { database.getMediaPlayerSettingsDao() }
         single<PendingAppWidgetDao> { database.getPendingAppWidgetDao() }
+        single<PopupDao> { database.getPopupDao() }
     }
 
     /**
@@ -174,6 +178,7 @@ class MainApplication :
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
+        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }
@@ -233,7 +238,7 @@ class MainApplication :
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get()) }
-        viewModel { PopupViewModel(get(), get(), get()) }
+        viewModel { PopupViewModel(get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
         viewModel {
             WidgetSettingsViewModel(

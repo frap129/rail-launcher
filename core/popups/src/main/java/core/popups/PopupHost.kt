@@ -124,6 +124,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                     }
                 },
                 onClose = viewModel::close,
+                onLongPress = viewModel::openMenu,
                 modifier = Modifier
                     .offset { IntOffset(x = frame.offsetX, y = frame.offsetY) }
                     .width(with(density) { frame.width.toDp() })

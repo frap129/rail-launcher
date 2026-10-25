@@ -33,7 +33,8 @@ class PopupContentResolverTest {
     fun `shows the owner as the header`() {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
-            shortcuts = ShortcutsResult.Available(shortcuts = emptyList())
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet()
         )
         assertEquals(PopupHeader(name = OWNER_NAME, icon = inputOwner.defaultIcon), actualContent.header)
     }
@@ -43,9 +44,22 @@ class PopupContentResolverTest {
         val inputShortcuts: List<ShortcutLaunchable> = listOf(inputSecondShortcut, inputFirstShortcut)
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
-            shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts)
+            shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
+            hiddenShortcutIds = emptySet()
         )
         assertEquals(inputShortcuts, actualContent.shortcuts)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `filters out hidden shortcuts`() {
+        val inputShortcuts: List<ShortcutLaunchable> = listOf(inputFirstShortcut, inputSecondShortcut)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
+            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID)
+        )
+        assertEquals(listOf(inputSecondShortcut), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
     }
 
@@ -53,8 +67,21 @@ class PopupContentResolverTest {
     fun `reports no shortcuts when the available list is empty`() {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
-            shortcuts = ShortcutsResult.Available(shortcuts = emptyList())
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet()
         )
+        assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `reports no shortcuts when every shortcut is hidden`() {
+        val inputShortcuts: List<ShortcutLaunchable> = listOf(inputFirstShortcut, inputSecondShortcut)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
+            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)
+        )
+        assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
     }
 
@@ -62,7 +89,8 @@ class PopupContentResolverTest {
     fun `reports unavailable shortcuts when Rail is not the default launcher`() {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
-            shortcuts = ShortcutsResult.Unavailable
+            shortcuts = ShortcutsResult.Unavailable,
+            hiddenShortcutIds = emptySet()
         )
         assertEquals(PopupEmptyReason.ShortcutsUnavailable, actualContent.emptyReason)
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
@@ -72,7 +100,8 @@ class PopupContentResolverTest {
     fun `reports a paused profile`() {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
-            shortcuts = ShortcutsResult.ProfilePaused
+            shortcuts = ShortcutsResult.ProfilePaused,
+            hiddenShortcutIds = emptySet()
         )
         assertEquals(PopupEmptyReason.ProfilePaused, actualContent.emptyReason)
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
