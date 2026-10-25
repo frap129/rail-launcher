@@ -16,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val ITEM_KEY: String = "com.example.app_0"
+private const val SECOND_ITEM_KEY: String = "com.example.app_1"
 
 class IFolderRepositoryImplTest {
     @Test
@@ -31,7 +32,7 @@ class IFolderRepositoryImplTest {
             mockPopupRepository = mockPopupRepository
         )
 
-        val actualFolder: Folder = repository.create(name = "Games", initialItems = listOf(ITEM_KEY))
+        val actualFolder: Folder = repository.create(name = "Games", initialItems = listOf(ITEM_KEY, SECOND_ITEM_KEY))
 
         assertEquals(1L, actualFolder.folderId)
         assertEquals(1, actualFolder.shade)
@@ -40,7 +41,7 @@ class IFolderRepositoryImplTest {
         assertEquals("Games", mockPreferencesRepository.renames.single().name)
         assertEquals(listOf(actualFolder.key), mockFavoritesRepository.added.map { folder -> folder.key })
         assertEquals(
-            listOf(Triple(actualFolder.key, listOf(ITEM_KEY), emptySet<String>())),
+            listOf(Triple(actualFolder.key, listOf(ITEM_KEY, SECOND_ITEM_KEY), emptySet<String>())),
             mockPopupRepository.setItemsCalls
         )
     }

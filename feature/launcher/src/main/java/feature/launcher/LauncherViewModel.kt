@@ -13,14 +13,13 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -164,10 +163,10 @@ class LauncherViewModel(
     /** Whether the New Folder name dialog is showing. */
     val isNewFolderDialogOpen: StateFlow<Boolean> = newFolderDialogVisible.asStateFlow()
 
-    private val folderEditRequests: MutableSharedFlow<Folder> = MutableSharedFlow(extraBufferCapacity = 1)
+    private val folderEditRequests: EventChannel<Folder> = EventChannel()
 
     /** Folders created from Edit Favorites that the launcher should open for editing. */
-    val folderEdits: SharedFlow<Folder> = folderEditRequests.asSharedFlow()
+    val folderEdits: SharedFlow<Folder> = folderEditRequests.flow
 
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: StateFlow<List<Launchable>> = combine(
@@ -390,7 +389,7 @@ class LauncherViewModel(
                 favoritesMutex.withLock {
                     editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }
                 }
-                folderEditRequests.emit(folder)
+                folderEditRequests.send(folder)
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {

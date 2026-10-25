@@ -14,9 +14,12 @@ import androidx.compose.ui.unit.dp
 private val titleHorizontalPadding = 20.dp
 private val titleVerticalPadding = 10.dp
 
-/** The title row with a trailing text action, shared by the Pop-up editor and picker. */
+/** A trailing text action for [PopupSheetTitleRow]. */
+internal data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
+
+/** The title row with an optional trailing text action, shared by the Pop-up editor and pickers. */
 @Composable
-internal fun PopupSheetTitleRow(title: String, actionLabel: String, onAction: () -> Unit) {
+internal fun PopupSheetTitleRow(title: String, action: PopupSheetTitleAction? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -28,8 +31,10 @@ internal fun PopupSheetTitleRow(title: String, actionLabel: String, onAction: ()
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.headlineSmall
         )
-        TextButton(onClick = onAction) {
-            Text(actionLabel)
+        if (action != null) {
+            TextButton(onClick = action.onClick) {
+                Text(action.label)
+            }
         }
     }
 }

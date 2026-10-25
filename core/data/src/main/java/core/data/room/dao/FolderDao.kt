@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FolderDao {
-    @Query("SELECT * FROM folders")
+    @Query("SELECT * FROM folders ORDER BY id")
     fun observeAll(): Flow<List<FolderRecord>>
 
     @Insert

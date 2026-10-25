@@ -18,6 +18,7 @@ import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
 import core.data.testing.FakeShortcutSource
+import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
 import core.ui.layout.HomeEditMode
@@ -69,6 +70,7 @@ class PopupViewModelTest {
         deeplink = "rail-launcher://settings/main"
     )
     private val inputFolder: Folder = Folder(folderId = 1L)
+    private val inputSecondFolder: Folder = Folder(folderId = 2L, name = "Work")
     private val inputGroups: List<LaunchableGroup> = listOf(
         LaunchableGroup.Star,
         LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
@@ -101,8 +103,10 @@ class PopupViewModelTest {
         folders = listOf(inputFolder)
     )
     private val fakeShortcutSource: FakeShortcutSource = FakeShortcutSource()
-    private val fakePopupRepository: FakePopupRepository = FakePopupRepository()
-    private val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository()
+    private val fakePopupRepository: FakePopupRepository = FakePopupRepository(resolveLaunchable = { key ->
+        listOf(inputApp, inputOtherApp, inputPausedApp, inputRailLaunchable).firstOrNull { launchable -> launchable.key == key }
+    })
+    private val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder, inputSecondFolder))
     private val inputHomeEditState: HomeEditState = HomeEditState()
 
     @Test
@@ -849,6 +853,134 @@ class PopupViewModelTest {
         assertEquals(null, viewModel.folderDeleteState.value)
         assertTrue(viewModel.popupState.value is PopupUiState.Open)
         assertTrue(fakeFolderRepository.deletedFolders.isEmpty())
+    }
+
+    @Test
+    fun `add to folder lists the Folders in creation order and reflects membership`() = runTest {
+        fakePopupRepository.setItems(ownerKey = inputSecondFolder.key, items = listOf(inputApp))
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        val actualState: AddToFolderState.Open = viewModel.addToFolderState.value as AddToFolderState.Open
+        assertEquals(inputApp, actualState.launchable)
+        assertEquals(listOf(inputFolder, inputSecondFolder), actualState.folders)
+        assertEquals(setOf(inputSecondFolder.key), actualState.membership)
+    }
+
+    @Test
+    fun `toggling membership adds and removes the app immediately`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        viewModel.toggleMembership(folderKey = inputFolder.key, member = true)
+        runCurrent()
+
+        assertEquals(setOf(inputFolder.key), (viewModel.addToFolderState.value as AddToFolderState.Open).membership)
+        assertEquals(
+            listOf(Triple(inputFolder.key, listOf(inputApp.key), emptySet<String>())),
+            fakePopupRepository.setItemsCalls
+        )
+
+        viewModel.toggleMembership(folderKey = inputFolder.key, member = false)
+        runCurrent()
+
+        assertTrue((viewModel.addToFolderState.value as AddToFolderState.Open).membership.isEmpty())
+        assertEquals(
+            Triple(inputFolder.key, emptyList<String>(), setOf(inputApp.key)),
+            fakePopupRepository.setItemsCalls.last()
+        )
+    }
+
+    @Test
+    fun `startNewFolder creates a favorite Folder with the app and reports it`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        val addedFolders: MutableList<Folder> = mutableListOf()
+        backgroundScope.launch { viewModel.folderAdditions.collect { folder -> addedFolders += folder } }
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        viewModel.startNewFolder(name = "Games")
+        runCurrent()
+
+        assertEquals(
+            listOf(FolderCreateRequest(name = "Games", initialItems = listOf(inputApp.key), addToFavorites = true)),
+            fakeFolderRepository.createRequests
+        )
+        assertEquals(listOf("Games"), addedFolders.map { folder -> folder.name })
+    }
+
+    @Test
+    fun `the add to folder sheet closes when its Launchable disappears`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+        assertTrue(viewModel.addToFolderState.value is AddToFolderState.Open)
+
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = listOf(inputRailLaunchable)))
+        )
+        runCurrent()
+
+        assertEquals(AddToFolderState.Closed, viewModel.addToFolderState.value)
+    }
+
+    @Test
+    fun `a deleted Folder disappears from the add to folder sheet`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        fakeFolderRepository.delete(inputSecondFolder)
+        runCurrent()
+
+        val actualState: AddToFolderState.Open = viewModel.addToFolderState.value as AddToFolderState.Open
+        assertEquals(listOf(inputFolder), actualState.folders)
+    }
+
+    @Test
+    fun `ignores adding a Folder to a Folder`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.addToFolderState.test {
+            assertEquals(AddToFolderState.Closed, expectMostRecentItem())
+
+            viewModel.startAddToFolder(inputFolder)
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Back closes the add to folder sheet`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        assertTrue(viewModel.onBack())
+
+        assertEquals(AddToFolderState.Closed, viewModel.addToFolderState.value)
+    }
+
+    @Test
+    fun `starting an edit closes the add to folder sheet`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.addToFolderState.collect() }
+        viewModel.startAddToFolder(inputApp)
+        runCurrent()
+
+        viewModel.startEdit(inputApp)
+        runCurrent()
+
+        assertEquals(AddToFolderState.Closed, viewModel.addToFolderState.value)
     }
 
     private fun createViewModel(homeEditState: HomeEditState = inputHomeEditState): PopupViewModel = PopupViewModel(

@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,16 +9,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,9 +30,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Plus
+import core.popups.NewFolderRow
+import core.popups.R as PopupsR
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.dragHandleEndPadding
@@ -63,7 +58,6 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private const val LAUNCHER_HOME_TEST_TAG: String = "launcherHome"
 private const val NEW_FOLDER_KEY: String = "newFolder"
-private val newFolderIconSize = 64.dp
 
 private data class HomeInteraction(
     val menuEnabled: Boolean,
@@ -327,33 +321,10 @@ private fun LazyListScope.favoriteItems(
     }
     if (home.isEditingFavorites) {
         item(key = NEW_FOLDER_KEY) {
-            NewFolderRow(onClick = itemActions.onNewFolder)
-        }
-    }
-}
-
-@Composable
-private fun NewFolderRow(onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = newFolderIconSize)
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier.size(newFolderIconSize),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = FontAwesomeIcons.Solid.Plus,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            NewFolderRow(
+                label = stringResource(PopupsR.string.new_folder),
+                onClick = itemActions.onNewFolder
             )
         }
-        OutlinedText(
-            text = stringResource(R.string.new_folder),
-            style = MaterialTheme.typography.titleMedium
-        )
     }
 }
