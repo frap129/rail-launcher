@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.icons.model.Icon
+import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.shortcuts.ShortcutLaunchable
@@ -18,6 +19,8 @@ import core.data.testing.TEST_SDK
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -45,6 +48,11 @@ class PopupViewModelTest {
         defaultName = "Example",
         profile = profile,
         componentName = ComponentName(PACKAGE_NAME, ACTIVITY_NAME)
+    )
+    private val inputOtherApp: App = App(
+        defaultName = "Other",
+        profile = profile,
+        componentName = ComponentName("com.example.other", "com.example.other.MainActivity")
     )
     private val inputRailLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Rail Settings",
@@ -217,7 +225,7 @@ class PopupViewModelTest {
             runCurrent()
             viewModel.openMenu()
             val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
-            assertEquals(inputApp, actualMenu.owner)
+            assertEquals(inputApp, actualMenu.target)
             assertEquals(listOf(PopupMenuItem.EditPopup, PopupMenuItem.AppInfo), actualMenu.items)
         }
     }
@@ -394,6 +402,204 @@ class PopupViewModelTest {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
             assertFalse(viewModel.onBack())
         }
+    }
+
+    @Test
+    fun `edits an App's Pop-up with its live items`() = runTest {
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(listOf(inputOtherApp), actualState.items)
+        }
+    }
+
+    @Test
+    fun `picker excludes the owner and shortcuts and checks existing items`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
+                LaunchableGroup.InitialGroup(label = "S", items = listOf(inputShortcut)),
+                LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
+            )
+        )
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.pickerState.test {
+            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPicking()
+            val picking: PopupPickerState.Picking = expectMostRecentItem() as PopupPickerState.Picking
+            assertEquals(setOf(inputOtherApp.key), picking.selectedKeys)
+            assertEquals(listOf("O", "⌂"), picking.groups.map { group -> group.label })
+            val candidates: List<Launchable> = picking.groups.flatMap { group -> group.items }
+            assertEquals(listOf(inputOtherApp, inputRailLaunchable), candidates)
+            assertFalse(candidates.any { candidate -> candidate == inputApp || candidate is ShortcutLaunchable })
+        }
+    }
+
+    @Test
+    fun `confirming the picker adds checked items in order and removes unchecked ones`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp, inputRailLaunchable))
+            )
+        )
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.pickerState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPicking()
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupPickerState.Picking)
+            viewModel.confirmPicking(selectedInOrder = listOf(inputRailLaunchable.key))
+            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+        }
+        runCurrent()
+        assertEquals(
+            listOf(Triple(inputApp.key, listOf(inputRailLaunchable.key), setOf(inputOtherApp.key))),
+            fakePopupRepository.setItemsCalls
+        )
+    }
+
+    @Test
+    fun `cancelling the picker changes nothing`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.pickerState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPicking()
+            assertTrue(expectMostRecentItem() is PopupPickerState.Picking)
+            viewModel.cancelPicking()
+            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+        }
+        runCurrent()
+        assertTrue(fakePopupRepository.setItemsCalls.isEmpty())
+    }
+
+    @Test
+    fun `item menu shows App info only for App items`() = runTest {
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp, inputRailLaunchable))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+            viewModel.menuState.test {
+                viewModel.openItemMenu(inputOtherApp)
+                val appMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+                assertEquals(inputOtherApp, appMenu.target)
+                assertEquals(
+                    listOf(PopupMenuItem.RemoveFromPopup, PopupMenuItem.AppInfo),
+                    appMenu.items
+                )
+                viewModel.closeMenu()
+                assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+                viewModel.openItemMenu(inputRailLaunchable)
+                val railMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+                assertEquals(inputRailLaunchable, railMenu.target)
+                assertEquals(listOf(PopupMenuItem.RemoveFromPopup), railMenu.items)
+            }
+        }
+    }
+
+    @Test
+    fun `removing an item closes its menu and updates the card`() = runTest {
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.menuState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        val openState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), openState.content.items)
+        viewModel.openItemMenu(inputOtherApp)
+        runCurrent()
+        assertTrue(viewModel.menuState.value is PopupMenuState.Open)
+        viewModel.removeItem(inputOtherApp)
+        runCurrent()
+        assertEquals(PopupMenuState.Closed, viewModel.menuState.value)
+        val updatedState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyList<PopupItem>(), updatedState.content.items)
+        assertEquals(PopupEmptyReason.Empty, updatedState.content.emptyReason)
+        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+    }
+
+    @Test
+    fun `removing an item while editing uses the edited owner`() = runTest {
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupEditState.Editing)
+            viewModel.removeItem(inputOtherApp)
+            runCurrent()
+            val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(emptyList<Launchable>(), updatedState.items)
+        }
+        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+    }
+
+    @Test
+    fun `moves an item for the edited App`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.startEdit(inputApp)
+        runCurrent()
+
+        viewModel.moveItem(from = 0, to = 2)
+        runCurrent()
+
+        assertEquals(listOf(Triple(inputApp.key, 0, 2)), fakePopupRepository.movedItems)
+    }
+
+    @Test
+    fun `Back closes the picker before the editor`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.editState.collect() }
+        backgroundScope.launch { viewModel.pickerState.collect() }
+        viewModel.startEdit(inputApp)
+        runCurrent()
+        viewModel.startPicking()
+        runCurrent()
+        assertTrue(viewModel.pickerState.value is PopupPickerState.Picking)
+        assertTrue(viewModel.editState.value is PopupEditState.Editing)
+
+        assertTrue(viewModel.onBack())
+
+        assertEquals(PopupPickerState.Closed, viewModel.pickerState.value)
+        assertTrue(viewModel.editState.value is PopupEditState.Editing)
+    }
+
+    @Test
+    fun `Back closes the item menu before the editor`() = runTest {
+        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.editState.collect() }
+        backgroundScope.launch { viewModel.menuState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.startEdit(inputApp)
+        runCurrent()
+        viewModel.openItemMenu(inputOtherApp)
+        runCurrent()
+        assertTrue(viewModel.menuState.value is PopupMenuState.Open)
+        assertTrue(viewModel.editState.value is PopupEditState.Editing)
+
+        assertTrue(viewModel.onBack())
+
+        assertEquals(PopupMenuState.Closed, viewModel.menuState.value)
+        assertTrue(viewModel.editState.value is PopupEditState.Editing)
     }
 
     private fun createViewModel(homeEditState: HomeEditState = inputHomeEditState): PopupViewModel = PopupViewModel(
