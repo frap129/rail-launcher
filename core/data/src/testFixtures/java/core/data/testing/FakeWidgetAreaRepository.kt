@@ -13,6 +13,7 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.placeOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) : IWidgetAreaRepository {
@@ -30,7 +31,14 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     val currentPageUpdates: MutableList<Pair<Long, Int>> = mutableListOf()
     val edits: MutableList<WidgetAreaEdit> = mutableListOf()
 
-    override val places: Flow<List<WidgetPlace>> = storedPlaces
+    override val places: Flow<List<WidgetPlace>> = placesFor(ownerKey = null)
+
+    override fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> =
+        storedPlaces.map { places -> places.filter { place -> place.ownerKey == ownerKey } }
+
+    override val popupOwnerKeys: Flow<List<String>> = storedPlaces.map { places ->
+        places.mapNotNull { place -> place.ownerKey }.distinct()
+    }
 
     override suspend fun removeHeader(): HeaderRemoval? = removeHeaderPageInternal(widgetId = null)
 
@@ -242,6 +250,25 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
             extendsUnderRail = false,
             defaultHeightDp = request.defaultHeightDp
         )
+        val ownerKey: String? = request.ownerKey
+        if (ownerKey != null) {
+            val existing: WidgetPlace? = storedPlaces.value.firstOrNull { place -> place.ownerKey == ownerKey }
+            val placeId: Long = if (existing == null) {
+                insertPlace(targetIndex = storedPlaces.value.size, widget = widget, ownerKey = ownerKey)
+            } else {
+                storedPlaces.update { places ->
+                    places.map { place ->
+                        if (place.id == existing.id) {
+                            place.copy(widgets = place.widgets + widget, currentPage = place.widgets.size)
+                        } else {
+                            place
+                        }
+                    }
+                }
+                existing.id
+            }
+            return AddedAppWidget(widgetId = widgetId, placeId = placeId)
+        }
         val placeId: Long = when (val insertAt: InsertPosition = request.insertAt) {
             is InsertPosition.IntoStack -> {
                 val targetIndex: Int = storedPlaces.value.indexOfFirst { place -> place.id == insertAt.placeId }
@@ -272,15 +299,28 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
         return AddedAppWidget(widgetId = widgetId, placeId = placeId)
     }
 
-    private fun insertPlace(targetIndex: Int, widget: PlacedWidget): Long {
+    private fun insertPlace(targetIndex: Int, widget: PlacedWidget, ownerKey: String? = null): Long {
         val place: WidgetPlace = WidgetPlace(
             id = nextPlaceId++,
             heightDp = null,
             currentPage = 0,
-            widgets = listOf(widget)
+            widgets = listOf(widget),
+            ownerKey = ownerKey
         )
         storedPlaces.update { places -> places.toMutableList().apply { add(targetIndex, place) } }
         return place.id
+    }
+
+    override suspend fun removeOwnerPlaces(ownerKey: String): List<AppWidgetId> {
+        val ownedPlaces: List<WidgetPlace> = storedPlaces.value.filter { place -> place.ownerKey == ownerKey }
+        if (ownedPlaces.isEmpty()) {
+            return emptyList()
+        }
+        storedPlaces.update { places -> places.filterNot { place -> place.ownerKey == ownerKey } }
+        return ownedPlaces
+            .flatMap { place -> place.widgets }
+            .filterIsInstance<PlacedWidget.AppWidget>()
+            .map { widget -> AppWidgetId(widget.appWidgetId) }
     }
 
     override suspend fun removeWidget(widgetId: Long): AppWidgetId? {

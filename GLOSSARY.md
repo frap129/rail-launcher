@@ -108,6 +108,10 @@ _Avoid_: Resize screen, resize drag
 The region at the top of Home, above Favorites, holding an ordered column of Widgets and Widget Stacks.
 _Avoid_: Widget page, widget list
 
+**Pop-up widget**:
+The App Widget at the top of a Pop-up, owned by that Pop-up and kept out of the Widget Area, Edit Widgets and the Widgets settings list.
+_Avoid_: Card widget, popup widget
+
 **Move Widget Area**:
 The Home edit mode that moves the Widget Area, and everything below it, down by a top offset.
 _Avoid_: Move clock, shift widgets

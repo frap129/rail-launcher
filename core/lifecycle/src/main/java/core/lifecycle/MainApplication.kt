@@ -67,6 +67,8 @@ import core.data.widgets.IHeaderSettingsActions
 import core.data.widgets.IHeaderSettingsActionsImpl
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IRemoveAppWidgetImpl
+import core.data.widgets.IRemoveOwnerWidgets
+import core.data.widgets.IRemoveOwnerWidgetsImpl
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetAreaRepositoryImpl
 import core.data.widgets.IWidgetLifecycleReconciler
@@ -78,19 +80,19 @@ import core.popups.PopupViewModel
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.util.screenHeightPx
+import core.widgets.AppWidgetResults
 import core.widgets.HeaderFormatter
 import core.widgets.IAppWidgetViewCache
 import core.widgets.IAppWidgetViewCacheImpl
 import core.widgets.IHeaderTapTargetResolver
 import core.widgets.IHeaderTapTargetResolverImpl
+import core.widgets.IWidgetAddController
+import core.widgets.IWidgetAddControllerImpl
+import core.widgets.IWidgetResizeController
+import core.widgets.IWidgetResizeControllerImpl
 import core.widgets.RailAppWidgetHost
-import feature.launcher.AppWidgetResults
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
-import feature.launcher.widgets.IWidgetAddController
-import feature.launcher.widgets.IWidgetAddControllerImpl
-import feature.launcher.widgets.IWidgetResizeController
-import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.settings.PopupSettingsViewModel
 import feature.settings.SettingsViewModel
@@ -183,7 +185,7 @@ class MainApplication :
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
-        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
@@ -203,6 +205,7 @@ class MainApplication :
         single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
         single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
+        single<IRemoveOwnerWidgets> { IRemoveOwnerWidgetsImpl(get(), get()) }
         single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext()) }
         factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
@@ -244,7 +247,23 @@ class MainApplication :
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get()) }
-        viewModel { PopupViewModel(get(), get(), get(), get(), get()) }
+        viewModel {
+            val savedStateHandle: SavedStateHandle = get()
+            PopupViewModel(
+                launchableRepository = get(),
+                shortcutSource = get(),
+                popupRepository = get(),
+                folderRepository = get(),
+                homeEditState = get(),
+                widgetRepository = get(),
+                addFlowController = get { parametersOf(savedStateHandle) },
+                resizeController = get(),
+                appWidgetHost = get(),
+                removeAppWidget = get(),
+                widgetLifecycleReconciler = get(),
+                savedStateHandle = savedStateHandle
+            )
+        }
         viewModel { SettingsViewModel(get(), get()) }
         viewModel { PopupSettingsViewModel(get(), get(), get(), get()) }
         viewModel {

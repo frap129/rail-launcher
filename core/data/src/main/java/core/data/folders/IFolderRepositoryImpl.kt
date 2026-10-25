@@ -4,6 +4,7 @@ import core.data.favorites.IFavoritesRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
 import core.data.room.dao.FolderDao
+import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
@@ -37,12 +38,13 @@ class IFolderRepositoryImpl(
         return folder
     }
 
-    override suspend fun delete(folder: Folder) {
+    override suspend fun delete(folder: Folder): List<AppWidgetId> {
         folderDao.delete(id = folder.folderId)
-        popupRepository.deleteOwner(ownerKey = folder.key)
+        val freedIds: List<AppWidgetId> = popupRepository.deleteOwner(ownerKey = folder.key)
         popupRepository.deleteItemsByKey(itemKeys = listOf(folder.key))
         favoritesRepository.remove(folder)
         preferencesRepository.resetItemName(item = folder)
+        return freedIds
     }
 
     override suspend fun setShowInAppList(folder: Folder, show: Boolean) {

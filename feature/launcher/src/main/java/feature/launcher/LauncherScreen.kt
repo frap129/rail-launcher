@@ -71,22 +71,25 @@ import core.ui.util.consumeTouches
 import core.util.openApplicationDetailsSettings
 import core.util.requestQuietModeOff
 import core.util.userForSerial
+import core.widgets.AddWidgetFlowState
+import core.widgets.AddWidgetOrigin
+import core.widgets.AddWidgetPlacement
+import core.widgets.AppWidgetPickerSheet
+import core.widgets.AppWidgetResults
+import core.widgets.AppWidgetViews
 import core.widgets.IAppWidgetViewCache
 import core.widgets.NotificationAccessDialog
-import feature.launcher.widgets.AddWidgetFlowState
-import feature.launcher.widgets.AddWidgetOrigin
-import feature.launcher.widgets.AddWidgetPlacement
-import feature.launcher.widgets.AppWidgetPickerSheet
-import feature.launcher.widgets.AppWidgetViews
+import core.widgets.ResizeState
+import core.widgets.UndoAction
+import core.widgets.WidgetEvent
 import feature.launcher.widgets.MoveWidgetAreaPanel
 import feature.launcher.widgets.MoveWidgetAreaState
-import feature.launcher.widgets.ResizeState
-import feature.launcher.widgets.UndoAction
-import feature.launcher.widgets.WidgetAreaEvent
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -114,11 +117,6 @@ fun LauncherScreen(
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
-    val headerRemovedMessage: String = stringResource(R.string.header_removed)
-    val headerReplacedMessage: String = stringResource(R.string.header_replaced)
-    val undoLabel: String = stringResource(R.string.undo)
-    val calendarPermissionMessage: String = stringResource(R.string.calendar_permission_needed)
-    val openSettingsLabel: String = stringResource(CoreUiR.string.open_settings)
     val finishEditingHomeMessage: String = stringResource(R.string.finish_editing_home)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
@@ -170,7 +168,7 @@ fun LauncherScreen(
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
 
                 Lifecycle.Event.ON_STOP -> {
-                    popupViewModel.close()
+                    popupViewModel.onStopped()
                     widgetViewModel.finishResize()
                     widgetViewModel.finishEditingWidgets()
                     widgetViewModel.finishMoveWidgetArea()
@@ -189,128 +187,42 @@ fun LauncherScreen(
             appWidgetHostSource.stopListening()
         }
     }
-    LaunchedEffect(viewModel, widgetViewModel) {
-        widgetViewModel.events.collect { event ->
-            when (event) {
-                is WidgetAreaEvent.ShowUndo -> coroutineScope.launch {
-                    val action: UndoAction = event.action
-                    val result: SnackbarResult = snackbarHostState.showSnackbar(
-                        message = when (action) {
-                            is UndoAction.RemoveHeader -> headerRemovedMessage
-
-                            is UndoAction.ReplaceHeader -> headerReplacedMessage
-
-                            is UndoAction.IncludeMediaApp -> context.getString(
-                                R.string.media_player_excluded,
-                                action.appLabel
-                            )
-                        },
-                        actionLabel = undoLabel,
-                        duration = SnackbarDuration.Short
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        widgetViewModel.undo(action = action)
-                    }
-                }
-
-                WidgetAreaEvent.RequestCalendarPermission -> permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
-
-                is WidgetAreaEvent.ShowCalendarPermissionDenied -> {
-                    if (event.permanentlyDenied) {
-                        showCalendarPermissionDialog = true
-                    } else {
-                        coroutineScope.launch {
-                            val result: SnackbarResult = snackbarHostState.showSnackbar(
-                                message = calendarPermissionMessage,
-                                actionLabel = openSettingsLabel,
-                                duration = SnackbarDuration.Long
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                context.openApplicationDetailsSettings()
-                            }
-                        }
-                    }
-                }
-
-                WidgetAreaEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
-
-                WidgetAreaEvent.NavigateToMediaPlayerSettings -> navController.navigate(WIDGETS_MEDIA_SETTINGS_ROUTE)
-
-                WidgetAreaEvent.EditFavorites -> viewModel.editFavorites()
-
-                WidgetAreaEvent.RequestNotificationAccess -> showNotificationAccessDialog = true
-
-                is WidgetAreaEvent.LaunchBind -> {
-                    try {
-                        bindLauncher.launch(AppWidgetViews.bindIntent(context = context, request = event.request))
-                    } catch (exception: ActivityNotFoundException) {
-                        widgetViewModel.onBindResult(granted = false)
-                    } catch (exception: SecurityException) {
-                        widgetViewModel.onBindResult(granted = false)
-                    }
-                }
-
-                is WidgetAreaEvent.LaunchConfigure -> {
-                    val currentActivity: ComponentActivity? = activity
-                    if (currentActivity == null) {
-                        widgetViewModel.onConfigureResult(ok = false)
-                    } else {
-                        try {
-                            appWidgetHostSource.startConfiguring(
-                                activity = currentActivity,
-                                id = event.id,
-                                requestCode = AppWidgetResults.REQUEST_CODE
-                            )
-                        } catch (exception: ActivityNotFoundException) {
-                            widgetViewModel.onConfigureResult(ok = false)
-                        } catch (exception: SecurityException) {
-                            widgetViewModel.onConfigureResult(ok = false)
-                        }
-                    }
-                }
-
-                is WidgetAreaEvent.LaunchReconfigure -> {
-                    val currentActivity: ComponentActivity? = activity
-                    if (currentActivity == null) {
-                        widgetViewModel.onReconfigureResult(ok = false)
-                    } else {
-                        try {
-                            appWidgetHostSource.startConfiguring(
-                                activity = currentActivity,
-                                id = event.id,
-                                requestCode = AppWidgetResults.RECONFIGURE_REQUEST_CODE
-                            )
-                        } catch (exception: ActivityNotFoundException) {
-                            widgetViewModel.onReconfigureResult(ok = false)
-                        } catch (exception: SecurityException) {
-                            widgetViewModel.onReconfigureResult(ok = false)
-                        }
-                    }
-                }
-
-                is WidgetAreaEvent.ShowMessage -> coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message =
-                        event.formatArg?.let { arg -> context.getString(event.message, arg) } ?: context.getString(event.message)
-                    )
-                }
-
-                is WidgetAreaEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
-
-                is WidgetAreaEvent.ReportWidgetSize -> appWidgetViewCache.updateSize(
-                    ids = event.appWidgetIds,
-                    widthDp = event.widthDp,
-                    heightDp = event.heightDp
-                )
-
-                is WidgetAreaEvent.RequestQuietModeOff -> context.userForSerial(event.profileSerial)?.let { profile ->
-                    context.requestQuietModeOff(profile)
-                }
-
-                is WidgetAreaEvent.ScrollToPlace -> widgetViewModel.requestScrollToPlace(placeId = event.placeId)
-
-                WidgetAreaEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
-            }
+    LaunchedEffect(viewModel, widgetViewModel, popupViewModel) {
+        val widgetCallbacks: WidgetEventCallbacks = WidgetEventCallbacks(
+            onBindResult = widgetViewModel::onBindResult,
+            onConfigureResult = widgetViewModel::onConfigureResult,
+            onReconfigureResult = widgetViewModel::onReconfigureResult,
+            onScrollToPlace = widgetViewModel::requestScrollToPlace,
+            onUndo = widgetViewModel::undo,
+            onEditFavorites = viewModel::editFavorites
+        )
+        val popupCallbacks: WidgetEventCallbacks = WidgetEventCallbacks(
+            onBindResult = popupViewModel::onBindResult,
+            onConfigureResult = popupViewModel::onConfigureResult,
+            onReconfigureResult = popupViewModel::onReconfigureResult,
+            onScrollToPlace = {},
+            onUndo = {},
+            onEditFavorites = viewModel::editFavorites
+        )
+        merge(
+            widgetViewModel.events.map { event -> event to widgetCallbacks },
+            popupViewModel.events.map { event -> event to popupCallbacks }
+        ).collect { (event, callbacks) ->
+            handleWidgetEvent(
+                event = event,
+                activity = activity,
+                context = context,
+                coroutineScope = coroutineScope,
+                snackbarHostState = snackbarHostState,
+                appWidgetHostSource = appWidgetHostSource,
+                appWidgetViewCache = appWidgetViewCache,
+                bindLauncher = bindLauncher,
+                permissionLauncher = permissionLauncher,
+                navController = navController,
+                callbacks = callbacks,
+                showCalendarPermissionDialog = { showCalendarPermissionDialog = true },
+                showNotificationAccessDialog = { showNotificationAccessDialog = true }
+            )
         }
     }
     LaunchedEffect(viewModel, popupViewModel) {
@@ -363,10 +275,12 @@ fun LauncherScreen(
             // Only bind-configuration results change data; reconfigure results keep the widget either way.
             if (result.requestCode == AppWidgetResults.REQUEST_CODE) {
                 widgetViewModel.onConfigureResult(ok = result.isOk)
+                popupViewModel.onConfigureResult(ok = result.isOk)
             }
         }
     }
     val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
+    val popupAddFlowState: AddWidgetFlowState by popupViewModel.addFlowState.collectAsState()
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
@@ -458,6 +372,14 @@ fun LauncherScreen(
                 onDismiss = widgetViewModel::cancelAdd
             )
         }
+        if (popupAddFlowState is AddWidgetFlowState.Picking) {
+            AppWidgetPickerSheet(
+                state = popupAddFlowState as AddWidgetFlowState.Picking,
+                onQueryChange = popupViewModel::setPickerQuery,
+                onPick = popupViewModel::pickProvider,
+                onDismiss = popupViewModel::cancelAdd
+            )
+        }
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -511,3 +433,142 @@ private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFai
             }
         }
     )
+
+private class WidgetEventCallbacks(
+    val onBindResult: (Boolean) -> Unit,
+    val onConfigureResult: (Boolean) -> Unit,
+    val onReconfigureResult: (Boolean) -> Unit,
+    val onScrollToPlace: (Long) -> Unit,
+    val onUndo: (UndoAction) -> Unit,
+    val onEditFavorites: () -> Unit
+)
+
+private suspend fun handleWidgetEvent(
+    event: WidgetEvent,
+    activity: ComponentActivity?,
+    context: Context,
+    coroutineScope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    appWidgetHostSource: IAppWidgetHostSource,
+    appWidgetViewCache: IAppWidgetViewCache,
+    bindLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>,
+    permissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
+    navController: NavController,
+    callbacks: WidgetEventCallbacks,
+    showCalendarPermissionDialog: () -> Unit,
+    showNotificationAccessDialog: () -> Unit
+) {
+    when (event) {
+        is WidgetEvent.ShowUndo -> coroutineScope.launch {
+            val action: UndoAction = event.action
+            val result: SnackbarResult = snackbarHostState.showSnackbar(
+                message = when (action) {
+                    is UndoAction.RemoveHeader -> context.getString(R.string.header_removed)
+                    is UndoAction.ReplaceHeader -> context.getString(R.string.header_replaced)
+                    is UndoAction.IncludeMediaApp -> context.getString(R.string.media_player_excluded, action.appLabel)
+                },
+                actionLabel = context.getString(R.string.undo),
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                callbacks.onUndo(action)
+            }
+        }
+
+        WidgetEvent.RequestCalendarPermission -> permissionLauncher.launch(Manifest.permission.READ_CALENDAR)
+
+        is WidgetEvent.ShowCalendarPermissionDenied -> {
+            if (event.permanentlyDenied) {
+                showCalendarPermissionDialog()
+            } else {
+                coroutineScope.launch {
+                    val result: SnackbarResult = snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.calendar_permission_needed),
+                        actionLabel = context.getString(CoreUiR.string.open_settings),
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        context.openApplicationDetailsSettings()
+                    }
+                }
+            }
+        }
+
+        WidgetEvent.NavigateToWidgetSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
+
+        WidgetEvent.NavigateToMediaPlayerSettings -> navController.navigate(WIDGETS_MEDIA_SETTINGS_ROUTE)
+
+        WidgetEvent.EditFavorites -> callbacks.onEditFavorites()
+
+        WidgetEvent.RequestNotificationAccess -> showNotificationAccessDialog()
+
+        is WidgetEvent.LaunchBind -> try {
+            bindLauncher.launch(AppWidgetViews.bindIntent(context = context, request = event.request))
+        } catch (exception: ActivityNotFoundException) {
+            callbacks.onBindResult(false)
+        } catch (exception: SecurityException) {
+            callbacks.onBindResult(false)
+        }
+
+        is WidgetEvent.LaunchConfigure -> {
+            val currentActivity: ComponentActivity? = activity
+            if (currentActivity == null) {
+                callbacks.onConfigureResult(false)
+            } else {
+                try {
+                    appWidgetHostSource.startConfiguring(
+                        activity = currentActivity,
+                        id = event.id,
+                        requestCode = AppWidgetResults.REQUEST_CODE
+                    )
+                } catch (exception: ActivityNotFoundException) {
+                    callbacks.onConfigureResult(false)
+                } catch (exception: SecurityException) {
+                    callbacks.onConfigureResult(false)
+                }
+            }
+        }
+
+        is WidgetEvent.LaunchReconfigure -> {
+            val currentActivity: ComponentActivity? = activity
+            if (currentActivity == null) {
+                callbacks.onReconfigureResult(false)
+            } else {
+                try {
+                    appWidgetHostSource.startConfiguring(
+                        activity = currentActivity,
+                        id = event.id,
+                        requestCode = AppWidgetResults.RECONFIGURE_REQUEST_CODE
+                    )
+                } catch (exception: ActivityNotFoundException) {
+                    callbacks.onReconfigureResult(false)
+                } catch (exception: SecurityException) {
+                    callbacks.onReconfigureResult(false)
+                }
+            }
+        }
+
+        is WidgetEvent.ShowMessage -> coroutineScope.launch {
+            snackbarHostState.showSnackbar(
+                message = event.formatArg?.let { arg -> context.getString(event.message, arg) }
+                    ?: context.getString(event.message)
+            )
+        }
+
+        is WidgetEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
+
+        is WidgetEvent.ReportWidgetSize -> appWidgetViewCache.updateSize(
+            ids = event.appWidgetIds,
+            widthDp = event.widthDp,
+            heightDp = event.heightDp
+        )
+
+        is WidgetEvent.RequestQuietModeOff -> context.userForSerial(event.profileSerial)?.let { profile ->
+            context.requestQuietModeOff(profile)
+        }
+
+        is WidgetEvent.ScrollToPlace -> callbacks.onScrollToPlace(event.placeId)
+
+        WidgetEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
+    }
+}

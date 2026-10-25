@@ -312,6 +312,28 @@ class IWidgetAreaRepositoryImplTest {
     }
 
     @Test
+    fun `commitEdit keeps Pop-up places`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                popupPlace(id = 2L, ownerKey = "owner-key")
+            ),
+            initialWidgets = listOf(
+                header(id = 10L, placeId = 1L, pagePosition = 0),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        val actualFreedIds: List<AppWidgetId> = repository.commitEdit(
+            edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L))))
+        )
+
+        assertTrue(actualFreedIds.isEmpty())
+        assertEquals(1, repository.popupPlace(ownerKey = "owner-key").first()?.widgets?.size)
+    }
+
+    @Test
     fun `commitEdit ignores removed places in the order`() = runTest {
         val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
             initialPlaces = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
@@ -608,6 +630,83 @@ class IWidgetAreaRepositoryImplTest {
         assertEquals(listOf(1L, 2L, inputAddedPlaceId), mockDao.getPlaceIds())
     }
 
+    @Test
+    fun `excludes Pop-up places from the Widget Area`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                popupPlace(id = 2L, ownerKey = "owner-key")
+            ),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
+            )
+        )
+
+        val actualPlaces: List<WidgetPlace> = repository(mockDao).places.first()
+
+        assertEquals(listOf(1L), actualPlaces.map { place -> place.id })
+        assertEquals(null, actualPlaces.single().ownerKey)
+    }
+
+    @Test
+    fun `popupPlace returns the place owned by its Pop-up`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(
+                place(id = 1L, position = 0),
+                popupPlace(id = 2L, ownerKey = "owner-key")
+            ),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
+            )
+        )
+
+        val actualPlace: WidgetPlace? = repository(mockDao).popupPlace(ownerKey = "owner-key").first()
+
+        assertEquals(2L, actualPlace?.id)
+        assertEquals("owner-key", actualPlace?.ownerKey)
+        assertEquals(200, (actualPlace?.widgets?.single() as PlacedWidget.AppWidget).appWidgetId)
+    }
+
+    @Test
+    fun `addAppWidget with an owner key creates and fills its Pop-up place`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        val actualAdded: AddedAppWidget = repository.addAppWidget(
+            request = AddAppWidget(
+                appWidgetId = AppWidgetId(77),
+                provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.End,
+                defaultHeightDp = 48,
+                ownerKey = "owner-key"
+            )
+        )
+
+        val actualPlace: WidgetPlace = repository.popupPlace(ownerKey = "owner-key").first()!!
+        assertEquals(actualAdded.placeId, actualPlace.id)
+        assertEquals("owner-key", actualPlace.ownerKey)
+        assertEquals(77, (actualPlace.widgets.single() as PlacedWidget.AppWidget).appWidgetId)
+        assertTrue(repository.places.first().isEmpty())
+    }
+
+    @Test
+    fun `removeOwnerPlaces deletes its place and returns the freed ids`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            initialWidgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        )
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        val actualFreedIds: List<AppWidgetId> = repository.removeOwnerPlaces(ownerKey = "owner-key")
+
+        assertEquals(listOf(AppWidgetId(200)), actualFreedIds)
+        assertTrue(mockDao.getPlaceIds().isEmpty())
+        assertTrue(mockDao.getAppWidgets().isEmpty())
+    }
+
     private suspend fun repository(
         mockDao: FakeWidgetAreaDao,
         mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
@@ -625,6 +724,14 @@ class IWidgetAreaRepositoryImplTest {
         position = position,
         heightDp = null,
         currentPage = 0
+    )
+
+    private fun popupPlace(id: Long, ownerKey: String): WidgetPlaceRecord = WidgetPlaceRecord(
+        id = id,
+        position = 0,
+        heightDp = null,
+        currentPage = 0,
+        ownerKey = ownerKey
     )
 
     private fun header(id: Long, placeId: Long, pagePosition: Int): WidgetRecord = WidgetRecord(

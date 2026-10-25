@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
 class IWidgetAreaRepositoryImpl(
@@ -14,7 +15,13 @@ class IWidgetAreaRepositoryImpl(
     private val appWidgetHost: IAppWidgetHostSource,
     private val lifecycleReconciler: IWidgetLifecycleReconciler
 ) : IWidgetAreaRepository {
-    override val places: Flow<List<WidgetPlace>> = combine(
+    override val places: Flow<List<WidgetPlace>> = placesFor(ownerKey = null)
+
+    override val popupOwnerKeys: Flow<List<String>> = widgetAreaDao.observePopupOwnerKeys()
+        .map { ownerKeys -> ownerKeys.distinct() }
+        .distinctUntilChanged()
+
+    override fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> = combine(
         widgetAreaDao.observePlaces(),
         widgetAreaDao.observeWidgets(),
         appWidgetHost.providerChanges.onStart { emit(Unit) },
@@ -23,10 +30,15 @@ class IWidgetAreaRepositoryImpl(
         if (!startupReconciled) {
             emptyList()
         } else {
-            val resolution: WidgetAreaResolution = resolveWidgetArea(places, widgets) { widget ->
+            val ownedPlaces: List<WidgetPlaceRecord> = places.filter { place -> place.ownerKey == ownerKey }
+            val ownedPlaceIds: Set<Long> = ownedPlaces.mapTo(mutableSetOf()) { place -> place.id }
+            val ownedWidgets: List<WidgetRecord> = widgets.filter { widget -> widget.placeId in ownedPlaceIds }
+            val resolution: WidgetAreaResolution = resolveWidgetArea(ownedPlaces, ownedWidgets) { widget ->
                 widget.availability(host = appWidgetHost)
             }
-            widgetAreaDao.deleteDuplicateHeaders(resolution.duplicateHeaderIds)
+            if (ownerKey == null) {
+                widgetAreaDao.deleteDuplicateHeaders(resolution.duplicateHeaderIds)
+            }
             resolution.places
         }
     }.flowOn(Dispatchers.IO)
@@ -198,6 +210,10 @@ class IWidgetAreaRepositoryImpl(
     }
 
     private suspend fun addAppWidgetRows(request: AddAppWidget): AddedAppWidget {
+        val ownerKey: String? = request.ownerKey
+        if (ownerKey != null) {
+            return addOwnedAppWidget(ownerKey = ownerKey, request = request)
+        }
         val stackPlaceId: Long? = (request.insertAt as? InsertPosition.IntoStack)?.placeId
         if (stackPlaceId != null) {
             val pages: List<WidgetRecord> = widgetAreaDao.getWidgetsForPlace(stackPlaceId)
@@ -213,6 +229,15 @@ class IWidgetAreaRepositoryImpl(
         widgetAreaDao.shiftPositionsFrom(position)
         val placeId: Long = widgetAreaDao.insertPlace(WidgetPlaceRecord(position = position))
         val widgetId: Long = insertAppWidget(placeId = placeId, pagePosition = 0, request = request)
+        return AddedAppWidget(widgetId = widgetId, placeId = placeId)
+    }
+
+    private suspend fun addOwnedAppWidget(ownerKey: String, request: AddAppWidget): AddedAppWidget {
+        val placeId: Long = widgetAreaDao.getPlaceForOwner(ownerKey)?.id
+            ?: widgetAreaDao.insertPlace(WidgetPlaceRecord(position = 0, ownerKey = ownerKey))
+        val pagePosition: Int = widgetAreaDao.getWidgetsForPlace(placeId).size
+        val widgetId: Long = insertAppWidget(placeId = placeId, pagePosition = pagePosition, request = request)
+        widgetAreaDao.setCurrentPage(placeId = placeId, page = pagePosition)
         return AddedAppWidget(widgetId = widgetId, placeId = placeId)
     }
 
@@ -235,6 +260,16 @@ class IWidgetAreaRepositoryImpl(
         return AppWidgetId(freedId)
     }
 
+    override suspend fun removeOwnerPlaces(ownerKey: String): List<AppWidgetId> = widgetAreaDao.inTransaction {
+        val placeIds: List<Long> = widgetAreaDao.placeIdsForOwner(ownerKey)
+        if (placeIds.isEmpty()) {
+            return@inTransaction emptyList()
+        }
+        val freedIds: List<AppWidgetId> = widgetAreaDao.appWidgetIdsForPlaces(placeIds).map(::AppWidgetId)
+        widgetAreaDao.deletePlacesForOwner(ownerKey)
+        freedIds
+    }
+
     override suspend fun setPlaceHeight(placeId: Long, heightDp: Int?) {
         widgetAreaDao.setPlaceHeight(placeId = placeId, heightDp = heightDp)
     }
@@ -245,7 +280,7 @@ class IWidgetAreaRepositoryImpl(
 
     override suspend fun commitEdit(edit: WidgetAreaEdit): List<AppWidgetId> {
         val freedIds: List<AppWidgetId> = widgetAreaDao.commitEdit(edit = edit).map(::AppWidgetId)
-        widgetAreaDao.getPlaceIds().forEach { placeId ->
+        widgetAreaDao.getWidgetAreaPlaceIds().forEach { placeId ->
             clampDissolvedPlace(dao = widgetAreaDao, host = appWidgetHost, placeId = placeId)
         }
         return freedIds
@@ -285,7 +320,8 @@ internal fun resolveWidgetArea(
                     id = place.id,
                     heightDp = place.heightDp,
                     currentPage = place.currentPage.coerceIn(0, placedWidgets.lastIndex),
-                    widgets = placedWidgets
+                    widgets = placedWidgets,
+                    ownerKey = place.ownerKey
                 )
             }
         }

@@ -2,9 +2,18 @@ package core.data.folders
 
 import core.data.favorites.IFavoritesRepository
 import core.data.launchables.model.Launchable
+import core.data.popups.IPopupRepositoryImpl
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeFolderDao
+import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakePopupDao
 import core.data.testing.FakePopupRepository
 import core.data.testing.FakePreferencesRepository
+import core.data.testing.FakeShortcutSource
+import core.data.testing.FakeWidgetAreaRepository
+import core.data.testing.appWidgetPlace
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IRemoveOwnerWidgetsImpl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -96,6 +105,38 @@ class IFolderRepositoryImplTest {
         assertEquals(listOf(inputFolder.key), mockFavoritesRepository.removed.map { folder -> folder.key })
         assertEquals(listOf(inputFolder.key), mockPreferencesRepository.resets.map { folder -> folder.key })
         assertEquals(0, inputFolder.shade)
+    }
+
+    @Test
+    fun `delete frees the Folder's widget place and App Widget ids`() = runTest {
+        val inputFolder: Folder = Folder(folderId = 3L)
+        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L, appWidgetId = 55, ownerKey = inputFolder.key))
+        )
+        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val mockPopupRepository: IPopupRepositoryImpl = IPopupRepositoryImpl(
+            popupDao = FakePopupDao(),
+            launchableRepository = FakeLaunchableRepository(groups = emptyList()),
+            shortcutSource = FakeShortcutSource(),
+            scope = backgroundScope,
+            widgetAreaRepository = mockWidgetAreaRepository,
+            removeOwnerWidgets = IRemoveOwnerWidgetsImpl(
+                repository = mockWidgetAreaRepository,
+                host = mockAppWidgetHost
+            )
+        )
+        val repository: IFolderRepository = IFolderRepositoryImpl(
+            folderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = inputFolder.folderId))),
+            favoritesRepository = RecordingFavoritesRepository(),
+            popupRepository = mockPopupRepository,
+            preferencesRepository = FakePreferencesRepository()
+        )
+
+        val actualFreedIds: List<AppWidgetId> = repository.delete(inputFolder)
+
+        assertEquals(listOf(AppWidgetId(55)), actualFreedIds)
+        assertTrue(mockWidgetAreaRepository.placesFor(ownerKey = inputFolder.key).first().isEmpty())
+        assertEquals(listOf(AppWidgetId(55)), mockAppWidgetHost.deletedIds)
     }
 
     @Test

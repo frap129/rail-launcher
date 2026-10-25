@@ -3,6 +3,7 @@ package core.popups
 import android.content.ComponentName
 import android.os.UserHandle
 import androidx.compose.ui.geometry.Offset
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -14,15 +15,33 @@ import core.data.popups.PopupItem
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
+import core.data.testing.FakeRemoveAppWidget
 import core.data.testing.FakeShortcutSource
+import core.data.testing.FakeWidgetAreaDao
+import core.data.testing.FakeWidgetAreaRepository
+import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
+import core.data.testing.appWidgetPlace
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IWidgetLifecycleReconcilerImpl
+import core.data.widgets.PlacedWidget
+import core.data.widgets.WidgetPlace
+import core.data.widgets.WidgetProvider
+import core.data.widgets.WidgetProviderInfo
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.widgets.AddWidgetFlowState
+import core.widgets.IWidgetResizeControllerImpl
+import core.widgets.WidgetEvent
+import core.widgets.testing.appWidgetProviderInfo
+import core.widgets.testing.createAddController
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -30,6 +49,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -108,6 +128,11 @@ class PopupViewModelTest {
     })
     private val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder, inputSecondFolder))
     private val inputHomeEditState: HomeEditState = HomeEditState()
+    private val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
+    private val fakeAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+    private val fakeRemoveAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget()
+    private val fakeWidgetSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+    private val fakeWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
 
     @Test
     fun `starts closed`() = runTest {
@@ -259,7 +284,7 @@ class PopupViewModelTest {
             viewModel.openMenu()
             val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
             assertEquals(inputApp, actualMenu.target)
-            assertEquals(listOf(PopupMenuItem.EditPopup, PopupMenuItem.AppInfo), actualMenu.items)
+            assertEquals(listOf(PopupMenuItem.EditPopup, PopupMenuItem.AddWidget, PopupMenuItem.AppInfo), actualMenu.items)
         }
     }
 
@@ -770,7 +795,7 @@ class PopupViewModelTest {
             viewModel.openMenu()
             val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
             assertEquals(inputFolder, actualMenu.target)
-            assertEquals(listOf(PopupMenuItem.EditFolder, PopupMenuItem.DeleteFolder), actualMenu.items)
+            assertEquals(listOf(PopupMenuItem.EditFolder, PopupMenuItem.AddWidget, PopupMenuItem.DeleteFolder), actualMenu.items)
         }
     }
 
@@ -993,11 +1018,306 @@ class PopupViewModelTest {
         assertEquals(AddToFolderState.Closed, viewModel.addToFolderState.value)
     }
 
-    private fun createViewModel(homeEditState: HomeEditState = inputHomeEditState): PopupViewModel = PopupViewModel(
+    @Test
+    fun `shows the owner's widget at the top of the card`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel()
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+
+            assertEquals(5L, actualState.widget?.placeId)
+            assertEquals(6L, actualState.widget?.widgetId)
+            assertEquals(48, actualState.widget?.heightDp)
+            assertTrue(actualState.widget?.isResizable == true)
+        }
+    }
+
+    @Test
+    fun `caps the widget height at 60 percent of the window`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel(
+            widgetPlace = appWidgetPlace(
+                placeId = 5L,
+                widgetId = 6L,
+                appWidgetId = 9,
+                ownerKey = inputApp.key,
+                heightDp = 1_000
+            ),
+            providerInfo = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 2_000)
+        )
+        viewModel.setWindowHeight(heightDp = 400)
+
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+
+            assertEquals(240, actualState.widget?.heightDp)
+        }
+    }
+
+    @Test
+    fun `owner menu offers widget actions instead of Add widget`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(PopupMenuItem.EditPopup, PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget, PopupMenuItem.AppInfo),
+                actualMenu.items
+            )
+        }
+    }
+
+    @Test
+    fun `widget menu offers Resize, Reconfigure, Remove widget and App info`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel(
+            providerInfo = appWidgetProviderInfo(
+                isVerticallyResizable = true,
+                isReconfigurable = true,
+                hasConfigureActivity = true
+            )
+        )
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openWidgetMenu(widgetId = 6L)
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(
+                    PopupMenuItem.ResizeWidget,
+                    PopupMenuItem.ReconfigureWidget,
+                    PopupMenuItem.RemoveWidget,
+                    PopupMenuItem.AppInfo
+                ),
+                actualMenu.items
+            )
+            assertEquals(6L, actualMenu.widget?.widgetId)
+        }
+    }
+
+    @Test
+    fun `startAddWidget opens the picker at the owner with its own providers first`() = runTest {
+        val inputOwnerProvider = appWidgetProviderInfo(
+            provider = WidgetProvider(packageName = inputApp.packageName, className = "OwnerWidget"),
+            appPackageName = inputApp.packageName,
+            appLabel = "Zeta"
+        )
+        val inputOtherProvider = appWidgetProviderInfo(
+            provider = WidgetProvider(packageName = "com.other", className = "OtherWidget"),
+            appPackageName = "com.other",
+            appLabel = "Alpha"
+        )
+        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
+            initialProviders = listOf(inputOtherProvider, inputOwnerProvider)
+        )
+        val viewModel: PopupViewModel = createViewModel(appWidgetHost = mockAppWidgetHost)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.startAddWidget()
+        runCurrent()
+
+        val actualPicking: AddWidgetFlowState.Picking = viewModel.addFlowState.value as AddWidgetFlowState.Picking
+        assertEquals(inputApp.key, actualPicking.origin.ownerKey)
+        assertEquals(listOf("Zeta", "Alpha"), actualPicking.groups.map { group -> group.appLabel })
+    }
+
+    @Test
+    fun `reopens the card for the owner after the add flow`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.startAddWidget()
+        runCurrent()
+
+        val restoredViewModel: PopupViewModel = createViewModel(savedStateHandle = inputSavedStateHandle)
+        restoredViewModel.popupState.test {
+            runCurrent()
+
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+
+            assertEquals(inputApp, actualState.owner)
+            assertNull(actualState.anchor)
+        }
+    }
+
+    @Test
+    fun `removeWidget frees the host view and reports the Widget removed message`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.events.test {
+            viewModel.removeWidget()
+            runCurrent()
+
+            assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
+        }
+        assertEquals(listOf(6L), fakeRemoveAppWidget.removedWidgetIds)
+    }
+
+    @Test
+    fun `Back finishes Resize and keeps the card open`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel(
+            providerInfo = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200)
+        )
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        runCurrent()
+        viewModel.resizeWidget()
+        runCurrent()
+        runCurrent()
+
+        assertTrue(viewModel.widgetState.value != null)
+        assertTrue(viewModel.resizeState.value != null)
+        assertTrue(viewModel.onBack())
+        runCurrent()
+
+        assertNull(viewModel.resizeState.value)
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+    }
+
+    @Test
+    fun `a launch during Resize finishes it and keeps the card open`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel(
+            providerInfo = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200)
+        )
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.resizeWidget()
+        runCurrent()
+
+        viewModel.onLaunched()
+        runCurrent()
+
+        assertNull(viewModel.resizeState.value)
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+    }
+
+    @Test
+    fun `keeps the card open while Resize targets its own widget place`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        inputHomeEditState.tryEnter(HomeEditMode.Resizing(placeId = 5L))
+        runCurrent()
+
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+    }
+
+    @Test
+    fun `closes the card when Resize targets another place`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        inputHomeEditState.tryEnter(HomeEditMode.Resizing(placeId = 99L))
+        runCurrent()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+    }
+
+    @Test
+    fun `removed owner widget ids drop their host views`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+
+        viewModel.events.test {
+            fakePopupRepository.emitRemovedWidget(appWidgetId = AppWidgetId(33))
+            runCurrent()
+
+            assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(33)), awaitItem())
+        }
+    }
+
+    @Test
+    fun `leaving the app keeps the card open while an add flow is pending`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.startAddWidget()
+        runCurrent()
+
+        viewModel.onStopped()
+
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+    }
+
+    @Test
+    fun `leaving the app closes the card when no add flow is pending`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.onStopped()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+    }
+
+    private fun createWidgetViewModel(
+        widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
+        providerInfo: WidgetProviderInfo? = appWidgetProviderInfo(isVerticallyResizable = true)
+    ): PopupViewModel {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(widgetPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        if (providerInfo != null) {
+            val appWidgetId: AppWidgetId = AppWidgetId((widgetPlace.widgets.single() as PlacedWidget.AppWidget).appWidgetId)
+            mockHost.providerInfoById[appWidgetId] = providerInfo
+        }
+        return createViewModel(widgetRepository = mockRepository, appWidgetHost = mockHost)
+    }
+
+    private fun createViewModel(
+        homeEditState: HomeEditState = inputHomeEditState,
+        savedStateHandle: SavedStateHandle = inputSavedStateHandle,
+        widgetRepository: FakeWidgetAreaRepository = fakeWidgetAreaRepository,
+        appWidgetHost: FakeAppWidgetHostSource = fakeAppWidgetHost,
+        removeAppWidget: FakeRemoveAppWidget = fakeRemoveAppWidget
+    ): PopupViewModel = PopupViewModel(
         launchableRepository = fakeLaunchableRepository,
         shortcutSource = fakeShortcutSource,
         popupRepository = fakePopupRepository,
         folderRepository = fakeFolderRepository,
-        homeEditState = homeEditState
+        homeEditState = homeEditState,
+        widgetRepository = widgetRepository,
+        addFlowController = createAddController(
+            repository = widgetRepository,
+            appWidgetHost = appWidgetHost,
+            homeEditState = homeEditState,
+            savedStateHandle = savedStateHandle
+        ),
+        resizeController = IWidgetResizeControllerImpl(
+            repository = widgetRepository,
+            appWidgetHost = appWidgetHost,
+            settingsRepository = fakeWidgetSettingsRepository,
+            homeEditState = homeEditState
+        ),
+        appWidgetHost = appWidgetHost,
+        removeAppWidget = removeAppWidget,
+        widgetLifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = FakeWidgetAreaDao(), host = appWidgetHost),
+        savedStateHandle = savedStateHandle
     )
 }

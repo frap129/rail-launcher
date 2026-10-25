@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import android.os.Build
 import android.util.SparseIntArray

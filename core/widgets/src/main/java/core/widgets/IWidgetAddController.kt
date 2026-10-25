@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import core.data.icons.model.Icon
 import core.data.widgets.AppWidgetId
@@ -9,7 +9,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /** Where a picked App Widget is inserted and whether the flow returns to Settings. */
-data class AddWidgetOrigin(val insertAt: InsertPosition, val returnToSettings: Boolean = false)
+data class AddWidgetOrigin(
+    val insertAt: InsertPosition,
+    val returnToSettings: Boolean = false,
+    /** The Pop-up owning the new widget, or null when it belongs to the Widget Area. */
+    val ownerKey: String? = null,
+    /** The owner App whose own providers the picker lists first. */
+    val suggestedPackageName: String? = null
+)
 
 /** The two placements offered when adding from an existing Widget. */
 enum class AddWidgetPlacement {
@@ -42,7 +49,9 @@ data class PickerGroup(
     val appLabel: String,
     val appIcon: Icon,
     val isWorkProfile: Boolean,
-    val widgets: List<WidgetProviderInfo>
+    val widgets: List<WidgetProviderInfo>,
+    /** True when this group holds the owning App's own providers. */
+    val isSuggested: Boolean = false
 )
 
 sealed interface AddWidgetFlowState {
@@ -63,7 +72,7 @@ interface IWidgetAddController {
     val state: StateFlow<AddWidgetFlowState>
 
     /** Events the add flow raises for the launcher to run. */
-    val events: Flow<WidgetAreaEvent>
+    val events: Flow<WidgetEvent>
 
     /** Opens the picker at [origin]; returns false while another Home edit mode is active. */
     fun start(origin: AddWidgetOrigin): Boolean

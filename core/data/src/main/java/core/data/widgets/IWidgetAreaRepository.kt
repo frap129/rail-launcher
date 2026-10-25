@@ -1,6 +1,8 @@
 package core.data.widgets
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /** Where a newly added App Widget place goes in the Widget Area. */
 sealed interface InsertPosition {
@@ -14,13 +16,15 @@ sealed interface InsertPosition {
     data class IntoStack(val placeId: Long) : InsertPosition
 }
 
-/** Everything needed to place a bound App Widget in the Widget Area. */
+/** Everything needed to place a bound App Widget. */
 data class AddAppWidget(
     val appWidgetId: AppWidgetId,
     val provider: WidgetProvider,
     val profileSerial: Long,
     val insertAt: InsertPosition,
-    val defaultHeightDp: Int
+    val defaultHeightDp: Int,
+    /** The Pop-up owning the widget, or null when it belongs to the Widget Area. */
+    val ownerKey: String? = null
 )
 
 /** The inserted App Widget row and the place that now holds it. */
@@ -51,8 +55,19 @@ data class ReplaceHeaderUndo(
 )
 
 interface IWidgetAreaRepository {
-    /** The Widget Area places in display order. Places without Widgets are dropped. */
+    /** The Widget Area places in display order. Places owned by a Pop-up are excluded. */
     val places: Flow<List<WidgetPlace>>
+
+    /** The place owned by the Pop-up [ownerKey], if it has one. */
+    fun popupPlace(ownerKey: String): Flow<WidgetPlace?> = placesFor(ownerKey = ownerKey)
+        .map { places -> places.firstOrNull() }
+        .distinctUntilChanged()
+
+    /** The owner keys of every Pop-up widget place. */
+    val popupOwnerKeys: Flow<List<String>>
+
+    /** The places owned by [ownerKey], or the Widget Area when it is null. */
+    fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>>
 
     /** Moves [widgetId] into the Header's place and removes the Header, returning how to undo it. */
     suspend fun replaceHeader(widgetId: Long): ReplaceHeaderUndo?
@@ -77,6 +92,9 @@ interface IWidgetAreaRepository {
 
     /** Removes the Widget, dissolving a stack to one page and deleting an empty place; returns its system id. */
     suspend fun removeWidget(widgetId: Long): AppWidgetId?
+
+    /** Removes every place owned by [ownerKey] and returns the App Widget ids they held. */
+    suspend fun removeOwnerPlaces(ownerKey: String): List<AppWidgetId>
 
     /** Stores the place height, or null to fall back to the provider default. */
     suspend fun setPlaceHeight(placeId: Long, heightDp: Int?)

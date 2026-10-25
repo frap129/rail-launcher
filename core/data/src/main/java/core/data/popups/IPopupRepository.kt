@@ -1,5 +1,6 @@
 package core.data.popups
 
+import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.flow.Flow
 
 /** Per-App Pop-up preferences. */
@@ -32,6 +33,9 @@ interface IPopupRepository {
     /** Reorders [ownerKey]'s listed items to match [orderedItemKeys], leaving unlisted items in place. */
     suspend fun setItemOrder(ownerKey: String, orderedItemKeys: List<String>)
 
-    /** Deletes the stored Pop-up preferences of [ownerKey], which no longer exists. */
-    suspend fun deleteOwner(ownerKey: String)
+    /** The App Widget ids freed when an owner's Widgets are deleted, including stale-owner cleanup. */
+    val removedWidgetIds: Flow<AppWidgetId>
+
+    /** Deletes the stored Pop-up preferences of [ownerKey], which no longer exists, and frees its Widgets. */
+    suspend fun deleteOwner(ownerKey: String): List<AppWidgetId>
 }

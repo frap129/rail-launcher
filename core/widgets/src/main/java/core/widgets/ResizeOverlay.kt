@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,8 +32,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import core.data.widgets.ResizeBounds
+import core.ui.R as CoreUiR
 import core.ui.layout.minTouchTargetSize
-import feature.launcher.R
 
 /** Dimming applied to Home content that is inert while one place is resized. */
 const val RESIZE_DIMMED_ALPHA: Float = 0.38f
@@ -70,11 +70,11 @@ fun ResizeOverlay(
 private fun ResizeHandle(state: ResizeState, onDrag: (Float) -> Unit, onReset: () -> Unit, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
-    val handleDescription: String = stringResource(R.string.resize_handle)
-    val heightDescription: String = stringResource(R.string.resize_height, state.draftHeightDp)
-    val decreaseLabel: String = stringResource(R.string.resize_decrease_height)
-    val increaseLabel: String = stringResource(R.string.resize_increase_height)
-    val resetLabel: String = stringResource(R.string.resize_reset)
+    val handleDescription: String = stringResource(CoreUiR.string.resize_handle)
+    val heightDescription: String = stringResource(CoreUiR.string.resize_height, state.draftHeightDp)
+    val decreaseLabel: String = stringResource(CoreUiR.string.resize_decrease_height)
+    val increaseLabel: String = stringResource(CoreUiR.string.resize_increase_height)
+    val resetLabel: String = stringResource(CoreUiR.string.resize_reset)
     val atBound: Boolean = state.draftHeightDp <= state.bounds.minDp ||
         state.bounds.maxDp?.let { maxDp -> state.draftHeightDp >= maxDp } == true
     var lastHeightDp: Int by remember { mutableIntStateOf(state.draftHeightDp) }

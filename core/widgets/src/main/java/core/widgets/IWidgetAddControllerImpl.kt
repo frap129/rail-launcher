@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import core.data.widgets.AddAppWidget
@@ -14,9 +14,9 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.placeOf
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
-import feature.launcher.R
 import java.text.Collator
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -41,8 +41,8 @@ class IWidgetAddControllerImpl(
     private val addFlow: MutableStateFlow<AddWidgetFlowState> = MutableStateFlow(AddWidgetFlowState.Idle)
     override val state: StateFlow<AddWidgetFlowState> = addFlow.asStateFlow()
 
-    private val eventChannel: Channel<WidgetAreaEvent> = Channel(Channel.BUFFERED)
-    override val events: Flow<WidgetAreaEvent> = eventChannel.receiveAsFlow()
+    private val eventChannel: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
+    override val events: Flow<WidgetEvent> = eventChannel.receiveAsFlow()
 
     private var providers: List<WidgetProviderInfo> = emptyList()
 
@@ -53,7 +53,7 @@ class IWidgetAddControllerImpl(
         addFlow.value = AddWidgetFlowState.Picking(
             origin = origin,
             query = "",
-            groups = pickerGroups(providers = providers, query = "")
+            groups = pickerGroups(providers = providers, query = "", origin = origin)
         )
         return true
     }
@@ -108,14 +108,14 @@ class IWidgetAddControllerImpl(
         val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return
         addFlow.value = picking.copy(
             query = query,
-            groups = pickerGroups(providers = providers, query = query)
+            groups = pickerGroups(providers = providers, query = query, origin = picking.origin)
         )
     }
 
     override fun updateProviders(providers: List<WidgetProviderInfo>) {
         this.providers = providers
         val picking: AddWidgetFlowState.Picking = addFlow.value as? AddWidgetFlowState.Picking ?: return
-        addFlow.value = picking.copy(groups = pickerGroups(providers = providers, query = picking.query))
+        addFlow.value = picking.copy(groups = pickerGroups(providers = providers, query = picking.query, origin = picking.origin))
     }
 
     override suspend fun pick(provider: WidgetProviderInfo): Long? {
@@ -125,7 +125,7 @@ class IWidgetAddControllerImpl(
         }
         if (!isStillOffered) {
             addFlow.value = AddWidgetFlowState.Idle
-            eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
+            eventChannel.send(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget))
             returnToSettingsIfRequested(origin = picking.origin)
             return null
         }
@@ -147,7 +147,7 @@ class IWidgetAddControllerImpl(
         if (appWidgetHost.bindIfAllowed(request = request)) {
             return continueAfterBind(pending = pending)
         }
-        eventChannel.send(WidgetAreaEvent.LaunchBind(request = request))
+        eventChannel.send(WidgetEvent.LaunchBind(request = request))
         return null
     }
 
@@ -218,7 +218,8 @@ class IWidgetAddControllerImpl(
             defaultHeightDp = savedStateHandle.get<Int>(PENDING_DEFAULT_HEIGHT_KEY) ?: 0,
             origin = AddWidgetOrigin(
                 insertAt = insertAt,
-                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false
+                returnToSettings = savedStateHandle.get<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY) ?: false,
+                ownerKey = savedStateHandle.get<String>(PENDING_OWNER_KEY)
             )
         )
         addFlow.value = if (savedStateHandle.get<String>(PENDING_PHASE_KEY) == PENDING_PHASE_CONFIGURING) {
@@ -236,7 +237,7 @@ class IWidgetAddControllerImpl(
             if (addFlow.value != AddWidgetFlowState.Configuring(widget = pending)) {
                 return null
             }
-            eventChannel.send(WidgetAreaEvent.LaunchConfigure(id = pending.id))
+            eventChannel.send(WidgetEvent.LaunchConfigure(id = pending.id))
             return null
         }
         return placeWidget(pending = pending)
@@ -251,7 +252,8 @@ class IWidgetAddControllerImpl(
                     provider = pending.provider,
                     profileSerial = pending.profileSerial,
                     insertAt = pending.origin.insertAt,
-                    defaultHeightDp = pending.defaultHeightDp
+                    defaultHeightDp = pending.defaultHeightDp,
+                    ownerKey = pending.origin.ownerKey
                 )
             )
         }
@@ -262,8 +264,8 @@ class IWidgetAddControllerImpl(
         val added: AddedAppWidget = placed.getOrThrow()
         addFlow.value = AddWidgetFlowState.Idle
         clearPending()
-        if (!pending.origin.returnToSettings) {
-            eventChannel.send(WidgetAreaEvent.ScrollToPlace(placeId = added.placeId))
+        if (!pending.origin.returnToSettings && pending.origin.ownerKey == null) {
+            eventChannel.send(WidgetEvent.ScrollToPlace(placeId = added.placeId))
         }
         returnToSettingsIfRequested(origin = pending.origin)
         return (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
@@ -278,7 +280,7 @@ class IWidgetAddControllerImpl(
 
     private suspend fun returnToSettingsIfRequested(origin: AddWidgetOrigin) {
         if (origin.returnToSettings) {
-            eventChannel.send(WidgetAreaEvent.ReturnToSettings)
+            eventChannel.send(WidgetEvent.ReturnToSettings)
         }
     }
 
@@ -286,9 +288,9 @@ class IWidgetAddControllerImpl(
         appWidgetHost.deleteId(id = id)
         addFlow.value = AddWidgetFlowState.Idle
         clearPending()
-        eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget))
+        eventChannel.send(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget))
         if (returnToSettings) {
-            eventChannel.send(WidgetAreaEvent.ReturnToSettings)
+            eventChannel.send(WidgetEvent.ReturnToSettings)
         }
     }
 
@@ -301,6 +303,7 @@ class IWidgetAddControllerImpl(
         savedStateHandle[PENDING_INSERT_BELOW_PLACE_ID_KEY] = (pending.origin.insertAt as? InsertPosition.Below)?.placeId
         savedStateHandle[PENDING_INSERT_STACK_PLACE_ID_KEY] = (pending.origin.insertAt as? InsertPosition.IntoStack)?.placeId
         savedStateHandle[PENDING_RETURN_TO_SETTINGS_KEY] = pending.origin.returnToSettings
+        savedStateHandle[PENDING_OWNER_KEY] = pending.origin.ownerKey
         savedStateHandle[PENDING_PHASE_KEY] = phase
         pendingIds.set(setOf(pending.id))
     }
@@ -314,14 +317,15 @@ class IWidgetAddControllerImpl(
         savedStateHandle.remove<Long>(PENDING_INSERT_BELOW_PLACE_ID_KEY)
         savedStateHandle.remove<Long>(PENDING_INSERT_STACK_PLACE_ID_KEY)
         savedStateHandle.remove<Boolean>(PENDING_RETURN_TO_SETTINGS_KEY)
+        savedStateHandle.remove<String>(PENDING_OWNER_KEY)
         savedStateHandle.remove<String>(PENDING_PHASE_KEY)
         pendingIds.set(emptySet())
     }
 
-    private fun pickerGroups(providers: List<WidgetProviderInfo>, query: String): List<PickerGroup> {
+    private fun pickerGroups(providers: List<WidgetProviderInfo>, query: String, origin: AddWidgetOrigin): List<PickerGroup> {
         val filter: String = query.trim()
         val collator: Collator = Collator.getInstance()
-        return providers
+        val groups: List<PickerGroup> = providers
             .filter { provider ->
                 filter.isEmpty() ||
                     provider.appLabel.contains(filter, ignoreCase = true) ||
@@ -339,6 +343,10 @@ class IWidgetAddControllerImpl(
                 )
             }
             .sortedWith(compareBy(collator) { group -> group.appLabel })
+        val (suggested: List<PickerGroup>, others: List<PickerGroup>) = groups.partition { group ->
+            group.appPackageName == origin.suggestedPackageName
+        }
+        return suggested.map { group -> group.copy(isSuggested = true) } + others
     }
 
     internal companion object {
@@ -351,5 +359,6 @@ class IWidgetAddControllerImpl(
         const val PENDING_INSERT_STACK_PLACE_ID_KEY: String = "pendingAppWidgetInsertStackPlaceId"
         const val PENDING_RETURN_TO_SETTINGS_KEY: String = "pendingAppWidgetReturnToSettings"
         const val PENDING_PHASE_KEY: String = "pendingAppWidgetPhase"
+        const val PENDING_OWNER_KEY: String = "pendingAppWidgetOwner"
     }
 }

@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets.testing
 
 import androidx.lifecycle.SavedStateHandle
 import core.data.icons.model.Icon
@@ -12,8 +12,11 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.layout.HomeEditState
+import core.widgets.AddWidgetOrigin
+import core.widgets.IWidgetAddController
+import core.widgets.IWidgetAddControllerImpl
 
-internal fun appWidgetProviderInfo(
+fun appWidgetProviderInfo(
     provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
     appPackageName: String = provider.packageName,
     appLabel: String = "Example",
@@ -46,9 +49,9 @@ internal fun appWidgetProviderInfo(
     isVerticallyResizable = isVerticallyResizable
 )
 
-internal fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
+fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
 
-internal fun createAddController(
+fun createAddController(
     repository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),
     appWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(),
     settingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(),

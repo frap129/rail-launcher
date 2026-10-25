@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.clickable
@@ -30,7 +30,6 @@ import coil3.compose.AsyncImage
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
-import feature.launcher.R
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,17 +54,22 @@ fun AppWidgetPickerSheet(
                 value = state.query,
                 onValueChange = onQueryChange,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                placeholder = { Text(text = stringResource(R.string.search_widgets)) },
+                placeholder = { Text(text = stringResource(CoreUiR.string.search_widgets)) },
                 singleLine = true
             )
             if (state.groups.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.no_widgets_found),
+                    text = stringResource(CoreUiR.string.no_widgets_found),
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
                     style = MaterialTheme.typography.bodyLarge
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxHeight()) {
+                    if (state.groups.firstOrNull()?.isSuggested == true) {
+                        item(key = "suggested") {
+                            PickerSectionHeader(label = stringResource(CoreUiR.string.suggested))
+                        }
+                    }
                     state.groups.forEach { group ->
                         item(key = "group:${group.appPackageName}:${group.widgets.first().profileSerial}") {
                             PickerGroupHeader(group = group)
@@ -78,6 +82,15 @@ fun AppWidgetPickerSheet(
             }
         }
     }
+}
+
+@Composable
+private fun PickerSectionHeader(label: String) {
+    Text(
+        text = label,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 2.dp),
+        style = MaterialTheme.typography.titleSmall
+    )
 }
 
 @Composable
@@ -98,7 +111,7 @@ private fun PickerGroupHeader(group: PickerGroup) {
         )
         if (group.isWorkProfile) {
             Text(
-                text = stringResource(R.string.work),
+                text = stringResource(CoreUiR.string.work),
                 modifier = Modifier.padding(start = 8.dp),
                 style = MaterialTheme.typography.labelSmall
             )
@@ -129,7 +142,7 @@ private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderI
         Box(modifier = Modifier.size(56.dp)) {
             AsyncImage(
                 model = preview ?: widget.appIcon,
-                contentDescription = stringResource(R.string.widget_preview, widget.label),
+                contentDescription = stringResource(CoreUiR.string.widget_preview, widget.label),
                 modifier = Modifier.size(56.dp)
             )
             if (workBadge != null) {
@@ -159,7 +172,7 @@ private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderI
                 Text(text = widget.defaultSizeLabel(), style = MaterialTheme.typography.bodySmall)
                 if (widget.isWorkProfile) {
                     Text(
-                        text = stringResource(R.string.work),
+                        text = stringResource(CoreUiR.string.work),
                         modifier = Modifier.padding(start = 8.dp),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -174,7 +187,7 @@ private fun WidgetProviderInfo.defaultSizeLabel(): String = widgetSizeLabel(size
 
 @Composable
 private fun widgetSizeLabel(size: WidgetSize, isCellSize: Boolean): String = if (isCellSize) {
-    stringResource(R.string.widget_size_cells, size.widthDp, size.heightDp)
+    stringResource(CoreUiR.string.widget_size_cells, size.widthDp, size.heightDp)
 } else {
-    stringResource(R.string.widget_size_dp, size.widthDp, size.heightDp)
+    stringResource(CoreUiR.string.widget_size_dp, size.widthDp, size.heightDp)
 }

@@ -39,6 +39,8 @@ import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.ui.util.consumeTouches
 import core.util.requestQuietModeOff
+import core.widgets.ResizeState
+import kotlin.math.roundToInt
 
 private const val ENTER_DURATION_MILLIS: Int = 200
 private const val EXIT_DURATION_MILLIS: Int = 150
@@ -53,6 +55,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
     val density: Density = LocalDensity.current
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val popupState: PopupUiState by viewModel.popupState.collectAsState()
+    val resizeState: ResizeState? by viewModel.resizeState.collectAsState()
     val openState: PopupUiState.Open? = popupState as? PopupUiState.Open
     var shownState: PopupUiState.Open? by remember { mutableStateOf(null) }
     var isExiting: Boolean by remember { mutableStateOf(false) }
@@ -79,6 +82,10 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
     val displayState: PopupUiState.Open? = openState ?: shownState
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val window: IntRect = IntRect(left = 0, top = 0, right = constraints.maxWidth, bottom = constraints.maxHeight)
+        val windowHeightDp: Int = with(density) { window.height.toDp().value.roundToInt() }
+        LaunchedEffect(windowHeightDp) {
+            viewModel.setWindowHeight(heightDp = windowHeightDp)
+        }
         val safePadding: PaddingValues = WindowInsets.safeDrawing.asPaddingValues()
         val safeInsets: PopupInsets = PopupInsets(
             top = with(density) { safePadding.calculateTopPadding().roundToPx() },
@@ -98,23 +105,31 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .consumeTouches(onGestureEnd = viewModel::close)
+                    .consumeTouches(onGestureEnd = if (resizeState != null) viewModel::finishResize else viewModel::close)
             )
         }
         if (displayState != null && frame != null) {
-            val pivotX: Float = if (cardSize.width == 0) {
+            val pivotX: Float = if (cardSize.width == 0 || displayState.anchor == null) {
                 0.5f
             } else {
                 ((displayState.anchor.iconCenter.x - frame.offsetX) / cardSize.width).coerceIn(0f, 1f)
             }
-            val pivotY: Float = if (cardSize.height == 0) {
+            val pivotY: Float = if (cardSize.height == 0 || displayState.anchor == null) {
                 0.5f
             } else {
                 ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
             }
             val headerClick: (() -> Unit)? = (displayState.owner as? App)?.let { owner -> { onLaunch(owner) } }
+            LaunchedEffect(frame.width) {
+                val widgetWidthDp: Int = with(density) {
+                    (frame.width.toDp() - popupWidgetHorizontalPadding * 2).value.roundToInt()
+                }
+                viewModel.setCardWidth(widthDp = widgetWidthDp)
+            }
             PopupCard(
                 content = displayState.content,
+                widget = displayState.widget,
+                resize = resizeState,
                 onHeaderClick = headerClick,
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
                 onItemClick = { item -> onLaunch(item.launchable) },
@@ -127,6 +142,12 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                         viewModel.reloadShortcuts()
                     }
                 },
+                onWidgetLongPress = viewModel::openWidgetMenu,
+                onWidgetUnpause = viewModel::unpauseWorkProfile,
+                onResizeDrag = viewModel::dragResize,
+                onResizeReset = viewModel::resetResize,
+                onResizeDone = viewModel::finishResize,
+                onResizeTap = viewModel::finishResize,
                 onClose = viewModel::close,
                 onLongPress = viewModel::openMenu,
                 modifier = Modifier

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="popup_empty_hint">Long-press this Pop-up and tap Edit Pop-up to add apps or shortcuts</string>
+    <string name="popup_empty_hint">Long-press this Pop-up and tap Edit Pop-up to add apps, shortcuts or a widget</string>
     <string name="no_own_shortcuts">This app has no shortcuts</string>
     <string name="shortcuts">Shortcuts</string>
     <string name="items">Items</string>

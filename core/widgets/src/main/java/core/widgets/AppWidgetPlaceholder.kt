@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -20,10 +20,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.widgets.WidgetAvailability
+import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.util.performLongPressHaptic
 import core.widgets.AppWidgetModel
-import feature.launcher.R
 
 /** Shown in place of an App Widget whose provider cannot be rendered right now. */
 @Composable
@@ -80,13 +80,13 @@ fun AppWidgetPlaceholder(
 }
 
 private fun supportingText(availability: WidgetAvailability): Int = when (availability) {
-    WidgetAvailability.Updating -> R.string.widget_updating
+    WidgetAvailability.Updating -> CoreUiR.string.widget_updating
 
-    WidgetAvailability.ProfilePaused -> R.string.widget_work_profile_paused
+    WidgetAvailability.ProfilePaused -> CoreUiR.string.widget_work_profile_paused
 
-    WidgetAvailability.Disabled -> R.string.widget_disabled
+    WidgetAvailability.Disabled -> CoreUiR.string.widget_disabled
 
     WidgetAvailability.Available,
     WidgetAvailability.Gone,
-    WidgetAvailability.Unknown -> R.string.widget_unavailable
+    WidgetAvailability.Unknown -> CoreUiR.string.widget_unavailable
 }

@@ -3,6 +3,7 @@ package core.popups
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,11 +44,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
+import core.ui.R as CoreUiR
+import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
+import core.widgets.AppWidgetContent
+import core.widgets.ResizeOverlay
+import core.widgets.ResizeState
 
 private val cardCornerRadius = 24.dp
 private val cardShadowElevation = 6.dp
@@ -66,17 +73,26 @@ private val itemIconGap = 12.dp
 private val itemDividerInset = 16.dp
 private val emptyStatePadding = 16.dp
 private val addAppsButtonTopPadding = 8.dp
+internal val popupWidgetHorizontalPadding: Dp = 8.dp
 
 /** The floating card that shows one App's header, shortcuts and added items. */
 @Composable
 fun PopupCard(
     content: PopupContent,
+    widget: PopupWidgetState?,
+    resize: ResizeState?,
     onHeaderClick: (() -> Unit)?,
     onShortcutClick: (ShortcutLaunchable) -> Unit,
     onItemClick: (PopupItem) -> Unit,
     onItemLongClick: (PopupItem) -> Unit,
     onAddItems: () -> Unit,
     onRequestQuietModeOff: () -> Unit,
+    onWidgetLongPress: (Long) -> Unit,
+    onWidgetUnpause: (Long) -> Unit,
+    onResizeDrag: (Float) -> Unit,
+    onResizeReset: () -> Unit,
+    onResizeDone: () -> Unit,
+    onResizeTap: () -> Unit,
     onClose: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier
@@ -94,12 +110,13 @@ fun PopupCard(
         hapticFeedback.performLongPressHaptic()
         currentOnItemLongClick(item)
     }
+    val isResizing: Boolean = resize != null
     Surface(
         modifier = modifier
-            .pointerInput(Unit) {
+            .pointerInput(isResizing) {
                 detectTapGestures(
-                    onTap = {},
-                    onLongPress = { openMenu() }
+                    onTap = { if (isResizing) onResizeTap() },
+                    onLongPress = { if (!isResizing) openMenu() }
                 )
             }
             .semantics {
@@ -120,49 +137,124 @@ fun PopupCard(
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = cardVerticalPadding)
         ) {
-            PopupHeader(
-                header = content.header,
-                focusRequester = focusRequester,
-                onClick = onHeaderClick,
-                onLongClick = openMenu
-            )
-            content.shortcuts.forEach { shortcut ->
-                PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) }, onLongClick = openMenu)
-            }
-            if (content.shortcuts.isNotEmpty() && content.items.isNotEmpty()) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = itemDividerInset),
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
+            widget?.let { cardWidget ->
+                PopupWidgetSection(
+                    widget = cardWidget,
+                    resize = resize,
+                    onLongPress = onWidgetLongPress,
+                    onUnpause = onWidgetUnpause,
+                    onDrag = onResizeDrag,
+                    onReset = onResizeReset,
+                    onResizeTap = onResizeTap
                 )
             }
-            content.items.forEach { item ->
-                PopupItemRow(
-                    item = item,
-                    onClick = { onItemClick(item) },
-                    onLongClick = { openItemMenu(item) }
-                )
+            if (isResizing) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = popupWidgetHorizontalPadding),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onResizeDone) {
+                        Text(text = stringResource(CoreUiR.string.done))
+                    }
+                }
             }
-            when (content.emptyReason) {
-                PopupEmptyReason.None -> Unit
+            Box(
+                modifier = if (isResizing) {
+                    Modifier.fillMaxWidth().consumeTouches(onGestureEnd = onResizeTap)
+                } else {
+                    Modifier.fillMaxWidth()
+                }
+            ) {
+                Column {
+                    PopupHeader(
+                        header = content.header,
+                        focusRequester = focusRequester,
+                        onClick = if (isResizing) null else onHeaderClick,
+                        onLongClick = openMenu
+                    )
+                    content.shortcuts.forEach { shortcut ->
+                        PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) }, onLongClick = openMenu)
+                    }
+                    if (content.shortcuts.isNotEmpty() && content.items.isNotEmpty()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = itemDividerInset),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                    content.items.forEach { item ->
+                        PopupItemRow(
+                            item = item,
+                            onClick = { onItemClick(item) },
+                            onLongClick = { openItemMenu(item) }
+                        )
+                    }
+                    val emptyReason: PopupEmptyReason = when (content.emptyReason) {
+                        PopupEmptyReason.Empty,
+                        PopupEmptyReason.FolderEmpty -> if (widget == null) content.emptyReason else PopupEmptyReason.None
 
-                PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
+                        else -> content.emptyReason
+                    }
+                    when (emptyReason) {
+                        PopupEmptyReason.None -> Unit
 
-                PopupEmptyReason.FolderEmpty -> PopupEmptyState(
-                    messageResId = R.string.folder_empty,
-                    onAddApps = onAddItems
-                )
+                        PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
 
-                PopupEmptyReason.ShortcutsUnavailable -> PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+                        PopupEmptyReason.FolderEmpty -> PopupEmptyState(
+                            messageResId = R.string.folder_empty,
+                            onAddApps = onAddItems
+                        )
 
-                PopupEmptyReason.ProfilePaused -> PopupEmptyState(
-                    messageResId = R.string.work_apps_paused,
-                    onTurnOn = onRequestQuietModeOff
-                )
+                        PopupEmptyReason.ShortcutsUnavailable ->
+                            PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+
+                        PopupEmptyReason.ProfilePaused -> PopupEmptyState(
+                            messageResId = R.string.work_apps_paused,
+                            onTurnOn = onRequestQuietModeOff
+                        )
+                    }
+                }
             }
         }
     }
     LaunchedEffect(content.header.name) { focusRequester.requestFocus() }
+}
+
+@Composable
+private fun PopupWidgetSection(
+    widget: PopupWidgetState,
+    resize: ResizeState?,
+    onLongPress: (Long) -> Unit,
+    onUnpause: (Long) -> Unit,
+    onDrag: (Float) -> Unit,
+    onReset: () -> Unit,
+    onResizeTap: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = popupWidgetHorizontalPadding)) {
+        val heightDp: Int = resize?.draftHeightDp ?: widget.heightDp
+        val content: @Composable () -> Unit = {
+            AppWidgetContent(
+                widget = widget.model,
+                heightDp = heightDp,
+                menuEnabled = resize == null,
+                isResizing = resize != null,
+                onLongPress = onLongPress,
+                onUnpause = onUnpause,
+                modifier = if (resize == null) Modifier else Modifier.consumeTouches(onGestureEnd = onResizeTap)
+            )
+        }
+        if (resize == null) {
+            content()
+        } else {
+            ResizeOverlay(
+                state = resize,
+                onDrag = onDrag,
+                onReset = onReset
+            ) {
+                content()
+            }
+        }
+    }
 }
 
 @Composable

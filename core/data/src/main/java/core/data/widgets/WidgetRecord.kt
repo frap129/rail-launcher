@@ -6,12 +6,13 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "widget_places")
+@Entity(tableName = "widget_places", indices = [Index("owner_key")])
 data class WidgetPlaceRecord(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val position: Int,
     @ColumnInfo(name = "height_dp") val heightDp: Int? = null,
-    @ColumnInfo(name = "current_page", defaultValue = "0") val currentPage: Int = 0
+    @ColumnInfo(name = "current_page", defaultValue = "0") val currentPage: Int = 0,
+    @ColumnInfo(name = "owner_key") val ownerKey: String? = null
 )
 
 @Entity(

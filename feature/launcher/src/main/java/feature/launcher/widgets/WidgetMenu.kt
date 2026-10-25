@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.ArrowsAltH
@@ -37,7 +36,6 @@ import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.SlidersH
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
-import core.data.icons.model.Icon
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetSwitchRow
@@ -46,6 +44,7 @@ import core.ui.composables.sheetRowIconPadding
 import core.ui.composables.sheetRowIconSize
 import core.ui.composables.sheetRowVerticalPadding
 import core.widgets.HeaderClockStyleChooser
+import core.widgets.WidgetMenuTitle
 import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */
@@ -122,25 +121,6 @@ fun WidgetMenu(
             previews = state.previews,
             onSelect = onClockStyleSelected,
             modifier = modifier
-        )
-    }
-}
-
-@Composable
-private fun WidgetMenuTitle(icon: Icon, label: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = icon,
-            contentDescription = null,
-            modifier = Modifier.size(40.dp)
-        )
-        Text(
-            text = label,
-            modifier = Modifier.padding(start = 12.dp),
-            style = MaterialTheme.typography.headlineMedium
         )
     }
 }
@@ -250,8 +230,8 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.ClockStyle -> R.string.clock_style
     WidgetMenuAction.AddWidget -> CoreUiR.string.add_widget
     WidgetMenuAction.MoveWidgetArea -> R.string.move_widget_area
-    WidgetMenuAction.Resize -> R.string.resize_widget
-    WidgetMenuAction.Reconfigure -> R.string.reconfigure_widget
+    WidgetMenuAction.Resize -> CoreUiR.string.resize_widget
+    WidgetMenuAction.Reconfigure -> CoreUiR.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
     WidgetMenuAction.RemoveFromStack -> R.string.remove_from_stack
     WidgetMenuAction.RestoreHeader -> R.string.restore_header

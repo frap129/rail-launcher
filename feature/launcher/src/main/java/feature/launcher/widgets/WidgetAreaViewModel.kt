@@ -25,7 +25,6 @@ import core.data.prefs.canSetBatteryVisibility
 import core.data.time.ClockReading
 import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
-import core.data.widgets.BindRequest
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IHeaderSettingsActions
@@ -52,12 +51,30 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
-import core.widgets.AppWidgetModel
+import core.widgets.AddWidgetFlowState
+import core.widgets.AddWidgetOrigin
+import core.widgets.AddWidgetPlacement
+import core.widgets.AddWidgetTarget
+import core.widgets.AppWidgetMenuCapabilities
 import core.widgets.HeaderFormatter
 import core.widgets.HeaderModel
 import core.widgets.IHeaderTapTargetResolver
+import core.widgets.IWidgetAddController
+import core.widgets.IWidgetResizeController
+import core.widgets.ResizeState
+import core.widgets.UndoAction
+import core.widgets.WidgetEvent
 import core.widgets.WidgetModel
+import core.widgets.WidgetSizeReport
+import core.widgets.appWidgetMenuCapabilities
+import core.widgets.finishResizeAndReport
+import core.widgets.hasHeader
+import core.widgets.headerPlace
 import core.widgets.labelResource
+import core.widgets.removeWidgetAndReport
+import core.widgets.startWidgetWiring
+import core.widgets.toAppWidgetModel
+import core.widgets.toWidgetEvent
 import feature.launcher.R
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -167,48 +184,6 @@ enum class WidgetMenuAction {
     MediaPlayerSettings
 }
 
-sealed interface UndoAction {
-    data class RemoveHeader(val removal: HeaderRemoval) : UndoAction
-
-    data class ReplaceHeader(val undo: ReplaceHeaderUndo) : UndoAction
-
-    data class IncludeMediaApp(val packageName: String, val appLabel: String = packageName) : UndoAction
-}
-
-sealed interface WidgetAreaEvent {
-    data class ShowUndo(val action: UndoAction) : WidgetAreaEvent
-
-    data object RequestCalendarPermission : WidgetAreaEvent
-
-    data class ShowCalendarPermissionDenied(val permanentlyDenied: Boolean) : WidgetAreaEvent
-
-    data object NavigateToWidgetSettings : WidgetAreaEvent
-
-    data object NavigateToMediaPlayerSettings : WidgetAreaEvent
-
-    data object EditFavorites : WidgetAreaEvent
-
-    data object RequestNotificationAccess : WidgetAreaEvent
-
-    data class LaunchBind(val request: BindRequest) : WidgetAreaEvent
-
-    data class LaunchConfigure(val id: AppWidgetId) : WidgetAreaEvent
-
-    data class LaunchReconfigure(val id: AppWidgetId) : WidgetAreaEvent
-
-    data class RequestQuietModeOff(val profileSerial: Long) : WidgetAreaEvent
-
-    data class ShowMessage(@StringRes val message: Int, val formatArg: String? = null) : WidgetAreaEvent
-
-    data class RemoveHostView(val appWidgetId: AppWidgetId) : WidgetAreaEvent
-
-    data class ReportWidgetSize(val appWidgetIds: List<AppWidgetId>, val widthDp: Int, val heightDp: Int) : WidgetAreaEvent
-
-    data class ScrollToPlace(val placeId: Long) : WidgetAreaEvent
-
-    data object ReturnToSettings : WidgetAreaEvent
-}
-
 private sealed interface WidgetMenuTarget {
     data class Header(val widgetId: Long? = null) : WidgetMenuTarget
 
@@ -271,8 +246,8 @@ class WidgetAreaViewModel(
     private val scrollToPlaceIdState: MutableStateFlow<Long?> = MutableStateFlow(null)
     val scrollToPlaceId: StateFlow<Long?> = scrollToPlaceIdState.asStateFlow()
 
-    private val eventChannel: Channel<WidgetAreaEvent> = Channel(Channel.BUFFERED)
-    val events: Flow<WidgetAreaEvent> = eventChannel.receiveAsFlow()
+    private val eventChannel: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
+    val events: Flow<WidgetEvent> = eventChannel.receiveAsFlow()
 
     private val editDraft: MutableStateFlow<WidgetEditDraft?> = MutableStateFlow(null)
     val editState: StateFlow<WidgetEditDraft?> = editDraft.asStateFlow()
@@ -295,22 +270,12 @@ class WidgetAreaViewModel(
     )
 
     init {
-        viewModelScope.launch {
-            addFlowController.events.collect { event -> eventChannel.send(event) }
-        }
-        viewModelScope.launch {
-            addFlowController.restore()
-        }
-        viewModelScope.launch {
-            appWidgetHost.providers.collect { providerList ->
-                addFlowController.updateProviders(providers = providerList)
-            }
-        }
-        viewModelScope.launch {
-            widgetLifecycleReconciler.removedIds.collect { id ->
-                eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = id))
-            }
-        }
+        addFlowController.startWidgetWiring(
+            scope = viewModelScope,
+            appWidgetHost = appWidgetHost,
+            lifecycleReconciler = widgetLifecycleReconciler,
+            onEvent = { event -> eventChannel.send(event) }
+        )
         viewModelScope.launch {
             repository.places.collect { places ->
                 editDraft.update { draft -> draft?.reconciledWith(places) }
@@ -615,7 +580,7 @@ class WidgetAreaViewModel(
                 repository.removeHeaderPage(widgetId = widgetId)
             } ?: return@launch
             menuTarget.value = null
-            eventChannel.send(WidgetAreaEvent.ShowUndo(action = UndoAction.RemoveHeader(removal = removal)))
+            eventChannel.send(WidgetEvent.ShowUndo(action = UndoAction.RemoveHeader(removal = removal)))
         }
     }
 
@@ -631,7 +596,7 @@ class WidgetAreaViewModel(
             val undo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = widgetId) ?: return@launch
             resizeController.clampStackHeight(placeId = undo.headerPlaceId, headerHeightDp = headerHeightDp.value)
             menuTarget.value = null
-            eventChannel.send(WidgetAreaEvent.ShowUndo(action = UndoAction.ReplaceHeader(undo = undo)))
+            eventChannel.send(WidgetEvent.ShowUndo(action = UndoAction.ReplaceHeader(undo = undo)))
         }
     }
 
@@ -765,7 +730,7 @@ class WidgetAreaViewModel(
             val source: PlaceDraft = draft.places.firstOrNull { place -> place.placeId == sourcePlaceId } ?: return@launch
             val target: PlaceDraft = draft.places.firstOrNull { place -> place.placeId == targetPlaceId } ?: return@launch
             if (source.widgetIds.size != 1 || target.widgetIds.size + source.widgetIds.size > maxStackPages) {
-                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.stack_full))
+                eventChannel.send(WidgetEvent.ShowMessage(message = R.string.stack_full))
                 return@launch
             }
             editDraft.value = draft.copy(
@@ -819,7 +784,7 @@ class WidgetAreaViewModel(
                 )
                 freedIds.forEach { id ->
                     appWidgetHost.deleteId(id = id)
-                    eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = id))
+                    eventChannel.send(WidgetEvent.RemoveHostView(appWidgetId = id))
                 }
                 editDraft.value = null
                 homeEditState.exit(HomeEditMode.Widgets)
@@ -830,7 +795,7 @@ class WidgetAreaViewModel(
     fun openWidgetSettings() {
         menuTarget.value = null
         viewModelScope.launch {
-            eventChannel.send(WidgetAreaEvent.NavigateToWidgetSettings)
+            eventChannel.send(WidgetEvent.NavigateToWidgetSettings)
         }
     }
 
@@ -845,7 +810,7 @@ class WidgetAreaViewModel(
         menuTarget.value = null
         if (!mediaSessionSource.open(key = session.key)) {
             viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_open_app, formatArg = session.appLabel))
+                eventChannel.send(WidgetEvent.ShowMessage(message = R.string.couldnt_open_app, formatArg = session.appLabel))
             }
         }
     }
@@ -853,7 +818,7 @@ class WidgetAreaViewModel(
     fun openMediaPlayerSettings() {
         menuTarget.value = null
         viewModelScope.launch {
-            eventChannel.send(WidgetAreaEvent.NavigateToMediaPlayerSettings)
+            eventChannel.send(WidgetEvent.NavigateToMediaPlayerSettings)
         }
     }
 
@@ -863,7 +828,7 @@ class WidgetAreaViewModel(
         viewModelScope.launch {
             settingsRepository.setMediaPlayerPackageExcluded(packageName = session.packageName, excluded = true)
             eventChannel.send(
-                WidgetAreaEvent.ShowUndo(
+                WidgetEvent.ShowUndo(
                     action = UndoAction.IncludeMediaApp(packageName = session.packageName, appLabel = session.appLabel)
                 )
             )
@@ -879,14 +844,14 @@ class WidgetAreaViewModel(
         viewModelScope.launch {
             settingsRepository.setMediaPlayerEnabled(enabled)
             if (enabled && !mediaSessionSource.hasAccess.value) {
-                eventChannel.send(WidgetAreaEvent.RequestNotificationAccess)
+                eventChannel.send(WidgetEvent.RequestNotificationAccess)
             }
         }
     }
 
     fun showNotificationAccess() {
         viewModelScope.launch {
-            eventChannel.send(WidgetAreaEvent.RequestNotificationAccess)
+            eventChannel.send(WidgetEvent.RequestNotificationAccess)
         }
     }
 
@@ -912,10 +877,10 @@ class WidgetAreaViewModel(
         when (outcome) {
             UpcomingEventsOutcome.NoAction -> Unit
 
-            UpcomingEventsOutcome.RequestPermission -> eventChannel.send(WidgetAreaEvent.RequestCalendarPermission)
+            UpcomingEventsOutcome.RequestPermission -> eventChannel.send(WidgetEvent.RequestCalendarPermission)
 
             is UpcomingEventsOutcome.PermissionDenied -> eventChannel.send(
-                WidgetAreaEvent.ShowCalendarPermissionDenied(permanentlyDenied = outcome.permanentlyDenied)
+                WidgetEvent.ShowCalendarPermissionDenied(permanentlyDenied = outcome.permanentlyDenied)
             )
         }
     }
@@ -955,13 +920,8 @@ class WidgetAreaViewModel(
         finishResizeIfResizing()
     }
 
-    private fun finishResizeIfResizing(): Boolean {
-        val finish: ResizeFinish = resizeController.finishResize() ?: return false
-        viewModelScope.launch {
-            val report: WidgetSizeReport = resizeController.persistResize(finish = finish) ?: return@launch
-            eventChannel.send(report.toEvent())
-        }
-        return true
+    private fun finishResizeIfResizing(): Boolean = resizeController.finishResizeAndReport(scope = viewModelScope) { report ->
+        eventChannel.send(report.toWidgetEvent())
     }
 
     /** Opens the Move Widget Area adjuster without saving until it is finished. */
@@ -1108,7 +1068,7 @@ class WidgetAreaViewModel(
             WidgetMenuAction.EditFavorites -> {
                 menuTarget.value = null
                 viewModelScope.launch {
-                    eventChannel.send(WidgetAreaEvent.EditFavorites)
+                    eventChannel.send(WidgetEvent.EditFavorites)
                 }
             }
 
@@ -1183,21 +1143,17 @@ class WidgetAreaViewModel(
         }
         val report: WidgetSizeReport = resizeController.onStackGrown(placeId = placeId, headerHeightDp = headerHeightDp.value)
             ?: return
-        eventChannel.send(report.toEvent())
+        eventChannel.send(report.toWidgetEvent())
     }
-
-    private fun WidgetSizeReport.toEvent(): WidgetAreaEvent.ReportWidgetSize = WidgetAreaEvent.ReportWidgetSize(
-        appWidgetIds = appWidgetIds,
-        widthDp = widthDp,
-        heightDp = heightDp
-    )
 
     fun removeWidget(widgetId: Long) {
         viewModelScope.launch {
-            val appWidgetId: AppWidgetId = removeAppWidget(widgetId = widgetId) ?: return@launch
-            menuTarget.value = null
-            eventChannel.send(WidgetAreaEvent.RemoveHostView(appWidgetId = appWidgetId))
-            eventChannel.send(WidgetAreaEvent.ShowMessage(message = CoreUiR.string.widget_removed))
+            val removed: AppWidgetId? = removeAppWidget.removeWidgetAndReport(widgetId = widgetId) { event ->
+                eventChannel.send(event)
+            }
+            if (removed != null) {
+                menuTarget.value = null
+            }
         }
     }
 
@@ -1208,14 +1164,14 @@ class WidgetAreaViewModel(
                 return@launch
             }
             menuTarget.value = null
-            eventChannel.send(WidgetAreaEvent.LaunchReconfigure(id = AppWidgetId(widget.appWidgetId)))
+            eventChannel.send(WidgetEvent.LaunchReconfigure(id = AppWidgetId(widget.appWidgetId)))
         }
     }
 
     fun onReconfigureResult(ok: Boolean) {
         if (!ok) {
             viewModelScope.launch {
-                eventChannel.send(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_open_widget_settings))
+                eventChannel.send(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_open_widget_settings))
             }
         }
     }
@@ -1223,7 +1179,7 @@ class WidgetAreaViewModel(
     fun unpauseWorkProfile(widgetId: Long) {
         viewModelScope.launch {
             val widget: PlacedWidget.AppWidget = findAppWidget(widgetId = widgetId) ?: return@launch
-            eventChannel.send(WidgetAreaEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
+            eventChannel.send(WidgetEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
         }
     }
 
@@ -1319,11 +1275,15 @@ class WidgetAreaViewModel(
                 WidgetMenuState.Closed
             } else {
                 val info: WidgetProviderInfo? = providerInfoFor(widget)
-                val resizeBounds: ResizeBounds? = if (place.isStack) {
-                    ResizeBounds.stackBounds(place.widgets.map { page -> page.resizeBounds(headerHeightDp, ::providerInfoFor) })
-                } else {
-                    info?.let(ResizeBounds::from)
-                }
+                val capabilities: AppWidgetMenuCapabilities = appWidgetMenuCapabilities(
+                    widget = widget,
+                    info = info,
+                    resizeBounds = if (place.isStack) {
+                        ResizeBounds.stackBounds(place.widgets.map { page -> page.resizeBounds(headerHeightDp, ::providerInfoFor) })
+                    } else {
+                        info?.let(ResizeBounds::from)
+                    }
+                )
                 val headerPlace: WidgetPlace? = places.headerPlace()
                 WidgetMenuState.AppWidgetMenu(
                     widgetId = widget.id,
@@ -1331,11 +1291,10 @@ class WidgetAreaViewModel(
                     icon = info.iconOr(provider = widget.provider),
                     label = info.labelOr(provider = widget.provider),
                     items = buildList {
-                        if (widget.availability == WidgetAvailability.Available && resizeBounds?.isResizable == true) {
+                        if (capabilities.canResize(widget)) {
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Resize))
                         }
-                        val isReconfigurable: Boolean = info != null && info.isReconfigurable && info.hasConfigureActivity
-                        if (widget.availability == WidgetAvailability.Available && isReconfigurable) {
+                        if (capabilities.isReconfigurable) {
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Reconfigure))
                         }
                         add(WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget))
@@ -1515,18 +1474,6 @@ class WidgetAreaViewModel(
             atEpochMillis = reading.instant.toEpochMilli()
         )
 
-        is PlacedWidget.AppWidget -> {
-            val info: WidgetProviderInfo? = providerInfoFor(this)
-            AppWidgetModel(
-                id = id,
-                appWidgetId = appWidgetId,
-                provider = provider.key,
-                label = info.labelOr(provider = provider),
-                icon = info.iconOr(provider = provider),
-                minHeightDp = info?.minHeightDp ?: defaultHeightDp ?: 0,
-                isWorkProfile = info?.isWorkProfile ?: false,
-                availability = availability
-            )
-        }
+        is PlacedWidget.AppWidget -> toAppWidgetModel(info = providerInfoFor(this))
     }
 }

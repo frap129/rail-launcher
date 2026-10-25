@@ -60,6 +60,9 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
+import core.widgets.AddWidgetFlowState
+import core.widgets.AddWidgetOrigin
+import core.widgets.AddWidgetPlacement
 import core.widgets.AppWidgetModel
 import core.widgets.BatteryModel
 import core.widgets.HeaderFormatter
@@ -67,7 +70,16 @@ import core.widgets.HeaderLineModel
 import core.widgets.HeaderModel
 import core.widgets.HeaderTapTarget
 import core.widgets.IHeaderTapTargetResolverImpl
+import core.widgets.IWidgetResizeController
 import core.widgets.R as CoreWidgetsR
+import core.widgets.ResizeFinish
+import core.widgets.ResizeState
+import core.widgets.UndoAction
+import core.widgets.WidgetEvent
+import core.widgets.WidgetSizeReport
+import core.widgets.testing.appWidgetProviderInfo
+import core.widgets.testing.createAddController
+import core.widgets.testing.settingsAddOrigin
 import feature.launcher.R
 import java.time.Instant
 import java.time.ZoneId
@@ -472,7 +484,7 @@ class WidgetAreaViewModelTest {
         viewModel.events.test {
             viewModel.removeHeader()
             assertEquals(
-                WidgetAreaEvent.ShowUndo(
+                WidgetEvent.ShowUndo(
                     action = UndoAction.RemoveHeader(
                         removal = HeaderRemoval(position = 0, placeId = 1L, pagePosition = 0)
                     )
@@ -517,7 +529,7 @@ class WidgetAreaViewModelTest {
         var actualRemoval: UndoAction.RemoveHeader? = null
         viewModel.events.test {
             viewModel.removeHeader()
-            val actualEvent: WidgetAreaEvent.ShowUndo = awaitItem() as WidgetAreaEvent.ShowUndo
+            val actualEvent: WidgetEvent.ShowUndo = awaitItem() as WidgetEvent.ShowUndo
             actualRemoval = actualEvent.action as UndoAction.RemoveHeader
         }
         viewModel.undo(action = actualRemoval!!)
@@ -530,7 +542,7 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel()
         viewModel.events.test {
             viewModel.openWidgetSettings()
-            assertEquals(WidgetAreaEvent.NavigateToWidgetSettings, awaitItem())
+            assertEquals(WidgetEvent.NavigateToWidgetSettings, awaitItem())
         }
     }
 
@@ -539,7 +551,7 @@ class WidgetAreaViewModelTest {
         val actualViewModel: WidgetAreaViewModel = createViewModel()
         actualViewModel.events.test {
             actualViewModel.onMenuAction(WidgetMenuAction.EditFavorites)
-            assertEquals(WidgetAreaEvent.EditFavorites, awaitItem())
+            assertEquals(WidgetEvent.EditFavorites, awaitItem())
         }
     }
 
@@ -756,7 +768,7 @@ class WidgetAreaViewModelTest {
             viewModel.setUpcomingEventsEnabled(enabled = true)
             advanceUntilIdle()
 
-            assertEquals(WidgetAreaEvent.RequestCalendarPermission, awaitItem())
+            assertEquals(WidgetEvent.RequestCalendarPermission, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -772,12 +784,12 @@ class WidgetAreaViewModelTest {
         viewModel.events.test {
             viewModel.setUpcomingEventsEnabled(enabled = true)
             advanceUntilIdle()
-            assertEquals(WidgetAreaEvent.RequestCalendarPermission, awaitItem())
+            assertEquals(WidgetEvent.RequestCalendarPermission, awaitItem())
 
             viewModel.onCalendarPermissionResult(granted = false, canAskAgain = true)
             advanceUntilIdle()
 
-            assertEquals(WidgetAreaEvent.ShowCalendarPermissionDenied(permanentlyDenied = false), awaitItem())
+            assertEquals(WidgetEvent.ShowCalendarPermissionDenied(permanentlyDenied = false), awaitItem())
             assertTrue(mockSettingsRepository.eventUpdates.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
@@ -1331,7 +1343,7 @@ class WidgetAreaViewModelTest {
         )
         viewModel.events.test {
             viewModel.setMediaPlayerEnabled(enabled = true)
-            assertEquals(WidgetAreaEvent.RequestNotificationAccess, awaitItem())
+            assertEquals(WidgetEvent.RequestNotificationAccess, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(mockSettingsRepository.mediaPlayerUpdates.last().enabled)
@@ -1382,7 +1394,7 @@ class WidgetAreaViewModelTest {
         viewModel.events.test {
             viewModel.excludeMediaApp()
             assertEquals(
-                WidgetAreaEvent.ShowUndo(
+                WidgetEvent.ShowUndo(
                     action = UndoAction.IncludeMediaApp(packageName = inputFirst.packageName, appLabel = inputFirst.appLabel)
                 ),
                 awaitItem()
@@ -1462,7 +1474,7 @@ class WidgetAreaViewModelTest {
             actualViewModel.startAdd(origin = settingsAddOrigin())
             actualViewModel.cancelAdd()
 
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1511,12 +1523,12 @@ class WidgetAreaViewModelTest {
             actualViewModel.startAdd(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
             actualViewModel.pickProvider(provider = appWidgetProviderInfo(needsConfiguration = true))
             advanceUntilIdle()
-            assertEquals(WidgetAreaEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
+            assertEquals(WidgetEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
 
             actualViewModel.onConfigureResult(ok = false)
             advanceUntilIdle()
 
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
@@ -1551,7 +1563,7 @@ class WidgetAreaViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                WidgetAreaEvent.ReportWidgetSize(
+                WidgetEvent.ReportWidgetSize(
                     appWidgetIds = listOf(AppWidgetId(1)),
                     widthDp = 240,
                     heightDp = 64
@@ -1593,12 +1605,12 @@ class WidgetAreaViewModelTest {
             widgetAreaWidths += widthDp
         }
 
-        override suspend fun startResize(placeId: Long, headerHeightDp: Int?): Boolean {
+        override suspend fun startResize(placeId: Long, headerHeightDp: Int?, ownerKey: String?): Boolean {
             startedPlaceIds += placeId
             return startResult
         }
 
-        override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?): Boolean = startResult
+        override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?, ownerKey: String?): Boolean = startResult
 
         override fun dragResize(deltaDp: Float) = Unit
 
@@ -1622,7 +1634,7 @@ class WidgetAreaViewModelTest {
             resizeState.value = null
         }
 
-        override fun onPlacesChanged(places: List<WidgetPlace>) {
+        override fun onPlacesChanged(places: List<WidgetPlace>, ownerKey: String?) {
             placesChanges += places
         }
 
@@ -1696,8 +1708,8 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(mockRemoveAppWidget = mockRemoveAppWidget)
         viewModel.events.test {
             viewModel.removeWidget(widgetId = 2L)
-            assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
-            assertEquals(WidgetAreaEvent.ShowMessage(CoreUiR.string.widget_removed), awaitItem())
+            assertEquals(WidgetEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.widget_removed), awaitItem())
             assertEquals(listOf(2L), mockRemoveAppWidget.removedWidgetIds)
             cancelAndIgnoreRemainingEvents()
         }
@@ -1781,7 +1793,7 @@ class WidgetAreaViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
         viewModel.events.test {
-            assertEquals(WidgetAreaEvent.LaunchReconfigure(AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.LaunchReconfigure(AppWidgetId(9)), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(mockHost.deletedIds.isEmpty())
@@ -1795,7 +1807,7 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.events.test {
             viewModel.onReconfigureResult(ok = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_open_widget_settings), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_open_widget_settings), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(2, mockRepository.places.first().size)
@@ -1849,7 +1861,7 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.events.test {
             viewModel.unpauseWorkProfile(widgetId = 2L)
-            assertEquals(WidgetAreaEvent.RequestQuietModeOff(profileSerial = 12L), awaitItem())
+            assertEquals(WidgetEvent.RequestQuietModeOff(profileSerial = 12L), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1861,7 +1873,7 @@ class WidgetAreaViewModelTest {
         advanceUntilIdle()
         viewModel.events.test {
             mockReconciler.emitRemovedId(id = AppWidgetId(9))
-            assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1999,7 +2011,7 @@ class WidgetAreaViewModelTest {
             viewModel.finishResize()
             advanceUntilIdle()
             assertEquals(
-                WidgetAreaEvent.ReportWidgetSize(appWidgetIds = listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112),
+                WidgetEvent.ReportWidgetSize(appWidgetIds = listOf(AppWidgetId(9)), widthDp = 240, heightDp = 112),
                 awaitItem()
             )
             assertEquals(listOf(inputFinish), mockResizeController.persistedFinishes)
@@ -2201,7 +2213,7 @@ class WidgetAreaViewModelTest {
         viewModel.removeWidgetPlaceInEdit(placeId = 2L)
         viewModel.events.test {
             viewModel.finishEditingWidgets()
-            assertEquals(WidgetAreaEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.RemoveHostView(AppWidgetId(9)), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         advanceUntilIdle()
@@ -2410,7 +2422,7 @@ class WidgetAreaViewModelTest {
 
         viewModel.events.test {
             viewModel.replaceHeader(widgetId = 2L)
-            val actualEvent: WidgetAreaEvent.ShowUndo = awaitItem() as WidgetAreaEvent.ShowUndo
+            val actualEvent: WidgetEvent.ShowUndo = awaitItem() as WidgetEvent.ShowUndo
             actualAction = actualEvent.action as UndoAction.ReplaceHeader
             assertEquals(1L, actualAction!!.undo.headerPlaceId)
             assertEquals(2L, actualAction!!.undo.widgetPlaceId)

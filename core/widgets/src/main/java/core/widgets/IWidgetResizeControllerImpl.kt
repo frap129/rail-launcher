@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
@@ -37,6 +37,7 @@ class IWidgetResizeControllerImpl(
 
     private var rawResizeHeightDp: Float = 0f
     private var resizingAppWidgetIds: List<AppWidgetId> = emptyList()
+    private var resizingOwnerKey: String? = null
 
     /** Supplies the safe Home height so Resize can cap the widget and keep the handle reachable. */
     override fun setHomeHeight(heightDp: Int) {
@@ -55,11 +56,12 @@ class IWidgetResizeControllerImpl(
     }
 
     /** Enters Resize for [placeId], returning false when the place is not resizable right now. */
-    override suspend fun startResize(placeId: Long, headerHeightDp: Int?): Boolean {
+    override suspend fun startResize(placeId: Long, headerHeightDp: Int?, ownerKey: String?): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return false
         }
-        val place: WidgetPlace = repository.places.first().firstOrNull { place -> place.id == placeId } ?: return false
+        val place: WidgetPlace = repository.placesFor(ownerKey = ownerKey).first()
+            .firstOrNull { place -> place.id == placeId } ?: return false
         if (place.widgets.none { widget -> widget is PlacedWidget.AppWidget }) {
             return false
         }
@@ -89,6 +91,7 @@ class IWidgetResizeControllerImpl(
             homeHeightDp = homeHeight.value ?: Int.MAX_VALUE
         )
         rawResizeHeightDp = draftHeightDp.toFloat()
+        resizingOwnerKey = ownerKey
         resizingAppWidgetIds = place.widgets
             .filterIsInstance<PlacedWidget.AppWidget>()
             .map { placed -> AppWidgetId(placed.appWidgetId) }
@@ -103,9 +106,9 @@ class IWidgetResizeControllerImpl(
     }
 
     /** Enters Resize for the place holding [widgetId]. */
-    override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?): Boolean {
-        val place: WidgetPlace = repository.places.first().placeOf(widgetId = widgetId) ?: return false
-        return startResize(placeId = place.id, headerHeightDp = headerHeightDp)
+    override suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int?, ownerKey: String?): Boolean {
+        val place: WidgetPlace = repository.placesFor(ownerKey = ownerKey).first().placeOf(widgetId = widgetId) ?: return false
+        return startResize(placeId = place.id, headerHeightDp = headerHeightDp, ownerKey = ownerKey)
     }
 
     /** Applies a fractional drag delta, snapping the accumulated height to the 8dp grid. */
@@ -131,6 +134,7 @@ class IWidgetResizeControllerImpl(
     override fun finishResize(): ResizeFinish? {
         val state: ResizeState = resize.value ?: return null
         resize.value = null
+        resizingOwnerKey = null
         homeEditState.exit(HomeEditMode.Resizing(placeId = state.placeId))
         val heightDp: Int = state.draftHeightDp
         val effectiveDefaultHeightDp: Int = state.bounds.clamp(
@@ -166,6 +170,7 @@ class IWidgetResizeControllerImpl(
         val state: ResizeState = resize.value ?: return
         resize.value = null
         resizingAppWidgetIds = emptyList()
+        resizingOwnerKey = null
         homeEditState.exit(HomeEditMode.Resizing(placeId = state.placeId))
     }
 
@@ -215,8 +220,11 @@ class IWidgetResizeControllerImpl(
     private fun pageHeightDp(heightDp: Int, indicatorVisible: Boolean): Int =
         (heightDp - if (indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0).coerceAtLeast(1)
 
-    override fun onPlacesChanged(places: List<WidgetPlace>) {
+    override fun onPlacesChanged(places: List<WidgetPlace>, ownerKey: String?) {
         val state: ResizeState = resize.value ?: return
+        if (ownerKey != resizingOwnerKey) {
+            return
+        }
         if (places.none { place -> place.id == state.placeId }) {
             cancelResize()
         }
