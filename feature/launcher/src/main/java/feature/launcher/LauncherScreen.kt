@@ -52,7 +52,6 @@ import core.popups.AddToFolderSheet
 import core.popups.AddToFolderState
 import core.popups.FolderDeleteDialog
 import core.popups.FolderNameDialog
-import core.popups.FolderSnackbar
 import core.popups.PopupEditorHost
 import core.popups.PopupHost
 import core.popups.PopupMenuSheet
@@ -65,6 +64,7 @@ import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
+import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.util.consumeTouches
@@ -87,7 +87,6 @@ import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -320,15 +319,21 @@ fun LauncherScreen(
     val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
     LaunchedEffect(popupViewModel, snackbarHostState, editFolderLabel) {
         showFolderSnackbars(
-            snackbars = popupViewModel.folderAdditions.map { folder: Folder ->
-                FolderSnackbar(
-                    message = context.getString(PopupsR.string.added_to_folder, folder.name),
-                    folder = folder
-                )
-            },
+            folders = popupViewModel.folderAdditions,
             snackbarHostState = snackbarHostState,
             actionLabel = editFolderLabel,
-            onEdit = popupViewModel::startEdit
+            message = { folder: Folder -> context.getString(PopupsR.string.added_to_folder, folder.name) },
+            onAction = popupViewModel::startEdit
+        )
+    }
+    val settingsLabel: String = stringResource(CoreUiR.string.settings)
+    LaunchedEffect(viewModel, navController, snackbarHostState, settingsLabel) {
+        showFolderSnackbars(
+            folders = viewModel.foldersOnlyInSettings,
+            snackbarHostState = snackbarHostState,
+            actionLabel = settingsLabel,
+            message = { folder: Folder -> context.getString(R.string.folder_only_in_settings, folder.name) },
+            onAction = { navController.navigate(POPUPS_SETTINGS_ROUTE) }
         )
     }
     LaunchedEffect(homeIntentRequest) {

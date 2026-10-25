@@ -23,6 +23,9 @@ data class Folder(
     /** The derived accent shade; never stored. */
     val shade: Int get() = folderShade(folderId)
 
+    /** Whether the user chose to show this Folder in the App List. */
+    val isInAppList: Boolean get() = showInAppList
+
     override fun withCustomization(appearance: LaunchableAppearance): Folder = copy(name = appearance.name)
 
     override fun launch(context: Context) {

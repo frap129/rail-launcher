@@ -35,7 +35,6 @@ import coil3.compose.AsyncImage
 import core.data.folders.Folder
 import core.popups.FolderDeleteDialog
 import core.popups.FolderNameDialog
-import core.popups.FolderSnackbar
 import core.popups.PopupEditorHost
 import core.popups.PopupViewModel
 import core.popups.R as PopupsR
@@ -43,7 +42,6 @@ import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
-import kotlinx.coroutines.flow.map
 import org.koin.androidx.compose.koinViewModel
 
 private val folderIconSize: Dp = 32.dp
@@ -61,12 +59,11 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
     val editContentsLabel: String = stringResource(R.string.edit_contents)
     LaunchedEffect(viewModel, popupViewModel, snackbarHostState, folderCreatedMessage, editContentsLabel) {
         showFolderSnackbars(
-            snackbars = viewModel.createdFolders.map { folder: Folder ->
-                FolderSnackbar(message = folderCreatedMessage, folder = folder)
-            },
+            folders = viewModel.createdFolders,
             snackbarHostState = snackbarHostState,
             actionLabel = editContentsLabel,
-            onEdit = popupViewModel::startEdit
+            message = { folderCreatedMessage },
+            onAction = popupViewModel::startEdit
         )
     }
     Box(modifier = Modifier.fillMaxSize()) {

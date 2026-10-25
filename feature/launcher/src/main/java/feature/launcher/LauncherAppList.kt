@@ -20,10 +20,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.appListKey
 import core.ui.composables.LaunchableGroupHeader
 import kotlinx.coroutines.flow.StateFlow
 
@@ -46,12 +48,10 @@ internal fun rememberAppListRowState(
     )
 }
 
-// A name starting with a Rail label (e.g. "⌂") forms an Initial group that
-// shares the Builtin label, so the App List key includes the group kind.
-internal fun LaunchableGroup.Listed.appListKey(): String = when (this) {
-    is LaunchableGroup.Builtin -> "builtin:$label"
-    is LaunchableGroup.InitialGroup -> "initial:$label"
-}
+/** The App List header: the Folders section reads as a word, every other group shows its Rail glyph. */
+@Composable
+internal fun LaunchableGroup.Listed.appListLabel(): String =
+    if (this is LaunchableGroup.Folders) stringResource(R.string.folders) else label
 
 @Composable
 fun LauncherAppList(
@@ -106,7 +106,7 @@ fun LauncherItemGroup(
     itemActions: LauncherItemActions
 ) {
     Column(modifier = modifier) {
-        LaunchableGroupHeader(label = group.label)
+        LaunchableGroupHeader(label = group.appListLabel())
         group.items.forEach { item ->
             LauncherItem(
                 item = item,

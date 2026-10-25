@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
+import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +17,7 @@ enum class SettingsScreen(val key: String) {
     Main("main"),
     Appearance("appearance"),
     Widgets("widgets"),
-    Popups("popups")
+    Popups(POPUPS_SETTINGS_KEY)
 }
 
 data class SettingsUiState(val iconPacks: Set<IconPack>, val selectedIconPack: IconPack)

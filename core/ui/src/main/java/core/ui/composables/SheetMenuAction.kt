@@ -14,7 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+val sheetRowHorizontalPadding: Dp = 20.dp
+val sheetRowVerticalPadding: Dp = 10.dp
+val sheetRowIconSize: Dp = 56.dp
+val sheetRowIconPadding: Dp = 10.dp
 
 /** One tappable action row in a launcher sheet. */
 @Composable
@@ -25,10 +31,10 @@ fun SheetMenuAction(imageVector: ImageVector, label: String, onClick: () -> Unit
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(20.dp, 10.dp)
+            .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding)
     ) {
         Image(
-            modifier = Modifier.size(56.dp).padding(10.dp),
+            modifier = Modifier.size(sheetRowIconSize).padding(sheetRowIconPadding),
             imageVector = imageVector,
             colorFilter = ColorFilter.tint(LocalContentColor.current),
             contentDescription = label
