@@ -150,6 +150,30 @@ class IPopupRepositoryImplTest {
     }
 
     @Test
+    fun `counts the items shown in each Pop-up`() = runTest {
+        val first: RailLaunchable = createRailLaunchable(name = "First")
+        val second: RailLaunchable = createRailLaunchable(name = "Second")
+        val third: RailLaunchable = createRailLaunchable(name = "Third")
+        val mockPopupDao: FakePopupDao = FakePopupDao(
+            initialItems = listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = first.key, position = 0),
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = second.key, position = 1),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = third.key, position = 0)
+            )
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            mockPopupDao = mockPopupDao,
+            mockLaunchableRepository = loadedRepository(inputOwner, inputOtherOwner, first, second, third)
+        )
+        runCurrent()
+
+        assertEquals(
+            mapOf(inputOwner.key to 2, inputOtherOwner.key to 1),
+            repository.itemCounts.first()
+        )
+    }
+
+    @Test
     fun `rejects adding the owner to its own Pop-up`() = runTest {
         val item: RailLaunchable = createRailLaunchable(name = "Item")
         val repository: IPopupRepositoryImpl = createRepository(

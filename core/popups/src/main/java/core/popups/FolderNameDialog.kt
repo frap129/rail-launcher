@@ -25,14 +25,20 @@ import core.data.folders.Folder
 import core.ui.R as CoreUiR
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
-/** Asks for a new Folder's name, prefilled and selected so typing replaces it. */
+/** Asks for a Folder's name, prefilled, selected and trimmed to the Launchable name limit. */
 @Composable
-fun FolderNameDialog(onConfirm: (name: String) -> Unit, onDismiss: () -> Unit) {
-    var name: TextFieldValue by remember {
+fun FolderNameDialog(
+    initialName: String = Folder.DEFAULT_NAME,
+    title: String = stringResource(R.string.new_folder),
+    confirmLabel: String = stringResource(R.string.create),
+    onConfirm: (name: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name: TextFieldValue by remember(initialName) {
         mutableStateOf(
             TextFieldValue(
-                text = Folder.DEFAULT_NAME,
-                selection = TextRange(0, Folder.DEFAULT_NAME.length)
+                text = initialName,
+                selection = TextRange(0, initialName.length)
             )
         )
     }
@@ -46,7 +52,7 @@ fun FolderNameDialog(onConfirm: (name: String) -> Unit, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.new_folder)) },
+        title = { Text(title) },
         text = {
             OutlinedTextField(
                 modifier = Modifier.focusRequester(focusRequester),
@@ -62,7 +68,7 @@ fun FolderNameDialog(onConfirm: (name: String) -> Unit, onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(name.text) }) {
-                Text(stringResource(R.string.create))
+                Text(confirmLabel)
             }
         },
         dismissButton = {

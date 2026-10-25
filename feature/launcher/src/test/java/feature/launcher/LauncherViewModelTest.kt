@@ -3,7 +3,6 @@ package feature.launcher
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.favorites.FavoriteRecord
-import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
@@ -15,15 +14,14 @@ import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
+import core.data.testing.createEagerFavoritesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -1148,12 +1146,11 @@ class LauncherViewModelTest {
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
         prefsRepo = mockPreferencesRepository,
-        // Eagerly resolved on an unconfined scope so ViewModel tests need no runCurrent
-        // per test; dispatcher-sensitive await semantics are covered by repository tests.
-        favoritesRepo = IFavoritesRepositoryImpl(
+        // Eagerly resolved so ViewModel tests need no runCurrent per test; dispatcher-sensitive
+        // await semantics are covered by repository tests.
+        favoritesRepo = createEagerFavoritesRepository(
             favoriteDao = mockFavoriteDao,
-            launchableRepository = mockLaunchableRepository,
-            scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+            launchableRepository = mockLaunchableRepository
         ),
         folderRepo = mockFolderRepository,
         homeEditState = inputHomeEditState

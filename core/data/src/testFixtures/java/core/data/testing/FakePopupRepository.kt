@@ -47,6 +47,10 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
         items[ownerKey] ?: emptyList()
     }
 
+    override val itemCounts: Flow<Map<String, Int>> = itemsByOwner.map { items ->
+        items.mapValues { (_, ownerItems) -> ownerItems.size }
+    }
+
     override suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>) {
         setItemsCalls += Triple(ownerKey, add, remove)
         itemsByOwner.update { current ->
