@@ -9,6 +9,8 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.popups.PopupItem
+import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.FakeLaunchableRepository
@@ -54,6 +56,11 @@ class PopupViewModelTest {
         profile = profile,
         componentName = ComponentName("com.example.other", "com.example.other.MainActivity")
     )
+    private val inputPausedApp: App = App(
+        defaultName = "Paused",
+        profile = profile,
+        componentName = ComponentName("com.example.paused", "com.example.paused.MainActivity")
+    )
     private val inputRailLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Rail Settings",
         defaultIcon = Icon.RailIcon(resId = 0),
@@ -70,6 +77,21 @@ class PopupViewModelTest {
         profile = profile,
         shortLabel = "Short label",
         longLabel = "Long label"
+    )
+    private val inputOtherShortcut: ShortcutLaunchable = ShortcutLaunchable(
+        packageName = inputOtherApp.packageName,
+        shortcutId = "other-shortcut-id",
+        profile = profile,
+        shortLabel = "Other short label",
+        longLabel = "Other long label"
+    )
+    private val inputAppShortcuts: AppShortcuts = AppShortcuts(
+        app = inputApp,
+        result = ShortcutsResult.Available(shortcuts = listOf(inputShortcut))
+    )
+    private val inputOtherAppShortcuts: AppShortcuts = AppShortcuts(
+        app = inputOtherApp,
+        result = ShortcutsResult.Available(shortcuts = listOf(inputOtherShortcut))
     )
     private val fakeLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = inputGroups)
     private val fakeShortcutSource: FakeShortcutSource = FakeShortcutSource()
@@ -413,7 +435,62 @@ class PopupViewModelTest {
             viewModel.startEdit(inputApp)
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
-            assertEquals(listOf(inputOtherApp), actualState.items)
+            assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualState.items)
+        }
+    }
+
+    @Test
+    fun `edit sheet keeps disabled shortcuts`() = runTest {
+        fakePopupRepository.setPopupItems(
+            ownerKey = inputApp.key,
+            items = listOf(
+                PopupItem.Shortcut(launchable = inputShortcut, isEnabled = false),
+                PopupItem.Launchable(launchable = inputOtherApp)
+            )
+        )
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(
+                listOf(
+                    PopupItem.Shortcut(launchable = inputShortcut, isEnabled = false),
+                    PopupItem.Launchable(inputOtherApp)
+                ),
+                actualState.items
+            )
+            assertEquals(mapOf(inputShortcut.key to inputApp.defaultName), actualState.shortcutSourceNames)
+        }
+    }
+
+    @Test
+    fun `shortcut picker groups Apps with their shortcuts and checks existing items`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
+                LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
+            )
+        )
+        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputAppShortcuts, inputOtherAppShortcuts))
+        fakePopupRepository.setPopupItems(
+            ownerKey = inputApp.key,
+            items = listOf(PopupItem.Shortcut(launchable = inputOtherShortcut, isEnabled = true))
+        )
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.shortcutPickerState.test {
+            assertEquals(ShortcutPickerState.Closed, expectMostRecentItem())
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPickingShortcuts()
+            runCurrent()
+            val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
+            assertEquals(setOf(inputOtherShortcut.key), picking.selectedKeys)
+            assertEquals(listOf("O"), picking.groups.map { group -> group.label })
+            assertEquals(listOf(inputOtherAppShortcuts), picking.groups.flatMap { group -> group.apps })
         }
     }
 
@@ -445,45 +522,102 @@ class PopupViewModelTest {
     }
 
     @Test
-    fun `confirming the picker adds checked items in order and removes unchecked ones`() = runTest {
+    fun `confirming the shortcut picker adds checked shortcuts and removes unchecked ones`() = runTest {
         fakeLaunchableRepository.setGroups(
             groups = listOf(
                 LaunchableGroup.Star,
                 LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp, inputRailLaunchable))
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))
             )
         )
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputAppShortcuts, inputOtherAppShortcuts))
+        fakePopupRepository.setPopupItems(
+            ownerKey = inputApp.key,
+            items = listOf(PopupItem.Shortcut(launchable = inputShortcut, isEnabled = true))
+        )
         val viewModel: PopupViewModel = createViewModel()
-        viewModel.pickerState.test {
+        viewModel.shortcutPickerState.test {
             viewModel.startEdit(inputApp)
             runCurrent()
-            viewModel.startPicking()
+            viewModel.startPickingShortcuts()
             runCurrent()
-            assertTrue(expectMostRecentItem() is PopupPickerState.Picking)
-            viewModel.confirmPicking(selectedInOrder = listOf(inputRailLaunchable.key))
-            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+            assertTrue(expectMostRecentItem() is ShortcutPickerState.Picking)
+            viewModel.confirmShortcuts(selectedInOrder = listOf(inputOtherShortcut.key))
+            assertEquals(ShortcutPickerState.Closed, expectMostRecentItem())
         }
         runCurrent()
         assertEquals(
-            listOf(Triple(inputApp.key, listOf(inputRailLaunchable.key), setOf(inputOtherApp.key))),
+            listOf(Triple(inputApp.key, listOf(inputOtherShortcut.key), setOf(inputShortcut.key))),
             fakePopupRepository.setItemsCalls
         )
     }
 
     @Test
-    fun `cancelling the picker changes nothing`() = runTest {
+    fun `cancelling the shortcut picker changes nothing`() = runTest {
+        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputOtherAppShortcuts))
         val viewModel: PopupViewModel = createViewModel()
-        viewModel.pickerState.test {
+        viewModel.shortcutPickerState.test {
             viewModel.startEdit(inputApp)
             runCurrent()
-            viewModel.startPicking()
-            assertTrue(expectMostRecentItem() is PopupPickerState.Picking)
-            viewModel.cancelPicking()
-            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+            viewModel.startPickingShortcuts()
+            runCurrent()
+            assertTrue(expectMostRecentItem() is ShortcutPickerState.Picking)
+            viewModel.cancelShortcutPicking()
+            assertEquals(ShortcutPickerState.Closed, expectMostRecentItem())
         }
         runCurrent()
         assertTrue(fakePopupRepository.setItemsCalls.isEmpty())
+    }
+
+    @Test
+    fun `shortcut picker lists paused Apps and leaves out Apps with no shortcuts`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
+                LaunchableGroup.InitialGroup(label = "P", items = listOf(inputPausedApp))
+            )
+        )
+        fakeShortcutSource.setAppsWithShortcuts(
+            apps = listOf(
+                AppShortcuts(app = inputOtherApp, result = ShortcutsResult.Available(shortcuts = emptyList())),
+                AppShortcuts(app = inputPausedApp, result = ShortcutsResult.ProfilePaused)
+            )
+        )
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.shortcutPickerState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPickingShortcuts()
+            runCurrent()
+            val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
+            assertEquals(listOf("P"), picking.groups.map { group -> group.label })
+            assertEquals(listOf(inputPausedApp), picking.groups.flatMap { group -> group.apps }.map { appShortcuts -> appShortcuts.app })
+        }
+    }
+
+    @Test
+    fun `shortcut picker reports when shortcuts are unavailable`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))
+            )
+        )
+        fakeShortcutSource.setAppsWithShortcuts(
+            apps = listOf(AppShortcuts(app = inputOtherApp, result = ShortcutsResult.Unavailable))
+        )
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.shortcutPickerState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.startPickingShortcuts()
+            runCurrent()
+            val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
+            assertTrue(picking.shortcutsUnavailable)
+        }
     }
 
     @Test
@@ -495,7 +629,7 @@ class PopupViewModelTest {
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupUiState.Open)
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputOtherApp)
+                viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
                 val appMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
                 assertEquals(inputOtherApp, appMenu.target)
                 assertEquals(
@@ -504,7 +638,7 @@ class PopupViewModelTest {
                 )
                 viewModel.closeMenu()
                 assertEquals(PopupMenuState.Closed, expectMostRecentItem())
-                viewModel.openItemMenu(inputRailLaunchable)
+                viewModel.openItemMenu(PopupItem.Launchable(inputRailLaunchable))
                 val railMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
                 assertEquals(inputRailLaunchable, railMenu.target)
                 assertEquals(listOf(PopupMenuItem.RemoveFromPopup), railMenu.items)
@@ -522,7 +656,7 @@ class PopupViewModelTest {
         runCurrent()
         val openState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
         assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), openState.content.items)
-        viewModel.openItemMenu(inputOtherApp)
+        viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
         runCurrent()
         assertTrue(viewModel.menuState.value is PopupMenuState.Open)
         viewModel.removeItem(inputOtherApp)
@@ -545,38 +679,39 @@ class PopupViewModelTest {
             viewModel.removeItem(inputOtherApp)
             runCurrent()
             val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
-            assertEquals(emptyList<Launchable>(), updatedState.items)
+            assertEquals(emptyList<PopupItem>(), updatedState.items)
         }
         assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
     }
 
     @Test
-    fun `moves an item for the edited App`() = runTest {
+    fun `sets the item order for the edited App`() = runTest {
         val viewModel: PopupViewModel = createViewModel()
         viewModel.startEdit(inputApp)
         runCurrent()
+        val orderedKeys: List<String> = listOf(inputOtherApp.key, inputApp.key)
 
-        viewModel.moveItem(from = 0, to = 2)
+        viewModel.setItemOrder(orderedItemKeys = orderedKeys)
         runCurrent()
 
-        assertEquals(listOf(Triple(inputApp.key, 0, 2)), fakePopupRepository.movedItems)
+        assertEquals(listOf(inputApp.key to orderedKeys), fakePopupRepository.itemOrders)
     }
 
     @Test
-    fun `Back closes the picker before the editor`() = runTest {
+    fun `Back closes the shortcut picker before the editor`() = runTest {
         val viewModel: PopupViewModel = createViewModel()
         backgroundScope.launch { viewModel.editState.collect() }
-        backgroundScope.launch { viewModel.pickerState.collect() }
+        backgroundScope.launch { viewModel.shortcutPickerState.collect() }
         viewModel.startEdit(inputApp)
         runCurrent()
-        viewModel.startPicking()
+        viewModel.startPickingShortcuts()
         runCurrent()
-        assertTrue(viewModel.pickerState.value is PopupPickerState.Picking)
+        assertTrue(viewModel.shortcutPickerState.value is ShortcutPickerState.Picking)
         assertTrue(viewModel.editState.value is PopupEditState.Editing)
 
         assertTrue(viewModel.onBack())
 
-        assertEquals(PopupPickerState.Closed, viewModel.pickerState.value)
+        assertEquals(ShortcutPickerState.Closed, viewModel.shortcutPickerState.value)
         assertTrue(viewModel.editState.value is PopupEditState.Editing)
     }
 
@@ -591,7 +726,7 @@ class PopupViewModelTest {
         runCurrent()
         viewModel.startEdit(inputApp)
         runCurrent()
-        viewModel.openItemMenu(inputOtherApp)
+        viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
         runCurrent()
         assertTrue(viewModel.menuState.value is PopupMenuState.Open)
         assertTrue(viewModel.editState.value is PopupEditState.Editing)

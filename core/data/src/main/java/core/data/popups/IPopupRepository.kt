@@ -1,6 +1,5 @@
 package core.data.popups
 
-import core.data.launchables.model.Launchable
 import kotlinx.coroutines.flow.Flow
 
 /** Per-App Pop-up preferences. */
@@ -12,11 +11,11 @@ interface IPopupRepository {
     suspend fun setShortcutHidden(ownerKey: String, shortcutId: String, hidden: Boolean)
 
     /**
-     * The Launchables added to [ownerKey]'s Pop-up, in the user's order.
-     * An item whose Launchable no longer exists is removed by the repository and never emitted.
+     * The items added to [ownerKey]'s Pop-up, in the user's order.
+     * An item whose Launchable or Shortcut no longer exists is removed by the repository and never emitted.
      * Collecting is a pure read.
      */
-    fun items(ownerKey: String): Flow<List<Launchable>>
+    fun items(ownerKey: String): Flow<List<PopupItem>>
 
     /** Adds [add] to the end of [ownerKey]'s Pop-up in order, and removes [remove]. */
     suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>)
@@ -24,8 +23,8 @@ interface IPopupRepository {
     /** Removes the item [itemKey] from [ownerKey]'s Pop-up. Does nothing if it is not one. */
     suspend fun removeItem(ownerKey: String, itemKey: String)
 
-    /** Moves the item at [from] to [to] in [ownerKey]'s order. */
-    suspend fun moveItem(ownerKey: String, from: Int, to: Int)
+    /** Reorders [ownerKey]'s listed items to match [orderedItemKeys], leaving unlisted items in place. */
+    suspend fun setItemOrder(ownerKey: String, orderedItemKeys: List<String>)
 
     /** Deletes the stored Pop-up preferences of [ownerKey], which no longer exists. */
     suspend fun deleteOwner(ownerKey: String)

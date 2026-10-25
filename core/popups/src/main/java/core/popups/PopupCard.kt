@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.util.performLongPressHaptic
 
@@ -210,6 +211,7 @@ private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit, 
 
 @Composable
 internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val shortcut: ShortcutLaunchable? = (item as? PopupItem.Shortcut)?.launchable
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,25 +221,30 @@ internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () 
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            modifier = Modifier.size(itemIconSize),
+            modifier = Modifier.size(if (shortcut != null) shortcutIconSize else itemIconSize),
             model = item.launchable.icon,
             contentDescription = null
         )
-        Spacer(Modifier.width(itemIconGap))
-        Text(
-            text = item.launchable.name,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Spacer(Modifier.width(if (shortcut != null) shortcutIconGap else itemIconGap))
+        if (shortcut != null) {
+            PopupShortcutLabel(shortcut = shortcut)
+        } else {
+            Text(
+                text = item.launchable.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
 @Composable
-internal fun PopupShortcutLabel(shortcut: ShortcutLaunchable) {
+internal fun PopupShortcutLabel(shortcut: ShortcutLaunchable, modifier: Modifier = Modifier) {
     var useLongLabel: Boolean by remember(shortcut.longLabel, shortcut.shortLabel) { mutableStateOf(true) }
     val label: String = if (useLongLabel) shortcut.longLabel else shortcut.shortLabel
     Text(
+        modifier = modifier,
         text = label.ifBlank { shortcut.shortLabel },
         style = MaterialTheme.typography.bodyLarge,
         maxLines = 1,

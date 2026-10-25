@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
@@ -42,7 +43,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import compose.icons.fontawesomeicons.solid.Times
-import core.data.launchables.model.Launchable
+import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.ui.R as CoreUiR
@@ -64,6 +65,8 @@ private val editItemRemoveEndPadding = 4.dp
 private val addAppsButtonHorizontalPadding = 16.dp
 private val addAppsButtonVerticalPadding = 8.dp
 private val addAppsIconGap = 8.dp
+private const val UNAVAILABLE_ITEM_ALPHA: Float = 0.5f
+private const val SOURCE_SEPARATOR: String = " · "
 
 private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
 
@@ -76,9 +79,8 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val listState = rememberLazyListState()
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    var displayedItems: List<Launchable> by remember(state.owner.key) { mutableStateOf(state.items) }
+    var displayedItems: List<PopupItem> by remember(state.owner.key) { mutableStateOf(state.items) }
     var draggedItemKey: String? by remember { mutableStateOf(null) }
-    var draggedFromIndex: Int by remember { mutableStateOf(-1) }
     LaunchedEffect(state.items) {
         if (draggedItemKey == null) {
             displayedItems = state.items
@@ -90,8 +92,8 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
         if (fromKey == null || toKey == null) {
             return@rememberReorderableLazyListState
         }
-        val fromIndex: Int = displayedItems.indexOfFirst { item -> item.key == fromKey }
-        val toIndex: Int = displayedItems.indexOfFirst { item -> item.key == toKey }
+        val fromIndex: Int = displayedItems.indexOfFirst { item -> item.launchable.key == fromKey }
+        val toIndex: Int = displayedItems.indexOfFirst { item -> item.launchable.key == toKey }
         if (fromIndex < 0 || toIndex < 0) {
             return@rememberReorderableLazyListState
         }
@@ -144,39 +146,38 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                         PopupEmptyState(messageResId = R.string.add_items_hint)
                     }
                 }
-                items(items = displayedItems, key = { item -> popupItemKey(item.key) }) { item ->
-                    ReorderableItem(state = reorderState, key = popupItemKey(item.key)) { _ ->
+                items(items = displayedItems, key = { item -> popupItemKey(item.launchable.key) }) { item ->
+                    ReorderableItem(state = reorderState, key = popupItemKey(item.launchable.key)) { _ ->
                         EditItemRow(
                             item = item,
+                            sourceName = state.shortcutSourceNames[item.launchable.key],
                             dragHandle = {
                                 DragHandle(
                                     modifier = Modifier.draggableHandle(
                                         onDragStarted = {
-                                            draggedItemKey = item.key
-                                            draggedFromIndex = displayedItems.indexOfFirst { candidate ->
-                                                candidate.key == item.key
-                                            }
+                                            draggedItemKey = item.launchable.key
                                         },
                                         onDragStopped = {
-                                            val finalIndex: Int = displayedItems.indexOfFirst { candidate ->
-                                                candidate.key == item.key
-                                            }
-                                            if (draggedFromIndex >= 0 && finalIndex >= 0 && finalIndex != draggedFromIndex) {
-                                                viewModel.moveItem(from = draggedFromIndex, to = finalIndex)
-                                            }
+                                            viewModel.setItemOrder(
+                                                orderedItemKeys = displayedItems.map { candidate ->
+                                                    candidate.launchable.key
+                                                }
+                                            )
                                             draggedItemKey = null
-                                            draggedFromIndex = -1
                                         }
                                     ),
-                                    contentDescription = stringResource(R.string.reorder_item, item.name)
+                                    contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
                                 )
                             },
-                            onRemove = { viewModel.removeItem(item) }
+                            onRemove = { viewModel.removeItem(item.launchable) }
                         )
                     }
                 }
                 item(key = "edit_popup_add_apps") {
-                    AddAppsButton(onClick = viewModel::startPicking)
+                    AddButton(labelResId = R.string.add_apps, onClick = viewModel::startPicking)
+                }
+                item(key = "edit_popup_add_shortcuts") {
+                    AddButton(labelResId = R.string.add_shortcuts, onClick = viewModel::startPickingShortcuts)
                 }
             }
         }
@@ -230,11 +231,14 @@ private fun EditShortcutRow(shortcut: ShortcutLaunchable, isShown: Boolean, onSh
 }
 
 @Composable
-private fun EditItemRow(item: Launchable, dragHandle: @Composable () -> Unit, onRemove: () -> Unit) {
+private fun EditItemRow(item: PopupItem, sourceName: String?, dragHandle: @Composable () -> Unit, onRemove: () -> Unit) {
+    val isUnavailable: Boolean = item is PopupItem.Shortcut && !item.isEnabled
+    val label: String = if (sourceName != null) "${item.launchable.name}$SOURCE_SEPARATOR$sourceName" else item.launchable.name
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (isUnavailable) UNAVAILABLE_ITEM_ALPHA else 1f)
             .padding(
                 start = sectionTitleStartPadding,
                 end = editItemRemoveEndPadding,
@@ -245,28 +249,36 @@ private fun EditItemRow(item: Launchable, dragHandle: @Composable () -> Unit, on
         dragHandle()
         AsyncImage(
             modifier = Modifier.size(editItemIconSize),
-            model = item.icon,
+            model = item.launchable.icon,
             contentDescription = null
         )
         Spacer(Modifier.width(shortcutIconGap))
-        Text(
-            text = item.name,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (isUnavailable) {
+                Text(
+                    text = stringResource(R.string.unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         IconButton(onClick = onRemove) {
             Icon(
                 imageVector = FontAwesomeIcons.Solid.Times,
-                contentDescription = stringResource(R.string.remove_item, item.name)
+                contentDescription = stringResource(R.string.remove_item, label)
             )
         }
     }
 }
 
 @Composable
-private fun AddAppsButton(onClick: () -> Unit) {
+private fun AddButton(labelResId: Int, onClick: () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
         modifier = Modifier
@@ -275,6 +287,6 @@ private fun AddAppsButton(onClick: () -> Unit) {
     ) {
         Icon(imageVector = FontAwesomeIcons.Solid.Plus, contentDescription = null)
         Spacer(Modifier.width(addAppsIconGap))
-        Text(stringResource(R.string.add_apps))
+        Text(stringResource(labelResId))
     }
 }

@@ -21,8 +21,12 @@ A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays
 _Avoid_: Disabled shortcut, removed shortcut
 
 **Added item**:
-A Launchable the user added to a Pop-up from the Edit Pop-up sheet, shown below that App's Shortcuts.
+A Launchable the user added to a Pop-up from its edit sheet, shown below that App's Shortcuts. A Shortcut added this way is a Shortcut item.
 _Avoid_: Pinned app, Pop-up favorite, item
+
+**Shortcut item**:
+An added item that is a Shortcut. It stays in the Pop-up while the publishing app still offers it, and is hidden from the Pop-up while the app disables it.
+_Avoid_: Pinned shortcut, added shortcut
 
 **Owner**:
 The App whose row a Pop-up is attached to; the Pop-up shows that App's header and shortcuts.
