@@ -33,6 +33,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.FolderPlus
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
+import compose.icons.fontawesomeicons.solid.ListUl
 import compose.icons.fontawesomeicons.solid.PencilAlt
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
@@ -44,6 +45,7 @@ import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
+import core.ui.composables.SheetSwitchRow
 import core.ui.composables.SheetTitle
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 import org.koin.androidx.compose.koinViewModel
@@ -123,6 +125,13 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, popupV
             viewModel.closeItemMenu()
             popupViewModel.startEdit(item)
         }
+    )
+    SheetSwitchRow(
+        imageVector = FontAwesomeIcons.Solid.ListUl,
+        label = stringResource(R.string.show_in_app_list),
+        checked = item.showInAppList,
+        onCheckedChange = { show -> popupViewModel.setShowInAppList(folder = item, show = show) },
+        supportingText = stringResource(R.string.show_in_app_list_supporting_text)
     )
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.TrashAlt,

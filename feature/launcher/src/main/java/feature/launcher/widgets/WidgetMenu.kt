@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -42,6 +40,11 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.icons.model.Icon
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetSwitchRow
+import core.ui.composables.sheetRowHorizontalPadding
+import core.ui.composables.sheetRowIconPadding
+import core.ui.composables.sheetRowIconSize
+import core.ui.composables.sheetRowVerticalPadding
 import core.widgets.HeaderClockStyleChooser
 import feature.launcher.R
 
@@ -62,7 +65,7 @@ fun WidgetMenu(
         is WidgetMenuState.HeaderMenu -> Column(modifier = modifier.fillMaxWidth()) {
             Text(
                 text = stringResource(R.string.header_title),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
                 style = MaterialTheme.typography.headlineMedium
             )
             state.items.forEach { item ->
@@ -126,7 +129,7 @@ fun WidgetMenu(
 @Composable
 private fun WidgetMenuTitle(icon: Icon, label: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
@@ -159,40 +162,15 @@ private fun WidgetMenuRow(
 
 @Composable
 private fun ToggleRow(item: WidgetMenuItem.Toggle, onToggle: (WidgetMenuAction, Boolean) -> Unit, onAction: (WidgetMenuAction) -> Unit) {
-    val toggleModifier: Modifier = if (item.rowOpensAction) {
-        Modifier.clickable(role = Role.Button) { onAction(item.id) }
-    } else {
-        Modifier.toggleable(
-            value = item.checked,
-            enabled = item.enabled,
-            role = Role.Switch,
-            onValueChange = { checked -> onToggle(item.id, checked) }
-        )
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(toggleModifier)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        WidgetMenuIcon(action = item.id)
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(text = stringResource(item.id.label()), style = MaterialTheme.typography.titleLarge)
-            item.supportingText?.let { supportingText ->
-                Text(text = stringResource(supportingText), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        Switch(
-            checked = item.checked,
-            onCheckedChange = if (item.rowOpensAction) {
-                { checked -> onToggle(item.id, checked) }
-            } else {
-                null
-            },
-            enabled = item.enabled
-        )
-    }
+    SheetSwitchRow(
+        imageVector = item.id.icon(),
+        label = stringResource(item.id.label()),
+        checked = item.checked,
+        onCheckedChange = { checked -> onToggle(item.id, checked) },
+        supportingText = item.supportingText?.let { supportingText -> stringResource(supportingText) },
+        enabled = item.enabled,
+        onClick = if (item.rowOpensAction) ({ onAction(item.id) }) else null
+    )
 }
 
 @Composable
@@ -201,7 +179,7 @@ private fun ActionRow(item: WidgetMenuItem.Action, onAction: (WidgetMenuAction) 
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onAction(item.id) }
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         WidgetMenuIcon(action = item.id)
@@ -223,7 +201,7 @@ private fun ChoiceRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button) { onChoiceClick(item.id) }
-                .padding(horizontal = 20.dp, vertical = 10.dp),
+                .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             WidgetMenuIcon(action = item.id)
@@ -257,7 +235,7 @@ private fun ChoiceRow(
 @Composable
 private fun WidgetMenuIcon(action: WidgetMenuAction) {
     MaterialIcon(
-        modifier = Modifier.size(56.dp).padding(10.dp),
+        modifier = Modifier.size(sheetRowIconSize).padding(sheetRowIconPadding),
         imageVector = action.icon(),
         contentDescription = null
     )

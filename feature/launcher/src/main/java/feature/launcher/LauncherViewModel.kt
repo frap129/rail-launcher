@@ -168,6 +168,11 @@ class LauncherViewModel(
     /** Folders created from Edit Favorites that the launcher should open for editing. */
     val folderEdits: SharedFlow<Folder> = folderEditRequests.flow
 
+    private val foldersOnlyInSettingsRequests: EventChannel<Folder> = EventChannel()
+
+    /** Folders removed from Favorites that are now reachable only from Settings. */
+    val foldersOnlyInSettings: SharedFlow<Folder> = foldersOnlyInSettingsRequests.flow
+
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: StateFlow<List<Launchable>> = combine(
         favoritesRepo.favorites,
@@ -346,14 +351,19 @@ class LauncherViewModel(
 
     fun toggleFavorite(launchable: Launchable) {
         viewModelScope.launch {
-            favoritesMutex.withLock {
+            val isRemoved: Boolean = favoritesMutex.withLock {
                 if (favoritesRepo.isFavorite(launchable).first()) {
                     favoritesRepo.remove(launchable)
                     editedFavoriteKeys.update { keys -> keys?.filterNot { it == launchable.key } }
+                    true
                 } else {
                     favoritesRepo.add(launchable)
                     editedFavoriteKeys.update { keys -> keys?.plus(launchable.key) }
+                    false
                 }
+            }
+            if (isRemoved && launchable is Folder && !launchable.isInAppList) {
+                foldersOnlyInSettingsRequests.send(launchable)
             }
         }
     }

@@ -856,6 +856,16 @@ class PopupViewModelTest {
     }
 
     @Test
+    fun `shows a Folder in the App List`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+
+        viewModel.setShowInAppList(inputFolder, true)
+        runCurrent()
+
+        assertEquals(listOf(inputFolder to true), fakeFolderRepository.showInAppListChanges)
+    }
+
+    @Test
     fun `add to folder lists the Folders in creation order and reflects membership`() = runTest {
         fakePopupRepository.setItems(ownerKey = inputSecondFolder.key, items = listOf(inputApp))
         val viewModel: PopupViewModel = createViewModel()

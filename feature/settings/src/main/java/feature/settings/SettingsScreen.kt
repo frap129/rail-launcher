@@ -128,6 +128,8 @@ import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
+import core.ui.model.data.POPUPS_SETTINGS_ROUTE
+import core.ui.model.data.SETTINGS_ROUTE
 import core.util.openApplicationDetailsSettings
 import core.widgets.HeaderClockStyleChooser
 import core.widgets.IAppWidgetViewCache
@@ -142,7 +144,6 @@ import org.koin.compose.koinInject
 
 private const val SCREEN_ARGUMENT = "screen"
 private const val SECTION_ARGUMENT = "section"
-private const val SETTINGS_ROUTE = "settings"
 private const val MEDIA_SECTION = "media"
 private const val WIDGET_AREA_SECTION_ROWS = 5
 private const val HEADER_SECTION_ROWS = 5
@@ -221,7 +222,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
             TopAppBar(
                 title = {
                     val title = when (screen) {
-                        SettingsScreen.Main -> stringResource(R.string.settings)
+                        SettingsScreen.Main -> stringResource(CoreUiR.string.settings)
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
                         SettingsScreen.Popups -> stringResource(R.string.popups_and_folders)
@@ -254,7 +255,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 SettingsScreen.Main -> SettingsMainScreen(
                     toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
                     toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
-                    toPopups = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Popups.key}") }
+                    toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) }
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(

@@ -6,27 +6,26 @@ import androidx.compose.material3.SnackbarResult
 import core.data.folders.Folder
 import kotlinx.coroutines.flow.Flow
 
-/** A Folder shown in a Snackbar, with the message to show for it. */
-data class FolderSnackbar(val message: String, val folder: Folder)
-
 /**
- * Shows each Folder Snackbar in [snackbarHostState] and opens the Folder's editor
- * when its action is taken. Collects [snackbars] for as long as the caller's effect lives.
+ * Shows each Folder in [folders] as a Snackbar whose message is [message], and
+ * runs [onAction] when the Snackbar action is taken. Collects [folders] for as
+ * long as the caller's effect lives.
  */
 suspend fun showFolderSnackbars(
-    snackbars: Flow<FolderSnackbar>,
+    folders: Flow<Folder>,
     snackbarHostState: SnackbarHostState,
     actionLabel: String,
-    onEdit: (Folder) -> Unit
+    message: (Folder) -> String,
+    onAction: (Folder) -> Unit
 ) {
-    snackbars.collect { snackbar: FolderSnackbar ->
+    folders.collect { folder: Folder ->
         val result: SnackbarResult = snackbarHostState.showSnackbar(
-            message = snackbar.message,
+            message = message(folder),
             actionLabel = actionLabel,
             duration = SnackbarDuration.Short
         )
         if (result == SnackbarResult.ActionPerformed) {
-            onEdit(snackbar.folder)
+            onAction(folder)
         }
     }
 }

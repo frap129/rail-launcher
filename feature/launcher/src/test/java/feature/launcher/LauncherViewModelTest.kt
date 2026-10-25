@@ -36,6 +36,7 @@ import org.junit.Test
 private const val START_OFFSET_PX: Int = 200
 private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
+private const val FAVORITE_FOLDER_ID: Long = 42L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LauncherViewModelTest {
@@ -1111,6 +1112,26 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `reports a Folder hidden from the App List when it loses its favorite`() = runTest {
+        val fixture: FavoriteFolderFixture = createFavoriteFolderFixture(showInAppList = false)
+        fixture.viewModel.foldersOnlyInSettings.test {
+            fixture.viewModel.toggleFavorite(fixture.folder)
+            advanceUntilIdle()
+            assertEquals(fixture.folder, awaitItem())
+        }
+    }
+
+    @Test
+    fun `reports nothing when a Folder shown in the App List loses its favorite`() = runTest {
+        val fixture: FavoriteFolderFixture = createFavoriteFolderFixture(showInAppList = true)
+        fixture.viewModel.foldersOnlyInSettings.test {
+            fixture.viewModel.toggleFavorite(fixture.folder)
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `unstarring a Folder in Edit Favorites keeps the Folder`() = runTest {
         val folder: Folder = Folder(folderId = 42L)
         val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
@@ -1156,6 +1177,15 @@ class LauncherViewModelTest {
         homeEditState = inputHomeEditState
     )
 
+    private fun TestScope.createFavoriteFolderFixture(showInAppList: Boolean): FavoriteFolderFixture {
+        val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID, showInAppList = showInAppList)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = FakeLaunchableRepository(groups = inputGroups, folders = listOf(folder)),
+            mockFavoriteDao = FakeFavoriteDao(initialRecords = listOf(FavoriteRecord(key = folder.key, position = 0)))
+        )
+        return FavoriteFolderFixture(folder = folder, viewModel = viewModel)
+    }
+
     private inline fun <reified T : LauncherUiState> checkState(actualState: LauncherUiState): T {
         assertTrue("Expected ${T::class.simpleName} but was $actualState", actualState is T)
         return actualState as T
@@ -1180,3 +1210,5 @@ class LauncherViewModelTest {
         deeplink = "rail://$name"
     )
 }
+
+private data class FavoriteFolderFixture(val folder: Folder, val viewModel: LauncherViewModel)

@@ -421,6 +421,13 @@ class PopupViewModel(
         }
     }
 
+    /** Shows or hides [folder] in the App List. */
+    fun setShowInAppList(folder: Folder, show: Boolean) {
+        launchLogged(message = "Failed to change whether ${folder.key} is in the App List") {
+            folderRepository.setShowInAppList(folder = folder, show = show)
+        }
+    }
+
     /** Opens the Add to Folder sheet for [launchable], which must not be a Folder. */
     fun startAddToFolder(launchable: Launchable) {
         if (launchable is Folder) {
@@ -692,10 +699,7 @@ class PopupViewModel(
             if (candidates.isEmpty()) {
                 null
             } else {
-                when (group) {
-                    is LaunchableGroup.InitialGroup -> group.copy(items = candidates)
-                    is LaunchableGroup.Builtin -> group.copy(items = candidates)
-                }
+                group.withItems(items = candidates)
             }
         }
 

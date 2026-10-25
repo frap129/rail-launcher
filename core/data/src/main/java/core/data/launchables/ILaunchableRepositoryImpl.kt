@@ -3,6 +3,7 @@ package core.data.launchables
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.folders.FolderRecord
 import core.data.folders.toFolder
 import core.data.icons.IIconRepository
@@ -81,11 +82,15 @@ class ILaunchableRepositoryImpl(
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
-        val resolvedFolders: List<Launchable> = folderRecords.map { record -> record.toFolder(names = names) }
-        val groups: List<LaunchableGroup> = resolvedApps.toLaunchableGroups(resolvedBuiltinGroup)
+        val resolvedFolders: List<Folder> = folderRecords.map { record -> record.toFolder(names = names) }
+        val groups: List<LaunchableGroup> = resolvedApps.toLaunchableGroups(
+            builtinGroup = resolvedBuiltinGroup,
+            folders = resolvedFolders
+        )
         return LaunchableState(
             groups = groups,
-            launchables = groups.toLaunchables() + resolvedFolders,
+            // Every Folder is flat-listed, whether or not its App List group is shown.
+            launchables = groups.toAppListLaunchables() + resolvedFolders,
             isLoaded = appsOrNull != null
         )
     }
@@ -102,22 +107,35 @@ class ILaunchableRepositoryImpl(
     }
 }
 
-/** Flattens the Listed groups into their Launchables in Rail order. */
-internal fun List<LaunchableGroup>.toLaunchables(): List<Launchable> =
-    filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items }
+/**
+ * Flattens the App List groups into their Launchables in Rail order. The
+ * Folders group is skipped because every Folder is flat-listed from its
+ * record, whether or not that group shows it.
+ */
+fun List<LaunchableGroup>.toAppListLaunchables(): List<Launchable> = filterIsInstance<LaunchableGroup.Listed>()
+    .filterNot { group -> group is LaunchableGroup.Folders }
+    .flatMap { group -> group.items }
 
 private const val DIGIT_GROUP_LABEL: String = "#"
 
 /**
- * Orders the Rail: the Star, then Initial groups sorted by label, then
+ * Orders the Rail: the Star, then Initial groups sorted by label, then the
+ * Folders group when at least one Folder is shown in the App List, then
  * [builtinGroup]. Names starting with a digit share the "#" group. Always
  * holds the Star and the Builtin group so Home stays reachable without apps.
  */
-internal fun List<Launchable>.toLaunchableGroups(builtinGroup: LaunchableGroup.Builtin): List<LaunchableGroup> {
+internal fun List<Launchable>.toLaunchableGroups(
+    builtinGroup: LaunchableGroup.Builtin,
+    folders: List<Folder> = emptyList()
+): List<LaunchableGroup> {
     val initialGroups: List<LaunchableGroup.InitialGroup> = groupBy { it.groupLabel() }
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
-    return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup
+    val folderGroup: LaunchableGroup.Folders? = folders
+        .filter { folder -> folder.isInAppList }
+        .takeIf { items -> items.isNotEmpty() }
+        ?.let { items -> LaunchableGroup.Folders(items = items) }
+    return listOf(LaunchableGroup.Star) + initialGroups + listOfNotNull(folderGroup) + builtinGroup
 }
 
 private fun Launchable.groupLabel(): String {
