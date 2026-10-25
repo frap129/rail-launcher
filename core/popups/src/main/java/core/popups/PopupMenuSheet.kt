@@ -1,6 +1,7 @@
 package core.popups
 
 import android.content.Context
+import android.os.Process
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,8 +17,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.ArrowsAltV
+import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
+import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
@@ -27,6 +31,8 @@ import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
 import core.util.openApplicationDetailsSettings
+import core.util.userForSerial
+import core.widgets.WidgetMenuTitle
 
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +46,11 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
         onDismissRequest = viewModel::closeMenu
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            SheetTitle(launchable = state.target)
+            if (state.widget != null) {
+                WidgetMenuTitle(icon = state.widget.model.icon, label = state.widget.model.label)
+            } else {
+                SheetTitle(launchable = state.target)
+            }
             CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
                 state.items.forEach { item ->
                     when (item) {
@@ -58,6 +68,30 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             onClick = viewModel::requestDeleteFolder
                         )
 
+                        PopupMenuItem.AddWidget -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.PlusSquare,
+                            label = stringResource(CoreUiR.string.add_widget),
+                            onClick = viewModel::startAddWidget
+                        )
+
+                        PopupMenuItem.ResizeWidget -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
+                            label = stringResource(CoreUiR.string.resize_widget),
+                            onClick = viewModel::resizeWidget
+                        )
+
+                        PopupMenuItem.ReconfigureWidget -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.Cog,
+                            label = stringResource(CoreUiR.string.reconfigure_widget),
+                            onClick = viewModel::reconfigureWidget
+                        )
+
+                        PopupMenuItem.RemoveWidget -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                            label = stringResource(CoreUiR.string.remove_widget),
+                            onClick = viewModel::removeWidget
+                        )
+
                         PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(R.string.remove_from_popup),
@@ -68,13 +102,20 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             imageVector = FontAwesomeIcons.Solid.InfoCircle,
                             label = stringResource(CoreUiR.string.app_info),
                             onClick = {
-                                when (val target: Launchable = state.target) {
-                                    is App -> target.openAppInfo(context)
-                                    is ShortcutLaunchable -> context.openApplicationDetailsSettings(target.packageName, target.profile)
-                                    else -> Unit
+                                val widget: PopupWidgetState? = state.widget
+                                if (widget != null) {
+                                    val profile = context.userForSerial(widget.profileSerial) ?: Process.myUserHandle()
+                                    context.openApplicationDetailsSettings(widget.provider.packageName, profile)
+                                    viewModel.closeMenu()
+                                } else {
+                                    when (val target: Launchable = state.target) {
+                                        is App -> target.openAppInfo(context)
+                                        is ShortcutLaunchable -> context.openApplicationDetailsSettings(target.packageName, target.profile)
+                                        else -> Unit
+                                    }
+                                    viewModel.closeMenu()
+                                    viewModel.close()
                                 }
-                                viewModel.closeMenu()
-                                viewModel.close()
                             }
                         )
                     }

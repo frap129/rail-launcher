@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import core.data.widgets.AppWidgetId
 import core.data.widgets.ResizeBounds
@@ -39,10 +39,10 @@ interface IWidgetResizeController {
     fun setWidgetAreaWidth(widthDp: Int)
 
     /** Enters Resize for [placeId], returning false when the place is not resizable right now. */
-    suspend fun startResize(placeId: Long, headerHeightDp: Int? = null): Boolean
+    suspend fun startResize(placeId: Long, headerHeightDp: Int? = null, ownerKey: String? = null): Boolean
 
     /** Enters Resize for the place holding [widgetId]. */
-    suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int? = null): Boolean
+    suspend fun startResizeForWidget(widgetId: Long, headerHeightDp: Int? = null, ownerKey: String? = null): Boolean
 
     /** Applies a fractional drag delta, snapping the accumulated height to the 8dp grid. */
     fun dragResize(deltaDp: Float)
@@ -60,7 +60,7 @@ interface IWidgetResizeController {
     fun cancelResize()
 
     /** Cancels Resize when its place disappears. */
-    fun onPlacesChanged(places: List<WidgetPlace>)
+    fun onPlacesChanged(places: List<WidgetPlace>, ownerKey: String? = null)
 
     /** Clamps a stack that gained a page and returns the page size to report to its providers. */
     suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport?

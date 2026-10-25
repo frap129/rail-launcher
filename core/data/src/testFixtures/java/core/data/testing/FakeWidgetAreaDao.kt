@@ -6,6 +6,7 @@ import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), initialWidgets: List<WidgetRecord> = emptyList()) :
@@ -40,8 +41,24 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
 
     override suspend fun getPlace(placeId: Long): WidgetPlaceRecord? = places.value.firstOrNull { place -> place.id == placeId }
 
+    override suspend fun getPlaceForOwner(ownerKey: String): WidgetPlaceRecord? =
+        places.value.firstOrNull { place -> place.ownerKey == ownerKey }
+
+    override fun observePopupOwnerKeys(): Flow<List<String>> = places.map { current ->
+        current.mapNotNull { place -> place.ownerKey }
+    }
+
+    override suspend fun placeIdsForOwner(ownerKey: String): List<Long> =
+        places.value.filter { place -> place.ownerKey == ownerKey }.map { place -> place.id }
+
+    override suspend fun deletePlacesForOwner(ownerKey: String) {
+        val placeIds: Set<Long> = placeIdsForOwner(ownerKey).toSet()
+        widgets.update { current -> current.filterNot { widget -> widget.placeId in placeIds } }
+        places.update { current -> current.filterNot { place -> place.id in placeIds } }
+    }
+
     override suspend fun getPlaceAtPosition(position: Int): WidgetPlaceRecord? =
-        places.value.firstOrNull { place -> place.position == position }
+        places.value.firstOrNull { place -> place.position == position && place.ownerKey == null }
 
     override suspend fun setCurrentPage(placeId: Long, page: Int) {
         places.update { current -> current.map { place -> if (place.id == placeId) place.copy(currentPage = page) else place } }
@@ -98,13 +115,22 @@ class FakeWidgetAreaDao(initialPlaces: List<WidgetPlaceRecord> = emptyList(), in
 
     override suspend fun shiftPositionsFrom(position: Int) {
         places.update { current ->
-            current.map { place -> if (place.position >= position) place.copy(position = place.position + 1) else place }
+            current.map { place ->
+                if (place.position >= position && place.ownerKey == null) place.copy(position = place.position + 1) else place
+            }
         }
     }
 
-    override suspend fun getMaxPlacePosition(): Int = places.value.maxOfOrNull { place -> place.position } ?: -1
+    override suspend fun getMaxPlacePosition(): Int = places.value
+        .filter { place -> place.ownerKey == null }
+        .maxOfOrNull { place -> place.position } ?: -1
 
     override suspend fun getPlaceIds(): List<Long> = places.value.sortedBy { place -> place.position }.map { place -> place.id }
+
+    override suspend fun getWidgetAreaPlaceIds(): List<Long> = places.value
+        .filter { place -> place.ownerKey == null }
+        .sortedBy { place -> place.position }
+        .map { place -> place.id }
 
     override suspend fun appWidgetIdsForPlaces(placeIds: List<Long>): List<Int> = widgets.value
         .filter { widget -> widget.placeId in placeIds }

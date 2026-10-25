@@ -19,7 +19,8 @@ fun appWidgetPlace(
     profileSerial: Long = 0L,
     availability: WidgetAvailability = WidgetAvailability.Available,
     defaultHeightDp: Int? = null,
-    heightDp: Int? = null
+    heightDp: Int? = null,
+    ownerKey: String? = null
 ): WidgetPlace = WidgetPlace(
     id = placeId,
     heightDp = heightDp,
@@ -34,7 +35,8 @@ fun appWidgetPlace(
             availability = availability,
             defaultHeightDp = defaultHeightDp
         )
-    )
+    ),
+    ownerKey = ownerKey
 )
 
 fun stackPlace(): WidgetPlace = WidgetPlace(

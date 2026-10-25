@@ -106,6 +106,39 @@ class IWidgetLifecycleReconcilerImplTest {
     }
 
     @Test
+    fun `keeps a Pop-up widget at startup while its system id is bound`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
+            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        )
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        mockHost.boundIdsState.add(AppWidgetId(42))
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+
+        reconciler.reconcileAtStartup(pendingIds = emptySet())
+
+        assertEquals(1, mockDao.getAppWidgets().size)
+        assertTrue(mockHost.deletedIds.isEmpty())
+    }
+
+    @Test
+    fun `removes a Pop-up widget whose provider is gone`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
+            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        )
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        mockHost.defaultAvailability = WidgetAvailability.Gone
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+
+        reconciler.removeGoneProviders()
+
+        assertEquals(listOf(AppWidgetId(42)), mockHost.deletedIds)
+        assertTrue(mockDao.getAppWidgets().isEmpty())
+        assertTrue(mockDao.observePlaces().first().isEmpty())
+    }
+
+    @Test
     fun `reconciles at startup only once`() = runTest {
         val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()

@@ -21,7 +21,8 @@ data class PopupFrame(val offsetX: Int, val offsetY: Int, val width: Int, val ma
 /** Places the Pop-up card beside its row without covering the Rail. */
 object PopupPlacement {
     fun place(
-        anchor: PopupAnchor,
+        /** The row to anchor to, or null to centre the card vertically. */
+        anchor: PopupAnchor?,
         window: IntRect,
         safeInsets: PopupInsets,
         contentHeightPx: Int,
@@ -43,7 +44,11 @@ object PopupPlacement {
         val cardHeight: Int = contentHeightPx.coerceAtMost(maxHeight)
         val topBound: Int = window.top + safeInsets.top + verticalInsetPx
         val bottomBound: Int = window.bottom - safeInsets.bottom - verticalInsetPx
-        val offsetY: Int = anchor.rowTop.coerceAtMost(bottomBound - cardHeight).coerceAtLeast(topBound)
+        val offsetY: Int = if (anchor == null) {
+            (window.top + (window.height - cardHeight) / 2).coerceAtMost(bottomBound - cardHeight).coerceAtLeast(topBound)
+        } else {
+            anchor.rowTop.coerceAtMost(bottomBound - cardHeight).coerceAtLeast(topBound)
+        }
         return PopupFrame(offsetX = offsetX, offsetY = offsetY, width = width, maxHeight = maxHeight)
     }
 }

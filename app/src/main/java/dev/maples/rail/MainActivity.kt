@@ -17,7 +17,7 @@ import core.lifecycle.HomeSignals
 import core.lifecycle.TemplateActivity
 import core.ui.App
 import core.ui.model.data.Destination
-import feature.launcher.AppWidgetResults
+import core.widgets.AppWidgetResults
 import feature.launcher.launcherDestination
 import feature.settings.settingsDestination
 import kotlinx.coroutines.Dispatchers

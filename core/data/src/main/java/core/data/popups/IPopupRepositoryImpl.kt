@@ -10,11 +10,18 @@ import core.data.room.dao.PopupDao
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IRemoveOwnerWidgets
+import core.data.widgets.IWidgetAreaRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -39,18 +46,27 @@ class IPopupRepositoryImpl(
     private val popupDao: PopupDao,
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    private val widgetAreaRepository: IWidgetAreaRepository,
+    private val removeOwnerWidgets: IRemoveOwnerWidgets
 ) : IPopupRepository {
     private val itemMutex: Mutex = Mutex()
+    private val removedWidgets: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(
+        extraBufferCapacity = 32,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    override val removedWidgetIds: SharedFlow<AppWidgetId> = removedWidgets.asSharedFlow()
 
     private val staleOwnerKeys: StateFlow<List<String>> = combine(
         popupDao.observeAllOwnerKeys(),
         popupDao.observeAllItems(),
-        launchableRepository.launchableState
-    ) { hiddenOwnerKeys, itemRecords, state ->
+        launchableRepository.launchableState,
+        widgetAreaRepository.popupOwnerKeys
+    ) { hiddenOwnerKeys, itemRecords, state, widgetOwnerKeys ->
         if (state.isLoaded) {
             val launchableKeys: Set<String> = state.launchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
-            (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey })
+            (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey } + widgetOwnerKeys)
                 .distinct()
                 .filterNot { ownerKey -> ownerKey in launchableKeys }
         } else {
@@ -144,12 +160,13 @@ class IPopupRepositoryImpl(
         }
     }
 
-    override suspend fun deleteOwner(ownerKey: String) {
-        itemMutex.withLock {
-            val removedKeys: List<String> = popupDao.observeItems(ownerKey).first().map { item -> item.itemKey }
-            popupDao.deleteHiddenForOwner(ownerKey)
-            popupDao.deleteItemsForOwner(ownerKey)
-            reapplyPins(affectedPins = pinsOf(removedKeys))
+    override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> = itemMutex.withLock {
+        val removedKeys: List<String> = popupDao.observeItems(ownerKey).first().map { item -> item.itemKey }
+        popupDao.deleteHiddenForOwner(ownerKey)
+        popupDao.deleteItemsForOwner(ownerKey)
+        reapplyPins(affectedPins = pinsOf(removedKeys))
+        removeOwnerWidgets(ownerKey).also { freedIds ->
+            freedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
         }
     }
 

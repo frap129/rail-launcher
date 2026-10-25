@@ -99,6 +99,19 @@ class PopupPlacementTest {
     }
 
     @Test
+    fun `centres the card vertically when it has no row anchor`() {
+        val actualFrame: PopupFrame = PopupPlacement.place(
+            anchor = null,
+            window = INPUT_WINDOW,
+            safeInsets = INPUT_SAFE_INSETS,
+            contentHeightPx = 400,
+            density = DENSITY,
+            isRtl = false
+        )
+        assertEquals(760, actualFrame.offsetY)
+    }
+
+    @Test
     fun `scales the insets by density`() {
         val actualFrame: PopupFrame = PopupPlacement.place(
             anchor = INPUT_ANCHOR,

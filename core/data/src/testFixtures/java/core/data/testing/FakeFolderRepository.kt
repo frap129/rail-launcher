@@ -2,6 +2,7 @@ package core.data.testing
 
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -27,9 +28,10 @@ class FakeFolderRepository(initialFolders: List<Folder> = emptyList()) : IFolder
         return folder
     }
 
-    override suspend fun delete(folder: Folder) {
+    override suspend fun delete(folder: Folder): List<AppWidgetId> {
         deletedFolders += folder
         storedFolders.update { current -> current.filterNot { existing -> existing.key == folder.key } }
+        return emptyList()
     }
 
     override suspend fun setShowInAppList(folder: Folder, show: Boolean) {

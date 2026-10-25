@@ -3,8 +3,12 @@ package core.data.testing
 import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
+import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -12,6 +16,9 @@ import kotlinx.coroutines.flow.update
 class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable? = { null }) : IPopupRepository {
     private val hiddenIdsByOwner: MutableStateFlow<Map<String, Set<String>>> = MutableStateFlow(emptyMap())
     private val itemsByOwner: MutableStateFlow<Map<String, List<PopupItem>>> = MutableStateFlow(emptyMap())
+    private val removedWidgets: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(extraBufferCapacity = 8)
+
+    override val removedWidgetIds: SharedFlow<AppWidgetId> = removedWidgets.asSharedFlow()
 
     /** Every setShortcutHidden call, in order. */
     val setShortcutHiddenCalls: MutableList<Triple<String, String, Boolean>> = mutableListOf()
@@ -89,10 +96,11 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
         }
     }
 
-    override suspend fun deleteOwner(ownerKey: String) {
+    override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> {
         deletedOwners += ownerKey
         hiddenIdsByOwner.update { current -> current - ownerKey }
         itemsByOwner.update { current -> current - ownerKey }
+        return emptyList()
     }
 
     fun setHiddenShortcuts(ownerKey: String, shortcutIds: Set<String>) {
@@ -105,5 +113,9 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
 
     fun setPopupItems(ownerKey: String, items: List<PopupItem>) {
         itemsByOwner.update { current -> current + (ownerKey to items) }
+    }
+
+    fun emitRemovedWidget(appWidgetId: AppWidgetId) {
+        removedWidgets.tryEmit(appWidgetId)
     }
 }

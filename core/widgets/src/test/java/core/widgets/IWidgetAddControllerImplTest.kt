@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
@@ -8,6 +8,7 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.appWidgetPlace
 import core.data.testing.headerPlace
+import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
@@ -15,9 +16,12 @@ import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
-import feature.launcher.R
+import core.widgets.testing.appWidgetProviderInfo
+import core.widgets.testing.createAddController
+import core.widgets.testing.settingsAddOrigin
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -60,6 +64,54 @@ class IWidgetAddControllerImplTest {
         assertEquals(AddWidgetOrigin(insertAt = InsertPosition.End), actualPicking.origin)
         assertEquals(listOf("Alpha", "Zeta"), actualPicking.groups.map { group -> group.appLabel })
         assertEquals(listOf("Calendar", "Mail"), actualPicking.groups.first().widgets.map { widget -> widget.label })
+    }
+
+    @Test
+    fun `start lists the owner App's providers first`() = runTest {
+        val inputProviders: List<WidgetProviderInfo> = listOf(
+            appWidgetProviderInfo(
+                provider = WidgetProvider(packageName = "com.zeta", className = "ZetaWidget"),
+                appPackageName = "com.zeta",
+                appLabel = "Zeta"
+            ),
+            appWidgetProviderInfo(
+                provider = WidgetProvider(packageName = "com.alpha", className = "AlphaWidget"),
+                appPackageName = "com.alpha",
+                appLabel = "Alpha"
+            )
+        )
+        val actualController: IWidgetAddController = createAddController()
+        actualController.updateProviders(providers = inputProviders)
+
+        actualController.start(
+            origin = AddWidgetOrigin(
+                insertAt = InsertPosition.End,
+                ownerKey = "owner-key",
+                suggestedPackageName = "com.zeta"
+            )
+        )
+
+        val actualPicking: AddWidgetFlowState.Picking = actualController.state.value as AddWidgetFlowState.Picking
+        assertEquals(listOf("Zeta", "Alpha"), actualPicking.groups.map { group -> group.appLabel })
+        assertEquals(listOf(true, false), actualPicking.groups.map { group -> group.isSuggested })
+    }
+
+    @Test
+    fun `an owned add places the widget in the Pop-up place without scrolling`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace))
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val actualController: IWidgetAddController = createAddController(repository = mockRepository, appWidgetHost = mockHost)
+        val inputProvider: WidgetProviderInfo = appWidgetProviderInfo()
+        actualController.updateProviders(providers = listOf(inputProvider))
+
+        actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.End, ownerKey = "owner-key"))
+        actualController.pick(provider = inputProvider)
+
+        val actualRequest: AddAppWidget = mockRepository.addedAppWidgets.single()
+        assertEquals("owner-key", actualRequest.ownerKey)
+        actualController.events.test {
+            expectNoEvents()
+        }
     }
 
     @Test
@@ -250,10 +302,10 @@ class IWidgetAddControllerImplTest {
 
             actualController.pick(provider = inputProvider)
 
-            val actualEvent: WidgetAreaEvent = awaitItem()
-            assertTrue(actualEvent is WidgetAreaEvent.LaunchBind)
+            val actualEvent: WidgetEvent = awaitItem()
+            assertTrue(actualEvent is WidgetEvent.LaunchBind)
             actualController.onBindResult(granted = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget), awaitItem())
             assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
             assertEquals(listOf(headerPlace.id), mockRepository.places.first().map { place -> place.id })
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
@@ -301,9 +353,9 @@ class IWidgetAddControllerImplTest {
 
             actualController.pick(provider = inputProvider)
 
-            assertEquals(WidgetAreaEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
+            assertEquals(WidgetEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
             actualController.onConfigureResult(ok = false)
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
             assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
             assertEquals(1, mockRepository.places.first().size)
             cancelAndIgnoreRemainingEvents()
@@ -353,7 +405,7 @@ class IWidgetAddControllerImplTest {
 
             actualController.pick(provider = inputProvider)
 
-            assertEquals(WidgetAreaEvent.ScrollToPlace(placeId = 2L), awaitItem())
+            assertEquals(WidgetEvent.ScrollToPlace(placeId = 2L), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(2, mockRepository.places.first().size)
@@ -454,7 +506,7 @@ class IWidgetAddControllerImplTest {
 
             actualController.pick(provider = inputProvider)
 
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(2, mockRepository.places.first().size)
             cancelAndIgnoreRemainingEvents()
         }
@@ -468,7 +520,7 @@ class IWidgetAddControllerImplTest {
 
             actualController.cancel()
 
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
             cancelAndIgnoreRemainingEvents()
         }
@@ -487,12 +539,12 @@ class IWidgetAddControllerImplTest {
         actualController.events.test {
             actualController.start(origin = settingsAddOrigin())
             actualController.pick(provider = inputProvider)
-            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
+            assertTrue(awaitItem() is WidgetEvent.LaunchBind)
 
             actualController.onBindResult(granted = false)
 
-            assertEquals(WidgetAreaEvent.ShowMessage(message = R.string.couldnt_add_widget), awaitItem())
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -509,11 +561,11 @@ class IWidgetAddControllerImplTest {
         actualController.events.test {
             actualController.start(origin = settingsAddOrigin())
             actualController.pick(provider = inputProvider)
-            assertEquals(WidgetAreaEvent.LaunchConfigure(id = AppWidgetId(1)), awaitItem())
+            assertEquals(WidgetEvent.LaunchConfigure(id = AppWidgetId(1)), awaitItem())
 
             actualController.cancel()
 
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
             assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
             cancelAndIgnoreRemainingEvents()
@@ -532,11 +584,11 @@ class IWidgetAddControllerImplTest {
         actualController.events.test {
             actualController.start(origin = settingsAddOrigin())
             actualController.pick(provider = inputProvider)
-            assertTrue(awaitItem() is WidgetAreaEvent.LaunchBind)
+            assertTrue(awaitItem() is WidgetEvent.LaunchBind)
 
             actualController.cancel()
 
-            assertEquals(WidgetAreaEvent.ReturnToSettings, awaitItem())
+            assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
             assertEquals(listOf(AppWidgetId(1)), mockHost.deletedIds)
             cancelAndIgnoreRemainingEvents()
@@ -569,7 +621,7 @@ class IWidgetAddControllerImplTest {
         actualController.events.test {
             actualController.pick(provider = appWidgetProviderInfo())
 
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
@@ -627,7 +679,7 @@ class IWidgetAddControllerImplTest {
         actualController.events.test {
             actualController.restore()
 
-            assertEquals(WidgetAreaEvent.ShowMessage(R.string.couldnt_add_widget), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf(AppWidgetId(7)), mockHost.deletedIds)

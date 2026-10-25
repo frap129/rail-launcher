@@ -1,6 +1,7 @@
 package core.popups
 
 import android.os.UserHandle
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
@@ -17,12 +18,38 @@ import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IAppWidgetHostSource
+import core.data.widgets.IRemoveAppWidget
+import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetLifecycleReconciler
+import core.data.widgets.InsertPosition
+import core.data.widgets.PlacedWidget
+import core.data.widgets.ResizeBounds
+import core.data.widgets.WidgetPlace
+import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.resizeBounds
+import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import core.widgets.AddWidgetFlowState
+import core.widgets.AddWidgetOrigin
+import core.widgets.AppWidgetMenuCapabilities
+import core.widgets.IWidgetAddController
+import core.widgets.IWidgetResizeController
+import core.widgets.ResizeState
+import core.widgets.WidgetEvent
+import core.widgets.appWidgetMenuCapabilities
+import core.widgets.finishResizeAndReport
+import core.widgets.removeWidgetAndReport
+import core.widgets.startWidgetWiring
+import core.widgets.toAppWidgetModel
+import core.widgets.toWidgetEvent
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,10 +58,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,9 +72,13 @@ import timber.log.Timber
 
 private val EMPTY_SHORTCUTS: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())
 
+private const val POPUP_REOPEN_OWNER_KEY: String = "popupReopenOwner"
+
 private data class ShortcutTarget(val ownerKey: String, val packageName: String?, val profile: UserHandle?)
 
-private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnchor)
+private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnchor?)
+
+private data class CardItemsAndWidget(val items: OwnerItems, val widget: PopupWidgetState?)
 
 private data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
@@ -52,7 +86,7 @@ private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
-private data class MenuTarget(val ownerKey: String, val itemKey: String?)
+private data class MenuTarget(val ownerKey: String, val itemKey: String?, val onWidget: Boolean = false)
 
 private data class ShortcutPickerRequest(
     val request: ShortcutTarget?,
@@ -67,7 +101,14 @@ class PopupViewModel(
     private val shortcutSource: IShortcutSource,
     private val popupRepository: IPopupRepository,
     private val folderRepository: IFolderRepository,
-    private val homeEditState: HomeEditState
+    private val homeEditState: HomeEditState,
+    private val widgetRepository: IWidgetAreaRepository,
+    private val addFlowController: IWidgetAddController,
+    private val resizeController: IWidgetResizeController,
+    private val appWidgetHost: IAppWidgetHostSource,
+    private val removeAppWidget: IRemoveAppWidget,
+    private val widgetLifecycleReconciler: IWidgetLifecycleReconciler,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val openRequest: MutableStateFlow<OpenRequest?> = MutableStateFlow(null)
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
@@ -79,6 +120,38 @@ class PopupViewModel(
     private val cardShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(EMPTY_SHORTCUTS)
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
+    private val windowHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
+    private val widgetEvents: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
+    private var hasPendingAdd: Boolean = false
+
+    /** Events the Pop-up asks the Activity to run. */
+    val events: Flow<WidgetEvent> = widgetEvents.receiveAsFlow()
+
+    /** The App Widget add flow the Pop-up opened. */
+    val addFlowState: StateFlow<AddWidgetFlowState> = addFlowController.state
+
+    val resizeState: StateFlow<ResizeState?> = resizeController.resizeState
+
+    private val widgetPlace: StateFlow<WidgetPlace?> = openRequest
+        .map { request -> request?.target?.ownerKey }
+        .distinctUntilChanged()
+        .flatMapLatest { ownerKey ->
+            if (ownerKey == null) flowOf(null) else widgetRepository.popupPlace(ownerKey = ownerKey)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = null
+        )
+
+    /** The widget shown at the top of the open Pop-up. */
+    val widgetState: StateFlow<PopupWidgetState?> = combine(widgetPlace, windowHeightDp) { place, windowHeight ->
+        place?.toPopupWidgetState(windowHeightDp = windowHeight)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = null
+    )
 
     private val cardHiddenShortcuts: StateFlow<HiddenShortcutIds> = hiddenShortcutIds(openRequest.map { request -> request?.target })
 
@@ -135,8 +208,8 @@ class PopupViewModel(
         launchableRepository.launchableState,
         cardShortcuts,
         cardHiddenShortcuts,
-        cardItems
-    ) { request, launchableState, shortcutResult, hidden, items ->
+        combine(cardItems, widgetState) { items, widget -> CardItemsAndWidget(items = items, widget = widget) }
+    ) { request, launchableState, shortcutResult, hidden, extras ->
         val owner: Launchable? = request?.target?.ownerKey?.let { ownerKey ->
             launchableState.launchables.firstOrNull { launchable -> launchable.key == ownerKey }
         }
@@ -144,7 +217,8 @@ class PopupViewModel(
             PopupUiState.Closed
         } else {
             val hiddenIds: Set<String> = if (hidden.ownerKey == request.target.ownerKey) hidden.ids else emptySet()
-            val popupItems: List<PopupItem> = if (items.ownerKey == request.target.ownerKey) items.items else emptyList()
+            val popupItems: List<PopupItem> = if (extras.items.ownerKey == request.target.ownerKey) extras.items.items else emptyList()
+            val widget: PopupWidgetState? = extras.widget?.takeIf { state -> state.ownerKey == request.target.ownerKey }
             PopupUiState.Open(
                 owner = owner,
                 anchor = request.anchor,
@@ -153,7 +227,8 @@ class PopupViewModel(
                     shortcuts = shortcutResult ?: EMPTY_SHORTCUTS,
                     hiddenShortcutIds = hiddenIds,
                     items = popupItems
-                )
+                ),
+                widget = widget
             )
         }
     }.stateIn(
@@ -169,12 +244,20 @@ class PopupViewModel(
             target.itemKey == null -> open.owner
             else -> open.content.items.firstOrNull { item -> item.launchable.key == target.itemKey }?.launchable
         }
-        if (resolvedTarget == null) {
+        val widgetMenu: Boolean = target?.onWidget == true
+        val widget: PopupWidgetState? = open?.widget?.takeIf { state -> widgetMenu && state.ownerKey == resolvedTarget?.key }
+        if (resolvedTarget == null || (widgetMenu && widget == null)) {
             PopupMenuState.Closed
         } else {
             PopupMenuState.Open(
                 target = resolvedTarget,
-                items = menuItems(target = resolvedTarget, isItem = target?.itemKey != null)
+                items = menuItems(
+                    target = resolvedTarget,
+                    isItem = target?.itemKey != null,
+                    widget = open?.widget,
+                    isWidgetMenu = widgetMenu
+                ),
+                widget = widget
             )
         }
     }.stateIn(
@@ -278,11 +361,44 @@ class PopupViewModel(
         )
 
     init {
+        addFlowController.startWidgetWiring(
+            scope = viewModelScope,
+            appWidgetHost = appWidgetHost,
+            lifecycleReconciler = widgetLifecycleReconciler,
+            onEvent = { event -> widgetEvents.send(event) }
+        )
+        viewModelScope.launch {
+            popupRepository.removedWidgetIds.collect { appWidgetId ->
+                widgetEvents.send(WidgetEvent.RemoveHostView(appWidgetId = appWidgetId))
+            }
+        }
+        viewModelScope.launch {
+            addFlowController.state.collect { state ->
+                if (state != AddWidgetFlowState.Idle) {
+                    hasPendingAdd = true
+                } else if (hasPendingAdd) {
+                    hasPendingAdd = false
+                    clearReopenKeys()
+                }
+            }
+        }
+        viewModelScope.launch {
+            widgetPlace.collect { place ->
+                resizeController.onPlacesChanged(
+                    places = listOfNotNull(place),
+                    ownerKey = openRequest.value?.target?.ownerKey
+                )
+            }
+        }
+        restoreOpenAfterAdd()
         collectShortcuts(targets = openRequest.map { request -> request?.target }, into = cardShortcuts)
         collectShortcuts(targets = editRequest, into = editShortcuts)
         observeTargetLoss(
             targetKeys = openRequest.map { request -> request?.target?.ownerKey },
-            isClosedByMode = { mode -> mode != HomeEditMode.None },
+            isClosedByMode = { mode ->
+                mode != HomeEditMode.None &&
+                    (mode !is HomeEditMode.Resizing || mode.placeId != widgetState.value?.placeId)
+            },
             onTargetLost = ::close
         )
         observeTargetLoss(
@@ -297,7 +413,7 @@ class PopupViewModel(
         )
     }
 
-    fun open(owner: Launchable, anchor: PopupAnchor) {
+    fun open(owner: Launchable, anchor: PopupAnchor?) {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
@@ -311,6 +427,7 @@ class PopupViewModel(
     }
 
     fun close() {
+        finishResize()
         menuTarget.value = null
         pendingFolderDelete.value = null
         pickerTarget.value = null
@@ -319,6 +436,16 @@ class PopupViewModel(
         editRequest.value = null
         openRequest.value = null
         addToFolderRequest.value = null
+        if (addFlowController.state.value == AddWidgetFlowState.Idle) {
+            clearReopenKeys()
+        }
+    }
+
+    /** Closes the card on leaving the app, unless an add flow has to reopen it afterwards. */
+    fun onStopped() {
+        if (addFlowController.state.value == AddWidgetFlowState.Idle) {
+            close()
+        }
     }
 
     /** Moves an open Pop-up to its row's latest position after a relayout. */
@@ -335,6 +462,127 @@ class PopupViewModel(
 
     fun closeMenu() {
         menuTarget.value = null
+    }
+
+    /** Opens the menu of the widget [widgetId] at the top of the card. */
+    fun openWidgetMenu(widgetId: Long) {
+        val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
+        val widget: PopupWidgetState = open.widget ?: return
+        if (widget.widgetId != widgetId || homeEditState.mode.value != HomeEditMode.None) {
+            return
+        }
+        menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = null, onWidget = true)
+    }
+
+    /** Supplies the window height so the widget stays within the Pop-up's share of it. */
+    fun setWindowHeight(heightDp: Int) {
+        if (heightDp <= 0) {
+            return
+        }
+        windowHeightDp.value = heightDp
+        resizeController.setHomeHeight(heightDp = popupWidgetMaxHeightDp(windowHeightDp = heightDp))
+    }
+
+    /** Supplies the widget width for the size report sent after a Resize. */
+    fun setCardWidth(widthDp: Int) = resizeController.setWidgetAreaWidth(widthDp = widthDp)
+
+    /** Opens the picker for the owner's widget, remembering the card so it reopens after a system dialog. */
+    fun startAddWidget() {
+        val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
+        if (open.widget != null) {
+            return
+        }
+        val owner: Launchable = open.owner
+        val started: Boolean = addFlowController.start(
+            origin = AddWidgetOrigin(
+                insertAt = InsertPosition.End,
+                ownerKey = owner.key,
+                suggestedPackageName = (owner as? App)?.packageName
+            )
+        )
+        if (started) {
+            savedStateHandle[POPUP_REOPEN_OWNER_KEY] = owner.key
+            menuTarget.value = null
+        }
+    }
+
+    fun onBindResult(granted: Boolean) {
+        viewModelScope.launch {
+            addFlowController.onBindResult(granted = granted)
+        }
+    }
+
+    fun onConfigureResult(ok: Boolean) {
+        viewModelScope.launch {
+            addFlowController.onConfigureResult(ok = ok)
+        }
+    }
+
+    fun setPickerQuery(query: String) = addFlowController.setQuery(query = query)
+
+    fun pickProvider(provider: WidgetProviderInfo) {
+        viewModelScope.launch {
+            addFlowController.pick(provider = provider)
+        }
+    }
+
+    fun cancelAdd() {
+        viewModelScope.launch {
+            addFlowController.cancel()
+        }
+    }
+
+    /** Enters Resize for the card's widget. */
+    fun resizeWidget() {
+        val widget: PopupWidgetState = widgetState.value ?: return
+        menuTarget.value = null
+        viewModelScope.launch {
+            resizeController.startResize(placeId = widget.placeId, ownerKey = widget.ownerKey)
+        }
+    }
+
+    /** Leaves Resize, storing the height and reporting the new page size. */
+    fun finishResize() {
+        resizeController.finishResizeAndReport(scope = viewModelScope) { report ->
+            widgetEvents.send(report.toWidgetEvent())
+        }
+    }
+
+    /** Removes the card's widget, frees its App Widget id and keeps the card open. */
+    fun removeWidget() {
+        val widget: PopupWidgetState = widgetState.value ?: return
+        menuTarget.value = null
+        viewModelScope.launch {
+            removeAppWidget.removeWidgetAndReport(widgetId = widget.widgetId) { event -> widgetEvents.send(event) }
+        }
+    }
+
+    /** Opens the card widget's provider configuration activity. */
+    fun reconfigureWidget() {
+        val widget: PopupWidgetState = widgetState.value ?: return
+        if (!widget.isReconfigurable) {
+            return
+        }
+        menuTarget.value = null
+        viewModelScope.launch {
+            widgetEvents.send(WidgetEvent.LaunchReconfigure(id = AppWidgetId(widget.appWidgetId)))
+        }
+    }
+
+    fun onReconfigureResult(ok: Boolean) {
+        if (!ok) {
+            viewModelScope.launch {
+                widgetEvents.send(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_open_widget_settings))
+            }
+        }
+    }
+
+    /** Asks the system to leave quiet mode for the widget's work profile. */
+    fun unpauseWorkProfile(widgetId: Long) {
+        val widget: PopupWidgetState = widgetState.value?.takeIf { state -> state.widgetId == widgetId } ?: return
+        viewModelScope.launch {
+            widgetEvents.send(WidgetEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
+        }
     }
 
     /**
@@ -542,7 +790,15 @@ class PopupViewModel(
         }
     }
 
+    fun dragResize(deltaDp: Float) = resizeController.dragResize(deltaDp = deltaDp)
+
+    fun resetResize() = resizeController.resetResize()
+
     fun onBack(): Boolean {
+        if (resizeState.value != null) {
+            finishResize()
+            return true
+        }
         if (addToFolderRequest.value != null) {
             closeAddToFolder()
             return true
@@ -579,7 +835,11 @@ class PopupViewModel(
     }
 
     fun onLaunched() {
-        close()
+        if (resizeState.value != null) {
+            finishResize()
+        } else {
+            close()
+        }
     }
 
     /** Queries the owner's shortcuts again, for example after a work profile is resumed. */
@@ -744,24 +1004,94 @@ class PopupViewModel(
             }
     }
 
-    private fun menuItems(target: Launchable, isItem: Boolean): List<PopupMenuItem> = buildList {
-        if (isItem) {
-            add(PopupMenuItem.RemoveFromPopup)
-        }
-        if (!isItem) {
-            when (target) {
-                is App -> add(PopupMenuItem.EditPopup)
-
-                is Folder -> {
-                    add(PopupMenuItem.EditFolder)
+    private fun menuItems(target: Launchable, isItem: Boolean, widget: PopupWidgetState?, isWidgetMenu: Boolean): List<PopupMenuItem> =
+        buildList {
+            if (isItem) {
+                add(PopupMenuItem.RemoveFromPopup)
+                if (target is App || target is ShortcutLaunchable) {
+                    add(PopupMenuItem.AppInfo)
+                }
+            } else if (isWidgetMenu) {
+                if (widget == null) {
+                    return@buildList
+                }
+                addWidgetActions(widget = widget)
+                add(PopupMenuItem.AppInfo)
+            } else {
+                when (target) {
+                    is App -> add(PopupMenuItem.EditPopup)
+                    is Folder -> add(PopupMenuItem.EditFolder)
+                    else -> Unit
+                }
+                if (widget == null) {
+                    add(PopupMenuItem.AddWidget)
+                } else {
+                    addWidgetActions(widget = widget)
+                }
+                if (target is Folder) {
                     add(PopupMenuItem.DeleteFolder)
                 }
-
-                else -> Unit
+                if (target is App) {
+                    add(PopupMenuItem.AppInfo)
+                }
             }
         }
-        if (target is App || target is ShortcutLaunchable) {
-            add(PopupMenuItem.AppInfo)
+
+    private fun MutableList<PopupMenuItem>.addWidgetActions(widget: PopupWidgetState) {
+        if (widget.isResizable) {
+            add(PopupMenuItem.ResizeWidget)
+        }
+        if (widget.isReconfigurable) {
+            add(PopupMenuItem.ReconfigureWidget)
+        }
+        add(PopupMenuItem.RemoveWidget)
+    }
+
+    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?): PopupWidgetState? {
+        val widget: PlacedWidget.AppWidget = widgets.singleOrNull() as? PlacedWidget.AppWidget ?: return null
+        val ownerKey: String = ownerKey ?: return null
+        val info: WidgetProviderInfo? = appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
+        val bounds: ResizeBounds = widget.resizeBounds(headerHeightDp = null) { info }
+        val defaultHeightDp: Int = info?.minHeightDp ?: widget.defaultHeightDp ?: ResizeBounds.MIN_HEIGHT_DP
+        val capabilities: AppWidgetMenuCapabilities = appWidgetMenuCapabilities(
+            widget = widget,
+            info = info,
+            resizeBounds = bounds
+        )
+        return PopupWidgetState(
+            widgetId = widget.id,
+            placeId = id,
+            ownerKey = ownerKey,
+            appWidgetId = widget.appWidgetId,
+            provider = widget.provider,
+            profileSerial = widget.profileSerial,
+            model = widget.toAppWidgetModel(info = info),
+            heightDp = bounds.clamp(
+                heightDp = heightDp ?: defaultHeightDp,
+                homeHeightDp = windowHeightDp?.let(::popupWidgetMaxHeightDp) ?: Int.MAX_VALUE
+            ),
+            bounds = bounds,
+            isResizable = capabilities.canResize(widget),
+            isReconfigurable = capabilities.isReconfigurable
+        )
+    }
+
+    private fun clearReopenKeys() {
+        savedStateHandle.remove<String>(POPUP_REOPEN_OWNER_KEY)
+    }
+
+    private fun restoreOpenAfterAdd() {
+        val ownerKey: String = savedStateHandle.get<String>(POPUP_REOPEN_OWNER_KEY) ?: return
+        viewModelScope.launch {
+            val launchables: List<Launchable> = launchableRepository.launchableState
+                .filter { state -> state.isLoaded }
+                .first()
+                .launchables
+            val owner: Launchable = launchables.firstOrNull { launchable -> launchable.key == ownerKey } ?: run {
+                clearReopenKeys()
+                return@launch
+            }
+            open(owner = owner, anchor = null)
         }
     }
 

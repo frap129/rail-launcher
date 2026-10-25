@@ -6,5 +6,11 @@ import core.data.launchables.model.Launchable
 sealed interface PopupUiState {
     data object Closed : PopupUiState
 
-    data class Open(val owner: Launchable, val anchor: PopupAnchor, val content: PopupContent) : PopupUiState
+    data class Open(
+        val owner: Launchable,
+        /** The row the card is anchored to; null while a reopened card waits for its row to lay out. */
+        val anchor: PopupAnchor?,
+        val content: PopupContent,
+        val widget: PopupWidgetState? = null
+    ) : PopupUiState
 }

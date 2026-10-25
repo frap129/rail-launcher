@@ -36,7 +36,19 @@ abstract class WidgetAreaDao {
     @Query("SELECT * FROM widget_places WHERE id = :placeId")
     abstract suspend fun getPlace(placeId: Long): WidgetPlaceRecord?
 
-    @Query("SELECT * FROM widget_places WHERE position = :position LIMIT 1")
+    @Query("SELECT * FROM widget_places WHERE owner_key = :ownerKey LIMIT 1")
+    abstract suspend fun getPlaceForOwner(ownerKey: String): WidgetPlaceRecord?
+
+    @Query("SELECT owner_key FROM widget_places WHERE owner_key IS NOT NULL")
+    abstract fun observePopupOwnerKeys(): Flow<List<String>>
+
+    @Query("SELECT id FROM widget_places WHERE owner_key = :ownerKey")
+    abstract suspend fun placeIdsForOwner(ownerKey: String): List<Long>
+
+    @Query("DELETE FROM widget_places WHERE owner_key = :ownerKey")
+    abstract suspend fun deletePlacesForOwner(ownerKey: String)
+
+    @Query("SELECT * FROM widget_places WHERE position = :position AND owner_key IS NULL LIMIT 1")
     abstract suspend fun getPlaceAtPosition(position: Int): WidgetPlaceRecord?
 
     @Query("UPDATE widget_places SET height_dp = :heightDp WHERE id = :placeId")
@@ -84,10 +96,10 @@ abstract class WidgetAreaDao {
         deleteEmptyPlaces()
     }
 
-    @Query("UPDATE widget_places SET position = position + 1 WHERE position >= :position")
+    @Query("UPDATE widget_places SET position = position + 1 WHERE position >= :position AND owner_key IS NULL")
     abstract suspend fun shiftPositionsFrom(position: Int)
 
-    @Query("SELECT COALESCE(MAX(position), -1) FROM widget_places")
+    @Query("SELECT COALESCE(MAX(position), -1) FROM widget_places WHERE owner_key IS NULL")
     abstract suspend fun getMaxPlacePosition(): Int
 
     /** Runs [block] in one transaction so a multi-step change cannot be half-applied. */
@@ -142,6 +154,9 @@ abstract class WidgetAreaDao {
     @Query("SELECT id FROM widget_places ORDER BY position")
     abstract suspend fun getPlaceIds(): List<Long>
 
+    @Query("SELECT id FROM widget_places WHERE owner_key IS NULL ORDER BY position")
+    abstract suspend fun getWidgetAreaPlaceIds(): List<Long>
+
     @Query("UPDATE widget_places SET position = :position WHERE id = :placeId")
     abstract suspend fun setPlacePosition(placeId: Long, position: Int)
 
@@ -166,13 +181,13 @@ abstract class WidgetAreaDao {
             }
         }
         val retainedPlaceIds: Set<Long> = edit.places.mapNotNull { draft -> draft.placeId }.toSet() + insertedPlaceIds
-        val orphanPlaceIds: List<Long> = getPlaceIds().filter { placeId -> placeId !in retainedPlaceIds }
+        val orphanPlaceIds: List<Long> = getWidgetAreaPlaceIds().filter { placeId -> placeId !in retainedPlaceIds }
         if (orphanPlaceIds.isNotEmpty()) {
             freedIds += appWidgetIdsForPlaces(orphanPlaceIds)
             deletePlaces(orphanPlaceIds)
         }
         deleteEmptyPlaces()
-        getPlaceIds().forEach { placeId -> normalizePlace(placeId = placeId) }
+        getWidgetAreaPlaceIds().forEach { placeId -> normalizePlace(placeId = placeId) }
         return freedIds
     }
 

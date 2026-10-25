@@ -2,18 +2,24 @@ package core.data.popups
 
 import android.content.ComponentName
 import android.os.UserHandle
+import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupDao
 import core.data.testing.FakeShortcutSource
+import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.PinCall
 import core.data.testing.TEST_SDK
+import core.data.testing.appWidgetPlace
 import core.data.testing.createRailLaunchable
+import core.data.widgets.AppWidgetId
+import core.data.widgets.IRemoveOwnerWidgetsImpl
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -100,6 +106,70 @@ class IPopupRepositoryImplTest {
         assertEquals(listOf(PopupHiddenShortcut(ownerKey = inputOtherOwner.key, shortcutId = SECOND_SHORTCUT_ID)), mockPopupDao.records)
         assertTrue(mockPopupDao.items.none { item -> item.ownerKey == inputOwner.key })
         assertEquals(listOf(PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = "other", position = 0)), mockPopupDao.items)
+    }
+
+    @Test
+    fun `emits the App Widget ids freed with a stale owner`() = runTest {
+        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L, appWidgetId = 55, ownerKey = inputOwner.key))
+        )
+        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val repository: IPopupRepositoryImpl = createRepository(
+            mockPopupDao = FakePopupDao(),
+            mockLaunchableRepository = mockLaunchableRepository,
+            mockWidgetAreaRepository = mockWidgetAreaRepository,
+            mockAppWidgetHost = mockAppWidgetHost
+        )
+
+        repository.removedWidgetIds.test {
+            mockLaunchableRepository.setGroups(groups = emptyList())
+            runCurrent()
+
+            assertEquals(AppWidgetId(55), awaitItem())
+        }
+    }
+
+    @Test
+    fun `deleteOwner frees the owner's widget place and system id`() = runTest {
+        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            initialPlaces = listOf(appWidgetPlace(placeId = 1L, widgetId = 1L, appWidgetId = 55, ownerKey = inputOwner.key))
+        )
+        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val repository: IPopupRepositoryImpl = createRepository(
+            mockPopupDao = FakePopupDao(),
+            mockWidgetAreaRepository = mockWidgetAreaRepository,
+            mockAppWidgetHost = mockAppWidgetHost
+        )
+
+        val actualFreedIds: List<AppWidgetId> = repository.deleteOwner(inputOwner.key)
+
+        assertEquals(listOf(AppWidgetId(55)), actualFreedIds)
+        assertTrue(mockWidgetAreaRepository.placesFor(ownerKey = inputOwner.key).first().isEmpty())
+        assertEquals(listOf(AppWidgetId(55)), mockAppWidgetHost.deletedIds)
+    }
+
+    @Test
+    fun `removes a stale App's widget place after the Launchables load`() = runTest {
+        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            initialPlaces = listOf(appWidgetPlace(placeId = 1L, widgetId = 1L, appWidgetId = 55, ownerKey = inputOwner.key))
+        )
+        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        createRepository(
+            mockPopupDao = FakePopupDao(),
+            mockLaunchableRepository = mockLaunchableRepository,
+            mockWidgetAreaRepository = mockWidgetAreaRepository,
+            mockAppWidgetHost = mockAppWidgetHost
+        )
+        runCurrent()
+        assertEquals(1, mockWidgetAreaRepository.placesFor(ownerKey = inputOwner.key).first().size)
+
+        mockLaunchableRepository.setGroups(groups = emptyList())
+        runCurrent()
+
+        assertTrue(mockWidgetAreaRepository.placesFor(ownerKey = inputOwner.key).first().isEmpty())
+        assertEquals(listOf(AppWidgetId(55)), mockAppWidgetHost.deletedIds)
     }
 
     @Test
@@ -583,10 +653,14 @@ private fun TestScope.createRepository(
     mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
         groups = listOf(LaunchableGroup.InitialGroup(label = "O", items = emptyList()))
     ),
-    mockShortcutSource: FakeShortcutSource = FakeShortcutSource()
+    mockShortcutSource: FakeShortcutSource = FakeShortcutSource(),
+    mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(),
+    mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
 ): IPopupRepositoryImpl = IPopupRepositoryImpl(
     popupDao = mockPopupDao,
     launchableRepository = mockLaunchableRepository,
     shortcutSource = mockShortcutSource,
-    scope = backgroundScope
+    scope = backgroundScope,
+    widgetAreaRepository = mockWidgetAreaRepository,
+    removeOwnerWidgets = IRemoveOwnerWidgetsImpl(repository = mockWidgetAreaRepository, host = mockAppWidgetHost)
 )

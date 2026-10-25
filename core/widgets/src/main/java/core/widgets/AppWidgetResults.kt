@@ -1,4 +1,4 @@
-package feature.launcher
+package core.widgets
 
 import android.app.Activity
 import kotlinx.coroutines.channels.Channel

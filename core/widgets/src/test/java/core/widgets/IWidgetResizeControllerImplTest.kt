@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.widgets
 
 import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.FakeWidgetAreaRepository
@@ -10,6 +10,7 @@ import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetProviderInfo
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.widgets.testing.appWidgetProviderInfo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -204,6 +205,39 @@ class IWidgetResizeControllerImplTest {
         assertNull(controller.resizeState.value)
         assertEquals(HomeEditMode.None, inputHomeEditState.mode.value)
         assertTrue(mockRepository.heightUpdates.isEmpty())
+    }
+
+    @Test
+    fun `startResize resolves a Pop-up place through its owner`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, ownerKey = "owner-key"))
+        )
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
+        controller.setHomeHeight(heightDp = 400)
+
+        assertTrue(controller.startResize(placeId = 2L, ownerKey = "owner-key"))
+
+        assertEquals(2L, controller.resizeState.value?.placeId)
+    }
+
+    @Test
+    fun `onPlacesChanged ignores Home updates while resizing a Pop-up`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, ownerKey = "owner-key"))
+        )
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(appWidgetProviderInfo(isVerticallyResizable = true))
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
+        controller.setHomeHeight(heightDp = 400)
+        controller.startResize(placeId = 2L, ownerKey = "owner-key")
+
+        controller.onPlacesChanged(places = emptyList())
+
+        assertEquals(2L, controller.resizeState.value?.placeId)
+
+        controller.onPlacesChanged(places = emptyList(), ownerKey = "owner-key")
+
+        assertNull(controller.resizeState.value)
     }
 
     @Test
