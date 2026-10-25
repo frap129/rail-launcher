@@ -1,5 +1,6 @@
 package feature.settings
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -40,8 +44,11 @@ import core.popups.PopupViewModel
 import core.popups.R as PopupsR
 import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
+import core.ui.composables.NotificationAccessRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
+import core.widgets.NotificationAccessDialog
+import core.widgets.openRailNotificationListenerSettings
 import org.koin.androidx.compose.koinViewModel
 
 private val folderIconSize: Dp = 32.dp
@@ -53,7 +60,16 @@ private val createButtonPadding: Dp = 16.dp
 fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), popupViewModel: PopupViewModel = koinViewModel()) {
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
     val deletingFolder: Folder? by popupViewModel.folderDeleteState.collectAsState()
+    val context: Context = LocalContext.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+    var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            if (event == WidgetSettingsEvent.RequestNotificationAccess) {
+                showNotificationAccessDialog = true
+            }
+        }
+    }
     val selectedFolder: PopupSettingsFolder? = uiState.selectedFolder
     val folderCreatedMessage: String = stringResource(R.string.folder_created)
     val editContentsLabel: String = stringResource(R.string.edit_contents)
@@ -67,10 +83,12 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
         )
     }
     Box(modifier = Modifier.fillMaxSize()) {
-        FolderSettingsList(
-            folders = uiState.folders,
+        PopupSettingsList(
+            uiState = uiState,
             onFolderClick = viewModel::openActions,
-            onCreateClick = viewModel::openNewFolderDialog
+            onCreateClick = viewModel::openNewFolderDialog,
+            onNotificationsChange = viewModel::setNotificationsEnabled,
+            onNotificationAccessClick = { context.openRailNotificationListenerSettings() }
         )
         SettingsSnackbarHost(hostState = snackbarHostState)
     }
@@ -110,33 +128,63 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
             onDismiss = popupViewModel::cancelDeleteFolder
         )
     }
+    if (showNotificationAccessDialog) {
+        NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
+    }
     PopupEditorHost(viewModel = popupViewModel)
 }
 
 @Composable
-private fun FolderSettingsList(folders: List<PopupSettingsFolder>, onFolderClick: (Folder) -> Unit, onCreateClick: () -> Unit) {
-    if (folders.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = stringResource(R.string.no_folders_yet), style = MaterialTheme.typography.bodyLarge)
-                Spacer(modifier = Modifier.height(emptyStateGap))
-                CreateFolderButton(onClick = onCreateClick)
-            }
-        }
-        return
-    }
+private fun PopupSettingsList(
+    uiState: PopupSettingsUiState,
+    onFolderClick: (Folder) -> Unit,
+    onCreateClick: () -> Unit,
+    onNotificationsChange: (Boolean) -> Unit,
+    onNotificationAccessClick: () -> Unit
+) {
     LazyColumn {
-        items(items = folders, key = { row -> row.folder.key }) { row: PopupSettingsFolder ->
-            FolderSettingsRow(row = row, onClick = { onFolderClick(row.folder) })
+        item { SettingsSectionTitle(R.string.notifications) }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_notifications_in_popups),
+                checked = uiState.notificationsEnabled,
+                onCheckedChange = onNotificationsChange
+            )
         }
         item {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(createButtonPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                CreateFolderButton(onClick = onCreateClick)
+            NotificationAccessRow(
+                hasAccess = uiState.notificationAccess,
+                onClick = onNotificationAccessClick
+            )
+        }
+        item { SettingsSectionTitle(R.string.folders) }
+        if (uiState.folders.isEmpty()) {
+            item { EmptyFolderSettings(onCreateClick = onCreateClick) }
+        } else {
+            items(items = uiState.folders, key = { row -> row.folder.key }) { row: PopupSettingsFolder ->
+                FolderSettingsRow(row = row, onClick = { onFolderClick(row.folder) })
+            }
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(createButtonPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CreateFolderButton(onClick = onCreateClick)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyFolderSettings(onCreateClick: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(createButtonPadding),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = stringResource(R.string.no_folders_yet), style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(emptyStateGap))
+        CreateFolderButton(onClick = onCreateClick)
     }
 }
 

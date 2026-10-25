@@ -26,6 +26,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -624,6 +625,24 @@ class IPopupRepositoryImplTest {
         runCurrent()
 
         assertEquals(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = item.key, position = 0)), mockPopupDao.items)
+    }
+
+    @Test
+    fun `notifications are off by default`() = runTest {
+        val repository: IPopupRepositoryImpl = createRepository(mockPopupDao = FakePopupDao())
+
+        assertFalse(repository.notificationsEnabled.first())
+    }
+
+    @Test
+    fun `stores whether Pop-ups show notifications`() = runTest {
+        val mockPopupDao: FakePopupDao = FakePopupDao()
+        val repository: IPopupRepositoryImpl = createRepository(mockPopupDao = mockPopupDao)
+
+        repository.setNotificationsEnabled(true)
+
+        assertTrue(repository.notificationsEnabled.first())
+        assertTrue(mockPopupDao.settings?.notificationsEnabled ?: false)
     }
 }
 

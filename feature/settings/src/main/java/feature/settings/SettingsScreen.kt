@@ -124,6 +124,7 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
+import core.ui.composables.NotificationAccessRow
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
@@ -534,15 +535,8 @@ private fun WidgetSettingsList(
             )
         }
         item {
-            SettingsActionRow(
-                title = stringResource(R.string.notification_access),
-                value = stringResource(
-                    if (uiState.notificationAccess) {
-                        R.string.notification_access_allowed
-                    } else {
-                        R.string.notification_access_not_allowed
-                    }
-                ),
+            NotificationAccessRow(
+                hasAccess = uiState.notificationAccess,
                 enabled = uiState.mediaPlayerEnabled,
                 onClick = onNotificationAccessClick
             )

@@ -53,6 +53,7 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
+import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.widgets.AddWidgetFlowState
 import core.widgets.AddWidgetOrigin
@@ -81,7 +82,6 @@ import core.widgets.toAppWidgetModel
 import core.widgets.toWidgetEvent
 import feature.launcher.R
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -94,7 +94,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -246,8 +245,8 @@ class WidgetAreaViewModel(
     private val scrollToPlaceIdState: MutableStateFlow<Long?> = MutableStateFlow(null)
     val scrollToPlaceId: StateFlow<Long?> = scrollToPlaceIdState.asStateFlow()
 
-    private val eventChannel: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
-    val events: Flow<WidgetEvent> = eventChannel.receiveAsFlow()
+    private val eventChannel: EventChannel<WidgetEvent> = EventChannel()
+    val events: Flow<WidgetEvent> = eventChannel.flow
 
     private val editDraft: MutableStateFlow<WidgetEditDraft?> = MutableStateFlow(null)
     val editState: StateFlow<WidgetEditDraft?> = editDraft.asStateFlow()

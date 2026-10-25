@@ -1,17 +1,20 @@
 package core.util
 
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 
-/** A one-slot event channel that replays nothing and delivers to active collectors only. */
-class EventChannel<T> {
-    private val events: MutableSharedFlow<T> = MutableSharedFlow(extraBufferCapacity = 1)
+/** A single-consumer event channel that queues events until a collector attaches. */
+class EventChannel<T>(capacity: Int = Channel.BUFFERED) {
+    private val channel: Channel<T> = Channel(capacity = capacity)
 
-    val flow: SharedFlow<T> = events.asSharedFlow()
+    val flow: Flow<T> = channel.receiveAsFlow()
 
-    /** Emits [event], suspending while the one-slot buffer is full. */
+    /** Emits [event], suspending while the channel is full. */
     suspend fun send(event: T) {
-        events.emit(event)
+        channel.send(event)
     }
+
+    /** Emits [event] without suspending; false when the channel is full. */
+    fun trySend(event: T): Boolean = channel.trySend(event).isSuccess
 }

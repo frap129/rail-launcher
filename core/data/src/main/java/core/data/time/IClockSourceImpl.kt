@@ -11,6 +11,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.text.format.DateFormat
 import androidx.core.content.ContextCompat
+import core.util.MILLIS_PER_MINUTE
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -21,8 +22,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
-private const val MILLIS_PER_MINUTE: Long = 60_000L
 
 class IClockSourceImpl(private val context: Context) : IClockSource {
     override val readings: Flow<ClockReading> = channelFlow {

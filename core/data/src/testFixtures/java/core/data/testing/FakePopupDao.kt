@@ -2,17 +2,24 @@ package core.data.testing
 
 import core.data.popups.PopupHiddenShortcut
 import core.data.popups.PopupItemRecord
+import core.data.popups.PopupSettingsRecord
 import core.data.room.dao.PopupDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
-class FakePopupDao(initialRecords: List<PopupHiddenShortcut> = emptyList(), initialItems: List<PopupItemRecord> = emptyList()) : PopupDao {
+class FakePopupDao(
+    initialRecords: List<PopupHiddenShortcut> = emptyList(),
+    initialItems: List<PopupItemRecord> = emptyList(),
+    initialSettings: PopupSettingsRecord? = null
+) : PopupDao {
     private val storedRecords: MutableStateFlow<List<PopupHiddenShortcut>> = MutableStateFlow(initialRecords)
     private val storedItems: MutableStateFlow<List<PopupItemRecord>> = MutableStateFlow(initialItems)
+    private val storedSettings: MutableStateFlow<PopupSettingsRecord?> = MutableStateFlow(initialSettings)
     val records: List<PopupHiddenShortcut> get() = storedRecords.value
     val items: List<PopupItemRecord> get() = storedItems.value
+    val settings: PopupSettingsRecord? get() = storedSettings.value
 
     override fun observeHiddenShortcuts(ownerKey: String): Flow<List<String>> = storedRecords.map { records ->
         records.filter { record -> record.ownerKey == ownerKey }.map { record -> record.shortcutId }
@@ -83,5 +90,11 @@ class FakePopupDao(initialRecords: List<PopupHiddenShortcut> = emptyList(), init
 
     override suspend fun deleteItemsByKey(itemKeys: List<String>) {
         storedItems.update { items -> items.filterNot { item -> item.itemKey in itemKeys } }
+    }
+
+    override fun observeSettings(): Flow<PopupSettingsRecord?> = storedSettings
+
+    override suspend fun upsertSettings(settings: PopupSettingsRecord) {
+        storedSettings.value = settings
     }
 }

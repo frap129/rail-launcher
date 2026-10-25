@@ -36,6 +36,10 @@ _Avoid_: Pinned shortcut, added shortcut
 The Launchable whose row a Pop-up is attached to; the Pop-up shows that Launchable's header, shortcuts and added items.
 _Avoid_: Parent, source app, host
 
+**Notification**:
+An active system notification belonging to an App, shown collapsed in that App's Pop-up while the notification setting is on and notification access is granted.
+_Avoid_: Alert, message (when meaning a notification)
+
 **Favorite**:
 A Launchable the user has pinned to Home, held in a user-defined order.
 _Avoid_: Pin, starred app, dock

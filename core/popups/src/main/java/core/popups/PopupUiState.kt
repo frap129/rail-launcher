@@ -11,6 +11,8 @@ sealed interface PopupUiState {
         /** The row the card is anchored to; null while a reopened card waits for its row to lay out. */
         val anchor: PopupAnchor?,
         val content: PopupContent,
-        val widget: PopupWidgetState? = null
+        val widget: PopupWidgetState? = null,
+        /** The clock reading notification ages are measured against. */
+        val nowMillis: Long
     ) : PopupUiState
 }

@@ -75,9 +75,6 @@
     <string name="more_pages_use_memory">More pages use more memory</string>
     <string name="show_media_player">Show Media Player</string>
     <string name="media_player_summary">Show what\'s playing on Home</string>
-    <string name="notification_access">Notification access</string>
-    <string name="notification_access_allowed">Allowed</string>
-    <string name="notification_access_not_allowed">Not allowed — tap to allow</string>
     <string name="show_when_paused">Show when paused</string>
     <string name="show_artwork">Show artwork</string>
     <string name="position">Position</string>
@@ -93,6 +90,9 @@
     <string name="no_apps_found">No apps found</string>
     <string name="popups_and_folders">Pop-ups and Folders</string>
     <string name="popups_and_folders_summary">Manage your Folders</string>
+    <string name="notifications">Notifications</string>
+    <string name="show_notifications_in_popups">Show notifications in Pop-ups</string>
+    <string name="folders">Folders</string>
     <string name="no_folders_yet">No Folders yet</string>
     <string name="create_folder">Create folder</string>
     <string name="folder_summary">%1$s · %2$s</string>

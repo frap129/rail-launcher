@@ -16,9 +16,12 @@ import kotlinx.coroutines.flow.update
 class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable? = { null }) : IPopupRepository {
     private val hiddenIdsByOwner: MutableStateFlow<Map<String, Set<String>>> = MutableStateFlow(emptyMap())
     private val itemsByOwner: MutableStateFlow<Map<String, List<PopupItem>>> = MutableStateFlow(emptyMap())
+    private val notificationsEnabledState: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val removedWidgets: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(extraBufferCapacity = 8)
 
     override val removedWidgetIds: SharedFlow<AppWidgetId> = removedWidgets.asSharedFlow()
+
+    override val notificationsEnabled: Flow<Boolean> = notificationsEnabledState
 
     /** Every setShortcutHidden call, in order. */
     val setShortcutHiddenCalls: MutableList<Triple<String, String, Boolean>> = mutableListOf()
@@ -101,6 +104,10 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
         hiddenIdsByOwner.update { current -> current - ownerKey }
         itemsByOwner.update { current -> current - ownerKey }
         return emptyList()
+    }
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) {
+        notificationsEnabledState.value = enabled
     }
 
     fun setHiddenShortcuts(ownerKey: String, shortcutIds: Set<String>) {

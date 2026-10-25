@@ -1,20 +1,25 @@
 package core.popups
 
+import android.content.ComponentName
 import android.os.UserHandle
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.RailLaunchable
+import core.data.notifications.NotificationSnapshot
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.TEST_SDK
+import core.data.testing.createNotificationProfile
+import core.data.testing.createNotificationSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private const val PACKAGE_NAME: String = "com.example.app"
 private const val OWNER_NAME: String = "Example"
 private const val FIRST_SHORTCUT_ID: String = "first"
 private const val SECOND_SHORTCUT_ID: String = "second"
@@ -22,7 +27,15 @@ private const val SECOND_SHORTCUT_ID: String = "second"
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupContentResolverTest {
-    private val profile: UserHandle = UserHandle.getUserHandleForUid(0)
+    private val profile: UserHandle = createNotificationProfile()
+    private val inputApp: App = App(
+        defaultName = OWNER_NAME,
+        profile = profile,
+        componentName = ComponentName(
+            TEST_NOTIFICATION_PACKAGE_NAME,
+            "$TEST_NOTIFICATION_PACKAGE_NAME.MainActivity"
+        )
+    )
     private val inputOwner: RailLaunchable = RailLaunchable(
         defaultName = OWNER_NAME,
         defaultIcon = Icon.RailIcon(resId = 0),
@@ -210,8 +223,67 @@ class PopupContentResolverTest {
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
     }
 
+    @Test
+    fun `shows only the App's own notifications and its other content`() {
+        val inputOwnNotification: NotificationSnapshot = createNotificationSnapshot(key = "own")
+        val inputOtherPackage: NotificationSnapshot = createNotificationSnapshot(key = "other-package", packageName = "com.example.other")
+        val inputOtherProfile: NotificationSnapshot = createNotificationSnapshot(
+            key = "other-profile",
+            profile = createNotificationProfile(userId = 100_000)
+        )
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputApp,
+            shortcuts = ShortcutsResult.Available(shortcuts = listOf(inputFirstShortcut)),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList(),
+            notifications = listOf(inputOwnNotification, inputOtherPackage, inputOtherProfile)
+        )
+        assertEquals(listOf(inputOwnNotification), actualContent.ownerNotifications.map { row -> row.snapshot })
+        assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `an App with only notifications is not empty`() {
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputApp,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList(),
+            notifications = listOf(createNotificationSnapshot())
+        )
+        assertEquals(1, actualContent.ownerNotifications.size)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `a notification with big text or actions is expandable`() {
+        val inputBigText: NotificationSnapshot = createNotificationSnapshot(key = "big-text", hasBigText = true)
+        val inputAction: NotificationSnapshot = createNotificationSnapshot(key = "action", hasActions = true)
+        val inputPlain: NotificationSnapshot = createNotificationSnapshot(key = "plain")
+        val actualRows: List<NotificationRow> = PopupContentResolver.notificationsFor(
+            owner = inputApp,
+            notifications = listOf(inputBigText, inputAction, inputPlain)
+        )
+        assertEquals(listOf(true, true, false), actualRows.map { row -> row.isExpandable })
+    }
+
+    @Test
+    fun `a Folder ignores notifications`() {
+        val folder: Folder = Folder(folderId = 1L)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = folder,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList(),
+            notifications = listOf(createNotificationSnapshot())
+        )
+        assertEquals(emptyList<NotificationRow>(), actualContent.ownerNotifications)
+        assertEquals(PopupEmptyReason.FolderEmpty, actualContent.emptyReason)
+    }
+
     private fun createShortcut(id: String): ShortcutLaunchable = ShortcutLaunchable(
-        packageName = PACKAGE_NAME,
+        packageName = TEST_NOTIFICATION_PACKAGE_NAME,
         shortcutId = id,
         profile = profile,
         shortLabel = "Short $id",

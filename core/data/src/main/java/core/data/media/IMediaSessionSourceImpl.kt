@@ -14,7 +14,7 @@ import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import androidx.core.app.NotificationManagerCompat
+import core.data.notifications.isNotificationAccessGranted
 import core.data.retryWithExponentialBackoff
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
@@ -293,8 +293,7 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
         packageName
     }
 
-    private fun hasNotificationAccess(): Boolean =
-        NotificationManagerCompat.getEnabledListenerPackages(appContext).contains(appContext.packageName)
+    private fun hasNotificationAccess(): Boolean = isNotificationAccessGranted(context = appContext)
 }
 
 private fun PlaybackState?.toPlaybackStatus(): PlaybackStatus = when (this?.state) {

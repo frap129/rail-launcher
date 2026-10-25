@@ -12,12 +12,15 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.notifications.INotificationSource
+import core.data.notifications.NotificationSnapshot
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveAppWidget
@@ -55,10 +58,8 @@ import core.widgets.startWidgetWiring
 import core.widgets.toAppWidgetModel
 import core.widgets.toWidgetEvent
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -70,7 +71,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -84,11 +84,18 @@ private data class ShortcutTarget(val ownerKey: String, val packageName: String?
 
 private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnchor?)
 
-private data class CardItemsAndWidget(val items: OwnerItems, val widget: PopupWidgetState?)
+private data class CardExtras(
+    val items: OwnerItems,
+    val widget: PopupWidgetState?,
+    val notifications: OwnerNotifications,
+    val nowMillis: Long
+)
 
 private data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
 private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
+
+private data class OwnerNotifications(val ownerKey: String?, val notifications: List<NotificationSnapshot>)
 
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
@@ -107,6 +114,8 @@ class PopupViewModel(
     private val shortcutSource: IShortcutSource,
     private val popupRepository: IPopupRepository,
     private val folderRepository: IFolderRepository,
+    private val notificationSource: INotificationSource,
+    private val clockSource: IClockSource,
     private val homeEditState: HomeEditState,
     private val widgetRepository: IWidgetAreaRepository,
     private val addFlowController: IWidgetAddController,
@@ -128,12 +137,12 @@ class PopupViewModel(
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
     private val windowHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
-    private val widgetEvents: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
+    private val widgetEvents: EventChannel<WidgetEvent> = EventChannel()
     private val pageSettler: WidgetPageSettler = WidgetPageSettler(scope = viewModelScope, repository = widgetRepository)
     private var hasPendingAdd: Boolean = false
 
     /** Events the Pop-up asks the Activity to run. */
-    val events: Flow<WidgetEvent> = widgetEvents.receiveAsFlow()
+    val events: Flow<WidgetEvent> = widgetEvents.flow
 
     /** The App Widget add flow the Pop-up opened. */
     val addFlowState: StateFlow<AddWidgetFlowState> = addFlowController.state
@@ -171,6 +180,8 @@ class PopupViewModel(
 
     private val cardItems: StateFlow<OwnerItems> = addedItems(openRequest.map { request -> request?.target })
 
+    private val cardNotifications: StateFlow<OwnerNotifications> = ownerNotifications(openRequest.map { request -> request?.target })
+
     private val editItems: StateFlow<OwnerItems> = addedItems(editRequest)
 
     private val pickerItems: StateFlow<OwnerItems> = addedItems(pickerTarget)
@@ -193,7 +204,7 @@ class PopupViewModel(
     val folderDeleteState: StateFlow<Folder?> = pendingFolderDelete
 
     /** Folders created from the Add to Folder sheet, for its "Added to ..." Snackbar. */
-    val folderAdditions: SharedFlow<Folder> = folderAdditionRequests.flow
+    val folderAdditions: Flow<Folder> = folderAdditionRequests.flow
 
     val addToFolderState: StateFlow<AddToFolderState> = combine(
         addToFolderRequest,
@@ -220,7 +231,14 @@ class PopupViewModel(
         launchableRepository.launchableState,
         cardShortcuts,
         cardHiddenShortcuts,
-        combine(cardItems, widgetState) { items, widget -> CardItemsAndWidget(items = items, widget = widget) }
+        combine(cardItems, widgetState, cardNotifications, clockSource.readings) { items, widget, notifications, reading ->
+            CardExtras(
+                items = items,
+                widget = widget,
+                notifications = notifications,
+                nowMillis = reading.instant.toEpochMilli()
+            )
+        }
     ) { request, launchableState, shortcutResult, hidden, extras ->
         val owner: Launchable? = request?.target?.ownerKey?.let { ownerKey ->
             launchableState.launchables.firstOrNull { launchable -> launchable.key == ownerKey }
@@ -230,6 +248,8 @@ class PopupViewModel(
         } else {
             val hiddenIds: Set<String> = if (hidden.ownerKey == request.target.ownerKey) hidden.ids else emptySet()
             val popupItems: List<PopupItem> = if (extras.items.ownerKey == request.target.ownerKey) extras.items.items else emptyList()
+            val notifications: List<NotificationSnapshot> =
+                if (extras.notifications.ownerKey == request.target.ownerKey) extras.notifications.notifications else emptyList()
             val widget: PopupWidgetState? = extras.widget?.takeIf { state -> state.ownerKey == request.target.ownerKey }
             PopupUiState.Open(
                 owner = owner,
@@ -238,9 +258,11 @@ class PopupViewModel(
                     owner = owner,
                     shortcuts = shortcutResult ?: EMPTY_SHORTCUTS,
                     hiddenShortcutIds = hiddenIds,
-                    items = popupItems
+                    items = popupItems,
+                    notifications = notifications
                 ),
-                widget = widget
+                widget = widget,
+                nowMillis = extras.nowMillis
             )
         }
     }.stateIn(
@@ -386,6 +408,7 @@ class PopupViewModel(
             lifecycleReconciler = widgetLifecycleReconciler,
             onEvent = { event -> widgetEvents.send(event) }
         )
+        observeNotificationEmptying()
         viewModelScope.launch {
             popupRepository.removedWidgetIds.collect { appWidgetId ->
                 widgetEvents.send(WidgetEvent.RemoveHostView(appWidgetId = appWidgetId))
@@ -477,6 +500,25 @@ class PopupViewModel(
     fun openMenu() {
         val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
         menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = null)
+    }
+
+    /** Sends the notification's content intent and closes the card. */
+    fun onOpenNotification(key: String) {
+        val target: ShortcutTarget = openNotificationTarget() ?: return
+        viewModelScope.launch {
+            notificationSource.open(key)
+            if (openRequest.value?.target == target) {
+                close()
+            }
+        }
+    }
+
+    /** Dismisses a clearable notification; a notifications-only card then closes itself. */
+    fun onDismissNotification(key: String) {
+        openNotificationTarget() ?: return
+        viewModelScope.launch {
+            notificationSource.dismiss(key)
+        }
     }
 
     fun closeMenu() {
@@ -919,23 +961,75 @@ class PopupViewModel(
             initialValue = HiddenShortcutIds(ownerKey = null, ids = emptySet())
         )
 
-    private fun addedItems(targets: Flow<ShortcutTarget?>): StateFlow<OwnerItems> = targets
-        .map { target -> target?.ownerKey }
-        .distinctUntilChanged()
-        .flatMapLatest { ownerKey ->
-            if (ownerKey == null) {
-                flowOf(OwnerItems(ownerKey = null, items = emptyList()))
-            } else {
-                popupRepository.items(ownerKey)
-                    .map { items -> OwnerItems(ownerKey = ownerKey, items = items) }
-                    .onStart { emit(OwnerItems(ownerKey = ownerKey, items = emptyList())) }
+    private fun <T> ownerScoped(targets: Flow<ShortcutTarget?>, emptyValue: (String?) -> T, source: (String) -> Flow<T>): StateFlow<T> =
+        targets
+            .map { target -> target?.ownerKey }
+            .distinctUntilChanged()
+            .flatMapLatest { ownerKey ->
+                if (ownerKey == null) {
+                    flowOf(emptyValue(null))
+                } else {
+                    source(ownerKey).onStart { emit(emptyValue(ownerKey)) }
+                }
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+                initialValue = emptyValue(null)
+            )
+
+    private fun addedItems(targets: Flow<ShortcutTarget?>): StateFlow<OwnerItems> = ownerScoped(
+        targets = targets,
+        emptyValue = { ownerKey -> OwnerItems(ownerKey = ownerKey, items = emptyList()) },
+        source = { ownerKey ->
+            popupRepository.items(ownerKey).map { items -> OwnerItems(ownerKey = ownerKey, items = items) }
+        }
+    )
+
+    private fun ownerNotifications(targets: Flow<ShortcutTarget?>): StateFlow<OwnerNotifications> = ownerScoped(
+        targets = targets,
+        emptyValue = { ownerKey -> OwnerNotifications(ownerKey = ownerKey, notifications = emptyList()) },
+        source = { ownerKey ->
+            notificationSource.notifications.map { notifications -> OwnerNotifications(ownerKey = ownerKey, notifications = notifications) }
+        }
+    )
+
+    /** Closes a card whose only content was notifications once the last one is gone. */
+    private fun observeNotificationEmptying() {
+        viewModelScope.launch {
+            var previousOwnerKey: String? = null
+            var hadNotifications: Boolean = false
+            cardNotifications.collect { state ->
+                val hasNotifications: Boolean = state.notifications.isNotEmpty()
+                if (state.ownerKey == previousOwnerKey) {
+                    if (hadNotifications && !hasNotifications) {
+                        closeNotificationOnlyCard(ownerKey = state.ownerKey)
+                    }
+                }
+                previousOwnerKey = state.ownerKey
+                hadNotifications = hasNotifications
             }
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-            initialValue = OwnerItems(ownerKey = null, items = emptyList())
-        )
+    }
+
+    private fun closeNotificationOnlyCard(ownerKey: String?) {
+        if (ownerKey == null) {
+            return
+        }
+        val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
+        if (open.owner.key != ownerKey || open.widget != null) {
+            return
+        }
+        if (open.content.shortcuts.isNotEmpty() || open.content.items.isNotEmpty()) {
+            return
+        }
+        close()
+    }
+
+    private fun openNotificationTarget(): ShortcutTarget? {
+        val target: ShortcutTarget = openRequest.value?.target ?: return null
+        return target.takeIf { current -> current.packageName != null && current.profile != null }
+    }
 
     private fun folderMemberships(launchableKey: String?): Flow<FolderMembership> = if (launchableKey == null) {
         flowOf(FolderMembership(launchableKey = null, folderKeys = emptySet()))

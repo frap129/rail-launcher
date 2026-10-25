@@ -34,6 +34,10 @@ import core.data.media.IMediaSessionSourceImpl
 import core.data.media.MediaArtworkFetcher
 import core.data.media.MediaArtworkKeyer
 import core.data.media.MediaArtworkStore
+import core.data.notifications.INotificationListenerRelay
+import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationSource
+import core.data.notifications.INotificationSourceImpl
 import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
@@ -197,6 +201,15 @@ class MainApplication :
                 artworkStore = get()
             )
         }
+        single<INotificationListenerRelay> { INotificationListenerRelayImpl() }
+        single<INotificationSource> {
+            INotificationSourceImpl(
+                context = androidContext(),
+                scope = get(named(APP_SCOPE_QUALIFIER)),
+                popupRepository = get(),
+                relay = get()
+            )
+        }
         single { AppWidgetHostCallbacks() }
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
@@ -254,6 +267,8 @@ class MainApplication :
                 shortcutSource = get(),
                 popupRepository = get(),
                 folderRepository = get(),
+                notificationSource = get(),
+                clockSource = get(),
                 homeEditState = get(),
                 widgetRepository = get(),
                 addFlowController = get { parametersOf(savedStateHandle) },
@@ -266,7 +281,7 @@ class MainApplication :
             )
         }
         viewModel { SettingsViewModel(get(), get()) }
-        viewModel { PopupSettingsViewModel(get(), get(), get(), get()) }
+        viewModel { PopupSettingsViewModel(get(), get(), get(), get(), get()) }
         viewModel {
             WidgetSettingsViewModel(
                 settingsRepository = get(),
@@ -333,6 +348,7 @@ class MainApplication :
         val pendingIds: IAddFlowPendingIds = get()
         val hostSource: IAppWidgetHostSource = get()
         val launchableRepository: ILaunchableRepository = get()
+        val notificationSource: INotificationSource = get()
         registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             private var isReconciled: Boolean = false
 
@@ -348,7 +364,9 @@ class MainApplication :
 
             override fun onActivityStarted(activity: Activity) = Unit
 
-            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityResumed(activity: Activity) {
+                notificationSource.refreshAccess()
+            }
 
             override fun onActivityPaused(activity: Activity) = Unit
 
