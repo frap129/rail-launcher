@@ -7,6 +7,7 @@ import core.data.favorites.FavoriteRecord
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.popups.PopupHiddenShortcut
+import core.data.popups.PopupItemRecord
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.LaunchableCustomization
@@ -43,9 +44,10 @@ import core.data.widgets.WidgetRecord
         WidgetAreaSettingsRecord::class,
         MediaPlayerSettings::class,
         PendingAppWidgetRecord::class,
-        PopupHiddenShortcut::class
+        PopupHiddenShortcut::class,
+        PopupItemRecord::class
     ],
-    version = 7
+    version = 8
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

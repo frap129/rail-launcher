@@ -116,6 +116,8 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                 content = displayState.content,
                 onHeaderClick = { onLaunch(displayState.owner) },
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
+                onItemClick = { item -> onLaunch(item.launchable) },
+                onItemLongClick = { item -> viewModel.openItemMenu(item.launchable) },
                 onRequestQuietModeOff = {
                     val owner: App? = displayState.owner as? App
                     owner?.let { app ->

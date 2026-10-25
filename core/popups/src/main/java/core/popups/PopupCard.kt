@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,14 +58,20 @@ private val shortcutRowHeight = 48.dp
 private val shortcutHorizontalPadding = 16.dp
 private val shortcutIconSize = 24.dp
 private val shortcutIconGap = 16.dp
+private val itemRowHeight = 48.dp
+private val itemIconSize = 32.dp
+private val itemIconGap = 12.dp
+private val itemDividerInset = 16.dp
 private val emptyStatePadding = 16.dp
 
-/** The floating card that shows one App's header and shortcuts. */
+/** The floating card that shows one App's header, shortcuts and added items. */
 @Composable
 fun PopupCard(
     content: PopupContent,
     onHeaderClick: () -> Unit,
     onShortcutClick: (ShortcutLaunchable) -> Unit,
+    onItemClick: (PopupItem) -> Unit,
+    onItemLongClick: (PopupItem) -> Unit,
     onRequestQuietModeOff: () -> Unit,
     onClose: () -> Unit,
     onLongPress: () -> Unit,
@@ -74,9 +81,14 @@ fun PopupCard(
     val focusRequester: FocusRequester = remember { FocusRequester() }
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val currentOnLongPress: () -> Unit by rememberUpdatedState(onLongPress)
+    val currentOnItemLongClick: (PopupItem) -> Unit by rememberUpdatedState(onItemLongClick)
     val openMenu: () -> Unit = {
         hapticFeedback.performLongPressHaptic()
         currentOnLongPress()
+    }
+    val openItemMenu: (PopupItem) -> Unit = { item ->
+        hapticFeedback.performLongPressHaptic()
+        currentOnItemLongClick(item)
     }
     Surface(
         modifier = modifier
@@ -110,10 +122,25 @@ fun PopupCard(
                 onClick = onHeaderClick,
                 onLongClick = openMenu
             )
+            content.shortcuts.forEach { shortcut ->
+                PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) }, onLongClick = openMenu)
+            }
+            if (content.shortcuts.isNotEmpty() && content.items.isNotEmpty()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = itemDividerInset),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+            content.items.forEach { item ->
+                PopupItemRow(
+                    item = item,
+                    onClick = { onItemClick(item) },
+                    onLongClick = { openItemMenu(item) }
+                )
+            }
             when (content.emptyReason) {
-                PopupEmptyReason.None -> content.shortcuts.forEach { shortcut ->
-                    PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) }, onLongClick = openMenu)
-                }
+                PopupEmptyReason.None -> Unit
 
                 PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
 
@@ -178,6 +205,31 @@ private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit, 
         )
         Spacer(Modifier.width(shortcutIconGap))
         PopupShortcutLabel(shortcut = shortcut)
+    }
+}
+
+@Composable
+internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(itemRowHeight)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = shortcutHorizontalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        AsyncImage(
+            modifier = Modifier.size(itemIconSize),
+            model = item.launchable.icon,
+            contentDescription = null
+        )
+        Spacer(Modifier.width(itemIconGap))
+        Text(
+            text = item.launchable.name,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

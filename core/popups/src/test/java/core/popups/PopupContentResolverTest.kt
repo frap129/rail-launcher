@@ -34,7 +34,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
-            hiddenShortcutIds = emptySet()
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
         )
         assertEquals(PopupHeader(name = OWNER_NAME, icon = inputOwner.defaultIcon), actualContent.header)
     }
@@ -45,7 +46,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
-            hiddenShortcutIds = emptySet()
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
         )
         assertEquals(inputShortcuts, actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
@@ -57,10 +59,51 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
-            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID)
+            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID),
+            items = emptyList()
         )
         assertEquals(listOf(inputSecondShortcut), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `shows added items after shortcuts`() {
+        val firstItem: RailLaunchable = createItem(name = "First item", deeplink = "rail://first")
+        val secondItem: RailLaunchable = createItem(name = "Second item", deeplink = "rail://second")
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = listOf(inputFirstShortcut)),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(firstItem, secondItem)
+        )
+        assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
+        assertEquals(listOf(PopupItem.Launchable(firstItem), PopupItem.Launchable(secondItem)), actualContent.items)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `shows added items when shortcuts are unavailable`() {
+        val item: RailLaunchable = createItem(name = "Item", deeplink = "rail://item")
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Unavailable,
+            hiddenShortcutIds = emptySet(),
+            items = listOf(item)
+        )
+        assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
+        assertEquals(listOf(PopupItem.Launchable(item)), actualContent.items)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `reports empty only when there are no shortcuts and no items`() {
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
+        )
+        assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
     }
 
     @Test
@@ -68,7 +111,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
-            hiddenShortcutIds = emptySet()
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
         )
         assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
     }
@@ -79,7 +123,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = inputShortcuts),
-            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)
+            hiddenShortcutIds = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID),
+            items = emptyList()
         )
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
@@ -90,7 +135,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.Unavailable,
-            hiddenShortcutIds = emptySet()
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
         )
         assertEquals(PopupEmptyReason.ShortcutsUnavailable, actualContent.emptyReason)
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
@@ -101,7 +147,8 @@ class PopupContentResolverTest {
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputOwner,
             shortcuts = ShortcutsResult.ProfilePaused,
-            hiddenShortcutIds = emptySet()
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
         )
         assertEquals(PopupEmptyReason.ProfilePaused, actualContent.emptyReason)
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
@@ -113,5 +160,11 @@ class PopupContentResolverTest {
         profile = profile,
         shortLabel = "Short $id",
         longLabel = "Long $id"
+    )
+
+    private fun createItem(name: String, deeplink: String): RailLaunchable = RailLaunchable(
+        defaultName = name,
+        defaultIcon = Icon.RailIcon(resId = 0),
+        deeplink = deeplink
     )
 }

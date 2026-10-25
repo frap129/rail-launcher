@@ -17,6 +17,9 @@ data class ShortcutKey(val packageName: String, val id: String, val profile: Use
         "$KEY_PREFIX$packageName$KEY_SEPARATOR${URLEncoder.encode(id, StandardCharsets.UTF_8.name())}$KEY_SEPARATOR$profile"
 
     companion object {
+        /** Whether [key] is stored as a Shortcut key, even when it is malformed. */
+        fun hasPrefix(key: String): Boolean = key.startsWith(KEY_PREFIX)
+
         /** Reads a [format]ted key, or null when [key] is malformed. */
         fun parse(key: String): ShortcutKey? {
             if (!key.startsWith(KEY_PREFIX)) {

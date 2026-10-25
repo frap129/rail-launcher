@@ -20,6 +20,10 @@ _Avoid_: Deep link, quick action
 A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays hidden if the app removes and later republishes the Shortcut.
 _Avoid_: Disabled shortcut, removed shortcut
 
+**Added item**:
+A Launchable the user added to a Pop-up from the Edit Pop-up sheet, shown below that App's Shortcuts.
+_Avoid_: Pinned app, Pop-up favorite, item
+
 **Owner**:
 The App whose row a Pop-up is attached to; the Pop-up shows that App's header and shortcuts.
 _Avoid_: Parent, source app, host

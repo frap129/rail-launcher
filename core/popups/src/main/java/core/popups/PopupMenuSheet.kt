@@ -18,13 +18,14 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
+import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
 
-/** The bottom sheet listing the open Pop-up's actions. */
+/** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PopupMenuSheet(viewModel: PopupViewModel) {
@@ -36,21 +37,27 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
         onDismissRequest = viewModel::closeMenu
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            SheetTitle(launchable = state.owner)
+            SheetTitle(launchable = state.target)
             CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
                 state.items.forEach { item ->
                     when (item) {
                         PopupMenuItem.EditPopup -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.PencilAlt,
                             label = stringResource(CoreUiR.string.edit_popup),
-                            onClick = { viewModel.startEdit(state.owner) }
+                            onClick = { viewModel.startEdit(state.target) }
+                        )
+
+                        PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                            label = stringResource(R.string.remove_from_popup),
+                            onClick = { viewModel.removeItem(state.target) }
                         )
 
                         PopupMenuItem.AppInfo -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.InfoCircle,
                             label = stringResource(CoreUiR.string.app_info),
                             onClick = {
-                                (state.owner as? App)?.openAppInfo(context)
+                                (state.target as? App)?.openAppInfo(context)
                                 viewModel.closeMenu()
                                 viewModel.close()
                             }
