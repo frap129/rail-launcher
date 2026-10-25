@@ -8,6 +8,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.testing.FIRST_POSITION
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.createFavoritesRepository
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -285,10 +286,9 @@ class IFavoritesRepositoryImplTest {
 private fun TestScope.createRepository(
     mockFavoriteDao: FakeFavoriteDao,
     mockLaunchableRepository: FakeLaunchableRepository
-): IFavoritesRepositoryImpl = IFavoritesRepositoryImpl(
+): IFavoritesRepositoryImpl = createFavoritesRepository(
     favoriteDao = mockFavoriteDao,
-    launchableRepository = mockLaunchableRepository,
-    scope = backgroundScope
+    launchableRepository = mockLaunchableRepository
 )
 
 private fun createLaunchable(name: String): Launchable = RailLaunchable(

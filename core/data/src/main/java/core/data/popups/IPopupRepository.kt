@@ -17,6 +17,9 @@ interface IPopupRepository {
      */
     fun items(ownerKey: String): Flow<List<PopupItem>>
 
+    /** The number of items shown in each Pop-up, keyed by owner key. An owner with no items has no entry. */
+    val itemCounts: Flow<Map<String, Int>>
+
     /** Adds [add] to the end of [ownerKey]'s Pop-up in order, and removes [remove]. */
     suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>)
 

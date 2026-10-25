@@ -92,6 +92,7 @@ import feature.launcher.widgets.IWidgetAddControllerImpl
 import feature.launcher.widgets.IWidgetResizeController
 import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.WidgetAreaViewModel
+import feature.settings.PopupSettingsViewModel
 import feature.settings.SettingsViewModel
 import feature.settings.WidgetSettingsViewModel
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -245,6 +246,7 @@ class MainApplication :
         viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get()) }
         viewModel { PopupViewModel(get(), get(), get(), get(), get()) }
         viewModel { SettingsViewModel(get(), get()) }
+        viewModel { PopupSettingsViewModel(get(), get(), get(), get()) }
         viewModel {
             WidgetSettingsViewModel(
                 settingsRepository = get(),

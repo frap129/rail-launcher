@@ -30,5 +30,6 @@
     <string name="added_to_folder">Added to %1$s</string>
     <string name="no_folders">You don\'t have any Folders</string>
     <string name="new_folder">New Folder</string>
+    <string name="rename_folder_title">Rename Folder</string>
     <string name="create">Create</string>
 </resources>

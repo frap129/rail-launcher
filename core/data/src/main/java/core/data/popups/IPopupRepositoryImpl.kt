@@ -97,6 +97,10 @@ class IPopupRepositoryImpl(
         .map { resolution -> resolution.itemsByOwner[ownerKey].orEmpty() }
         .distinctUntilChanged()
 
+    override val itemCounts: Flow<Map<String, Int>> = itemResolution
+        .map { resolution -> resolution.itemsByOwner.mapValues { (_, items) -> items.size } }
+        .distinctUntilChanged()
+
     override suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>) {
         val additions: List<String> = add
             .filterNot { itemKey -> itemKey == ownerKey || itemKey in remove }

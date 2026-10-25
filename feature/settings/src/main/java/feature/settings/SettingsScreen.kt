@@ -60,10 +60,8 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -107,6 +105,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
+import compose.icons.fontawesomeicons.solid.Folder
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Th
@@ -225,6 +224,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         SettingsScreen.Main -> stringResource(R.string.settings)
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
+                        SettingsScreen.Popups -> stringResource(R.string.popups_and_folders)
                     }
 
                     Text(
@@ -253,7 +253,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
             when (screen) {
                 SettingsScreen.Main -> SettingsMainScreen(
                     toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
-                    toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") }
+                    toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
+                    toPopups = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Popups.key}") }
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
@@ -266,40 +267,38 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     section = section,
                     onAddWidget = { navController.startAddWidgetOnHome() }
                 )
+
+                SettingsScreen.Popups -> SettingsPopupsScreen()
             }
         }
     }
 }
 
 @Composable
-fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit) {
+fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit, toPopups: () -> Unit) {
     LazyColumn {
         item {
-            ListItem(
-                modifier = Modifier.clickable { toAppearance.invoke() },
-                headlineContent = { Text(stringResource(R.string.appearance)) },
-                supportingContent = { Text(stringResource(R.string.appearance_summary)) },
-                leadingContent = {
-                    Icon(
-                        modifier = Modifier.size(64.dp).padding(16.dp),
-                        imageVector = FontAwesomeIcons.Solid.Palette,
-                        contentDescription = stringResource(R.string.appearance)
-                    )
-                }
+            SettingsNavigationRow(
+                title = R.string.appearance,
+                summary = R.string.appearance_summary,
+                icon = FontAwesomeIcons.Solid.Palette,
+                onClick = toAppearance
             )
         }
         item {
-            ListItem(
-                modifier = Modifier.clickable { toWidgets.invoke() },
-                headlineContent = { Text(stringResource(R.string.widgets)) },
-                supportingContent = { Text(stringResource(R.string.widgets_summary)) },
-                leadingContent = {
-                    Icon(
-                        modifier = Modifier.size(64.dp).padding(16.dp),
-                        imageVector = FontAwesomeIcons.Solid.Th,
-                        contentDescription = stringResource(R.string.widgets)
-                    )
-                }
+            SettingsNavigationRow(
+                title = R.string.widgets,
+                summary = R.string.widgets_summary,
+                icon = FontAwesomeIcons.Solid.Th,
+                onClick = toWidgets
+            )
+        }
+        item {
+            SettingsNavigationRow(
+                title = R.string.popups_and_folders,
+                summary = R.string.popups_and_folders_summary,
+                icon = FontAwesomeIcons.Solid.Folder,
+                onClick = toPopups
             )
         }
     }
@@ -367,10 +366,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
             onAddWidget = viewModel::openAddWidget,
             onNotificationAccessClick = { context.openRailNotificationListenerSettings() }
         )
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
-        )
+        SettingsSnackbarHost(hostState = snackbarHostState)
     }
     LaunchedEffect(section, uiState.isLoaded, uiState.appWidgets.size) {
         if (section == MEDIA_SECTION && uiState.isLoaded && !scrolledToMedia) {
@@ -642,16 +638,6 @@ private fun AppWidgetSettingsRow(widget: WidgetSettingsAppWidget, onRemove: () -
             )
         }
     }
-}
-
-@Composable
-private fun SettingsSectionTitle(@StringRes title: Int) {
-    Text(
-        text = stringResource(title),
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-        color = MaterialTheme.colorScheme.primary,
-        style = MaterialTheme.typography.titleSmall
-    )
 }
 
 @Composable
@@ -1507,44 +1493,6 @@ private fun displayMaxOffsetDp(context: Context): Int {
     val density: Float = context.resources.displayMetrics.density
     val safeHeightDp: Int = (safeHeightPx / density).toInt()
     return WidgetAreaSettings.maxOffsetDp(homeHeightDp = safeHeightDp)
-}
-
-@Composable
-private fun SettingsActionRow(title: String, value: String, onClick: () -> Unit, enabled: Boolean = true, supportingText: String? = null) {
-    ListItem(
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
-        headlineContent = { Text(title) },
-        supportingContent = if (value.isNotEmpty() || supportingText != null) {
-            { Text(value.ifEmpty { supportingText.orEmpty() }) }
-        } else {
-            null
-        }
-    )
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-    supportingText: String? = null
-) {
-    ListItem(
-        modifier = Modifier.toggleable(
-            value = checked,
-            enabled = enabled,
-            role = Role.Switch,
-            onValueChange = onCheckedChange
-        ),
-        headlineContent = { Text(title) },
-        supportingContent = if (supportingText != null) {
-            { Text(supportingText) }
-        } else {
-            null
-        },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) }
-    )
 }
 
 @Composable

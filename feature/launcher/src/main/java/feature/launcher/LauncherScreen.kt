@@ -50,17 +50,15 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.popups.AddToFolderSheet
 import core.popups.AddToFolderState
-import core.popups.EditPopupSheet
 import core.popups.FolderDeleteDialog
 import core.popups.FolderNameDialog
-import core.popups.LaunchablePickerSheet
+import core.popups.FolderSnackbar
+import core.popups.PopupEditorHost
 import core.popups.PopupHost
 import core.popups.PopupMenuSheet
-import core.popups.PopupPickerState
 import core.popups.PopupViewModel
 import core.popups.R as PopupsR
-import core.popups.ShortcutPickerSheet
-import core.popups.ShortcutPickerState
+import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -89,6 +87,7 @@ import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -320,16 +319,17 @@ fun LauncherScreen(
     }
     val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
     LaunchedEffect(popupViewModel, snackbarHostState, editFolderLabel) {
-        popupViewModel.folderAdditions.collect { folder: Folder ->
-            val result: SnackbarResult = snackbarHostState.showSnackbar(
-                message = context.getString(PopupsR.string.added_to_folder, folder.name),
-                actionLabel = editFolderLabel,
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                popupViewModel.startEdit(folder)
-            }
-        }
+        showFolderSnackbars(
+            snackbars = popupViewModel.folderAdditions.map { folder: Folder ->
+                FolderSnackbar(
+                    message = context.getString(PopupsR.string.added_to_folder, folder.name),
+                    folder = folder
+                )
+            },
+            snackbarHostState = snackbarHostState,
+            actionLabel = editFolderLabel,
+            onEdit = popupViewModel::startEdit
+        )
     }
     LaunchedEffect(homeIntentRequest) {
         homeIntentRequest.collectRequests {
@@ -365,8 +365,6 @@ fun LauncherScreen(
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
-    val pickerState: PopupPickerState by popupViewModel.pickerState.collectAsState()
-    val shortcutPickerState: ShortcutPickerState by popupViewModel.shortcutPickerState.collectAsState()
     val isNewFolderDialogOpen: Boolean by viewModel.isNewFolderDialogOpen.collectAsState()
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
@@ -398,8 +396,15 @@ fun LauncherScreen(
         LauncherDoneButton(viewModel, widgetViewModel, popupViewModel)
         LauncherMenu(viewModel)
         PopupMenuSheet(popupViewModel)
-        EditPopupSheet(popupViewModel)
-        FolderDeleteDialog(popupViewModel)
+        PopupEditorHost(viewModel = popupViewModel)
+        val deletingFolder: Folder? by popupViewModel.folderDeleteState.collectAsState()
+        deletingFolder?.let { folder: Folder ->
+            FolderDeleteDialog(
+                folder = folder,
+                onConfirm = popupViewModel::confirmDeleteFolder,
+                onDismiss = popupViewModel::cancelDeleteFolder
+            )
+        }
         val addToFolderState: AddToFolderState by popupViewModel.addToFolderState.collectAsState()
         val openAddToFolderState: AddToFolderState.Open? = addToFolderState as? AddToFolderState.Open
         if (openAddToFolderState != null) {
@@ -410,20 +415,6 @@ fun LauncherScreen(
                 onToggle = popupViewModel::toggleMembership,
                 onNewFolder = popupViewModel::startNewFolder,
                 onDismiss = popupViewModel::closeAddToFolder
-            )
-        }
-        if (pickerState is PopupPickerState.Picking) {
-            LaunchablePickerSheet(
-                state = pickerState as PopupPickerState.Picking,
-                onConfirm = popupViewModel::confirmPicking,
-                onDismiss = popupViewModel::cancelPicking
-            )
-        }
-        if (shortcutPickerState is ShortcutPickerState.Picking) {
-            ShortcutPickerSheet(
-                state = shortcutPickerState as ShortcutPickerState.Picking,
-                onConfirm = popupViewModel::confirmShortcuts,
-                onDismiss = popupViewModel::cancelShortcutPicking
             )
         }
         LauncherWidgetMenu(widgetViewModel)

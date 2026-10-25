@@ -21,6 +21,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import core.util.launchLogged
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -367,7 +368,7 @@ class PopupViewModel(
     /** Hides or shows a shortcut in the App currently being edited. */
     fun setShortcutHidden(shortcutId: String, hidden: Boolean) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        updatePopup(message = "Failed to change hidden state of shortcut $shortcutId") {
+        launchLogged(message = "Failed to change hidden state of shortcut $shortcutId") {
             popupRepository.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
         }
     }
@@ -383,7 +384,7 @@ class PopupViewModel(
     fun removeItem(item: Launchable) {
         val ownerKey: String = openRequest.value?.target?.ownerKey ?: editRequest.value?.ownerKey ?: return
         menuTarget.value = null
-        updatePopup(message = "Failed to remove ${item.key} from its Pop-up") {
+        launchLogged(message = "Failed to remove ${item.key} from its Pop-up") {
             popupRepository.removeItem(ownerKey = ownerKey, itemKey = item.key)
         }
     }
@@ -415,7 +416,7 @@ class PopupViewModel(
         if (editRequest.value?.ownerKey == folder.key) {
             finishEdit()
         }
-        updatePopup(message = "Failed to delete Folder ${folder.key}") {
+        launchLogged(message = "Failed to delete Folder ${folder.key}") {
             folderRepository.delete(folder)
         }
     }
@@ -439,7 +440,7 @@ class PopupViewModel(
             return
         }
         val launchableKey: String = state.launchable.key
-        updatePopup(message = "Failed to change $launchableKey's Folder membership") {
+        launchLogged(message = "Failed to change $launchableKey's Folder membership") {
             popupRepository.setItems(
                 ownerKey = folderKey,
                 add = if (member) listOf(launchableKey) else emptyList(),
@@ -452,7 +453,7 @@ class PopupViewModel(
     fun startNewFolder(name: String) {
         val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
         val launchableKey: String = state.launchable.key
-        updatePopup(message = "Failed to create a Folder for $launchableKey") {
+        launchLogged(message = "Failed to create a Folder for $launchableKey") {
             val folder: Folder = folderRepository.create(
                 name = name,
                 initialItems = listOf(launchableKey),
@@ -493,7 +494,7 @@ class PopupViewModel(
         val removals: Set<String> = existingKeys - selectedInOrder.toSet()
         isPicking.value = false
         pickerTarget.value = null
-        updatePopup(message = "Failed to change the items in ${request.ownerKey}'s Pop-up") {
+        launchLogged(message = "Failed to change the items in ${request.ownerKey}'s Pop-up") {
             popupRepository.setItems(ownerKey = request.ownerKey, add = additions, remove = removals)
         }
     }
@@ -518,7 +519,7 @@ class PopupViewModel(
         val additions: List<String> = selectedInOrder.filterNot { key -> key in existingKeys }
         val removals: Set<String> = existingKeys - selectedInOrder.toSet()
         isPickingShortcuts.value = false
-        updatePopup(message = "Failed to change the shortcuts in ${request.ownerKey}'s Pop-up") {
+        launchLogged(message = "Failed to change the shortcuts in ${request.ownerKey}'s Pop-up") {
             popupRepository.setItems(ownerKey = request.ownerKey, add = additions, remove = removals)
         }
     }
@@ -529,7 +530,7 @@ class PopupViewModel(
 
     fun setItemOrder(orderedItemKeys: List<String>) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        updatePopup(message = "Failed to reorder the items in $ownerKey's Pop-up") {
+        launchLogged(message = "Failed to reorder the items in $ownerKey's Pop-up") {
             popupRepository.setItemOrder(ownerKey = ownerKey, orderedItemKeys = orderedItemKeys)
         }
     }
@@ -577,18 +578,6 @@ class PopupViewModel(
     /** Queries the owner's shortcuts again, for example after a work profile is resumed. */
     fun reloadShortcuts() {
         reloads.update { reload -> reload + 1 }
-    }
-
-    private fun updatePopup(message: String, action: suspend () -> Unit) {
-        viewModelScope.launch {
-            try {
-                action()
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                Timber.e(exception, message)
-            }
-        }
     }
 
     private fun collectShortcuts(targets: Flow<ShortcutTarget?>, into: MutableStateFlow<ShortcutsResult?>) {

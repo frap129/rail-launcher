@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 enum class SettingsScreen(val key: String) {
     Main("main"),
     Appearance("appearance"),
-    Widgets("widgets")
+    Widgets("widgets"),
+    Popups("popups")
 }
 
 data class SettingsUiState(val iconPacks: Set<IconPack>, val selectedIconPack: IconPack)

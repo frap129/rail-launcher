@@ -5,23 +5,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.res.stringResource
 import core.data.folders.Folder
 import core.ui.R as CoreUiR
 
-/** Confirms deleting a Folder and explains that its apps stay installed. */
+/** Confirms deleting [folder] and explains that its apps stay installed. */
 @Composable
-fun FolderDeleteDialog(viewModel: PopupViewModel) {
-    val folder: Folder? by viewModel.folderDeleteState.collectAsState()
-    val target: Folder = folder ?: return
+fun FolderDeleteDialog(folder: Folder, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
-        onDismissRequest = viewModel::cancelDeleteFolder,
-        title = { Text(stringResource(R.string.delete_folder_title, target.name)) },
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.delete_folder_title, folder.name)) },
         text = { Text(stringResource(R.string.delete_folder_body)) },
         confirmButton = {
-            TextButton(onClick = viewModel::confirmDeleteFolder) {
+            TextButton(onClick = onConfirm) {
                 Text(
                     text = stringResource(R.string.delete_folder),
                     color = MaterialTheme.colorScheme.error
@@ -29,7 +25,7 @@ fun FolderDeleteDialog(viewModel: PopupViewModel) {
             }
         },
         dismissButton = {
-            TextButton(onClick = viewModel::cancelDeleteFolder) {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(CoreUiR.string.cancel))
             }
         }

@@ -22,6 +22,7 @@ import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderDao
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.TEST_SDK
+import core.data.testing.createFavoritesRepository
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
@@ -75,10 +76,9 @@ class ILaunchableRepositoryImplTest {
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
             initialRecords = listOf(FavoriteRecord(key = inputApp.key, position = FIRST_POSITION))
         )
-        val favoritesRepository: IFavoritesRepositoryImpl = IFavoritesRepositoryImpl(
+        val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
             favoriteDao = mockFavoriteDao,
-            launchableRepository = repository,
-            scope = backgroundScope
+            launchableRepository = repository
         )
         val actualStateDeferred: Deferred<LaunchableState> = async { repository.launchableState.first { it.isLoaded } }
         // The item menu reads the same launchables flow.

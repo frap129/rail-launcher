@@ -15,7 +15,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
-import kotlinx.coroutines.CancellationException
+import core.util.launchLogged
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -383,18 +383,12 @@ class LauncherViewModel(
             return
         }
         closeNewFolderDialog()
-        viewModelScope.launch {
-            try {
-                val folder: Folder = folderRepo.create(name)
-                favoritesMutex.withLock {
-                    editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }
-                }
-                folderEditRequests.send(folder)
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                Timber.e(exception, "Failed to create Folder")
+        launchLogged(message = "Failed to create Folder") {
+            val folder: Folder = folderRepo.create(name)
+            favoritesMutex.withLock {
+                editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }
             }
+            folderEditRequests.send(folder)
         }
     }
 
