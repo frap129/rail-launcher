@@ -1,6 +1,6 @@
 package core.popups
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,12 +23,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -41,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.shortcuts.ShortcutLaunchable
+import core.ui.util.performLongPressHaptic
 
 private val cardCornerRadius = 24.dp
 private val cardShadowElevation = 6.dp
@@ -63,13 +67,25 @@ fun PopupCard(
     onShortcutClick: (ShortcutLaunchable) -> Unit,
     onRequestQuietModeOff: () -> Unit,
     onClose: () -> Unit,
+    onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val closeLabel: String = stringResource(R.string.close_popup)
     val focusRequester: FocusRequester = remember { FocusRequester() }
+    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val currentOnLongPress: () -> Unit by rememberUpdatedState(onLongPress)
+    val openMenu: () -> Unit = {
+        hapticFeedback.performLongPressHaptic()
+        currentOnLongPress()
+    }
     Surface(
         modifier = modifier
-            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {},
+                    onLongPress = { openMenu() }
+                )
+            }
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction(label = closeLabel) {
@@ -91,14 +107,15 @@ fun PopupCard(
             PopupHeader(
                 header = content.header,
                 focusRequester = focusRequester,
-                onClick = onHeaderClick
+                onClick = onHeaderClick,
+                onLongClick = openMenu
             )
             when (content.emptyReason) {
                 PopupEmptyReason.None -> content.shortcuts.forEach { shortcut ->
-                    PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) })
+                    PopupShortcutRow(shortcut = shortcut, onClick = { onShortcutClick(shortcut) }, onLongClick = openMenu)
                 }
 
-                PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.no_shortcuts)
+                PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
 
                 PopupEmptyReason.ShortcutsUnavailable -> PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
 
@@ -113,7 +130,7 @@ fun PopupCard(
 }
 
 @Composable
-private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: () -> Unit) {
+private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: () -> Unit, onLongClick: () -> Unit) {
     val announcement: String = stringResource(R.string.popup_announcement, header.name)
     Row(
         modifier = Modifier
@@ -124,7 +141,7 @@ private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onC
                 contentDescription = announcement
                 heading()
             }
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = headerHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -145,12 +162,12 @@ private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onC
 }
 
 @Composable
-private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit) {
+private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(shortcutRowHeight)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = shortcutHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -160,12 +177,12 @@ private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit) 
             contentDescription = null
         )
         Spacer(Modifier.width(shortcutIconGap))
-        ShortcutLabel(shortcut = shortcut)
+        PopupShortcutLabel(shortcut = shortcut)
     }
 }
 
 @Composable
-private fun ShortcutLabel(shortcut: ShortcutLaunchable) {
+internal fun PopupShortcutLabel(shortcut: ShortcutLaunchable) {
     var useLongLabel: Boolean by remember(shortcut.longLabel, shortcut.shortLabel) { mutableStateOf(true) }
     val label: String = if (useLongLabel) shortcut.longLabel else shortcut.shortLabel
     Text(
@@ -182,7 +199,7 @@ private fun ShortcutLabel(shortcut: ShortcutLaunchable) {
 }
 
 @Composable
-private fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null) {
+internal fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()

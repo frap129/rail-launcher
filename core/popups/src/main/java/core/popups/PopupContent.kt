@@ -21,14 +21,18 @@ data class PopupContent(val header: PopupHeader, val shortcuts: List<ShortcutLau
 
 /** Turns a shortcut result into the content of [owner]'s Pop-up. */
 object PopupContentResolver {
-    fun resolve(owner: Launchable, shortcuts: ShortcutsResult): PopupContent {
+    fun resolve(owner: Launchable, shortcuts: ShortcutsResult, hiddenShortcutIds: Set<String>): PopupContent {
         val header: PopupHeader = PopupHeader(name = owner.name, icon = owner.icon)
         return when (shortcuts) {
-            is ShortcutsResult.Available -> PopupContent(
-                header = header,
-                shortcuts = shortcuts.shortcuts,
-                emptyReason = if (shortcuts.shortcuts.isEmpty()) PopupEmptyReason.Empty else PopupEmptyReason.None
-            )
+            is ShortcutsResult.Available -> {
+                val shownShortcuts: List<ShortcutLaunchable> =
+                    shortcuts.shortcuts.filterNot { shortcut -> shortcut.shortcutId in hiddenShortcutIds }
+                PopupContent(
+                    header = header,
+                    shortcuts = shownShortcuts,
+                    emptyReason = if (shownShortcuts.isEmpty()) PopupEmptyReason.Empty else PopupEmptyReason.None
+                )
+            }
 
             ShortcutsResult.Unavailable -> PopupContent(
                 header = header,

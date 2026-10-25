@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -38,7 +37,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Regular
 import compose.icons.fontawesomeicons.Solid
@@ -48,6 +46,7 @@ import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.popups.PopupAnchor
 import core.popups.popupSwipe
+import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
@@ -174,15 +173,6 @@ fun LauncherItem(
             )
         }
     }
-}
-
-@Composable
-internal fun LaunchableIcon(launchable: Launchable) {
-    AsyncImage(
-        modifier = Modifier.size(64.dp).padding(10.dp),
-        model = launchable.icon,
-        contentDescription = launchable.name
-    )
 }
 
 @Composable

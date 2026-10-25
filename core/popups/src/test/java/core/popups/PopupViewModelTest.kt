@@ -11,6 +11,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakePopupRepository
 import core.data.testing.FakeShortcutSource
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
@@ -64,6 +65,7 @@ class PopupViewModelTest {
     )
     private val fakeLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = inputGroups)
     private val fakeShortcutSource: FakeShortcutSource = FakeShortcutSource()
+    private val fakePopupRepository: FakePopupRepository = FakePopupRepository()
     private val inputHomeEditState: HomeEditState = HomeEditState()
 
     @Test
@@ -206,9 +208,198 @@ class PopupViewModelTest {
         }
     }
 
-    private fun createViewModel(): PopupViewModel = PopupViewModel(
+    @Test
+    fun `opens the menu with Edit Pop-up and App info for an App owner`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.menuState.test {
+            assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+            assertEquals(inputApp, actualMenu.owner)
+            assertEquals(listOf(PopupMenuItem.EditPopup, PopupMenuItem.AppInfo), actualMenu.items)
+        }
+    }
+
+    @Test
+    fun `closes the menu without closing the card`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            assertTrue(expectMostRecentItem() is PopupMenuState.Open)
+            viewModel.closeMenu()
+            assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+        }
+        viewModel.popupState.test {
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+        }
+    }
+
+    @Test
+    fun `starting an edit closes the menu`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            assertTrue(expectMostRecentItem() is PopupMenuState.Open)
+            viewModel.startEdit(inputApp)
+            assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `edits an App's Pop-up with its live shortcuts and hidden ids`() = runTest {
+        val inputShortcuts: ShortcutsResult = ShortcutsResult.Available(shortcuts = listOf(inputShortcut))
+        fakeShortcutSource.setResult(inputShortcuts)
+        fakePopupRepository.setHiddenShortcuts(inputApp.key, setOf(inputShortcut.shortcutId))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(inputApp, actualState.owner)
+            assertEquals(inputShortcuts, actualState.shortcuts)
+            assertEquals(setOf(inputShortcut.shortcutId), actualState.hiddenIds)
+        }
+    }
+
+    @Test
+    fun `updates the editor when the shortcut list changes`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupEditState.Editing)
+            fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)), actualState.shortcuts)
+        }
+    }
+
+    @Test
+    fun `allows editing during Edit Favorites`() = runTest {
+        inputHomeEditState.tryEnter(HomeEditMode.Favorites)
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupEditState.Editing)
+        }
+    }
+
+    @Test
+    fun `ignores editing in Widgets and Resizing`() = runTest {
+        listOf(HomeEditMode.Widgets, HomeEditMode.Resizing(placeId = 1L)).forEach { inputMode ->
+            val editState: HomeEditState = HomeEditState()
+            editState.tryEnter(inputMode)
+            val viewModel: PopupViewModel = createViewModel(homeEditState = editState)
+            viewModel.editState.test {
+                assertEquals(PopupEditState.Closed, expectMostRecentItem())
+                viewModel.startEdit(inputApp)
+                runCurrent()
+                expectNoEvents()
+                assertEquals(PopupEditState.Closed, viewModel.editState.value)
+            }
+        }
+    }
+
+    @Test
+    fun `ignores editing a Launchable that is not an App`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputRailLaunchable)
+            runCurrent()
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `forwards a shortcut hidden state change for the edited App`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.startEdit(inputApp)
+        runCurrent()
+        viewModel.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
+        runCurrent()
+        assertEquals(listOf(Triple(inputApp.key, inputShortcut.shortcutId, true)), fakePopupRepository.setShortcutHiddenCalls)
+    }
+
+    @Test
+    fun `updates the card content when a shortcut is hidden`() = runTest {
+        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            assertEquals(listOf(inputShortcut), (expectMostRecentItem() as PopupUiState.Open).content.shortcuts)
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            viewModel.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
+            runCurrent()
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+            assertEquals(emptyList<ShortcutLaunchable>(), actualState.content.shortcuts)
+            assertEquals(PopupEmptyReason.Empty, actualState.content.emptyReason)
+        }
+    }
+
+    @Test
+    fun `closes the editor when its owner disappears`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupEditState.Editing)
+            fakeLaunchableRepository.setGroups(
+                groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = listOf(inputRailLaunchable)))
+            )
+            runCurrent()
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `Back closes the editor before the card`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            viewModel.startEdit(inputApp)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupEditState.Editing)
+            assertTrue(viewModel.onBack())
+            assertEquals(PopupEditState.Closed, expectMostRecentItem())
+        }
+        viewModel.popupState.test {
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+        }
+    }
+
+    @Test
+    fun `Back closes the menu before the card`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            assertTrue(expectMostRecentItem() is PopupMenuState.Open)
+            assertTrue(viewModel.onBack())
+            assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+        }
+        viewModel.popupState.test {
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+            assertTrue(viewModel.onBack())
+            assertEquals(PopupUiState.Closed, expectMostRecentItem())
+            assertFalse(viewModel.onBack())
+        }
+    }
+
+    private fun createViewModel(homeEditState: HomeEditState = inputHomeEditState): PopupViewModel = PopupViewModel(
         launchableRepository = fakeLaunchableRepository,
         shortcutSource = fakeShortcutSource,
-        homeEditState = inputHomeEditState
+        popupRepository = fakePopupRepository,
+        homeEditState = homeEditState
     )
 }

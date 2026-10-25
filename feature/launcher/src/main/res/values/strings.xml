@@ -3,7 +3,6 @@
     <string name="header_removed">Header removed</string>
     <string name="header_replaced">Header replaced</string>
     <string name="undo">Undo</string>
-    <string name="app_info">App Info</string>
     <string name="edit_favorites">Edit Favorites</string>
     <string name="favorites_empty_hint">Long-press any app to add it to Favorites</string>
     <string name="add_to_favorites">Add to Favorites</string>

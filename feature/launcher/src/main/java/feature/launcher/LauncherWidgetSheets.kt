@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetDragHandle
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetMenu
 import feature.launcher.widgets.WidgetMenuAction
@@ -29,7 +30,7 @@ internal fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
         return
     }
     ModalBottomSheet(
-        dragHandle = { LauncherSheetDragHandle() },
+        dragHandle = { SheetDragHandle() },
         onDismissRequest = viewModel::closeMenu
     ) {
         WidgetMenu(
@@ -79,7 +80,7 @@ internal fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 @Composable
 internal fun AddPlacementSheet(canAddToStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
-        dragHandle = { LauncherSheetDragHandle() },
+        dragHandle = { SheetDragHandle() },
         onDismissRequest = onDismiss
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {

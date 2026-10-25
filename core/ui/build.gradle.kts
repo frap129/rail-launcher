@@ -6,3 +6,7 @@ plugins {
 android {
     namespace = "core.ui"
 }
+
+dependencies {
+    implementation(project(":core:data"))
+}

@@ -16,4 +16,6 @@
     <string name="reset">Reset</string>
     <string name="upcoming_events">Upcoming events</string>
     <string name="widget_removed">Widget removed</string>
+    <string name="app_info">App info</string>
+    <string name="edit_popup">Edit Pop-up</string>
 </resources>
