@@ -5,6 +5,7 @@ import android.os.UserHandle
 import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -13,6 +14,7 @@ import core.data.popups.PopupItem
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
 import core.data.testing.FakeShortcutSource
@@ -66,6 +68,7 @@ class PopupViewModelTest {
         defaultIcon = Icon.RailIcon(resId = 0),
         deeplink = "rail-launcher://settings/main"
     )
+    private val inputFolder: Folder = Folder(folderId = 1L)
     private val inputGroups: List<LaunchableGroup> = listOf(
         LaunchableGroup.Star,
         LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
@@ -93,9 +96,13 @@ class PopupViewModelTest {
         app = inputOtherApp,
         result = ShortcutsResult.Available(shortcuts = listOf(inputOtherShortcut))
     )
-    private val fakeLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = inputGroups)
+    private val fakeLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
+        groups = inputGroups,
+        folders = listOf(inputFolder)
+    )
     private val fakeShortcutSource: FakeShortcutSource = FakeShortcutSource()
     private val fakePopupRepository: FakePopupRepository = FakePopupRepository()
+    private val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository()
     private val inputHomeEditState: HomeEditState = HomeEditState()
 
     @Test
@@ -737,10 +744,118 @@ class PopupViewModelTest {
         assertTrue(viewModel.editState.value is PopupEditState.Editing)
     }
 
+    @Test
+    fun `opens a Folder with the Folder empty state`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.popupState.test {
+            viewModel.open(inputFolder, INPUT_ANCHOR)
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+            assertEquals(inputFolder, actualState.owner)
+            assertEquals(INPUT_ANCHOR, actualState.anchor)
+            assertEquals(emptyList<ShortcutLaunchable>(), actualState.content.shortcuts)
+            assertEquals(PopupEmptyReason.FolderEmpty, actualState.content.emptyReason)
+        }
+    }
+
+    @Test
+    fun `Folder menu offers Edit Folder and Delete Folder without App info`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputFolder, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+            assertEquals(inputFolder, actualMenu.target)
+            assertEquals(listOf(PopupMenuItem.EditFolder, PopupMenuItem.DeleteFolder), actualMenu.items)
+        }
+    }
+
+    @Test
+    fun `edits a Folder during Edit Favorites`() = runTest {
+        inputHomeEditState.tryEnter(HomeEditMode.Favorites)
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.editState.test {
+            viewModel.startEdit(inputFolder)
+            runCurrent()
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(inputFolder, actualState.owner)
+            assertEquals(ShortcutsResult.Available(shortcuts = emptyList()), actualState.shortcuts)
+        }
+    }
+
+    @Test
+    fun `an empty Folder card opens the picker directly`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.pickerState.test {
+            viewModel.open(inputFolder, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.startFolderPicking()
+            runCurrent()
+            val picking: PopupPickerState.Picking = expectMostRecentItem() as PopupPickerState.Picking
+            assertEquals(emptySet<String>(), picking.selectedKeys)
+            val candidates: List<Launchable> = picking.groups.flatMap { group -> group.items }
+            assertEquals(listOf(inputApp, inputRailLaunchable), candidates)
+            assertFalse(candidates.any { candidate -> candidate is Folder || candidate is ShortcutLaunchable })
+        }
+    }
+
+    @Test
+    fun `confirming the Folder picker adds items without opening the editor`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        viewModel.pickerState.test {
+            viewModel.open(inputFolder, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.startFolderPicking()
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupPickerState.Picking)
+            viewModel.confirmPicking(selectedInOrder = listOf(inputOtherApp.key))
+            runCurrent()
+            assertEquals(PopupPickerState.Closed, expectMostRecentItem())
+        }
+        runCurrent()
+        assertEquals(listOf(Triple(inputFolder.key, listOf(inputOtherApp.key), emptySet<String>())), fakePopupRepository.setItemsCalls)
+        assertEquals(PopupEditState.Closed, viewModel.editState.value)
+    }
+
+    @Test
+    fun `deleting a Folder confirms, closes its card and removes it`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.menuState.collect() }
+        viewModel.open(inputFolder, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.openMenu()
+        runCurrent()
+        viewModel.requestDeleteFolder()
+        assertEquals(inputFolder, viewModel.folderDeleteState.value)
+        viewModel.confirmDeleteFolder()
+        runCurrent()
+        assertEquals(null, viewModel.folderDeleteState.value)
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+        assertEquals(listOf(inputFolder), fakeFolderRepository.deletedFolders)
+    }
+
+    @Test
+    fun `cancelling Folder deletion keeps the card and the Folder`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.menuState.collect() }
+        viewModel.open(inputFolder, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.openMenu()
+        runCurrent()
+        viewModel.requestDeleteFolder()
+        viewModel.cancelDeleteFolder()
+        assertEquals(null, viewModel.folderDeleteState.value)
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+        assertTrue(fakeFolderRepository.deletedFolders.isEmpty())
+    }
+
     private fun createViewModel(homeEditState: HomeEditState = inputHomeEditState): PopupViewModel = PopupViewModel(
         launchableRepository = fakeLaunchableRepository,
         shortcutSource = fakeShortcutSource,
         popupRepository = fakePopupRepository,
+        folderRepository = fakeFolderRepository,
         homeEditState = homeEditState
     )
 }

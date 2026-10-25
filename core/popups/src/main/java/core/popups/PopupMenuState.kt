@@ -6,6 +6,10 @@ import core.data.launchables.model.Launchable
 sealed interface PopupMenuItem {
     data object EditPopup : PopupMenuItem
 
+    data object EditFolder : PopupMenuItem
+
+    data object DeleteFolder : PopupMenuItem
+
     data object RemoveFromPopup : PopupMenuItem
 
     data object AppInfo : PopupMenuItem

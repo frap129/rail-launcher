@@ -2,6 +2,7 @@ package feature.settings
 
 import app.cash.turbine.test
 import core.data.calendar.CalendarInfo
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -382,12 +383,13 @@ class WidgetSettingsViewModelTest {
         val inputCafe: RailLaunchable = testLaunchable(name = "Café")
         val inputMaps: RailLaunchable = testLaunchable(name = "Maps")
         val inputPhotos: RailLaunchable = testLaunchable(name = "Photos")
-        val inputLaunchables: List<RailLaunchable> = listOf(inputCafe, inputMaps, inputPhotos)
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputLaunchables: List<Launchable> = listOf(inputCafe, inputMaps, inputPhotos, inputFolder)
 
         assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "cafe"))
         assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "CAFÉ"))
         assertEquals(listOf(inputMaps), filterLaunchables(inputLaunchables, "map"))
-        assertEquals(inputLaunchables, filterLaunchables(inputLaunchables, ""))
+        assertEquals(listOf(inputCafe, inputMaps, inputPhotos), filterLaunchables(inputLaunchables, ""))
     }
 
     @Test
@@ -404,7 +406,10 @@ class WidgetSettingsViewModelTest {
             assertFalse(actualLoading.isLoaded)
             assertTrue(actualLoading.launchables.isEmpty())
 
-            mockLaunchableRepository.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(inputLaunchable))))
+            mockLaunchableRepository.setGroups(
+                groups = listOf(LaunchableGroup.Builtin(items = listOf(inputLaunchable))),
+                folders = listOf(Folder(folderId = 1L))
+            )
             val actualLoaded: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
             assertTrue(actualLoaded.isLoaded)
             assertEquals(listOf("Maps"), actualLoaded.launchables.map { row -> row.name })

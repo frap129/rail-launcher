@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.popups.PopupAnchor
+import core.popups.PopupEditState
+import core.popups.PopupViewModel
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
@@ -69,7 +71,7 @@ internal fun LauncherContent(
     viewModel: LauncherViewModel,
     widgetViewModel: WidgetAreaViewModel,
     onItemLaunch: (Launchable) -> Unit,
-    onItemSwipeOpen: (Launchable, PopupAnchor) -> Unit,
+    onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
@@ -77,13 +79,14 @@ internal fun LauncherContent(
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
-    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch, onItemSwipeOpen, onItemAnchorChanged) {
+    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged) {
         LauncherItemActions(
             onItemLaunch = onItemLaunch,
             onItemLongPress = viewModel::openItemMenu,
             onToggleFavorite = viewModel::toggleFavorite,
-            onItemSwipeOpen = onItemSwipeOpen,
-            onItemAnchorChanged = onItemAnchorChanged
+            onItemOpenPopup = onItemOpenPopup,
+            onItemAnchorChanged = onItemAnchorChanged,
+            onNewFolder = viewModel::openNewFolderDialog
         )
     }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
@@ -245,11 +248,17 @@ internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolea
 }
 
 @Composable
-internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetViewModel: WidgetAreaViewModel) {
+internal fun BoxScope.LauncherDoneButton(
+    viewModel: LauncherViewModel,
+    widgetViewModel: WidgetAreaViewModel,
+    popupViewModel: PopupViewModel
+) {
     val isEditingFavorites: Boolean by viewModel.isEditingFavorites.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
+    val popupEditState: PopupEditState by popupViewModel.editState.collectAsState()
     val isEditingWidgets: Boolean = editDraft != null
-    if (isEditingFavorites || isEditingWidgets) {
+    val isEditingPopup: Boolean = popupEditState is PopupEditState.Editing
+    if ((isEditingFavorites || isEditingWidgets) && !isEditingPopup) {
         FloatingActionButton(
             modifier = Modifier
                 .align(Alignment.BottomEnd)

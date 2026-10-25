@@ -6,6 +6,8 @@ import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
+import core.data.folders.Folder
+import core.data.folders.FolderRecord
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
@@ -14,8 +16,10 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.room.dao.FolderDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.FakeFavoriteDao
+import core.data.testing.FakeFolderDao
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.TEST_SDK
 import java.util.Collections
@@ -208,11 +212,13 @@ class ILaunchableRepositoryImplTest {
         mockIconRepository: IIconRepository = FakeIconRepository(
             inputIcon = Icon.ActivityIcon(inputComponentName)
         ),
+        mockFolderDao: FolderDao = FakeFolderDao(),
         scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
         iconRepository = mockIconRepository,
         preferencesRepository = mockPreferencesRepository,
+        folderDao = mockFolderDao,
         scope = scope
     )
 
@@ -223,6 +229,41 @@ class ILaunchableRepositoryImplTest {
     )
 
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
+
+    @Test
+    fun `Folders appear in launchables with resolved names and in no group`() = runTest {
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = FakeAppRepository(inputApps = emptyList()),
+            mockPreferencesRepository = FakePreferencesRepository(
+                inputCustomizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, name = "Games"))
+            ),
+            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+        )
+
+        val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualFolder: Folder = actualState.launchables.filterIsInstance<Folder>().single()
+
+        assertEquals("Games", actualFolder.name)
+        assertTrue(
+            actualState.groups.filterIsInstance<LaunchableGroup.Listed>().none { group ->
+                group.items.any { item -> item is Folder }
+            }
+        )
+    }
+
+    @Test
+    fun `icon packs never replace Folder icons`() = runTest {
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = FakeAppRepository(inputApps = emptyList()),
+            mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+        )
+
+        val actualFolder: Folder = repository.launchableState.first { state -> state.isLoaded }
+            .launchables.filterIsInstance<Folder>().single()
+
+        assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
+    }
 }
 
 @OptIn(ExperimentalForInheritanceCoroutinesApi::class)

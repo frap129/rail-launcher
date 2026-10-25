@@ -43,6 +43,12 @@ private class PackIconSource(private val componentName: ComponentName, private v
         context.packageManager.getResourcesForApplication(packPackageName).getDrawable(resId, null)
 }
 
+private class FolderIconSource(private val shade: Int) : IconSource {
+    override val cacheKey: String = "folder:$shade"
+
+    override fun loadDrawable(context: Context): Drawable = FolderIconDrawable(context = context, shade = shade)
+}
+
 private class ShortcutIconSource(private val packageName: String, private val shortcutId: String, private val profile: UserHandle) :
     IconSource {
     override val cacheKey: String = ShortcutKey(packageName = packageName, id = shortcutId, profile = profile).format()
@@ -74,6 +80,7 @@ private class ShortcutIconSource(private val packageName: String, private val sh
 internal fun Icon.toSource(): IconSource = when (this) {
     is Icon.ActivityIcon -> ActivityIconSource(componentName)
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName)
+    is Icon.FolderIcon -> FolderIconSource(shade)
     is Icon.PackIcon -> PackIconSource(componentName, packPackageName, resId)
     is Icon.RailIcon -> RailIconSource(resId)
     is Icon.ShortcutIcon -> ShortcutIconSource(packageName, shortcutId, profile)

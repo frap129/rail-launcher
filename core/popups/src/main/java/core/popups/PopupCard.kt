@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -64,15 +65,17 @@ private val itemIconSize = 32.dp
 private val itemIconGap = 12.dp
 private val itemDividerInset = 16.dp
 private val emptyStatePadding = 16.dp
+private val addAppsButtonTopPadding = 8.dp
 
 /** The floating card that shows one App's header, shortcuts and added items. */
 @Composable
 fun PopupCard(
     content: PopupContent,
-    onHeaderClick: () -> Unit,
+    onHeaderClick: (() -> Unit)?,
     onShortcutClick: (ShortcutLaunchable) -> Unit,
     onItemClick: (PopupItem) -> Unit,
     onItemLongClick: (PopupItem) -> Unit,
+    onAddItems: () -> Unit,
     onRequestQuietModeOff: () -> Unit,
     onClose: () -> Unit,
     onLongPress: () -> Unit,
@@ -145,6 +148,11 @@ fun PopupCard(
 
                 PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
 
+                PopupEmptyReason.FolderEmpty -> PopupEmptyState(
+                    messageResId = R.string.folder_empty,
+                    onAddApps = onAddItems
+                )
+
                 PopupEmptyReason.ShortcutsUnavailable -> PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
 
                 PopupEmptyReason.ProfilePaused -> PopupEmptyState(
@@ -158,7 +166,7 @@ fun PopupCard(
 }
 
 @Composable
-private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: (() -> Unit)?, onLongClick: () -> Unit) {
     val announcement: String = stringResource(R.string.popup_announcement, header.name)
     Row(
         modifier = Modifier
@@ -169,7 +177,13 @@ private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onC
                 contentDescription = announcement
                 heading()
             }
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .then(
+                if (onClick == null) {
+                    Modifier
+                } else {
+                    Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                }
+            )
             .padding(horizontal = headerHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -258,7 +272,7 @@ internal fun PopupShortcutLabel(shortcut: ShortcutLaunchable, modifier: Modifier
 }
 
 @Composable
-internal fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null) {
+internal fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null, onAddApps: (() -> Unit)? = null) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -275,6 +289,12 @@ internal fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null) 
         if (onTurnOn != null) {
             TextButton(onClick = onTurnOn) {
                 Text(stringResource(R.string.turn_on))
+            }
+        }
+        if (onAddApps != null) {
+            Spacer(Modifier.height(addAppsButtonTopPadding))
+            FilledTonalButton(onClick = onAddApps) {
+                Text(stringResource(R.string.add_apps))
             }
         }
     }

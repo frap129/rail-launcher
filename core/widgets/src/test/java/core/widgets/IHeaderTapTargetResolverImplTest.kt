@@ -1,5 +1,6 @@
 package core.widgets
 
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
@@ -20,6 +21,7 @@ class IHeaderTapTargetResolverImplTest {
         defaultIcon = Icon.ApplicationIcon(packageName = "com.example.maps"),
         deeplink = "rail://maps"
     )
+    private val inputFolder: Folder = Folder(folderId = 1L)
 
     @Test
     fun `applies the system defaults when no tap action is set`() {
@@ -86,6 +88,33 @@ class IHeaderTapTargetResolverImplTest {
         )
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
         assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
+    }
+
+    @Test
+    fun `falls back to the system default for a Folder`() {
+        val inputHeader: HeaderModel = header()
+        val inputSettings: HeaderSettings = HeaderSettings(
+            timeTapTarget = HeaderTapSetting.Launchable(key = inputFolder.key),
+            dateTapTarget = HeaderTapSetting.Launchable(key = inputFolder.key)
+        )
+        val actualHeader: HeaderModel = resolver.applyTo(
+            header = inputHeader,
+            settings = inputSettings,
+            launchables = listOf<Launchable>(inputFolder),
+            atEpochMillis = nowMillis
+        )
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
+        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
+    }
+
+    @Test
+    fun `resolves a stored Folder to the system default once loaded`() {
+        val actualSetting: HeaderTapSetting = resolver.resolveSetting(
+            setting = HeaderTapSetting.Launchable(key = inputFolder.key),
+            launchables = listOf<Launchable>(inputFolder),
+            isLoaded = true
+        )
+        assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
     }
 
     @Test

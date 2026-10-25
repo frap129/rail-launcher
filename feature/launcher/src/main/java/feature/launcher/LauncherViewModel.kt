@@ -4,6 +4,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
+import core.data.folders.Folder
+import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -12,9 +14,14 @@ import core.data.prefs.IPreferencesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -113,6 +120,7 @@ class LauncherViewModel(
     private val launcherItemRepo: ILaunchableRepository,
     private val prefsRepo: IPreferencesRepository,
     private val favoritesRepo: IFavoritesRepository,
+    private val folderRepo: IFolderRepository,
     private val homeEditState: HomeEditState
 ) : ViewModel() {
 
@@ -136,6 +144,9 @@ class LauncherViewModel(
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
+    /** The edited Favorites order; exposed for the ViewModel's behavioural tests. */
+    internal val editingFavoriteKeys: List<String>? get() = editedFavoriteKeys.value
+
     /** Whether the Favorites are being edited, shared with the Done button. */
     val isEditingFavorites: StateFlow<Boolean> = homeEditState.mode
         .map { mode -> mode == HomeEditMode.Favorites }
@@ -147,6 +158,16 @@ class LauncherViewModel(
 
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
+
+    private val newFolderDialogVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /** Whether the New Folder name dialog is showing. */
+    val isNewFolderDialogOpen: StateFlow<Boolean> = newFolderDialogVisible.asStateFlow()
+
+    private val folderEditRequests: MutableSharedFlow<Folder> = MutableSharedFlow(extraBufferCapacity = 1)
+
+    /** Folders created from Edit Favorites that the launcher should open for editing. */
+    val folderEdits: SharedFlow<Folder> = folderEditRequests.asSharedFlow()
 
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: StateFlow<List<Launchable>> = combine(
@@ -344,6 +365,38 @@ class LauncherViewModel(
         }
         editedFavoriteKeys.value = favorites.value.map { it.key }
         closeItemMenu()
+    }
+
+    fun openNewFolderDialog() {
+        if (homeEditState.mode.value != HomeEditMode.Favorites) {
+            return
+        }
+        newFolderDialogVisible.value = true
+    }
+
+    fun closeNewFolderDialog() {
+        newFolderDialogVisible.value = false
+    }
+
+    /** Creates a Folder in Favorites and asks the launcher to open its editor. */
+    fun createFolder(name: String) {
+        if (homeEditState.mode.value != HomeEditMode.Favorites) {
+            return
+        }
+        closeNewFolderDialog()
+        viewModelScope.launch {
+            try {
+                val folder: Folder = folderRepo.create(name)
+                favoritesMutex.withLock {
+                    editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }
+                }
+                folderEditRequests.emit(folder)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                Timber.e(exception, "Failed to create Folder")
+            }
+        }
     }
 
     fun moveFavorite(fromIndex: Int, toIndex: Int) {

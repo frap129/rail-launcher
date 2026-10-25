@@ -1,6 +1,7 @@
 package core.popups
 
 import android.os.UserHandle
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.RailLaunchable
 import core.data.popups.PopupItem
@@ -167,6 +168,46 @@ class PopupContentResolverTest {
         )
         assertEquals(PopupEmptyReason.ProfilePaused, actualContent.emptyReason)
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
+    }
+
+    @Test
+    fun `a Folder never shows shortcuts`() {
+        val folder: Folder = Folder(folderId = 1L)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = folder,
+            shortcuts = ShortcutsResult.Available(shortcuts = listOf(inputFirstShortcut)),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
+        )
+        assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
+        assertEquals(PopupEmptyReason.FolderEmpty, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `an empty Folder reports Folder empty`() {
+        val folder: Folder = Folder(folderId = 1L)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = folder,
+            shortcuts = ShortcutsResult.Unavailable,
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
+        )
+        assertEquals(PopupHeader(name = Folder.DEFAULT_NAME, icon = folder.icon), actualContent.header)
+        assertEquals(PopupEmptyReason.FolderEmpty, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `a Folder with items is not empty`() {
+        val folder: Folder = Folder(folderId = 1L)
+        val item: RailLaunchable = createItem(name = "Item", deeplink = "rail://item")
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = folder,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(PopupItem.Launchable(item))
+        )
+        assertEquals(listOf(PopupItem.Launchable(item)), actualContent.items)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
     }
 
     private fun createShortcut(id: String): ShortcutLaunchable = ShortcutLaunchable(

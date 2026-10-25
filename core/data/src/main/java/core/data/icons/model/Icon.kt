@@ -14,6 +14,9 @@ sealed class Icon {
 
     data class ShortcutIcon(val packageName: String, val shortcutId: String, val profile: UserHandle) : Icon()
 
+    /** A Rail-drawn Folder icon in one of three accent shades. */
+    data class FolderIcon(val shade: Int) : Icon()
+
     @Entity(
         tableName = "icons",
         primaryKeys = [PackIcon.COLUMN_COMPONENT_NAME, PackIcon.COLUMN_PACK_PACKAGE_NAME]

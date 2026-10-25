@@ -7,6 +7,7 @@ import core.data.apps.model.App
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.calendar.UpcomingEventsOutcome
+import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
@@ -631,10 +632,11 @@ class WidgetSettingsViewModel(
 /** Filters Launchables by name, ignoring case and accents. */
 internal fun filterLaunchables(launchables: List<Launchable>, query: String): List<Launchable> {
     val normalizedQuery: String = query.normalizedForSearch()
+    val candidates: List<Launchable> = launchables.filterNot { launchable -> launchable is Folder }
     if (normalizedQuery.isEmpty()) {
-        return launchables
+        return candidates
     }
-    return launchables.filter { launchable -> launchable.name.normalizedForSearch().contains(normalizedQuery) }
+    return candidates.filter { launchable -> launchable.name.normalizedForSearch().contains(normalizedQuery) }
 }
 
 /** The installed apps offered in the Media Player exclusion list, excluded apps first. */

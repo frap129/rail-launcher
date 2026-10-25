@@ -33,15 +33,20 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
+import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.popups.PopupViewModel
+import core.popups.R as PopupsR
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
 import org.koin.androidx.compose.koinViewModel
+
+internal const val MAX_LAUNCHABLE_NAME_LENGTH: Int = 40
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,15 +88,27 @@ internal fun LauncherItemMenu(
             label = stringResource(R.string.edit_favorites),
             onClick = { viewModel.editFavorites() }
         )
-        if (item is App) {
+        if (item is App || item is Folder) {
             SheetMenuAction(
                 imageVector = FontAwesomeIcons.Solid.PencilAlt,
-                label = stringResource(CoreUiR.string.edit_popup),
+                label = stringResource(if (item is App) CoreUiR.string.edit_popup else PopupsR.string.edit_folder),
                 onClick = {
                     viewModel.closeItemMenu()
                     popupViewModel.startEdit(item)
                 }
             )
+        }
+        if (item is Folder) {
+            SheetMenuAction(
+                imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                label = stringResource(PopupsR.string.delete_folder),
+                onClick = {
+                    viewModel.closeItemMenu()
+                    popupViewModel.requestDeleteFolder(item)
+                }
+            )
+        }
+        if (item is App) {
             SheetMenuAction(
                 imageVector = FontAwesomeIcons.Solid.InfoCircle,
                 label = stringResource(CoreUiR.string.app_info),
@@ -129,7 +146,7 @@ internal fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel
                 singleLine = true,
                 shape = CircleShape,
                 value = nameEdit,
-                onValueChange = { nameEdit = it },
+                onValueChange = { value -> nameEdit = value.take(MAX_LAUNCHABLE_NAME_LENGTH) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
             )
             Row(

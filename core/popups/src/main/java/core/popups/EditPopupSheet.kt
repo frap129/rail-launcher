@@ -43,6 +43,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import compose.icons.fontawesomeicons.solid.Times
+import core.data.folders.Folder
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
@@ -79,6 +80,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val listState = rememberLazyListState()
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val isFolder: Boolean = state.owner is Folder
     var displayedItems: List<PopupItem> by remember(state.owner.key) { mutableStateOf(state.items) }
     var draggedItemKey: String? by remember { mutableStateOf(null) }
     LaunchedEffect(state.items) {
@@ -107,35 +109,41 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
     ) {
         Column(modifier = Modifier.fillMaxHeight()) {
             PopupSheetTitleRow(
-                title = stringResource(R.string.edit_popup_title, state.owner.name),
+                title = if (isFolder) {
+                    stringResource(R.string.edit_folder_title, state.owner.name)
+                } else {
+                    stringResource(R.string.edit_popup_title, state.owner.name)
+                },
                 actionLabel = stringResource(CoreUiR.string.done),
                 onAction = viewModel::finishEdit
             )
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
-                item(key = "edit_popup_shortcuts_title") {
-                    SectionTitle(textResId = R.string.shortcuts)
-                }
-                when (val shortcuts: ShortcutsResult = state.shortcuts) {
-                    is ShortcutsResult.Available -> if (shortcuts.shortcuts.isEmpty()) {
-                        item(key = "edit_popup_shortcuts_empty") {
-                            PopupEmptyState(messageResId = R.string.no_own_shortcuts)
-                        }
-                    } else {
-                        items(items = shortcuts.shortcuts, key = { shortcut -> shortcut.key }) { shortcut ->
-                            EditShortcutRow(
-                                shortcut = shortcut,
-                                isShown = shortcut.shortcutId !in state.hiddenIds,
-                                onShownChange = { isShown -> viewModel.setShortcutHidden(shortcut.shortcutId, !isShown) }
-                            )
-                        }
+                if (!isFolder) {
+                    item(key = "edit_popup_shortcuts_title") {
+                        SectionTitle(textResId = R.string.shortcuts)
                     }
+                    when (val shortcuts: ShortcutsResult = state.shortcuts) {
+                        is ShortcutsResult.Available -> if (shortcuts.shortcuts.isEmpty()) {
+                            item(key = "edit_popup_shortcuts_empty") {
+                                PopupEmptyState(messageResId = R.string.no_own_shortcuts)
+                            }
+                        } else {
+                            items(items = shortcuts.shortcuts, key = { shortcut -> shortcut.key }) { shortcut ->
+                                EditShortcutRow(
+                                    shortcut = shortcut,
+                                    isShown = shortcut.shortcutId !in state.hiddenIds,
+                                    onShownChange = { isShown -> viewModel.setShortcutHidden(shortcut.shortcutId, !isShown) }
+                                )
+                            }
+                        }
 
-                    ShortcutsResult.Unavailable -> item(key = "edit_popup_shortcuts_unavailable") {
-                        PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
-                    }
+                        ShortcutsResult.Unavailable -> item(key = "edit_popup_shortcuts_unavailable") {
+                            PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+                        }
 
-                    ShortcutsResult.ProfilePaused -> item(key = "edit_popup_shortcuts_paused") {
-                        PopupEmptyState(messageResId = R.string.work_apps_paused)
+                        ShortcutsResult.ProfilePaused -> item(key = "edit_popup_shortcuts_paused") {
+                            PopupEmptyState(messageResId = R.string.work_apps_paused)
+                        }
                     }
                 }
                 item(key = "edit_popup_items_title") {

@@ -18,8 +18,18 @@ class IPreferencesRepositoryImpl(
     override val settings: Flow<Settings> = settingsDao.observe()
 
     override fun setItemName(item: Launchable, name: String) {
+        if (name.isBlank()) {
+            resetItemName(item)
+            return
+        }
         scope.launch(Dispatchers.IO) {
             launchableCustomizationDao.setName(key = item.key, name = name)
+        }
+    }
+
+    override fun resetItemName(item: Launchable) {
+        scope.launch(Dispatchers.IO) {
+            launchableCustomizationDao.delete(key = item.key)
         }
     }
 

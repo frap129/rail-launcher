@@ -19,4 +19,10 @@
     <string name="turn_on">Turn on</string>
     <string name="close_popup">Close Pop-up</string>
     <string name="popup_announcement">%1$s Pop-up</string>
+    <string name="folder_empty">This Folder is empty</string>
+    <string name="edit_folder">Edit Folder</string>
+    <string name="delete_folder">Delete Folder</string>
+    <string name="edit_folder_title">Edit %1$s</string>
+    <string name="delete_folder_title">Delete %1$s?</string>
+    <string name="delete_folder_body">The apps in it stay installed.</string>
 </resources>
