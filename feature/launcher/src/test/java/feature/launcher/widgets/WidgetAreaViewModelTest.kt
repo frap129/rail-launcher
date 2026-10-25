@@ -1638,12 +1638,12 @@ class WidgetAreaViewModelTest {
             placesChanges += places
         }
 
-        override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport? {
+        override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?, ownerKey: String?): WidgetSizeReport? {
             stackGrownPlaceIds += placeId
             return stackGrownReport
         }
 
-        override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) = Unit
+        override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?, ownerKey: String?) = Unit
     }
 
     private class TestWidgetLifecycleReconciler : IWidgetLifecycleReconciler {

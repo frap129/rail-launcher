@@ -48,3 +48,20 @@ fun stackPlace(): WidgetPlace = WidgetPlace(
         appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single()
     )
 )
+
+fun popupStackPlace(
+    placeId: Long,
+    widgetIds: List<Long> = listOf(6L, 7L),
+    appWidgetIds: List<Int> = listOf(9, 10),
+    heightDp: Int? = null,
+    currentPage: Int = 0,
+    ownerKey: String = "owner-key"
+): WidgetPlace = WidgetPlace(
+    id = placeId,
+    heightDp = heightDp,
+    currentPage = currentPage,
+    widgets = widgetIds.zip(appWidgetIds).map { (widgetId, appWidgetId) ->
+        appWidgetPlace(placeId = placeId, widgetId = widgetId, appWidgetId = appWidgetId).widgets.single()
+    },
+    ownerKey = ownerKey
+)

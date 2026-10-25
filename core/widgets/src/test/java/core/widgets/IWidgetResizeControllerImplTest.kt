@@ -5,6 +5,7 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.appWidgetPlace
 import core.data.testing.headerPlace
+import core.data.testing.popupStackPlace
 import core.data.testing.stackPlace
 import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetProviderInfo
@@ -25,11 +26,12 @@ class IWidgetResizeControllerImplTest {
         val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 100, appWidgetId = 9))
         )
-        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        mockHost.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(
-            minResizeHeightDp = 64,
-            maxResizeHeightDp = 160,
-            isVerticallyResizable = true
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
+            appWidgetProviderInfo(
+                minResizeHeightDp = 64,
+                maxResizeHeightDp = 160,
+                isVerticallyResizable = true
+            )
         )
         val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
         controller.setHomeHeight(heightDp = 400)
@@ -259,8 +261,45 @@ class IWidgetResizeControllerImplTest {
         assertEquals(listOf(AppWidgetId(9)), actualReport.appWidgetIds)
     }
 
-    private fun hostWithProviderInfo(info: WidgetProviderInfo): FakeAppWidgetHostSource =
-        FakeAppWidgetHostSource().apply { providerInfoById[AppWidgetId(9)] = info }
+    @Test
+    fun `onStackGrown clamps a Pop-up stack's stored height to the page bounds`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
+            listOf(
+                popupStackPlace(
+                    placeId = 5L,
+                    appWidgetIds = listOf(9, 10),
+                    heightDp = 300,
+                    ownerKey = "owner-key"
+                )
+            )
+        )
+        val mockHost: FakeAppWidgetHostSource = hostWithProviderInfo(
+            info = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200),
+            providerInfos = mapOf(10 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 160))
+        )
+        val controller: IWidgetResizeController = createController(mockRepository = mockRepository, mockHost = mockHost)
+        controller.setHomeHeight(heightDp = 400)
+        controller.setWidgetAreaWidth(widthDp = 240)
+
+        val actualReport: WidgetSizeReport = controller.onStackGrown(
+            placeId = 5L,
+            headerHeightDp = null,
+            ownerKey = "owner-key"
+        )!!
+
+        assertEquals(listOf(5L to 160), mockRepository.heightUpdates)
+        assertEquals(160, mockRepository.popupPlace(ownerKey = "owner-key").first()?.heightDp)
+        assertEquals(listOf(AppWidgetId(9), AppWidgetId(10)), actualReport.appWidgetIds)
+        assertEquals(148, actualReport.heightDp)
+    }
+
+    private fun hostWithProviderInfo(
+        info: WidgetProviderInfo = appWidgetProviderInfo(),
+        providerInfos: Map<Int, WidgetProviderInfo> = emptyMap()
+    ): FakeAppWidgetHostSource = FakeAppWidgetHostSource().apply {
+        providerInfoById[AppWidgetId(9)] = info
+        providerInfos.forEach { (appWidgetId, pageInfo) -> providerInfoById[AppWidgetId(appWidgetId)] = pageInfo }
+    }
 
     private fun createController(
         mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(headerPlace)),

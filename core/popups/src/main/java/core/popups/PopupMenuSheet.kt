@@ -46,8 +46,9 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
         onDismissRequest = viewModel::closeMenu
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            if (state.widget != null) {
-                WidgetMenuTitle(icon = state.widget.model.icon, label = state.widget.model.label)
+            val widgetPage: PopupWidgetPage? = state.widgetPage
+            if (widgetPage != null) {
+                WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label)
             } else {
                 SheetTitle(launchable = state.target)
             }
@@ -74,6 +75,12 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             onClick = viewModel::startAddWidget
                         )
 
+                        PopupMenuItem.AddToStack -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.PlusSquare,
+                            label = stringResource(CoreUiR.string.add_next_to),
+                            onClick = viewModel::startAddWidget
+                        )
+
                         PopupMenuItem.ResizeWidget -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
                             label = stringResource(CoreUiR.string.resize_widget),
@@ -92,6 +99,12 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             onClick = viewModel::removeWidget
                         )
 
+                        PopupMenuItem.RemoveFromStack -> SheetMenuAction(
+                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                            label = stringResource(CoreUiR.string.remove_from_stack),
+                            onClick = viewModel::removeWidget
+                        )
+
                         PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(R.string.remove_from_popup),
@@ -102,10 +115,9 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             imageVector = FontAwesomeIcons.Solid.InfoCircle,
                             label = stringResource(CoreUiR.string.app_info),
                             onClick = {
-                                val widget: PopupWidgetState? = state.widget
-                                if (widget != null) {
-                                    val profile = context.userForSerial(widget.profileSerial) ?: Process.myUserHandle()
-                                    context.openApplicationDetailsSettings(widget.provider.packageName, profile)
+                                if (widgetPage != null) {
+                                    val profile = context.userForSerial(widgetPage.profileSerial) ?: Process.myUserHandle()
+                                    context.openApplicationDetailsSettings(widgetPage.provider.packageName, profile)
                                     viewModel.closeMenu()
                                 } else {
                                     when (val target: Launchable = state.target) {

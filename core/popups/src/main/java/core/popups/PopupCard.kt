@@ -55,6 +55,7 @@ import core.ui.util.performLongPressHaptic
 import core.widgets.AppWidgetContent
 import core.widgets.ResizeOverlay
 import core.widgets.ResizeState
+import core.widgets.WidgetStackPager
 
 private val cardCornerRadius = 24.dp
 private val cardShadowElevation = 6.dp
@@ -89,6 +90,7 @@ fun PopupCard(
     onRequestQuietModeOff: () -> Unit,
     onWidgetLongPress: (Long) -> Unit,
     onWidgetUnpause: (Long) -> Unit,
+    onWidgetPageChanged: (Int) -> Unit,
     onResizeDrag: (Float) -> Unit,
     onResizeReset: () -> Unit,
     onResizeDone: () -> Unit,
@@ -143,6 +145,7 @@ fun PopupCard(
                     resize = resize,
                     onLongPress = onWidgetLongPress,
                     onUnpause = onWidgetUnpause,
+                    onPageChanged = onWidgetPageChanged,
                     onDrag = onResizeDrag,
                     onReset = onResizeReset,
                     onResizeTap = onResizeTap
@@ -226,22 +229,34 @@ private fun PopupWidgetSection(
     resize: ResizeState?,
     onLongPress: (Long) -> Unit,
     onUnpause: (Long) -> Unit,
+    onPageChanged: (Int) -> Unit,
     onDrag: (Float) -> Unit,
     onReset: () -> Unit,
     onResizeTap: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = popupWidgetHorizontalPadding)) {
         val heightDp: Int = resize?.draftHeightDp ?: widget.heightDp
+        val isResizing: Boolean = resize != null
         val content: @Composable () -> Unit = {
-            AppWidgetContent(
-                widget = widget.model,
+            WidgetStackPager(
+                pageCount = widget.pages.size,
+                currentPage = widget.currentPage,
                 heightDp = heightDp,
-                menuEnabled = resize == null,
-                isResizing = resize != null,
-                onLongPress = onLongPress,
-                onUnpause = onUnpause,
-                modifier = if (resize == null) Modifier else Modifier.consumeTouches(onGestureEnd = onResizeTap)
-            )
+                indicatorVisible = widget.indicatorVisible,
+                pageKey = { page -> widget.pages[page].widgetId },
+                onPageSettled = onPageChanged,
+                userScrollEnabled = !isResizing,
+                modifier = if (isResizing) Modifier.consumeTouches(onGestureEnd = onResizeTap) else Modifier
+            ) { page, pageHeightDp ->
+                AppWidgetContent(
+                    widget = widget.pages[page].model,
+                    heightDp = pageHeightDp,
+                    menuEnabled = !isResizing,
+                    isResizing = isResizing,
+                    onLongPress = onLongPress,
+                    onUnpause = onUnpause
+                )
+            }
         }
         if (resize == null) {
             content()

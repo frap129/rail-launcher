@@ -1,31 +1,22 @@
 package core.widgets
 
 import core.data.widgets.PlacedWidget
-import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 
-/** The provider limits and actions one placed App Widget offers in its menu. */
-data class AppWidgetMenuCapabilities(val resizeBounds: ResizeBounds?, val isReconfigurable: Boolean) {
-    /** Whether Resize is offered right now. */
-    fun canResize(widget: PlacedWidget.AppWidget): Boolean =
-        widget.availability == WidgetAvailability.Available && resizeBounds?.isResizable == true
-}
+/** The provider actions one placed App Widget offers in its menu. */
+data class AppWidgetMenuCapabilities(val isReconfigurable: Boolean)
 
-/** The menu capabilities of [widget], using [resizeBounds] to override the provider's own bounds for a stack. */
-fun appWidgetMenuCapabilities(
-    widget: PlacedWidget.AppWidget,
-    info: WidgetProviderInfo?,
-    resizeBounds: ResizeBounds? = info?.let(ResizeBounds::from)
-): AppWidgetMenuCapabilities = AppWidgetMenuCapabilities(
-    resizeBounds = resizeBounds,
-    isReconfigurable = widget.availability == WidgetAvailability.Available &&
+/** The menu capabilities of [widget], whose provider info is [info]. */
+fun appWidgetMenuCapabilities(widget: PlacedWidget.AppWidget, info: WidgetProviderInfo?): AppWidgetMenuCapabilities {
+    val isReconfigurable: Boolean = widget.availability == WidgetAvailability.Available &&
         info != null &&
         info.isReconfigurable &&
         info.hasConfigureActivity
-)
+    return AppWidgetMenuCapabilities(isReconfigurable = isReconfigurable)
+}
 
 /** The App Widget's display model, falling back to the stored provider data when [info] is gone. */
 fun PlacedWidget.AppWidget.toAppWidgetModel(info: WidgetProviderInfo?): AppWidgetModel = AppWidgetModel(

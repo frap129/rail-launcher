@@ -42,10 +42,13 @@ import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.canGrowStack
+import core.data.widgets.canResizeStack
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.data.widgets.placeOf
-import core.data.widgets.resizeBounds
+import core.data.widgets.stackDefaultHeightDp
+import core.data.widgets.stackResizeBounds
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -65,6 +68,7 @@ import core.widgets.ResizeState
 import core.widgets.UndoAction
 import core.widgets.WidgetEvent
 import core.widgets.WidgetModel
+import core.widgets.WidgetPageSettler
 import core.widgets.WidgetSizeReport
 import core.widgets.appWidgetMenuCapabilities
 import core.widgets.finishResizeAndReport
@@ -77,9 +81,7 @@ import core.widgets.toAppWidgetModel
 import core.widgets.toWidgetEvent
 import feature.launcher.R
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -99,8 +101,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
-
-private const val PAGE_SETTLE_DEBOUNCE_MS: Long = 300L
 
 /** One step of the Move Widget Area adjuster. */
 enum class MoveWidgetAreaStep {
@@ -255,7 +255,7 @@ class WidgetAreaViewModel(
 
     private val headerHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
     private val widgetAreaListState: MutableStateFlow<LazyListState> = MutableStateFlow(LazyListState())
-    private val pageSettleJobs: MutableMap<Long, Job> = mutableMapOf()
+    private val pageSettler: WidgetPageSettler = WidgetPageSettler(scope = viewModelScope, repository = repository)
 
     val resizeState: StateFlow<ResizeState?> = resizeController.resizeState
 
@@ -729,8 +729,10 @@ class WidgetAreaViewModel(
             val draft: WidgetEditDraft = editDraft.value ?: return@launch
             val source: PlaceDraft = draft.places.firstOrNull { place -> place.placeId == sourcePlaceId } ?: return@launch
             val target: PlaceDraft = draft.places.firstOrNull { place -> place.placeId == targetPlaceId } ?: return@launch
-            if (source.widgetIds.size != 1 || target.widgetIds.size + source.widgetIds.size > maxStackPages) {
-                eventChannel.send(WidgetEvent.ShowMessage(message = R.string.stack_full))
+            if (source.widgetIds.size != 1 ||
+                !canGrowStack(pageCount = target.widgetIds.size, maxStackPages = maxStackPages, additionalPages = source.widgetIds.size)
+            ) {
+                eventChannel.send(WidgetEvent.ShowMessage(message = CoreUiR.string.stack_full))
                 return@launch
             }
             editDraft.value = draft.copy(
@@ -1102,14 +1104,7 @@ class WidgetAreaViewModel(
         }
     }
 
-    fun onPageSettled(placeId: Long, page: Int) {
-        pageSettleJobs[placeId]?.cancel()
-        pageSettleJobs[placeId] = viewModelScope.launch {
-            delay(PAGE_SETTLE_DEBOUNCE_MS)
-            repository.setCurrentPage(placeId = placeId, page = page)
-            pageSettleJobs.remove(placeId)
-        }
-    }
+    fun onPageSettled(placeId: Long, page: Int) = pageSettler.onPageSettled(placeId = placeId, page = page)
 
     fun setPickerQuery(query: String) = addFlowController.setQuery(query = query)
 
@@ -1275,14 +1270,10 @@ class WidgetAreaViewModel(
                 WidgetMenuState.Closed
             } else {
                 val info: WidgetProviderInfo? = providerInfoFor(widget)
-                val capabilities: AppWidgetMenuCapabilities = appWidgetMenuCapabilities(
-                    widget = widget,
-                    info = info,
-                    resizeBounds = if (place.isStack) {
-                        ResizeBounds.stackBounds(place.widgets.map { page -> page.resizeBounds(headerHeightDp, ::providerInfoFor) })
-                    } else {
-                        info?.let(ResizeBounds::from)
-                    }
+                val capabilities: AppWidgetMenuCapabilities = appWidgetMenuCapabilities(widget = widget, info = info)
+                val resizeBounds: ResizeBounds? = place.widgets.stackResizeBounds(
+                    headerHeightDp = headerHeightDp,
+                    providerInfo = ::providerInfoFor
                 )
                 val headerPlace: WidgetPlace? = places.headerPlace()
                 WidgetMenuState.AppWidgetMenu(
@@ -1291,7 +1282,7 @@ class WidgetAreaViewModel(
                     icon = info.iconOr(provider = widget.provider),
                     label = info.labelOr(provider = widget.provider),
                     items = buildList {
-                        if (capabilities.canResize(widget)) {
+                        if (place.widgets.canResizeStack(bounds = resizeBounds)) {
                             add(WidgetMenuItem.Action(id = WidgetMenuAction.Resize))
                         }
                         if (capabilities.isReconfigurable) {
@@ -1417,18 +1408,9 @@ class WidgetAreaViewModel(
         if (widgetModels.isEmpty()) {
             return null
         }
-        val pageBounds: List<ResizeBounds> = widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) }
-        val bounds: ResizeBounds? = if (isStack) {
-            ResizeBounds.stackBounds(pageBounds)
-        } else {
-            pageBounds.firstOrNull()
-        }
-        val defaults: List<Int> = widgets.mapNotNull { widget ->
-            (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
-                providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
-            }
-        }
-        val stackDefaultHeight: Int = defaults.maxOrNull() ?: bounds?.minDp ?: ResizeBounds.MIN_HEIGHT_DP
+        val bounds: ResizeBounds? = widgets.stackResizeBounds(headerHeightDp = headerHeightDp, providerInfo = ::providerInfoFor)
+        val stackDefaultHeight: Int =
+            widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: bounds?.minDp ?: ResizeBounds.MIN_HEIGHT_DP
         val storedHeightDp: Int? = heightDp
         val resolvedHeightDp: Int? = when {
             !isStack && widgets.single() is PlacedWidget.Header -> storedHeightDp

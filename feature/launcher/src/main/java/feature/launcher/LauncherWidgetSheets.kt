@@ -96,7 +96,7 @@ internal fun AddPlacementSheet(canAddToStack: Boolean, onBelow: () -> Unit, onIn
             )
             if (canAddToStack) {
                 PlacementChoice(
-                    label = stringResource(R.string.add_next_to),
+                    label = stringResource(CoreUiR.string.add_next_to),
                     supportingText = stringResource(R.string.add_next_to_supporting_text),
                     onClick = onIntoStack
                 )

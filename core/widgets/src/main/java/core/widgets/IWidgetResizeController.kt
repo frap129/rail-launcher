@@ -63,8 +63,8 @@ interface IWidgetResizeController {
     fun onPlacesChanged(places: List<WidgetPlace>, ownerKey: String? = null)
 
     /** Clamps a stack that gained a page and returns the page size to report to its providers. */
-    suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport?
+    suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?, ownerKey: String? = null): WidgetSizeReport?
 
     /** Clamps a stack's stored height after the Header is replaced by a page. */
-    suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?)
+    suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?, ownerKey: String? = null)
 }
