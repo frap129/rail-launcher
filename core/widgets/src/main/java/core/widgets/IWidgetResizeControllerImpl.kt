@@ -6,11 +6,13 @@ import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.ResizeBounds
-import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.canResizeStack
 import core.data.widgets.placeOf
-import core.data.widgets.resizeBounds
+import core.data.widgets.stackDefaultHeightDp
+import core.data.widgets.stackIndicatorVisible
+import core.data.widgets.stackResizeBounds
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import kotlin.math.roundToInt
@@ -62,30 +64,20 @@ class IWidgetResizeControllerImpl(
         }
         val place: WidgetPlace = repository.placesFor(ownerKey = ownerKey).first()
             .firstOrNull { place -> place.id == placeId } ?: return false
-        if (place.widgets.none { widget -> widget is PlacedWidget.AppWidget }) {
-            return false
-        }
-        val bounds: ResizeBounds = if (place.isStack) {
-            ResizeBounds.stackBounds(place.widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) })
-        } else {
-            val widget: PlacedWidget.AppWidget = place.widgets.filterIsInstance<PlacedWidget.AppWidget>().firstOrNull()
-                ?.takeIf { widget -> widget.availability == WidgetAvailability.Available }
-                ?: return false
-            providerInfoFor(widget)?.let(ResizeBounds::from) ?: return false
-        }
-        if (!bounds.isResizable) {
+        val bounds: ResizeBounds = place.widgets.stackResizeBounds(
+            headerHeightDp = headerHeightDp,
+            providerInfo = ::providerInfoFor
+        ) ?: return false
+        if (!place.widgets.canResizeStack(bounds = bounds)) {
             return false
         }
         if (!homeEditState.tryEnter(HomeEditMode.Resizing(placeId = placeId))) {
             return false
         }
-        val defaults: List<Int> = defaultHeightsDp(place)
-        val defaultHeightDp: Int = if (place.isStack) {
-            defaults.maxOrNull() ?: bounds.minDp
-        } else {
-            defaults.firstOrNull() ?: bounds.minDp
-        }
-        val indicatorVisible: Boolean = place.isStack && settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
+        val defaultHeightDp: Int = place.widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: bounds.minDp
+        val indicatorVisible: Boolean = place.widgets.stackIndicatorVisible(
+            settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
+        )
         val draftHeightDp: Int = bounds.clamp(
             heightDp = place.heightDp ?: defaultHeightDp,
             homeHeightDp = homeHeight.value ?: Int.MAX_VALUE
@@ -175,17 +167,19 @@ class IWidgetResizeControllerImpl(
     }
 
     /** Clamps a stack that gained a page and returns the page size to report to its providers. */
-    override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?): WidgetSizeReport? {
-        clampStackHeight(placeId = placeId, headerHeightDp = headerHeightDp)
-        return reportStackSize(placeId = placeId)
+    override suspend fun onStackGrown(placeId: Long, headerHeightDp: Int?, ownerKey: String?): WidgetSizeReport? {
+        clampStackHeight(placeId = placeId, headerHeightDp = headerHeightDp, ownerKey = ownerKey)
+        return reportStackSize(placeId = placeId, ownerKey = ownerKey)
     }
 
     /** Clamps a stack's stored height after the Header is replaced by a page. */
-    override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?) {
-        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return
-        val bounds: ResizeBounds = ResizeBounds.stackBounds(
-            place.widgets.map { widget -> widget.resizeBounds(headerHeightDp, ::providerInfoFor) }
-        )
+    override suspend fun clampStackHeight(placeId: Long, headerHeightDp: Int?, ownerKey: String?) {
+        val place: WidgetPlace = repository.placesFor(ownerKey = ownerKey).first().firstOrNull { candidate -> candidate.id == placeId }
+            ?: return
+        val bounds: ResizeBounds = place.widgets.stackResizeBounds(
+            headerHeightDp = headerHeightDp,
+            providerInfo = ::providerInfoFor
+        ) ?: return
         val storedHeight: Int = place.heightDp ?: return
         val homeHeight: Int = homeHeight.value ?: Int.MAX_VALUE
         val clamped: Int = bounds.clamp(heightDp = storedHeight, homeHeightDp = homeHeight)
@@ -194,27 +188,22 @@ class IWidgetResizeControllerImpl(
         }
     }
 
-    private suspend fun reportStackSize(placeId: Long): WidgetSizeReport? {
-        val place: WidgetPlace = repository.places.first().firstOrNull { candidate -> candidate.id == placeId } ?: return null
+    private suspend fun reportStackSize(placeId: Long, ownerKey: String?): WidgetSizeReport? {
+        val place: WidgetPlace = repository.placesFor(ownerKey = ownerKey).first().firstOrNull { candidate -> candidate.id == placeId }
+            ?: return null
         val appWidgetIds: List<AppWidgetId> = place.widgets
             .filterIsInstance<PlacedWidget.AppWidget>()
             .map { widget -> AppWidgetId(widget.appWidgetId) }
-        val defaults: List<Int> = defaultHeightsDp(place)
-        val heightDp: Int = place.heightDp ?: defaults.maxOrNull() ?: return null
+        val heightDp: Int = place.heightDp ?: place.widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: return null
         val widthDp: Int = widgetAreaWidthDp
         if (appWidgetIds.isEmpty() || widthDp <= 0) {
             return null
         }
-        val indicatorVisible: Boolean = place.isStack &&
-            settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
+        val indicatorVisible: Boolean = place.widgets.stackIndicatorVisible(
+            settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
+        )
         val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = indicatorVisible)
         return WidgetSizeReport(appWidgetIds = appWidgetIds, widthDp = widthDp, heightDp = pageHeightDp)
-    }
-
-    private fun defaultHeightsDp(place: WidgetPlace): List<Int> = place.widgets.mapNotNull { widget ->
-        (widget as? PlacedWidget.AppWidget)?.let { appWidget ->
-            providerInfoFor(appWidget)?.minHeightDp ?: appWidget.defaultHeightDp
-        }
     }
 
     private fun pageHeightDp(heightDp: Int, indicatorVisible: Boolean): Int =

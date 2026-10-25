@@ -144,6 +144,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                 },
                 onWidgetLongPress = viewModel::openWidgetMenu,
                 onWidgetUnpause = viewModel::unpauseWorkProfile,
+                onWidgetPageChanged = viewModel::onPageChanged,
                 onResizeDrag = viewModel::dragResize,
                 onResizeReset = viewModel::resetResize,
                 onResizeDone = viewModel::finishResize,

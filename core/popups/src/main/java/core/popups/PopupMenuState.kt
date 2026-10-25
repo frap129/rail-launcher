@@ -12,11 +12,15 @@ sealed interface PopupMenuItem {
 
     data object AddWidget : PopupMenuItem
 
+    data object AddToStack : PopupMenuItem
+
     data object ResizeWidget : PopupMenuItem
 
     data object ReconfigureWidget : PopupMenuItem
 
     data object RemoveWidget : PopupMenuItem
+
+    data object RemoveFromStack : PopupMenuItem
 
     data object RemoveFromPopup : PopupMenuItem
 
@@ -30,7 +34,7 @@ sealed interface PopupMenuState {
     data class Open(
         val target: Launchable,
         val items: List<PopupMenuItem>,
-        /** The widget whose menu this is, or null when the menu belongs to the Pop-up or an item. */
-        val widget: PopupWidgetState? = null
+        /** The Stack page whose menu this is; null unless the menu belongs to a widget page. */
+        val widgetPage: PopupWidgetPage? = null
     ) : PopupMenuState
 }

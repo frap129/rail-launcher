@@ -13,6 +13,7 @@ import core.data.widgets.InsertPosition
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.canGrowStack
 import core.data.widgets.placeOf
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
@@ -79,7 +80,7 @@ class IWidgetAddControllerImpl(
         }
         val origin: AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = place.id))
         val maxStackPages: Int = settingsRepository.widgetAreaSettings.first().maxStackPages
-        if (place.widgets.size < maxStackPages) {
+        if (place.canGrowStack(maxStackPages = maxStackPages)) {
             addFlow.value = AddWidgetFlowState.ChoosingPlacement(origin = origin, canAddToStack = true)
             return false
         }

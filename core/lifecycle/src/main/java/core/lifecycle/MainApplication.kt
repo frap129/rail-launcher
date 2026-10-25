@@ -261,6 +261,7 @@ class MainApplication :
                 appWidgetHost = get(),
                 removeAppWidget = get(),
                 widgetLifecycleReconciler = get(),
+                widgetSettingsRepository = get(),
                 savedStateHandle = savedStateHandle
             )
         }

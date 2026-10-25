@@ -693,6 +693,68 @@ class IWidgetAreaRepositoryImplTest {
     }
 
     @Test
+    fun `addAppWidget with an owner key appends a page and makes it current`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            initialWidgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        )
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        val actualAdded: AddedAppWidget = repository.addAppWidget(
+            request = AddAppWidget(
+                appWidgetId = AppWidgetId(201),
+                provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                profileSerial = 0L,
+                insertAt = InsertPosition.IntoStack(placeId = 2L),
+                defaultHeightDp = 48,
+                ownerKey = "owner-key"
+            )
+        )
+
+        val actualPlace: WidgetPlace = repository.popupPlace(ownerKey = "owner-key").first()!!
+        assertEquals(actualAdded.placeId, actualPlace.id)
+        assertEquals(listOf(20L, 21L), actualPlace.widgets.map { widget -> widget.id })
+        assertEquals(1, actualPlace.currentPage)
+        assertEquals(1, mockDao.getPlace(placeId = 2L)?.currentPage)
+    }
+
+    @Test
+    fun `setCurrentPage stores the page of an owned place`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            initialWidgets = listOf(
+                appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 200),
+                appWidget(id = 21L, placeId = 2L, pagePosition = 1, appWidgetId = 201)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        repository.setCurrentPage(placeId = 2L, page = 1)
+
+        assertEquals(1, repository.popupPlace(ownerKey = "owner-key").first()?.currentPage)
+        assertEquals(1, mockDao.getPlace(placeId = 2L)?.currentPage)
+    }
+
+    @Test
+    fun `removeWidget clamps the current page of a remaining stack`() = runTest {
+        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
+            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, currentPage = 2)),
+            initialWidgets = listOf(
+                appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 200),
+                appWidget(id = 30L, placeId = 1L, pagePosition = 2, appWidgetId = 300)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(mockDao)
+
+        repository.removeWidget(widgetId = 30L)
+
+        val actualPlace: WidgetPlace = repository.places.first().single()
+        assertEquals(1, actualPlace.currentPage)
+        assertEquals(1, mockDao.getPlace(placeId = 1L)?.currentPage)
+    }
+
+    @Test
     fun `removeOwnerPlaces deletes its place and returns the freed ids`() = runTest {
         val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
             initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),

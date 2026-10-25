@@ -334,6 +334,9 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
                 places.map { current -> if (current.id == place.id) current.dissolved(remaining) else current }
             }
         }
+        if (remaining.isNotEmpty()) {
+            setCurrentPage(placeId = place.id, page = place.currentPage.coerceIn(0, remaining.lastIndex))
+        }
         return (widget as? PlacedWidget.AppWidget)?.appWidgetId?.let(::AppWidgetId)
     }
 

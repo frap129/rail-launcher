@@ -233,7 +233,7 @@ private fun WidgetMenuAction.label(): Int = when (this) {
     WidgetMenuAction.Resize -> CoreUiR.string.resize_widget
     WidgetMenuAction.Reconfigure -> CoreUiR.string.reconfigure_widget
     WidgetMenuAction.RemoveHeader -> R.string.remove_header
-    WidgetMenuAction.RemoveFromStack -> R.string.remove_from_stack
+    WidgetMenuAction.RemoveFromStack -> CoreUiR.string.remove_from_stack
     WidgetMenuAction.RestoreHeader -> R.string.restore_header
     WidgetMenuAction.RemoveWidget -> CoreUiR.string.remove_widget
     WidgetMenuAction.ReplaceHeader -> R.string.replace_header

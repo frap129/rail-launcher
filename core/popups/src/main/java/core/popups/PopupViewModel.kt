@@ -23,12 +23,17 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetLifecycleReconciler
+import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
-import core.data.widgets.resizeBounds
+import core.data.widgets.canGrowStack
+import core.data.widgets.canResizeStack
+import core.data.widgets.stackDefaultHeightDp
+import core.data.widgets.stackIndicatorVisible
+import core.data.widgets.stackResizeBounds
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -37,11 +42,12 @@ import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import core.widgets.AddWidgetFlowState
 import core.widgets.AddWidgetOrigin
-import core.widgets.AppWidgetMenuCapabilities
 import core.widgets.IWidgetAddController
 import core.widgets.IWidgetResizeController
 import core.widgets.ResizeState
 import core.widgets.WidgetEvent
+import core.widgets.WidgetPageSettler
+import core.widgets.WidgetSizeReport
 import core.widgets.appWidgetMenuCapabilities
 import core.widgets.finishResizeAndReport
 import core.widgets.removeWidgetAndReport
@@ -86,7 +92,7 @@ private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
-private data class MenuTarget(val ownerKey: String, val itemKey: String?, val onWidget: Boolean = false)
+private data class MenuTarget(val ownerKey: String, val itemKey: String?, val widgetId: Long? = null)
 
 private data class ShortcutPickerRequest(
     val request: ShortcutTarget?,
@@ -108,6 +114,7 @@ class PopupViewModel(
     private val appWidgetHost: IAppWidgetHostSource,
     private val removeAppWidget: IRemoveAppWidget,
     private val widgetLifecycleReconciler: IWidgetLifecycleReconciler,
+    private val widgetSettingsRepository: IWidgetSettingsRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val openRequest: MutableStateFlow<OpenRequest?> = MutableStateFlow(null)
@@ -122,6 +129,7 @@ class PopupViewModel(
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
     private val windowHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
     private val widgetEvents: Channel<WidgetEvent> = Channel(Channel.BUFFERED)
+    private val pageSettler: WidgetPageSettler = WidgetPageSettler(scope = viewModelScope, repository = widgetRepository)
     private var hasPendingAdd: Boolean = false
 
     /** Events the Pop-up asks the Activity to run. */
@@ -144,9 +152,13 @@ class PopupViewModel(
             initialValue = null
         )
 
-    /** The widget shown at the top of the open Pop-up. */
-    val widgetState: StateFlow<PopupWidgetState?> = combine(widgetPlace, windowHeightDp) { place, windowHeight ->
-        place?.toPopupWidgetState(windowHeightDp = windowHeight)
+    /** The widget place shown at the top of the open Pop-up. */
+    val widgetState: StateFlow<PopupWidgetState?> = combine(
+        widgetPlace,
+        windowHeightDp,
+        widgetSettingsRepository.widgetAreaSettings
+    ) { place, windowHeight, settings ->
+        place?.toPopupWidgetState(windowHeightDp = windowHeight, indicatorVisible = settings.stackIndicatorVisible)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -237,16 +249,21 @@ class PopupViewModel(
         initialValue = PopupUiState.Closed
     )
 
-    val menuState: StateFlow<PopupMenuState> = combine(popupState, menuTarget) { cardState, target ->
+    val menuState: StateFlow<PopupMenuState> = combine(
+        popupState,
+        menuTarget,
+        widgetSettingsRepository.widgetAreaSettings
+    ) { cardState, target, settings ->
         val open: PopupUiState.Open? = cardState as? PopupUiState.Open
         val resolvedTarget: Launchable? = when {
             open == null || target == null -> null
             target.itemKey == null -> open.owner
             else -> open.content.items.firstOrNull { item -> item.launchable.key == target.itemKey }?.launchable
         }
-        val widgetMenu: Boolean = target?.onWidget == true
-        val widget: PopupWidgetState? = open?.widget?.takeIf { state -> widgetMenu && state.ownerKey == resolvedTarget?.key }
-        if (resolvedTarget == null || (widgetMenu && widget == null)) {
+        val widget: PopupWidgetState? = open?.widget?.takeIf { state -> state.ownerKey == resolvedTarget?.key }
+        val widgetPage: PopupWidgetPage? = target?.widgetId?.let { widgetId -> widget?.pageOf(widgetId) }
+        val isWidgetMenu: Boolean = target?.widgetId != null
+        if (resolvedTarget == null || (isWidgetMenu && widgetPage == null)) {
             PopupMenuState.Closed
         } else {
             PopupMenuState.Open(
@@ -254,10 +271,12 @@ class PopupViewModel(
                 items = menuItems(
                     target = resolvedTarget,
                     isItem = target?.itemKey != null,
-                    widget = open?.widget,
-                    isWidgetMenu = widgetMenu
+                    widget = widget,
+                    widgetPage = widgetPage,
+                    maxStackPages = settings.maxStackPages,
+                    isWidgetMenu = isWidgetMenu
                 ),
-                widget = widget
+                widgetPage = widgetPage
             )
         }
     }.stateIn(
@@ -468,10 +487,10 @@ class PopupViewModel(
     fun openWidgetMenu(widgetId: Long) {
         val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
         val widget: PopupWidgetState = open.widget ?: return
-        if (widget.widgetId != widgetId || homeEditState.mode.value != HomeEditMode.None) {
+        if (widget.pageOf(widgetId) == null || homeEditState.mode.value != HomeEditMode.None) {
             return
         }
-        menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = null, onWidget = true)
+        menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = null, widgetId = widgetId)
     }
 
     /** Supplies the window height so the widget stays within the Pop-up's share of it. */
@@ -483,38 +502,52 @@ class PopupViewModel(
         resizeController.setHomeHeight(heightDp = popupWidgetMaxHeightDp(windowHeightDp = heightDp))
     }
 
+    /** Stores the stack page the pager settled on. */
+    fun onPageChanged(page: Int) {
+        val widget: PopupWidgetState = widgetState.value ?: return
+        if (page !in widget.pages.indices) {
+            return
+        }
+        pageSettler.onPageSettled(placeId = widget.placeId, page = page)
+    }
+
     /** Supplies the widget width for the size report sent after a Resize. */
     fun setCardWidth(widthDp: Int) = resizeController.setWidgetAreaWidth(widthDp = widthDp)
 
     /** Opens the picker for the owner's widget, remembering the card so it reopens after a system dialog. */
     fun startAddWidget() {
         val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
-        if (open.widget != null) {
-            return
-        }
         val owner: Launchable = open.owner
-        val started: Boolean = addFlowController.start(
-            origin = AddWidgetOrigin(
-                insertAt = InsertPosition.End,
-                ownerKey = owner.key,
-                suggestedPackageName = (owner as? App)?.packageName
+        val widget: PopupWidgetState? = open.widget
+        viewModelScope.launch {
+            val maxStackPages: Int = widgetSettingsRepository.widgetAreaSettings.first().maxStackPages
+            if (widget != null && !canGrowStack(pageCount = widget.pages.size, maxStackPages = maxStackPages)) {
+                widgetEvents.send(WidgetEvent.ShowMessage(message = CoreUiR.string.stack_full))
+                return@launch
+            }
+            val started: Boolean = addFlowController.start(
+                origin = AddWidgetOrigin(
+                    insertAt = widget?.let { state -> InsertPosition.IntoStack(placeId = state.placeId) } ?: InsertPosition.End,
+                    ownerKey = owner.key,
+                    suggestedPackageName = (owner as? App)?.packageName
+                )
             )
-        )
-        if (started) {
-            savedStateHandle[POPUP_REOPEN_OWNER_KEY] = owner.key
-            menuTarget.value = null
+            if (started) {
+                savedStateHandle[POPUP_REOPEN_OWNER_KEY] = owner.key
+                menuTarget.value = null
+            }
         }
     }
 
     fun onBindResult(granted: Boolean) {
         viewModelScope.launch {
-            addFlowController.onBindResult(granted = granted)
+            handleStackGrown(placeId = addFlowController.onBindResult(granted = granted))
         }
     }
 
     fun onConfigureResult(ok: Boolean) {
         viewModelScope.launch {
-            addFlowController.onConfigureResult(ok = ok)
+            handleStackGrown(placeId = addFlowController.onConfigureResult(ok = ok))
         }
     }
 
@@ -522,7 +555,7 @@ class PopupViewModel(
 
     fun pickProvider(provider: WidgetProviderInfo) {
         viewModelScope.launch {
-            addFlowController.pick(provider = provider)
+            handleStackGrown(placeId = addFlowController.pick(provider = provider))
         }
     }
 
@@ -532,7 +565,7 @@ class PopupViewModel(
         }
     }
 
-    /** Enters Resize for the card's widget. */
+    /** Enters Resize for the card's widget place. */
     fun resizeWidget() {
         val widget: PopupWidgetState = widgetState.value ?: return
         menuTarget.value = null
@@ -548,24 +581,24 @@ class PopupViewModel(
         }
     }
 
-    /** Removes the card's widget, frees its App Widget id and keeps the card open. */
+    /** Removes the Stack page whose menu is open, or the current page, and keeps the card open. */
     fun removeWidget() {
-        val widget: PopupWidgetState = widgetState.value ?: return
+        val page: PopupWidgetPage = widgetPageForMenu() ?: return
         menuTarget.value = null
         viewModelScope.launch {
-            removeAppWidget.removeWidgetAndReport(widgetId = widget.widgetId) { event -> widgetEvents.send(event) }
+            removeAppWidget.removeWidgetAndReport(widgetId = page.widgetId) { event -> widgetEvents.send(event) }
         }
     }
 
-    /** Opens the card widget's provider configuration activity. */
+    /** Opens the menu page's provider configuration activity. */
     fun reconfigureWidget() {
-        val widget: PopupWidgetState = widgetState.value ?: return
-        if (!widget.isReconfigurable) {
+        val page: PopupWidgetPage = widgetPageForMenu() ?: return
+        if (!page.isReconfigurable) {
             return
         }
         menuTarget.value = null
         viewModelScope.launch {
-            widgetEvents.send(WidgetEvent.LaunchReconfigure(id = AppWidgetId(widget.appWidgetId)))
+            widgetEvents.send(WidgetEvent.LaunchReconfigure(id = AppWidgetId(page.appWidgetId)))
         }
     }
 
@@ -577,11 +610,11 @@ class PopupViewModel(
         }
     }
 
-    /** Asks the system to leave quiet mode for the widget's work profile. */
+    /** Asks the system to leave quiet mode for the widget page's work profile. */
     fun unpauseWorkProfile(widgetId: Long) {
-        val widget: PopupWidgetState = widgetState.value?.takeIf { state -> state.widgetId == widgetId } ?: return
+        val page: PopupWidgetPage = widgetState.value?.pageOf(widgetId) ?: return
         viewModelScope.launch {
-            widgetEvents.send(WidgetEvent.RequestQuietModeOff(profileSerial = widget.profileSerial))
+            widgetEvents.send(WidgetEvent.RequestQuietModeOff(profileSerial = page.profileSerial))
         }
     }
 
@@ -1004,77 +1037,114 @@ class PopupViewModel(
             }
     }
 
-    private fun menuItems(target: Launchable, isItem: Boolean, widget: PopupWidgetState?, isWidgetMenu: Boolean): List<PopupMenuItem> =
-        buildList {
-            if (isItem) {
-                add(PopupMenuItem.RemoveFromPopup)
-                if (target is App || target is ShortcutLaunchable) {
-                    add(PopupMenuItem.AppInfo)
-                }
-            } else if (isWidgetMenu) {
-                if (widget == null) {
-                    return@buildList
-                }
-                addWidgetActions(widget = widget)
-                add(PopupMenuItem.AppInfo)
+    private fun menuItems(
+        target: Launchable,
+        isItem: Boolean,
+        widget: PopupWidgetState?,
+        widgetPage: PopupWidgetPage?,
+        maxStackPages: Int,
+        isWidgetMenu: Boolean
+    ): List<PopupMenuItem> = buildList {
+        if (isItem) {
+            add(PopupMenuItem.RemoveFromPopup)
+        } else if (isWidgetMenu) {
+            if (widget == null || widgetPage == null) {
+                return@buildList
+            }
+            addWidgetActions(widget = widget, page = widgetPage)
+        } else {
+            when (target) {
+                is App -> add(PopupMenuItem.EditPopup)
+                is Folder -> add(PopupMenuItem.EditFolder)
+                else -> Unit
+            }
+            if (widget == null) {
+                add(PopupMenuItem.AddWidget)
             } else {
-                when (target) {
-                    is App -> add(PopupMenuItem.EditPopup)
-                    is Folder -> add(PopupMenuItem.EditFolder)
-                    else -> Unit
+                if (canGrowStack(pageCount = widget.pages.size, maxStackPages = maxStackPages)) {
+                    add(PopupMenuItem.AddToStack)
                 }
-                if (widget == null) {
-                    add(PopupMenuItem.AddWidget)
-                } else {
-                    addWidgetActions(widget = widget)
-                }
-                if (target is Folder) {
-                    add(PopupMenuItem.DeleteFolder)
-                }
-                if (target is App) {
-                    add(PopupMenuItem.AppInfo)
-                }
+                widget.currentPageOrNull()?.let { page -> addWidgetActions(widget = widget, page = page) }
+            }
+            if (target is Folder) {
+                add(PopupMenuItem.DeleteFolder)
             }
         }
+        val isAppInfoAvailable: Boolean = when {
+            isWidgetMenu -> true
+            isItem -> target is App || target is ShortcutLaunchable
+            else -> target is App
+        }
+        if (isAppInfoAvailable) {
+            add(PopupMenuItem.AppInfo)
+        }
+    }
 
-    private fun MutableList<PopupMenuItem>.addWidgetActions(widget: PopupWidgetState) {
+    private fun MutableList<PopupMenuItem>.addWidgetActions(widget: PopupWidgetState, page: PopupWidgetPage) {
         if (widget.isResizable) {
             add(PopupMenuItem.ResizeWidget)
         }
-        if (widget.isReconfigurable) {
+        if (page.isReconfigurable) {
             add(PopupMenuItem.ReconfigureWidget)
         }
-        add(PopupMenuItem.RemoveWidget)
+        add(if (widget.isStack) PopupMenuItem.RemoveFromStack else PopupMenuItem.RemoveWidget)
     }
 
-    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?): PopupWidgetState? {
-        val widget: PlacedWidget.AppWidget = widgets.singleOrNull() as? PlacedWidget.AppWidget ?: return null
+    private fun widgetPageForMenu(): PopupWidgetPage? {
+        val widget: PopupWidgetState = widgetState.value ?: return null
+        val widgetId: Long = menuTarget.value?.widgetId ?: return widget.currentPageOrNull()
+        return widget.pageOf(widgetId)
+    }
+
+    private suspend fun handleStackGrown(placeId: Long?) {
+        if (placeId == null) {
+            return
+        }
+        val report: WidgetSizeReport = resizeController.onStackGrown(
+            placeId = placeId,
+            headerHeightDp = null,
+            ownerKey = openRequest.value?.target?.ownerKey
+        ) ?: return
+        widgetEvents.send(report.toWidgetEvent())
+    }
+
+    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?, indicatorVisible: Boolean): PopupWidgetState? {
         val ownerKey: String = ownerKey ?: return null
-        val info: WidgetProviderInfo? = appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
-        val bounds: ResizeBounds = widget.resizeBounds(headerHeightDp = null) { info }
-        val defaultHeightDp: Int = info?.minHeightDp ?: widget.defaultHeightDp ?: ResizeBounds.MIN_HEIGHT_DP
-        val capabilities: AppWidgetMenuCapabilities = appWidgetMenuCapabilities(
-            widget = widget,
-            info = info,
-            resizeBounds = bounds
-        )
+        val appWidgets: List<PlacedWidget.AppWidget> = widgets.filterIsInstance<PlacedWidget.AppWidget>()
+        if (appWidgets.isEmpty()) {
+            return null
+        }
+        val pages: List<PopupWidgetPage> = appWidgets.map { widget -> widget.toPopupWidgetPage() }
+        val bounds: ResizeBounds = widgets.stackResizeBounds(providerInfo = ::providerInfoFor) ?: return null
         return PopupWidgetState(
-            widgetId = widget.id,
             placeId = id,
             ownerKey = ownerKey,
-            appWidgetId = widget.appWidgetId,
-            provider = widget.provider,
-            profileSerial = widget.profileSerial,
-            model = widget.toAppWidgetModel(info = info),
+            pages = pages,
+            currentPage = currentPage.coerceIn(0, pages.lastIndex),
             heightDp = bounds.clamp(
-                heightDp = heightDp ?: defaultHeightDp,
+                heightDp = heightDp ?: widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: bounds.minDp,
                 homeHeightDp = windowHeightDp?.let(::popupWidgetMaxHeightDp) ?: Int.MAX_VALUE
             ),
             bounds = bounds,
-            isResizable = capabilities.canResize(widget),
-            isReconfigurable = capabilities.isReconfigurable
+            isResizable = widgets.canResizeStack(bounds = bounds),
+            indicatorVisible = widgets.stackIndicatorVisible(settingVisible = indicatorVisible)
         )
     }
+
+    private fun PlacedWidget.AppWidget.toPopupWidgetPage(): PopupWidgetPage {
+        val info: WidgetProviderInfo? = providerInfoFor(this)
+        return PopupWidgetPage(
+            widgetId = id,
+            appWidgetId = appWidgetId,
+            provider = provider,
+            profileSerial = profileSerial,
+            model = toAppWidgetModel(info = info),
+            isReconfigurable = appWidgetMenuCapabilities(widget = this, info = info).isReconfigurable
+        )
+    }
+
+    private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
+        appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
 
     private fun clearReopenKeys() {
         savedStateHandle.remove<String>(POPUP_REOPEN_OWNER_KEY)

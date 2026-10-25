@@ -81,7 +81,7 @@ Apps whose media sessions never trigger the Media Player. Exclusion is by packag
 _Avoid_: Ignored apps, blocked apps, media blacklist
 
 **Widget Stack**:
-Several Widgets sharing one place and one height in the Widget Area, shown one at a time and switched by swiping sideways. Adding a Widget with **Add next to** places it in the same place as the Widget it was added from, as a new Stack page.
+Several Widgets sharing one place and one height in the Widget Area or a Pop-up, shown one at a time and switched by swiping sideways. Adding a Widget with **Add next to** places it in the same place as the Widget it was added from, as a new Stack page.
 _Avoid_: Carousel, pager
 
 **Stack page**:
@@ -89,11 +89,11 @@ One Widget inside a Widget Stack, selected by paging sideways.
 _Avoid_: Stack item, tab
 
 **Stack cap**:
-The maximum number of pages a Widget Stack may hold, set in Rail Settings (2–8, default 4).
+The maximum number of pages a Widget Stack may hold, set in Rail Settings (2–8, default 4). One setting covers the Widget Area and Pop-ups.
 _Avoid_: Stack limit, max pages
 
 **Place**:
-An ordered slot in the Widget Area holding one Widget or Widget Stack.
+An ordered slot holding one Widget or Widget Stack: a place in the Widget Area, or the single widget place at the top of a Pop-up.
 _Avoid_: Slot, row
 
 **Edit Widgets draft**:
@@ -109,7 +109,7 @@ The region at the top of Home, above Favorites, holding an ordered column of Wid
 _Avoid_: Widget page, widget list
 
 **Pop-up widget**:
-The App Widget at the top of a Pop-up, owned by that Pop-up and kept out of the Widget Area, Edit Widgets and the Widgets settings list.
+The App Widget or Widget Stack at the top of a Pop-up, owned by that Pop-up and kept out of the Widget Area, Edit Widgets and the Widgets settings list.
 _Avoid_: Card widget, popup widget
 
 **Move Widget Area**:

@@ -28,9 +28,15 @@ import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
 import core.data.testing.appWidgetPlace
+import core.data.testing.popupStackPlace
 import core.data.widgets.AppWidgetId
+import core.data.widgets.IRemoveAppWidget
+import core.data.widgets.IRemoveAppWidgetImpl
 import core.data.widgets.IWidgetLifecycleReconcilerImpl
+import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
+import core.data.widgets.WidgetAreaSettings
+import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
@@ -45,6 +51,8 @@ import core.widgets.testing.createAddController
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -1028,7 +1036,7 @@ class PopupViewModelTest {
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
 
             assertEquals(5L, actualState.widget?.placeId)
-            assertEquals(6L, actualState.widget?.widgetId)
+            assertEquals(listOf(6L), actualState.widget?.pages?.map { page -> page.widgetId })
             assertEquals(48, actualState.widget?.heightDp)
             assertTrue(actualState.widget?.isResizable == true)
         }
@@ -1059,7 +1067,7 @@ class PopupViewModelTest {
     }
 
     @Test
-    fun `owner menu offers widget actions instead of Add widget`() = runTest {
+    fun `owner menu offers Add to stack and widget actions instead of Add widget`() = runTest {
         val viewModel: PopupViewModel = createWidgetViewModel()
         viewModel.menuState.test {
             viewModel.open(inputApp, INPUT_ANCHOR)
@@ -1070,7 +1078,13 @@ class PopupViewModelTest {
             val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
 
             assertEquals(
-                listOf(PopupMenuItem.EditPopup, PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget, PopupMenuItem.AppInfo),
+                listOf(
+                    PopupMenuItem.EditPopup,
+                    PopupMenuItem.AddToStack,
+                    PopupMenuItem.ResizeWidget,
+                    PopupMenuItem.RemoveWidget,
+                    PopupMenuItem.AppInfo
+                ),
                 actualMenu.items
             )
         }
@@ -1102,7 +1116,7 @@ class PopupViewModelTest {
                 ),
                 actualMenu.items
             )
-            assertEquals(6L, actualMenu.widget?.widgetId)
+            assertEquals(6L, actualMenu.widgetPage?.widgetId)
         }
     }
 
@@ -1277,6 +1291,348 @@ class PopupViewModelTest {
         assertEquals(PopupUiState.Closed, viewModel.popupState.value)
     }
 
+    @Test
+    fun `shows the owner's widget stack with its remembered page`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, heightDp = 120, currentPage = 1, ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+
+            val actualWidget: PopupWidgetState = (expectMostRecentItem() as PopupUiState.Open).widget!!
+
+            assertEquals(listOf(6L, 7L), actualWidget.pages.map { page -> page.widgetId })
+            assertEquals(1, actualWidget.currentPage)
+            assertEquals(120, actualWidget.heightDp)
+            assertTrue(actualWidget.isResizable)
+            assertTrue(actualWidget.indicatorVisible)
+        }
+    }
+
+    @Test
+    fun `hides the stack indicator when the Widget Stacks setting is off`() = runTest {
+        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(stackIndicatorVisible = false)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockSettingsRepository = mockSettingsRepository)
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+
+            val actualWidget: PopupWidgetState = (expectMostRecentItem() as PopupUiState.Open).widget!!
+
+            assertFalse(actualWidget.indicatorVisible)
+        }
+    }
+
+    @Test
+    fun `persists the stack page when paging settles`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.onPageChanged(page = 1)
+        advanceUntilIdle()
+
+        assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
+    }
+
+    @Test
+    fun `keeps the last settled page when paging back before the debounce`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.onPageChanged(page = 1)
+        advanceTimeBy(100)
+        viewModel.onPageChanged(page = 0)
+        advanceUntilIdle()
+
+        assertEquals(listOf(5L to 0), mockRepository.currentPageUpdates)
+    }
+
+    @Test
+    fun `ignores a settled page outside the stack`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.onPageChanged(page = 2)
+        advanceUntilIdle()
+
+        assertTrue(mockRepository.currentPageUpdates.isEmpty())
+    }
+
+    @Test
+    fun `owner menu hides Add to stack at the stack cap`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(
+            mockRepository = mockRepository,
+            mockSettingsRepository = mockSettingsRepository
+        )
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(
+                    PopupMenuItem.EditPopup,
+                    PopupMenuItem.ResizeWidget,
+                    PopupMenuItem.RemoveFromStack,
+                    PopupMenuItem.AppInfo
+                ),
+                actualMenu.items
+            )
+        }
+    }
+
+    @Test
+    fun `widget menu removes only the long-pressed stack page`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.openWidgetMenu(widgetId = 7L)
+        runCurrent()
+
+        viewModel.events.test {
+            viewModel.removeWidget()
+            runCurrent()
+
+            assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(9)), awaitItem())
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
+        }
+
+        assertEquals(listOf(7L), fakeRemoveAppWidget.removedWidgetIds)
+    }
+
+    @Test
+    fun `widget menu offers Remove widget for a single page`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, widgetIds = listOf(6L), appWidgetIds = listOf(9), ownerKey = inputApp.key)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openWidgetMenu(widgetId = 6L)
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget, PopupMenuItem.AppInfo),
+                actualMenu.items
+            )
+            assertEquals(6L, actualMenu.widgetPage?.widgetId)
+        }
+    }
+
+    @Test
+    fun `widget menu offers Remove from stack for a multi-page place`() = runTest {
+        val viewModel: PopupViewModel = createStackViewModel()
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openWidgetMenu(widgetId = 7L)
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveFromStack, PopupMenuItem.AppInfo),
+                actualMenu.items
+            )
+            assertEquals(7L, actualMenu.widgetPage?.widgetId)
+        }
+    }
+
+    @Test
+    fun `Add to stack appends a page and selects it`() = runTest {
+        val inputProvider: WidgetProviderInfo = appWidgetProviderInfo(
+            provider = WidgetProvider(packageName = "com.other", className = "OtherWidget"),
+            appPackageName = "com.other",
+            appLabel = "Other"
+        )
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(
+                placeId = 5L,
+                widgetIds = listOf(6L),
+                appWidgetIds = listOf(9),
+                heightDp = 120,
+                ownerKey = inputApp.key
+            )
+        )
+        val mockHost: FakeAppWidgetHostSource = stackHost(providers = listOf(inputProvider))
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository, mockHost = mockHost)
+        backgroundScope.launch { viewModel.popupState.collect() }
+        runCurrent()
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.startAddWidget()
+        runCurrent()
+        viewModel.pickProvider(provider = inputProvider)
+        runCurrent()
+
+        val actualWidget: PopupWidgetState = viewModel.widgetState.value!!
+        assertEquals(2, actualWidget.pages.size)
+        assertEquals(1, actualWidget.currentPage)
+        assertEquals(InsertPosition.IntoStack(placeId = 5L), mockRepository.addedAppWidgets.single().insertAt)
+        assertEquals(inputApp.key, mockRepository.addedAppWidgets.single().ownerKey)
+    }
+
+    @Test
+    fun `startAddWidget at the stack cap reports that the stack is full`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        )
+        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
+            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+        val viewModel: PopupViewModel = createStackViewModel(
+            mockRepository = mockRepository,
+            mockSettingsRepository = mockSettingsRepository
+        )
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.events.test {
+            viewModel.startAddWidget()
+            runCurrent()
+
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.stack_full), awaitItem())
+        }
+
+        assertEquals(AddWidgetFlowState.Idle, viewModel.addFlowState.value)
+    }
+
+    @Test
+    fun `clamps the shared height to the intersection of the pages' bounds`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(placeId = 5L, heightDp = 300, ownerKey = inputApp.key)
+        )
+        val mockHost: FakeAppWidgetHostSource = stackHost(
+            providerInfos = mapOf(
+                9 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200),
+                10 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 160)
+            )
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository, mockHost = mockHost)
+        viewModel.popupState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+
+            val actualWidget: PopupWidgetState = (expectMostRecentItem() as PopupUiState.Open).widget!!
+
+            assertEquals(160, actualWidget.heightDp)
+            assertEquals(160, actualWidget.bounds.maxDp)
+        }
+    }
+
+    @Test
+    fun `hides Resize for a stack with an unavailable page`() = runTest {
+        val inputPlace: WidgetPlace = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = inputPlace.copy(
+                widgets = inputPlace.widgets.map { widget ->
+                    (widget as PlacedWidget.AppWidget).copy(availability = WidgetAvailability.ProfilePaused)
+                }
+            )
+        )
+        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertEquals(
+                listOf(
+                    PopupMenuItem.EditPopup,
+                    PopupMenuItem.AddToStack,
+                    PopupMenuItem.RemoveFromStack,
+                    PopupMenuItem.AppInfo
+                ),
+                actualMenu.items
+            )
+        }
+    }
+
+    @Test
+    fun `hides Resize when the provider cannot resize vertically`() = runTest {
+        val viewModel: PopupViewModel = createWidgetViewModel(providerInfo = appWidgetProviderInfo(isVerticallyResizable = false))
+        viewModel.menuState.test {
+            viewModel.open(inputApp, INPUT_ANCHOR)
+            runCurrent()
+            viewModel.openMenu()
+            runCurrent()
+
+            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+
+            assertFalse(PopupMenuItem.ResizeWidget in actualMenu.items)
+        }
+    }
+
+    @Test
+    fun `removing the current page clamps and persists the last page`() = runTest {
+        val mockRepository: FakeWidgetAreaRepository = stackRepository(
+            place = popupStackPlace(
+                placeId = 5L,
+                widgetIds = listOf(6L, 7L, 8L),
+                appWidgetIds = listOf(9, 10, 11),
+                currentPage = 2,
+                ownerKey = inputApp.key
+            )
+        )
+        val mockHost: FakeAppWidgetHostSource = stackHost()
+        val viewModel: PopupViewModel = createStackViewModel(
+            mockRepository = mockRepository,
+            mockHost = mockHost,
+            removeAppWidget = IRemoveAppWidgetImpl(repository = mockRepository, host = mockHost)
+        )
+        backgroundScope.launch { viewModel.popupState.collect() }
+        viewModel.open(inputApp, INPUT_ANCHOR)
+        runCurrent()
+        viewModel.openWidgetMenu(widgetId = 8L)
+        runCurrent()
+
+        viewModel.removeWidget()
+        advanceUntilIdle()
+
+        assertEquals(listOf(6L, 7L), viewModel.widgetState.value?.pages?.map { page -> page.widgetId })
+        assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
+    }
+
     private fun createWidgetViewModel(
         widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
         providerInfo: WidgetProviderInfo? = appWidgetProviderInfo(isVerticallyResizable = true)
@@ -1290,12 +1646,39 @@ class PopupViewModelTest {
         return createViewModel(widgetRepository = mockRepository, appWidgetHost = mockHost)
     }
 
+    private fun stackRepository(place: WidgetPlace = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)): FakeWidgetAreaRepository =
+        FakeWidgetAreaRepository(listOf(place))
+
+    private fun stackHost(
+        providers: List<WidgetProviderInfo> = emptyList(),
+        providerInfos: Map<Int, WidgetProviderInfo> = mapOf(
+            9 to appWidgetProviderInfo(isVerticallyResizable = true),
+            10 to appWidgetProviderInfo(isVerticallyResizable = true),
+            11 to appWidgetProviderInfo(isVerticallyResizable = true)
+        )
+    ): FakeAppWidgetHostSource = FakeAppWidgetHostSource(initialProviders = providers).apply {
+        providerInfos.forEach { (appWidgetId, info) -> providerInfoById[AppWidgetId(appWidgetId)] = info }
+    }
+
+    private fun createStackViewModel(
+        mockRepository: FakeWidgetAreaRepository = stackRepository(),
+        mockHost: FakeAppWidgetHostSource = stackHost(),
+        mockSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository,
+        removeAppWidget: IRemoveAppWidget = fakeRemoveAppWidget
+    ): PopupViewModel = createViewModel(
+        widgetRepository = mockRepository,
+        appWidgetHost = mockHost,
+        widgetSettingsRepository = mockSettingsRepository,
+        removeAppWidget = removeAppWidget
+    )
+
     private fun createViewModel(
         homeEditState: HomeEditState = inputHomeEditState,
         savedStateHandle: SavedStateHandle = inputSavedStateHandle,
         widgetRepository: FakeWidgetAreaRepository = fakeWidgetAreaRepository,
         appWidgetHost: FakeAppWidgetHostSource = fakeAppWidgetHost,
-        removeAppWidget: FakeRemoveAppWidget = fakeRemoveAppWidget
+        removeAppWidget: IRemoveAppWidget = fakeRemoveAppWidget,
+        widgetSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository
     ): PopupViewModel = PopupViewModel(
         launchableRepository = fakeLaunchableRepository,
         shortcutSource = fakeShortcutSource,
@@ -1307,17 +1690,19 @@ class PopupViewModelTest {
             repository = widgetRepository,
             appWidgetHost = appWidgetHost,
             homeEditState = homeEditState,
-            savedStateHandle = savedStateHandle
+            savedStateHandle = savedStateHandle,
+            settingsRepository = widgetSettingsRepository
         ),
         resizeController = IWidgetResizeControllerImpl(
             repository = widgetRepository,
             appWidgetHost = appWidgetHost,
-            settingsRepository = fakeWidgetSettingsRepository,
+            settingsRepository = widgetSettingsRepository,
             homeEditState = homeEditState
         ),
         appWidgetHost = appWidgetHost,
         removeAppWidget = removeAppWidget,
         widgetLifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = FakeWidgetAreaDao(), host = appWidgetHost),
+        widgetSettingsRepository = widgetSettingsRepository,
         savedStateHandle = savedStateHandle
     )
 }
