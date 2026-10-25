@@ -114,8 +114,10 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                 } else {
                     stringResource(R.string.edit_popup_title, state.owner.name)
                 },
-                actionLabel = stringResource(CoreUiR.string.done),
-                onAction = viewModel::finishEdit
+                action = PopupSheetTitleAction(
+                    label = stringResource(CoreUiR.string.done),
+                    onClick = viewModel::finishEdit
+                )
             )
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
                 if (!isFolder) {

@@ -65,8 +65,10 @@ fun ShortcutPickerSheet(state: ShortcutPickerState.Picking, onConfirm: (selected
         Column(modifier = Modifier.fillMaxHeight()) {
             PopupSheetTitleRow(
                 title = stringResource(R.string.add_shortcuts),
-                actionLabel = stringResource(R.string.add),
-                onAction = { onConfirm(checkedKeys.toList()) }
+                action = PopupSheetTitleAction(
+                    label = stringResource(R.string.add),
+                    onClick = { onConfirm(checkedKeys.toList()) }
+                )
             )
             if (state.shortcutsUnavailable) {
                 PopupEmptyState(messageResId = R.string.set_rail_as_home_to_add_shortcuts)

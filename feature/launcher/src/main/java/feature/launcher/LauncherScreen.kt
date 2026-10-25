@@ -48,13 +48,17 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
+import core.popups.AddToFolderSheet
+import core.popups.AddToFolderState
 import core.popups.EditPopupSheet
 import core.popups.FolderDeleteDialog
+import core.popups.FolderNameDialog
 import core.popups.LaunchablePickerSheet
 import core.popups.PopupHost
 import core.popups.PopupMenuSheet
 import core.popups.PopupPickerState
 import core.popups.PopupViewModel
+import core.popups.R as PopupsR
 import core.popups.ShortcutPickerSheet
 import core.popups.ShortcutPickerState
 import core.ui.R as CoreUiR
@@ -314,6 +318,19 @@ fun LauncherScreen(
     LaunchedEffect(viewModel, popupViewModel) {
         viewModel.folderEdits.collect { folder -> popupViewModel.startEdit(folder) }
     }
+    val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
+    LaunchedEffect(popupViewModel, snackbarHostState, editFolderLabel) {
+        popupViewModel.folderAdditions.collect { folder: Folder ->
+            val result: SnackbarResult = snackbarHostState.showSnackbar(
+                message = context.getString(PopupsR.string.added_to_folder, folder.name),
+                actionLabel = editFolderLabel,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                popupViewModel.startEdit(folder)
+            }
+        }
+    }
     LaunchedEffect(homeIntentRequest) {
         homeIntentRequest.collectRequests {
             popupViewModel.onHomeIntent()
@@ -383,6 +400,18 @@ fun LauncherScreen(
         PopupMenuSheet(popupViewModel)
         EditPopupSheet(popupViewModel)
         FolderDeleteDialog(popupViewModel)
+        val addToFolderState: AddToFolderState by popupViewModel.addToFolderState.collectAsState()
+        val openAddToFolderState: AddToFolderState.Open? = addToFolderState as? AddToFolderState.Open
+        if (openAddToFolderState != null) {
+            AddToFolderSheet(
+                launchable = openAddToFolderState.launchable,
+                folders = openAddToFolderState.folders,
+                membership = openAddToFolderState.membership,
+                onToggle = popupViewModel::toggleMembership,
+                onNewFolder = popupViewModel::startNewFolder,
+                onDismiss = popupViewModel::closeAddToFolder
+            )
+        }
         if (pickerState is PopupPickerState.Picking) {
             LaunchablePickerSheet(
                 state = pickerState as PopupPickerState.Picking,
@@ -467,7 +496,10 @@ fun LauncherScreen(
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
     if (isNewFolderDialogOpen) {
-        NewFolderDialog(viewModel)
+        FolderNameDialog(
+            onConfirm = viewModel::createFolder,
+            onDismiss = viewModel::closeNewFolderDialog
+        )
     }
 }
 

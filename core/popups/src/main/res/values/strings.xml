@@ -25,4 +25,10 @@
     <string name="edit_folder_title">Edit %1$s</string>
     <string name="delete_folder_title">Delete %1$s?</string>
     <string name="delete_folder_body">The apps in it stay installed.</string>
+    <string name="add_to_folder">Add to Folder</string>
+    <string name="add_to_folder_title">Add %1$s to Folder</string>
+    <string name="added_to_folder">Added to %1$s</string>
+    <string name="no_folders">You don\'t have any Folders</string>
+    <string name="new_folder">New Folder</string>
+    <string name="create">Create</string>
 </resources>

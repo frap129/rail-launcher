@@ -19,10 +19,12 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -46,6 +48,8 @@ private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnch
 private data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
 private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
+
+private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
 private data class MenuTarget(val ownerKey: String, val itemKey: String?)
 
@@ -85,8 +89,45 @@ class PopupViewModel(
 
     private val pickerItems: StateFlow<OwnerItems> = addedItems(pickerTarget)
 
+    private val addToFolderRequest: MutableStateFlow<Launchable?> = MutableStateFlow(null)
+
+    private val folderAdditionRequests: EventChannel<Folder> = EventChannel()
+
+    private val addToFolderMembership: StateFlow<FolderMembership> = addToFolderRequest
+        .map { launchable -> launchable?.key }
+        .distinctUntilChanged()
+        .flatMapLatest { launchableKey -> folderMemberships(launchableKey = launchableKey) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = FolderMembership(launchableKey = null, folderKeys = emptySet())
+        )
+
     /** The Folder awaiting delete confirmation, if any. */
     val folderDeleteState: StateFlow<Folder?> = pendingFolderDelete
+
+    /** Folders created from the Add to Folder sheet, for its "Added to ..." Snackbar. */
+    val folderAdditions: SharedFlow<Folder> = folderAdditionRequests.flow
+
+    val addToFolderState: StateFlow<AddToFolderState> = combine(
+        addToFolderRequest,
+        launchableRepository.launchableState,
+        folderRepository.folders,
+        addToFolderMembership
+    ) { requestedLaunchable, launchableState, folders, membership ->
+        val launchable: Launchable? = requestedLaunchable?.let { requested ->
+            launchableState.launchables.firstOrNull { candidate -> candidate.key == requested.key }
+        }
+        if (launchable == null) {
+            AddToFolderState.Closed
+        } else {
+            AddToFolderState.Open(launchable = launchable, folders = folders, membership = membership.folderKeys)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = AddToFolderState.Closed
+    )
 
     val popupState: StateFlow<PopupUiState> = combine(
         openRequest,
@@ -239,14 +280,19 @@ class PopupViewModel(
         collectShortcuts(targets = openRequest.map { request -> request?.target }, into = cardShortcuts)
         collectShortcuts(targets = editRequest, into = editShortcuts)
         observeTargetLoss(
-            targets = openRequest.map { request -> request?.target },
+            targetKeys = openRequest.map { request -> request?.target?.ownerKey },
             isClosedByMode = { mode -> mode != HomeEditMode.None },
             onTargetLost = ::close
         )
         observeTargetLoss(
-            targets = editRequest,
+            targetKeys = editRequest.map { request -> request?.ownerKey },
             isClosedByMode = { mode -> mode != HomeEditMode.None && mode != HomeEditMode.Favorites },
             onTargetLost = ::finishEdit
+        )
+        observeTargetLoss(
+            targetKeys = addToFolderRequest.map { launchable -> launchable?.key },
+            isClosedByMode = { mode -> mode != HomeEditMode.None },
+            onTargetLost = ::closeAddToFolder
         )
     }
 
@@ -271,6 +317,7 @@ class PopupViewModel(
         isPickingShortcuts.value = false
         editRequest.value = null
         openRequest.value = null
+        addToFolderRequest.value = null
     }
 
     /** Moves an open Pop-up to its row's latest position after a relayout. */
@@ -303,6 +350,7 @@ class PopupViewModel(
         pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
+        addToFolderRequest.value = null
         if (editRequest.value != target) {
             editShortcuts.value = null
             editRequest.value = target
@@ -369,6 +417,48 @@ class PopupViewModel(
         }
         updatePopup(message = "Failed to delete Folder ${folder.key}") {
             folderRepository.delete(folder)
+        }
+    }
+
+    /** Opens the Add to Folder sheet for [launchable], which must not be a Folder. */
+    fun startAddToFolder(launchable: Launchable) {
+        if (launchable is Folder) {
+            return
+        }
+        addToFolderRequest.value = launchable
+    }
+
+    fun closeAddToFolder() {
+        addToFolderRequest.value = null
+    }
+
+    /** Adds or removes the Add to Folder sheet's Launchable from [folderKey]. */
+    fun toggleMembership(folderKey: String, member: Boolean) {
+        val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
+        if (member == (folderKey in state.membership)) {
+            return
+        }
+        val launchableKey: String = state.launchable.key
+        updatePopup(message = "Failed to change $launchableKey's Folder membership") {
+            popupRepository.setItems(
+                ownerKey = folderKey,
+                add = if (member) listOf(launchableKey) else emptyList(),
+                remove = if (member) emptySet() else setOf(launchableKey)
+            )
+        }
+    }
+
+    /** Creates a Folder holding the Add to Folder sheet's Launchable, then reports it for the Snackbar. */
+    fun startNewFolder(name: String) {
+        val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
+        val launchableKey: String = state.launchable.key
+        updatePopup(message = "Failed to create a Folder for $launchableKey") {
+            val folder: Folder = folderRepository.create(
+                name = name,
+                initialItems = listOf(launchableKey),
+                addToFavorites = true
+            )
+            folderAdditionRequests.send(folder)
         }
     }
 
@@ -445,6 +535,10 @@ class PopupViewModel(
     }
 
     fun onBack(): Boolean {
+        if (addToFolderRequest.value != null) {
+            closeAddToFolder()
+            return true
+        }
         if (isPickingShortcuts.value) {
             cancelShortcutPicking()
             return true
@@ -554,20 +648,44 @@ class PopupViewModel(
             initialValue = OwnerItems(ownerKey = null, items = emptyList())
         )
 
-    private fun observeTargetLoss(targets: Flow<ShortcutTarget?>, isClosedByMode: (HomeEditMode) -> Boolean, onTargetLost: () -> Unit) {
+    private fun folderMemberships(launchableKey: String?): Flow<FolderMembership> = if (launchableKey == null) {
+        flowOf(FolderMembership(launchableKey = null, folderKeys = emptySet()))
+    } else {
+        folderRepository.folders.flatMapLatest { folders ->
+            if (folders.isEmpty()) {
+                flowOf(FolderMembership(launchableKey = launchableKey, folderKeys = emptySet()))
+            } else {
+                combine(folders.map { folder -> folderMembership(folder = folder, launchableKey = launchableKey) }) { memberships ->
+                    FolderMembership(
+                        launchableKey = launchableKey,
+                        folderKeys = memberships
+                            .filter { (_, isMember) -> isMember }
+                            .mapTo(mutableSetOf()) { (folderKey, _) -> folderKey }
+                    )
+                }
+            }
+        }.onStart { emit(FolderMembership(launchableKey = launchableKey, folderKeys = emptySet())) }
+    }
+
+    private fun folderMembership(folder: Folder, launchableKey: String): Flow<Pair<String, Boolean>> =
+        popupRepository.items(ownerKey = folder.key).map { items ->
+            folder.key to items.any { item -> item.launchable.key == launchableKey }
+        }
+
+    private fun observeTargetLoss(targetKeys: Flow<String?>, isClosedByMode: (HomeEditMode) -> Boolean, onTargetLost: () -> Unit) {
         viewModelScope.launch {
             combine(
-                targets,
+                targetKeys,
                 launchableRepository.launchableState,
                 homeEditState.mode
-            ) { target, launchableState, mode -> Triple(target, launchableState, mode) }
-                .collect { (target, launchableState, mode) ->
-                    if (target == null) {
+            ) { targetKey, launchableState, mode -> Triple(targetKey, launchableState, mode) }
+                .collect { (targetKey, launchableState, mode) ->
+                    if (targetKey == null) {
                         return@collect
                     }
                     val isOwnerMissing: Boolean =
                         launchableState.isLoaded &&
-                            launchableState.launchables.none { launchable -> launchable.key == target.ownerKey }
+                            launchableState.launchables.none { launchable -> launchable.key == targetKey }
                     if (isOwnerMissing || isClosedByMode(mode)) {
                         onTargetLost()
                     }

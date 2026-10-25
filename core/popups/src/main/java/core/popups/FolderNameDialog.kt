@@ -1,4 +1,4 @@
-package feature.launcher
+package core.popups
 
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -16,16 +16,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import core.data.folders.Folder
 import core.ui.R as CoreUiR
+import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 /** Asks for a new Folder's name, prefilled and selected so typing replaces it. */
 @Composable
-internal fun NewFolderDialog(viewModel: LauncherViewModel) {
+fun FolderNameDialog(onConfirm: (name: String) -> Unit, onDismiss: () -> Unit) {
     var name: TextFieldValue by remember {
         mutableStateOf(
             TextFieldValue(
@@ -35,7 +37,7 @@ internal fun NewFolderDialog(viewModel: LauncherViewModel) {
         )
     }
     val focusRequester: FocusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
+    val keyboardController: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -43,7 +45,7 @@ internal fun NewFolderDialog(viewModel: LauncherViewModel) {
     }
 
     AlertDialog(
-        onDismissRequest = viewModel::closeNewFolderDialog,
+        onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.new_folder)) },
         text = {
             OutlinedTextField(
@@ -55,16 +57,16 @@ internal fun NewFolderDialog(viewModel: LauncherViewModel) {
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { viewModel.createFolder(name.text) })
+                keyboardActions = KeyboardActions(onDone = { onConfirm(name.text) })
             )
         },
         confirmButton = {
-            TextButton(onClick = { viewModel.createFolder(name.text) }) {
+            TextButton(onClick = { onConfirm(name.text) }) {
                 Text(stringResource(R.string.create))
             }
         },
         dismissButton = {
-            TextButton(onClick = viewModel::closeNewFolderDialog) {
+            TextButton(onClick = onDismiss) {
                 Text(stringResource(CoreUiR.string.cancel))
             }
         }
