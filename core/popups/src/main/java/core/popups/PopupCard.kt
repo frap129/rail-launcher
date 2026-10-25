@@ -1,5 +1,6 @@
 package core.popups
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -20,8 +21,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.Icon as MaterialIcon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -29,15 +33,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -45,9 +52,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,10 +66,16 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.ChevronRight
+import compose.icons.fontawesomeicons.solid.ArrowUp
+import compose.icons.fontawesomeicons.solid.ChevronDown
+import core.data.icons.model.Icon
+import core.data.notifications.NotificationAction
+import core.data.notifications.NotificationSnapshot
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetDragHandle
+import core.ui.layout.minTouchTargetSize
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.widgets.AppWidgetContent
@@ -81,7 +96,13 @@ private val notificationHorizontalPadding = 16.dp
 private val notificationVerticalPadding = 8.dp
 private val notificationMinHeight = 64.dp
 private val notificationChevronSize = 16.dp
-private const val NOTIFICATION_BODY_LINES: Int = 3
+private val notificationMemberIndent = 16.dp
+private val notificationExpandedTopPadding = 8.dp
+private const val NOTIFICATION_BODY_LINES: Int = 1
+private const val NOTIFICATION_EXPANDED_BODY_LINES: Int = 8
+private const val NOTIFICATION_EXPANDED_CHEVRON_DEGREES: Float = 180f
+private const val MAX_VISIBLE_NOTIFICATION_ACTIONS: Int = 3
+private const val NOTIFICATION_REPLY_MAX_LINES: Int = 3
 private val shortcutRowHeight = 48.dp
 private val shortcutHorizontalPadding = 16.dp
 private val shortcutIconSize = 24.dp
@@ -94,6 +115,26 @@ private val emptyStatePadding = 16.dp
 private val addAppsButtonTopPadding = 8.dp
 internal val popupWidgetHorizontalPadding: Dp = 8.dp
 
+@Immutable
+private data class NotificationRowsUi(
+    val notifications: List<NotificationSnapshot>,
+    val appName: String,
+    val icon: Icon,
+    val isIndented: Boolean
+)
+
+@Immutable
+private data class NotificationRowUi(
+    val snapshot: NotificationSnapshot,
+    val appName: String,
+    val icon: Icon,
+    val nowMillis: Long,
+    val isExpanded: Boolean,
+    val isReplySent: Boolean,
+    val isIndented: Boolean,
+    val actions: PopupNotificationActions
+)
+
 /** The floating card that shows one App's header, shortcuts and added items. */
 @Composable
 fun PopupCard(
@@ -101,12 +142,13 @@ fun PopupCard(
     widget: PopupWidgetState?,
     nowMillis: Long,
     resize: ResizeState?,
+    expandedNotificationKeys: Set<String>,
+    sentNotificationKeys: Set<String>,
+    notificationActions: PopupNotificationActions,
     onHeaderClick: (() -> Unit)?,
     onShortcutClick: (ShortcutLaunchable) -> Unit,
     onItemClick: (PopupItem) -> Unit,
     onItemLongClick: (PopupItem) -> Unit,
-    onNotificationClick: (NotificationRow) -> Unit,
-    onNotificationDismiss: (NotificationRow) -> Unit,
     onAddItems: () -> Unit,
     onRequestQuietModeOff: () -> Unit,
     onWidgetLongPress: (Long) -> Unit,
@@ -196,17 +238,18 @@ fun PopupCard(
                         onClick = if (isResizing) null else onHeaderClick,
                         onLongClick = openMenu
                     )
-                    content.ownerNotifications.forEach { row ->
-                        key(row.snapshot.key) {
-                            PopupNotificationRow(
-                                row = row,
-                                header = content.header,
-                                nowMillis = nowMillis,
-                                onClick = { onNotificationClick(row) },
-                                onDismiss = { onNotificationDismiss(row) }
-                            )
-                        }
-                    }
+                    NotificationRows(
+                        ui = NotificationRowsUi(
+                            notifications = content.ownerNotifications,
+                            appName = content.header.name,
+                            icon = content.header.icon,
+                            isIndented = false
+                        ),
+                        nowMillis = nowMillis,
+                        expandedNotificationKeys = expandedNotificationKeys,
+                        sentNotificationKeys = sentNotificationKeys,
+                        actions = notificationActions
+                    )
                     if (content.ownerNotifications.isNotEmpty() && (content.shortcuts.isNotEmpty() || content.items.isNotEmpty())) {
                         PopupDivider()
                     }
@@ -221,6 +264,18 @@ fun PopupCard(
                             item = item,
                             onClick = { onItemClick(item) },
                             onLongClick = { openItemMenu(item) }
+                        )
+                        NotificationRows(
+                            ui = NotificationRowsUi(
+                                notifications = content.itemNotifications[item.launchable.key].orEmpty(),
+                                appName = item.launchable.name,
+                                icon = item.launchable.icon,
+                                isIndented = true
+                            ),
+                            nowMillis = nowMillis,
+                            expandedNotificationKeys = expandedNotificationKeys,
+                            sentNotificationKeys = sentNotificationKeys,
+                            actions = notificationActions
                         )
                     }
                     val emptyReason: PopupEmptyReason = when (content.emptyReason) {
@@ -350,19 +405,45 @@ private fun PopupDivider() {
     )
 }
 
+@Composable
+private fun NotificationRows(
+    ui: NotificationRowsUi,
+    nowMillis: Long,
+    expandedNotificationKeys: Set<String>,
+    sentNotificationKeys: Set<String>,
+    actions: PopupNotificationActions
+) {
+    ui.notifications.forEach { snapshot ->
+        key(snapshot.key) {
+            PopupNotificationRow(
+                row = NotificationRowUi(
+                    snapshot = snapshot,
+                    appName = ui.appName,
+                    icon = ui.icon,
+                    nowMillis = nowMillis,
+                    isExpanded = snapshot.key in expandedNotificationKeys,
+                    isReplySent = snapshot.key in sentNotificationKeys,
+                    isIndented = ui.isIndented,
+                    actions = actions
+                )
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PopupNotificationRow(row: NotificationRow, header: PopupHeader, nowMillis: Long, onClick: () -> Unit, onDismiss: () -> Unit) {
+private fun PopupNotificationRow(row: NotificationRowUi) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value != SwipeToDismissBoxValue.Settled) {
-                onDismiss()
+                row.actions.onDismiss(row.snapshot)
             }
             true
         }
     )
     val content: @Composable () -> Unit = {
-        NotificationRowContent(row = row, header = header, nowMillis = nowMillis, onClick = onClick)
+        NotificationRowContent(row = row)
     }
     if (row.snapshot.isClearable) {
         SwipeToDismissBox(
@@ -379,58 +460,227 @@ private fun PopupNotificationRow(row: NotificationRow, header: PopupHeader, nowM
 }
 
 @Composable
-private fun NotificationRowContent(row: NotificationRow, header: PopupHeader, nowMillis: Long, onClick: () -> Unit) {
+private fun NotificationRowContent(row: NotificationRowUi) {
     val snapshot = row.snapshot
-    Row(
+    val expandLabel: String = stringResource(R.string.notification_expand)
+    val collapseLabel: String = stringResource(R.string.notification_collapse)
+    val dismissLabel: String = stringResource(R.string.notification_dismiss)
+    val openLabel: String = stringResource(R.string.notification_open)
+    val announcement: String = stringResource(R.string.notification_announcement, row.appName, snapshot.title)
+    val actionLayout: NotificationActionLayout = notificationActionLayout(actions = snapshot.actions)
+    val toggleLabel: String = if (row.isExpanded) collapseLabel else expandLabel
+    val clickLabel: String = if (row.isExpanded) collapseLabel else openLabel
+    val onRowClick: () -> Unit = if (row.isExpanded) {
+        { row.actions.onToggleExpanded(snapshot) }
+    } else {
+        { row.actions.onOpen(snapshot) }
+    }
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = notificationMinHeight)
-            .clickable(onClick = onClick)
-            .padding(horizontal = notificationHorizontalPadding, vertical = notificationVerticalPadding),
-        verticalAlignment = Alignment.Top
+            .animateContentSize()
+            .padding(start = if (row.isIndented) notificationMemberIndent else 0.dp)
+            .padding(horizontal = notificationHorizontalPadding, vertical = notificationVerticalPadding)
     ) {
-        AsyncImage(
-            modifier = Modifier.size(notificationIconSize),
-            model = header.icon,
-            contentDescription = null
-        )
-        Spacer(Modifier.width(notificationIconGap))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(
-                    R.string.notification_app_and_age,
-                    header.name,
-                    notificationAgeLabel(postTime = snapshot.postTime, nowMillis = nowMillis)
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = notificationMinHeight)
+                .clearAndSetSemantics {
+                    contentDescription = announcement
+                    onClick(label = clickLabel) {
+                        onRowClick()
+                        true
+                    }
+                    customActions = buildList {
+                        if (snapshot.isExpandable) {
+                            add(
+                                CustomAccessibilityAction(label = toggleLabel) {
+                                    row.actions.onToggleExpanded(snapshot)
+                                    true
+                                }
+                            )
+                        }
+                        if (snapshot.isClearable) {
+                            add(
+                                CustomAccessibilityAction(label = dismissLabel) {
+                                    row.actions.onDismiss(snapshot)
+                                    true
+                                }
+                            )
+                        }
+                    }
+                }
+                .clickable(onClick = onRowClick),
+            verticalAlignment = Alignment.Top
+        ) {
+            AsyncImage(
+                modifier = Modifier.size(notificationIconSize),
+                model = row.icon,
+                contentDescription = null
             )
-            if (snapshot.title.isNotBlank()) {
+            Spacer(Modifier.width(notificationIconGap))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = snapshot.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = stringResource(
+                        R.string.notification_app_and_age,
+                        row.appName,
+                        notificationAgeLabel(postTime = snapshot.postTime, nowMillis = row.nowMillis)
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (snapshot.title.isNotBlank()) {
+                    Text(
+                        text = snapshot.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (!row.isExpanded && snapshot.body.isNotBlank()) {
+                    Text(
+                        text = snapshot.body,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = NOTIFICATION_BODY_LINES,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            if (snapshot.body.isNotBlank()) {
-                Text(
-                    text = snapshot.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = NOTIFICATION_BODY_LINES,
-                    overflow = TextOverflow.Ellipsis
-                )
+            if (snapshot.isExpandable) {
+                IconButton(modifier = Modifier.size(minTouchTargetSize), onClick = { row.actions.onToggleExpanded(snapshot) }) {
+                    MaterialIcon(
+                        modifier = Modifier
+                            .size(notificationChevronSize)
+                            .rotate(if (row.isExpanded) NOTIFICATION_EXPANDED_CHEVRON_DEGREES else 0f),
+                        imageVector = FontAwesomeIcons.Solid.ChevronDown,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-        if (row.isExpandable) {
-            Icon(
-                modifier = Modifier.size(notificationChevronSize),
-                imageVector = FontAwesomeIcons.Solid.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+        if (row.isExpanded) {
+            NotificationExpandedContent(row = row, actionLayout = actionLayout)
+        }
+    }
+}
+
+@Composable
+private fun NotificationExpandedContent(row: NotificationRowUi, actionLayout: NotificationActionLayout) {
+    val snapshot = row.snapshot
+    val visibleButtons: List<IndexedValue<NotificationAction>> = actionLayout.buttons.take(MAX_VISIBLE_NOTIFICATION_ACTIONS)
+    val overflowButtons: List<IndexedValue<NotificationAction>> = actionLayout.buttons.drop(MAX_VISIBLE_NOTIFICATION_ACTIONS)
+    var showActionSheet: Boolean by remember(snapshot.key) { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (snapshot.expandedBody.isNotBlank()) {
+            Text(
+                modifier = Modifier.padding(top = notificationExpandedTopPadding),
+                text = snapshot.expandedBody,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = NOTIFICATION_EXPANDED_BODY_LINES,
+                overflow = TextOverflow.Ellipsis
             )
+        }
+        if (visibleButtons.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.Start) {
+                visibleButtons.forEach { indexed ->
+                    TextButton(onClick = { row.actions.onAction(snapshot, indexed.index) }) {
+                        Text(text = indexed.value.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (overflowButtons.isNotEmpty()) {
+                    TextButton(onClick = { showActionSheet = true }) {
+                        Text(text = stringResource(R.string.notification_more_actions))
+                    }
+                }
+            }
+        }
+        if (actionLayout.replyIndex >= 0) {
+            if (row.isReplySent) {
+                Text(
+                    modifier = Modifier.padding(vertical = notificationVerticalPadding),
+                    text = stringResource(R.string.notification_sent),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                NotificationReplyField(onSend = { reply -> row.actions.onReply(snapshot, actionLayout.replyIndex, reply) })
+            }
+        }
+    }
+    if (showActionSheet) {
+        NotificationActionsSheet(
+            title = snapshot.title,
+            actions = overflowButtons,
+            onAction = { index ->
+                showActionSheet = false
+                row.actions.onAction(snapshot, index)
+            },
+            onDismiss = { showActionSheet = false }
+        )
+    }
+}
+
+@Composable
+private fun NotificationReplyField(onSend: (String) -> Unit) {
+    var replyText: String by rememberSaveable { mutableStateOf("") }
+    val sendLabel: String = stringResource(R.string.notification_send)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            modifier = Modifier.weight(1f),
+            value = replyText,
+            onValueChange = { value -> replyText = value },
+            placeholder = { Text(text = stringResource(R.string.notification_reply_hint)) },
+            maxLines = NOTIFICATION_REPLY_MAX_LINES
+        )
+        IconButton(
+            onClick = {
+                if (replyText.isNotBlank()) {
+                    onSend(replyText)
+                    replyText = ""
+                }
+            },
+            enabled = replyText.isNotBlank()
+        ) {
+            MaterialIcon(
+                imageVector = FontAwesomeIcons.Solid.ArrowUp,
+                contentDescription = sendLabel
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationActionsSheet(
+    title: String,
+    actions: List<IndexedValue<NotificationAction>>,
+    onAction: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        dragHandle = { SheetDragHandle() },
+        onDismissRequest = onDismiss
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            PopupSheetTitleRow(title = title)
+            actions.forEach { indexed ->
+                TextButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = notificationHorizontalPadding),
+                    onClick = { onAction(indexed.index) }
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = indexed.value.label,
+                        textAlign = TextAlign.Start
+                    )
+                }
+            }
         }
     }
 }

@@ -5,11 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -34,6 +37,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -41,6 +45,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Regular
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.regular.Star
+import compose.icons.fontawesomeicons.solid.ChevronRight
 import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -56,6 +61,7 @@ import kotlin.math.roundToInt
 private val favoriteStarSize: Dp = 28.dp
 private val favoriteStarOutlineSize: Dp = 36.dp
 private val launchableIconCenterOffset: Dp = 32.dp
+private val folderSummaryChevronSize: Dp = 16.dp
 
 @Immutable
 data class LauncherItemActions(
@@ -90,6 +96,7 @@ fun LauncherItem(
     isFavorite: Boolean,
     isPopupSwipeEnabled: Boolean,
     itemActions: LauncherItemActions,
+    summary: String? = null,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -102,6 +109,9 @@ fun LauncherItem(
     val longPressGate: LongPressGate = remember { LongPressGate() }
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
+    val summaryDescription: String? = summary?.let { summaryText ->
+        stringResource(R.string.folder_summary_description, item.name, summaryText)
+    }
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -151,6 +161,15 @@ fun LauncherItem(
                     currentItemActions.onItemAnchorChanged(currentItem, anchor)
                 }
                 .then(
+                    if (summaryDescription != null && !isEditingFavorites) {
+                        Modifier.semantics(mergeDescendants = true) {
+                            contentDescription = summaryDescription
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .then(
                     if (canOpenPopup) {
                         Modifier.semantics {
                             customActions = listOf(
@@ -177,9 +196,28 @@ fun LauncherItem(
                 )
             }
             LaunchableIcon(launchable = item)
-            OutlinedText(
-                text = item.name
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                OutlinedText(
+                    text = item.name
+                )
+                if (summary != null) {
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (summary != null) {
+                Icon(
+                    modifier = Modifier.size(folderSummaryChevronSize),
+                    imageVector = FontAwesomeIcons.Solid.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

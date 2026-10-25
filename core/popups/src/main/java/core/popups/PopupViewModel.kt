@@ -62,6 +62,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -96,6 +97,11 @@ private data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>
 private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 private data class OwnerNotifications(val ownerKey: String?, val notifications: List<NotificationSnapshot>)
+
+private data class NotificationExpansion(val snapshot: NotificationSnapshot, val isExpandedByDefault: Boolean) {
+    /** Whether this row is expanded, honouring an explicit toggle over its default. */
+    fun isExpanded(overrides: Map<String, Boolean>): Boolean = overrides[snapshot.key] ?: isExpandedByDefault
+}
 
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
@@ -186,6 +192,10 @@ class PopupViewModel(
 
     private val pickerItems: StateFlow<OwnerItems> = addedItems(pickerTarget)
 
+    private val notificationExpansion: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap())
+
+    private val sentNotifications: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
+
     private val addToFolderRequest: MutableStateFlow<Launchable?> = MutableStateFlow(null)
 
     private val folderAdditionRequests: EventChannel<Folder> = EventChannel()
@@ -270,6 +280,21 @@ class PopupViewModel(
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = PopupUiState.Closed
     )
+
+    /** The notification keys shown expanded: the owner's rows start open, member rows start collapsed. */
+    val expandedNotificationKeys: StateFlow<Set<String>> = combine(popupState, notificationExpansion) { state, expansion ->
+        val open: PopupUiState.Open = state as? PopupUiState.Open ?: return@combine emptySet()
+        open.content.notificationRows()
+            .filter { expansionItem -> expansionItem.snapshot.isExpandable && expansionItem.isExpanded(expansion) }
+            .mapTo(mutableSetOf()) { expansionItem -> expansionItem.snapshot.key }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = emptySet()
+    )
+
+    /** The notification keys whose inline reply was delivered, shown as Sent. */
+    val sentNotificationKeys: StateFlow<Set<String>> = sentNotifications.asStateFlow()
 
     val menuState: StateFlow<PopupMenuState> = combine(
         popupState,
@@ -464,6 +489,8 @@ class PopupViewModel(
         pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
+        notificationExpansion.value = emptyMap()
+        sentNotifications.value = emptySet()
         cardShortcuts.value = EMPTY_SHORTCUTS
         openRequest.value = OpenRequest(target = target, anchor = anchor)
     }
@@ -475,6 +502,8 @@ class PopupViewModel(
         pickerTarget.value = null
         isPicking.value = false
         isPickingShortcuts.value = false
+        notificationExpansion.value = emptyMap()
+        sentNotifications.value = emptySet()
         editRequest.value = null
         openRequest.value = null
         addToFolderRequest.value = null
@@ -518,6 +547,33 @@ class PopupViewModel(
         openNotificationTarget() ?: return
         viewModelScope.launch {
             notificationSource.dismiss(key)
+        }
+    }
+
+    /** Expands or collapses the notification [key]'s row. */
+    fun toggleNotificationExpanded(key: String) {
+        val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
+        val expansionItem: NotificationExpansion =
+            open.content.notificationRows().firstOrNull { item -> item.snapshot.key == key } ?: return
+        if (!expansionItem.snapshot.isExpandable) {
+            return
+        }
+        val isExpanded: Boolean = expansionItem.isExpanded(notificationExpansion.value)
+        notificationExpansion.update { current -> current + (key to !isExpanded) }
+    }
+
+    /** Runs [key]'s action [index], filling [replyText] into its RemoteInput when the action takes one. */
+    fun runNotificationAction(key: String, index: Int, replyText: String? = null) {
+        if (openNotificationTarget() == null) {
+            Timber.w("Ignoring a notification action without an open Pop-up")
+            return
+        }
+        viewModelScope.launch {
+            val didRun: Boolean = notificationSource.runAction(key = key, index = index, replyText = replyText)
+            when {
+                didRun && replyText != null -> sentNotifications.update { keys -> keys + key }
+                !didRun && replyText != null -> widgetEvents.send(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_send))
+            }
         }
     }
 
@@ -1026,10 +1082,7 @@ class PopupViewModel(
         close()
     }
 
-    private fun openNotificationTarget(): ShortcutTarget? {
-        val target: ShortcutTarget = openRequest.value?.target ?: return null
-        return target.takeIf { current -> current.packageName != null && current.profile != null }
-    }
+    private fun openNotificationTarget(): ShortcutTarget? = openRequest.value?.target
 
     private fun folderMemberships(launchableKey: String?): Flow<FolderMembership> = if (launchableKey == null) {
         flowOf(FolderMembership(launchableKey = null, folderKeys = emptySet()))
@@ -1265,3 +1318,9 @@ class PopupViewModel(
         else -> null
     }
 }
+
+/** Every notification in the card, with whether it starts expanded. */
+private fun PopupContent.notificationRows(): List<NotificationExpansion> =
+    ownerNotifications.map { snapshot -> NotificationExpansion(snapshot = snapshot, isExpandedByDefault = true) } +
+        itemNotifications.values.flatten()
+            .map { snapshot -> NotificationExpansion(snapshot = snapshot, isExpandedByDefault = false) }

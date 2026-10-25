@@ -1,6 +1,9 @@
 package core.popups
 
+import android.app.Notification
+import android.app.RemoteInput
 import android.content.ComponentName
+import android.content.Intent
 import android.os.UserHandle
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.SavedStateHandle
@@ -14,6 +17,9 @@ import core.data.launchables.model.RailLaunchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
 import core.data.notifications.INotificationSourceImpl
+import core.data.notifications.NotificationHandle
+import core.data.notifications.NotificationRecord
+import core.data.notifications.NotificationSnapshot
 import core.data.popups.PopupItem
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
@@ -30,13 +36,17 @@ import core.data.testing.FakeWidgetAreaRepository
 import core.data.testing.FakeWidgetSettingsRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
+import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
+import core.data.testing.TEST_NOTIFICATION_REPLY_KEY
+import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
 import core.data.testing.appWidgetPlace
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationRecord
+import core.data.testing.createPlatformNotificationAction
 import core.data.testing.popupStackPlace
 import core.data.time.ClockReading
 import core.data.time.IClockSource
@@ -79,6 +89,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 private const val ACTIVITY_NAME: String = "com.example.app.MainActivity"
@@ -169,30 +180,21 @@ class PopupViewModelTest {
 
     @Test
     fun `shows the App's notifications in its Pop-up`() = runTest {
-        fakePopupRepository.setNotificationsEnabled(true)
-        val viewModel: PopupViewModel = createViewModel()
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        mockNotificationRelay.post(record = createNotificationRecord(title = "Hello"), handle = createNotificationHandle())
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard(notification = createNotificationRecord(title = "Hello"))
 
         val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
-        assertEquals(listOf("Hello"), actualState.content.ownerNotifications.map { row -> row.snapshot.title })
+        assertEquals(listOf("Hello"), actualState.content.ownerNotifications.map { snapshot -> snapshot.title })
         assertEquals(NOW.toEpochMilli(), actualState.nowMillis)
         assertEquals(PopupEmptyReason.None, actualState.content.emptyReason)
     }
 
     @Test
     fun `advances notification ages with the clock`() = runTest {
-        fakePopupRepository.setNotificationsEnabled(true)
         val mockClockSource: FakeClockSource = FakeClockSource(initialReading = clockReading(instant = NOW))
-        val viewModel: PopupViewModel = createViewModel(clockSource = mockClockSource)
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard(
+            viewModel = createViewModel(clockSource = mockClockSource),
+            notification = null
+        )
         assertEquals(NOW.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
 
         val inputLater: Instant = NOW.plusSeconds(360L)
@@ -204,17 +206,7 @@ class PopupViewModelTest {
 
     @Test
     fun `tapping a notification opens it and closes the card`() = runTest {
-        fakePopupRepository.setNotificationsEnabled(true)
-        val viewModel: PopupViewModel = createViewModel()
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        mockNotificationRelay.post(
-            record = createNotificationRecord(),
-            handle = createNotificationHandle(isAutoCancel = true)
-        )
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard(handle = createNotificationHandle(isAutoCancel = true))
 
         viewModel.onOpenNotification(key = TEST_NOTIFICATION_KEY)
         advanceUntilIdle()
@@ -225,14 +217,7 @@ class PopupViewModelTest {
 
     @Test
     fun `dismissing the last notification closes a notifications-only card`() = runTest {
-        fakePopupRepository.setNotificationsEnabled(true)
-        val viewModel: PopupViewModel = createViewModel()
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard()
         assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.ownerNotifications.size)
 
         viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
@@ -243,21 +228,14 @@ class PopupViewModelTest {
 
     @Test
     fun `dismissing notifications keeps a card with shortcuts open`() = runTest {
-        fakePopupRepository.setNotificationsEnabled(true)
         fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
-        val viewModel: PopupViewModel = createViewModel()
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard()
 
         viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
         advanceUntilIdle()
 
         val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
-        assertEquals(emptyList<NotificationRow>(), actualState.content.ownerNotifications)
+        assertEquals(emptyList<NotificationSnapshot>(), actualState.content.ownerNotifications)
         assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
     }
 
@@ -265,15 +243,10 @@ class PopupViewModelTest {
     fun `revoking access clears the open card's notifications`() = runTest {
         var inputAccess: Boolean = true
         val notificationSource: INotificationSource = createNotificationSource(accessCheck = { inputAccess })
-        fakePopupRepository.setNotificationsEnabled(true)
         fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
-        val viewModel: PopupViewModel = createViewModel(notificationSource = notificationSource)
-        backgroundScope.launch { viewModel.popupState.collect() }
-        runCurrent()
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        mockNotificationRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
-        runCurrent()
+        val viewModel: PopupViewModel = openNotificationCard(
+            viewModel = createViewModel(notificationSource = notificationSource)
+        )
         assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.ownerNotifications.size)
 
         inputAccess = false
@@ -281,8 +254,143 @@ class PopupViewModelTest {
         runCurrent()
 
         val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
-        assertEquals(emptyList<NotificationRow>(), actualState.content.ownerNotifications)
+        assertEquals(emptyList<NotificationSnapshot>(), actualState.content.ownerNotifications)
         assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
+    }
+
+    @Test
+    fun `the owner's expandable notifications start expanded`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(notification = createNotificationRecord(bigText = "Long text"))
+
+        assertEquals(setOf(TEST_NOTIFICATION_KEY), viewModel.expandedNotificationKeys.value)
+    }
+
+    @Test
+    fun `a title-only owner notification is not expandable`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(
+            notification = createNotificationRecord(text = "", bigText = "")
+        )
+
+        assertEquals(emptySet<String>(), viewModel.expandedNotificationKeys.value)
+    }
+
+    @Test
+    fun `collapsing the owner's notification hides it from the expanded keys`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(notification = createNotificationRecord(bigText = "Long text"))
+
+        viewModel.toggleNotificationExpanded(key = TEST_NOTIFICATION_KEY)
+        runCurrent()
+
+        assertEquals(emptySet<String>(), viewModel.expandedNotificationKeys.value)
+    }
+
+    @Test
+    fun `a Folder member's notification starts collapsed and expands on request`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(
+            owner = inputFolder,
+            items = listOf(inputApp),
+            notification = createNotificationRecord(bigText = "Long text")
+        )
+        assertEquals(emptySet<String>(), viewModel.expandedNotificationKeys.value)
+
+        viewModel.toggleNotificationExpanded(key = TEST_NOTIFICATION_KEY)
+        runCurrent()
+
+        assertEquals(setOf(TEST_NOTIFICATION_KEY), viewModel.expandedNotificationKeys.value)
+    }
+
+    @Test
+    fun `a title-only member notification cannot expand`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(
+            owner = inputFolder,
+            items = listOf(inputApp),
+            notification = createNotificationRecord(text = "", bigText = "")
+        )
+
+        viewModel.toggleNotificationExpanded(key = TEST_NOTIFICATION_KEY)
+        runCurrent()
+
+        assertEquals(emptySet<String>(), viewModel.expandedNotificationKeys.value)
+    }
+
+    @Test
+    fun `running a notification action forwards it`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val viewModel: PopupViewModel = openNotificationCard(
+            handle = createNotificationHandle(actions = listOf(createPlatformNotificationAction(context = context)))
+        )
+
+        viewModel.runNotificationAction(key = TEST_NOTIFICATION_KEY, index = 0)
+        advanceUntilIdle()
+
+        assertTrue(shadowOf(context).broadcastIntents.any { intent -> intent.action == TEST_NOTIFICATION_ACTION_ACTION })
+    }
+
+    @Test
+    fun `a delivered reply marks the notification as sent`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val viewModel: PopupViewModel = openNotificationCard(
+            handle = createNotificationHandle(
+                actions = listOf(createPlatformNotificationAction(context = context, withRemoteInput = true))
+            )
+        )
+
+        viewModel.runNotificationAction(
+            key = TEST_NOTIFICATION_KEY,
+            index = 0,
+            replyText = TEST_NOTIFICATION_REPLY_TEXT
+        )
+        advanceUntilIdle()
+
+        assertEquals(setOf(TEST_NOTIFICATION_KEY), viewModel.sentNotificationKeys.value)
+        val sentIntent: Intent = shadowOf(context).broadcastIntents.first { intent -> intent.action == TEST_NOTIFICATION_ACTION_ACTION }
+        assertEquals(
+            TEST_NOTIFICATION_REPLY_TEXT,
+            RemoteInput.getResultsFromIntent(sentIntent)?.getCharSequence(TEST_NOTIFICATION_REPLY_KEY)?.toString()
+        )
+    }
+
+    @Test
+    fun `a failed reply shows a Snackbar`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val inputAction: Notification.Action = createPlatformNotificationAction(context = context, withRemoteInput = true)
+        inputAction.actionIntent.cancel()
+        val viewModel: PopupViewModel = openNotificationCard(
+            handle = createNotificationHandle(actions = listOf(inputAction))
+        )
+
+        viewModel.events.test {
+            viewModel.runNotificationAction(key = TEST_NOTIFICATION_KEY, index = 0, replyText = TEST_NOTIFICATION_REPLY_TEXT)
+            advanceUntilIdle()
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_send), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(emptySet<String>(), viewModel.sentNotificationKeys.value)
+    }
+
+    @Test
+    fun `dismissing the owner's last notification keeps a card with items open`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(items = listOf(inputOtherApp))
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyList<NotificationSnapshot>(), actualState.content.ownerNotifications)
+        assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualState.content.items)
+    }
+
+    @Test
+    fun `dismissing a member's last notification keeps the Folder card open`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(owner = inputFolder, items = listOf(inputApp))
+        assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.itemNotifications.getValue(inputApp.key).size)
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyMap<String, List<NotificationSnapshot>>(), actualState.content.itemNotifications)
+        assertEquals(listOf(PopupItem.Launchable(inputApp)), actualState.content.items)
     }
 
     @Test
@@ -1855,6 +1963,30 @@ class PopupViewModelTest {
         relay = mockNotificationRelay,
         isAccessGranted = { accessCheck() }
     )
+
+    /** Opens [owner]'s card with notifications switched on and, unless null, one posted notification. */
+    private suspend fun TestScope.openNotificationCard(
+        viewModel: PopupViewModel = createViewModel(),
+        owner: Launchable = inputApp,
+        items: List<Launchable> = emptyList(),
+        notification: NotificationRecord? = createNotificationRecord(),
+        handle: NotificationHandle = createNotificationHandle()
+    ): PopupViewModel {
+        fakePopupRepository.setNotificationsEnabled(true)
+        if (items.isNotEmpty()) {
+            fakePopupRepository.setItems(ownerKey = owner.key, items = items)
+        }
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.expandedNotificationKeys.collect() }
+        runCurrent()
+        viewModel.open(owner, INPUT_ANCHOR)
+        runCurrent()
+        if (notification != null) {
+            mockNotificationRelay.post(record = notification, handle = handle)
+            runCurrent()
+        }
+        return viewModel
+    }
 
     private fun clockReading(instant: Instant): ClockReading = ClockReading(
         instant = instant,

@@ -2,6 +2,7 @@ package core.data.notifications
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.RemoteInput
 import android.content.Intent
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
@@ -9,12 +10,17 @@ import android.service.notification.StatusBarNotification
 import app.cash.turbine.test
 import core.data.media.RailNotificationListener
 import core.data.testing.FakePopupRepository
+import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
+import core.data.testing.TEST_NOTIFICATION_REPLY_ACTION
+import core.data.testing.TEST_NOTIFICATION_REPLY_KEY
+import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationRecord
+import core.data.testing.createPlatformNotificationAction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -261,6 +267,67 @@ class INotificationSourceImplTest {
         source.open(key = TEST_NOTIFICATION_KEY)
 
         assertEquals(TEST_NOTIFICATION_KEY, mockRelay.record(key = TEST_NOTIFICATION_KEY)?.key)
+    }
+
+    @Test
+    fun `running an action sends its intent`() = runTest {
+        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        mockPopupRepository.setNotificationsEnabled(true)
+        val context = RuntimeEnvironment.getApplication()
+        val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
+        mockRelay.post(
+            record = createNotificationRecord(),
+            handle = createNotificationHandle(actions = listOf(createPlatformNotificationAction(context = context)))
+        )
+
+        val didRun: Boolean = source.runAction(key = TEST_NOTIFICATION_KEY, index = 0)
+
+        assertTrue(didRun)
+        assertTrue(
+            shadowOf(context).broadcastIntents.any { intent -> intent.action == TEST_NOTIFICATION_ACTION_ACTION }
+        )
+    }
+
+    @Test
+    fun `running a reply action delivers the reply text`() = runTest {
+        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        mockPopupRepository.setNotificationsEnabled(true)
+        val context = RuntimeEnvironment.getApplication()
+        val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
+        val inputAction: Notification.Action = createPlatformNotificationAction(
+            context = context,
+            action = TEST_NOTIFICATION_REPLY_ACTION,
+            withRemoteInput = true
+        )
+        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle(actions = listOf(inputAction)))
+
+        val didRun: Boolean = source.runAction(key = TEST_NOTIFICATION_KEY, index = 0, replyText = TEST_NOTIFICATION_REPLY_TEXT)
+
+        assertTrue(didRun)
+        val sentIntent: Intent = shadowOf(context).broadcastIntents.first { intent -> intent.action == TEST_NOTIFICATION_REPLY_ACTION }
+        assertEquals(
+            TEST_NOTIFICATION_REPLY_TEXT,
+            RemoteInput.getResultsFromIntent(sentIntent)?.getCharSequence(TEST_NOTIFICATION_REPLY_KEY)?.toString()
+        )
+    }
+
+    @Test
+    fun `running an action that does not exist returns false`() = runTest {
+        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        mockPopupRepository.setNotificationsEnabled(true)
+        val context = RuntimeEnvironment.getApplication()
+        val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
+        mockRelay.post(
+            record = createNotificationRecord(),
+            handle = createNotificationHandle(actions = listOf(createPlatformNotificationAction(context = context)))
+        )
+
+        val didRun: Boolean = source.runAction(key = TEST_NOTIFICATION_KEY, index = 1)
+
+        assertFalse(didRun)
+        assertTrue(
+            shadowOf(context).broadcastIntents.none { intent -> intent.action == TEST_NOTIFICATION_ACTION_ACTION }
+        )
     }
 
     private fun TestScope.createSource(

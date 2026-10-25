@@ -72,6 +72,7 @@ fun LauncherHome(
     home: LauncherUiState.Home,
     widgetArea: WidgetAreaUi,
     itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
     isResizing: Boolean,
@@ -112,6 +113,7 @@ fun LauncherHome(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         home = home,
                         itemActions = itemActions,
+                        folderSummaries = folderSummaries,
                         onFavoriteMoved = onFavoriteMoved,
                         onEmptyAreaLongPress = onEmptyAreaLongPress,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
@@ -170,6 +172,7 @@ fun LauncherHome(
                     favoriteItems(
                         home = home,
                         itemActions = itemActions,
+                        folderSummaries = folderSummaries,
                         reorderableState = reorderState,
                         blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
                         onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null,
@@ -203,6 +206,7 @@ private fun FavoritesBottomArea(
     modifier: Modifier,
     home: LauncherUiState.Home,
     itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
     isPopupSwipeEnabled: Boolean,
@@ -246,6 +250,7 @@ private fun FavoritesBottomArea(
             favoriteItems(
                 home = home,
                 itemActions = itemActions,
+                folderSummaries = folderSummaries,
                 reorderableState = reorderState,
                 isPopupSwipeEnabled = isPopupSwipeEnabled
             )
@@ -272,6 +277,7 @@ private fun LazyListScope.favoriteItems(
     home: LauncherUiState.Home,
     itemActions: LauncherItemActions,
     reorderableState: ReorderableLazyListState,
+    folderSummaries: Map<String, String>,
     isPopupSwipeEnabled: Boolean,
     blockInteraction: Boolean = false,
     onBlockedGestureEnd: (() -> Unit)? = null
@@ -305,6 +311,7 @@ private fun LazyListScope.favoriteItems(
                         isFavorite = true,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
+                        summary = folderSummaries[favorite.key],
                         modifier = Modifier.weight(1f)
                     )
                     if (home.isEditingFavorites) {

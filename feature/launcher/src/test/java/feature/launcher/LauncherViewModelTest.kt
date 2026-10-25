@@ -2,25 +2,36 @@ package feature.launcher
 
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.favorites.FavoriteRecord
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationSource
+import core.data.notifications.INotificationSourceImpl
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
+import core.data.testing.FakePopupRepository
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
+import core.data.testing.TEST_NOTIFICATION_KEY
+import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createEagerFavoritesRepository
+import core.data.testing.createNotificationHandle
+import core.data.testing.createNotificationRecord
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -32,13 +43,20 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 private const val START_OFFSET_PX: Int = 200
 private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
 private const val FAVORITE_FOLDER_ID: Long = 42L
+private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class LauncherViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
@@ -52,6 +70,7 @@ class LauncherViewModelTest {
     )
     private val inputGroups: List<LaunchableGroup> = listOf(LaunchableGroup.Star) + inputListedGroups
     private val inputItem: Launchable = inputListedGroups.first().items.first()
+    private val mockNotificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
 
     @Test
     fun `shows Loading until the Launchables are loaded`() {
@@ -1156,13 +1175,84 @@ class LauncherViewModelTest {
         assertTrue(launchableRepository.launchableState.value.launchables.any { launchable -> launchable.key == folder.key })
     }
 
+    @Test
+    fun `summarises the Folder members with notifications in item order`() = runTest {
+        val inputSecondApp: App = createApp(name = "Signal", packageName = "com.example.signal")
+        val fixture: FolderSummaryFixture = createFolderSummaryFixture(
+            members = listOf(createApp(name = "WhatsApp", packageName = SUMMARY_PACKAGE_NAME), inputSecondApp)
+        )
+        backgroundScope.launch { fixture.viewModel.folderSummaries.collect { } }
+        backgroundScope.launch { fixture.viewModel.folderSummaryLines.collect { } }
+        runCurrent()
+
+        mockNotificationRelay.post(
+            record = createNotificationRecord(packageName = SUMMARY_PACKAGE_NAME),
+            handle = createNotificationHandle()
+        )
+        runCurrent()
+        assertEquals(mapOf(fixture.folder.key to listOf("WhatsApp")), fixture.viewModel.folderSummaries.value)
+
+        mockNotificationRelay.post(
+            record = createNotificationRecord(key = "second", packageName = inputSecondApp.packageName),
+            handle = createNotificationHandle()
+        )
+        runCurrent()
+        assertEquals(mapOf(fixture.folder.key to listOf("WhatsApp", "Signal")), fixture.viewModel.folderSummaries.value)
+        assertEquals(mapOf(fixture.folder.key to "WhatsApp, Signal"), fixture.viewModel.folderSummaryLines.value)
+    }
+
+    @Test
+    fun `drops the Folder summary when its last notification is gone`() = runTest {
+        val fixture: FolderSummaryFixture = createFolderSummaryFixture(
+            members = listOf(createApp(name = "WhatsApp", packageName = SUMMARY_PACKAGE_NAME))
+        )
+        backgroundScope.launch { fixture.viewModel.folderSummaries.collect { } }
+        backgroundScope.launch { fixture.viewModel.folderSummaryLines.collect { } }
+        runCurrent()
+        mockNotificationRelay.post(
+            record = createNotificationRecord(packageName = SUMMARY_PACKAGE_NAME),
+            handle = createNotificationHandle()
+        )
+        runCurrent()
+        assertEquals(mapOf(fixture.folder.key to listOf("WhatsApp")), fixture.viewModel.folderSummaries.value)
+
+        mockNotificationRelay.remove(key = TEST_NOTIFICATION_KEY)
+        runCurrent()
+
+        assertEquals(emptyMap<String, List<String>>(), fixture.viewModel.folderSummaries.value)
+        assertEquals(emptyMap<String, String>(), fixture.viewModel.folderSummaryLines.value)
+    }
+
+    @Test
+    fun `keeps the Folder summary when another App is notified`() = runTest {
+        val fixture: FolderSummaryFixture = createFolderSummaryFixture(
+            members = listOf(createApp(name = "WhatsApp", packageName = SUMMARY_PACKAGE_NAME))
+        )
+        backgroundScope.launch { fixture.viewModel.folderSummaries.collect { } }
+        runCurrent()
+        mockNotificationRelay.post(
+            record = createNotificationRecord(packageName = SUMMARY_PACKAGE_NAME),
+            handle = createNotificationHandle()
+        )
+        runCurrent()
+
+        mockNotificationRelay.post(
+            record = createNotificationRecord(key = "other", packageName = "com.example.other"),
+            handle = createNotificationHandle()
+        )
+        runCurrent()
+
+        assertEquals(mapOf(fixture.folder.key to listOf("WhatsApp")), fixture.viewModel.folderSummaries.value)
+    }
+
     // The production repository with FakeFavoriteDao exercises the resolution and
     // cleanup flow through the ViewModel seam; a fake repository would duplicate it.
     private fun TestScope.createViewModel(
         mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = inputGroups),
         mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
         mockFolderRepository: FakeFolderRepository = FakeFolderRepository(),
-        inputHomeEditState: HomeEditState = HomeEditState()
+        inputHomeEditState: HomeEditState = HomeEditState(),
+        mockPopupRepository: FakePopupRepository = FakePopupRepository()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -1174,7 +1264,17 @@ class LauncherViewModelTest {
             launchableRepository = mockLaunchableRepository
         ),
         folderRepo = mockFolderRepository,
+        popupRepo = mockPopupRepository,
+        notificationSource = createNotificationSource(mockPopupRepository = mockPopupRepository),
         homeEditState = inputHomeEditState
+    )
+
+    private fun TestScope.createNotificationSource(mockPopupRepository: FakePopupRepository): INotificationSource = INotificationSourceImpl(
+        context = RuntimeEnvironment.getApplication(),
+        scope = backgroundScope,
+        popupRepository = mockPopupRepository,
+        relay = mockNotificationRelay,
+        isAccessGranted = { true }
     )
 
     private fun TestScope.createFavoriteFolderFixture(showInAppList: Boolean): FavoriteFolderFixture {
@@ -1184,6 +1284,20 @@ class LauncherViewModelTest {
             mockFavoriteDao = FakeFavoriteDao(initialRecords = listOf(FavoriteRecord(key = folder.key, position = 0)))
         )
         return FavoriteFolderFixture(folder = folder, viewModel = viewModel)
+    }
+
+    private suspend fun TestScope.createFolderSummaryFixture(members: List<App>): FolderSummaryFixture {
+        val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        mockPopupRepository.setNotificationsEnabled(true)
+        mockPopupRepository.setItems(ownerKey = folder.key, items = members)
+        return FolderSummaryFixture(
+            folder = folder,
+            viewModel = createViewModel(
+                mockFolderRepository = FakeFolderRepository(initialFolders = listOf(folder)),
+                mockPopupRepository = mockPopupRepository
+            )
+        )
     }
 
     private inline fun <reified T : LauncherUiState> checkState(actualState: LauncherUiState): T {
@@ -1212,3 +1326,5 @@ class LauncherViewModelTest {
 }
 
 private data class FavoriteFolderFixture(val folder: Folder, val viewModel: LauncherViewModel)
+
+private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)

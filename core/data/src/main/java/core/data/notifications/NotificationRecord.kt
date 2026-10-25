@@ -11,9 +11,9 @@ data class NotificationRecord(
     val title: String,
     val text: String,
     val bigText: String,
-    val lastMessage: String,
+    val messages: List<String>,
     val isClearable: Boolean,
-    val hasActions: Boolean,
+    val actions: List<NotificationAction>,
     val isGroupSummary: Boolean,
     val groupKey: String?
 )

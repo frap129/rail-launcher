@@ -60,6 +60,7 @@ fun LauncherAppList(
     lazyListState: LazyListState,
     rowState: AppListRowState,
     itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String>,
     topOffset: Dp,
     bottomOffset: Dp
 ) {
@@ -86,7 +87,8 @@ fun LauncherAppList(
             LauncherItemGroup(
                 group = itemGroup,
                 rowState = rowState,
-                itemActions = itemActions
+                itemActions = itemActions,
+                folderSummaries = folderSummaries
             )
         }
         item {
@@ -103,7 +105,8 @@ fun LauncherItemGroup(
     modifier: Modifier = Modifier,
     group: LaunchableGroup.Listed,
     rowState: AppListRowState,
-    itemActions: LauncherItemActions
+    itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String> = emptyMap()
 ) {
     Column(modifier = modifier) {
         LaunchableGroupHeader(label = group.appListLabel())
@@ -113,7 +116,8 @@ fun LauncherItemGroup(
                 isEditingFavorites = rowState.isEditingFavorites,
                 isFavorite = item.key in rowState.favoriteKeys,
                 isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
-                itemActions = itemActions
+                itemActions = itemActions,
+                summary = folderSummaries[item.key]
             )
         }
     }

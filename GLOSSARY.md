@@ -37,8 +37,16 @@ The Launchable whose row a Pop-up is attached to; the Pop-up shows that Launchab
 _Avoid_: Parent, source app, host
 
 **Notification**:
-An active system notification belonging to an App, shown collapsed in that App's Pop-up while the notification setting is on and notification access is granted.
+An active system notification belonging to an App, shown in that App's Pop-up and, under a member's row, inside a Folder Pop-up. A Notification is collapsed by default and can expand to its full text, actions and inline reply.
 _Avoid_: Alert, message (when meaning a notification)
+
+**Notification action**:
+A button a Notification offers, including the inline reply field shown when it accepts a RemoteInput.
+_Avoid_: Notification button, quick action
+
+**Folder summary**:
+The second line of a Folder row naming the members whose Apps have notifications, with a trailing chevron; the only notification-derived content on a row.
+_Avoid_: Badge, count, preview
 
 **Favorite**:
 A Launchable the user has pinned to Home, held in a user-defined order.

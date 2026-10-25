@@ -11,10 +11,13 @@ data class NotificationSnapshot(
     val postTime: Long,
     val title: String,
     val body: String,
-    val isClearable: Boolean,
-    val hasBigText: Boolean,
-    val hasActions: Boolean
+    val expandedBody: String,
+    val actions: List<NotificationAction>,
+    val isClearable: Boolean
 ) {
     /** The App this notification belongs to. */
     val owner: AppProfile get() = AppProfile(packageName = packageName, profile = profile)
+
+    /** Whether expanding reveals a body or actions beyond the collapsed title and one body line. */
+    val isExpandable: Boolean get() = expandedBody.isNotBlank() || actions.isNotEmpty()
 }

@@ -57,4 +57,5 @@
     <string name="show_in_app_list">Show in App List</string>
     <string name="show_in_app_list_supporting_text">Adds this Folder to the Folders section in the App List</string>
     <string name="folder_only_in_settings">%1$s is only in Settings now</string>
+    <string name="folder_summary_description">%1$s, %2$s</string>
 </resources>
