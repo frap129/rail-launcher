@@ -3,6 +3,7 @@ package core.popups
 import android.os.UserHandle
 import core.data.icons.model.Icon
 import core.data.launchables.model.RailLaunchable
+import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_SDK
@@ -74,7 +75,7 @@ class PopupContentResolverTest {
             owner = inputOwner,
             shortcuts = ShortcutsResult.Available(shortcuts = listOf(inputFirstShortcut)),
             hiddenShortcutIds = emptySet(),
-            items = listOf(firstItem, secondItem)
+            items = listOf(PopupItem.Launchable(firstItem), PopupItem.Launchable(secondItem))
         )
         assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
         assertEquals(listOf(PopupItem.Launchable(firstItem), PopupItem.Launchable(secondItem)), actualContent.items)
@@ -88,10 +89,24 @@ class PopupContentResolverTest {
             owner = inputOwner,
             shortcuts = ShortcutsResult.Unavailable,
             hiddenShortcutIds = emptySet(),
-            items = listOf(item)
+            items = listOf(PopupItem.Launchable(item))
         )
         assertEquals(emptyList<ShortcutLaunchable>(), actualContent.shortcuts)
         assertEquals(listOf(PopupItem.Launchable(item)), actualContent.items)
+        assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `shows an enabled shortcut item and hides a disabled one`() {
+        val inputEnabledItem: PopupItem.Shortcut = PopupItem.Shortcut(launchable = inputFirstShortcut, isEnabled = true)
+        val inputDisabledItem: PopupItem.Shortcut = PopupItem.Shortcut(launchable = inputSecondShortcut, isEnabled = false)
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOwner,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = listOf(inputEnabledItem, inputDisabledItem)
+        )
+        assertEquals(listOf(inputEnabledItem), actualContent.items)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
     }
 

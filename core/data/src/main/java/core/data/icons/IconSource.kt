@@ -8,7 +8,7 @@ import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.core.content.ContextCompat
 import core.data.icons.model.Icon
-import core.data.shortcuts.SHORTCUT_QUERY_FLAGS
+import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
 
 internal sealed interface IconSource {
@@ -53,7 +53,8 @@ private class ShortcutIconSource(private val packageName: String, private val sh
             val shortcutInfo: ShortcutInfo? = launcherApps.getShortcuts(
                 LauncherApps.ShortcutQuery().apply {
                     setPackage(packageName)
-                    setQueryFlags(SHORTCUT_QUERY_FLAGS)
+                    setQueryFlags(SHORTCUT_RESOLVE_FLAGS)
+                    setShortcutIds(listOf(shortcutId))
                 },
                 profile
             )?.firstOrNull { shortcut -> shortcut.id == shortcutId }

@@ -53,6 +53,8 @@ import core.popups.PopupHost
 import core.popups.PopupMenuSheet
 import core.popups.PopupPickerState
 import core.popups.PopupViewModel
+import core.popups.ShortcutPickerSheet
+import core.popups.ShortcutPickerState
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -339,6 +341,7 @@ fun LauncherScreen(
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
     val pickerState: PopupPickerState by popupViewModel.pickerState.collectAsState()
+    val shortcutPickerState: ShortcutPickerState by popupViewModel.shortcutPickerState.collectAsState()
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
     val isMovingWidgetArea: Boolean = moveState != null
@@ -375,6 +378,13 @@ fun LauncherScreen(
                 state = pickerState as PopupPickerState.Picking,
                 onConfirm = popupViewModel::confirmPicking,
                 onDismiss = popupViewModel::cancelPicking
+            )
+        }
+        if (shortcutPickerState is ShortcutPickerState.Picking) {
+            ShortcutPickerSheet(
+                state = shortcutPickerState as ShortcutPickerState.Picking,
+                onConfirm = popupViewModel::confirmShortcuts,
+                onDismiss = popupViewModel::cancelShortcutPicking
             )
         }
         LauncherWidgetMenu(widgetViewModel)

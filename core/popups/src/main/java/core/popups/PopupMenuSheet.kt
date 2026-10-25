@@ -20,10 +20,13 @@ import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
+import core.data.launchables.model.Launchable
+import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.util.openApplicationDetailsSettings
 
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +60,11 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                             imageVector = FontAwesomeIcons.Solid.InfoCircle,
                             label = stringResource(CoreUiR.string.app_info),
                             onClick = {
-                                (state.target as? App)?.openAppInfo(context)
+                                when (val target: Launchable = state.target) {
+                                    is App -> target.openAppInfo(context)
+                                    is ShortcutLaunchable -> context.openApplicationDetailsSettings(target.packageName, target.profile)
+                                    else -> Unit
+                                }
                                 viewModel.closeMenu()
                                 viewModel.close()
                             }

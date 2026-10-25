@@ -4,10 +4,14 @@ import android.os.UserHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.popups.IPopupRepository
+import core.data.popups.PopupItem
+import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
@@ -39,9 +43,16 @@ private data class OpenRequest(val target: ShortcutTarget, val anchor: PopupAnch
 
 private data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
-private data class OwnerItems(val ownerKey: String?, val items: List<Launchable>)
+private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 private data class MenuTarget(val ownerKey: String, val itemKey: String?)
+
+private data class ShortcutPickerRequest(
+    val request: ShortcutTarget?,
+    val isPicking: Boolean,
+    val items: OwnerItems,
+    val launchableState: LaunchableState
+)
 
 /** Owns the one open Pop-up, its menu, editor, item picker and their live content. */
 class PopupViewModel(
@@ -54,6 +65,7 @@ class PopupViewModel(
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
     private val menuTarget: MutableStateFlow<MenuTarget?> = MutableStateFlow(null)
     private val isPicking: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    private val isPickingShortcuts: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val cardShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(EMPTY_SHORTCUTS)
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
@@ -80,7 +92,7 @@ class PopupViewModel(
             PopupUiState.Closed
         } else {
             val hiddenIds: Set<String> = if (hidden.ownerKey == request.target.ownerKey) hidden.ids else emptySet()
-            val items: List<Launchable> = if (items.ownerKey == request.target.ownerKey) items.items else emptyList()
+            val popupItems: List<PopupItem> = if (items.ownerKey == request.target.ownerKey) items.items else emptyList()
             PopupUiState.Open(
                 owner = owner,
                 anchor = request.anchor,
@@ -88,7 +100,7 @@ class PopupViewModel(
                     owner = owner,
                     shortcuts = shortcutResult ?: EMPTY_SHORTCUTS,
                     hiddenShortcutIds = hiddenIds,
-                    items = items
+                    items = popupItems
                 )
             )
         }
@@ -137,7 +149,13 @@ class PopupViewModel(
         ) {
             PopupEditState.Closed
         } else {
-            PopupEditState.Editing(owner = owner, shortcuts = shortcutResult, hiddenIds = hidden.ids, items = items.items)
+            PopupEditState.Editing(
+                owner = owner,
+                shortcuts = shortcutResult,
+                hiddenIds = hidden.ids,
+                items = items.items,
+                shortcutSourceNames = shortcutSourceNames(items = items.items, launchables = launchableState.launchables)
+            )
         }
     }.stateIn(
         scope = viewModelScope,
@@ -156,7 +174,7 @@ class PopupViewModel(
         } else {
             PopupPickerState.Picking(
                 groups = pickerGroups(ownerKey = request.ownerKey, groups = launchableState.listedGroups),
-                selectedKeys = items.items.mapTo(mutableSetOf()) { item -> item.key }
+                selectedKeys = items.items.mapTo(mutableSetOf()) { item -> item.launchable.key }
             )
         }
     }.stateIn(
@@ -164,6 +182,48 @@ class PopupViewModel(
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = PopupPickerState.Closed
     )
+
+    val shortcutPickerState: StateFlow<ShortcutPickerState> = combine(
+        editRequest,
+        isPickingShortcuts,
+        editItems,
+        launchableRepository.launchableState
+    ) { request, pickingShortcuts, items, launchableState ->
+        ShortcutPickerRequest(
+            request = request,
+            isPicking = pickingShortcuts,
+            items = items,
+            launchableState = launchableState
+        )
+    }
+        .flatMapLatest { pickerRequest ->
+            val request: ShortcutTarget? = pickerRequest.request
+            if (request == null ||
+                !pickerRequest.isPicking ||
+                !pickerRequest.launchableState.isLoaded ||
+                pickerRequest.items.ownerKey != request.ownerKey
+            ) {
+                flowOf(ShortcutPickerState.Closed)
+            } else {
+                shortcutSource.appsWithShortcuts().map { apps ->
+                    ShortcutPickerState.Picking(
+                        groups = shortcutPickerGroups(groups = pickerRequest.launchableState.listedGroups, apps = apps, owner = request),
+                        selectedKeys = pickerRequest.items.items
+                            .filterIsInstance<PopupItem.Shortcut>()
+                            .mapTo(mutableSetOf()) { item -> item.launchable.key },
+                        shortcutsUnavailable = apps.isNotEmpty() &&
+                            apps.all { appShortcuts ->
+                                appShortcuts.result is ShortcutsResult.Unavailable
+                            }
+                    )
+                }
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = ShortcutPickerState.Closed
+        )
 
     init {
         collectShortcuts(targets = openRequest.map { request -> request?.target }, into = cardShortcuts)
@@ -187,6 +247,7 @@ class PopupViewModel(
         }
         menuTarget.value = null
         isPicking.value = false
+        isPickingShortcuts.value = false
         cardShortcuts.value = EMPTY_SHORTCUTS
         openRequest.value = OpenRequest(
             target = ShortcutTarget(ownerKey = app.key, packageName = app.packageName, profile = app.profile),
@@ -197,6 +258,7 @@ class PopupViewModel(
     fun close() {
         menuTarget.value = null
         isPicking.value = false
+        isPickingShortcuts.value = false
         editRequest.value = null
         openRequest.value = null
     }
@@ -229,6 +291,7 @@ class PopupViewModel(
         }
         menuTarget.value = null
         isPicking.value = false
+        isPickingShortcuts.value = false
         val target: ShortcutTarget = ShortcutTarget(ownerKey = app.key, packageName = app.packageName, profile = app.profile)
         if (editRequest.value != target) {
             editShortcuts.value = null
@@ -239,6 +302,7 @@ class PopupViewModel(
     fun finishEdit() {
         editRequest.value = null
         isPicking.value = false
+        isPickingShortcuts.value = false
     }
 
     /** Hides or shows a shortcut in the App currently being edited. */
@@ -249,12 +313,12 @@ class PopupViewModel(
         }
     }
 
-    fun openItemMenu(item: Launchable) {
+    fun openItemMenu(item: PopupItem) {
         val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
-        if (open.content.items.none { popupItem -> popupItem.launchable.key == item.key }) {
+        if (open.content.items.none { popupItem -> popupItem.launchable.key == item.launchable.key }) {
             return
         }
-        menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = item.key)
+        menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = item.launchable.key)
     }
 
     fun removeItem(item: Launchable) {
@@ -289,17 +353,42 @@ class PopupViewModel(
         isPicking.value = false
     }
 
-    fun moveItem(from: Int, to: Int) {
-        val ownerKey: String = editRequest.value?.ownerKey ?: return
-        if (from == to) {
+    fun startPickingShortcuts() {
+        if (editRequest.value == null) {
             return
         }
-        updatePopup(message = "Failed to move an item in $ownerKey's Pop-up") {
-            popupRepository.moveItem(ownerKey = ownerKey, from = from, to = to)
+        menuTarget.value = null
+        isPickingShortcuts.value = true
+    }
+
+    fun confirmShortcuts(selectedInOrder: List<String>) {
+        val request: ShortcutTarget = editRequest.value ?: return
+        val picking: ShortcutPickerState.Picking = shortcutPickerState.value as? ShortcutPickerState.Picking ?: return
+        val existingKeys: Set<String> = picking.selectedKeys
+        val additions: List<String> = selectedInOrder.filterNot { key -> key in existingKeys }
+        val removals: Set<String> = existingKeys - selectedInOrder.toSet()
+        isPickingShortcuts.value = false
+        updatePopup(message = "Failed to change the shortcuts in ${request.ownerKey}'s Pop-up") {
+            popupRepository.setItems(ownerKey = request.ownerKey, add = additions, remove = removals)
+        }
+    }
+
+    fun cancelShortcutPicking() {
+        isPickingShortcuts.value = false
+    }
+
+    fun setItemOrder(orderedItemKeys: List<String>) {
+        val ownerKey: String = editRequest.value?.ownerKey ?: return
+        updatePopup(message = "Failed to reorder the items in $ownerKey's Pop-up") {
+            popupRepository.setItemOrder(ownerKey = ownerKey, orderedItemKeys = orderedItemKeys)
         }
     }
 
     fun onBack(): Boolean {
+        if (isPickingShortcuts.value) {
+            cancelShortcutPicking()
+            return true
+        }
         if (isPicking.value) {
             cancelPicking()
             return true
@@ -440,6 +529,47 @@ class PopupViewModel(
             }
         }
 
+    private fun shortcutPickerGroups(
+        groups: List<LaunchableGroup.Listed>,
+        apps: List<AppShortcuts>,
+        owner: ShortcutTarget
+    ): List<ShortcutPickerGroup> {
+        val appsByKey: Map<String, AppShortcuts> = apps.associateBy { appShortcuts -> appShortcuts.app.key }
+        return groups.mapNotNull { group ->
+            val candidates: List<AppShortcuts> = group.items
+                .filterIsInstance<App>()
+                .filterNot { app -> app.key == owner.ownerKey }
+                .mapNotNull { app -> appsByKey[app.key] }
+                .filter { appShortcuts ->
+                    val result: ShortcutsResult = appShortcuts.result
+                    result is ShortcutsResult.ProfilePaused ||
+                        (result is ShortcutsResult.Available && result.shortcuts.isNotEmpty())
+                }
+            if (candidates.isEmpty()) {
+                null
+            } else {
+                ShortcutPickerGroup(label = group.label, apps = candidates)
+            }
+        }
+    }
+
+    private fun shortcutSourceNames(items: List<PopupItem>, launchables: List<Launchable>): Map<String, String> {
+        if (items.none { item -> item is PopupItem.Shortcut }) {
+            return emptyMap()
+        }
+        val appNames: Map<AppProfile, String> = launchables
+            .filterIsInstance<App>()
+            .associate { app -> AppProfile(packageName = app.packageName, profile = app.profile) to app.name }
+        return items
+            .filterIsInstance<PopupItem.Shortcut>()
+            .associate { item ->
+                val shortcut: ShortcutLaunchable = item.launchable
+                val sourceName: String = appNames[AppProfile(packageName = shortcut.packageName, profile = shortcut.profile)]
+                    ?: shortcut.packageName
+                shortcut.key to sourceName
+            }
+    }
+
     private fun menuItems(target: Launchable, isItem: Boolean): List<PopupMenuItem> = buildList {
         if (isItem) {
             add(PopupMenuItem.RemoveFromPopup)
@@ -447,7 +577,7 @@ class PopupViewModel(
         if (!isItem && target is App) {
             add(PopupMenuItem.EditPopup)
         }
-        if (target is App) {
+        if (target is App || target is ShortcutLaunchable) {
             add(PopupMenuItem.AppInfo)
         }
     }

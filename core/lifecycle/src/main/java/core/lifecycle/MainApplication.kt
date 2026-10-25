@@ -177,8 +177,8 @@ class MainApplication :
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
-        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
+        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }
