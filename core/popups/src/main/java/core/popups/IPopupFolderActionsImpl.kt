@@ -1,7 +1,5 @@
 package core.popups
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
@@ -13,6 +11,7 @@ import core.ui.layout.HomeEditState
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,32 +26,34 @@ import kotlinx.coroutines.flow.stateIn
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
 /** Owns the Folder dialogs and the Add to Folder sheet. */
-class PopupFolderViewModel(
+class IPopupFolderActionsImpl(
+    parentScope: CoroutineScope,
     private val launchableRepository: ILaunchableRepository,
     private val popupRepository: IPopupRepository,
     private val folderRepository: IFolderRepository,
     private val preferencesRepository: IPreferencesRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
-) : ViewModel() {
+) : IPopupFolderActions {
+    private val collaboratorScope: PopupCollaboratorScope = PopupCollaboratorScope(parentScope = parentScope)
+    private val scope: CoroutineScope = collaboratorScope.scope
+
     private val folderDialog: MutableStateFlow<FolderDialogState> = MutableStateFlow(FolderDialogState.Closed)
     private val addToFolderRequest: MutableStateFlow<Launchable?> = MutableStateFlow(null)
     private val folderAdditionRequests: EventChannel<Folder> = EventChannel()
     private val addToFolderKey: Flow<String?> = addToFolderRequest.map { launchable -> launchable?.key }
     private val addToFolderMembership: StateFlow<FolderMembership> = ownerScoped(
-        scope = viewModelScope,
+        scope = scope,
         targets = addToFolderKey,
         emptyValue = { launchableKey -> FolderMembership(launchableKey = launchableKey, folderKeys = emptySet()) },
         source = { launchableKey -> folderMemberships(launchableKey = launchableKey) }
     )
 
-    /** The Folder dialog the collaborator is showing, if any. */
-    val folderDialogState: StateFlow<FolderDialogState> = folderDialog
+    override val folderDialogState: StateFlow<FolderDialogState> = folderDialog
 
-    /** Folders created from the Add to Folder sheet, for its "Added to ..." Snackbar. */
-    val folderAdditions: Flow<Folder> = folderAdditionRequests.flow
+    override val folderAdditions: Flow<Folder> = folderAdditionRequests.flow
 
-    val addToFolderState: StateFlow<AddToFolderState> = combine(
+    override val addToFolderState: StateFlow<AddToFolderState> = combine(
         addToFolderRequest,
         launchableRepository.launchableState,
         folderRepository.folders,
@@ -67,14 +68,14 @@ class PopupFolderViewModel(
             AddToFolderState.Open(launchable = launchable, folders = folders, membership = membership.folderKeys)
         }
     }.stateIn(
-        scope = viewModelScope,
+        scope = scope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = AddToFolderState.Closed
     )
 
     init {
         observeTargetLoss(
-            scope = viewModelScope,
+            scope = scope,
             targetKeys = addToFolderKey,
             launchableRepository = launchableRepository,
             homeEditState = homeEditState,
@@ -83,71 +84,63 @@ class PopupFolderViewModel(
         )
     }
 
-    /** Shows the delete confirmation when [target] is the Folder whose menu is open. */
-    fun requestDeleteFolder(target: Launchable) {
+    override fun requestDeleteFolder(target: Launchable) {
         val folder: Folder = target as? Folder ?: return
         session.onSheetOpened()
         folderDialog.value = FolderDialogState.Deleting(folder)
     }
 
-    /** Shows the name dialog for [folder]. */
-    fun requestRename(folder: Folder) {
+    override fun requestRename(folder: Folder) {
         folderDialog.value = FolderDialogState.Renaming(folder)
     }
 
-    /** Closes the Folder dialog without changing the Folder. */
-    internal fun dismissFolderDialog() {
+    override fun dismissFolderDialog() {
         folderDialog.value = FolderDialogState.Closed
     }
 
-    /** Deletes the Folder whose confirmation is showing and everything belonging to it. */
-    internal fun confirmDeleteFolder() {
+    override fun confirmDeleteFolder() {
         val dialog: FolderDialogState.Deleting = folderDialog.value as? FolderDialogState.Deleting ?: return
         val folder: Folder = dialog.folder
         folderDialog.value = FolderDialogState.Closed
         session.onOwnerDeleted(ownerKey = folder.key)
-        launchLogged(message = "Failed to delete Folder ${folder.key}") {
+        scope.launchLogged(message = "Failed to delete Folder ${folder.key}") {
             folderRepository.delete(folder)
         }
     }
 
-    /** Renames the Folder whose name dialog is showing, resetting its name when [name] is blank. */
-    internal fun confirmRename(name: String) {
+    override fun confirmRename(name: String) {
         val dialog: FolderDialogState.Renaming = folderDialog.value as? FolderDialogState.Renaming ?: return
         val folder: Folder = dialog.folder
         folderDialog.value = FolderDialogState.Closed
-        launchLogged(message = "Failed to rename ${folder.key}") {
+        scope.launchLogged(message = "Failed to rename ${folder.key}") {
             preferencesRepository.setItemName(item = folder, name = name)
         }
     }
 
-    /** Shows or hides [folder] in the App List. */
-    fun setShowInAppList(folder: Folder, show: Boolean) {
-        launchLogged(message = "Failed to change whether ${folder.key} is in the App List") {
+    override fun setShowInAppList(folder: Folder, show: Boolean) {
+        scope.launchLogged(message = "Failed to change whether ${folder.key} is in the App List") {
             folderRepository.setShowInAppList(folder = folder, show = show)
         }
     }
 
-    /** Opens the Add to Folder sheet for [launchable], which must not be a Folder. */
-    fun startAddToFolder(launchable: Launchable) {
+    override fun startAddToFolder(launchable: Launchable) {
         if (launchable is Folder) {
             return
         }
         addToFolderRequest.value = launchable
     }
 
-    internal fun closeAddToFolder() {
+    override fun closeAddToFolder() {
         addToFolderRequest.value = null
     }
 
-    /** Adds or removes the Add to Folder sheet's Launchable from [folderKey]. */
-    fun toggleMembership(folderKey: String, member: Boolean) {
+    override fun toggleMembership(folderKey: String, member: Boolean) {
         val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
         if (member == (folderKey in state.membership)) {
             return
         }
         val launchableKey: String = state.launchable.key
-        launchLogged(message = "Failed to change $launchableKey's Folder membership") {
+        scope.launchLogged(message = "Failed to change $launchableKey's Folder membership") {
             popupRepository.setItems(
                 ownerKey = folderKey,
                 add = if (member) listOf(launchableKey) else emptyList(),
@@ -156,11 +149,10 @@ class PopupFolderViewModel(
         }
     }
 
-    /** Creates a Folder holding the Add to Folder sheet's Launchable, then reports it for the Snackbar. */
-    fun startNewFolder(name: String) {
+    override fun startNewFolder(name: String) {
         val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
         val launchableKey: String = state.launchable.key
-        launchLogged(message = "Failed to create a Folder for $launchableKey") {
+        scope.launchLogged(message = "Failed to create a Folder for $launchableKey") {
             val folder: Folder = folderRepository.create(
                 name = name,
                 initialItems = listOf(launchableKey),
@@ -170,16 +162,16 @@ class PopupFolderViewModel(
         }
     }
 
-    internal fun onCardClosed() {
+    override fun onCardClosed() {
         folderDialog.value = FolderDialogState.Closed
         addToFolderRequest.value = null
     }
 
-    internal fun onEditStarted() {
+    override fun onEditStarted() {
         addToFolderRequest.value = null
     }
 
-    internal fun backBeforeItemMenu(): Boolean {
+    override fun backBeforeItemMenu(): Boolean {
         if (addToFolderRequest.value == null) {
             return false
         }
@@ -210,4 +202,8 @@ class PopupFolderViewModel(
         popupRepository.items(ownerKey = folder.key).map { items ->
             folder.key to items.any { item -> item.launchable.key == launchableKey }
         }
+
+    override fun release() {
+        collaboratorScope.release()
+    }
 }

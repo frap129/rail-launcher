@@ -7,6 +7,7 @@ import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
+import core.popups.IPopupCollaborators
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
@@ -54,7 +55,8 @@ class PopupSettingsViewModel(
     private val folderRepository: IFolderRepository,
     private val popupRepository: IPopupRepository,
     private val notificationSource: INotificationSource,
-    private val favoritesRepository: IFavoritesRepository
+    private val favoritesRepository: IFavoritesRepository,
+    val collaborators: IPopupCollaborators
 ) : ViewModel() {
     private val selectedFolderKey: MutableStateFlow<String?> = MutableStateFlow(null)
     private val newFolderDialogOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
@@ -124,7 +126,7 @@ class PopupSettingsViewModel(
 
     /** Persists whether Pop-ups show notifications, explaining access when it is missing. */
     fun setNotificationsEnabled(enabled: Boolean) {
-        launchLogged(message = "Failed to change whether Pop-ups show notifications") {
+        viewModelScope.launchLogged(message = "Failed to change whether Pop-ups show notifications") {
             popupRepository.setNotificationsEnabled(enabled)
         }
         if (enabled && !notificationSource.hasAccess.value) {
@@ -150,7 +152,7 @@ class PopupSettingsViewModel(
 
     fun createFolder(name: String) {
         closeNewFolderDialog()
-        launchLogged(message = "Failed to create Folder") {
+        viewModelScope.launchLogged(message = "Failed to create Folder") {
             val folder: Folder = folderRepository.create(name = name, addToFavorites = false)
             folderCreations.send(folder)
         }
@@ -161,13 +163,17 @@ class PopupSettingsViewModel(
         if (onHome == row.isOnHome) {
             return
         }
-        launchLogged(message = "Failed to change ${row.folder.key}'s Home placement") {
+        viewModelScope.launchLogged(message = "Failed to change ${row.folder.key}'s Home placement") {
             if (onHome) {
                 favoritesRepository.add(row.folder)
             } else {
                 favoritesRepository.remove(row.folder)
             }
         }
+    }
+
+    override fun onCleared() {
+        collaborators.release()
     }
 
     private fun selectedFolder(): PopupSettingsFolder? = folders.value.firstOrNull { row -> row.folder.key == selectedFolderKey.value }

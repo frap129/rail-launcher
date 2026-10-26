@@ -1,12 +1,13 @@
-package core.popups
+package feature.launcher
 
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.WidgetProvider
+import core.popups.PopupWidgetPage
 
 /** One action in a Pop-up menu or an added item's menu. */
-sealed interface PopupMenuItem {
+internal sealed interface PopupMenuItem {
     data object EditPopup : PopupMenuItem
 
     data object EditFolder : PopupMenuItem
@@ -31,7 +32,7 @@ sealed interface PopupMenuItem {
 }
 
 /** Whether a Pop-up menu is showing and, when it is, its target and actions. */
-sealed interface PopupMenuState {
+internal sealed interface PopupMenuState {
     data object Closed : PopupMenuState
 
     data class Open(
@@ -43,7 +44,7 @@ sealed interface PopupMenuState {
 }
 
 /** What a menu's App info action opens. */
-sealed interface PopupAppInfo {
+internal sealed interface PopupAppInfo {
     /** The App info of [launchable], an App or the source App of a Shortcut item. */
     data class LaunchableAppInfo(val launchable: Launchable) : PopupAppInfo
 

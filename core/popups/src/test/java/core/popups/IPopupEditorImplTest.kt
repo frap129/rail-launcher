@@ -21,17 +21,17 @@ import org.robolectric.annotation.Config
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class PopupEditorViewModelTest : PopupTestBase() {
+class IPopupEditorImplTest : PopupTestBase() {
 
     @Test
     fun `edits an App's Pop-up with its live shortcuts and hidden ids`() = runTest {
         val inputShortcuts: ShortcutsResult = ShortcutsResult.Available(shortcuts = listOf(inputShortcut))
         fakeShortcutSource.setResult(inputShortcuts)
         fakePopupRepository.setHiddenShortcuts(inputApp.key, setOf(inputShortcut.shortcutId))
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
-            viewModel.startEdit(inputApp)
+            editor.startEdit(inputApp)
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(inputApp, actualState.owner)
@@ -42,9 +42,9 @@ class PopupEditorViewModelTest : PopupTestBase() {
 
     @Test
     fun `updates the editor when the shortcut list changes`() = runTest {
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
             fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
@@ -56,9 +56,9 @@ class PopupEditorViewModelTest : PopupTestBase() {
     @Test
     fun `allows editing during Edit Favorites`() = runTest {
         inputHomeEditState.tryEnter(HomeEditMode.Favorites)
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
         }
@@ -69,22 +69,22 @@ class PopupEditorViewModelTest : PopupTestBase() {
         listOf(HomeEditMode.Widgets, HomeEditMode.Resizing(placeId = 1L)).forEach { inputMode ->
             val editState: HomeEditState = HomeEditState()
             editState.tryEnter(inputMode)
-            val viewModel: PopupEditorViewModel = createEditor(homeEditState = editState)
-            viewModel.editState.test {
+            val editor: IPopupEditor = createEditor(homeEditState = editState)
+            editor.editState.test {
                 assertEquals(PopupEditState.Closed, expectMostRecentItem())
-                viewModel.startEdit(inputApp)
+                editor.startEdit(inputApp)
                 runCurrent()
                 expectNoEvents()
-                assertEquals(PopupEditState.Closed, viewModel.editState.value)
+                assertEquals(PopupEditState.Closed, editor.editState.value)
             }
         }
     }
 
     @Test
     fun `ignores editing a Launchable that is not an App`() = runTest {
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputRailLaunchable)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputRailLaunchable)
             runCurrent()
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
         }
@@ -92,19 +92,19 @@ class PopupEditorViewModelTest : PopupTestBase() {
 
     @Test
     fun `forwards a shortcut hidden state change for the edited App`() = runTest {
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.startEdit(inputApp)
         runCurrent()
-        viewModel.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
+        editor.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
         runCurrent()
         assertEquals(listOf(Triple(inputApp.key, inputShortcut.shortcutId, true)), fakePopupRepository.setShortcutHiddenCalls)
     }
 
     @Test
     fun `closes the editor when its owner disappears`() = runTest {
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
             fakeLaunchableRepository.setGroups(
@@ -118,10 +118,10 @@ class PopupEditorViewModelTest : PopupTestBase() {
     @Test
     fun `edits an App's Pop-up with its live items`() = runTest {
         fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
-            viewModel.startEdit(inputApp)
+            editor.startEdit(inputApp)
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualState.items)
@@ -137,10 +137,10 @@ class PopupEditorViewModelTest : PopupTestBase() {
                 PopupItem.Launchable(launchable = inputOtherApp)
             )
         )
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
-            viewModel.startEdit(inputApp)
+            editor.startEdit(inputApp)
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(
@@ -157,12 +157,12 @@ class PopupEditorViewModelTest : PopupTestBase() {
     @Test
     fun `removing an item while editing uses the edited owner`() = runTest {
         fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
-            viewModel.removeEditedItem(inputOtherApp)
+            editor.removeEditedItem(inputOtherApp)
             runCurrent()
             val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(emptyList<PopupItem>(), updatedState.items)
@@ -172,12 +172,12 @@ class PopupEditorViewModelTest : PopupTestBase() {
 
     @Test
     fun `sets the item order for the edited App`() = runTest {
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.startEdit(inputApp)
+        val editor: IPopupEditor = createEditor()
+        editor.startEdit(inputApp)
         runCurrent()
         val orderedKeys: List<String> = listOf(inputOtherApp.key, inputApp.key)
 
-        viewModel.setItemOrder(orderedItemKeys = orderedKeys)
+        editor.setItemOrder(orderedItemKeys = orderedKeys)
         runCurrent()
 
         assertEquals(listOf(inputApp.key to orderedKeys), fakePopupRepository.itemOrders)
@@ -186,48 +186,13 @@ class PopupEditorViewModelTest : PopupTestBase() {
     @Test
     fun `edits a Folder during Edit Favorites`() = runTest {
         inputHomeEditState.tryEnter(HomeEditMode.Favorites)
-        val viewModel: PopupEditorViewModel = createEditor()
-        viewModel.editState.test {
-            viewModel.startEdit(inputFolder)
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputFolder)
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(inputFolder, actualState.owner)
             assertEquals(ShortcutsResult.Available(shortcuts = emptyList()), actualState.shortcuts)
         }
-    }
-
-    @Test
-    fun `removing an added item from the editor ignores another Pop-up's item menu`() = runTest {
-        val session: PopupTestSession = openPopupWithEditor()
-        session.card.openItemMenu(PopupItem.Launchable(inputOtherApp))
-        runCurrent()
-        assertTrue(session.card.menuState.value is PopupMenuState.Open)
-        assertTrue(session.editor.editState.value is PopupEditState.Editing)
-
-        session.editor.removeEditedItem(inputRailLaunchable)
-        runCurrent()
-
-        assertEquals(listOf(inputFolder.key to inputRailLaunchable.key), fakePopupRepository.removedItems)
-        val actualPopup: PopupUiState.Open = session.card.popupState.value as PopupUiState.Open
-        assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualPopup.content.items)
-        assertEquals(emptyList<PopupItem>(), (session.editor.editState.value as PopupEditState.Editing).items)
-    }
-
-    @Test
-    fun `removing an added item from the item menu uses the owning Pop-up`() = runTest {
-        val session: PopupTestSession = openPopupWithEditor()
-        session.card.openItemMenu(PopupItem.Launchable(inputOtherApp))
-        runCurrent()
-        assertTrue(session.card.menuState.value is PopupMenuState.Open)
-
-        session.card.removeMenuItem()
-        runCurrent()
-
-        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
-        assertEquals(emptyList<PopupItem>(), (session.card.popupState.value as PopupUiState.Open).content.items)
-        assertEquals(
-            listOf(PopupItem.Launchable(inputRailLaunchable)),
-            (session.editor.editState.value as PopupEditState.Editing).items
-        )
     }
 }

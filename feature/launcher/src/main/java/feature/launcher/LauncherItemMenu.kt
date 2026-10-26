@@ -39,8 +39,8 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.popups.PopupEditorViewModel
-import core.popups.PopupFolderViewModel
+import core.popups.IPopupEditor
+import core.popups.IPopupFolderActions
 import core.popups.R as PopupsR
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
@@ -53,7 +53,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LauncherMenu(viewModel: LauncherViewModel, editorViewModel: PopupEditorViewModel, folderViewModel: PopupFolderViewModel) {
+internal fun LauncherMenu(viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
     val menuState: LauncherMenuState by viewModel.menuState.collectAsState()
     if (menuState is LauncherMenuState.Closed) {
         return
@@ -66,8 +66,8 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, editorViewModel: PopupEd
             is LauncherMenuState.Menu -> LauncherItemMenu(
                 item = currentMenuState.item,
                 viewModel = viewModel,
-                editorViewModel = editorViewModel,
-                folderViewModel = folderViewModel
+                editor = editor,
+                folderActions = folderActions
             )
 
             is LauncherMenuState.Rename -> LauncherItemEditName(item = currentMenuState.item, viewModel = viewModel)
@@ -78,12 +78,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, editorViewModel: PopupEd
 }
 
 @Composable
-internal fun LauncherItemMenu(
-    item: Launchable,
-    viewModel: LauncherViewModel,
-    editorViewModel: PopupEditorViewModel,
-    folderViewModel: PopupFolderViewModel
-) {
+internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
     val context: Context = LocalContext.current
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
@@ -104,18 +99,18 @@ internal fun LauncherItemMenu(
                 item = item,
                 context = context,
                 viewModel = viewModel,
-                editorViewModel = editorViewModel,
-                folderViewModel = folderViewModel
+                editor = editor,
+                folderActions = folderActions
             )
 
             is Folder -> FolderMenuActions(
                 item = item,
                 viewModel = viewModel,
-                editorViewModel = editorViewModel,
-                folderViewModel = folderViewModel
+                editor = editor,
+                folderActions = folderActions
             )
 
-            else -> AddToFolderAction(item = item, viewModel = viewModel, folderViewModel = folderViewModel)
+            else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
         }
     }
 }
@@ -125,18 +120,18 @@ private fun AppMenuActions(
     item: App,
     context: Context,
     viewModel: LauncherViewModel,
-    editorViewModel: PopupEditorViewModel,
-    folderViewModel: PopupFolderViewModel
+    editor: IPopupEditor,
+    folderActions: IPopupFolderActions
 ) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(CoreUiR.string.edit_popup),
         onClick = {
             viewModel.closeItemMenu()
-            editorViewModel.startEdit(item)
+            editor.startEdit(item)
         }
     )
-    AddToFolderAction(item = item, viewModel = viewModel, folderViewModel = folderViewModel)
+    AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),
@@ -145,25 +140,20 @@ private fun AppMenuActions(
 }
 
 @Composable
-private fun FolderMenuActions(
-    item: Folder,
-    viewModel: LauncherViewModel,
-    editorViewModel: PopupEditorViewModel,
-    folderViewModel: PopupFolderViewModel
-) {
+private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(PopupsR.string.edit_folder),
         onClick = {
             viewModel.closeItemMenu()
-            editorViewModel.startEdit(item)
+            editor.startEdit(item)
         }
     )
     SheetSwitchRow(
         imageVector = FontAwesomeIcons.Solid.ListUl,
         label = stringResource(R.string.show_in_app_list),
         checked = item.showInAppList,
-        onCheckedChange = { show -> folderViewModel.setShowInAppList(folder = item, show = show) },
+        onCheckedChange = { show -> folderActions.setShowInAppList(folder = item, show = show) },
         supportingText = stringResource(R.string.show_in_app_list_supporting_text)
     )
     SheetMenuAction(
@@ -171,19 +161,19 @@ private fun FolderMenuActions(
         label = stringResource(PopupsR.string.delete_folder),
         onClick = {
             viewModel.closeItemMenu()
-            folderViewModel.requestDeleteFolder(item)
+            folderActions.requestDeleteFolder(item)
         }
     )
 }
 
 @Composable
-private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, folderViewModel: PopupFolderViewModel) {
+private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, folderActions: IPopupFolderActions) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.FolderPlus,
         label = stringResource(PopupsR.string.add_to_folder),
         onClick = {
             viewModel.closeItemMenu()
-            folderViewModel.startAddToFolder(item)
+            folderActions.startAddToFolder(item)
         }
     )
 }

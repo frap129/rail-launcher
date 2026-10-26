@@ -1,7 +1,5 @@
 package core.popups
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
@@ -15,6 +13,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,27 +22,31 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** Owns the Edit Pop-up sheet's contents and the item writes it commits. */
-class PopupEditorViewModel(
+class IPopupEditorImpl(
+    parentScope: CoroutineScope,
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
     private val popupRepository: IPopupRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
-) : ViewModel() {
+) : IPopupEditor {
+    private val collaboratorScope: PopupCollaboratorScope = PopupCollaboratorScope(parentScope = parentScope)
+    private val scope: CoroutineScope = collaboratorScope.scope
+
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val editHiddenShortcuts: StateFlow<HiddenShortcutIds> = hiddenShortcutIds(
-        scope = viewModelScope,
+        scope = scope,
         targets = editRequest,
         popupRepository = popupRepository
     )
     private val editItems: StateFlow<OwnerItems> = addedItems(
-        scope = viewModelScope,
+        scope = scope,
         targets = editRequest,
         popupRepository = popupRepository
     )
 
-    val editState: StateFlow<PopupEditState> = combine(
+    override val editState: StateFlow<PopupEditState> = combine(
         editRequest,
         launchableRepository.launchableState,
         editShortcuts,
@@ -70,21 +73,21 @@ class PopupEditorViewModel(
             )
         }
     }.stateIn(
-        scope = viewModelScope,
+        scope = scope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = PopupEditState.Closed
     )
 
     init {
         collectShortcuts(
-            scope = viewModelScope,
+            scope = scope,
             targets = editRequest,
             reloads = session.shortcutReloads,
             shortcutSource = shortcutSource,
             into = editShortcuts
         )
         observeTargetLoss(
-            scope = viewModelScope,
+            scope = scope,
             targetKeys = editRequest.map { request -> request?.ownerKey },
             launchableRepository = launchableRepository,
             homeEditState = homeEditState,
@@ -93,11 +96,7 @@ class PopupEditorViewModel(
         )
     }
 
-    /**
-     * Opens the editor for an App or Folder. Allowed on Home and during Edit
-     * Favorites; ignored in every other Home edit mode.
-     */
-    fun startEdit(owner: Launchable) {
+    override fun startEdit(owner: Launchable) {
         val mode: HomeEditMode = homeEditState.mode.value
         if (mode != HomeEditMode.None && mode != HomeEditMode.Favorites) {
             return
@@ -110,44 +109,41 @@ class PopupEditorViewModel(
         }
     }
 
-    fun finishEdit() {
+    override fun finishEdit() {
         editRequest.value = null
         session.onEditFinished()
     }
 
-    /** Hides or shows a shortcut in the App currently being edited. */
-    fun setShortcutHidden(shortcutId: String, hidden: Boolean) {
+    override fun setShortcutHidden(shortcutId: String, hidden: Boolean) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        launchLogged(message = "Failed to change hidden state of shortcut $shortcutId") {
+        scope.launchLogged(message = "Failed to change hidden state of shortcut $shortcutId") {
             popupRepository.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
         }
     }
 
-    /** Removes [item] from the Pop-up currently being edited. */
-    fun removeEditedItem(item: Launchable) {
+    override fun removeEditedItem(item: Launchable) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        removeAddedItem(popupRepository = popupRepository, ownerKey = ownerKey, itemKey = item.key)
+        scope.removeAddedItem(popupRepository = popupRepository, ownerKey = ownerKey, itemKey = item.key)
     }
 
-    fun setItemOrder(orderedItemKeys: List<String>) {
+    override fun setItemOrder(orderedItemKeys: List<String>) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        launchLogged(message = "Failed to reorder the items in $ownerKey's Pop-up") {
+        scope.launchLogged(message = "Failed to reorder the items in $ownerKey's Pop-up") {
             popupRepository.setItemOrder(ownerKey = ownerKey, orderedItemKeys = orderedItemKeys)
         }
     }
 
-    internal fun onCardClosed() {
+    override fun onCardClosed() {
         editRequest.value = null
     }
 
-    /** Closes the editor when it shows [ownerKey], for example because that Folder was deleted. */
-    internal fun finishEditing(ownerKey: String) {
+    override fun finishEditing(ownerKey: String) {
         if (editRequest.value?.ownerKey == ownerKey) {
             finishEdit()
         }
     }
 
-    internal fun backEditor(): Boolean {
+    override fun backEditor(): Boolean {
         if (editRequest.value == null) {
             return false
         }
@@ -170,5 +166,9 @@ class PopupEditorViewModel(
                     ?: shortcut.packageName
                 shortcut.key to sourceName
             }
+    }
+
+    override fun release() {
+        collaboratorScope.release()
     }
 }

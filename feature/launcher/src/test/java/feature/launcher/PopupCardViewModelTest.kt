@@ -1,4 +1,4 @@
-package core.popups
+package feature.launcher
 
 import android.app.Notification
 import android.app.RemoteInput
@@ -41,6 +41,11 @@ import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
+import core.popups.PopupAnchor
+import core.popups.PopupEditState
+import core.popups.PopupEmptyReason
+import core.popups.PopupUiState
+import core.popups.PopupWidgetState
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.widgets.AddWidgetFlowState
@@ -70,7 +75,7 @@ import org.robolectric.annotation.Config
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class PopupCardViewModelTest : PopupTestBase() {
+class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `starts closed`() = runTest {

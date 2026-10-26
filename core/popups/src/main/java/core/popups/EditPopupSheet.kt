@@ -24,7 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +43,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import compose.icons.fontawesomeicons.solid.Times
 import core.data.folders.Folder
+import core.data.launchables.model.Launchable
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
@@ -74,9 +74,15 @@ private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
 /** The full-height sheet for editing what the owner's Pop-up shows. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: PopupPickerViewModel) {
-    val editState: PopupEditState by editorViewModel.editState.collectAsState()
-    val state: PopupEditState.Editing = editState as? PopupEditState.Editing ?: return
+fun EditPopupSheet(
+    state: PopupEditState.Editing,
+    onFinishEdit: () -> Unit,
+    onShortcutHiddenChange: (shortcutId: String, hidden: Boolean) -> Unit,
+    onItemOrderChange: (orderedItemKeys: List<String>) -> Unit,
+    onRemoveItem: (item: Launchable) -> Unit,
+    onAddApps: () -> Unit,
+    onAddShortcuts: () -> Unit
+) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val listState = rememberLazyListState()
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -103,7 +109,7 @@ fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: Popup
         hapticFeedback.performSegmentTickHaptic()
     }
     ModalBottomSheet(
-        onDismissRequest = editorViewModel::finishEdit,
+        onDismissRequest = onFinishEdit,
         sheetState = sheetState,
         dragHandle = { SheetDragHandle() }
     ) {
@@ -116,7 +122,7 @@ fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: Popup
                 },
                 action = PopupSheetTitleAction(
                     label = stringResource(CoreUiR.string.done),
-                    onClick = editorViewModel::finishEdit
+                    onClick = onFinishEdit
                 )
             )
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
@@ -134,7 +140,7 @@ fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: Popup
                                 EditShortcutRow(
                                     shortcut = shortcut,
                                     isShown = shortcut.shortcutId !in state.hiddenIds,
-                                    onShownChange = { isShown -> editorViewModel.setShortcutHidden(shortcut.shortcutId, !isShown) }
+                                    onShownChange = { isShown -> onShortcutHiddenChange(shortcut.shortcutId, !isShown) }
                                 )
                             }
                         }
@@ -168,8 +174,8 @@ fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: Popup
                                             draggedItemKey = item.launchable.key
                                         },
                                         onDragStopped = {
-                                            editorViewModel.setItemOrder(
-                                                orderedItemKeys = displayedItems.map { candidate ->
+                                            onItemOrderChange(
+                                                displayedItems.map { candidate ->
                                                     candidate.launchable.key
                                                 }
                                             )
@@ -179,15 +185,15 @@ fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: Popup
                                     contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
                                 )
                             },
-                            onRemove = { editorViewModel.removeEditedItem(item.launchable) }
+                            onRemove = { onRemoveItem(item.launchable) }
                         )
                     }
                 }
                 item(key = "edit_popup_add_apps") {
-                    AddButton(labelResId = R.string.add_apps, onClick = { pickerViewModel.startPicking(state.owner) })
+                    AddButton(labelResId = R.string.add_apps, onClick = onAddApps)
                 }
                 item(key = "edit_popup_add_shortcuts") {
-                    AddButton(labelResId = R.string.add_shortcuts, onClick = { pickerViewModel.startPickingShortcuts(state.owner) })
+                    AddButton(labelResId = R.string.add_shortcuts, onClick = onAddShortcuts)
                 }
             }
         }

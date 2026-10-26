@@ -37,9 +37,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.popups.IPopupEditor
 import core.popups.PopupAnchor
 import core.popups.PopupEditState
-import core.popups.PopupEditorViewModel
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
@@ -252,14 +252,10 @@ internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolea
 }
 
 @Composable
-internal fun BoxScope.LauncherDoneButton(
-    viewModel: LauncherViewModel,
-    widgetViewModel: WidgetAreaViewModel,
-    popupEditorViewModel: PopupEditorViewModel
-) {
+internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetViewModel: WidgetAreaViewModel, popupEditor: IPopupEditor) {
     val isEditingFavorites: Boolean by viewModel.isEditingFavorites.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
-    val popupEditState: PopupEditState by popupEditorViewModel.editState.collectAsState()
+    val popupEditState: PopupEditState by popupEditor.editState.collectAsState()
     val isEditingWidgets: Boolean = editDraft != null
     val isEditingPopup: Boolean = popupEditState is PopupEditState.Editing
     if ((isEditingFavorites || isEditingWidgets) && !isEditingPopup) {

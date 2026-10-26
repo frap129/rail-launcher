@@ -6,14 +6,14 @@ import androidx.compose.runtime.getValue
 
 /** Hosts the Folder delete confirmation; renders nothing while it is closed. */
 @Composable
-fun FolderDeleteHost(folderViewModel: PopupFolderViewModel) {
-    val dialogState: FolderDialogState by folderViewModel.folderDialogState.collectAsState()
+fun FolderDeleteHost(folderActions: IPopupFolderActions) {
+    val dialogState: FolderDialogState by folderActions.folderDialogState.collectAsState()
     val deleting: FolderDialogState.Deleting? = dialogState as? FolderDialogState.Deleting
     if (deleting != null) {
         FolderDeleteDialog(
             folder = deleting.folder,
-            onConfirm = folderViewModel::confirmDeleteFolder,
-            onDismiss = folderViewModel::dismissFolderDialog
+            onConfirm = folderActions::confirmDeleteFolder,
+            onDismiss = folderActions::dismissFolderDialog
         )
     }
 }

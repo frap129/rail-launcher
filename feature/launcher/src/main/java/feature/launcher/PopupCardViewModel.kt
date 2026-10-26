@@ -1,4 +1,4 @@
-package core.popups
+package feature.launcher
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -30,6 +30,28 @@ import core.data.widgets.canResizeStack
 import core.data.widgets.stackDefaultHeightDp
 import core.data.widgets.stackIndicatorVisible
 import core.data.widgets.stackResizeBounds
+import core.popups.EMPTY_SHORTCUTS
+import core.popups.HiddenShortcutIds
+import core.popups.IPopupCard
+import core.popups.IPopupCollaborators
+import core.popups.IPopupSession
+import core.popups.OwnerItems
+import core.popups.PopupAnchor
+import core.popups.PopupContent
+import core.popups.PopupContentResolver
+import core.popups.PopupUiState
+import core.popups.PopupWidgetPage
+import core.popups.PopupWidgetState
+import core.popups.ShortcutTarget
+import core.popups.addedItems
+import core.popups.collectShortcuts
+import core.popups.findLaunchable
+import core.popups.hiddenShortcutIds
+import core.popups.observeTargetLoss
+import core.popups.ownerScoped
+import core.popups.popupWidgetMaxHeightDp
+import core.popups.removeAddedItem
+import core.popups.targetFor
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -99,7 +121,7 @@ private data class NotificationExpansion(val snapshot: NotificationSnapshot, val
 
 private data class MenuTarget(val ownerKey: String, val itemKey: String?, val widgetId: Long? = null)
 
-/** Owns the one open Pop-up, its menu, its Widget and its Notifications. */
+/** Owns the one open Pop-up, its menu, its Widget, its Notifications and the editor, pickers and Folder actions that host it. */
 class PopupCardViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
@@ -115,8 +137,10 @@ class PopupCardViewModel(
     private val widgetLifecycleReconciler: IWidgetLifecycleReconciler,
     private val widgetSettingsRepository: IWidgetSettingsRepository,
     private val savedStateHandle: SavedStateHandle,
-    private val session: IPopupSession
-) : ViewModel() {
+    private val session: IPopupSession,
+    val collaborators: IPopupCollaborators
+) : ViewModel(),
+    IPopupCard {
     private val openRequest: MutableStateFlow<OpenRequest?> = MutableStateFlow(null)
     private val menuTarget: MutableStateFlow<MenuTarget?> = MutableStateFlow(null)
     private val cardShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(EMPTY_SHORTCUTS)
@@ -335,6 +359,7 @@ class PopupCardViewModel(
     }
 
     init {
+        collaborators.attachCard(card = this)
         addFlowController.startWidgetWiring(
             scope = viewModelScope,
             appWidgetHost = appWidgetHost,
@@ -399,7 +424,7 @@ class PopupCardViewModel(
         openRequest.value = OpenRequest(target = target, anchor = anchor)
     }
 
-    fun close() {
+    override fun close() {
         finishResize()
         menuTarget.value = null
         session.onCardClosed()
@@ -476,7 +501,7 @@ class PopupCardViewModel(
         }
     }
 
-    internal fun closeMenu() {
+    override fun closeMenu() {
         menuTarget.value = null
     }
 
@@ -572,7 +597,7 @@ class PopupCardViewModel(
     }
 
     /** Leaves Resize, storing the height and reporting the new page size. */
-    internal fun finishResize() {
+    override fun finishResize() {
         resizeController.finishResizeAndReport(scope = viewModelScope) { report ->
             widgetEvents.send(report.toWidgetEvent())
         }
@@ -626,7 +651,7 @@ class PopupCardViewModel(
         val target: MenuTarget = menuTarget.value ?: return
         val itemKey: String = target.itemKey ?: return
         menuTarget.value = null
-        removeAddedItem(popupRepository = popupRepository, ownerKey = target.ownerKey, itemKey = itemKey)
+        viewModelScope.removeAddedItem(popupRepository = popupRepository, ownerKey = target.ownerKey, itemKey = itemKey)
     }
 
     internal fun dragResize(deltaDp: Float) = resizeController.dragResize(deltaDp = deltaDp)
@@ -647,18 +672,18 @@ class PopupCardViewModel(
         }
     }
 
-    internal fun isOpen(): Boolean = openRequest.value != null
+    override fun isOpen(): Boolean = openRequest.value != null
 
-    internal fun currentOpenOwnerKey(): String? = openRequest.value?.target?.ownerKey
+    override fun currentOpenOwnerKey(): String? = openRequest.value?.target?.ownerKey
 
-    internal fun isResizing(): Boolean = resizeState.value != null
+    override fun isResizing(): Boolean = resizeState.value != null
 
-    internal fun isItemMenuOpen(): Boolean = menuTarget.value?.itemKey != null
+    override fun isItemMenuOpen(): Boolean = menuTarget.value?.itemKey != null
 
-    internal fun isMenuOpen(): Boolean = menuTarget.value != null
+    override fun isMenuOpen(): Boolean = menuTarget.value != null
 
     /** Closes the card and its menu when [ownerKey]'s Folder is deleted. */
-    internal fun onOwnerDeleted(ownerKey: String) {
+    override fun onOwnerDeleted(ownerKey: String) {
         menuTarget.value = null
         if (openRequest.value?.target?.ownerKey == ownerKey) {
             close()
@@ -879,6 +904,10 @@ class PopupCardViewModel(
             }
             open(owner = owner, anchor = null)
         }
+    }
+
+    override fun onCleared() {
+        collaborators.release()
     }
 }
 

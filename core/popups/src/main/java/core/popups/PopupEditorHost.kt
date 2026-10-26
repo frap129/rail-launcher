@@ -6,22 +6,34 @@ import androidx.compose.runtime.getValue
 
 /** Hosts the Pop-up editor and the item and Shortcut pickers it opens; renders nothing while they are closed. */
 @Composable
-fun PopupEditorHost(editorViewModel: PopupEditorViewModel, pickerViewModel: PopupPickerViewModel) {
-    val pickerState: PopupPickerState by pickerViewModel.pickerState.collectAsState()
-    val shortcutPickerState: ShortcutPickerState by pickerViewModel.shortcutPickerState.collectAsState()
-    EditPopupSheet(editorViewModel = editorViewModel, pickerViewModel = pickerViewModel)
+fun PopupEditorHost(editor: IPopupEditor, picker: IPopupPicker) {
+    val editState: PopupEditState by editor.editState.collectAsState()
+    val pickerState: PopupPickerState by picker.pickerState.collectAsState()
+    val shortcutPickerState: ShortcutPickerState by picker.shortcutPickerState.collectAsState()
+    val editing: PopupEditState.Editing? = editState as? PopupEditState.Editing
+    if (editing != null) {
+        EditPopupSheet(
+            state = editing,
+            onFinishEdit = editor::finishEdit,
+            onShortcutHiddenChange = editor::setShortcutHidden,
+            onItemOrderChange = editor::setItemOrder,
+            onRemoveItem = editor::removeEditedItem,
+            onAddApps = { picker.startPicking(editing.owner) },
+            onAddShortcuts = { picker.startPickingShortcuts(editing.owner) }
+        )
+    }
     if (pickerState is PopupPickerState.Picking) {
         LaunchablePickerSheet(
             state = pickerState as PopupPickerState.Picking,
-            onConfirm = pickerViewModel::confirmPicking,
-            onDismiss = pickerViewModel::cancelPicking
+            onConfirm = picker::confirmPicking,
+            onDismiss = picker::cancelPicking
         )
     }
     if (shortcutPickerState is ShortcutPickerState.Picking) {
         ShortcutPickerSheet(
             state = shortcutPickerState as ShortcutPickerState.Picking,
-            onConfirm = pickerViewModel::confirmShortcuts,
-            onDismiss = pickerViewModel::cancelShortcutPicking
+            onConfirm = picker::confirmShortcuts,
+            onDismiss = picker::cancelShortcutPicking
         )
     }
 }

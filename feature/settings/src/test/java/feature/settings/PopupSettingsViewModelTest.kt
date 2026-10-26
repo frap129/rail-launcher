@@ -10,11 +10,21 @@ import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
+import core.data.testing.FakePreferencesRepository
+import core.data.testing.FakeShortcutSource
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
 import core.data.testing.createEagerFavoritesRepository
 import core.data.testing.createRailLaunchable
+import core.popups.IPopupCollaborators
+import core.popups.IPopupCollaboratorsImpl
+import core.popups.IPopupEditorImpl
+import core.popups.IPopupFolderActionsImpl
+import core.popups.IPopupPickerImpl
+import core.popups.IPopupSession
+import core.popups.IPopupSessionImpl
+import core.ui.layout.HomeEditState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -207,19 +217,65 @@ class PopupSettingsViewModelTest {
         mockPopupRepository: FakePopupRepository = FakePopupRepository(),
         mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
         accessCheck: () -> Boolean = { true }
-    ): PopupSettingsViewModel = PopupSettingsViewModel(
-        folderRepository = mockFolderRepository,
-        popupRepository = mockPopupRepository,
-        notificationSource = INotificationSourceImpl(
-            context = RuntimeEnvironment.getApplication(),
-            scope = backgroundScope,
+    ): PopupSettingsViewModel {
+        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = folders)
+        return PopupSettingsViewModel(
+            folderRepository = mockFolderRepository,
             popupRepository = mockPopupRepository,
-            relay = INotificationListenerRelayImpl(),
-            isAccessGranted = { accessCheck() }
-        ),
-        favoritesRepository = createEagerFavoritesRepository(
-            favoriteDao = mockFavoriteDao,
-            launchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = folders)
+            notificationSource = INotificationSourceImpl(
+                context = RuntimeEnvironment.getApplication(),
+                scope = backgroundScope,
+                popupRepository = mockPopupRepository,
+                relay = INotificationListenerRelayImpl(),
+                isAccessGranted = { accessCheck() }
+            ),
+            favoritesRepository = createEagerFavoritesRepository(
+                favoriteDao = mockFavoriteDao,
+                launchableRepository = mockLaunchableRepository
+            ),
+            collaborators = createCollaborators(
+                mockFolderRepository = mockFolderRepository,
+                mockLaunchableRepository = mockLaunchableRepository,
+                mockPopupRepository = mockPopupRepository
+            )
         )
-    )
+    }
+
+    private fun TestScope.createCollaborators(
+        mockFolderRepository: FakeFolderRepository,
+        mockLaunchableRepository: FakeLaunchableRepository,
+        mockPopupRepository: FakePopupRepository
+    ): IPopupCollaborators {
+        val session: IPopupSession = IPopupSessionImpl()
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        val mockShortcutSource: FakeShortcutSource = FakeShortcutSource()
+        return IPopupCollaboratorsImpl(
+            session = session,
+            editor = IPopupEditorImpl(
+                parentScope = backgroundScope,
+                launchableRepository = mockLaunchableRepository,
+                shortcutSource = mockShortcutSource,
+                popupRepository = mockPopupRepository,
+                homeEditState = inputHomeEditState,
+                session = session
+            ),
+            picker = IPopupPickerImpl(
+                parentScope = backgroundScope,
+                launchableRepository = mockLaunchableRepository,
+                shortcutSource = mockShortcutSource,
+                popupRepository = mockPopupRepository,
+                homeEditState = inputHomeEditState,
+                session = session
+            ),
+            folder = IPopupFolderActionsImpl(
+                parentScope = backgroundScope,
+                launchableRepository = mockLaunchableRepository,
+                popupRepository = mockPopupRepository,
+                folderRepository = mockFolderRepository,
+                preferencesRepository = FakePreferencesRepository(),
+                homeEditState = inputHomeEditState,
+                session = session
+            )
+        )
+    }
 }

@@ -1,14 +1,13 @@
 package core.util
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/** Launches [action] in [ViewModel.viewModelScope], logging [message] with any failure. */
-fun ViewModel.launchLogged(message: String, action: suspend () -> Unit) {
-    viewModelScope.launch {
+/** Launches [action] in [this] scope, logging [message] with any failure. */
+fun CoroutineScope.launchLogged(message: String, action: suspend () -> Unit) {
+    launch {
         try {
             action()
         } catch (exception: CancellationException) {
