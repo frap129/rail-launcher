@@ -1,6 +1,5 @@
 package core.popups
 
-import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.CubicBezierEasing
@@ -27,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
@@ -35,10 +33,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
-import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.ui.util.consumeTouches
-import core.util.requestQuietModeOff
 import core.widgets.ResizeState
 import kotlin.math.roundToInt
 
@@ -51,7 +47,6 @@ private val emphasizedDecelerate: CubicBezierEasing = CubicBezierEasing(0.05f, 0
 /** Draws the outside-tap layer and the one open Pop-up above the launcher. */
 @Composable
 fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifier: Modifier = Modifier) {
-    val context: Context = LocalContext.current
     val density: Density = LocalDensity.current
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val popupState: PopupUiState by viewModel.popupState.collectAsState()
@@ -132,7 +127,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
             } else {
                 ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
             }
-            val headerClick: (() -> Unit)? = (displayState.owner as? App)?.let { owner -> { onLaunch(owner) } }
+            val headerClick: (() -> Unit)? = viewModel.headerApp(owner = displayState.owner)?.let { app -> { onLaunch(app) } }
             LaunchedEffect(frame.width) {
                 val widgetWidthDp: Int = with(density) {
                     (frame.width.toDp() - popupWidgetHorizontalPadding * 2).value.roundToInt()
@@ -152,13 +147,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
                 onAddItems = viewModel::startFolderPicking,
-                onRequestQuietModeOff = {
-                    val owner: App? = displayState.owner as? App
-                    owner?.let { app ->
-                        context.requestQuietModeOff(app.profile)
-                        viewModel.reloadShortcuts()
-                    }
-                },
+                onRequestQuietModeOff = { viewModel.unpauseOwnerProfile(owner = displayState.owner) },
                 onWidgetLongPress = viewModel::openWidgetMenu,
                 onWidgetUnpause = viewModel::unpauseWorkProfile,
                 onWidgetPageChanged = viewModel::onPageChanged,

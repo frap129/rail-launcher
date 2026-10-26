@@ -765,9 +765,7 @@ class PopupViewModel(
     /** Asks the system to leave quiet mode for the widget page's work profile. */
     fun unpauseWorkProfile(widgetId: Long) {
         val page: PopupWidgetPage = widgetState.value?.pageOf(widgetId) ?: return
-        viewModelScope.launch {
-            widgetEvents.send(WidgetEvent.RequestQuietModeOff(profileSerial = page.profileSerial))
-        }
+        requestQuietModeOff(profileSerial = page.profileSerial)
     }
 
     /**
@@ -1036,6 +1034,33 @@ class PopupViewModel(
             finishResize()
         } else {
             close()
+        }
+    }
+
+    /** The App whose header opens [owner], or null when [owner] is not an App. */
+    fun headerApp(owner: Launchable): App? = owner as? App
+
+    /**
+     * Asks the system to leave quiet mode for [owner]'s profile and reloads its Shortcuts.
+     * Defaults to the open card's owner.
+     */
+    fun unpauseOwnerProfile(owner: Launchable? = (popupState.value as? PopupUiState.Open)?.owner) {
+        val app: App = owner?.let { launchable -> headerApp(owner = launchable) } ?: run {
+            Timber.w("Ignoring quiet mode off without an open App Pop-up")
+            return
+        }
+        val profileSerial: Long = appWidgetHost.profileSerial(profile = app.profile) ?: run {
+            Timber.w("Could not find the profile for %s", app.profile)
+            return
+        }
+        requestQuietModeOff(profileSerial = profileSerial)
+        reloadShortcuts()
+    }
+
+    /** Asks the system to leave quiet mode for the profile with [profileSerial]. */
+    private fun requestQuietModeOff(profileSerial: Long) {
+        viewModelScope.launch {
+            widgetEvents.send(WidgetEvent.RequestQuietModeOff(profileSerial = profileSerial))
         }
     }
 

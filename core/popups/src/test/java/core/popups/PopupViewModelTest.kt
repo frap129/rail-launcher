@@ -47,6 +47,7 @@ import core.data.testing.appWidgetPlace
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationRecord
+import core.data.testing.createOtherNotificationProfile
 import core.data.testing.createPlatformNotificationAction
 import core.data.testing.popupStackPlace
 import core.data.time.ClockReading
@@ -96,6 +97,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 private const val ACTIVITY_NAME: String = "com.example.app.MainActivity"
+private const val WORK_PROFILE_SERIAL: Long = 42L
 private val NOW: Instant = Instant.ofEpochMilli(10_000_000L)
 private val INPUT_ANCHOR: PopupAnchor = PopupAnchor(rowTop = 400, rowBottom = 464, iconCenter = Offset(32f, 432f))
 
@@ -125,6 +127,11 @@ class PopupViewModelTest {
         defaultName = "Paused",
         profile = profile,
         componentName = ComponentName("com.example.paused", "com.example.paused.MainActivity")
+    )
+    private val inputWorkApp: App = App(
+        defaultName = "Work",
+        profile = createOtherNotificationProfile(),
+        componentName = ComponentName("com.example.work", "com.example.work.MainActivity")
     )
     private val inputRailLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Rail Settings",
@@ -570,14 +577,68 @@ class PopupViewModelTest {
             runCurrent()
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(inputApp, actualState.owner)
-            assertEquals(listOf(TEST_NOTIFICATION_PACKAGE_NAME to profile), fakeShortcutSource.requests)
+            assertEquals(listOf(inputApp.packageName to inputApp.profile), fakeShortcutSource.requests)
             viewModel.reloadShortcuts()
             runCurrent()
-            assertEquals(
-                listOf(TEST_NOTIFICATION_PACKAGE_NAME to profile, TEST_NOTIFICATION_PACKAGE_NAME to profile),
-                fakeShortcutSource.requests
-            )
+            assertEquals(expectedShortcutRequests(app = inputApp), fakeShortcutSource.requests)
         }
+    }
+
+    @Test
+    fun `turning on a paused App asks to leave quiet mode and reloads its shortcuts`() = runTest {
+        fakeLaunchableRepository.setGroups(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "W", items = listOf(inputWorkApp))
+            )
+        )
+        fakeAppWidgetHost.profileSerials[inputWorkApp.profile] = WORK_PROFILE_SERIAL
+        val viewModel: PopupViewModel = createViewModel()
+
+        viewModel.popupState.test {
+            viewModel.open(inputWorkApp, INPUT_ANCHOR)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+
+            viewModel.events.test {
+                viewModel.unpauseOwnerProfile(owner = inputWorkApp)
+                assertEquals(WidgetEvent.RequestQuietModeOff(profileSerial = WORK_PROFILE_SERIAL), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            runCurrent()
+
+            assertEquals(expectedShortcutRequests(app = inputWorkApp), fakeShortcutSource.requests)
+        }
+    }
+
+    @Test
+    fun `turning on a Folder asks for nothing`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+
+        viewModel.popupState.test {
+            viewModel.open(inputFolder, INPUT_ANCHOR)
+            runCurrent()
+            assertTrue(expectMostRecentItem() is PopupUiState.Open)
+
+            viewModel.events.test {
+                viewModel.unpauseOwnerProfile(owner = inputFolder)
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(emptyList<Pair<String, UserHandle>>(), fakeShortcutSource.requests)
+        }
+    }
+
+    @Test
+    fun `turning on without an open Pop-up asks for nothing`() = runTest {
+        val viewModel: PopupViewModel = createViewModel()
+
+        viewModel.events.test {
+            viewModel.unpauseOwnerProfile()
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(emptyList<Pair<String, UserHandle>>(), fakeShortcutSource.requests)
     }
 
     @Test
@@ -1962,6 +2023,10 @@ class PopupViewModelTest {
         assertEquals(listOf(6L, 7L), viewModel.widgetState.value?.pages?.map { page -> page.widgetId })
         assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
     }
+
+    /** The Shortcut requests made when [app]'s Pop-up opens and then reloads. */
+    private fun expectedShortcutRequests(app: App): List<Pair<String, UserHandle>> =
+        listOf(app.packageName to app.profile, app.packageName to app.profile)
 
     private fun TestScope.createWidgetViewModel(
         widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),

@@ -21,8 +21,12 @@ const val TEST_NOTIFICATION_REPLY_ACTION: String = "com.example.notification.REP
 const val TEST_NOTIFICATION_ACTION_LABEL: String = "Reply"
 const val TEST_NOTIFICATION_REPLY_KEY: String = "reply"
 const val TEST_NOTIFICATION_REPLY_TEXT: String = "On my way"
+private const val OTHER_PROFILE_UID: Int = 100_000
 
 fun createNotificationProfile(userId: Int = TEST_NOTIFICATION_USER_ID): UserHandle = UserHandle.getUserHandleForUid(userId)
+
+/** A user profile other than the default test profile. */
+fun createOtherNotificationProfile(): UserHandle = createNotificationProfile(userId = OTHER_PROFILE_UID)
 
 fun createNotificationAction(label: String = TEST_NOTIFICATION_ACTION_LABEL, hasRemoteInput: Boolean = false): NotificationAction =
     NotificationAction(label = label, hasRemoteInput = hasRemoteInput)

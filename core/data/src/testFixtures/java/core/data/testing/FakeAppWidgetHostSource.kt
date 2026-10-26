@@ -1,6 +1,7 @@
 package core.data.testing
 
 import android.app.Activity
+import android.os.UserHandle
 import core.data.widgets.AppWidgetId
 import core.data.widgets.BindRequest
 import core.data.widgets.IAppWidgetHostSource
@@ -22,6 +23,7 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
     val boundIdsState: MutableSet<AppWidgetId> = mutableSetOf()
     val availabilityResults: MutableMap<AppWidgetId, WidgetAvailability> = mutableMapOf()
     val providerInfoById: MutableMap<AppWidgetId, WidgetProviderInfo> = mutableMapOf()
+    val profileSerials: MutableMap<UserHandle, Long> = mutableMapOf()
     var defaultAvailability: WidgetAvailability = WidgetAvailability.Available
 
     val allocatedIds: MutableList<AppWidgetId> = mutableListOf()
@@ -51,6 +53,8 @@ class FakeAppWidgetHostSource(initialProviders: List<WidgetProviderInfo> = empty
         availabilityResults[id] ?: defaultAvailability
 
     override fun providerInfo(id: AppWidgetId): WidgetProviderInfo? = providerInfoById[id]
+
+    override fun profileSerial(profile: UserHandle): Long? = profileSerials[profile]
 
     override fun startListening() {
         isListening = true

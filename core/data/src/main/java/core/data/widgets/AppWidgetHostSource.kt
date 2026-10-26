@@ -1,6 +1,7 @@
 package core.data.widgets
 
 import android.app.Activity
+import android.os.UserHandle
 import core.data.icons.model.Icon
 import kotlinx.coroutines.flow.Flow
 
@@ -70,6 +71,9 @@ interface IAppWidgetHostSource {
 
     /** Provider details looked up directly from the system for a bound App Widget. */
     fun providerInfo(id: AppWidgetId): WidgetProviderInfo?
+
+    /** The serial number of [profile], or null when the system has no such profile. */
+    fun profileSerial(profile: UserHandle): Long?
 
     fun startListening()
 
