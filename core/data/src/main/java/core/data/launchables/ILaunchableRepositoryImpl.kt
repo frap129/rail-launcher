@@ -4,17 +4,18 @@ import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.folders.Folder
-import core.data.folders.FolderRecord
-import core.data.folders.toFolder
+import core.data.folders.resolveFolders
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.LaunchableNames
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.prefs.toLaunchableNames
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -48,13 +49,13 @@ class ILaunchableRepositoryImpl(
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
         iconRepository.iconPacks,
-        folderDao.observeAll()
-    ) { appsOrNull, customizations, settings, _, folderRecords ->
+        folderDao.observeAll().resolveFolders(customizations = preferencesRepository.launchableCustomizations)
+    ) { appsOrNull, customizations, settings, _, folders ->
         resolveState(
             appsOrNull = appsOrNull,
             customizations = customizations,
             settings = settings,
-            folderRecords = folderRecords
+            folders = folders
         )
     }
         .retryWithExponentialBackoff()
@@ -74,29 +75,28 @@ class ILaunchableRepositoryImpl(
         appsOrNull: List<App>?,
         customizations: List<LaunchableCustomization>,
         settings: Settings,
-        folderRecords: List<FolderRecord>
+        folders: List<Folder>
     ): LaunchableState {
         val apps: List<App> = appsOrNull.orEmpty()
-        val names: Map<String, String?> = customizations.associate { it.key to it.name }
+        val names: LaunchableNames = customizations.toLaunchableNames()
         val resolvedApps: List<Launchable> = apps.map { app -> app.resolve(names = names, settings = settings) }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
-        val resolvedFolders: List<Folder> = folderRecords.map { record -> record.toFolder(names = names) }
         val groups: List<LaunchableGroup> = resolvedApps.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,
-            folders = resolvedFolders
+            folders = folders
         )
         return LaunchableState(
             groups = groups,
             // Every Folder is flat-listed, whether or not its App List group is shown.
-            launchables = groups.toAppListLaunchables() + resolvedFolders,
+            launchables = groups.toAppListLaunchables() + folders,
             isLoaded = appsOrNull != null
         )
     }
 
-    private suspend fun Launchable.resolve(names: Map<String, String?>, settings: Settings): Launchable {
-        val name: String = names[key] ?: defaultName
+    private suspend fun Launchable.resolve(names: LaunchableNames, settings: Settings): Launchable {
+        val name: String = resolveName(names)
         val iconPack: String? = settings.iconPack
         val icon: Icon = if (this is App && iconPack != null) {
             iconRepository.getIcon(packPackageName = iconPack, componentName = componentName)
@@ -132,7 +132,7 @@ internal fun List<Launchable>.toLaunchableGroups(
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
     val folderGroup: LaunchableGroup.Folders? = folders
-        .filter { folder -> folder.isInAppList }
+        .filter { folder -> folder.showInAppList }
         .takeIf { items -> items.isNotEmpty() }
         ?.let { items -> LaunchableGroup.Folders(items = items) }
     return listOf(LaunchableGroup.Star) + initialGroups + listOfNotNull(folderGroup) + builtinGroup

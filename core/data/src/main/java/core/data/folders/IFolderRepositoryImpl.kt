@@ -11,7 +11,6 @@ import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 
 /**
@@ -40,13 +39,8 @@ class IFolderRepositoryImpl(
     private val preferencesRepository: IPreferencesRepository,
     private val launchableCustomizationDao: LaunchableCustomizationDao
 ) : IFolderRepository {
-    override val folders: Flow<List<Folder>> = combine(
-        folderDao.observeAll(),
-        preferencesRepository.launchableCustomizations
-    ) { records, customizations ->
-        val names: Map<String, String?> = customizations.associate { customization -> customization.key to customization.name }
-        records.map { record -> record.toFolder(names = names) }
-    }
+    override val folders: Flow<List<Folder>> = folderDao.observeAll()
+        .resolveFolders(customizations = preferencesRepository.launchableCustomizations)
 
     override suspend fun create(name: String?, initialItems: List<String>, addToFavorites: Boolean): Folder {
         val resolvedName: String? = name?.takeUnless { value -> value.isBlank() || value == Folder.DEFAULT_NAME }

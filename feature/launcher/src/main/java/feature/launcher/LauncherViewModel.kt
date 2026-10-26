@@ -424,7 +424,7 @@ class LauncherViewModel(
                     false
                 }
             }
-            if (isRemoved && launchable is Folder && !launchable.isInAppList) {
+            if (isRemoved && launchable is Folder && !launchable.showInAppList) {
                 foldersOnlyInSettingsRequests.send(launchable)
             }
         }
