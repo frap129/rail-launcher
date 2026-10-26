@@ -1,0 +1,943 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>core.data.widgets</title>
+<link href="../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../styles/style.css" rel="Stylesheet">
+<link href="../../../styles/main.css" rel="Stylesheet">
+<link href="../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":core:data:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="package" id="content" pageids="data::core.data.widgets////PointingToDeclaration//-1234779955">
+  <div class="breadcrumbs"><a href="../index.html">data</a><span class="delimiter">/</span><span class="current">core.data.widgets</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span><span>Package-level</span></span> <span><span>declarations</span></span></h1>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="TYPE">Types</button><button class="section-tab" data-togglable="FUNCTION,EXTENSION_FUNCTION">Functions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="TYPE">
+        <h2 class="">Types</h2>
+        <div class="table"><a data-name="-291975560%2FClasslikes%2F-1234779955" anchor-label="AddAppWidget" id="-291975560%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-add-app-widget/index.html"><span>Add</span><wbr><span>App</span><wbr><span><span>Widget</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-291975560%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-add-app-widget/index.html">AddAppWidget</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>appWidgetId<span class="token operator">: </span><a href="-app-widget-id/index.html">AppWidgetId</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>provider<span class="token operator">: </span><a href="-widget-provider/index.html">WidgetProvider</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>profileSerial<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>insertAt<span class="token operator">: </span><a href="-insert-position/index.html">InsertPosition</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>defaultHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Everything needed to place a bound App Widget.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-818671529%2FClasslikes%2F-1234779955" anchor-label="AddedAppWidget" id="-818671529%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-added-app-widget/index.html"><span>Added</span><wbr><span>App</span><wbr><span><span>Widget</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-818671529%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-added-app-widget/index.html">AddedAppWidget</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>widgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The inserted App Widget row and the place that now holds it.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-407798981%2FClasslikes%2F-1234779955" anchor-label="AppWidgetHostCallbacks" id="-407798981%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-app-widget-host-callbacks/index.html"><span>App</span><wbr><span>Widget</span><wbr><span>Host</span><wbr><span><span>Callbacks</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-407798981%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-app-widget-host-callbacks/index.html">AppWidgetHostCallbacks</a></div><div class="brief "><p class="paragraph">Relays android.appwidget.AppWidgetHost callbacks that Rail's host subclass receives.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1236476634%2FClasslikes%2F-1234779955" anchor-label="AppWidgetId" id="-1236476634%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-app-widget-id/index.html"><span>App</span><wbr><span>Widget</span><wbr><span><span>Id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1236476634%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">value </span><span class="token keyword">class </span><a href="-app-widget-id/index.html">AppWidgetId</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>value<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The system id of an App Widget hosted by Rail.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="558261652%2FClasslikes%2F-1234779955" anchor-label="BindRequest" id="558261652%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-bind-request/index.html"><span>Bind</span><wbr><span><span>Request</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="558261652%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-bind-request/index.html">BindRequest</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="-app-widget-id/index.html">AppWidgetId</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>provider<span class="token operator">: </span><a href="-widget-provider/index.html">WidgetProvider</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>profileSerial<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Everything needed to bind an allocated App Widget id to a provider.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1363888153%2FClasslikes%2F-1234779955" anchor-label="HeaderRemoval" id="-1363888153%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-header-removal/index.html"><span>Header</span><wbr><span><span>Removal</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1363888153%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-header-removal/index.html">HeaderRemoval</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>position<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>pagePosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Where a removed Header used to live, for Undo.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1457401013%2FClasslikes%2F-1234779955" anchor-label="IAddFlowPendingIds" id="1457401013%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-add-flow-pending-ids/index.html"><span>IAdd</span><wbr><span>Flow</span><wbr><span>Pending</span><wbr><span><span>Ids</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1457401013%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-add-flow-pending-ids/index.html">IAddFlowPendingIds</a></div><div class="brief "><p class="paragraph">The system ids allocated by an App Widget add flow that has not completed yet.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1607074699%2FClasslikes%2F-1234779955" anchor-label="IAddFlowPendingIdsImpl" id="-1607074699%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-add-flow-pending-ids-impl/index.html"><span>IAdd</span><wbr><span>Flow</span><wbr><span>Pending</span><wbr><span>Ids</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1607074699%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-add-flow-pending-ids-impl/index.html">IAddFlowPendingIdsImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">dao<span class="token operator">: </span><a href="../core.data.room.dao/-pending-app-widget-dao/index.html">PendingAppWidgetDao</a></span></span><span class="token punctuation">)</span> : <a href="-i-add-flow-pending-ids/index.html">IAddFlowPendingIds</a></div><div class="brief "><p class="paragraph">Stores the pending ids in Room so startup reconciliation does not free an id whose configuration activity is returning after process recreation.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1469735523%2FClasslikes%2F-1234779955" anchor-label="IAppWidgetHostSource" id="-1469735523%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-app-widget-host-source/index.html"><span>IApp</span><wbr><span>Widget</span><wbr><span>Host</span><wbr><span><span>Source</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1469735523%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a></div><div class="brief "><p class="paragraph">The only data source that talks to the Android App Widget service. The ViewModel and its fakes work with the pure value types above.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="223000925%2FClasslikes%2F-1234779955" anchor-label="IAppWidgetHostSourceImpl" id="223000925%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-app-widget-host-source-impl/index.html"><span>IApp</span><wbr><span>Widget</span><wbr><span>Host</span><wbr><span>Source</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="223000925%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-app-widget-host-source-impl/index.html">IAppWidgetHostSourceImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">context<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">appWidgetHost<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">iconRepository<span class="token operator">: </span><a href="../core.data.icons/-i-icon-repository/index.html">IIconRepository</a><span class="token punctuation">, </span></span><span class="parameter ">preferencesRepository<span class="token operator">: </span><a href="../core.data.prefs/-i-preferences-repository/index.html">IPreferencesRepository</a><span class="token punctuation">, </span></span><span class="parameter ">callbacks<span class="token operator">: </span><a href="-app-widget-host-callbacks/index.html">AppWidgetHostCallbacks</a></span></span><span class="token punctuation">)</span> : <a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1935152968%2FClasslikes%2F-1234779955" anchor-label="IHeaderSettingsActions" id="-1935152968%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-header-settings-actions/index.html"><span>IHeader</span><wbr><span>Settings</span><wbr><span><span>Actions</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1935152968%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-header-settings-actions/index.html">IHeaderSettingsActions</a></div><div class="brief "><p class="paragraph">Applies the Header setting changes shared by the Home menus and the Widgets settings screen.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="585891576%2FClasslikes%2F-1234779955" anchor-label="IHeaderSettingsActionsImpl" id="585891576%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-header-settings-actions-impl/index.html"><span>IHeader</span><wbr><span>Settings</span><wbr><span>Actions</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="585891576%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-header-settings-actions-impl/index.html">IHeaderSettingsActionsImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">settingsRepository<span class="token operator">: </span><a href="-i-widget-settings-repository/index.html">IWidgetSettingsRepository</a><span class="token punctuation">, </span></span><span class="parameter ">calendarPermissionGate<span class="token operator">: </span><a href="../core.data.calendar/-i-calendar-permission-gate/index.html">ICalendarPermissionGate</a></span></span><span class="token punctuation">)</span> : <a href="-i-header-settings-actions/index.html">IHeaderSettingsActions</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2021978470%2FClasslikes%2F-1234779955" anchor-label="InsertPosition" id="-2021978470%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-insert-position/index.html"><span>Insert</span><wbr><span><span>Position</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2021978470%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">sealed </span><span class="token keyword">interface </span><a href="-insert-position/index.html">InsertPosition</a></div><div class="brief "><p class="paragraph">Where a newly added App Widget place goes in the Widget Area.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="96743332%2FClasslikes%2F-1234779955" anchor-label="IRemoveAppWidget" id="96743332%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-remove-app-widget/index.html"><span>IRemove</span><wbr><span>App</span><wbr><span><span>Widget</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="96743332%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-remove-app-widget/index.html">IRemoveAppWidget</a></div><div class="brief "><p class="paragraph">Removes a placed Widget and frees its system App Widget id.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1787629596%2FClasslikes%2F-1234779955" anchor-label="IRemoveAppWidgetImpl" id="-1787629596%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-remove-app-widget-impl/index.html"><span>IRemove</span><wbr><span>App</span><wbr><span>Widget</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1787629596%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-remove-app-widget-impl/index.html">IRemoveAppWidgetImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">repository<span class="token operator">: </span><a href="-i-widget-area-repository/index.html">IWidgetAreaRepository</a><span class="token punctuation">, </span></span><span class="parameter ">host<span class="token operator">: </span><a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a></span></span><span class="token punctuation">)</span> : <a href="-i-remove-app-widget/index.html">IRemoveAppWidget</a></div><div class="brief "><p class="paragraph">Removes a placed Widget and frees its system App Widget id.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1286997859%2FClasslikes%2F-1234779955" anchor-label="IRemoveOwnerWidgets" id="-1286997859%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-remove-owner-widgets/index.html"><span>IRemove</span><wbr><span>Owner</span><wbr><span><span>Widgets</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1286997859%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-remove-owner-widgets/index.html">IRemoveOwnerWidgets</a></div><div class="brief "><p class="paragraph">Removes every Widget owned by a Pop-up and frees their system App Widget ids.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="143234141%2FClasslikes%2F-1234779955" anchor-label="IRemoveOwnerWidgetsImpl" id="143234141%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-remove-owner-widgets-impl/index.html"><span>IRemove</span><wbr><span>Owner</span><wbr><span>Widgets</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="143234141%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-remove-owner-widgets-impl/index.html">IRemoveOwnerWidgetsImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">repository<span class="token operator">: </span><a href="-i-widget-area-repository/index.html">IWidgetAreaRepository</a><span class="token punctuation">, </span></span><span class="parameter ">host<span class="token operator">: </span><a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a></span></span><span class="token punctuation">)</span> : <a href="-i-remove-owner-widgets/index.html">IRemoveOwnerWidgets</a></div><div class="brief "><p class="paragraph">Removes every Widget owned by a Pop-up and frees their system App Widget ids.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1705092610%2FClasslikes%2F-1234779955" anchor-label="IWidgetAreaRepository" id="1705092610%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-area-repository/index.html"><span>IWidget</span><wbr><span>Area</span><wbr><span><span>Repository</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1705092610%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-widget-area-repository/index.html">IWidgetAreaRepository</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1121060674%2FClasslikes%2F-1234779955" anchor-label="IWidgetAreaRepositoryImpl" id="1121060674%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-area-repository-impl/index.html"><span>IWidget</span><wbr><span>Area</span><wbr><span>Repository</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1121060674%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-widget-area-repository-impl/index.html">IWidgetAreaRepositoryImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">widgetAreaDao<span class="token operator">: </span><a href="../core.data.room.dao/-widget-area-dao/index.html">WidgetAreaDao</a><span class="token punctuation">, </span></span><span class="parameter ">appWidgetHost<span class="token operator">: </span><a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a><span class="token punctuation">, </span></span><span class="parameter ">lifecycleReconciler<span class="token operator">: </span><a href="-i-widget-lifecycle-reconciler/index.html">IWidgetLifecycleReconciler</a></span></span><span class="token punctuation">)</span> : <a href="-i-widget-area-repository/index.html">IWidgetAreaRepository</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1908244827%2FClasslikes%2F-1234779955" anchor-label="IWidgetLifecycleReconciler" id="1908244827%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-lifecycle-reconciler/index.html"><span>IWidget</span><wbr><span>Lifecycle</span><wbr><span><span>Reconciler</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1908244827%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-widget-lifecycle-reconciler/index.html">IWidgetLifecycleReconciler</a></div><div class="brief "><p class="paragraph">Keeps Rail's App Widget database in step with the ids and providers the system knows.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-596734437%2FClasslikes%2F-1234779955" anchor-label="IWidgetLifecycleReconcilerImpl" id="-596734437%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-lifecycle-reconciler-impl/index.html"><span>IWidget</span><wbr><span>Lifecycle</span><wbr><span>Reconciler</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-596734437%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-widget-lifecycle-reconciler-impl/index.html">IWidgetLifecycleReconcilerImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">dao<span class="token operator">: </span><a href="../core.data.room.dao/-widget-area-dao/index.html">WidgetAreaDao</a><span class="token punctuation">, </span></span><span class="parameter ">host<span class="token operator">: </span><a href="-i-app-widget-host-source/index.html">IAppWidgetHostSource</a></span></span><span class="token punctuation">)</span> : <a href="-i-widget-lifecycle-reconciler/index.html">IWidgetLifecycleReconciler</a></div><div class="brief "><p class="paragraph">Keeps Rail's App Widget database in step with the ids and providers the system knows.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1979724116%2FClasslikes%2F-1234779955" anchor-label="IWidgetSettingsRepository" id="-1979724116%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-settings-repository/index.html"><span>IWidget</span><wbr><span>Settings</span><wbr><span><span>Repository</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1979724116%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="-i-widget-settings-repository/index.html">IWidgetSettingsRepository</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1161284332%2FClasslikes%2F-1234779955" anchor-label="IWidgetSettingsRepositoryImpl" id="1161284332%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-widget-settings-repository-impl/index.html"><span>IWidget</span><wbr><span>Settings</span><wbr><span>Repository</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1161284332%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-i-widget-settings-repository-impl/index.html">IWidgetSettingsRepositoryImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">headerSettingsDao<span class="token operator">: </span><a href="../core.data.room.dao/-header-settings-dao/index.html">HeaderSettingsDao</a><span class="token punctuation">, </span></span><span class="parameter ">eventSettingsDao<span class="token operator">: </span><a href="../core.data.room.dao/-event-settings-dao/index.html">EventSettingsDao</a><span class="token punctuation">, </span></span><span class="parameter ">widgetAreaSettingsDao<span class="token operator">: </span><a href="../core.data.room.dao/-widget-area-settings-dao/index.html">WidgetAreaSettingsDao</a><span class="token punctuation">, </span></span><span class="parameter ">mediaPlayerSettingsDao<span class="token operator">: </span><a href="../core.data.room.dao/-media-player-settings-dao/index.html">MediaPlayerSettingsDao</a><span class="token punctuation">, </span></span><span class="parameter ">launchableRepository<span class="token operator">: </span><a href="../core.data.launchables/-i-launchable-repository/index.html">ILaunchableRepository</a></span></span><span class="token punctuation">)</span> : <a href="-i-widget-settings-repository/index.html">IWidgetSettingsRepository</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2142504292%2FClasslikes%2F-1234779955" anchor-label="MediaPlayerPlacement" id="-2142504292%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-media-player-placement/index.html"><span>Media</span><wbr><span>Player</span><wbr><span><span>Placement</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2142504292%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-media-player-placement/index.html">MediaPlayerPlacement</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-media-player-placement/index.html">MediaPlayerPlacement</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">Where the Media Player sits relative to the Widget Area.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1725900222%2FClasslikes%2F-1234779955" anchor-label="MediaPlayerSettings" id="1725900222%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-media-player-settings/index.html"><span>Media</span><wbr><span>Player</span><wbr><span><span>Settings</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1725900222%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-media-player-settings/index.html">MediaPlayerSettings</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>enabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showWhenPaused<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showArtwork<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>placement<span class="token operator">: </span><a href="-media-player-placement/index.html">MediaPlayerPlacement</a><span class="token operator"> = </span>MediaPlayerPlacement.BELOW_WIDGET_AREA<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>excludedPackages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Persisted preferences for the built-in Media Player.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1829033123%2FClasslikes%2F-1234779955" anchor-label="PendingAppWidgetRecord" id="-1829033123%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-pending-app-widget-record/index.html"><span>Pending</span><wbr><span>App</span><wbr><span>Widget</span><wbr><span><span>Record</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1829033123%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-pending-app-widget-record/index.html">PendingAppWidgetRecord</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>appWidgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">A system App Widget id reserved by an add flow that has not finished yet.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-213264062%2FClasslikes%2F-1234779955" anchor-label="PlaceDraft" id="-213264062%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-place-draft/index.html"><span>Place</span><wbr><span><span>Draft</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-213264062%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-place-draft/index.html">PlaceDraft</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetIds<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">One place in an Edit Widgets draft; a null <a href="-place-draft/place-id.html">placeId</a> is a place created by splitting a stack.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-695357349%2FClasslikes%2F-1234779955" anchor-label="PlacedWidget" id="-695357349%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-placed-widget/index.html"><span>Placed</span><wbr><span><span>Widget</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-695357349%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">sealed </span><span class="token keyword">interface </span><a href="-placed-widget/index.html">PlacedWidget</a></div><div class="brief "><p class="paragraph">A Widget stored in a <a href="-widget-place/index.html">WidgetPlace</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-249604639%2FClasslikes%2F-1234779955" anchor-label="ReplaceHeaderUndo" id="-249604639%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-replace-header-undo/index.html"><span>Replace</span><wbr><span>Header</span><wbr><span><span>Undo</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-249604639%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-replace-header-undo/index.html">ReplaceHeaderUndo</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>widgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerPlaceId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerPosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerPagePosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerCurrentPage<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetPlaceId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetPosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetPagePosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetCurrentPage<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Everything Undo needs to restore a Header replaced by an App Widget.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1160765005%2FClasslikes%2F-1234779955" anchor-label="ResizeBounds" id="-1160765005%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-resize-bounds/index.html"><span>Resize</span><wbr><span><span>Bounds</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1160765005%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-resize-bounds/index.html">ResizeBounds</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>minDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maxDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>isResizable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span>maxDp == null || maxDp &gt; minDp</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The vertical height range an App Widget can be resized to.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1613712095%2FClasslikes%2F-1234779955" anchor-label="WidgetAreaEdit" id="-1613712095%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-area-edit/index.html"><span>Widget</span><wbr><span>Area</span><wbr><span><span>Edit</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1613712095%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-area-edit/index.html">WidgetAreaEdit</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>places<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-place-draft/index.html">PlaceDraft</a><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>removedWidgetIds<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The complete desired Widget Area layout committed atomically on Done.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1169150237%2FClasslikes%2F-1234779955" anchor-label="WidgetAreaHeightLimit" id="-1169150237%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-area-height-limit/index.html"><span>Widget</span><wbr><span>Area</span><wbr><span>Height</span><wbr><span><span>Limit</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1169150237%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-widget-area-height-limit/index.html">WidgetAreaHeightLimit</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-widget-area-height-limit/index.html">WidgetAreaHeightLimit</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">The maximum fraction of Home the Widget Area may occupy when its height is limited.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="965481685%2FClasslikes%2F-1234779955" anchor-label="WidgetAreaSeedCallback" id="965481685%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-area-seed-callback/index.html"><span>Widget</span><wbr><span>Area</span><wbr><span>Seed</span><wbr><span><span>Callback</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="965481685%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="-widget-area-seed-callback/index.html">WidgetAreaSeedCallback</a></div><div class="brief "><p class="paragraph">Puts the default Header in the Widget Area. Runs on a fresh database and after a destructive migration, so a wiped database never starts with an empty Widget Area.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="377018408%2FClasslikes%2F-1234779955" anchor-label="WidgetAreaSettings" id="377018408%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-area-settings/index.html"><span>Widget</span><wbr><span>Area</span><wbr><span><span>Settings</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="377018408%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-area-settings/index.html">WidgetAreaSettings</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>DEFAULT_MAX_STACK_PAGES<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>stackIndicatorVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimitEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimit<span class="token operator">: </span><a href="-widget-area-height-limit/index.html">WidgetAreaHeightLimit</a><span class="token operator"> = </span>WidgetAreaHeightLimit.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>topOffsetDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetSpacing<span class="token operator">: </span><a href="-widget-spacing/index.html">WidgetSpacing</a><span class="token operator"> = </span>WidgetSpacing.DEFAULT</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The User's Widget Area preferences.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1674798185%2FClasslikes%2F-1234779955" anchor-label="WidgetAreaSettingsRecord" id="-1674798185%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-area-settings-record/index.html"><span>Widget</span><wbr><span>Area</span><wbr><span>Settings</span><wbr><span><span>Record</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1674798185%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-area-settings-record/index.html">WidgetAreaSettingsRecord</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>stackIndicatorVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimitEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimit<span class="token operator">: </span><a href="-widget-area-height-limit/index.html">WidgetAreaHeightLimit</a><span class="token operator"> = </span>WidgetAreaHeightLimit.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>topOffsetDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetSpacing<span class="token operator">: </span><a href="-widget-spacing/index.html">WidgetSpacing</a><span class="token operator"> = </span>WidgetSpacing.DEFAULT</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Persisted preferences for the Widget Area and its stacks.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1700259587%2FClasslikes%2F-1234779955" anchor-label="WidgetAvailability" id="-1700259587%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-availability/index.html"><span>Widget</span><wbr><span><span>Availability</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1700259587%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-widget-availability/index.html">WidgetAvailability</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-widget-availability/index.html">WidgetAvailability</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">Whether a placed App Widget can currently be rendered.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1362105372%2FClasslikes%2F-1234779955" anchor-label="WidgetKind" id="-1362105372%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-kind/index.html"><span>Widget</span><wbr><span><span>Kind</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1362105372%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-widget-kind/index.html">WidgetKind</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-widget-kind/index.html">WidgetKind</a><span class="token operator">&gt; </span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="399890723%2FClasslikes%2F-1234779955" anchor-label="WidgetPlace" id="399890723%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-place/index.html"><span>Widget</span><wbr><span><span>Place</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="399890723%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-place/index.html">WidgetPlace</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>currentPage<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgets<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">An ordered slot in the Widget Area or a Pop-up. A place holds one Widget or a Widget Stack.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1099281490%2FClasslikes%2F-1234779955" anchor-label="WidgetPlaceRecord" id="1099281490%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-place-record/index.html"><span>Widget</span><wbr><span>Place</span><wbr><span><span>Record</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1099281490%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-place-record/index.html">WidgetPlaceRecord</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>position<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>currentPage<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-990127961%2FClasslikes%2F-1234779955" anchor-label="WidgetProvider" id="-990127961%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-provider/index.html"><span>Widget</span><wbr><span><span>Provider</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-990127961%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-provider/index.html">WidgetProvider</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>packageName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>className<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">The provider of an App Widget, stored as its package name and class name.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-401950567%2FClasslikes%2F-1234779955" anchor-label="WidgetProviderInfo" id="-401950567%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-provider-info/index.html"><span>Widget</span><wbr><span>Provider</span><wbr><span><span>Info</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-401950567%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>provider<span class="token operator">: </span><a href="-widget-provider/index.html">WidgetProvider</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>profileSerial<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appPackageName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appLabel<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appIcon<span class="token operator">: </span><a href="../core.data.icons.model/-icon/index.html">Icon</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>label<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>description<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>defaultSize<span class="token operator">: </span><a href="-widget-size/index.html">WidgetSize</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>cellSize<span class="token operator">: </span><a href="-widget-size/index.html">WidgetSize</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>minHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>minResizeHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maxResizeHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>needsConfiguration<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>isReconfigurable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>hasConfigureActivity<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>isWorkProfile<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>isVerticallyResizable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">An App Widget provider offered by another app, resolved for Rail's UI.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1828094983%2FClasslikes%2F-1234779955" anchor-label="WidgetRecord" id="1828094983%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-record/index.html"><span>Widget</span><wbr><span><span>Record</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1828094983%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-record/index.html">WidgetRecord</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>pagePosition<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>kind<span class="token operator">: </span><a href="-widget-kind/index.html">WidgetKind</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appWidgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>provider<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>profileSerial<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>extendsUnderRail<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>defaultHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1426772969%2FClasslikes%2F-1234779955" anchor-label="WidgetSize" id="-1426772969%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-size/index.html"><span>Widget</span><wbr><span><span>Size</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1426772969%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="-widget-size/index.html">WidgetSize</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>widthDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">A size in dp, used for an App Widget's default and resize bounds.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1505658663%2FClasslikes%2F-1234779955" anchor-label="WidgetSpacing" id="1505658663%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-spacing/index.html"><span>Widget</span><wbr><span><span>Spacing</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1505658663%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-widget-spacing/index.html">WidgetSpacing</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-widget-spacing/index.html">WidgetSpacing</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">The visual gap between Widget Area places.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1191184708%2FClasslikes%2F-1234779955" anchor-label="WidgetWidth" id="1191184708%2FClasslikes%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-width/index.html"><span>Widget</span><wbr><span><span>Width</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1191184708%2FClasslikes%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">enum </span><a href="-widget-width/index.html">WidgetWidth</a> : <a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-enum/index.html">Enum</a><span class="token operator">&lt;</span><a href="-widget-width/index.html">WidgetWidth</a><span class="token operator">&gt; </span></div><div class="brief "><p class="paragraph">How wide a Widget is laid out relative to the Rail's touch column.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1751575708%2FFunctions%2F-1234779955" anchor-label="canGrowStack" id="1751575708%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-grow-stack.html"><span>can</span><wbr><span>Grow</span><wbr><span><span>Stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1751575708%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="can-grow-stack.html"><span class="token function">canGrowStack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">pageCount<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">additionalPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether a stack of <a href="can-grow-stack.html">pageCount</a> pages can take <a href="can-grow-stack.html">additionalPages</a> more within <a href="can-grow-stack.html">maxStackPages</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="528474930%2FFunctions%2F-1234779955" anchor-label="canGrowStack" id="528474930%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-grow-stack.html"><span>can</span><wbr><span>Grow</span><wbr><span><span>Stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="528474930%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="-widget-place/index.html">WidgetPlace</a><span class="token punctuation">.</span><a href="can-grow-stack.html"><span class="token function">canGrowStack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token punctuation">, </span></span><span class="parameter ">additionalPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether the place can take <a href="can-grow-stack.html">additionalPages</a> more Stack pages within <a href="can-grow-stack.html">maxStackPages</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1259979314%2FFunctions%2F-1234779955" anchor-label="canResizeStack" id="1259979314%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-resize-stack.html"><span>can</span><wbr><span>Resize</span><wbr><span><span>Stack</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1259979314%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="can-resize-stack.html"><span class="token function">canResizeStack</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">bounds<span class="token operator">: </span><a href="-resize-bounds/index.html">ResizeBounds</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether Resize is offered: every page must be available and <a href="can-resize-stack.html">bounds</a> resizable.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-312170924%2FFunctions%2F-1234779955" anchor-label="iconOr" id="-312170924%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="icon-or.html"><span>icon</span><wbr><span><span>Or</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-312170924%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token operator">?</span><span class="token punctuation">.</span><a href="icon-or.html"><span class="token function">iconOr</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">provider<span class="token operator">: </span><a href="-widget-provider/index.html">WidgetProvider</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../core.data.icons.model/-icon/index.html">Icon</a></div><div class="brief "><p class="paragraph">The provider app icon, falling back to the app package when it is no longer installed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-2007884571%2FFunctions%2F-1234779955" anchor-label="isPickerProvider" id="-2007884571%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-picker-provider.html"><span>is</span><wbr><span>Picker</span><wbr><span><span>Provider</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-2007884571%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="is-picker-provider.html"><span class="token function">isPickerProvider</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">isOwnPackage<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter ">isHomeScreenCategory<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether a provider is offered by Rail's picker.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="280928923%2FFunctions%2F-1234779955" anchor-label="labelOr" id="280928923%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="label-or.html"><span>label</span><wbr><span><span>Or</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="280928923%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token operator">?</span><span class="token punctuation">.</span><a href="label-or.html"><span class="token function">labelOr</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">provider<span class="token operator">: </span><a href="-widget-provider/index.html">WidgetProvider</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></div><div class="brief "><p class="paragraph">The provider label, falling back to the provider class when it is no longer installed.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-829651057%2FFunctions%2F-1234779955" anchor-label="needsConfiguration" id="-829651057%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="needs-configuration.html"><span>needs</span><wbr><span><span>Configuration</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-829651057%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="needs-configuration.html"><span class="token function">needsConfiguration</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">hasConfigureActivity<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter ">isConfigurationOptional<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token punctuation">, </span></span><span class="parameter ">isReconfigurable<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether placing a provider first requires its configuration activity.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1891799323%2FFunctions%2F-1234779955" anchor-label="placeOf" id="1891799323%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="place-of.html"><span>place</span><wbr><span><span>Of</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1891799323%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-widget-place/index.html">WidgetPlace</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="place-of.html"><span class="token function">placeOf</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">widgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-widget-place/index.html">WidgetPlace</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">The place holding the Widget with <a href="place-of.html">widgetId</a>, if any.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="723618883%2FFunctions%2F-1234779955" anchor-label="resizeBounds" id="723618883%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="resize-bounds.html"><span>resize</span><wbr><span><span>Bounds</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="723618883%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token punctuation">.</span><a href="resize-bounds.html"><span class="token function">resizeBounds</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">providerInfo<span class="token operator">: </span><span class="token punctuation">(</span><a href="-placed-widget/-app-widget/index.html">PlacedWidget.AppWidget</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-resize-bounds/index.html">ResizeBounds</a></div><div class="brief "><p class="paragraph">The bounds of one Widget Stack page; a Header contributes its measured height as a minimum.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1216656208%2FFunctions%2F-1234779955" anchor-label="stackDefaultHeightDp" id="-1216656208%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stack-default-height-dp.html"><span>stack</span><wbr><span>Default</span><wbr><span>Height</span><wbr><span><span>Dp</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1216656208%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="stack-default-height-dp.html"><span class="token function">stackDefaultHeightDp</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">providerInfo<span class="token operator">: </span><span class="token punctuation">(</span><a href="-placed-widget/-app-widget/index.html">PlacedWidget.AppWidget</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">The tallest page default height for a stack, the lone page's default otherwise; null when no page has one.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1647202182%2FFunctions%2F-1234779955" anchor-label="stackIndicatorVisible" id="1647202182%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stack-indicator-visible.html"><span>stack</span><wbr><span>Indicator</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1647202182%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="stack-indicator-visible.html"><span class="token function">stackIndicatorVisible</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">settingVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Whether the place shows the Widget Stack indicator, given the user's setting.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-719752069%2FFunctions%2F-1234779955" anchor-label="stackResizeBounds" id="-719752069%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stack-resize-bounds.html"><span>stack</span><wbr><span>Resize</span><wbr><span><span>Bounds</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-719752069%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="-placed-widget/index.html">PlacedWidget</a><span class="token operator">&gt;</span><span class="token punctuation">.</span><a href="stack-resize-bounds.html"><span class="token function">stackResizeBounds</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">providerInfo<span class="token operator">: </span><span class="token punctuation">(</span><a href="-placed-widget/-app-widget/index.html">PlacedWidget.AppWidget</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="-widget-provider-info/index.html">WidgetProviderInfo</a><span class="token operator">?</span></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="-resize-bounds/index.html">ResizeBounds</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">The bounds a place is resized against: the intersection of its pages for a stack, its lone page's otherwise.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

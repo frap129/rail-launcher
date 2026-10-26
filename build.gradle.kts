@@ -1,4 +1,5 @@
 import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.dokka.gradle.DokkaTaskPartial
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
@@ -17,7 +18,20 @@ plugins {
 
 subprojects {
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
-    apply(plugin = "org.jetbrains.dokka")
+    // Dokka configures Android source sets when it is applied, so apply it after the Android plugin.
+    pluginManager.withPlugin("com.android.application") { apply(plugin = "org.jetbrains.dokka") }
+    pluginManager.withPlugin("com.android.library") { apply(plugin = "org.jetbrains.dokka") }
+    pluginManager.withPlugin("com.android.test") { apply(plugin = "org.jetbrains.dokka") }
+
+    tasks.withType<DokkaTask>().configureEach {
+        notCompatibleWithConfigurationCache("https://github.com/Kotlin/dokka/issues/2231")
+    }
+
+    // AGP 9's built-in Kotlin does not register Kotlin source sets with Dokka 1.x.
+    tasks.withType<DokkaTaskPartial>().configureEach {
+        notCompatibleWithConfigurationCache("https://github.com/Kotlin/dokka/issues/2231")
+        dokkaSourceSets.maybeCreate("main").sourceRoots.from(project.file("src/main/java"), project.file("src/main/kotlin"))
+    }
 }
 
 tasks.register("generateDocs") {}
@@ -25,10 +39,6 @@ tasks.register("generateDocs") {}
 tasks.getByName("generateDocs") {
     dependsOn(tasks.dokkaHtmlMultiModule)
     dependsOn(tasks.dokkaGfmMultiModule)
-}
-
-tasks.withType<DokkaTask>().configureEach {
-    notCompatibleWithConfigurationCache("https://github.com/Kotlin/dokka/issues/2231")
 }
 
 tasks.dokkaHtmlMultiModule {

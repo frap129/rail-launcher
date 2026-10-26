@@ -6,5 +6,6 @@
 
 | Name | Summary |
 |---|---|
-| [MainApplication](-main-application/index.md) | [androidJvm]<br>class [MainApplication](-main-application/index.md) : [Application](https://developer.android.com/reference/kotlin/android/app/Application.html) |
-| [TemplateActivity](-template-activity/index.md) | [androidJvm]<br>open class [TemplateActivity](-template-activity/index.md) : [ComponentActivity](https://developer.android.com/reference/kotlin/androidx/activity/ComponentActivity.html) |
+| [HomeSignals](-home-signals/index.md) | [main]<br>class [HomeSignals](-home-signals/index.md)<br>Pending HOME intent events for the launcher UI, owned by the activity. |
+| [MainApplication](-main-application/index.md) | [main]<br>class [MainApplication](-main-application/index.md) |
+| [TemplateActivity](-template-activity/index.md) | [main]<br>open class [TemplateActivity](-template-activity/index.md) |

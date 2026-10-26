@@ -2,8 +2,5 @@
 
 # SettingsScreen
 
-[androidJvm]\
-
-@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)
-
-fun [SettingsScreen](-settings-screen.md)(navController: [NavController](https://developer.android.com/reference/kotlin/androidx/navigation/NavController.html), viewModel: [SettingsViewModel](-settings-view-model/index.md) = koinViewModel())
+[main]\
+fun [SettingsScreen](-settings-screen.md)(navController: <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->, backStackEntry: <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->, viewModel: [SettingsViewModel](-settings-view-model/index.md) = koinViewModel())

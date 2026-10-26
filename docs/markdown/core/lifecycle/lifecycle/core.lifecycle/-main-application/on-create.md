@@ -2,5 +2,5 @@
 
 # onCreate
 
-[androidJvm]\
-open override fun [onCreate](on-create.md)()
+[main]\
+open fun [onCreate](on-create.md)()

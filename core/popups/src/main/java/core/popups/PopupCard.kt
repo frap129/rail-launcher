@@ -50,6 +50,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -105,7 +106,6 @@ private const val MAX_VISIBLE_NOTIFICATION_ACTIONS: Int = 3
 private const val NOTIFICATION_REPLY_MAX_LINES: Int = 3
 private val shortcutRowHeight = 48.dp
 private val shortcutHorizontalPadding = 16.dp
-private val shortcutIconSize = 24.dp
 private val shortcutIconGap = 16.dp
 private val itemRowHeight = 48.dp
 private val itemIconSize = 32.dp
@@ -114,6 +114,8 @@ private val itemDividerInset = 16.dp
 private val emptyStatePadding = 16.dp
 private val addAppsButtonTopPadding = 8.dp
 internal val popupWidgetHorizontalPadding: Dp = 8.dp
+internal val popupIconSize: Dp = 24.dp
+internal const val POPUP_CARD_TEST_TAG: String = "popupCard"
 
 @Immutable
 private data class NotificationRowsUi(
@@ -167,17 +169,21 @@ fun PopupCard(
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val currentOnLongPress: () -> Unit by rememberUpdatedState(onLongPress)
     val currentOnItemLongClick: (PopupItem) -> Unit by rememberUpdatedState(onItemLongClick)
+    // Read the updated state during composition so the card stays restartable and is not inlined away.
+    val longPressHandler: () -> Unit = currentOnLongPress
+    val itemLongClickHandler: (PopupItem) -> Unit = currentOnItemLongClick
     val openMenu: () -> Unit = {
         hapticFeedback.performLongPressHaptic()
-        currentOnLongPress()
+        longPressHandler()
     }
     val openItemMenu: (PopupItem) -> Unit = { item ->
         hapticFeedback.performLongPressHaptic()
-        currentOnItemLongClick(item)
+        itemLongClickHandler(item)
     }
     val isResizing: Boolean = resize != null
     Surface(
         modifier = modifier
+            .testTag(POPUP_CARD_TEST_TAG)
             .pointerInput(isResizing) {
                 detectTapGestures(
                     onTap = { if (isResizing) onResizeTap() },
@@ -708,7 +714,7 @@ private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit, 
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            modifier = Modifier.size(shortcutIconSize),
+            modifier = Modifier.size(popupIconSize),
             model = shortcut.icon,
             contentDescription = null
         )
@@ -729,7 +735,7 @@ internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () 
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            modifier = Modifier.size(if (shortcut != null) shortcutIconSize else itemIconSize),
+            modifier = Modifier.size(if (shortcut != null) popupIconSize else itemIconSize),
             model = item.launchable.icon,
             contentDescription = null
         )

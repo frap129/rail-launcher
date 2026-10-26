@@ -2,8 +2,5 @@
 
 # LauncherScreen
 
-[androidJvm]\
-
-@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)
-
-fun [LauncherScreen](-launcher-screen.md)(navController: [NavController](https://developer.android.com/reference/kotlin/androidx/navigation/NavController.html), viewModel: [LauncherViewModel](-launcher-view-model/index.md) = koinViewModel())
+[main]\
+fun [LauncherScreen](-launcher-screen.md)(navController: <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->, backStackEntry: <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->, viewModel: [LauncherViewModel](-launcher-view-model/index.md) = koinViewModel(), widgetViewModel: [WidgetAreaViewModel](../feature.launcher.widgets/-widget-area-view-model/index.md) = koinViewModel(), popupViewModel: <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- ---> = koinViewModel())

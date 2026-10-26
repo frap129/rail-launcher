@@ -1,0 +1,6 @@
+//[data](../../../index.md)/[core.data.prefs](../index.md)/[HeaderSettings](index.md)/[HeaderSettings](-header-settings.md)
+
+# HeaderSettings
+
+[main]\
+constructor(id: [Int](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html) = 0, clockVisible: [Boolean](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html) = true, dateVisible: [Boolean](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html) = true, clockStyle: [ClockStyle](../-clock-style/index.md) = ClockStyle.CLASSIC, timeFormat: [TimeFormat](../-time-format/index.md) = TimeFormat.SYSTEM, showAmPm: [Boolean](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html) = false, dateFormat: [DateFormatPreset](../-date-format-preset/index.md) = DateFormatPreset.FULL, alignment: [HeaderAlignment](../-header-alignment/index.md) = HeaderAlignment.START, size: [HeaderSize](../-header-size/index.md) = HeaderSize.DEFAULT, timeTapTarget: [HeaderTapSetting](../-header-tap-setting/index.md)? = null, dateTapTarget: [HeaderTapSetting](../-header-tap-setting/index.md)? = null, batteryVisibility: [BatteryVisibility](../-battery-visibility/index.md) = BatteryVisibility.NEVER)

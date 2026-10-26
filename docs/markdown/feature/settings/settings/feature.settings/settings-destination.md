@@ -2,5 +2,5 @@
 
 # settingsDestination
 
-[androidJvm]\
-val [settingsDestination](settings-destination.md): [Destination](../../../../core/ui/ui/core.ui.model.data/-destination/index.md)
+[main]\
+val [settingsDestination](settings-destination.md): <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->

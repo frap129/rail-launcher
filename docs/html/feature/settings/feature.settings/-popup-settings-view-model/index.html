@@ -1,0 +1,318 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>PopupSettingsViewModel</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":feature:settings:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="settings::feature.settings/PopupSettingsViewModel///PointingToDeclaration//-70870175">
+  <div class="breadcrumbs"><a href="../../index.html">settings</a><span class="delimiter">/</span><a href="../index.html">feature.settings</a><span class="delimiter">/</span><span class="current">PopupSettingsViewModel</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Popup</span><wbr><span>Settings</span><wbr><span>View</span><wbr><span><span>Model</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">PopupSettingsViewModel</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">folderRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">popupRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">notificationSource<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">favoritesRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">preferencesRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></span></span><span class="token punctuation">)</span></div><p class="paragraph">Owns the Settings list of every Folder, its actions sheet, its dialogs and the Notifications section.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-1920429118%2FConstructors%2F-70870175" anchor-label="PopupSettingsViewModel" id="-1920429118%2FConstructors%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-popup-settings-view-model.html"><span>Popup</span><wbr><span>Settings</span><wbr><span>View</span><wbr><span><span>Model</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1920429118%2FConstructors%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">folderRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">popupRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">notificationSource<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">favoritesRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">preferencesRepository<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="1640433786%2FProperties%2F-70870175" anchor-label="createdFolders" id="1640433786%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="created-folders.html"><span>created</span><wbr><span><span>Folders</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1640433786%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="created-folders.html">createdFolders</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Folders created from Settings, for its "Folder created" Snackbar.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1743956322%2FProperties%2F-70870175" anchor-label="events" id="-1743956322%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="events.html"><span><span>events</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1743956322%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="events.html">events</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="../-widget-settings-event/index.html">WidgetSettingsEvent</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Events the Notifications section asks the screen to run.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1708177766%2FProperties%2F-70870175" anchor-label="uiState" id="1708177766%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="ui-state.html"><span>ui</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1708177766%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="ui-state.html">uiState</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="../-popup-settings-ui-state/index.html">PopupSettingsUiState</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1321759278%2FFunctions%2F-70870175" anchor-label="closeActions" id="-1321759278%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="close-actions.html"><span>close</span><wbr><span><span>Actions</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1321759278%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="close-actions.html"><span class="token function">closeActions</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1583982119%2FFunctions%2F-70870175" anchor-label="closeNewFolderDialog" id="-1583982119%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="close-new-folder-dialog.html"><span>close</span><wbr><span>New</span><wbr><span>Folder</span><wbr><span><span>Dialog</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1583982119%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="close-new-folder-dialog.html"><span class="token function">closeNewFolderDialog</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1358959835%2FFunctions%2F-70870175" anchor-label="closeRenameDialog" id="-1358959835%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="close-rename-dialog.html"><span>close</span><wbr><span>Rename</span><wbr><span><span>Dialog</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1358959835%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="close-rename-dialog.html"><span class="token function">closeRenameDialog</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-3766953%2FFunctions%2F-70870175" anchor-label="createFolder" id="-3766953%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="create-folder.html"><span>create</span><wbr><span><span>Folder</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-3766953%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="create-folder.html"><span class="token function">createFolder</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">name<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="247936098%2FFunctions%2F-70870175" anchor-label="openActions" id="247936098%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-actions.html"><span>open</span><wbr><span><span>Actions</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="247936098%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="open-actions.html"><span class="token function">openActions</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">folder<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-168831945%2FFunctions%2F-70870175" anchor-label="openNewFolderDialog" id="-168831945%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-new-folder-dialog.html"><span>open</span><wbr><span>New</span><wbr><span>Folder</span><wbr><span><span>Dialog</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-168831945%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="open-new-folder-dialog.html"><span class="token function">openNewFolderDialog</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-844513913%2FFunctions%2F-70870175" anchor-label="openRenameDialog" id="-844513913%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="open-rename-dialog.html"><span>open</span><wbr><span>Rename</span><wbr><span><span>Dialog</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-844513913%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="open-rename-dialog.html"><span class="token function">openRenameDialog</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="613761177%2FFunctions%2F-70870175" anchor-label="renameFolder" id="613761177%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="rename-folder.html"><span>rename</span><wbr><span><span>Folder</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="613761177%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="rename-folder.html"><span class="token function">renameFolder</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">name<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-115395868%2FFunctions%2F-70870175" anchor-label="setInAppList" id="-115395868%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-in-app-list.html"><span>set</span><wbr><span>In</span><wbr><span>App</span><wbr><span><span>List</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-115395868%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="set-in-app-list.html"><span class="token function">setInAppList</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">inAppList<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-371590643%2FFunctions%2F-70870175" anchor-label="setNotificationsEnabled" id="-371590643%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-notifications-enabled.html"><span>set</span><wbr><span>Notifications</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-371590643%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="set-notifications-enabled.html"><span class="token function">setNotificationsEnabled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">enabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Persists whether Pop-ups show notifications, explaining access when it is missing.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-69049528%2FFunctions%2F-70870175" anchor-label="setOnHome" id="-69049528%2FFunctions%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-on-home.html"><span>set</span><wbr><span>On</span><wbr><span><span>Home</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-69049528%2FFunctions%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="set-on-home.html"><span class="token function">setOnHome</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">onHome<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
