@@ -80,7 +80,12 @@ import core.data.widgets.IWidgetLifecycleReconcilerImpl
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import core.data.widgets.WidgetAreaSeedCallback
-import core.popups.PopupViewModel
+import core.popups.IPopupSession
+import core.popups.IPopupSessionImpl
+import core.popups.PopupCardViewModel
+import core.popups.PopupEditorViewModel
+import core.popups.PopupFolderViewModel
+import core.popups.PopupPickerViewModel
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.util.screenHeightPx
@@ -243,6 +248,7 @@ class MainApplication :
                 homeEditState = get()
             )
         }
+        factory<IPopupSession> { IPopupSessionImpl() }
         single { HomeEditState() }
         single { HomeHeightState() }
         single<IClockSource> { IClockSourceImpl(androidContext()) }
@@ -260,13 +266,39 @@ class MainApplication :
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
-        viewModel {
-            val savedStateHandle: SavedStateHandle = get()
-            PopupViewModel(
+        viewModel { (session: IPopupSession) ->
+            PopupEditorViewModel(
                 launchableRepository = get(),
                 shortcutSource = get(),
                 popupRepository = get(),
+                homeEditState = get(),
+                session = session
+            )
+        }
+        viewModel { (session: IPopupSession) ->
+            PopupPickerViewModel(
+                launchableRepository = get(),
+                shortcutSource = get(),
+                popupRepository = get(),
+                homeEditState = get(),
+                session = session
+            )
+        }
+        viewModel { (session: IPopupSession) ->
+            PopupFolderViewModel(
+                launchableRepository = get(),
+                popupRepository = get(),
                 folderRepository = get(),
+                homeEditState = get(),
+                session = session
+            )
+        }
+        viewModel { (session: IPopupSession) ->
+            val savedStateHandle: SavedStateHandle = get()
+            PopupCardViewModel(
+                launchableRepository = get(),
+                shortcutSource = get(),
+                popupRepository = get(),
                 notificationSource = get(),
                 clockSource = get(),
                 homeEditState = get(),
@@ -277,7 +309,8 @@ class MainApplication :
                 removeAppWidget = get(),
                 widgetLifecycleReconciler = get(),
                 widgetSettingsRepository = get(),
-                savedStateHandle = savedStateHandle
+                savedStateHandle = savedStateHandle,
+                session = session
             )
         }
         viewModel { SettingsViewModel(get(), get()) }

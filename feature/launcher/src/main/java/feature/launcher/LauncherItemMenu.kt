@@ -39,7 +39,8 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.popups.PopupViewModel
+import core.popups.PopupEditorViewModel
+import core.popups.PopupFolderViewModel
 import core.popups.R as PopupsR
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
@@ -52,7 +53,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LauncherMenu(viewModel: LauncherViewModel) {
+internal fun LauncherMenu(viewModel: LauncherViewModel, editorViewModel: PopupEditorViewModel, folderViewModel: PopupFolderViewModel) {
     val menuState: LauncherMenuState by viewModel.menuState.collectAsState()
     if (menuState is LauncherMenuState.Closed) {
         return
@@ -62,8 +63,15 @@ internal fun LauncherMenu(viewModel: LauncherViewModel) {
         onDismissRequest = { viewModel.closeItemMenu() }
     ) {
         when (val currentMenuState: LauncherMenuState = menuState) {
-            is LauncherMenuState.Menu -> LauncherItemMenu(item = currentMenuState.item, viewModel = viewModel)
+            is LauncherMenuState.Menu -> LauncherItemMenu(
+                item = currentMenuState.item,
+                viewModel = viewModel,
+                editorViewModel = editorViewModel,
+                folderViewModel = folderViewModel
+            )
+
             is LauncherMenuState.Rename -> LauncherItemEditName(item = currentMenuState.item, viewModel = viewModel)
+
             LauncherMenuState.Closed -> {} // this state is never reached
         }
     }
@@ -72,8 +80,9 @@ internal fun LauncherMenu(viewModel: LauncherViewModel) {
 @Composable
 internal fun LauncherItemMenu(
     item: Launchable,
-    viewModel: LauncherViewModel = koinViewModel(),
-    popupViewModel: PopupViewModel = koinViewModel()
+    viewModel: LauncherViewModel,
+    editorViewModel: PopupEditorViewModel,
+    folderViewModel: PopupFolderViewModel
 ) {
     val context: Context = LocalContext.current
 
@@ -91,24 +100,43 @@ internal fun LauncherItemMenu(
             onClick = { viewModel.editFavorites() }
         )
         when (item) {
-            is App -> AppMenuActions(item = item, context = context, viewModel = viewModel, popupViewModel = popupViewModel)
-            is Folder -> FolderMenuActions(item = item, viewModel = viewModel, popupViewModel = popupViewModel)
-            else -> AddToFolderAction(item = item, viewModel = viewModel, popupViewModel = popupViewModel)
+            is App -> AppMenuActions(
+                item = item,
+                context = context,
+                viewModel = viewModel,
+                editorViewModel = editorViewModel,
+                folderViewModel = folderViewModel
+            )
+
+            is Folder -> FolderMenuActions(
+                item = item,
+                viewModel = viewModel,
+                editorViewModel = editorViewModel,
+                folderViewModel = folderViewModel
+            )
+
+            else -> AddToFolderAction(item = item, viewModel = viewModel, folderViewModel = folderViewModel)
         }
     }
 }
 
 @Composable
-private fun AppMenuActions(item: App, context: Context, viewModel: LauncherViewModel, popupViewModel: PopupViewModel) {
+private fun AppMenuActions(
+    item: App,
+    context: Context,
+    viewModel: LauncherViewModel,
+    editorViewModel: PopupEditorViewModel,
+    folderViewModel: PopupFolderViewModel
+) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(CoreUiR.string.edit_popup),
         onClick = {
             viewModel.closeItemMenu()
-            popupViewModel.startEdit(item)
+            editorViewModel.startEdit(item)
         }
     )
-    AddToFolderAction(item = item, viewModel = viewModel, popupViewModel = popupViewModel)
+    AddToFolderAction(item = item, viewModel = viewModel, folderViewModel = folderViewModel)
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),
@@ -117,20 +145,25 @@ private fun AppMenuActions(item: App, context: Context, viewModel: LauncherViewM
 }
 
 @Composable
-private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, popupViewModel: PopupViewModel) {
+private fun FolderMenuActions(
+    item: Folder,
+    viewModel: LauncherViewModel,
+    editorViewModel: PopupEditorViewModel,
+    folderViewModel: PopupFolderViewModel
+) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(PopupsR.string.edit_folder),
         onClick = {
             viewModel.closeItemMenu()
-            popupViewModel.startEdit(item)
+            editorViewModel.startEdit(item)
         }
     )
     SheetSwitchRow(
         imageVector = FontAwesomeIcons.Solid.ListUl,
         label = stringResource(R.string.show_in_app_list),
         checked = item.showInAppList,
-        onCheckedChange = { show -> popupViewModel.setShowInAppList(folder = item, show = show) },
+        onCheckedChange = { show -> folderViewModel.setShowInAppList(folder = item, show = show) },
         supportingText = stringResource(R.string.show_in_app_list_supporting_text)
     )
     SheetMenuAction(
@@ -138,19 +171,19 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, popupV
         label = stringResource(PopupsR.string.delete_folder),
         onClick = {
             viewModel.closeItemMenu()
-            popupViewModel.requestDeleteFolder(item)
+            folderViewModel.requestDeleteFolder(item)
         }
     )
 }
 
 @Composable
-private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, popupViewModel: PopupViewModel) {
+private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, folderViewModel: PopupFolderViewModel) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.FolderPlus,
         label = stringResource(PopupsR.string.add_to_folder),
         onClick = {
             viewModel.closeItemMenu()
-            popupViewModel.startAddToFolder(item)
+            folderViewModel.startAddToFolder(item)
         }
     )
 }

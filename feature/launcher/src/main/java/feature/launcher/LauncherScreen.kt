@@ -25,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,10 +53,14 @@ import core.popups.AddToFolderSheet
 import core.popups.AddToFolderState
 import core.popups.FolderDeleteDialog
 import core.popups.FolderNameDialog
+import core.popups.IPopupSession
+import core.popups.PopupCardViewModel
 import core.popups.PopupEditorHost
+import core.popups.PopupEditorViewModel
+import core.popups.PopupFolderViewModel
 import core.popups.PopupHost
 import core.popups.PopupMenuSheet
-import core.popups.PopupViewModel
+import core.popups.PopupPickerViewModel
 import core.popups.R as PopupsR
 import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
@@ -93,6 +98,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import org.koin.core.parameter.parametersOf
 
 val launcherDestination = Destination(
     route = LAUNCHER_ROUTE,
@@ -109,9 +115,22 @@ fun LauncherScreen(
     navController: NavController,
     backStackEntry: NavBackStackEntry,
     viewModel: LauncherViewModel = koinViewModel(),
-    widgetViewModel: WidgetAreaViewModel = koinViewModel(),
-    popupViewModel: PopupViewModel = koinViewModel()
+    widgetViewModel: WidgetAreaViewModel = koinViewModel()
 ) {
+    // One session per Pop-up host; the ViewModels keep the instance they were created with.
+    val popupSession: IPopupSession = koinInject()
+    val popupCardViewModel: PopupCardViewModel = koinViewModel { parametersOf(popupSession) }
+    val popupEditorViewModel: PopupEditorViewModel = koinViewModel { parametersOf(popupSession) }
+    val popupPickerViewModel: PopupPickerViewModel = koinViewModel { parametersOf(popupSession) }
+    val popupFolderViewModel: PopupFolderViewModel = koinViewModel { parametersOf(popupSession) }
+    SideEffect {
+        popupSession.attach(
+            card = popupCardViewModel,
+            editor = popupEditorViewModel,
+            picker = popupPickerViewModel,
+            folder = popupFolderViewModel
+        )
+    }
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -143,7 +162,7 @@ fun LauncherScreen(
         if (launchable is Folder) {
             return@launchItem
         }
-        popupViewModel.onLaunched()
+        popupCardViewModel.onLaunched()
         val didLaunch: Boolean = if (launchable is ShortcutLaunchable) {
             launchShortcut(shortcut = launchable, context = context) {
                 coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
@@ -168,7 +187,7 @@ fun LauncherScreen(
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
 
                 Lifecycle.Event.ON_STOP -> {
-                    popupViewModel.onStopped()
+                    popupCardViewModel.onStopped()
                     widgetViewModel.finishResize()
                     widgetViewModel.finishEditingWidgets()
                     widgetViewModel.finishMoveWidgetArea()
@@ -187,7 +206,7 @@ fun LauncherScreen(
             appWidgetHostSource.stopListening()
         }
     }
-    LaunchedEffect(viewModel, widgetViewModel, popupViewModel) {
+    LaunchedEffect(viewModel, widgetViewModel, popupCardViewModel) {
         val widgetCallbacks: WidgetEventCallbacks = WidgetEventCallbacks(
             onBindResult = widgetViewModel::onBindResult,
             onConfigureResult = widgetViewModel::onConfigureResult,
@@ -197,16 +216,16 @@ fun LauncherScreen(
             onEditFavorites = viewModel::editFavorites
         )
         val popupCallbacks: WidgetEventCallbacks = WidgetEventCallbacks(
-            onBindResult = popupViewModel::onBindResult,
-            onConfigureResult = popupViewModel::onConfigureResult,
-            onReconfigureResult = popupViewModel::onReconfigureResult,
+            onBindResult = popupCardViewModel.widgetFlow::onBindResult,
+            onConfigureResult = popupCardViewModel.widgetFlow::onConfigureResult,
+            onReconfigureResult = popupCardViewModel.widgetFlow::onReconfigureResult,
             onScrollToPlace = {},
             onUndo = {},
             onEditFavorites = viewModel::editFavorites
         )
         merge(
             widgetViewModel.events.map { event -> event to widgetCallbacks },
-            popupViewModel.events.map { event -> event to popupCallbacks }
+            popupCardViewModel.events.map { event -> event to popupCallbacks }
         ).collect { (event, callbacks) ->
             handleWidgetEvent(
                 event = event,
@@ -225,17 +244,17 @@ fun LauncherScreen(
             )
         }
     }
-    LaunchedEffect(viewModel, popupViewModel) {
-        viewModel.folderEdits.collect { folder -> popupViewModel.startEdit(folder) }
+    LaunchedEffect(viewModel, popupEditorViewModel) {
+        viewModel.folderEdits.collect { folder -> popupEditorViewModel.startEdit(folder) }
     }
     val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
-    LaunchedEffect(popupViewModel, snackbarHostState, editFolderLabel) {
+    LaunchedEffect(popupFolderViewModel, snackbarHostState, editFolderLabel) {
         showFolderSnackbars(
-            folders = popupViewModel.folderAdditions,
+            folders = popupFolderViewModel.folderAdditions,
             snackbarHostState = snackbarHostState,
             actionLabel = editFolderLabel,
             message = { folder: Folder -> context.getString(PopupsR.string.added_to_folder, folder.name) },
-            onAction = popupViewModel::startEdit
+            onAction = popupEditorViewModel::startEdit
         )
     }
     val settingsLabel: String = stringResource(CoreUiR.string.settings)
@@ -250,7 +269,7 @@ fun LauncherScreen(
     }
     LaunchedEffect(homeIntentRequest) {
         homeIntentRequest.collectRequests {
-            popupViewModel.onHomeIntent()
+            popupCardViewModel.onHomeIntent()
             val wasEditingHome: Boolean =
                 widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
             if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
@@ -275,12 +294,12 @@ fun LauncherScreen(
             // Only bind-configuration results change data; reconfigure results keep the widget either way.
             if (result.requestCode == AppWidgetResults.REQUEST_CODE) {
                 widgetViewModel.onConfigureResult(ok = result.isOk)
-                popupViewModel.onConfigureResult(ok = result.isOk)
+                popupCardViewModel.widgetFlow.onConfigureResult(ok = result.isOk)
             }
         }
     }
     val addFlowState: AddWidgetFlowState by widgetViewModel.addFlowState.collectAsState()
-    val popupAddFlowState: AddWidgetFlowState by popupViewModel.addFlowState.collectAsState()
+    val popupAddFlowState: AddWidgetFlowState by popupCardViewModel.widgetFlow.state.collectAsState()
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
@@ -290,7 +309,7 @@ fun LauncherScreen(
     val isMovingWidgetArea: Boolean = moveState != null
     val isEditingHome: Boolean = isResizing || isEditingWidgets || isMovingWidgetArea
     BackHandler {
-        if (!popupViewModel.onBack() && !widgetViewModel.onBack()) {
+        if (!popupCardViewModel.onBack() && !widgetViewModel.onBack()) {
             viewModel.onBack()
         }
     }
@@ -300,40 +319,45 @@ fun LauncherScreen(
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
             onItemLaunch = launchItem,
-            onItemOpenPopup = popupViewModel::open,
-            onItemAnchorChanged = { owner, anchor -> popupViewModel.onAnchorChanged(owner.key, anchor) },
+            onItemOpenPopup = popupCardViewModel::open,
+            onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             isMovingWidgetArea = isMovingWidgetArea
         )
         PopupHost(
-            viewModel = popupViewModel,
+            viewModel = popupCardViewModel,
             onLaunch = launchItem,
+            onAddItems = popupPickerViewModel::startFolderPicking,
             modifier = Modifier.fillMaxSize()
         )
-        LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupViewModel::close)
-        LauncherDoneButton(viewModel, widgetViewModel, popupViewModel)
-        LauncherMenu(viewModel)
-        PopupMenuSheet(popupViewModel)
-        PopupEditorHost(viewModel = popupViewModel)
-        val deletingFolder: Folder? by popupViewModel.folderDeleteState.collectAsState()
+        LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupCardViewModel::close)
+        LauncherDoneButton(viewModel, widgetViewModel, popupEditorViewModel)
+        LauncherMenu(viewModel, popupEditorViewModel, popupFolderViewModel)
+        PopupMenuSheet(
+            cardViewModel = popupCardViewModel,
+            editorViewModel = popupEditorViewModel,
+            folderViewModel = popupFolderViewModel
+        )
+        PopupEditorHost(editorViewModel = popupEditorViewModel, pickerViewModel = popupPickerViewModel)
+        val deletingFolder: Folder? by popupFolderViewModel.folderDeleteState.collectAsState()
         deletingFolder?.let { folder: Folder ->
             FolderDeleteDialog(
                 folder = folder,
-                onConfirm = popupViewModel::confirmDeleteFolder,
-                onDismiss = popupViewModel::cancelDeleteFolder
+                onConfirm = popupFolderViewModel::confirmDeleteFolder,
+                onDismiss = popupFolderViewModel::cancelDeleteFolder
             )
         }
-        val addToFolderState: AddToFolderState by popupViewModel.addToFolderState.collectAsState()
+        val addToFolderState: AddToFolderState by popupFolderViewModel.addToFolderState.collectAsState()
         val openAddToFolderState: AddToFolderState.Open? = addToFolderState as? AddToFolderState.Open
         if (openAddToFolderState != null) {
             AddToFolderSheet(
                 launchable = openAddToFolderState.launchable,
                 folders = openAddToFolderState.folders,
                 membership = openAddToFolderState.membership,
-                onToggle = popupViewModel::toggleMembership,
-                onNewFolder = popupViewModel::startNewFolder,
-                onDismiss = popupViewModel::closeAddToFolder
+                onToggle = popupFolderViewModel::toggleMembership,
+                onNewFolder = popupFolderViewModel::startNewFolder,
+                onDismiss = popupFolderViewModel::closeAddToFolder
             )
         }
         LauncherWidgetMenu(widgetViewModel)
@@ -375,9 +399,9 @@ fun LauncherScreen(
         if (popupAddFlowState is AddWidgetFlowState.Picking) {
             AppWidgetPickerSheet(
                 state = popupAddFlowState as AddWidgetFlowState.Picking,
-                onQueryChange = popupViewModel::setPickerQuery,
-                onPick = popupViewModel::pickProvider,
-                onDismiss = popupViewModel::cancelAdd
+                onQueryChange = popupCardViewModel.widgetFlow::setQuery,
+                onPick = popupCardViewModel.widgetFlow::pickProvider,
+                onDismiss = popupCardViewModel.widgetFlow::cancel
             )
         }
         SnackbarHost(

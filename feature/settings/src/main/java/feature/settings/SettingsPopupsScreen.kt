@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,8 +40,11 @@ import coil3.compose.AsyncImage
 import core.data.folders.Folder
 import core.popups.FolderDeleteDialog
 import core.popups.FolderNameDialog
+import core.popups.IPopupSession
 import core.popups.PopupEditorHost
-import core.popups.PopupViewModel
+import core.popups.PopupEditorViewModel
+import core.popups.PopupFolderViewModel
+import core.popups.PopupPickerViewModel
 import core.popups.R as PopupsR
 import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
@@ -50,6 +54,8 @@ import core.ui.composables.SheetTitle
 import core.widgets.NotificationAccessDialog
 import core.widgets.openRailNotificationListenerSettings
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import org.koin.core.parameter.parametersOf
 
 private val folderIconSize: Dp = 32.dp
 private val emptyStateGap: Dp = 16.dp
@@ -57,9 +63,21 @@ private val createButtonPadding: Dp = 16.dp
 
 /** Lists every Folder, with the actions sheet and dialogs that manage it. */
 @Composable
-fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), popupViewModel: PopupViewModel = koinViewModel()) {
+fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel()) {
+    // One session per Pop-up host; the ViewModels keep the instance they were created with.
+    val popupSession: IPopupSession = koinInject()
+    val popupEditorViewModel: PopupEditorViewModel = koinViewModel { parametersOf(popupSession) }
+    val popupPickerViewModel: PopupPickerViewModel = koinViewModel { parametersOf(popupSession) }
+    val popupFolderViewModel: PopupFolderViewModel = koinViewModel { parametersOf(popupSession) }
+    SideEffect {
+        popupSession.attach(
+            editor = popupEditorViewModel,
+            picker = popupPickerViewModel,
+            folder = popupFolderViewModel
+        )
+    }
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
-    val deletingFolder: Folder? by popupViewModel.folderDeleteState.collectAsState()
+    val deletingFolder: Folder? by popupFolderViewModel.folderDeleteState.collectAsState()
     val context: Context = LocalContext.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
@@ -73,13 +91,13 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
     val selectedFolder: PopupSettingsFolder? = uiState.selectedFolder
     val folderCreatedMessage: String = stringResource(R.string.folder_created)
     val editContentsLabel: String = stringResource(R.string.edit_contents)
-    LaunchedEffect(viewModel, popupViewModel, snackbarHostState, folderCreatedMessage, editContentsLabel) {
+    LaunchedEffect(viewModel, popupEditorViewModel, snackbarHostState, folderCreatedMessage, editContentsLabel) {
         showFolderSnackbars(
             folders = viewModel.createdFolders,
             snackbarHostState = snackbarHostState,
             actionLabel = editContentsLabel,
             message = { folderCreatedMessage },
-            onAction = popupViewModel::startEdit
+            onAction = popupEditorViewModel::startEdit
         )
     }
     Box(modifier = Modifier.fillMaxSize()) {
@@ -99,11 +117,11 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
             onRenameClick = viewModel::openRenameDialog,
             onEditContents = {
                 viewModel.closeActions()
-                popupViewModel.startEdit(selectedFolder.folder)
+                popupEditorViewModel.startEdit(selectedFolder.folder)
             },
             onOnHomeChange = viewModel::setOnHome,
             onInAppListChange = viewModel::setInAppList,
-            onDeleteClick = { popupViewModel.requestDeleteFolder(selectedFolder.folder) }
+            onDeleteClick = { popupFolderViewModel.requestDeleteFolder(selectedFolder.folder) }
         )
     }
     if (uiState.isNewFolderDialogOpen) {
@@ -124,14 +142,14 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel(), po
     deletingFolder?.let { folder: Folder ->
         FolderDeleteDialog(
             folder = folder,
-            onConfirm = popupViewModel::confirmDeleteFolder,
-            onDismiss = popupViewModel::cancelDeleteFolder
+            onConfirm = popupFolderViewModel::confirmDeleteFolder,
+            onDismiss = popupFolderViewModel::cancelDeleteFolder
         )
     }
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
-    PopupEditorHost(viewModel = popupViewModel)
+    PopupEditorHost(editorViewModel = popupEditorViewModel, pickerViewModel = popupPickerViewModel)
 }
 
 @Composable

@@ -46,7 +46,7 @@ private val emphasizedDecelerate: CubicBezierEasing = CubicBezierEasing(0.05f, 0
 
 /** Draws the outside-tap layer and the one open Pop-up above the launcher. */
 @Composable
-fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifier: Modifier = Modifier) {
+fun PopupHost(viewModel: PopupCardViewModel, onLaunch: (Launchable) -> Unit, onAddItems: () -> Unit, modifier: Modifier = Modifier) {
     val density: Density = LocalDensity.current
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val popupState: PopupUiState by viewModel.popupState.collectAsState()
@@ -127,7 +127,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
             } else {
                 ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
             }
-            val headerClick: (() -> Unit)? = viewModel.headerApp(owner = displayState.owner)?.let { app -> { onLaunch(app) } }
+            val headerClick: (() -> Unit)? = displayState.owner.appOwner?.let { app -> { onLaunch(app) } }
             LaunchedEffect(frame.width) {
                 val widgetWidthDp: Int = with(density) {
                     (frame.width.toDp() - popupWidgetHorizontalPadding * 2).value.roundToInt()
@@ -146,7 +146,7 @@ fun PopupHost(viewModel: PopupViewModel, onLaunch: (Launchable) -> Unit, modifie
                 onShortcutClick = { shortcut -> onLaunch(shortcut) },
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
-                onAddItems = viewModel::startFolderPicking,
+                onAddItems = onAddItems,
                 onRequestQuietModeOff = { viewModel.unpauseOwnerProfile(owner = displayState.owner) },
                 onWidgetLongPress = viewModel::openWidgetMenu,
                 onWidgetUnpause = viewModel::unpauseWorkProfile,
