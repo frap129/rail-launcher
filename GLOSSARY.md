@@ -12,6 +12,10 @@ _Avoid_: App (when meaning any launchable), item, entry
 A Launchable that only opens a Pop-up listing the Launchables the user put in it.
 _Avoid_: Group, category, pop-up folder
 
+**Folder member**:
+A Launchable the user put in a Folder, shown on its own row inside that Folder's Pop-up.
+_Avoid_: Folder item, folder entry
+
 **Pop-up**:
 The floating card attached to a row, opened by swiping an App row or by tapping or swiping a Folder row, holding that Launchable's shortcuts, added items and, later, widgets and notifications.
 _Avoid_: Popup, card menu, long-press menu
@@ -37,7 +41,7 @@ The Launchable whose row a Pop-up is attached to; the Pop-up shows that Launchab
 _Avoid_: Parent, source app, host
 
 **Notification**:
-An active system notification belonging to an App, shown in that App's Pop-up and, under a member's row, inside a Folder Pop-up. A Notification is collapsed by default and can expand to its full text, actions and inline reply.
+An active system notification belonging to an App, shown in that App's Pop-up and, under an Added item's row or a Folder member's row, inside a Pop-up. In an App's Pop-up the Owner's notifications start expanded to their full text, actions and inline reply; a Folder member's or Added item's notifications start collapsed. Either can be toggled when expandable.
 _Avoid_: Alert, message (when meaning a notification)
 
 **Notification action**:
@@ -45,7 +49,7 @@ A button a Notification offers, including the inline reply field shown when it a
 _Avoid_: Notification button, quick action
 
 **Folder summary**:
-The second line of a Folder row naming the members whose Apps have notifications, with a trailing chevron; the only notification-derived content on a row.
+The second line of a Folder row naming the Folder members whose Apps have notifications, with a trailing chevron; the only notification-derived content on a row.
 _Avoid_: Badge, count, preview
 
 **Favorite**:
