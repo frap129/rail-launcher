@@ -10,6 +10,9 @@ class FakeFolderDao(initialRecords: List<FolderRecord> = emptyList()) : FolderDa
     private val records: MutableStateFlow<List<FolderRecord>> = MutableStateFlow(initialRecords)
     private var nextId: Long = (initialRecords.maxOfOrNull { record -> record.id } ?: 0L) + 1L
 
+    /** Fails the next [delete] call instead of deleting. */
+    val failNextDelete: FailOnce = FailOnce()
+
     override fun observeAll(): Flow<List<FolderRecord>> = records
 
     override suspend fun insert(record: FolderRecord): Long {
@@ -25,6 +28,7 @@ class FakeFolderDao(initialRecords: List<FolderRecord> = emptyList()) : FolderDa
     }
 
     override suspend fun delete(id: Long) {
+        failNextDelete.throwIfPending()
         records.update { current -> current.filterNot { record -> record.id == id } }
     }
 }

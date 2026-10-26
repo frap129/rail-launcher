@@ -190,7 +190,7 @@ class MainApplication :
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
-        single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get()) }
+        single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }

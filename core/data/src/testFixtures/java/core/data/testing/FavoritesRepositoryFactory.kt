@@ -1,7 +1,9 @@
 package core.data.testing
 
+import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.model.Launchable
 import core.data.room.dao.FavoriteDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,4 +27,9 @@ fun TestScope.createEagerFavoritesRepository(
     favoriteDao = favoriteDao,
     launchableRepository = launchableRepository,
     scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
+)
+
+/** A [FakeFavoriteDao] holding [favorite] as its only Favorite. */
+fun createFavoriteDao(favorite: Launchable): FakeFavoriteDao = FakeFavoriteDao(
+    initialRecords = listOf(FavoriteRecord(key = favorite.key, position = FIRST_POSITION))
 )

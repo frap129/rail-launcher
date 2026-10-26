@@ -4,10 +4,14 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import core.data.popups.PopupItemRecord
 import core.data.popups.PopupSettingsRecord
 import kotlinx.coroutines.flow.Flow
+
+private const val ITEMS_FOR_OWNER_QUERY: String = "SELECT * FROM popup_items WHERE owner_key = :ownerKey"
+private const val ALL_ITEMS_QUERY: String = "SELECT * FROM popup_items"
 
 @Dao
 interface PopupDao {
@@ -26,6 +30,7 @@ interface PopupDao {
     @Query("DELETE FROM popup_hidden_shortcuts WHERE owner_key = :ownerKey")
     suspend fun deleteHiddenForOwner(ownerKey: String)
 
+    @Transaction
     suspend fun setShortcutHidden(ownerKey: String, shortcutId: String, hidden: Boolean) {
         if (hidden) {
             insertHiddenShortcut(ownerKey = ownerKey, shortcutId = shortcutId)
@@ -34,11 +39,19 @@ interface PopupDao {
         }
     }
 
-    @Query("SELECT * FROM popup_items WHERE owner_key = :ownerKey")
+    @Query(ITEMS_FOR_OWNER_QUERY)
     fun observeItems(ownerKey: String): Flow<List<PopupItemRecord>>
 
-    @Query("SELECT * FROM popup_items")
+    /** A suspend variant of [observeItems] for reads that must join a caller's transaction. */
+    @Query(ITEMS_FOR_OWNER_QUERY)
+    suspend fun getItems(ownerKey: String): List<PopupItemRecord>
+
+    @Query(ALL_ITEMS_QUERY)
     fun observeAllItems(): Flow<List<PopupItemRecord>>
+
+    /** A suspend variant of [observeAllItems] for reads that must join a caller's transaction. */
+    @Query(ALL_ITEMS_QUERY)
+    suspend fun getAllItems(): List<PopupItemRecord>
 
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM popup_items WHERE owner_key = :ownerKey")
     suspend fun nextItemPosition(ownerKey: String): Int
@@ -46,6 +59,7 @@ interface PopupDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertItems(items: List<PopupItemRecord>)
 
+    @Transaction
     suspend fun appendItems(ownerKey: String, itemKeys: List<String>) {
         if (itemKeys.isEmpty()) {
             return

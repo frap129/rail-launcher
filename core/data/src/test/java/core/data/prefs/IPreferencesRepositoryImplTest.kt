@@ -4,8 +4,10 @@ import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
-import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
+import core.data.testing.FAKE_WRITE_TIMEOUT_MS
+import core.data.testing.FakeLaunchableCustomizationDao
+import core.data.testing.LaunchableRename
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +20,6 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-private const val WRITE_TIMEOUT_MS: Long = 5_000
 private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
 private const val CUSTOM_ICON_PACK_PACKAGE: String = "com.example.iconpack"
 private const val RENAMED_ITEM_NAME: String = "Renamed Item"
@@ -164,40 +165,6 @@ class IPreferencesRepositoryImplTest {
     )
 }
 
-private data class LaunchableRename(val key: String, val name: String)
-
-private class FakeLaunchableCustomizationDao(inputCustomizations: List<LaunchableCustomization> = emptyList()) :
-    LaunchableCustomizationDao {
-    private val customizations: MutableStateFlow<List<LaunchableCustomization>> = MutableStateFlow(inputCustomizations)
-    private val renameSignals: Channel<Unit> = Channel(Channel.UNLIMITED)
-    private val deleteSignals: Channel<Unit> = Channel(Channel.UNLIMITED)
-    private val recordedRenames: MutableList<LaunchableRename> = mutableListOf()
-
-    override fun observeAll(): Flow<List<LaunchableCustomization>> = customizations
-
-    override suspend fun setName(key: String, name: String) {
-        recordedRenames.add(LaunchableRename(key = key, name = name))
-        val existing: LaunchableCustomization? = customizations.value.find { it.key == key }
-        val updated: LaunchableCustomization = (existing ?: LaunchableCustomization(key = key)).copy(name = name)
-        customizations.value = customizations.value.filterNot { it.key == key } + updated
-        renameSignals.send(Unit)
-    }
-
-    override suspend fun delete(key: String) {
-        customizations.value = customizations.value.filterNot { customization -> customization.key == key }
-        deleteSignals.send(Unit)
-    }
-
-    suspend fun awaitRename(): LaunchableRename = withContext(Dispatchers.Default) {
-        withTimeout(WRITE_TIMEOUT_MS) { renameSignals.receive() }
-        recordedRenames.last()
-    }
-
-    suspend fun awaitDelete(): Unit = withContext(Dispatchers.Default) {
-        withTimeout(WRITE_TIMEOUT_MS) { deleteSignals.receive() }
-    }
-}
-
 private class FakeSettingsDao(inputSettings: Settings = Settings()) : SettingsDao() {
     private val settingsFlow: MutableStateFlow<Settings> = MutableStateFlow(inputSettings)
     private val writeSignals: Channel<Unit> = Channel(Channel.UNLIMITED)
@@ -214,7 +181,7 @@ private class FakeSettingsDao(inputSettings: Settings = Settings()) : SettingsDa
     }
 
     suspend fun awaitStoredSettings(): Settings = withContext(Dispatchers.Default) {
-        withTimeout(WRITE_TIMEOUT_MS) { writeSignals.receive() }
+        withTimeout(FAKE_WRITE_TIMEOUT_MS) { writeSignals.receive() }
         recordedSettings.last()
     }
 }

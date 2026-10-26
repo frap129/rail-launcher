@@ -50,7 +50,13 @@ class FakePopupDao(
         items.filter { item -> item.ownerKey == ownerKey }
     }
 
+    override suspend fun getItems(ownerKey: String): List<PopupItemRecord> = storedItems.value.filter { item ->
+        item.ownerKey == ownerKey
+    }
+
     override fun observeAllItems(): Flow<List<PopupItemRecord>> = storedItems
+
+    override suspend fun getAllItems(): List<PopupItemRecord> = storedItems.value
 
     override suspend fun nextItemPosition(ownerKey: String): Int {
         val maxPosition: Int? = storedItems.value.filter { item -> item.ownerKey == ownerKey }.maxOfOrNull { item -> item.position }

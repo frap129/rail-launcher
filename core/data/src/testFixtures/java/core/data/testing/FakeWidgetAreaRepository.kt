@@ -31,6 +31,9 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     val currentPageUpdates: MutableList<Pair<Long, Int>> = mutableListOf()
     val edits: MutableList<WidgetAreaEdit> = mutableListOf()
 
+    /** Fails the next [removeOwnerPlaces] call instead of removing. */
+    val failNextRemoveOwnerPlaces: FailOnce = FailOnce()
+
     override val places: Flow<List<WidgetPlace>> = placesFor(ownerKey = null)
 
     override fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> =
@@ -312,6 +315,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
     }
 
     override suspend fun removeOwnerPlaces(ownerKey: String): List<AppWidgetId> {
+        failNextRemoveOwnerPlaces.throwIfPending()
         val ownedPlaces: List<WidgetPlace> = storedPlaces.value.filter { place -> place.ownerKey == ownerKey }
         if (ownedPlaces.isEmpty()) {
             return emptyList()

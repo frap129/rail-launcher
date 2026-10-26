@@ -41,6 +41,15 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
     /** Every deleteItemsByKey call, in order. */
     val deletedItemKeys: MutableList<List<String>> = mutableListOf()
 
+    /** Fails the next [setItems] call instead of writing. */
+    val failNextSetItems: FailOnce = FailOnce()
+
+    /** Fails the next [deleteItemsByKey] call instead of deleting. */
+    val failNextDeleteItemsByKey: FailOnce = FailOnce()
+
+    /** Fails the next [deleteOwner] call instead of deleting. */
+    val failNextDeleteOwner: FailOnce = FailOnce()
+
     override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = hiddenIdsByOwner.map { hiddenIds ->
         hiddenIds[ownerKey] ?: emptySet()
     }
@@ -62,6 +71,7 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
     }
 
     override suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>) {
+        failNextSetItems.throwIfPending()
         setItemsCalls += Triple(ownerKey, add, remove)
         itemsByOwner.update { current ->
             val remaining: List<PopupItem> = current[ownerKey].orEmpty().filterNot { item -> item.launchable.key in remove }
@@ -93,6 +103,7 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
     }
 
     override suspend fun deleteItemsByKey(itemKeys: List<String>) {
+        failNextDeleteItemsByKey.throwIfPending()
         deletedItemKeys += itemKeys
         itemsByOwner.update { current ->
             current.mapValues { (_, items) -> items.filterNot { item -> item.launchable.key in itemKeys } }
@@ -100,6 +111,7 @@ class FakePopupRepository(private val resolveLaunchable: (String) -> Launchable?
     }
 
     override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> {
+        failNextDeleteOwner.throwIfPending()
         deletedOwners += ownerKey
         hiddenIdsByOwner.update { current -> current - ownerKey }
         itemsByOwner.update { current -> current - ownerKey }

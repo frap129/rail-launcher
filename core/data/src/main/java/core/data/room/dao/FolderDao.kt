@@ -7,7 +7,7 @@ import core.data.folders.FolderRecord
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface FolderDao {
+interface FolderDao : TransactionalDao {
     @Query("SELECT * FROM folders ORDER BY id")
     fun observeAll(): Flow<List<FolderRecord>>
 
