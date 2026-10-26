@@ -179,7 +179,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                                     contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
                                 )
                             },
-                            onRemove = { viewModel.removeItem(item.launchable) }
+                            onRemove = { viewModel.removeEditedItem(item.launchable) }
                         )
                     }
                 }

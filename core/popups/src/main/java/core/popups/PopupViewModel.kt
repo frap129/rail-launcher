@@ -814,11 +814,23 @@ class PopupViewModel(
         menuTarget.value = MenuTarget(ownerKey = open.owner.key, itemKey = item.launchable.key)
     }
 
-    fun removeItem(item: Launchable) {
-        val ownerKey: String = openRequest.value?.target?.ownerKey ?: editRequest.value?.ownerKey ?: return
+    /** Removes the added item whose item menu is open from that menu's owner. */
+    fun removeMenuItem() {
+        val target: MenuTarget = menuTarget.value ?: return
+        val itemKey: String = target.itemKey ?: return
         menuTarget.value = null
-        launchLogged(message = "Failed to remove ${item.key} from its Pop-up") {
-            popupRepository.removeItem(ownerKey = ownerKey, itemKey = item.key)
+        removeAddedItem(ownerKey = target.ownerKey, itemKey = itemKey)
+    }
+
+    /** Removes [item] from the Pop-up currently being edited. */
+    fun removeEditedItem(item: Launchable) {
+        val ownerKey: String = editRequest.value?.ownerKey ?: return
+        removeAddedItem(ownerKey = ownerKey, itemKey = item.key)
+    }
+
+    private fun removeAddedItem(ownerKey: String, itemKey: String) {
+        launchLogged(message = "Failed to remove $itemKey from its Pop-up") {
+            popupRepository.removeItem(ownerKey = ownerKey, itemKey = itemKey)
         }
     }
 
@@ -1286,11 +1298,7 @@ class PopupViewModel(
                 add(PopupMenuItem.DeleteFolder)
             }
         }
-        val isAppInfoAvailable: Boolean = when {
-            isWidgetMenu -> true
-            isItem -> target is App || target is ShortcutLaunchable
-            else -> target is App
-        }
+        val isAppInfoAvailable: Boolean = appInfoFor(target = target, widgetPage = widgetPage) != null
         if (isAppInfoAvailable) {
             add(PopupMenuItem.AppInfo)
         }

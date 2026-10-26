@@ -2,6 +2,7 @@ package core.popups
 
 import android.content.Context
 import android.os.Process
+import android.os.UserHandle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -108,31 +109,41 @@ fun PopupMenuSheet(viewModel: PopupViewModel) {
                         PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(R.string.remove_from_popup),
-                            onClick = { viewModel.removeItem(state.target) }
+                            onClick = viewModel::removeMenuItem
                         )
 
-                        PopupMenuItem.AppInfo -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.InfoCircle,
-                            label = stringResource(CoreUiR.string.app_info),
-                            onClick = {
-                                if (widgetPage != null) {
-                                    val profile = context.userForSerial(widgetPage.profileSerial) ?: Process.myUserHandle()
-                                    context.openApplicationDetailsSettings(widgetPage.provider.packageName, profile)
+                        PopupMenuItem.AppInfo -> appInfoFor(target = state.target, widgetPage = widgetPage)?.let { appInfo ->
+                            SheetMenuAction(
+                                imageVector = FontAwesomeIcons.Solid.InfoCircle,
+                                label = stringResource(CoreUiR.string.app_info),
+                                onClick = {
+                                    context.openAppInfo(appInfo = appInfo)
                                     viewModel.closeMenu()
-                                } else {
-                                    when (val target: Launchable = state.target) {
-                                        is App -> target.openAppInfo(context)
-                                        is ShortcutLaunchable -> context.openApplicationDetailsSettings(target.packageName, target.profile)
-                                        else -> Unit
+                                    if (widgetPage == null) {
+                                        viewModel.close()
                                     }
-                                    viewModel.closeMenu()
-                                    viewModel.close()
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Opens the app info [appInfo] points at. */
+private fun Context.openAppInfo(appInfo: PopupAppInfo) {
+    when (appInfo) {
+        is PopupAppInfo.LaunchableAppInfo -> when (val launchable: Launchable = appInfo.launchable) {
+            is App -> launchable.openAppInfo(this)
+            is ShortcutLaunchable -> openApplicationDetailsSettings(launchable.packageName, launchable.profile)
+            else -> Unit
+        }
+
+        is PopupAppInfo.WidgetProviderAppInfo -> {
+            val profile: UserHandle = userForSerial(appInfo.profileSerial) ?: Process.myUserHandle()
+            openApplicationDetailsSettings(appInfo.provider.packageName, profile)
         }
     }
 }
