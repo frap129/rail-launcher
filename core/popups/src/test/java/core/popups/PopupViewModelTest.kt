@@ -74,6 +74,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -962,8 +963,15 @@ class PopupViewModelTest {
     }
 
     @Test
-    fun `item menu shows App info only for App items`() = runTest {
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp, inputRailLaunchable))
+    fun `item menu shows App info for Apps and Shortcuts but not Folders`() = runTest {
+        fakePopupRepository.setPopupItems(
+            ownerKey = inputApp.key,
+            items = listOf(
+                PopupItem.Launchable(inputOtherApp),
+                PopupItem.Shortcut(launchable = inputOtherShortcut, isEnabled = true),
+                PopupItem.Launchable(inputFolder)
+            )
+        )
         val viewModel: PopupViewModel = createViewModel()
         viewModel.popupState.test {
             viewModel.open(inputApp, INPUT_ANCHOR)
@@ -979,10 +987,19 @@ class PopupViewModelTest {
                 )
                 viewModel.closeMenu()
                 assertEquals(PopupMenuState.Closed, expectMostRecentItem())
-                viewModel.openItemMenu(PopupItem.Launchable(inputRailLaunchable))
-                val railMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
-                assertEquals(inputRailLaunchable, railMenu.target)
-                assertEquals(listOf(PopupMenuItem.RemoveFromPopup), railMenu.items)
+                viewModel.openItemMenu(PopupItem.Shortcut(launchable = inputOtherShortcut, isEnabled = true))
+                val shortcutMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+                assertEquals(inputOtherShortcut, shortcutMenu.target)
+                assertEquals(
+                    listOf(PopupMenuItem.RemoveFromPopup, PopupMenuItem.AppInfo),
+                    shortcutMenu.items
+                )
+                viewModel.closeMenu()
+                assertEquals(PopupMenuState.Closed, expectMostRecentItem())
+                viewModel.openItemMenu(PopupItem.Launchable(inputFolder))
+                val folderMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+                assertEquals(inputFolder, folderMenu.target)
+                assertEquals(listOf(PopupMenuItem.RemoveFromPopup), folderMenu.items)
             }
         }
     }
@@ -1000,7 +1017,7 @@ class PopupViewModelTest {
         viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
         runCurrent()
         assertTrue(viewModel.menuState.value is PopupMenuState.Open)
-        viewModel.removeItem(inputOtherApp)
+        viewModel.removeMenuItem()
         runCurrent()
         assertEquals(PopupMenuState.Closed, viewModel.menuState.value)
         val updatedState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
@@ -1017,12 +1034,47 @@ class PopupViewModelTest {
             viewModel.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
-            viewModel.removeItem(inputOtherApp)
+            viewModel.removeEditedItem(inputOtherApp)
             runCurrent()
             val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(emptyList<PopupItem>(), updatedState.items)
         }
         assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+    }
+
+    @Test
+    fun `removing an added item from the editor ignores another Pop-up's item menu`() = runTest {
+        val viewModel: PopupViewModel = openPopupWithEditor()
+        viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
+        runCurrent()
+        assertTrue(viewModel.menuState.value is PopupMenuState.Open)
+        assertTrue(viewModel.editState.value is PopupEditState.Editing)
+
+        viewModel.removeEditedItem(inputRailLaunchable)
+        runCurrent()
+
+        assertEquals(listOf(inputFolder.key to inputRailLaunchable.key), fakePopupRepository.removedItems)
+        val actualPopup: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualPopup.content.items)
+        assertEquals(emptyList<PopupItem>(), (viewModel.editState.value as PopupEditState.Editing).items)
+    }
+
+    @Test
+    fun `removing an added item from the item menu uses the owning Pop-up`() = runTest {
+        val viewModel: PopupViewModel = openPopupWithEditor()
+        viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
+        runCurrent()
+        assertTrue(viewModel.menuState.value is PopupMenuState.Open)
+
+        viewModel.removeMenuItem()
+        runCurrent()
+
+        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+        assertEquals(emptyList<PopupItem>(), (viewModel.popupState.value as PopupUiState.Open).content.items)
+        assertEquals(
+            listOf(PopupItem.Launchable(inputRailLaunchable)),
+            (viewModel.editState.value as PopupEditState.Editing).items
+        )
     }
 
     @Test
@@ -1058,15 +1110,7 @@ class PopupViewModelTest {
 
     @Test
     fun `Back closes the item menu before the editor`() = runTest {
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
-        val viewModel: PopupViewModel = createViewModel()
-        backgroundScope.launch { viewModel.popupState.collect() }
-        backgroundScope.launch { viewModel.editState.collect() }
-        backgroundScope.launch { viewModel.menuState.collect() }
-        viewModel.open(inputApp, INPUT_ANCHOR)
-        runCurrent()
-        viewModel.startEdit(inputApp)
-        runCurrent()
+        val viewModel: PopupViewModel = openPopupWithEditor(owner = inputApp, editor = inputApp, editorItem = null)
         viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
         runCurrent()
         assertTrue(viewModel.menuState.value is PopupMenuState.Open)
@@ -1388,33 +1432,36 @@ class PopupViewModelTest {
     }
 
     @Test
-    fun `widget menu offers Resize, Reconfigure, Remove widget and App info`() = runTest {
-        val viewModel: PopupViewModel = createWidgetViewModel(
+    fun `widget menu of an App owner offers App info`() = runTest {
+        val actualMenu: PopupMenuState.Open = openWidgetMenu(
             providerInfo = appWidgetProviderInfo(
                 isVerticallyResizable = true,
                 isReconfigurable = true,
                 hasConfigureActivity = true
             )
         )
-        viewModel.menuState.test {
-            viewModel.open(inputApp, INPUT_ANCHOR)
-            runCurrent()
-            viewModel.openWidgetMenu(widgetId = 6L)
-            runCurrent()
 
-            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
+        assertEquals(
+            listOf(
+                PopupMenuItem.ResizeWidget,
+                PopupMenuItem.ReconfigureWidget,
+                PopupMenuItem.RemoveWidget,
+                PopupMenuItem.AppInfo
+            ),
+            actualMenu.items
+        )
+        assertEquals(6L, actualMenu.widgetPage?.widgetId)
+    }
 
-            assertEquals(
-                listOf(
-                    PopupMenuItem.ResizeWidget,
-                    PopupMenuItem.ReconfigureWidget,
-                    PopupMenuItem.RemoveWidget,
-                    PopupMenuItem.AppInfo
-                ),
-                actualMenu.items
-            )
-            assertEquals(6L, actualMenu.widgetPage?.widgetId)
-        }
+    @Test
+    fun `widget menu of a Folder owner has no App info`() = runTest {
+        val actualMenu: PopupMenuState.Open = openWidgetMenu(
+            widgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputFolder.key),
+            owner = inputFolder
+        )
+
+        assertEquals(listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget), actualMenu.items)
+        assertEquals(6L, actualMenu.widgetPage?.widgetId)
     }
 
     @Test
@@ -1731,43 +1778,29 @@ class PopupViewModelTest {
 
     @Test
     fun `widget menu offers Remove widget for a single page`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, widgetIds = listOf(6L), appWidgetIds = listOf(9), ownerKey = inputApp.key)
+        val actualMenu: PopupMenuState.Open = openWidgetMenu(
+            widgetPlace = popupStackPlace(placeId = 5L, widgetIds = listOf(6L), appWidgetIds = listOf(9), ownerKey = inputApp.key)
         )
-        val viewModel: PopupViewModel = createStackViewModel(mockRepository = mockRepository)
-        viewModel.menuState.test {
-            viewModel.open(inputApp, INPUT_ANCHOR)
-            runCurrent()
-            viewModel.openWidgetMenu(widgetId = 6L)
-            runCurrent()
 
-            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
-
-            assertEquals(
-                listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget, PopupMenuItem.AppInfo),
-                actualMenu.items
-            )
-            assertEquals(6L, actualMenu.widgetPage?.widgetId)
-        }
+        assertEquals(
+            listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveWidget, PopupMenuItem.AppInfo),
+            actualMenu.items
+        )
+        assertEquals(6L, actualMenu.widgetPage?.widgetId)
     }
 
     @Test
     fun `widget menu offers Remove from stack for a multi-page place`() = runTest {
-        val viewModel: PopupViewModel = createStackViewModel()
-        viewModel.menuState.test {
-            viewModel.open(inputApp, INPUT_ANCHOR)
-            runCurrent()
-            viewModel.openWidgetMenu(widgetId = 7L)
-            runCurrent()
+        val actualMenu: PopupMenuState.Open = openWidgetMenu(
+            widgetPlace = popupStackPlace(placeId = 5L, ownerKey = inputApp.key),
+            widgetId = 7L
+        )
 
-            val actualMenu: PopupMenuState.Open = expectMostRecentItem() as PopupMenuState.Open
-
-            assertEquals(
-                listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveFromStack, PopupMenuItem.AppInfo),
-                actualMenu.items
-            )
-            assertEquals(7L, actualMenu.widgetPage?.widgetId)
-        }
+        assertEquals(
+            listOf(PopupMenuItem.ResizeWidget, PopupMenuItem.RemoveFromStack, PopupMenuItem.AppInfo),
+            actualMenu.items
+        )
+        assertEquals(7L, actualMenu.widgetPage?.widgetId)
     }
 
     @Test
@@ -2015,7 +2048,59 @@ class PopupViewModelTest {
         isAccessGranted = { accessCheck() }
     )
 
-    /** Opens [owner]'s card with notifications switched on and posts zero, one or two notifications. */
+    /** Starts collecting [flows] and opens [owner]'s Pop-up. */
+    private fun TestScope.openPopup(viewModel: PopupViewModel, owner: Launchable, flows: List<Flow<*>>): PopupViewModel {
+        flows.forEach { flow -> backgroundScope.launch { flow.collect() } }
+        viewModel.open(owner, INPUT_ANCHOR)
+        runCurrent()
+        return viewModel
+    }
+
+    /**
+     * Opens [owner]'s Pop-up and starts editing [editor], seeding [ownerItem] and
+     * [editorItem] as added items when given.
+     */
+    private fun TestScope.openPopupWithEditor(
+        owner: Launchable = inputApp,
+        editor: Launchable = inputFolder,
+        ownerItem: Launchable? = inputOtherApp,
+        editorItem: Launchable? = inputRailLaunchable
+    ): PopupViewModel {
+        ownerItem?.let { item -> fakePopupRepository.setItems(ownerKey = owner.key, items = listOf(item)) }
+        editorItem?.let { item -> fakePopupRepository.setItems(ownerKey = editor.key, items = listOf(item)) }
+        val viewModel: PopupViewModel = createViewModel()
+        openPopup(
+            viewModel = viewModel,
+            owner = owner,
+            flows = listOf(viewModel.popupState, viewModel.editState, viewModel.menuState)
+        )
+        viewModel.startEdit(editor)
+        runCurrent()
+        return viewModel
+    }
+
+    /** Opens [owner]'s menu for [widgetId] in [widgetPlace], returning the menu it shows. */
+    private fun TestScope.openWidgetMenu(
+        widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
+        providerInfo: WidgetProviderInfo = appWidgetProviderInfo(isVerticallyResizable = true),
+        owner: Launchable = inputApp,
+        widgetId: Long = 6L
+    ): PopupMenuState.Open {
+        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        widgetPlace.widgets.filterIsInstance<PlacedWidget.AppWidget>().forEach { widget ->
+            mockHost.providerInfoById[AppWidgetId(widget.appWidgetId)] = providerInfo
+        }
+        val viewModel: PopupViewModel = createViewModel(
+            widgetRepository = FakeWidgetAreaRepository(listOf(widgetPlace)),
+            appWidgetHost = mockHost
+        )
+        openPopup(viewModel = viewModel, owner = owner, flows = listOf(viewModel.menuState))
+        viewModel.openWidgetMenu(widgetId = widgetId)
+        runCurrent()
+        return viewModel.menuState.value as PopupMenuState.Open
+    }
+
+    /** Opens [owner]'s Pop-up with notifications switched on and posts zero, one or two notifications. */
     private suspend fun TestScope.openNotificationCard(
         viewModel: PopupViewModel = createViewModel(),
         owner: Launchable = inputApp,
@@ -2028,11 +2113,11 @@ class PopupViewModelTest {
         if (items.isNotEmpty()) {
             fakePopupRepository.setItems(ownerKey = owner.key, items = items)
         }
-        backgroundScope.launch { viewModel.popupState.collect() }
-        backgroundScope.launch { viewModel.expandedNotificationKeys.collect() }
-        runCurrent()
-        viewModel.open(owner, INPUT_ANCHOR)
-        runCurrent()
+        openPopup(
+            viewModel = viewModel,
+            owner = owner,
+            flows = listOf(viewModel.popupState, viewModel.expandedNotificationKeys)
+        )
         if (notification != null) {
             mockNotificationRelay.post(record = notification, handle = handle)
         }
