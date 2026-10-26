@@ -289,6 +289,7 @@ class MainApplication :
                 launchableRepository = get(),
                 popupRepository = get(),
                 folderRepository = get(),
+                preferencesRepository = get(),
                 homeEditState = get(),
                 session = session
             )
@@ -314,7 +315,7 @@ class MainApplication :
             )
         }
         viewModel { SettingsViewModel(get(), get()) }
-        viewModel { PopupSettingsViewModel(get(), get(), get(), get(), get()) }
+        viewModel { PopupSettingsViewModel(get(), get(), get(), get()) }
         viewModel {
             WidgetSettingsViewModel(
                 settingsRepository = get(),

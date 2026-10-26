@@ -516,6 +516,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.setItemName(inputItem, RENAMED_NAME)
+            runCurrent()
             assertEquals(
                 listOf(FakePreferencesRepository.ItemRename(item = inputItem, name = RENAMED_NAME)),
                 mockPreferencesRepository.renames

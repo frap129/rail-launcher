@@ -49,9 +49,8 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
-import core.popups.AddToFolderSheet
-import core.popups.AddToFolderState
-import core.popups.FolderDeleteDialog
+import core.popups.AddToFolderHost
+import core.popups.FolderDeleteHost
 import core.popups.FolderNameDialog
 import core.popups.IPopupSession
 import core.popups.PopupCardViewModel
@@ -340,26 +339,8 @@ fun LauncherScreen(
             folderViewModel = popupFolderViewModel
         )
         PopupEditorHost(editorViewModel = popupEditorViewModel, pickerViewModel = popupPickerViewModel)
-        val deletingFolder: Folder? by popupFolderViewModel.folderDeleteState.collectAsState()
-        deletingFolder?.let { folder: Folder ->
-            FolderDeleteDialog(
-                folder = folder,
-                onConfirm = popupFolderViewModel::confirmDeleteFolder,
-                onDismiss = popupFolderViewModel::cancelDeleteFolder
-            )
-        }
-        val addToFolderState: AddToFolderState by popupFolderViewModel.addToFolderState.collectAsState()
-        val openAddToFolderState: AddToFolderState.Open? = addToFolderState as? AddToFolderState.Open
-        if (openAddToFolderState != null) {
-            AddToFolderSheet(
-                launchable = openAddToFolderState.launchable,
-                folders = openAddToFolderState.folders,
-                membership = openAddToFolderState.membership,
-                onToggle = popupFolderViewModel::toggleMembership,
-                onNewFolder = popupFolderViewModel::startNewFolder,
-                onDismiss = popupFolderViewModel::closeAddToFolder
-            )
-        }
+        FolderDeleteHost(folderViewModel = popupFolderViewModel)
+        AddToFolderHost(folderViewModel = popupFolderViewModel)
         LauncherWidgetMenu(widgetViewModel)
         if (isMovingWidgetArea) {
             Box(

@@ -22,6 +22,7 @@ import core.data.testing.FakeClockSource
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
+import core.data.testing.FakePreferencesRepository
 import core.data.testing.FakeRemoveAppWidget
 import core.data.testing.FakeShortcutSource
 import core.data.testing.FakeWidgetAreaDao
@@ -140,6 +141,7 @@ abstract class PopupTestBase {
         listOf(inputApp, inputOtherApp, inputPausedApp, inputRailLaunchable).firstOrNull { launchable -> launchable.key == key }
     })
     protected val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder, inputSecondFolder))
+    protected val mockPreferencesRepository: FakePreferencesRepository = FakePreferencesRepository()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
     protected val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
     protected val fakeAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
@@ -177,6 +179,7 @@ abstract class PopupTestBase {
         launchableRepository = fakeLaunchableRepository,
         popupRepository = fakePopupRepository,
         folderRepository = fakeFolderRepository,
+        preferencesRepository = mockPreferencesRepository,
         homeEditState = homeEditState,
         session = session
     )

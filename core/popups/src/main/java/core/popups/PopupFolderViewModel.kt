@@ -7,6 +7,7 @@ import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepository
+import core.data.prefs.IPreferencesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.EventChannel
@@ -25,15 +26,16 @@ import kotlinx.coroutines.flow.stateIn
 
 private data class FolderMembership(val launchableKey: String?, val folderKeys: Set<String>)
 
-/** Owns Add to Folder and the Folder dialogs. */
+/** Owns the Folder dialogs and the Add to Folder sheet. */
 class PopupFolderViewModel(
     private val launchableRepository: ILaunchableRepository,
     private val popupRepository: IPopupRepository,
     private val folderRepository: IFolderRepository,
+    private val preferencesRepository: IPreferencesRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
 ) : ViewModel() {
-    private val pendingFolderDelete: MutableStateFlow<Folder?> = MutableStateFlow(null)
+    private val folderDialog: MutableStateFlow<FolderDialogState> = MutableStateFlow(FolderDialogState.Closed)
     private val addToFolderRequest: MutableStateFlow<Launchable?> = MutableStateFlow(null)
     private val folderAdditionRequests: EventChannel<Folder> = EventChannel()
     private val addToFolderKey: Flow<String?> = addToFolderRequest.map { launchable -> launchable?.key }
@@ -44,8 +46,8 @@ class PopupFolderViewModel(
         source = { launchableKey -> folderMemberships(launchableKey = launchableKey) }
     )
 
-    /** The Folder awaiting delete confirmation, if any. */
-    val folderDeleteState: StateFlow<Folder?> = pendingFolderDelete
+    /** The Folder dialog the collaborator is showing, if any. */
+    val folderDialogState: StateFlow<FolderDialogState> = folderDialog
 
     /** Folders created from the Add to Folder sheet, for its "Added to ..." Snackbar. */
     val folderAdditions: Flow<Folder> = folderAdditionRequests.flow
@@ -85,20 +87,37 @@ class PopupFolderViewModel(
     fun requestDeleteFolder(target: Launchable) {
         val folder: Folder = target as? Folder ?: return
         session.onSheetOpened()
-        pendingFolderDelete.value = folder
+        folderDialog.value = FolderDialogState.Deleting(folder)
     }
 
-    fun cancelDeleteFolder() {
-        pendingFolderDelete.value = null
+    /** Shows the name dialog for [folder]. */
+    fun requestRename(folder: Folder) {
+        folderDialog.value = FolderDialogState.Renaming(folder)
     }
 
-    /** Deletes the confirmed Folder and everything belonging to it. */
-    fun confirmDeleteFolder() {
-        val folder: Folder = pendingFolderDelete.value ?: return
-        pendingFolderDelete.value = null
+    /** Closes the Folder dialog without changing the Folder. */
+    internal fun dismissFolderDialog() {
+        folderDialog.value = FolderDialogState.Closed
+    }
+
+    /** Deletes the Folder whose confirmation is showing and everything belonging to it. */
+    internal fun confirmDeleteFolder() {
+        val dialog: FolderDialogState.Deleting = folderDialog.value as? FolderDialogState.Deleting ?: return
+        val folder: Folder = dialog.folder
+        folderDialog.value = FolderDialogState.Closed
         session.onOwnerDeleted(ownerKey = folder.key)
         launchLogged(message = "Failed to delete Folder ${folder.key}") {
             folderRepository.delete(folder)
+        }
+    }
+
+    /** Renames the Folder whose name dialog is showing, resetting its name when [name] is blank. */
+    internal fun confirmRename(name: String) {
+        val dialog: FolderDialogState.Renaming = folderDialog.value as? FolderDialogState.Renaming ?: return
+        val folder: Folder = dialog.folder
+        folderDialog.value = FolderDialogState.Closed
+        launchLogged(message = "Failed to rename ${folder.key}") {
+            preferencesRepository.setItemName(item = folder, name = name)
         }
     }
 
@@ -117,7 +136,7 @@ class PopupFolderViewModel(
         addToFolderRequest.value = launchable
     }
 
-    fun closeAddToFolder() {
+    internal fun closeAddToFolder() {
         addToFolderRequest.value = null
     }
 
@@ -152,7 +171,7 @@ class PopupFolderViewModel(
     }
 
     internal fun onCardClosed() {
-        pendingFolderDelete.value = null
+        folderDialog.value = FolderDialogState.Closed
         addToFolderRequest.value = null
     }
 
