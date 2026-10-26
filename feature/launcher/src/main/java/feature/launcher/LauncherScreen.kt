@@ -122,6 +122,7 @@ fun LauncherScreen(
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
+    val railBounds: RailBounds = remember { RailBounds() }
     val finishEditingHomeMessage: String = stringResource(R.string.finish_editing_home)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
@@ -304,6 +305,7 @@ fun LauncherScreen(
             modifier = Modifier.fillMaxSize(),
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
+            railBounds = railBounds,
             onItemLaunch = launchItem,
             onItemOpenPopup = popupCardViewModel::open,
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
@@ -317,7 +319,13 @@ fun LauncherScreen(
             onAddItems = popupPicker::startFolderPicking,
             modifier = Modifier.fillMaxSize()
         )
-        LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupCardViewModel::close)
+        LauncherRail(
+            viewModel = viewModel,
+            railBounds = railBounds,
+            isCardOpen = popupCardViewModel::isOpen,
+            onRailTouched = popupCardViewModel::close,
+            enabled = !isEditingHome
+        )
         LauncherDoneButton(viewModel, widgetViewModel, popupEditor)
         LauncherMenu(viewModel, popupEditor, popupFolderActions)
         PopupMenuSheet(

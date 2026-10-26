@@ -70,7 +70,8 @@ data class LauncherItemActions(
     val onToggleFavorite: (Launchable) -> Unit,
     val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
-    val onNewFolder: () -> Unit
+    val onNewFolder: () -> Unit,
+    val railBounds: () -> Rect?
 )
 
 private class PopupAnchorHolder {
@@ -139,6 +140,7 @@ fun LauncherItem(
                 }
                 .popupSwipe(
                     enabled = canSwipePopup,
+                    railBounds = itemActions.railBounds,
                     isSwipeBlocked = { longPressGate.isFired },
                     onSwipeOpen = {
                         anchorHolder.anchor?.let { anchor -> currentItemActions.onItemOpenPopup(currentItem, anchor) }

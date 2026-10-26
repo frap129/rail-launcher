@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -29,6 +30,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -70,6 +73,7 @@ internal fun LauncherContent(
     modifier: Modifier,
     viewModel: LauncherViewModel,
     widgetViewModel: WidgetAreaViewModel,
+    railBounds: RailBounds,
     onItemLaunch: (Launchable) -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
@@ -80,16 +84,18 @@ internal fun LauncherContent(
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
     val context: Context = LocalContext.current
-    val itemActions: LauncherItemActions = remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged) {
-        LauncherItemActions(
-            onItemLaunch = onItemLaunch,
-            onItemLongPress = viewModel::openItemMenu,
-            onToggleFavorite = viewModel::toggleFavorite,
-            onItemOpenPopup = onItemOpenPopup,
-            onItemAnchorChanged = onItemAnchorChanged,
-            onNewFolder = viewModel::openNewFolderDialog
-        )
-    }
+    val itemActions: LauncherItemActions =
+        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds) {
+            LauncherItemActions(
+                onItemLaunch = onItemLaunch,
+                onItemLongPress = viewModel::openItemMenu,
+                onToggleFavorite = viewModel::toggleFavorite,
+                onItemOpenPopup = onItemOpenPopup,
+                onItemAnchorChanged = onItemAnchorChanged,
+                onNewFolder = viewModel::openNewFolderDialog,
+                railBounds = { railBounds.current }
+            )
+        }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
     val isEditingHome: Boolean = home?.isEditingFavorites == true || isResizing || isEditingWidgets || isMovingWidgetArea
@@ -230,22 +236,36 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
 }
 
 @Composable
-internal fun BoxScope.LauncherRail(viewModel: LauncherViewModel, enabled: Boolean = true, onRailTouched: () -> Unit = {}) {
+internal fun BoxScope.LauncherRail(
+    viewModel: LauncherViewModel,
+    railBounds: RailBounds,
+    isCardOpen: () -> Boolean,
+    onRailTouched: () -> Unit,
+    enabled: Boolean = true
+) {
     val railLabels: List<String> by viewModel.railLabels.collectAsState()
+    val railGesture: RailGesture = remember { RailGesture() }
+    // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
+    LaunchedEffect(railLabels.size, enabled) {
+        railGesture.reset()
+    }
     ScrollRail(
         modifier = Modifier
             .align(Alignment.CenterEnd)
             .padding(0.dp, railTopPadding, 0.dp, 0.dp)
             .width(railWidth)
-            .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) },
+            .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
+            .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) },
         items = railLabels,
         onScroll = { index ->
-            onRailTouched()
-            viewModel.onRailPreview(index)
+            if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+                viewModel.onRailPreview(index)
+            }
         },
         onScrollEnded = { index ->
-            onRailTouched()
-            viewModel.onRailReleased(index)
+            if (railGesture.onScrollEnded(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+                viewModel.onRailReleased(index)
+            }
         },
         enabled = enabled
     )
