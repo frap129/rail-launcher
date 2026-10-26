@@ -11,7 +11,6 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
-import core.data.notifications.INotificationSourceImpl
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
@@ -45,7 +44,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 private const val START_OFFSET_PX: Int = 200
@@ -1270,13 +1268,12 @@ class LauncherViewModelTest {
         homeEditState = inputHomeEditState
     )
 
-    private fun TestScope.createNotificationSource(mockPopupRepository: FakePopupRepository): INotificationSource = INotificationSourceImpl(
-        context = RuntimeEnvironment.getApplication(),
-        scope = backgroundScope,
-        popupRepository = mockPopupRepository,
-        relay = mockNotificationRelay,
-        isAccessGranted = { true }
-    )
+    private fun TestScope.createNotificationSource(mockPopupRepository: FakePopupRepository): INotificationSource =
+        createTestNotificationSource(
+            scope = backgroundScope,
+            popupRepository = mockPopupRepository,
+            relay = mockNotificationRelay
+        )
 
     private fun TestScope.createFavoriteFolderFixture(showInAppList: Boolean): FavoriteFolderFixture {
         val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID, showInAppList = showInAppList)

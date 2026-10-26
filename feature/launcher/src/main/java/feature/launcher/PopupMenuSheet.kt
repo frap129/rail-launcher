@@ -1,4 +1,4 @@
-package core.popups
+package feature.launcher
 
 import android.content.Context
 import android.os.Process
@@ -27,6 +27,10 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
+import core.popups.IPopupEditor
+import core.popups.IPopupFolderActions
+import core.popups.PopupWidgetPage
+import core.popups.R
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
@@ -38,13 +42,13 @@ import core.widgets.WidgetMenuTitle
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PopupMenuSheet(cardViewModel: PopupCardViewModel, editorViewModel: PopupEditorViewModel, folderViewModel: PopupFolderViewModel) {
-    val menuState: PopupMenuState by cardViewModel.menuState.collectAsState()
+fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
+    val menuState: PopupMenuState by card.menuState.collectAsState()
     val state: PopupMenuState.Open = menuState as? PopupMenuState.Open ?: return
     val context: Context = LocalContext.current
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
-        onDismissRequest = cardViewModel::closeMenu
+        onDismissRequest = card::closeMenu
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             val widgetPage: PopupWidgetPage? = state.widgetPage
@@ -61,55 +65,55 @@ fun PopupMenuSheet(cardViewModel: PopupCardViewModel, editorViewModel: PopupEdit
                             label = stringResource(
                                 if (item == PopupMenuItem.EditPopup) CoreUiR.string.edit_popup else R.string.edit_folder
                             ),
-                            onClick = { editorViewModel.startEdit(state.target) }
+                            onClick = { editor.startEdit(state.target) }
                         )
 
                         PopupMenuItem.DeleteFolder -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(R.string.delete_folder),
-                            onClick = { folderViewModel.requestDeleteFolder(state.target) }
+                            onClick = { folderActions.requestDeleteFolder(state.target) }
                         )
 
                         PopupMenuItem.AddWidget -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.PlusSquare,
                             label = stringResource(CoreUiR.string.add_widget),
-                            onClick = cardViewModel::startAddWidget
+                            onClick = card::startAddWidget
                         )
 
                         PopupMenuItem.AddToStack -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.PlusSquare,
                             label = stringResource(CoreUiR.string.add_next_to),
-                            onClick = cardViewModel::startAddWidget
+                            onClick = card::startAddWidget
                         )
 
                         PopupMenuItem.ResizeWidget -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
                             label = stringResource(CoreUiR.string.resize_widget),
-                            onClick = cardViewModel::resizeWidget
+                            onClick = card::resizeWidget
                         )
 
                         PopupMenuItem.ReconfigureWidget -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.Cog,
                             label = stringResource(CoreUiR.string.reconfigure_widget),
-                            onClick = cardViewModel::reconfigureWidget
+                            onClick = card::reconfigureWidget
                         )
 
                         PopupMenuItem.RemoveWidget -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(CoreUiR.string.remove_widget),
-                            onClick = cardViewModel::removeWidget
+                            onClick = card::removeWidget
                         )
 
                         PopupMenuItem.RemoveFromStack -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(CoreUiR.string.remove_from_stack),
-                            onClick = cardViewModel::removeWidget
+                            onClick = card::removeWidget
                         )
 
                         PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
                             label = stringResource(R.string.remove_from_popup),
-                            onClick = cardViewModel::removeMenuItem
+                            onClick = card::removeMenuItem
                         )
 
                         PopupMenuItem.AppInfo -> appInfoFor(target = state.target, widgetPage = widgetPage)?.let { appInfo ->
@@ -118,9 +122,9 @@ fun PopupMenuSheet(cardViewModel: PopupCardViewModel, editorViewModel: PopupEdit
                                 label = stringResource(CoreUiR.string.app_info),
                                 onClick = {
                                     context.openAppInfo(appInfo = appInfo)
-                                    cardViewModel.closeMenu()
+                                    card.closeMenu()
                                     if (widgetPage == null) {
-                                        cardViewModel.close()
+                                        card.close()
                                     }
                                 }
                             )

@@ -407,7 +407,7 @@ class LauncherViewModel(
     }
 
     fun setItemName(launchable: Launchable, name: String) {
-        launchLogged(message = "Failed to rename ${launchable.key}") {
+        viewModelScope.launchLogged(message = "Failed to rename ${launchable.key}") {
             prefsRepo.setItemName(launchable, name)
         }
         openItemMenu(launchable)
@@ -457,7 +457,7 @@ class LauncherViewModel(
             return
         }
         closeNewFolderDialog()
-        launchLogged(message = "Failed to create Folder") {
+        viewModelScope.launchLogged(message = "Failed to create Folder") {
             val folder: Folder = folderRepo.create(name)
             favoritesMutex.withLock {
                 editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }

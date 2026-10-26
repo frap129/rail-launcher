@@ -113,7 +113,7 @@ private val itemIconGap = 12.dp
 private val itemDividerInset = 16.dp
 private val emptyStatePadding = 16.dp
 private val addAppsButtonTopPadding = 8.dp
-internal val popupWidgetHorizontalPadding: Dp = 8.dp
+val popupWidgetHorizontalPadding: Dp = 8.dp
 internal val popupIconSize: Dp = 24.dp
 internal const val POPUP_CARD_TEST_TAG: String = "popupCard"
 

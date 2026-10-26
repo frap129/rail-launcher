@@ -1,4 +1,4 @@
-package core.popups
+package feature.launcher
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -34,6 +34,14 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.launchables.model.Launchable
+import core.popups.PopupAnchor
+import core.popups.PopupCard
+import core.popups.PopupFrame
+import core.popups.PopupInsets
+import core.popups.PopupNotificationActions
+import core.popups.PopupPlacement
+import core.popups.PopupUiState
+import core.popups.popupWidgetHorizontalPadding
 import core.ui.util.consumeTouches
 import core.widgets.ResizeState
 import kotlin.math.roundToInt
@@ -117,15 +125,16 @@ fun PopupHost(viewModel: PopupCardViewModel, onLaunch: (Launchable) -> Unit, onA
             )
         }
         if (displayState != null && frame != null) {
-            val pivotX: Float = if (cardSize.width == 0 || displayState.anchor == null) {
+            val anchor: PopupAnchor? = displayState.anchor
+            val pivotX: Float = if (cardSize.width == 0 || anchor == null) {
                 0.5f
             } else {
-                ((displayState.anchor.iconCenter.x - frame.offsetX) / cardSize.width).coerceIn(0f, 1f)
+                ((anchor.iconCenter.x - frame.offsetX) / cardSize.width).coerceIn(0f, 1f)
             }
-            val pivotY: Float = if (cardSize.height == 0 || displayState.anchor == null) {
+            val pivotY: Float = if (cardSize.height == 0 || anchor == null) {
                 0.5f
             } else {
-                ((displayState.anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
+                ((anchor.iconCenter.y - frame.offsetY) / cardSize.height).coerceIn(0f, 1f)
             }
             val headerClick: (() -> Unit)? = displayState.owner.appOwner?.let { app -> { onLaunch(app) } }
             LaunchedEffect(frame.width) {

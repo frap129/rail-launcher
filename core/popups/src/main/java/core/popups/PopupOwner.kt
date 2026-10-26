@@ -26,32 +26,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-internal val EMPTY_SHORTCUTS: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())
+val EMPTY_SHORTCUTS: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())
 
-/** An App's Shortcut source: the package whose Shortcuts it publishes and the profile they belong to. */
-internal data class ShortcutSource(val packageName: String, val profile: UserHandle)
+/** The owner key and, for an App, the package and profile it publishes Shortcuts from. */
+data class ShortcutTarget(val ownerKey: String, val packageName: String?, val profile: UserHandle?)
 
-/** The owner key and, for an App, the Shortcut source it publishes from. */
-internal data class ShortcutTarget(val ownerKey: String, val source: ShortcutSource?)
+data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
-internal data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
+data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
-internal data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
-
-/** The App [this] is, or null when it is another Launchable. */
-internal val Launchable.appOwner: App?
-    get() = this as? App
-
-internal fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
-    is App -> ShortcutTarget(ownerKey = owner.key, source = ShortcutSource(packageName = owner.packageName, profile = owner.profile))
-    is Folder -> ShortcutTarget(ownerKey = owner.key, source = null)
+fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
+    is App -> ShortcutTarget(ownerKey = owner.key, packageName = owner.packageName, profile = owner.profile)
+    is Folder -> ShortcutTarget(ownerKey = owner.key, packageName = null, profile = null)
     else -> null
 }
 
 /** The Launchable with [key], or null when it is not available. */
-internal fun List<Launchable>.findLaunchable(key: String): Launchable? = firstOrNull { launchable -> launchable.key == key }
+fun List<Launchable>.findLaunchable(key: String): Launchable? = firstOrNull { launchable -> launchable.key == key }
 
-internal fun hiddenShortcutIds(
+fun hiddenShortcutIds(
     scope: CoroutineScope,
     targets: Flow<ShortcutTarget?>,
     popupRepository: IPopupRepository
@@ -64,27 +57,23 @@ internal fun hiddenShortcutIds(
     }
 )
 
-internal fun <T> ownerScoped(
-    scope: CoroutineScope,
-    targets: Flow<String?>,
-    emptyValue: (String?) -> T,
-    source: (String) -> Flow<T>
-): StateFlow<T> = targets
-    .distinctUntilChanged()
-    .flatMapLatest { ownerKey ->
-        if (ownerKey == null) {
-            flowOf(emptyValue(null))
-        } else {
-            source(ownerKey).onStart { emit(emptyValue(ownerKey)) }
+fun <T> ownerScoped(scope: CoroutineScope, targets: Flow<String?>, emptyValue: (String?) -> T, source: (String) -> Flow<T>): StateFlow<T> =
+    targets
+        .distinctUntilChanged()
+        .flatMapLatest { ownerKey ->
+            if (ownerKey == null) {
+                flowOf(emptyValue(null))
+            } else {
+                source(ownerKey).onStart { emit(emptyValue(ownerKey)) }
+            }
         }
-    }
-    .stateIn(
-        scope = scope,
-        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = emptyValue(null)
-    )
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = emptyValue(null)
+        )
 
-internal fun addedItems(scope: CoroutineScope, targets: Flow<ShortcutTarget?>, popupRepository: IPopupRepository): StateFlow<OwnerItems> =
+fun addedItems(scope: CoroutineScope, targets: Flow<ShortcutTarget?>, popupRepository: IPopupRepository): StateFlow<OwnerItems> =
     ownerScoped(
         scope = scope,
         targets = targets.map { target -> target?.ownerKey },
@@ -95,7 +84,7 @@ internal fun addedItems(scope: CoroutineScope, targets: Flow<ShortcutTarget?>, p
     )
 
 /** Queries [targets]'s Shortcuts again whenever [reloads] emits and stores the result in [into]. */
-internal fun collectShortcuts(
+fun collectShortcuts(
     scope: CoroutineScope,
     targets: Flow<ShortcutTarget?>,
     reloads: Flow<Int>,
@@ -124,8 +113,9 @@ internal fun collectShortcuts(
 }
 
 private fun shortcutsFor(target: ShortcutTarget, shortcutSource: IShortcutSource): Flow<ShortcutsResult> {
-    val source: ShortcutSource = target.source ?: return flowOf(EMPTY_SHORTCUTS)
-    return shortcutSource.shortcuts(packageName = source.packageName, profile = source.profile)
+    val packageName: String = target.packageName ?: return flowOf(EMPTY_SHORTCUTS)
+    val profile: UserHandle = target.profile ?: return flowOf(EMPTY_SHORTCUTS)
+    return shortcutSource.shortcuts(packageName = packageName, profile = profile)
         .catch { exception ->
             if (exception is CancellationException) {
                 throw exception

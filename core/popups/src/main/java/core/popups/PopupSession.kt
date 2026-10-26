@@ -5,22 +5,40 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import timber.log.Timber
 
+/** The card commands the Pop-up session drives, implemented by the feature that hosts a card. */
+interface IPopupCard {
+    fun closeMenu()
+
+    fun finishResize()
+
+    fun close()
+
+    /** Closes the card and its menu when [ownerKey]'s Folder is deleted. */
+    fun onOwnerDeleted(ownerKey: String)
+
+    /** The open card's owner key, or null when no card is open. */
+    fun currentOpenOwnerKey(): String?
+
+    fun isResizing(): Boolean
+
+    fun isItemMenuOpen(): Boolean
+
+    fun isMenuOpen(): Boolean
+
+    fun isOpen(): Boolean
+}
+
 /**
  * The layers and cross-cutting state one Pop-up host shares between its card, editor, pickers and
- * Folder actions. A host creates one session, passes it to every Pop-up ViewModel and attaches them
- * once; a host without a card leaves the card unattached, so card commands do nothing.
+ * Folder actions. A host creates one session, passes it to every Pop-up collaborator and attaches
+ * them once; a host without a card leaves the card unattached, so card commands do nothing.
  */
 interface IPopupSession {
     /** Changes whenever a quiet-mode resume asks the card and editor to re-read their Shortcuts. */
     val shortcutReloads: Flow<Int>
 
     /** Connects the host's collaborators. Call once per host after creating them. */
-    fun attach(
-        card: PopupCardViewModel? = null,
-        editor: PopupEditorViewModel? = null,
-        picker: PopupPickerViewModel? = null,
-        folder: PopupFolderViewModel? = null
-    )
+    fun attach(card: IPopupCard? = null, editor: IPopupEditor? = null, picker: IPopupPicker? = null, folder: IPopupFolderActions? = null)
 
     /** Clears the pickers an opening card would cover. */
     fun onCardOpened()
@@ -45,24 +63,22 @@ interface IPopupSession {
 
     /** Re-reads the card's and editor's Shortcuts, for example after a work profile resumes. */
     fun reloadShortcuts()
+
+    /** Stops the collaborators' observations and forgets them. */
+    fun release()
 }
 
-/** The one session each Pop-up host creates and hands to its ViewModels. */
+/** The one session each Pop-up host creates and hands to its collaborators. */
 class IPopupSessionImpl : IPopupSession {
-    private var card: PopupCardViewModel? = null
-    private var editor: PopupEditorViewModel? = null
-    private var picker: PopupPickerViewModel? = null
-    private var folder: PopupFolderViewModel? = null
+    private var card: IPopupCard? = null
+    private var editor: IPopupEditor? = null
+    private var picker: IPopupPicker? = null
+    private var folder: IPopupFolderActions? = null
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
 
     override val shortcutReloads: Flow<Int> = reloads
 
-    override fun attach(
-        card: PopupCardViewModel?,
-        editor: PopupEditorViewModel?,
-        picker: PopupPickerViewModel?,
-        folder: PopupFolderViewModel?
-    ) {
+    override fun attach(card: IPopupCard?, editor: IPopupEditor?, picker: IPopupPicker?, folder: IPopupFolderActions?) {
         card?.let { this.card = it }
         editor?.let { this.editor = it }
         picker?.let { this.picker = it }
@@ -95,7 +111,7 @@ class IPopupSessionImpl : IPopupSession {
     }
 
     override fun openOwnerKey(): String? {
-        val openCard: PopupCardViewModel = card ?: run {
+        val openCard: IPopupCard = card ?: run {
             Timber.w("Ignoring a card action without an attached Pop-up card")
             return null
         }
@@ -103,7 +119,7 @@ class IPopupSessionImpl : IPopupSession {
     }
 
     override fun onBack(): Boolean {
-        val openCard: PopupCardViewModel = card ?: run {
+        val openCard: IPopupCard = card ?: run {
             Timber.w("Ignoring Back without an attached Pop-up card")
             return false
         }
@@ -137,5 +153,15 @@ class IPopupSessionImpl : IPopupSession {
 
     override fun reloadShortcuts() {
         reloads.update { reload -> reload + 1 }
+    }
+
+    override fun release() {
+        editor?.release()
+        picker?.release()
+        folder?.release()
+        card = null
+        editor = null
+        picker = null
+        folder = null
     }
 }

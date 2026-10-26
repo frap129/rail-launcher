@@ -19,7 +19,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - `core:lifecycle`: `MainApplication` (set in app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB. New repos/ViewModels must be registered here; it depends on the feature modules for that reason. Also `HomeSignals`, the activity-owned HOME-press channel exposed as a `Flow`.
 - `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP). No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
 - `core:widgets`: the presentation slice shared by both features: Header rendering/formatting, the clock-style chooser, the Move Widget Area slider, the notification-access dialog, the App Widget host view cache, picker and content, the add/resize controllers, and the widget event relay.
-- `core:popups`: the Pop-up card, swipe gesture, placement maths, shortcut content and `PopupViewModel`; shared by the launcher and (later) settings.
+- `core:popups`: Pop-up content types and resolver, placement/swipe helpers, resources, stateless cards/sheets and the shared editor, picker and Folder action collaborators; the Pop-up card ViewModel lives in `feature:launcher`.
 - `core:ui` (shared Compose, theme, `ScrollRail`, `Destination` model), `core:util`, `feature:launcher`, `feature:settings`.
 - Feature modules must not depend on other feature modules; the Android library convention plugin fails the build when one declares such a dependency.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.

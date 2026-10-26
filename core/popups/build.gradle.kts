@@ -5,6 +5,9 @@ plugins {
 
 android {
     namespace = "core.popups"
+    testFixtures {
+        enable = true
+    }
 }
 
 dependencies {
@@ -15,6 +18,13 @@ dependencies {
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
-    testImplementation(testFixtures(project(":core:widgets")))
     testImplementation(libs.test.robolectric)
+    // The compose compiler plugin also runs on testFixtures and needs the runtime.
+    testFixturesImplementation(platform(libs.compose.bom))
+    testFixturesImplementation(libs.compose.ui)
+    testFixturesImplementation(project(":core:ui"))
+    testFixturesImplementation(testFixtures(project(":core:data")))
+    testFixturesImplementation(libs.kotlinx.coroutines.core)
+    testFixturesImplementation(libs.test.junit)
+    testFixturesImplementation(libs.test.kotlinx.coroutines.test)
 }

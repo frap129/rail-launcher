@@ -1,7 +1,5 @@
 package core.popups
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.ILaunchableRepository
@@ -18,6 +16,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,29 +34,33 @@ private data class ShortcutPickerRequest(
 )
 
 /** Owns the item and Shortcut pickers the Edit Pop-up sheet opens. */
-class PopupPickerViewModel(
+class IPopupPickerImpl(
+    parentScope: CoroutineScope,
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
     private val popupRepository: IPopupRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
-) : ViewModel() {
+) : IPopupPicker {
+    private val collaboratorScope: PopupCollaboratorScope = PopupCollaboratorScope(parentScope = parentScope)
+    private val scope: CoroutineScope = collaboratorScope.scope
+
     private val pickerTarget: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
     private val isPicking: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val shortcutPickerTarget: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
     private val isPickingShortcuts: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val pickerItems: StateFlow<OwnerItems> = addedItems(
-        scope = viewModelScope,
+        scope = scope,
         targets = pickerTarget,
         popupRepository = popupRepository
     )
     private val shortcutPickerItems: StateFlow<OwnerItems> = addedItems(
-        scope = viewModelScope,
+        scope = scope,
         targets = shortcutPickerTarget,
         popupRepository = popupRepository
     )
 
-    val pickerState: StateFlow<PopupPickerState> = combine(
+    override val pickerState: StateFlow<PopupPickerState> = combine(
         pickerTarget,
         isPicking,
         launchableRepository.launchableState,
@@ -72,12 +75,12 @@ class PopupPickerViewModel(
             )
         }
     }.stateIn(
-        scope = viewModelScope,
+        scope = scope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = PopupPickerState.Closed
     )
 
-    val shortcutPickerState: StateFlow<ShortcutPickerState> = combine(
+    override val shortcutPickerState: StateFlow<ShortcutPickerState> = combine(
         shortcutPickerTarget,
         isPickingShortcuts,
         shortcutPickerItems,
@@ -114,20 +117,19 @@ class PopupPickerViewModel(
             }
         }
         .stateIn(
-            scope = viewModelScope,
+            scope = scope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = ShortcutPickerState.Closed
         )
 
-    fun startPicking(owner: Launchable) {
+    override fun startPicking(owner: Launchable) {
         val request: ShortcutTarget = targetFor(owner) ?: return
         session.onSheetOpened()
         pickerTarget.value = request
         isPicking.value = true
     }
 
-    /** Opens the item picker straight from an empty Folder's card. */
-    fun startFolderPicking() {
+    override fun startFolderPicking() {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
@@ -142,7 +144,7 @@ class PopupPickerViewModel(
         isPicking.value = true
     }
 
-    fun confirmPicking(selectedInOrder: List<String>) {
+    override fun confirmPicking(selectedInOrder: List<String>) {
         val request: ShortcutTarget = pickerTarget.value ?: return
         val picking: PopupPickerState.Picking = pickerState.value as? PopupPickerState.Picking ?: return
         isPicking.value = false
@@ -155,19 +157,19 @@ class PopupPickerViewModel(
         )
     }
 
-    fun cancelPicking() {
+    override fun cancelPicking() {
         isPicking.value = false
         pickerTarget.value = null
     }
 
-    fun startPickingShortcuts(owner: Launchable) {
+    override fun startPickingShortcuts(owner: Launchable) {
         val request: ShortcutTarget = targetFor(owner) ?: return
         session.onSheetOpened()
         shortcutPickerTarget.value = request
         isPickingShortcuts.value = true
     }
 
-    fun confirmShortcuts(selectedInOrder: List<String>) {
+    override fun confirmShortcuts(selectedInOrder: List<String>) {
         val request: ShortcutTarget = shortcutPickerTarget.value ?: return
         val picking: ShortcutPickerState.Picking = shortcutPickerState.value as? ShortcutPickerState.Picking ?: return
         isPickingShortcuts.value = false
@@ -179,27 +181,27 @@ class PopupPickerViewModel(
         )
     }
 
-    fun cancelShortcutPicking() {
+    override fun cancelShortcutPicking() {
         isPickingShortcuts.value = false
     }
 
-    internal fun onCardOpened() {
+    override fun onCardOpened() {
         clearPickers()
     }
 
-    internal fun onCardClosed() {
+    override fun onCardClosed() {
         clearPickers()
     }
 
-    internal fun onEditStarted() {
+    override fun onEditStarted() {
         clearPickers()
     }
 
-    internal fun onEditFinished() {
+    override fun onEditFinished() {
         clearPickers()
     }
 
-    internal fun backBeforeItemMenu(): Boolean {
+    override fun backBeforeItemMenu(): Boolean {
         if (isPickingShortcuts.value) {
             cancelShortcutPicking()
             return true
@@ -221,7 +223,7 @@ class PopupPickerViewModel(
     private fun applySelection(ownerKey: String, existingKeys: Set<String>, selectedInOrder: List<String>, message: String) {
         val additions: List<String> = selectedInOrder.filterNot { key -> key in existingKeys }
         val removals: Set<String> = existingKeys - selectedInOrder.toSet()
-        launchLogged(message = message) {
+        scope.launchLogged(message = message) {
             popupRepository.setItems(ownerKey = ownerKey, add = additions, remove = removals)
         }
     }
@@ -259,5 +261,9 @@ class PopupPickerViewModel(
                 ShortcutPickerGroup(label = group.label, apps = candidates)
             }
         }
+    }
+
+    override fun release() {
+        collaboratorScope.release()
     }
 }

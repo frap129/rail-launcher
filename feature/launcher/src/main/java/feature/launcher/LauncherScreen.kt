@@ -25,7 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,17 +48,13 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
-import core.popups.AddToFolderHost
 import core.popups.FolderDeleteHost
 import core.popups.FolderNameDialog
+import core.popups.IPopupEditor
+import core.popups.IPopupFolderActions
+import core.popups.IPopupPicker
 import core.popups.IPopupSession
-import core.popups.PopupCardViewModel
 import core.popups.PopupEditorHost
-import core.popups.PopupEditorViewModel
-import core.popups.PopupFolderViewModel
-import core.popups.PopupHost
-import core.popups.PopupMenuSheet
-import core.popups.PopupPickerViewModel
 import core.popups.R as PopupsR
 import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
@@ -116,20 +111,12 @@ fun LauncherScreen(
     viewModel: LauncherViewModel = koinViewModel(),
     widgetViewModel: WidgetAreaViewModel = koinViewModel()
 ) {
-    // One session per Pop-up host; the ViewModels keep the instance they were created with.
+    // One session per Pop-up host; the card ViewModel keeps the collaborators it was created with.
     val popupSession: IPopupSession = koinInject()
     val popupCardViewModel: PopupCardViewModel = koinViewModel { parametersOf(popupSession) }
-    val popupEditorViewModel: PopupEditorViewModel = koinViewModel { parametersOf(popupSession) }
-    val popupPickerViewModel: PopupPickerViewModel = koinViewModel { parametersOf(popupSession) }
-    val popupFolderViewModel: PopupFolderViewModel = koinViewModel { parametersOf(popupSession) }
-    SideEffect {
-        popupSession.attach(
-            card = popupCardViewModel,
-            editor = popupEditorViewModel,
-            picker = popupPickerViewModel,
-            folder = popupFolderViewModel
-        )
-    }
+    val popupEditor: IPopupEditor = popupCardViewModel.collaborators.editor
+    val popupPicker: IPopupPicker = popupCardViewModel.collaborators.picker
+    val popupFolderActions: IPopupFolderActions = popupCardViewModel.collaborators.folder
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -243,17 +230,17 @@ fun LauncherScreen(
             )
         }
     }
-    LaunchedEffect(viewModel, popupEditorViewModel) {
-        viewModel.folderEdits.collect { folder -> popupEditorViewModel.startEdit(folder) }
+    LaunchedEffect(viewModel, popupEditor) {
+        viewModel.folderEdits.collect { folder -> popupEditor.startEdit(folder) }
     }
     val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
-    LaunchedEffect(popupFolderViewModel, snackbarHostState, editFolderLabel) {
+    LaunchedEffect(popupFolderActions, snackbarHostState, editFolderLabel) {
         showFolderSnackbars(
-            folders = popupFolderViewModel.folderAdditions,
+            folders = popupFolderActions.folderAdditions,
             snackbarHostState = snackbarHostState,
             actionLabel = editFolderLabel,
             message = { folder: Folder -> context.getString(PopupsR.string.added_to_folder, folder.name) },
-            onAction = popupEditorViewModel::startEdit
+            onAction = popupEditor::startEdit
         )
     }
     val settingsLabel: String = stringResource(CoreUiR.string.settings)
@@ -327,20 +314,20 @@ fun LauncherScreen(
         PopupHost(
             viewModel = popupCardViewModel,
             onLaunch = launchItem,
-            onAddItems = popupPickerViewModel::startFolderPicking,
+            onAddItems = popupPicker::startFolderPicking,
             modifier = Modifier.fillMaxSize()
         )
         LauncherRail(viewModel, enabled = !isEditingHome, onRailTouched = popupCardViewModel::close)
-        LauncherDoneButton(viewModel, widgetViewModel, popupEditorViewModel)
-        LauncherMenu(viewModel, popupEditorViewModel, popupFolderViewModel)
+        LauncherDoneButton(viewModel, widgetViewModel, popupEditor)
+        LauncherMenu(viewModel, popupEditor, popupFolderActions)
         PopupMenuSheet(
-            cardViewModel = popupCardViewModel,
-            editorViewModel = popupEditorViewModel,
-            folderViewModel = popupFolderViewModel
+            card = popupCardViewModel,
+            editor = popupEditor,
+            folderActions = popupFolderActions
         )
-        PopupEditorHost(editorViewModel = popupEditorViewModel, pickerViewModel = popupPickerViewModel)
-        FolderDeleteHost(folderViewModel = popupFolderViewModel)
-        AddToFolderHost(folderViewModel = popupFolderViewModel)
+        PopupEditorHost(editor = popupEditor, picker = popupPicker)
+        FolderDeleteHost(folderActions = popupFolderActions)
+        AddToFolderHost(folderActions = popupFolderActions)
         LauncherWidgetMenu(widgetViewModel)
         if (isMovingWidgetArea) {
             Box(

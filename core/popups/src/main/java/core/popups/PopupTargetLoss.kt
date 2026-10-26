@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /** Closes the layer that owns [targetKeys] when its Launchable disappears or a Home edit mode takes over. */
-internal fun observeTargetLoss(
+fun observeTargetLoss(
     scope: CoroutineScope,
     targetKeys: Flow<String?>,
     launchableRepository: ILaunchableRepository,
