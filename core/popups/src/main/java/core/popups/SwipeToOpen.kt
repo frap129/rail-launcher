@@ -1,5 +1,7 @@
 package core.popups
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -17,7 +19,7 @@ enum class SwipeClaim {
     Rejected
 }
 
-/** The pure thresholds and offsets behind the Pop-up row swipe. */
+/** The pure thresholds, offsets and Rail bounds behind the Pop-up row swipe. */
 object SwipeToOpen {
     const val OPEN_THRESHOLD_DP: Float = 48f
     const val MAX_OFFSET_DP: Float = 72f
@@ -55,6 +57,10 @@ object SwipeToOpen {
         return directionalDistance >= thresholdPx ||
             (directionalDistance > 0f && directionalVelocity >= velocityThresholdPx)
     }
+
+    /** Whether a row gesture has entered the Rail's [railBounds], staying reached once it has. */
+    fun hasReachedRail(wasReached: Boolean, fingerInRoot: Offset, railBounds: Rect?): Boolean =
+        wasReached || (railBounds?.contains(fingerInRoot) == true)
 
     /** The release distance threshold in pixels. */
     fun thresholdPx(density: Float): Float = OPEN_THRESHOLD_DP * density

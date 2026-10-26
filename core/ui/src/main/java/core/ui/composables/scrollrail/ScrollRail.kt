@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,6 +123,8 @@ fun ScrollRail(
     var selectedItemIndex by remember { mutableIntStateOf(-1) }
     var railOffset by remember { mutableFloatStateOf(0f) }
     val railPointer = remember { RailPointerAnimation() }
+    val currentOnScroll: (Int) -> Unit by rememberUpdatedState(onScroll)
+    val currentOnScrollEnded: (Int) -> Unit by rememberUpdatedState(onScrollEnded)
     val theme = MaterialTheme.colorScheme
     Row(
         horizontalArrangement = Arrangement.End,
@@ -133,7 +136,7 @@ fun ScrollRail(
                 }
                 fun startScroll(pointer: Offset, itemIndex: Int) {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onScroll(itemIndex)
+                    currentOnScroll(itemIndex)
                     selectedItemIndex = itemIndex
                     scope.launch { railPointer.start(pointer) }
                 }
@@ -142,13 +145,13 @@ fun ScrollRail(
                     scope.launch { railPointer.follow(pointer) }
                     if (itemIndex != selectedItemIndex) {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        onScroll(itemIndex)
+                        currentOnScroll(itemIndex)
                         selectedItemIndex = itemIndex
                     }
                 }
 
                 fun endScroll(itemIndex: Int) {
-                    onScrollEnded(itemIndex)
+                    currentOnScrollEnded(itemIndex)
                     selectedItemIndex = -1
                     scope.launch { railPointer.stop() }
                 }
