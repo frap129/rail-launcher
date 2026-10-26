@@ -1,0 +1,288 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>IPopupRepositoryImpl</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":core:data:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="data::core.data.popups/IPopupRepositoryImpl///PointingToDeclaration//-1234779955">
+  <div class="breadcrumbs"><a href="../../index.html">data</a><span class="delimiter">/</span><a href="../index.html">core.data.popups</a><span class="delimiter">/</span><span class="current">IPopupRepositoryImpl</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>IPopup</span><wbr><span>Repository</span><wbr><span><span>Impl</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">class </span><a href="index.html">IPopupRepositoryImpl</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">popupDao<span class="token operator">: </span><a href="../../core.data.room.dao/-popup-dao/index.html">PopupDao</a><span class="token punctuation">, </span></span><span class="parameter ">launchableRepository<span class="token operator">: </span><a href="../../core.data.launchables/-i-launchable-repository/index.html">ILaunchableRepository</a><span class="token punctuation">, </span></span><span class="parameter ">shortcutSource<span class="token operator">: </span><a href="../../core.data.shortcuts/-i-shortcut-source/index.html">IShortcutSource</a><span class="token punctuation">, </span></span><span class="parameter ">scope<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">widgetAreaRepository<span class="token operator">: </span><a href="../../core.data.widgets/-i-widget-area-repository/index.html">IWidgetAreaRepository</a><span class="token punctuation">, </span></span><span class="parameter ">removeOwnerWidgets<span class="token operator">: </span><a href="../../core.data.widgets/-i-remove-owner-widgets/index.html">IRemoveOwnerWidgets</a></span></span><span class="token punctuation">)</span> : <a href="../-i-popup-repository/index.html">IPopupRepository</a></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="800394544%2FConstructors%2F-1234779955" anchor-label="IPopupRepositoryImpl" id="800394544%2FConstructors%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-i-popup-repository-impl.html"><span>IPopup</span><wbr><span>Repository</span><wbr><span><span>Impl</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="800394544%2FConstructors%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">popupDao<span class="token operator">: </span><a href="../../core.data.room.dao/-popup-dao/index.html">PopupDao</a><span class="token punctuation">, </span></span><span class="parameter ">launchableRepository<span class="token operator">: </span><a href="../../core.data.launchables/-i-launchable-repository/index.html">ILaunchableRepository</a><span class="token punctuation">, </span></span><span class="parameter ">shortcutSource<span class="token operator">: </span><a href="../../core.data.shortcuts/-i-shortcut-source/index.html">IShortcutSource</a><span class="token punctuation">, </span></span><span class="parameter ">scope<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">widgetAreaRepository<span class="token operator">: </span><a href="../../core.data.widgets/-i-widget-area-repository/index.html">IWidgetAreaRepository</a><span class="token punctuation">, </span></span><span class="parameter ">removeOwnerWidgets<span class="token operator">: </span><a href="../../core.data.widgets/-i-remove-owner-widgets/index.html">IRemoveOwnerWidgets</a></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="-990857193%2FProperties%2F-1234779955" anchor-label="itemCounts" id="-990857193%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="item-counts.html"><span>item</span><wbr><span><span>Counts</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-990857193%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">val </span><a href="item-counts.html">itemCounts</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-map/index.html">Map</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">The number of items shown in each Pop-up, keyed by owner key. An owner with no items has no entry.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-571508203%2FProperties%2F-1234779955" anchor-label="notificationsEnabled" id="-571508203%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="notifications-enabled.html"><span>notifications</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-571508203%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">val </span><a href="notifications-enabled.html">notificationsEnabled</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Whether Pop-ups show their owners' notifications. Off by default.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1177520422%2FProperties%2F-1234779955" anchor-label="removedWidgetIds" id="-1177520422%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="removed-widget-ids.html"><span>removed</span><wbr><span>Widget</span><wbr><span><span>Ids</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1177520422%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">val </span><a href="removed-widget-ids.html">removedWidgetIds</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="../../core.data.widgets/-app-widget-id/index.html">AppWidgetId</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">The App Widget ids freed when an owner's Widgets are deleted, including stale-owner cleanup.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="87212517%2FFunctions%2F-1234779955" anchor-label="deleteItemsByKey" id="87212517%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="delete-items-by-key.html"><span>delete</span><wbr><span>Items</span><wbr><span>By</span><wbr><span><span>Key</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="87212517%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="delete-items-by-key.html"><span class="token function">deleteItemsByKey</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">itemKeys<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Removes <a href="delete-items-by-key.html">itemKeys</a> from every Pop-up.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="352530208%2FFunctions%2F-1234779955" anchor-label="deleteOwner" id="352530208%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="delete-owner.html"><span>delete</span><wbr><span><span>Owner</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="352530208%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="delete-owner.html"><span class="token function">deleteOwner</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../../core.data.widgets/-app-widget-id/index.html">AppWidgetId</a><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">Deletes the stored Pop-up preferences of <a href="delete-owner.html">ownerKey</a>, which no longer exists, and frees its Widgets.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1786585339%2FFunctions%2F-1234779955" anchor-label="hiddenShortcuts" id="1786585339%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="hidden-shortcuts.html"><span>hidden</span><wbr><span><span>Shortcuts</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1786585339%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="hidden-shortcuts.html"><span class="token function">hiddenShortcuts</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">The ids of the shortcuts hidden from <a href="hidden-shortcuts.html">ownerKey</a>'s Pop-up.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1419367896%2FFunctions%2F-1234779955" anchor-label="items" id="1419367896%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="items.html"><span><span>items</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1419367896%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">override </span><span class="token keyword">fun </span><a href="items.html"><span class="token function">items</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-popup-item/index.html">PopupItem</a><span class="token operator">&gt;</span><span class="token operator">&gt;</span></div><div class="brief "><p class="paragraph">The items added to <a href="items.html">ownerKey</a>'s Pop-up, in the user's order. An item whose Launchable or Shortcut no longer exists is removed by the repository and never emitted. Collecting is a pure read.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="662909938%2FFunctions%2F-1234779955" anchor-label="removeItem" id="662909938%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="remove-item.html"><span>remove</span><wbr><span><span>Item</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="662909938%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="remove-item.html"><span class="token function">removeItem</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">itemKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Removes the item <a href="remove-item.html">itemKey</a> from <a href="remove-item.html">ownerKey</a>'s Pop-up. Does nothing if it is not one.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1869496218%2FFunctions%2F-1234779955" anchor-label="setItemOrder" id="1869496218%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-item-order.html"><span>set</span><wbr><span>Item</span><wbr><span><span>Order</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1869496218%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="set-item-order.html"><span class="token function">setItemOrder</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">orderedItemKeys<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Reorders <a href="set-item-order.html">ownerKey</a>'s listed items to match <a href="set-item-order.html">orderedItemKeys</a>, leaving unlisted items in place.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-254031910%2FFunctions%2F-1234779955" anchor-label="setItems" id="-254031910%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-items.html"><span>set</span><wbr><span><span>Items</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-254031910%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="set-items.html"><span class="token function">setItems</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">add<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">remove<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Adds <a href="set-items.html">add</a> to the end of <a href="set-items.html">ownerKey</a>'s Pop-up in order, and removes <a href="set-items.html">remove</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="162139606%2FFunctions%2F-1234779955" anchor-label="setNotificationsEnabled" id="162139606%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-notifications-enabled.html"><span>set</span><wbr><span>Notifications</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="162139606%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="set-notifications-enabled.html"><span class="token function">setNotificationsEnabled</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">enabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Persists whether Pop-ups show notifications.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1972811413%2FFunctions%2F-1234779955" anchor-label="setShortcutHidden" id="1972811413%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-shortcut-hidden.html"><span>set</span><wbr><span>Shortcut</span><wbr><span><span>Hidden</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1972811413%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">open </span><span class="token keyword">suspend override </span><span class="token keyword">fun </span><a href="set-shortcut-hidden.html"><span class="token function">setShortcutHidden</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">shortcutId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">hidden<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Hides or shows the shortcut <a href="set-shortcut-hidden.html">shortcutId</a> in <a href="set-shortcut-hidden.html">ownerKey</a>'s Pop-up.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

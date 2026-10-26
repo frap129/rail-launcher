@@ -1,0 +1,701 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>WidgetSettingsUiState</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":feature:settings:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="settings::feature.settings/WidgetSettingsUiState///PointingToDeclaration//-70870175">
+  <div class="breadcrumbs"><a href="../../index.html">settings</a><span class="delimiter">/</span><a href="../index.html">feature.settings</a><span class="delimiter">/</span><span class="current">WidgetSettingsUiState</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Widget</span><wbr><span>Settings</span><wbr><span>Ui</span><wbr><span><span>State</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="index.html">WidgetSettingsUiState</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>isLoaded<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>headerShown<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>clockVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>batteryVisibility<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>BatteryVisibility.NEVER<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>canHideClock<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>canHideDate<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>clockStyle<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>ClockStyle.CLASSIC<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>timeFormat<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>TimeFormat.SYSTEM<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>canShowAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateFormat<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>DateFormatPreset.FULL<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>alignment<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>HeaderAlignment.START<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>size<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>HeaderSize.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>clockStylePreviews<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateFormatOptions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-date-format-option/index.html">DateFormatOption</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>timeTapAction<span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a><span class="token operator"> = </span>TapActionSummary(
+        setting = HeaderTapSetting.SystemDefault,
+        label = TapActionLabel.Resource(R.string.tap_action_clock_default)
+    )<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateTapAction<span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a><span class="token operator"> = </span>TapActionSummary(
+        setting = HeaderTapSetting.SystemDefault,
+        label = TapActionLabel.Resource(R.string.tap_action_calendar_default)
+    )<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>calendarAccess<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>eventsEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>eventLookaheadHours<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>EventSettings.DEFAULT_LOOKAHEAD_HOURS<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>eventMaxEvents<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>includeAllDay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>excludedCalendarIds<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>calendars<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appWidgets<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-widget-settings-app-widget/index.html">WidgetSettingsAppWidget</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>stackIndicatorVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimitEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>heightLimit<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>WidgetAreaHeightLimit.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>topOffsetDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>widgetSpacing<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>WidgetSpacing.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>homeHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>mediaPlayerEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showWhenPaused<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showArtwork<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>mediaPlayerPlacement<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>MediaPlayerPlacement.BELOW_WIDGET_AREA<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>excludedMediaPlayerPackages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>notificationAccess<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></span></span><span class="token punctuation">)</span></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="870064592%2FConstructors%2F-70870175" anchor-label="WidgetSettingsUiState" id="870064592%2FConstructors%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-widget-settings-ui-state.html"><span>Widget</span><wbr><span>Settings</span><wbr><span>Ui</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="870064592%2FConstructors%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">isLoaded<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">headerShown<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">clockVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">dateVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">batteryVisibility<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>BatteryVisibility.NEVER<span class="token punctuation">, </span></span><span class="parameter ">canHideClock<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">canHideDate<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">clockStyle<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>ClockStyle.CLASSIC<span class="token punctuation">, </span></span><span class="parameter ">timeFormat<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>TimeFormat.SYSTEM<span class="token punctuation">, </span></span><span class="parameter ">showAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">canShowAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">dateFormat<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>DateFormatPreset.FULL<span class="token punctuation">, </span></span><span class="parameter ">alignment<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>HeaderAlignment.START<span class="token punctuation">, </span></span><span class="parameter ">size<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>HeaderSize.DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">clockStylePreviews<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter ">dateFormatOptions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-date-format-option/index.html">DateFormatOption</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter ">timeTapAction<span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a><span class="token operator"> = </span>TapActionSummary(
+        setting = HeaderTapSetting.SystemDefault,
+        label = TapActionLabel.Resource(R.string.tap_action_clock_default)
+    )<span class="token punctuation">, </span></span><span class="parameter ">dateTapAction<span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a><span class="token operator"> = </span>TapActionSummary(
+        setting = HeaderTapSetting.SystemDefault,
+        label = TapActionLabel.Resource(R.string.tap_action_calendar_default)
+    )<span class="token punctuation">, </span></span><span class="parameter ">calendarAccess<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">eventsEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">eventLookaheadHours<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>EventSettings.DEFAULT_LOOKAHEAD_HOURS<span class="token punctuation">, </span></span><span class="parameter ">eventMaxEvents<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span><span class="token punctuation">, </span></span><span class="parameter ">includeAllDay<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">excludedCalendarIds<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()<span class="token punctuation">, </span></span><span class="parameter ">calendars<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter ">appWidgets<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-widget-settings-app-widget/index.html">WidgetSettingsAppWidget</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptyList()<span class="token punctuation">, </span></span><span class="parameter ">maxStackPages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span>WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES<span class="token punctuation">, </span></span><span class="parameter ">stackIndicatorVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">heightLimitEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">heightLimit<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>WidgetAreaHeightLimit.DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">topOffsetDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter ">widgetSpacing<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>WidgetSpacing.DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">homeHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">mediaPlayerEnabled<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">showWhenPaused<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">showArtwork<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">mediaPlayerPlacement<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator"> = </span>MediaPlayerPlacement.BELOW_WIDGET_AREA<span class="token punctuation">, </span></span><span class="parameter ">excludedMediaPlayerPackages<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span><span class="token operator"> = </span>emptySet()<span class="token punctuation">, </span></span><span class="parameter ">notificationAccess<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="1891258791%2FProperties%2F-70870175" anchor-label="alignment" id="1891258791%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="alignment.html"><span><span>alignment</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1891258791%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="alignment.html">alignment</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1391777122%2FProperties%2F-70870175" anchor-label="appWidgets" id="1391777122%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="app-widgets.html"><span>app</span><wbr><span><span>Widgets</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1391777122%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="app-widgets.html">appWidgets</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-widget-settings-app-widget/index.html">WidgetSettingsAppWidget</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1572098805%2FProperties%2F-70870175" anchor-label="batteryVisibility" id="-1572098805%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="battery-visibility.html"><span>battery</span><wbr><span><span>Visibility</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1572098805%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="battery-visibility.html">batteryVisibility</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2011700590%2FProperties%2F-70870175" anchor-label="calendarAccess" id="2011700590%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="calendar-access.html"><span>calendar</span><wbr><span><span>Access</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2011700590%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="calendar-access.html">calendarAccess</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1647591723%2FProperties%2F-70870175" anchor-label="calendars" id="-1647591723%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="calendars.html"><span><span>calendars</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1647591723%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="calendars.html">calendars</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="388495284%2FProperties%2F-70870175" anchor-label="canHideClock" id="388495284%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-hide-clock.html"><span>can</span><wbr><span>Hide</span><wbr><span><span>Clock</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="388495284%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="can-hide-clock.html">canHideClock</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1546506986%2FProperties%2F-70870175" anchor-label="canHideDate" id="1546506986%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-hide-date.html"><span>can</span><wbr><span>Hide</span><wbr><span><span>Date</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1546506986%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="can-hide-date.html">canHideDate</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-72860716%2FProperties%2F-70870175" anchor-label="canShowAmPm" id="-72860716%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-show-am-pm.html"><span>can</span><wbr><span>Show</span><wbr><span>Am</span><wbr><span><span>Pm</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-72860716%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="can-show-am-pm.html">canShowAmPm</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="870632973%2FProperties%2F-70870175" anchor-label="clockStyle" id="870632973%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock-style.html"><span>clock</span><wbr><span><span>Style</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="870632973%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="clock-style.html">clockStyle</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1549700770%2FProperties%2F-70870175" anchor-label="clockStylePreviews" id="1549700770%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock-style-previews.html"><span>clock</span><wbr><span>Style</span><wbr><span><span>Previews</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1549700770%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="clock-style-previews.html">clockStylePreviews</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="777368108%2FProperties%2F-70870175" anchor-label="clockVisible" id="777368108%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock-visible.html"><span>clock</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="777368108%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="clock-visible.html">clockVisible</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1777785525%2FProperties%2F-70870175" anchor-label="dateFormat" id="-1777785525%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-format.html"><span>date</span><wbr><span><span>Format</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1777785525%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-format.html">dateFormat</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1478528591%2FProperties%2F-70870175" anchor-label="dateFormatOptions" id="-1478528591%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-format-options.html"><span>date</span><wbr><span>Format</span><wbr><span><span>Options</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1478528591%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-format-options.html">dateFormatOptions</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><a href="../-date-format-option/index.html">DateFormatOption</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1763044959%2FProperties%2F-70870175" anchor-label="dateTapAction" id="1763044959%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-tap-action.html"><span>date</span><wbr><span>Tap</span><wbr><span><span>Action</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1763044959%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-tap-action.html">dateTapAction</a><span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-170326394%2FProperties%2F-70870175" anchor-label="dateVisible" id="-170326394%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-visible.html"><span>date</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-170326394%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-visible.html">dateVisible</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-936577821%2FProperties%2F-70870175" anchor-label="eventLookaheadHours" id="-936577821%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="event-lookahead-hours.html"><span>event</span><wbr><span>Lookahead</span><wbr><span><span>Hours</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-936577821%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="event-lookahead-hours.html">eventLookaheadHours</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="309096621%2FProperties%2F-70870175" anchor-label="eventMaxEvents" id="309096621%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="event-max-events.html"><span>event</span><wbr><span>Max</span><wbr><span><span>Events</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="309096621%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="event-max-events.html">eventMaxEvents</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">1</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="417288386%2FProperties%2F-70870175" anchor-label="eventsEnabled" id="417288386%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="events-enabled.html"><span>events</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="417288386%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="events-enabled.html">eventsEnabled</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1343505030%2FProperties%2F-70870175" anchor-label="excludedCalendarIds" id="-1343505030%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="excluded-calendar-ids.html"><span>excluded</span><wbr><span>Calendar</span><wbr><span><span>Ids</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1343505030%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="excluded-calendar-ids.html">excludedCalendarIds</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1457267678%2FProperties%2F-70870175" anchor-label="excludedMediaPlayerPackages" id="-1457267678%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="excluded-media-player-packages.html"><span>excluded</span><wbr><span>Media</span><wbr><span>Player</span><wbr><span><span>Packages</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1457267678%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="excluded-media-player-packages.html">excludedMediaPlayerPackages</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1797254938%2FProperties%2F-70870175" anchor-label="headerShown" id="-1797254938%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="header-shown.html"><span>header</span><wbr><span><span>Shown</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1797254938%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="header-shown.html">headerShown</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-446307690%2FProperties%2F-70870175" anchor-label="heightLimit" id="-446307690%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="height-limit.html"><span>height</span><wbr><span><span>Limit</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-446307690%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="height-limit.html">heightLimit</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1436572989%2FProperties%2F-70870175" anchor-label="heightLimitEnabled" id="-1436572989%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="height-limit-enabled.html"><span>height</span><wbr><span>Limit</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1436572989%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="height-limit-enabled.html">heightLimitEnabled</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1026824286%2FProperties%2F-70870175" anchor-label="homeHeightDp" id="1026824286%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="home-height-dp.html"><span>home</span><wbr><span>Height</span><wbr><span><span>Dp</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1026824286%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="home-height-dp.html">homeHeightDp</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-960203769%2FProperties%2F-70870175" anchor-label="includeAllDay" id="-960203769%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="include-all-day.html"><span>include</span><wbr><span>All</span><wbr><span><span>Day</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-960203769%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="include-all-day.html">includeAllDay</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="681630913%2FProperties%2F-70870175" anchor-label="isLoaded" id="681630913%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="is-loaded.html"><span>is</span><wbr><span><span>Loaded</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="681630913%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="is-loaded.html">isLoaded</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1596337418%2FProperties%2F-70870175" anchor-label="maxStackPages" id="1596337418%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="max-stack-pages.html"><span>max</span><wbr><span>Stack</span><wbr><span><span>Pages</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1596337418%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="max-stack-pages.html">maxStackPages</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1709690924%2FProperties%2F-70870175" anchor-label="mediaPlayerEnabled" id="-1709690924%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="media-player-enabled.html"><span>media</span><wbr><span>Player</span><wbr><span><span>Enabled</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1709690924%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="media-player-enabled.html">mediaPlayerEnabled</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-207447376%2FProperties%2F-70870175" anchor-label="mediaPlayerPlacement" id="-207447376%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="media-player-placement.html"><span>media</span><wbr><span>Player</span><wbr><span><span>Placement</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-207447376%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="media-player-placement.html">mediaPlayerPlacement</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1087895391%2FProperties%2F-70870175" anchor-label="notificationAccess" id="-1087895391%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="notification-access.html"><span>notification</span><wbr><span><span>Access</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1087895391%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="notification-access.html">notificationAccess</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-997297526%2FProperties%2F-70870175" anchor-label="showAmPm" id="-997297526%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="show-am-pm.html"><span>show</span><wbr><span>Am</span><wbr><span><span>Pm</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-997297526%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="show-am-pm.html">showAmPm</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1377327981%2FProperties%2F-70870175" anchor-label="showArtwork" id="-1377327981%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="show-artwork.html"><span>show</span><wbr><span><span>Artwork</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1377327981%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="show-artwork.html">showArtwork</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1284299477%2FProperties%2F-70870175" anchor-label="showWhenPaused" id="-1284299477%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="show-when-paused.html"><span>show</span><wbr><span>When</span><wbr><span><span>Paused</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1284299477%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="show-when-paused.html">showWhenPaused</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-950072241%2FProperties%2F-70870175" anchor-label="size" id="-950072241%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="size.html"><span><span>size</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-950072241%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="size.html">size</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1852960001%2FProperties%2F-70870175" anchor-label="stackIndicatorVisible" id="-1852960001%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="stack-indicator-visible.html"><span>stack</span><wbr><span>Indicator</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1852960001%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="stack-indicator-visible.html">stackIndicatorVisible</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2074943052%2FProperties%2F-70870175" anchor-label="timeFormat" id="2074943052%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="time-format.html"><span>time</span><wbr><span><span>Format</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2074943052%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="time-format.html">timeFormat</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-305935938%2FProperties%2F-70870175" anchor-label="timeTapAction" id="-305935938%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="time-tap-action.html"><span>time</span><wbr><span>Tap</span><wbr><span><span>Action</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-305935938%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="time-tap-action.html">timeTapAction</a><span class="token operator">: </span><a href="../-tap-action-summary/index.html">TapActionSummary</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1039770506%2FProperties%2F-70870175" anchor-label="topOffsetDp" id="-1039770506%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="top-offset-dp.html"><span>top</span><wbr><span>Offset</span><wbr><span><span>Dp</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1039770506%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="top-offset-dp.html">topOffsetDp</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1834038485%2FProperties%2F-70870175" anchor-label="widgetSpacing" id="-1834038485%2FProperties%2F-70870175" data-filterable-set=":feature:settings:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":feature:settings:dokkaHtmlPartial/main" data-filterable-set=":feature:settings:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="widget-spacing.html"><span>widget</span><wbr><span><span>Spacing</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1834038485%2FProperties%2F-70870175"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":feature:settings:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="widget-spacing.html">widgetSpacing</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

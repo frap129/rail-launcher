@@ -2,8 +2,5 @@
 
 # getTypography
 
-[androidJvm]\
-
-@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)
-
-fun [getTypography](get-typography.md)(): [Typography](https://developer.android.com/reference/kotlin/androidx/compose/material3/Typography.html)
+[main]\
+fun [getTypography](get-typography.md)(): <!---  GfmCommand {"@class":"org.jetbrains.dokka.gfm.ResolveLinkGfmCommand","dri":{"packageName":"","classNames":"<Error class: unknown class>","callable":null,"target":{"@class":"org.jetbrains.dokka.links.PointingToDeclaration"},"extra":null}} --->&lt;Error class: unknown class&gt;<!--- --->

@@ -46,8 +46,37 @@ class ShortcutKeyTest {
     }
 
     @Test
+    fun `parses a key with a UserHandle profile`() {
+        val expectedKey = ShortcutKey(packageName = PACKAGE_NAME, id = SHORTCUT_ID, profile = inputProfile)
+        val actualKey: ShortcutKey? = ShortcutKey.parse(
+            "shortcut:com.example.app:compose%2Fmessage_new_topic%3Anow_%E6%97%A5%E6%9C%AC%E8%AA%9E:UserHandle{10}"
+        )
+        assertEquals(expectedKey, actualKey)
+    }
+
+    @Test
     fun `rejects a key with a malformed profile`() {
         assertNull(ShortcutKey.parse("shortcut:com.example.app:id:profile-0"))
+    }
+
+    @Test
+    fun `rejects a key with an empty user id`() {
+        assertNull(ShortcutKey.parse("shortcut:com.example.app:id:UserHandle{}"))
+    }
+
+    @Test
+    fun `rejects a key with a non-numeric user id`() {
+        assertNull(ShortcutKey.parse("shortcut:com.example.app:id:UserHandle{abc}"))
+    }
+
+    @Test
+    fun `rejects a key with a missing closing brace`() {
+        assertNull(ShortcutKey.parse("shortcut:com.example.app:id:UserHandle{10"))
+    }
+
+    @Test
+    fun `rejects a key with a negative user id`() {
+        assertNull(ShortcutKey.parse("shortcut:com.example.app:id:UserHandle{-1}"))
     }
 
     @Test

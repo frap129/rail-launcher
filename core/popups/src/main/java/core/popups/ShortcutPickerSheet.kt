@@ -41,7 +41,6 @@ import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.SheetDragHandle
 
 private val pickerIconSize = 32.dp
-private val pickerShortcutIconSize = 24.dp
 private val pickerIconGap = 12.dp
 private val pickerRowHorizontalPadding = 20.dp
 private val pickerRowVerticalPadding = 10.dp
@@ -140,7 +139,8 @@ private fun PickerAppSection(
             if (canExpand) {
                 Icon(
                     imageVector = if (isExpanded) FontAwesomeIcons.Solid.ChevronUp else FontAwesomeIcons.Solid.ChevronDown,
-                    contentDescription = null
+                    contentDescription = null,
+                    modifier = Modifier.size(popupIconSize)
                 )
             }
         }
@@ -181,7 +181,7 @@ private fun PickerShortcutRow(shortcut: ShortcutLaunchable, isChecked: Boolean, 
             )
     ) {
         AsyncImage(
-            modifier = Modifier.size(pickerShortcutIconSize),
+            modifier = Modifier.size(popupIconSize),
             model = shortcut.icon,
             contentDescription = null
         )

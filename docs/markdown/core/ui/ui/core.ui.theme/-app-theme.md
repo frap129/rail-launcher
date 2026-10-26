@@ -2,8 +2,5 @@
 
 # AppTheme
 
-[androidJvm]\
-
-@[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)
-
-fun [AppTheme](-app-theme.md)(content: @[Composable](https://developer.android.com/reference/kotlin/androidx/compose/runtime/Composable.html)() -&gt; [Unit](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-unit/index.html))
+[main]\
+fun [AppTheme](-app-theme.md)(content: () -&gt; [Unit](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html))

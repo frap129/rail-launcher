@@ -1,0 +1,314 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>IWidgetResizeController</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":core:widgets:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="widgets::core.widgets/IWidgetResizeController///PointingToDeclaration//1938597966">
+  <div class="breadcrumbs"><a href="../../index.html">widgets</a><span class="delimiter">/</span><a href="../index.html">core.widgets</a><span class="delimiter">/</span><span class="current">IWidgetResizeController</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>IWidget</span><wbr><span>Resize</span><wbr><span><span>Controller</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">interface </span><a href="index.html">IWidgetResizeController</a></div><p class="paragraph">Owns Resize: provider bounds, the draft height, persistence, and one size report per session.</p><h4 class="">Inheritors</h4><div class="table"><div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"><div class="main-subrow keyValue "><div class=""><span class="inline-flex"><div><a href="../-i-widget-resize-controller-impl/index.html">IWidgetResizeControllerImpl</a></div></span></div><div></div></div></div></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button><button class="section-tab" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION,EXTENSION_PROPERTY,EXTENSION_FUNCTION">Members &amp; Extensions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="2059466858%2FProperties%2F1938597966" anchor-label="homeHeightDp" id="2059466858%2FProperties%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="home-height-dp.html"><span>home</span><wbr><span>Height</span><wbr><span><span>Dp</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2059466858%2FProperties%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="home-height-dp.html">homeHeightDp</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1496837057%2FProperties%2F1938597966" anchor-label="resizeState" id="1496837057%2FProperties%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="resize-state.html"><span>resize</span><wbr><span><span>State</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1496837057%2FProperties%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">val </span><a href="resize-state.html">resizeState</a><span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&lt;</span><a href="../-resize-state/index.html">ResizeState</a><span class="token operator">?</span><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="844310062%2FFunctions%2F1938597966" anchor-label="cancelResize" id="844310062%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="cancel-resize.html"><span>cancel</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="844310062%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="cancel-resize.html"><span class="token function">cancelResize</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Leaves Resize without saving when the place disappears underneath the user.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2023096071%2FFunctions%2F1938597966" anchor-label="clampStackHeight" id="2023096071%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clamp-stack-height.html"><span>clamp</span><wbr><span>Stack</span><wbr><span><span>Height</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2023096071%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="clamp-stack-height.html"><span class="token function">clampStackHeight</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Clamps a stack's stored height after the Header is replaced by a page.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="285537157%2FFunctions%2F1938597966" anchor-label="dragResize" id="285537157%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="drag-resize.html"><span>drag</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="285537157%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="drag-resize.html"><span class="token function">dragResize</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">deltaDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-float/index.html">Float</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Applies a fractional drag delta, snapping the accumulated height to the 8dp grid.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1057899765%2FFunctions%2F1938597966" anchor-label="finishResize" id="1057899765%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="finish-resize.html"><span>finish</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1057899765%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="finish-resize.html"><span class="token function">finishResize</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-resize-finish/index.html">ResizeFinish</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Leaves Resize and returns the height persistence and size report it still needs.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1363233150%2FFunctions%2F1938597966" anchor-label="finishResizeAndReport" id="-1363233150%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="EXTENSION_FUNCTION" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../finish-resize-and-report.html"><span>finish</span><wbr><span>Resize</span><wbr><span>And</span><wbr><span><span>Report</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1363233150%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">IWidgetResizeController</a><span class="token punctuation">.</span><a href="../finish-resize-and-report.html"><span class="token function">finishResizeAndReport</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">scope<span class="token operator">: </span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">onReport<span class="token operator">: </span><span class="token keyword">suspend </span><span class="token punctuation">(</span><a href="../-widget-size-report/index.html">WidgetSizeReport</a><span class="token punctuation">)</span><span class="token operator"> -&gt; </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-unit/index.html">Unit</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Leaves Resize, stores its height and reports the new size; false when no Resize was active.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="370766434%2FFunctions%2F1938597966" anchor-label="onPlacesChanged" id="370766434%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-places-changed.html"><span>on</span><wbr><span>Places</span><wbr><span><span>Changed</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="370766434%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="on-places-changed.html"><span class="token function">onPlacesChanged</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">places<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-list/index.html">List</a><span class="token operator">&lt;</span><span data-unresolved-link="/<Error class: unknown class>///PointingToDeclaration/">&lt;Error class: unknown class&gt;</span><span class="token operator">&gt;</span><span class="token punctuation">, </span></span><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Cancels Resize when its place disappears.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1528007543%2FFunctions%2F1938597966" anchor-label="onStackGrown" id="-1528007543%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="on-stack-grown.html"><span>on</span><wbr><span>Stack</span><wbr><span><span>Grown</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1528007543%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="on-stack-grown.html"><span class="token function">onStackGrown</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-widget-size-report/index.html">WidgetSizeReport</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Clamps a stack that gained a page and returns the page size to report to its providers.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1821575337%2FFunctions%2F1938597966" anchor-label="persistResize" id="-1821575337%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="persist-resize.html"><span>persist</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1821575337%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="persist-resize.html"><span class="token function">persistResize</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">finish<span class="token operator">: </span><a href="../-resize-finish/index.html">ResizeFinish</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="../-widget-size-report/index.html">WidgetSizeReport</a><span class="token operator">?</span></div><div class="brief "><p class="paragraph">Persists <a href="persist-resize.html">finish</a> and returns the size report to send, if any.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1689480155%2FFunctions%2F1938597966" anchor-label="resetResize" id="1689480155%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="reset-resize.html"><span>reset</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1689480155%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="reset-resize.html"><span class="token function">resetResize</span></a><span class="token punctuation">(</span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Returns the draft to the provider default, which <a href="finish-resize.html">finishResize</a> then stores as no override.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1393454932%2FFunctions%2F1938597966" anchor-label="setHomeHeight" id="1393454932%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-home-height.html"><span>set</span><wbr><span>Home</span><wbr><span><span>Height</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1393454932%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="set-home-height.html"><span class="token function">setHomeHeight</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">heightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Supplies the safe Home height so Resize can cap the widget and keep the handle reachable.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-114127321%2FFunctions%2F1938597966" anchor-label="setWidgetAreaWidth" id="-114127321%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="set-widget-area-width.html"><span>set</span><wbr><span>Widget</span><wbr><span>Area</span><wbr><span><span>Width</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-114127321%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">fun </span><a href="set-widget-area-width.html"><span class="token function">setWidgetAreaWidth</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">widthDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a></span></span><span class="token punctuation">)</span></div><div class="brief "><p class="paragraph">Supplies the Widget Area width for the size report sent to the provider after Resize.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="101710407%2FFunctions%2F1938597966" anchor-label="startResize" id="101710407%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="start-resize.html"><span>start</span><wbr><span><span>Resize</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="101710407%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="start-resize.html"><span class="token function">startResize</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">placeId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Enters Resize for <a href="start-resize.html">placeId</a>, returning false when the place is not resizable right now.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-636131356%2FFunctions%2F1938597966" anchor-label="startResizeForWidget" id="-636131356%2FFunctions%2F1938597966" data-filterable-set=":core:widgets:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:widgets:dokkaHtmlPartial/main" data-filterable-set=":core:widgets:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="start-resize-for-widget.html"><span>start</span><wbr><span>Resize</span><wbr><span>For</span><wbr><span><span>Widget</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-636131356%2FFunctions%2F1938597966"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:widgets:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">abstract </span><span class="token keyword">suspend </span><span class="token keyword">fun </span><a href="start-resize-for-widget.html"><span class="token function">startResizeForWidget</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">widgetId<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-long/index.html">Long</a><span class="token punctuation">, </span></span><span class="parameter ">headerHeightDp<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">ownerKey<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token operator"> = </span>null</span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Enters Resize for the place holding <a href="start-resize-for-widget.html">widgetId</a>.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

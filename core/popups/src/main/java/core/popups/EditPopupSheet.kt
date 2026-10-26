@@ -295,7 +295,11 @@ private fun AddButton(labelResId: Int, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = addAppsButtonHorizontalPadding, vertical = addAppsButtonVerticalPadding)
     ) {
-        Icon(imageVector = FontAwesomeIcons.Solid.Plus, contentDescription = null)
+        Icon(
+            imageVector = FontAwesomeIcons.Solid.Plus,
+            contentDescription = null,
+            modifier = Modifier.size(popupIconSize)
+        )
         Spacer(Modifier.width(addAppsIconGap))
         Text(stringResource(labelResId))
     }

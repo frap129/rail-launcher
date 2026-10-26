@@ -2,5 +2,5 @@
 
 # MainActivity
 
-[androidJvm]\
+[main]\
 constructor()

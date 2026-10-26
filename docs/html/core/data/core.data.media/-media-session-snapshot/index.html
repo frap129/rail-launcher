@@ -1,0 +1,243 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>MediaSessionSnapshot</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":core:data:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="data::core.data.media/MediaSessionSnapshot///PointingToDeclaration//-1234779955">
+  <div class="breadcrumbs"><a href="../../index.html">data</a><span class="delimiter">/</span><a href="../index.html">core.data.media</a><span class="delimiter">/</span><span class="current">MediaSessionSnapshot</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Media</span><wbr><span>Session</span><wbr><span><span>Snapshot</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="index.html">MediaSessionSnapshot</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>key<span class="token operator">: </span><a href="../-media-session-key/index.html">MediaSessionKey</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>packageName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>appLabel<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>title<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>artist<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>artwork<span class="token operator">: </span><a href="../-media-artwork/index.html">MediaArtwork</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>state<span class="token operator">: </span><a href="../-playback-status/index.html">PlaybackStatus</a><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>actions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="../-media-command/index.html">MediaCommand</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div><p class="paragraph">What Rail shows for one active MediaSession.</p></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button><button class="section-tab" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION,EXTENSION_PROPERTY,EXTENSION_FUNCTION">Members &amp; Extensions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="-382262480%2FConstructors%2F-1234779955" anchor-label="MediaSessionSnapshot" id="-382262480%2FConstructors%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-media-session-snapshot.html"><span>Media</span><wbr><span>Session</span><wbr><span><span>Snapshot</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-382262480%2FConstructors%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">key<span class="token operator">: </span><a href="../-media-session-key/index.html">MediaSessionKey</a><span class="token punctuation">, </span></span><span class="parameter ">packageName<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">appLabel<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">title<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token punctuation">, </span></span><span class="parameter ">artist<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">artwork<span class="token operator">: </span><a href="../-media-artwork/index.html">MediaArtwork</a><span class="token operator">?</span><span class="token punctuation">, </span></span><span class="parameter ">state<span class="token operator">: </span><a href="../-playback-status/index.html">PlaybackStatus</a><span class="token punctuation">, </span></span><span class="parameter ">actions<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="../-media-command/index.html">MediaCommand</a><span class="token operator">&gt;</span></span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="2044123769%2FProperties%2F-1234779955" anchor-label="actions" id="2044123769%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="actions.html"><span><span>actions</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2044123769%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="actions.html">actions</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin.collections/-set/index.html">Set</a><span class="token operator">&lt;</span><a href="../-media-command/index.html">MediaCommand</a><span class="token operator">&gt;</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-434815023%2FProperties%2F-1234779955" anchor-label="appLabel" id="-434815023%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="app-label.html"><span>app</span><wbr><span><span>Label</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-434815023%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="app-label.html">appLabel</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1723879965%2FProperties%2F-1234779955" anchor-label="artist" id="1723879965%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="artist.html"><span><span>artist</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1723879965%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="artist.html">artist</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-866992286%2FProperties%2F-1234779955" anchor-label="artwork" id="-866992286%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="artwork.html"><span><span>artwork</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-866992286%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="artwork.html">artwork</a><span class="token operator">: </span><a href="../-media-artwork/index.html">MediaArtwork</a><span class="token operator">?</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1866241065%2FProperties%2F-1234779955" anchor-label="key" id="-1866241065%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="key.html"><span><span>key</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1866241065%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="key.html">key</a><span class="token operator">: </span><a href="../-media-session-key/index.html">MediaSessionKey</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1033263493%2FProperties%2F-1234779955" anchor-label="packageName" id="1033263493%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="package-name.html"><span>package</span><wbr><span><span>Name</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1033263493%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="package-name.html">packageName</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="367411109%2FProperties%2F-1234779955" anchor-label="state" id="367411109%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="state.html"><span><span>state</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="367411109%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="state.html">state</a><span class="token operator">: </span><a href="../-playback-status/index.html">PlaybackStatus</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1696538558%2FProperties%2F-1234779955" anchor-label="title" id="1696538558%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="title.html"><span><span>title</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1696538558%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="title.html">title</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-string/index.html">String</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="EXTENSION_FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="1356585163%2FFunctions%2F-1234779955" anchor-label="isEligible" id="1356585163%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../-media-player-selector/is-eligible.html"><span>is</span><wbr><span><span>Eligible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1356585163%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">MediaSessionSnapshot</a><span class="token punctuation">.</span><a href="../-media-player-selector/is-eligible.html"><span class="token function">isEligible</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">showWhenPaused<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

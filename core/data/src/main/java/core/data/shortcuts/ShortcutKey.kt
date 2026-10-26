@@ -7,7 +7,8 @@ import java.nio.charset.StandardCharsets
 
 private const val KEY_PREFIX: String = "shortcut:"
 private const val KEY_SEPARATOR: String = ":"
-private const val USER_HANDLE_REGEX: String = """UserHandle\{(\d+)}"""
+private const val USER_HANDLE_PREFIX: String = "UserHandle{"
+private const val USER_HANDLE_SUFFIX: String = "}"
 private const val USER_ID_OFFSET: Int = 100_000
 
 /** The identity of one shortcut published by an app in a user profile. */
@@ -41,7 +42,14 @@ data class ShortcutKey(val packageName: String, val id: String, val profile: Use
             URLDecoder.decode(encodedId, StandardCharsets.UTF_8.name())
         }.getOrNull()
         private fun parseProfile(value: String): UserHandle? {
-            val userId: Int = Regex(USER_HANDLE_REGEX).matchEntire(value)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+            if (!value.startsWith(USER_HANDLE_PREFIX) || !value.endsWith(USER_HANDLE_SUFFIX)) {
+                return null
+            }
+            val digits: String = value.substring(USER_HANDLE_PREFIX.length, value.length - USER_HANDLE_SUFFIX.length)
+            if (digits.isEmpty() || !digits.all { character -> character in '0'..'9' }) {
+                return null
+            }
+            val userId: Int = digits.toIntOrNull() ?: return null
             return UserHandle.getUserHandleForUid(userId * USER_ID_OFFSET)
         }
     }

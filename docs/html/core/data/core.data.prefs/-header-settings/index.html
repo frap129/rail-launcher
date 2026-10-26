@@ -1,0 +1,408 @@
+<!doctype html>
+<html class="no-js">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <title>HeaderSettings</title>
+<link href="../../../../images/logo-icon.svg" rel="icon" type="image/svg">    <script>var pathToRoot = "../../../../";</script>
+    <script>document.documentElement.classList.replace("no-js","js");</script>
+    <script>const storage = localStorage.getItem("dokka-dark-mode")
+    if (storage == null) {
+        const osDarkSchemePreferred = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (osDarkSchemePreferred === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    } else {
+        const savedDarkMode = JSON.parse(storage)
+        if(savedDarkMode === true) {
+            document.getElementsByTagName("html")[0].classList.add("theme-dark")
+        }
+    }
+    </script>
+<script type="text/javascript" src="https://unpkg.com/kotlin-playground@1/dist/playground.min.js" async></script>
+<script type="text/javascript" src="../../../../scripts/sourceset_dependencies.js" async></script>
+<link href="../../../../styles/style.css" rel="Stylesheet">
+<link href="../../../../styles/main.css" rel="Stylesheet">
+<link href="../../../../styles/prism.css" rel="Stylesheet">
+<link href="../../../../styles/logo-styles.css" rel="Stylesheet">
+<link href="../../../../styles/font-jb-sans-auto.css" rel="Stylesheet">
+<script type="text/javascript" src="../../../../scripts/clipboard.js" async></script>
+<script type="text/javascript" src="../../../../scripts/navigation-loader.js" async></script>
+<script type="text/javascript" src="../../../../scripts/platform-content-handler.js" async></script>
+<script type="text/javascript" src="../../../../scripts/main.js" defer></script>
+<script type="text/javascript" src="../../../../scripts/prism.js" async></script>
+<script type="text/javascript" src="../../../../scripts/symbol-parameters-wrapper_deferred.js" defer></script></head>
+<body>
+    <div class="root">
+<nav class="navigation" id="navigation-wrapper">
+    <div class="navigation--inner">
+        <div class="navigation-title">
+            <button class="menu-toggle" id="menu-toggle" type="button">toggle menu</button>
+            <div class="library-name">
+<a class="library-name--link" href="../../../../index.html">
+                            Rail
+                    </a>            </div>
+            <div class="library-version">
+            </div>
+        </div>
+        <div class="filter-section" id="filter-section">
+                <button class="platform-tag platform-selector jvm-like" data-active="" data-filter=":core:data:dokkaHtmlPartial/main">main</button>
+        </div>
+    </div>
+    <div class="navigation-controls">
+        <button class="navigation-controls--btn navigation-controls--theme" id="theme-toggle-button" type="button">switch theme</button>
+        <div class="navigation-controls--btn navigation-controls--search" id="searchBar" role="button">search in API</div>
+    </div>
+</nav>
+        <div id="container">
+            <div class="sidebar" id="leftColumn">
+                <div class="sidebar--inner" id="sideMenu"></div>
+            </div>
+            <div id="main">
+<div class="main-content" data-page-type="classlike" id="content" pageids="data::core.data.prefs/HeaderSettings///PointingToDeclaration//-1234779955">
+  <div class="breadcrumbs"><a href="../../index.html">data</a><span class="delimiter">/</span><a href="../index.html">core.data.prefs</a><span class="delimiter">/</span><span class="current">HeaderSettings</span></div>
+  <div class="cover ">
+    <h1 class="cover"><span>Header</span><wbr><span><span>Settings</span></span></h1>
+    <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">data </span><span class="token keyword">class </span><a href="index.html">HeaderSettings</a><span class="token punctuation">(</span><span class="parameters "><span class="parameter "><span class="token keyword">val </span>id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>clockVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>clockStyle<span class="token operator">: </span><a href="../-clock-style/index.html">ClockStyle</a><span class="token operator"> = </span>ClockStyle.CLASSIC<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>timeFormat<span class="token operator">: </span><a href="../-time-format/index.html">TimeFormat</a><span class="token operator"> = </span>TimeFormat.SYSTEM<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>showAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateFormat<span class="token operator">: </span><a href="../-date-format-preset/index.html">DateFormatPreset</a><span class="token operator"> = </span>DateFormatPreset.FULL<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>alignment<span class="token operator">: </span><a href="../-header-alignment/index.html">HeaderAlignment</a><span class="token operator"> = </span>HeaderAlignment.START<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>size<span class="token operator">: </span><a href="../-header-size/index.html">HeaderSize</a><span class="token operator"> = </span>HeaderSize.DEFAULT<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>timeTapTarget<span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>dateTapTarget<span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter "><span class="token keyword">val </span>batteryVisibility<span class="token operator">: </span><a href="../-battery-visibility/index.html">BatteryVisibility</a><span class="token operator"> = </span>BatteryVisibility.NEVER</span></span><span class="token punctuation">)</span></div></div></div>
+  </div>
+  <div class="tabbedcontent">
+    <div class="tabs-section" tabs-section="tabs-section"><button class="section-tab" data-active="" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION">Members</button><button class="section-tab" data-togglable="CONSTRUCTOR,TYPE,PROPERTY,FUNCTION,EXTENSION_PROPERTY,EXTENSION_FUNCTION">Members &amp; Extensions</button></div>
+    <div class="tabs-section-body">
+      <div data-togglable="CONSTRUCTOR">
+        <h2 class="">Constructors</h2>
+        <div class="table"><a data-name="1605480628%2FConstructors%2F-1234779955" anchor-label="HeaderSettings" id="1605480628%2FConstructors%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-togglable="CONSTRUCTOR" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="-header-settings.html"><span>Header</span><wbr><span><span>Settings</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1605480628%2FConstructors%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">constructor</span><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">id<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span><span class="token punctuation">, </span></span><span class="parameter ">clockVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">dateVisible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span><span class="token punctuation">, </span></span><span class="parameter ">clockStyle<span class="token operator">: </span><a href="../-clock-style/index.html">ClockStyle</a><span class="token operator"> = </span>ClockStyle.CLASSIC<span class="token punctuation">, </span></span><span class="parameter ">timeFormat<span class="token operator">: </span><a href="../-time-format/index.html">TimeFormat</a><span class="token operator"> = </span>TimeFormat.SYSTEM<span class="token punctuation">, </span></span><span class="parameter ">showAmPm<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span><span class="token punctuation">, </span></span><span class="parameter ">dateFormat<span class="token operator">: </span><a href="../-date-format-preset/index.html">DateFormatPreset</a><span class="token operator"> = </span>DateFormatPreset.FULL<span class="token punctuation">, </span></span><span class="parameter ">alignment<span class="token operator">: </span><a href="../-header-alignment/index.html">HeaderAlignment</a><span class="token operator"> = </span>HeaderAlignment.START<span class="token punctuation">, </span></span><span class="parameter ">size<span class="token operator">: </span><a href="../-header-size/index.html">HeaderSize</a><span class="token operator"> = </span>HeaderSize.DEFAULT<span class="token punctuation">, </span></span><span class="parameter ">timeTapTarget<span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">dateTapTarget<span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null<span class="token punctuation">, </span></span><span class="parameter ">batteryVisibility<span class="token operator">: </span><a href="../-battery-visibility/index.html">BatteryVisibility</a><span class="token operator"> = </span>BatteryVisibility.NEVER</span></span><span class="token punctuation">)</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="PROPERTY">
+        <h2 class="">Properties</h2>
+        <div class="table"><a data-name="540808133%2FProperties%2F-1234779955" anchor-label="alignment" id="540808133%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="alignment.html"><span><span>alignment</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="540808133%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="alignment.html">alignment</a><span class="token operator">: </span><a href="../-header-alignment/index.html">HeaderAlignment</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2096132393%2FProperties%2F-1234779955" anchor-label="batteryVisibility" id="2096132393%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="battery-visibility.html"><span>battery</span><wbr><span><span>Visibility</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2096132393%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="battery-visibility.html">batteryVisibility</a><span class="token operator">: </span><a href="../-battery-visibility/index.html">BatteryVisibility</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="71604438%2FProperties%2F-1234779955" anchor-label="canHideClock" id="71604438%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-hide-clock.html"><span>can</span><wbr><span>Hide</span><wbr><span><span>Clock</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="71604438%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="can-hide-clock.html">canHideClock</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="843548040%2FProperties%2F-1234779955" anchor-label="canHideDate" id="843548040%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="can-hide-date.html"><span>can</span><wbr><span>Hide</span><wbr><span><span>Date</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="843548040%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="can-hide-date.html">canHideDate</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1956335535%2FProperties%2F-1234779955" anchor-label="clockStyle" id="1956335535%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock-style.html"><span>clock</span><wbr><span><span>Style</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1956335535%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="clock-style.html">clockStyle</a><span class="token operator">: </span><a href="../-clock-style/index.html">ClockStyle</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="460477262%2FProperties%2F-1234779955" anchor-label="clockVisible" id="460477262%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="clock-visible.html"><span>clock</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="460477262%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="clock-visible.html">clockVisible</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-692082963%2FProperties%2F-1234779955" anchor-label="dateFormat" id="-692082963%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-format.html"><span>date</span><wbr><span><span>Format</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-692082963%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-format.html">dateFormat</a><span class="token operator">: </span><a href="../-date-format-preset/index.html">DateFormatPreset</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1160145538%2FProperties%2F-1234779955" anchor-label="dateTapTarget" id="1160145538%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-tap-target.html"><span>date</span><wbr><span>Tap</span><wbr><span><span>Target</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1160145538%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-tap-target.html">dateTapTarget</a><span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-873285340%2FProperties%2F-1234779955" anchor-label="dateVisible" id="-873285340%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="date-visible.html"><span>date</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-873285340%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="date-visible.html">dateVisible</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">true</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1238108969%2FProperties%2F-1234779955" anchor-label="id" id="-1238108969%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="id.html"><span><span>id</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1238108969%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="id.html">id</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-int/index.html">Int</a><span class="token operator"> = </span><span class="token constant">0</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-129524326%2FProperties%2F-1234779955" anchor-label="resolvedDateTapTarget" id="-129524326%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="resolved-date-tap-target.html"><span>resolved</span><wbr><span>Date</span><wbr><span>Tap</span><wbr><span><span>Target</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-129524326%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="resolved-date-tap-target.html">resolvedDateTapTarget</a><span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="2096462073%2FProperties%2F-1234779955" anchor-label="resolvedTimeTapTarget" id="2096462073%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="resolved-time-tap-target.html"><span>resolved</span><wbr><span>Time</span><wbr><span>Tap</span><wbr><span><span>Target</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="2096462073%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="resolved-time-tap-target.html">resolvedTimeTapTarget</a><span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1591538860%2FProperties%2F-1234779955" anchor-label="showAmPm" id="1591538860%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="show-am-pm.html"><span>show</span><wbr><span>Am</span><wbr><span><span>Pm</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1591538860%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="show-am-pm.html">showAmPm</a><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a><span class="token operator"> = </span><span class="token boolean">false</span></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1828188017%2FProperties%2F-1234779955" anchor-label="size" id="1828188017%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="size.html"><span><span>size</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1828188017%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="size.html">size</a><span class="token operator">: </span><a href="../-header-size/index.html">HeaderSize</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1134321682%2FProperties%2F-1234779955" anchor-label="timeFormat" id="-1134321682%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="time-format.html"><span>time</span><wbr><span><span>Format</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1134321682%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="time-format.html">timeFormat</a><span class="token operator">: </span><a href="../-time-format/index.html">TimeFormat</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-908835359%2FProperties%2F-1234779955" anchor-label="timeTapTarget" id="-908835359%2FProperties%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="time-tap-target.html"><span>time</span><wbr><span>Tap</span><wbr><span><span>Target</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-908835359%2FProperties%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">val </span><a href="time-tap-target.html">timeTapTarget</a><span class="token operator">: </span><a href="../-header-tap-setting/index.html">HeaderTapSetting</a><span class="token operator">?</span><span class="token operator"> = </span>null</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-togglable="EXTENSION_FUNCTION">
+        <h2 class="">Functions</h2>
+        <div class="table"><a data-name="-1724200920%2FFunctions%2F-1234779955" anchor-label="canSetBatteryVisibility" id="-1724200920%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../can-set-battery-visibility.html"><span>can</span><wbr><span>Set</span><wbr><span>Battery</span><wbr><span><span>Visibility</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1724200920%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">HeaderSettings</a><span class="token punctuation">.</span><a href="../can-set-battery-visibility.html"><span class="token function">canSetBatteryVisibility</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">visibility<span class="token operator">: </span><a href="../-battery-visibility/index.html">BatteryVisibility</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></div><div class="brief "><p class="paragraph">Reports whether <a href="../can-set-battery-visibility.html">visibility</a> can be selected without hiding this Header's last standing part.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="1316433300%2FFunctions%2F-1234779955" anchor-label="withBatteryVisibility" id="1316433300%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../with-battery-visibility.html"><span>with</span><wbr><span>Battery</span><wbr><span><span>Visibility</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="1316433300%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">HeaderSettings</a><span class="token punctuation">.</span><a href="../with-battery-visibility.html"><span class="token function">withBatteryVisibility</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">visibility<span class="token operator">: </span><a href="../-battery-visibility/index.html">BatteryVisibility</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">HeaderSettings</a></div><div class="brief "><p class="paragraph">Sets the battery visibility, refusing a non-<a href="../-battery-visibility/-a-l-w-a-y-s/index.html">BatteryVisibility.ALWAYS</a> value while the Clock and Date are hidden. Never re-enables a hidden clock.</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="-1060349600%2FFunctions%2F-1234779955" anchor-label="withClockVisible" id="-1060349600%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../with-clock-visible.html"><span>with</span><wbr><span>Clock</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="-1060349600%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">HeaderSettings</a><span class="token punctuation">.</span><a href="../with-clock-visible.html"><span class="token function">withClockVisible</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">visible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">HeaderSettings</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+<a data-name="923714594%2FFunctions%2F-1234779955" anchor-label="withDateVisible" id="923714594%2FFunctions%2F-1234779955" data-filterable-set=":core:data:dokkaHtmlPartial/main"></a>
+          <div class="table-row" data-filterable-current=":core:data:dokkaHtmlPartial/main" data-filterable-set=":core:data:dokkaHtmlPartial/main">
+            <div class="main-subrow keyValue ">
+              <div class=""><span class="inline-flex">
+                  <div><a href="../with-date-visible.html"><span>with</span><wbr><span>Date</span><wbr><span><span>Visible</span></span></a></div>
+<span class="anchor-wrapper"><span class="anchor-icon" pointing-to="923714594%2FFunctions%2F-1234779955"></span>
+                    <div class="copy-popup-wrapper "><span class="copy-popup-icon"></span><span>Link copied to clipboard</span></div>
+                  </span></span></div>
+              <div>
+                <div class="title">
+                  <div class="platform-hinted " data-platform-hinted="data-platform-hinted"><div class="content sourceset-dependent-content" data-active="" data-togglable=":core:data:dokkaHtmlPartial/main"><div class="symbol monospace"><span class="token keyword">fun </span><a href="index.html">HeaderSettings</a><span class="token punctuation">.</span><a href="../with-date-visible.html"><span class="token function">withDateVisible</span></a><span class="token punctuation">(</span><span class="parameters "><span class="parameter ">visible<span class="token operator">: </span><a href="https://kotlinlang.org/api/latest/jvm/stdlib/kotlin-stdlib/kotlin/-boolean/index.html">Boolean</a></span></span><span class="token punctuation">)</span><span class="token operator">: </span><a href="index.html">HeaderSettings</a></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="footer">
+        <span class="go-to-top-icon"><a href="#content" id="go-to-top-link"></a></span><span>© 2026 Copyright</span><span class="pull-right"><span>Generated by </span><a href="https://github.com/Kotlin/dokka"><span>dokka</span><span class="padded-icon"></span></a></span>
+      </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
