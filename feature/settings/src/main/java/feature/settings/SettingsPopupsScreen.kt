@@ -38,8 +38,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.folders.Folder
-import core.popups.FolderDeleteDialog
+import core.popups.FolderDeleteHost
 import core.popups.FolderNameDialog
+import core.popups.FolderRenameHost
 import core.popups.IPopupSession
 import core.popups.PopupEditorHost
 import core.popups.PopupEditorViewModel
@@ -47,7 +48,6 @@ import core.popups.PopupFolderViewModel
 import core.popups.PopupPickerViewModel
 import core.popups.R as PopupsR
 import core.popups.showFolderSnackbars
-import core.ui.R as CoreUiR
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
@@ -77,7 +77,6 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel()) {
         )
     }
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
-    val deletingFolder: Folder? by popupFolderViewModel.folderDeleteState.collectAsState()
     val context: Context = LocalContext.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
@@ -114,13 +113,13 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel()) {
         FolderActionsSheet(
             row = selectedFolder,
             onDismiss = viewModel::closeActions,
-            onRenameClick = viewModel::openRenameDialog,
+            onRenameClick = { popupFolderViewModel.requestRename(selectedFolder.folder) },
             onEditContents = {
                 viewModel.closeActions()
                 popupEditorViewModel.startEdit(selectedFolder.folder)
             },
             onOnHomeChange = viewModel::setOnHome,
-            onInAppListChange = viewModel::setInAppList,
+            onInAppListChange = { inAppList -> popupFolderViewModel.setShowInAppList(selectedFolder.folder, inAppList) },
             onDeleteClick = { popupFolderViewModel.requestDeleteFolder(selectedFolder.folder) }
         )
     }
@@ -130,22 +129,8 @@ fun SettingsPopupsScreen(viewModel: PopupSettingsViewModel = koinViewModel()) {
             onDismiss = viewModel::closeNewFolderDialog
         )
     }
-    if (uiState.isRenameDialogOpen && selectedFolder != null) {
-        FolderNameDialog(
-            initialName = selectedFolder.folder.name,
-            title = stringResource(PopupsR.string.rename_folder_title),
-            confirmLabel = stringResource(CoreUiR.string.done),
-            onConfirm = viewModel::renameFolder,
-            onDismiss = viewModel::closeRenameDialog
-        )
-    }
-    deletingFolder?.let { folder: Folder ->
-        FolderDeleteDialog(
-            folder = folder,
-            onConfirm = popupFolderViewModel::confirmDeleteFolder,
-            onDismiss = popupFolderViewModel::cancelDeleteFolder
-        )
-    }
+    FolderDeleteHost(folderViewModel = popupFolderViewModel)
+    FolderRenameHost(folderViewModel = popupFolderViewModel)
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }

@@ -3,6 +3,7 @@ package core.popups
 import app.cash.turbine.test
 import core.data.folders.Folder
 import core.data.launchables.model.LaunchableGroup
+import core.data.testing.FakePreferencesRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.TEST_SDK
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +18,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+private const val RENAMED_NAME: String = "Hobbies"
+private const val BLANK_NAME: String = "   "
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -30,6 +34,52 @@ class PopupFolderViewModelTest : PopupTestBase() {
         runCurrent()
 
         assertEquals(listOf(inputFolder to true), fakeFolderRepository.showInAppListChanges)
+    }
+
+    @Test
+    fun `opens the rename dialog for the Folder`() = runTest {
+        val viewModel: PopupFolderViewModel = createFolder()
+
+        viewModel.requestRename(inputFolder)
+
+        assertEquals(FolderDialogState.Renaming(inputFolder), viewModel.folderDialogState.value)
+    }
+
+    @Test
+    fun `renames the Folder through the preferences repository`() = runTest {
+        val viewModel: PopupFolderViewModel = createFolder()
+        viewModel.requestRename(inputFolder)
+
+        viewModel.confirmRename(RENAMED_NAME)
+        runCurrent()
+
+        assertEquals(FolderDialogState.Closed, viewModel.folderDialogState.value)
+        assertEquals(
+            listOf(FakePreferencesRepository.ItemRename(item = inputFolder, name = RENAMED_NAME)),
+            mockPreferencesRepository.renames
+        )
+    }
+
+    @Test
+    fun `a blank rename resets the Folder name`() = runTest {
+        val viewModel: PopupFolderViewModel = createFolder()
+        viewModel.requestRename(inputFolder)
+
+        viewModel.confirmRename(BLANK_NAME)
+        runCurrent()
+
+        assertEquals(listOf(inputFolder), mockPreferencesRepository.resets)
+    }
+
+    @Test
+    fun `dismissing the rename dialog keeps the Folder name`() = runTest {
+        val viewModel: PopupFolderViewModel = createFolder()
+        viewModel.requestRename(inputFolder)
+
+        viewModel.dismissFolderDialog()
+
+        assertEquals(FolderDialogState.Closed, viewModel.folderDialogState.value)
+        assertTrue(mockPreferencesRepository.renames.isEmpty())
     }
 
     @Test
@@ -145,10 +195,10 @@ class PopupFolderViewModelTest : PopupTestBase() {
         session.card.openMenu()
         runCurrent()
         session.folder.requestDeleteFolder(inputFolder)
-        assertEquals(inputFolder, session.folder.folderDeleteState.value)
+        assertEquals(FolderDialogState.Deleting(inputFolder), session.folder.folderDialogState.value)
         session.folder.confirmDeleteFolder()
         runCurrent()
-        assertEquals(null, session.folder.folderDeleteState.value)
+        assertEquals(FolderDialogState.Closed, session.folder.folderDialogState.value)
         assertEquals(PopupUiState.Closed, session.card.popupState.value)
         assertEquals(listOf(inputFolder), fakeFolderRepository.deletedFolders)
     }
@@ -163,8 +213,8 @@ class PopupFolderViewModelTest : PopupTestBase() {
         session.card.openMenu()
         runCurrent()
         session.folder.requestDeleteFolder(inputFolder)
-        session.folder.cancelDeleteFolder()
-        assertEquals(null, session.folder.folderDeleteState.value)
+        session.folder.dismissFolderDialog()
+        assertEquals(FolderDialogState.Closed, session.folder.folderDialogState.value)
         assertTrue(session.card.popupState.value is PopupUiState.Open)
         assertTrue(fakeFolderRepository.deletedFolders.isEmpty())
     }

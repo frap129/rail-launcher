@@ -7,7 +7,6 @@ import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
-import core.data.prefs.IPreferencesRepository
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
@@ -40,7 +39,6 @@ data class PopupSettingsUiState(
     val folders: List<PopupSettingsFolder> = emptyList(),
     val selectedFolder: PopupSettingsFolder? = null,
     val isNewFolderDialogOpen: Boolean = false,
-    val isRenameDialogOpen: Boolean = false,
     val notificationsEnabled: Boolean = false,
     val notificationAccess: Boolean = false
 )
@@ -56,12 +54,10 @@ class PopupSettingsViewModel(
     private val folderRepository: IFolderRepository,
     private val popupRepository: IPopupRepository,
     private val notificationSource: INotificationSource,
-    private val favoritesRepository: IFavoritesRepository,
-    private val preferencesRepository: IPreferencesRepository
+    private val favoritesRepository: IFavoritesRepository
 ) : ViewModel() {
     private val selectedFolderKey: MutableStateFlow<String?> = MutableStateFlow(null)
     private val newFolderDialogOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    private val renameDialogOpen: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val folderCreations: EventChannel<Folder> = EventChannel()
     private val eventChannel: EventChannel<WidgetSettingsEvent> = EventChannel()
 
@@ -110,15 +106,13 @@ class PopupSettingsViewModel(
     val uiState: StateFlow<PopupSettingsUiState> = combine(
         rows,
         selectedFolderKey,
-        newFolderDialogOpen,
-        renameDialogOpen
-    ) { settingsRows, selectedKey, isNaming, isRenaming ->
+        newFolderDialogOpen
+    ) { settingsRows, selectedKey, isNaming ->
         val selectedFolder: PopupSettingsFolder? = settingsRows.folders.firstOrNull { row -> row.folder.key == selectedKey }
         PopupSettingsUiState(
             folders = settingsRows.folders,
             selectedFolder = selectedFolder,
             isNewFolderDialogOpen = isNaming,
-            isRenameDialogOpen = isRenaming && selectedFolder != null,
             notificationsEnabled = settingsRows.notificationsEnabled,
             notificationAccess = settingsRows.notificationAccess
         )
@@ -139,12 +133,10 @@ class PopupSettingsViewModel(
     }
 
     fun openActions(folder: Folder) {
-        renameDialogOpen.value = false
         selectedFolderKey.value = folder.key
     }
 
     fun closeActions() {
-        renameDialogOpen.value = false
         selectedFolderKey.value = null
     }
 
@@ -156,26 +148,12 @@ class PopupSettingsViewModel(
         newFolderDialogOpen.value = false
     }
 
-    fun openRenameDialog() {
-        renameDialogOpen.value = true
-    }
-
-    fun closeRenameDialog() {
-        renameDialogOpen.value = false
-    }
-
     fun createFolder(name: String) {
         closeNewFolderDialog()
         launchLogged(message = "Failed to create Folder") {
             val folder: Folder = folderRepository.create(name = name, addToFavorites = false)
             folderCreations.send(folder)
         }
-    }
-
-    fun renameFolder(name: String) {
-        val folder: Folder = selectedFolder()?.folder ?: return
-        closeRenameDialog()
-        preferencesRepository.setItemName(item = folder, name = name)
     }
 
     fun setOnHome(onHome: Boolean) {
@@ -189,16 +167,6 @@ class PopupSettingsViewModel(
             } else {
                 favoritesRepository.remove(row.folder)
             }
-        }
-    }
-
-    fun setInAppList(inAppList: Boolean) {
-        val folder: Folder = selectedFolder()?.folder ?: return
-        if (inAppList == folder.showInAppList) {
-            return
-        }
-        launchLogged(message = "Failed to change ${folder.key}'s App List placement") {
-            folderRepository.setShowInAppList(folder = folder, show = inAppList)
         }
     }
 

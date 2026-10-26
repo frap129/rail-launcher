@@ -10,7 +10,6 @@ import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
-import core.data.testing.FakePreferencesRepository
 import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
@@ -34,8 +33,6 @@ import org.robolectric.annotation.Config
 
 private const val FOLDER_NAME: String = "Work"
 private const val OTHER_FOLDER_NAME: String = "Play"
-private const val RENAMED_FOLDER_NAME: String = "Hobbies"
-private const val BLANK_NAME: String = "   "
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -44,7 +41,6 @@ class PopupSettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
-    private val mockPreferencesRepository: FakePreferencesRepository = FakePreferencesRepository()
     private val inputFolder: Folder = Folder(folderId = 1L, name = FOLDER_NAME)
 
     @Test
@@ -52,9 +48,10 @@ class PopupSettingsViewModelTest {
         val inputHomeFolder: Folder = inputFolder
         val inputNotShownFolder: Folder = Folder(folderId = 2L, name = OTHER_FOLDER_NAME)
         val inputBothFolder: Folder = Folder(folderId = 3L, name = "Travel", showInAppList = true)
+        val inputAppListFolder: Folder = Folder(folderId = 4L, name = "Games", showInAppList = true)
         val inputItem: Launchable = createRailLaunchable(name = "First")
         val inputOtherItem: Launchable = createRailLaunchable(name = "Second")
-        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputNotShownFolder, inputBothFolder)
+        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputNotShownFolder, inputBothFolder, inputAppListFolder)
         val mockPopupRepository: FakePopupRepository = FakePopupRepository()
         mockPopupRepository.setItems(ownerKey = inputHomeFolder.key, items = listOf(inputItem, inputOtherItem))
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
@@ -72,9 +69,9 @@ class PopupSettingsViewModelTest {
         viewModel.uiState.test {
             val actualState: PopupSettingsUiState = expectMostRecentItem()
             assertEquals(inputFolders, actualState.folders.map { row -> row.folder })
-            assertEquals(listOf(2, 0, 0), actualState.folders.map { row -> row.itemCount })
+            assertEquals(listOf(2, 0, 0, 0), actualState.folders.map { row -> row.itemCount })
             assertEquals(
-                listOf(FolderLocation.Home, FolderLocation.NotShown, FolderLocation.HomeAndAppList),
+                listOf(FolderLocation.Home, FolderLocation.NotShown, FolderLocation.HomeAndAppList, FolderLocation.AppList),
                 actualState.folders.map { row -> row.location }
             )
         }
@@ -119,20 +116,6 @@ class PopupSettingsViewModelTest {
     }
 
     @Test
-    fun `In App List sets whether the selected Folder shows in the App List`() = runTest {
-        val mockFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder))
-        val viewModel: PopupSettingsViewModel = createViewModel(mockFolderRepository = mockFolderRepository)
-
-        viewModel.uiState.test {
-            viewModel.openActions(inputFolder)
-            viewModel.setInAppList(true)
-            advanceUntilIdle()
-            assertEquals(FolderLocation.AppList, expectMostRecentItem().selectedFolder?.location)
-        }
-        assertEquals(listOf(inputFolder to true), mockFolderRepository.showInAppListChanges)
-    }
-
-    @Test
     fun `deleting the open Folder closes its sheet and removes its row`() = runTest {
         val mockFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder))
         val viewModel: PopupSettingsViewModel = createViewModel(mockFolderRepository = mockFolderRepository)
@@ -161,65 +144,16 @@ class PopupSettingsViewModelTest {
     }
 
     @Test
-    fun `opens the rename dialog for the selected Folder and closes it with the sheet`() = runTest {
-        val viewModel: PopupSettingsViewModel = createViewModel()
-
-        viewModel.uiState.test {
-            viewModel.openActions(inputFolder)
-            viewModel.openRenameDialog()
-            assertTrue(expectMostRecentItem().isRenameDialogOpen)
-            viewModel.closeActions()
-            assertFalse(expectMostRecentItem().isRenameDialogOpen)
-            viewModel.openActions(inputFolder)
-            viewModel.openRenameDialog()
-            viewModel.renameFolder(name = RENAMED_FOLDER_NAME)
-            assertFalse(expectMostRecentItem().isRenameDialogOpen)
-        }
-        assertEquals(
-            listOf(FakePreferencesRepository.ItemRename(item = inputFolder, name = RENAMED_FOLDER_NAME)),
-            mockPreferencesRepository.renames
-        )
-    }
-
-    @Test
-    fun `renames the selected Folder`() = runTest {
-        val viewModel: PopupSettingsViewModel = createViewModel()
-
-        viewModel.uiState.test {
-            viewModel.openActions(inputFolder)
-            expectMostRecentItem()
-            viewModel.renameFolder(name = RENAMED_FOLDER_NAME)
-        }
-        assertEquals(
-            listOf(FakePreferencesRepository.ItemRename(item = inputFolder, name = RENAMED_FOLDER_NAME)),
-            mockPreferencesRepository.renames
-        )
-    }
-
-    @Test
-    fun `a blank rename resets the Folder name`() = runTest {
-        val viewModel: PopupSettingsViewModel = createViewModel()
-
-        viewModel.uiState.test {
-            viewModel.openActions(inputFolder)
-            expectMostRecentItem()
-            viewModel.renameFolder(name = BLANK_NAME)
-        }
-        assertEquals(listOf(inputFolder), mockPreferencesRepository.resets)
-    }
-
-    @Test
-    fun `renames the selected Folder before the list is collected`() = runTest {
-        val viewModel: PopupSettingsViewModel = createViewModel()
+    fun `adds the selected Folder to the Favorites before the list is collected`() = runTest {
+        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
+        val viewModel: PopupSettingsViewModel = createViewModel(mockFavoriteDao = mockFavoriteDao)
         advanceUntilIdle()
 
         viewModel.openActions(inputFolder)
-        viewModel.renameFolder(name = RENAMED_FOLDER_NAME)
+        viewModel.setOnHome(true)
+        advanceUntilIdle()
 
-        assertEquals(
-            listOf(FakePreferencesRepository.ItemRename(item = inputFolder, name = RENAMED_FOLDER_NAME)),
-            mockPreferencesRepository.renames
-        )
+        assertEquals(listOf(inputFolder.key), mockFavoriteDao.records.map { record -> record.key })
     }
 
     @Test
@@ -286,7 +220,6 @@ class PopupSettingsViewModelTest {
         favoritesRepository = createEagerFavoritesRepository(
             favoriteDao = mockFavoriteDao,
             launchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = folders)
-        ),
-        preferencesRepository = mockPreferencesRepository
+        )
     )
 }

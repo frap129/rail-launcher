@@ -407,7 +407,9 @@ class LauncherViewModel(
     }
 
     fun setItemName(launchable: Launchable, name: String) {
-        prefsRepo.setItemName(launchable, name)
+        launchLogged(message = "Failed to rename ${launchable.key}") {
+            prefsRepo.setItemName(launchable, name)
+        }
         openItemMenu(launchable)
     }
 
