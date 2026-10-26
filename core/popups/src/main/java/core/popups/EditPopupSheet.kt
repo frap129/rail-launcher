@@ -74,8 +74,8 @@ private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
 /** The full-height sheet for editing what the owner's Pop-up shows. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditPopupSheet(viewModel: PopupViewModel) {
-    val editState: PopupEditState by viewModel.editState.collectAsState()
+fun EditPopupSheet(editorViewModel: PopupEditorViewModel, pickerViewModel: PopupPickerViewModel) {
+    val editState: PopupEditState by editorViewModel.editState.collectAsState()
     val state: PopupEditState.Editing = editState as? PopupEditState.Editing ?: return
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val listState = rememberLazyListState()
@@ -103,7 +103,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
         hapticFeedback.performSegmentTickHaptic()
     }
     ModalBottomSheet(
-        onDismissRequest = viewModel::finishEdit,
+        onDismissRequest = editorViewModel::finishEdit,
         sheetState = sheetState,
         dragHandle = { SheetDragHandle() }
     ) {
@@ -116,7 +116,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                 },
                 action = PopupSheetTitleAction(
                     label = stringResource(CoreUiR.string.done),
-                    onClick = viewModel::finishEdit
+                    onClick = editorViewModel::finishEdit
                 )
             )
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
@@ -134,7 +134,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                                 EditShortcutRow(
                                     shortcut = shortcut,
                                     isShown = shortcut.shortcutId !in state.hiddenIds,
-                                    onShownChange = { isShown -> viewModel.setShortcutHidden(shortcut.shortcutId, !isShown) }
+                                    onShownChange = { isShown -> editorViewModel.setShortcutHidden(shortcut.shortcutId, !isShown) }
                                 )
                             }
                         }
@@ -168,7 +168,7 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                                             draggedItemKey = item.launchable.key
                                         },
                                         onDragStopped = {
-                                            viewModel.setItemOrder(
+                                            editorViewModel.setItemOrder(
                                                 orderedItemKeys = displayedItems.map { candidate ->
                                                     candidate.launchable.key
                                                 }
@@ -179,15 +179,15 @@ fun EditPopupSheet(viewModel: PopupViewModel) {
                                     contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
                                 )
                             },
-                            onRemove = { viewModel.removeEditedItem(item.launchable) }
+                            onRemove = { editorViewModel.removeEditedItem(item.launchable) }
                         )
                     }
                 }
                 item(key = "edit_popup_add_apps") {
-                    AddButton(labelResId = R.string.add_apps, onClick = viewModel::startPicking)
+                    AddButton(labelResId = R.string.add_apps, onClick = { pickerViewModel.startPicking(state.owner) })
                 }
                 item(key = "edit_popup_add_shortcuts") {
-                    AddButton(labelResId = R.string.add_shortcuts, onClick = viewModel::startPickingShortcuts)
+                    AddButton(labelResId = R.string.add_shortcuts, onClick = { pickerViewModel.startPickingShortcuts(state.owner) })
                 }
             }
         }

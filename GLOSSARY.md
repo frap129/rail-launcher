@@ -20,6 +20,18 @@ _Avoid_: Folder item, folder entry
 The floating card attached to a row, opened by swiping an App row or by tapping or swiping a Folder row, holding that Launchable's shortcuts, added items and, later, widgets and notifications.
 _Avoid_: Popup, card menu, long-press menu
 
+**Pop-up card**:
+The floating surface of an open Pop-up: its header, Shortcuts, Added items, Notifications, Widget and menu. It is not a Widget.
+_Avoid_: Card (when meaning a Widget), pop-up window
+
+**Pop-up editor**:
+The Edit Pop-up sheet that hides or shows the Owner's Shortcuts and adds, reorders or removes Added items; it opens the item and Shortcut pickers.
+_Avoid_: Popup editor, edit menu
+
+**Pop-up session**:
+The card, editor, pickers and Folder actions of one Pop-up host, and the order Back closes them in.
+_Avoid_: Popup state, session (alone)
+
 **Shortcut**:
 A quick action published by an app, shown in a Pop-up and run without opening the app's main screen.
 _Avoid_: Deep link, quick action
