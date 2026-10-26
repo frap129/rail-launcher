@@ -5,6 +5,7 @@ import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.shortcuts.ShortcutResolution
 import core.data.shortcuts.ShortcutsResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,11 +15,11 @@ import kotlinx.coroutines.flow.map
 /** One pin call made through [FakeShortcutSource]. */
 data class PinCall(val packageName: String, val profile: UserHandle, val ids: Set<String>)
 
-/** A settleable [IShortcutSource] over one shared result and one resolved map. */
+/** A settleable [IShortcutSource] over one shared result and one resolution. */
 class FakeShortcutSource(initialResult: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())) : IShortcutSource {
     private val result: MutableStateFlow<ShortcutsResult> = MutableStateFlow(initialResult)
     private val apps: MutableStateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
-    private val resolved: MutableStateFlow<Map<ShortcutKey, ShortcutLaunchable?>?> = MutableStateFlow(emptyMap())
+    private val resolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(ShortcutResolution())
 
     /** The packages and profiles whose shortcuts were requested, in request order. */
     val requests: MutableList<Pair<String, UserHandle>> = mutableListOf()
@@ -33,10 +34,13 @@ class FakeShortcutSource(initialResult: ShortcutsResult = ShortcutsResult.Availa
 
     override fun appsWithShortcuts(): Flow<List<AppShortcuts>> = apps.asStateFlow()
 
-    override fun resolve(keys: Set<ShortcutKey>): Flow<Map<ShortcutKey, ShortcutLaunchable?>> = resolved.map { shortcuts ->
-        shortcuts?.let { map ->
-            keys.associateWith { key -> map[key] }
-        }.orEmpty()
+    override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> = resolution.map { current ->
+        current?.let { currentResolution ->
+            ShortcutResolution(
+                shortcuts = currentResolution.shortcuts.filterKeys { key -> key in keys },
+                goneKeys = currentResolution.goneKeys.filterTo(mutableSetOf()) { key -> key in keys }
+            )
+        } ?: ShortcutResolution()
     }
 
     override suspend fun pin(packageName: String, profile: UserHandle, ids: Set<String>) {
@@ -51,12 +55,13 @@ class FakeShortcutSource(initialResult: ShortcutsResult = ShortcutsResult.Availa
         this.apps.value = apps
     }
 
-    fun setResolvedShortcuts(shortcuts: Map<ShortcutKey, ShortcutLaunchable?>) {
-        resolved.value = shortcuts
+    /** Sets what [resolve] reports: the Shortcuts it finds and the keys it reports gone. */
+    fun setResolution(shortcuts: Map<ShortcutKey, ShortcutLaunchable> = emptyMap(), goneKeys: Set<ShortcutKey> = emptySet()) {
+        resolution.value = ShortcutResolution(shortcuts = shortcuts, goneKeys = goneKeys)
     }
 
     /** Makes [resolve] report every key as unknown, as when Rail is not the default launcher. */
     fun setResolveUnavailable() {
-        resolved.value = null
+        resolution.value = null
     }
 }
