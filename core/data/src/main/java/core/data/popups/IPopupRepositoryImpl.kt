@@ -6,7 +6,10 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.retryWithExponentialBackoff
+import core.data.room.DatabaseTransaction
+import core.data.room.TransactionEffects
 import core.data.room.dao.PopupDao
+import core.data.runCleanup
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -14,7 +17,7 @@ import core.data.shortcuts.ShortcutResolution
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IRemoveOwnerWidgets
 import core.data.widgets.IWidgetAreaRepository
-import kotlinx.coroutines.CancellationException
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +36,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import timber.log.Timber
 
 private data class ItemResolution(val itemsByOwner: Map<String, List<PopupItem>>, val staleKeys: List<String>)
 
@@ -97,7 +99,7 @@ class IPopupRepositoryImpl(
         }
         scope.launch {
             launchableRepository.launchableState.filter { state -> state.isLoaded }.first()
-            itemMutex.withLock { reapplyAllPins() }
+            withItemLock { reapplyAllPins() }
         }
     }
 
@@ -121,7 +123,7 @@ class IPopupRepositoryImpl(
         val additions: List<String> = add
             .filterNot { itemKey -> itemKey == ownerKey || itemKey in remove }
             .distinct()
-        itemMutex.withLock {
+        withItemLock {
             val affectedPins: Set<AppProfile> = pinsOf(additions + remove)
             if (remove.isNotEmpty()) {
                 popupDao.removeItems(ownerKey = ownerKey, itemKeys = remove.toList())
@@ -134,15 +136,15 @@ class IPopupRepositoryImpl(
     }
 
     override suspend fun removeItem(ownerKey: String, itemKey: String) {
-        itemMutex.withLock {
+        withItemLock {
             popupDao.removeItems(ownerKey = ownerKey, itemKeys = listOf(itemKey))
             reapplyPins(affectedPins = pinsOf(listOf(itemKey)))
         }
     }
 
     override suspend fun setItemOrder(ownerKey: String, orderedItemKeys: List<String>) {
-        itemMutex.withLock {
-            val records: List<PopupItemRecord> = popupDao.observeItems(ownerKey).first()
+        withItemLock {
+            val records: List<PopupItemRecord> = popupDao.getItems(ownerKey)
                 .sortedBy { item -> item.position }
             val recordsByKey: Map<String, PopupItemRecord> = records.associateBy { record -> record.itemKey }
             val orderedRecords: List<PopupItemRecord> = orderedItemKeys.mapNotNull { key -> recordsByKey[key] }
@@ -160,23 +162,43 @@ class IPopupRepositoryImpl(
         }
     }
 
-    override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> = itemMutex.withLock {
-        val removedKeys: List<String> = popupDao.observeItems(ownerKey).first().map { item -> item.itemKey }
+    override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> = withItemLock {
+        val removedKeys: List<String> = popupDao.getItems(ownerKey).map { item -> item.itemKey }
         popupDao.deleteHiddenForOwner(ownerKey)
         popupDao.deleteItemsForOwner(ownerKey)
-        reapplyPins(affectedPins = pinsOf(removedKeys))
-        removeOwnerWidgets(ownerKey).also { freedIds ->
-            freedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
+        val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
+        val freedIds: List<AppWidgetId> = if (effects == null) {
+            reapplyPins(affectedPins = pinsOf(removedKeys))
+            removeOwnerWidgets(ownerKey).also { ownedIds ->
+                ownedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
+            }
+        } else {
+            widgetAreaRepository.removeOwnerPlaces(ownerKey).also { ownedIds ->
+                // Releasing system Widget ids and pins cannot be undone, so they wait for the commit.
+                effects.afterCommit {
+                    removeOwnerWidgets.release(appWidgetIds = ownedIds)
+                    ownedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
+                    withItemLock { reapplyPins(affectedPins = pinsOf(removedKeys)) }
+                }
+            }
         }
+        freedIds
     }
 
     override suspend fun deleteItemsByKey(itemKeys: List<String>) {
         if (itemKeys.isEmpty()) {
             return
         }
-        itemMutex.withLock {
+        withItemLock {
             popupDao.deleteItemsByKey(itemKeys)
-            reapplyPins(affectedPins = pinsOf(itemKeys))
+            val affectedPins: Set<AppProfile> = pinsOf(itemKeys)
+            val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
+            if (effects == null) {
+                reapplyPins(affectedPins = affectedPins)
+            } else {
+                // Pinning cannot be undone, so it waits for a caller's commit like the row deletion.
+                effects.afterCommit { withItemLock { reapplyPins(affectedPins = affectedPins) } }
+            }
         }
     }
 
@@ -189,9 +211,7 @@ class IPopupRepositoryImpl(
 
     private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
         for (ownerKey in ownerKeys) {
-            deleteStale(message = "Failed to remove Pop-up preferences for $ownerKey") {
-                deleteOwner(ownerKey)
-            }
+            runCleanup(message = "Failed to remove Pop-up preferences for $ownerKey") { deleteOwner(ownerKey) }
         }
     }
 
@@ -199,26 +219,24 @@ class IPopupRepositoryImpl(
         if (staleKeys.isEmpty()) {
             return
         }
-        deleteStale(message = "Failed to remove ${staleKeys.size} stale Pop-up items") {
-            deleteItemsByKey(staleKeys)
-        }
+        runCleanup(message = "Failed to remove ${staleKeys.size} stale Pop-up items") { deleteItemsByKey(staleKeys) }
     }
 
-    private suspend fun deleteStale(message: String, action: suspend () -> Unit) {
-        try {
-            action()
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Timber.e(exception, message)
-        }
+    /**
+     * Serializes Pop-up writes. Inside a database transaction the database already serializes them,
+     * and taking the lock there could invert locks against a writer waiting for the write connection.
+     */
+    private suspend inline fun <T> withItemLock(block: suspend () -> T): T = if (coroutineContext[DatabaseTransaction.Key] != null) {
+        block()
+    } else {
+        itemMutex.withLock { block() }
     }
 
     private suspend fun reapplyPins(affectedPins: Set<AppProfile>) {
         if (affectedPins.isEmpty()) {
             return
         }
-        val currentPinSets: Map<AppProfile, Set<String>> = pinSets(popupDao.observeAllItems().first())
+        val currentPinSets: Map<AppProfile, Set<String>> = pinSets(popupDao.getAllItems())
         for (pin in affectedPins) {
             shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = currentPinSets[pin].orEmpty())
         }

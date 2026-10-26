@@ -13,7 +13,7 @@ import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-abstract class WidgetAreaDao {
+abstract class WidgetAreaDao : TransactionalDao {
     @Query("SELECT * FROM widget_places ORDER BY position")
     abstract fun observePlaces(): Flow<List<WidgetPlaceRecord>>
 
@@ -101,10 +101,6 @@ abstract class WidgetAreaDao {
 
     @Query("SELECT COALESCE(MAX(position), -1) FROM widget_places WHERE owner_key IS NULL")
     abstract suspend fun getMaxPlacePosition(): Int
-
-    /** Runs [block] in one transaction so a multi-step change cannot be half-applied. */
-    @Transaction
-    open suspend fun <T> inTransaction(block: suspend () -> T): T = block()
 
     @Transaction
     open suspend fun removeHeader(widgetId: Long? = null): HeaderRemoval? {

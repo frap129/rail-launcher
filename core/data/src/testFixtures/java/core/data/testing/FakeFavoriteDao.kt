@@ -19,7 +19,8 @@ class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : Favo
     private val reemittedRecords: MutableSharedFlow<List<FavoriteRecord>> = MutableSharedFlow(extraBufferCapacity = REEMIT_BUFFER_CAPACITY)
     private val observeFailures: MutableSharedFlow<Throwable> = MutableSharedFlow(extraBufferCapacity = REEMIT_BUFFER_CAPACITY)
     private val observeAllSubscriptions: AtomicInteger = AtomicInteger(0)
-    var failNextRemove: Throwable? = null
+    val failNextRemove: FailOnce = FailOnce()
+    val failNextAdd: FailOnce = FailOnce()
     var isAddEnabled: Boolean = true
     val records: List<FavoriteRecord> get() = storedRecords.value
     val observeAllSubscriptionCount: Int get() = observeAllSubscriptions.get()
@@ -40,6 +41,7 @@ class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : Favo
     }
 
     override suspend fun add(key: String) {
+        failNextAdd.throwIfPending()
         if (!isAddEnabled) {
             return
         }
@@ -53,10 +55,7 @@ class FakeFavoriteDao(initialRecords: List<FavoriteRecord> = emptyList()) : Favo
     }
 
     override suspend fun remove(keys: List<String>) {
-        failNextRemove?.let { failure ->
-            failNextRemove = null
-            throw failure
-        }
+        failNextRemove.throwIfPending()
         storedRecords.update { records -> records.filterNot { it.key in keys } }
     }
 

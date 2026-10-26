@@ -60,7 +60,7 @@ class IFavoritesRepositoryImplTest {
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and collection is observed in isolation.
-        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        mockFavoriteDao.failNextRemove.failWith(IllegalStateException("Favorite removal failed"))
         val repository: IFavoritesRepositoryImpl = createRepository(
             mockFavoriteDao = mockFavoriteDao,
             mockLaunchableRepository = FakeLaunchableRepository(
@@ -150,7 +150,7 @@ class IFavoritesRepositoryImplTest {
         )
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and isFavorite must ignore it.
-        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        mockFavoriteDao.failNextRemove.failWith(IllegalStateException("Favorite removal failed"))
         val repository: IFavoritesRepositoryImpl = createRepository(
             mockFavoriteDao = mockFavoriteDao,
             mockLaunchableRepository = FakeLaunchableRepository(
@@ -217,7 +217,7 @@ class IFavoritesRepositoryImplTest {
         val inputRemainingLaunchable: Launchable = createLaunchable(name = "Remaining")
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputStaleLaunchable.key, position = FIRST_POSITION))
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(initialRecords = inputRecords)
-        mockFavoriteDao.failNextRemove = IllegalStateException("Favorite removal failed")
+        mockFavoriteDao.failNextRemove.failWith(IllegalStateException("Favorite removal failed"))
         val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
             groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputStaleLaunchable, inputRemainingLaunchable)))
         )

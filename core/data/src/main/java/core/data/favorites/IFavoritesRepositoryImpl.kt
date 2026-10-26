@@ -4,7 +4,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
-import kotlinx.coroutines.CancellationException
+import core.data.runCleanup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import timber.log.Timber
 
 private const val AWAIT_RESOLUTION_TIMEOUT_MS: Long = 500L
 
@@ -97,13 +96,7 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
         if (staleKeys.isEmpty()) {
             return
         }
-        try {
-            favoriteDao.remove(staleKeys)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Timber.e(exception, "Failed to remove %d stale Favorites", staleKeys.size)
-        }
+        runCleanup(message = "Failed to remove ${staleKeys.size} stale Favorites") { favoriteDao.remove(staleKeys) }
     }
 }
 

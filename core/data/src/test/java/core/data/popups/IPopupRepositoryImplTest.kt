@@ -7,10 +7,12 @@ import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.room.TransactionEffects
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.FakeAppWidgetHostSource
+import core.data.testing.FakeFolderDao
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupDao
 import core.data.testing.FakeShortcutSource
@@ -19,14 +21,15 @@ import core.data.testing.PinCall
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.appWidgetPlace
+import core.data.testing.createPopupRepository
 import core.data.testing.createRailLaunchable
 import core.data.widgets.AppWidgetId
-import core.data.widgets.IRemoveOwnerWidgetsImpl
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -589,6 +592,79 @@ class IPopupRepositoryImplTest {
     }
 
     @Test
+    fun `deleteItemsByKey defers pins until the transaction commits`() = runTest {
+        val inputOwner: App = createApp()
+        val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
+        val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val inputRemainingKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        val mockPopupDao: FakePopupDao = FakePopupDao(
+            initialItems = listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputRemovedKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = inputRemainingKey.format(), position = 0)
+            )
+        )
+        val mockShortcutSource: FakeShortcutSource = FakeShortcutSource()
+        val repository: IPopupRepositoryImpl = createRepository(
+            mockPopupDao = mockPopupDao,
+            mockLaunchableRepository = loadedRepository(inputOwner, inputOtherOwner, createApp()),
+            mockShortcutSource = mockShortcutSource
+        )
+        runCurrent()
+        mockShortcutSource.pinCalls.clear()
+        val mockFolderDao: FakeFolderDao = FakeFolderDao()
+        val effects: TransactionEffects = TransactionEffects()
+
+        mockFolderDao.inTransaction {
+            withContext(effects) {
+                repository.deleteItemsByKey(listOf(inputRemovedKey.format()))
+            }
+        }
+
+        assertEquals(emptyList<PinCall>(), mockShortcutSource.pinCalls)
+        effects.run()
+        assertEquals(
+            listOf(PinCall(packageName = APP_PACKAGE_NAME, profile = profile, ids = setOf(SECOND_SHORTCUT_ID))),
+            mockShortcutSource.pinCalls
+        )
+    }
+
+    @Test
+    fun `deleteItemsByKey keeps pins when the transaction fails`() = runTest {
+        val inputOwner: App = createApp()
+        val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
+        val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val inputRemainingKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        val mockPopupDao: FakePopupDao = FakePopupDao(
+            initialItems = listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputRemovedKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = inputRemainingKey.format(), position = 0)
+            )
+        )
+        val mockShortcutSource: FakeShortcutSource = FakeShortcutSource()
+        val repository: IPopupRepositoryImpl = createRepository(
+            mockPopupDao = mockPopupDao,
+            mockLaunchableRepository = loadedRepository(inputOwner, inputOtherOwner, createApp()),
+            mockShortcutSource = mockShortcutSource
+        )
+        runCurrent()
+        mockShortcutSource.pinCalls.clear()
+        val mockFolderDao: FakeFolderDao = FakeFolderDao()
+        val effects: TransactionEffects = TransactionEffects()
+
+        val actualFailure: Throwable? = runCatching {
+            mockFolderDao.inTransaction {
+                withContext(effects) {
+                    repository.deleteItemsByKey(listOf(inputRemovedKey.format()))
+                    throw IllegalStateException("Folder delete failed")
+                }
+            }
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is IllegalStateException)
+        assertEquals(emptyList<PinCall>(), mockShortcutSource.pinCalls)
+    }
+
+    @Test
     fun `keeps the union pinned across Pop-ups and unpins after the last owner is deleted`() = runTest {
         val firstOwner: App = createApp(name = "First")
         val secondOwner: App = createApp(name = "Second", packageName = "com.example.second")
@@ -763,11 +839,11 @@ private fun TestScope.createRepository(
     mockShortcutSource: FakeShortcutSource = FakeShortcutSource(),
     mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(),
     mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-): IPopupRepositoryImpl = IPopupRepositoryImpl(
+): IPopupRepositoryImpl = createPopupRepository(
     popupDao = mockPopupDao,
     launchableRepository = mockLaunchableRepository,
-    shortcutSource = mockShortcutSource,
     scope = backgroundScope,
+    shortcutSource = mockShortcutSource,
     widgetAreaRepository = mockWidgetAreaRepository,
-    removeOwnerWidgets = IRemoveOwnerWidgetsImpl(repository = mockWidgetAreaRepository, host = mockAppWidgetHost)
+    appWidgetHost = mockAppWidgetHost
 )
