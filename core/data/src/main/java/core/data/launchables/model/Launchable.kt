@@ -13,6 +13,9 @@ abstract class Launchable {
     /** Returns a copy of this Launchable showing [appearance]. */
     abstract fun withCustomization(appearance: LaunchableAppearance): Launchable
 
+    /** The customized name for this Launchable, falling back to its default. */
+    fun resolveName(names: LaunchableNames): String = names[key] ?: defaultName
+
     abstract fun launch(context: Context)
 }
 

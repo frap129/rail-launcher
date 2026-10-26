@@ -1,6 +1,7 @@
 package core.data.folders
 
 import core.data.favorites.IFavoritesRepository
+import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepositoryImpl
 import core.data.testing.FakeAppWidgetHostSource
@@ -44,7 +45,7 @@ class IFolderRepositoryImplTest {
         val actualFolder: Folder = repository.create(name = "Games", initialItems = listOf(ITEM_KEY, SECOND_ITEM_KEY))
 
         assertEquals(1L, actualFolder.folderId)
-        assertEquals(1, actualFolder.shade)
+        assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
         assertEquals("Games", actualFolder.name)
         assertEquals(1, mockCustomizationDao.renames.size)
         assertEquals("Games", mockCustomizationDao.renames.single().name)
@@ -104,7 +105,7 @@ class IFolderRepositoryImplTest {
         assertEquals(listOf(listOf(inputFolder.key)), mockPopupRepository.deletedItemKeys)
         assertEquals(listOf(inputFolder.key), mockFavoritesRepository.removed.map { folder -> folder.key })
         assertEquals(listOf(inputFolder.key), mockCustomizationDao.deletedKeys)
-        assertEquals(0, inputFolder.shade)
+        assertEquals(Icon.FolderIcon(shade = 0), inputFolder.icon)
     }
 
     @Test
