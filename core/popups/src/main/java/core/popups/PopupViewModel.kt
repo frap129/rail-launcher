@@ -98,6 +98,18 @@ private data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 private data class OwnerNotifications(val ownerKey: String?, val notifications: List<NotificationSnapshot>)
 
+private data class CardContentInputs(
+    val target: ShortcutTarget?,
+    val shortcuts: ShortcutsResult?,
+    val hidden: HiddenShortcutIds,
+    val items: OwnerItems,
+    val notifications: OwnerNotifications
+)
+
+private data class CardClosability(val ownerKey: String?, val hasNotifications: Boolean, val keepsOpenWithoutNotifications: Boolean)
+
+private data class PopupWidgetLayout(val ownerKey: String, val appWidgets: List<PlacedWidget.AppWidget>, val bounds: ResizeBounds)
+
 private data class NotificationExpansion(val snapshot: NotificationSnapshot, val isExpandedByDefault: Boolean) {
     /** Whether this row is expanded, honouring an explicit toggle over its default. */
     fun isExpanded(overrides: Map<String, Boolean>): Boolean = overrides[snapshot.key] ?: isExpandedByDefault
@@ -188,6 +200,51 @@ class PopupViewModel(
 
     private val cardNotifications: StateFlow<OwnerNotifications> = ownerNotifications(openRequest.map { request -> request?.target })
 
+    private val cardContentInputs: Flow<CardContentInputs> = combine(
+        openRequest,
+        cardShortcuts,
+        cardHiddenShortcuts,
+        cardItems,
+        cardNotifications
+    ) { request, shortcuts, hidden, items, notifications ->
+        CardContentInputs(
+            target = request?.target,
+            shortcuts = shortcuts,
+            hidden = hidden,
+            items = items,
+            notifications = notifications
+        )
+    }
+
+    private val cardClosability: Flow<CardClosability> = combine(
+        cardContentInputs,
+        launchableRepository.launchableState,
+        widgetPlace
+    ) { inputs, launchableState, place ->
+        val target: ShortcutTarget? = inputs.target
+        val owner: Launchable? = target?.ownerKey?.let { ownerKey ->
+            launchableState.launchables.findLaunchable(key = ownerKey)
+        }
+        if (target == null || owner == null) {
+            CardClosability(ownerKey = null, hasNotifications = false, keepsOpenWithoutNotifications = false)
+        } else {
+            val content: PopupContent = resolveCardContent(
+                owner = owner,
+                target = target,
+                shortcuts = inputs.shortcuts,
+                hidden = inputs.hidden,
+                items = inputs.items,
+                notifications = inputs.notifications
+            )
+            val hasWidget: Boolean = place?.popupWidgetLayout()?.ownerKey == owner.key
+            CardClosability(
+                ownerKey = owner.key,
+                hasNotifications = content.notificationRows().isNotEmpty(),
+                keepsOpenWithoutNotifications = content.keepsOpenWithoutNotifications || hasWidget
+            )
+        }
+    }.distinctUntilChanged()
+
     private val editItems: StateFlow<OwnerItems> = addedItems(editRequest)
 
     private val pickerItems: StateFlow<OwnerItems> = addedItems(pickerTarget)
@@ -223,7 +280,7 @@ class PopupViewModel(
         addToFolderMembership
     ) { requestedLaunchable, launchableState, folders, membership ->
         val launchable: Launchable? = requestedLaunchable?.let { requested ->
-            launchableState.launchables.firstOrNull { candidate -> candidate.key == requested.key }
+            launchableState.launchables.findLaunchable(key = requested.key)
         }
         if (launchable == null) {
             AddToFolderState.Closed
@@ -251,25 +308,22 @@ class PopupViewModel(
         }
     ) { request, launchableState, shortcutResult, hidden, extras ->
         val owner: Launchable? = request?.target?.ownerKey?.let { ownerKey ->
-            launchableState.launchables.firstOrNull { launchable -> launchable.key == ownerKey }
+            launchableState.launchables.findLaunchable(key = ownerKey)
         }
         if (request == null || owner == null) {
             PopupUiState.Closed
         } else {
-            val hiddenIds: Set<String> = if (hidden.ownerKey == request.target.ownerKey) hidden.ids else emptySet()
-            val popupItems: List<PopupItem> = if (extras.items.ownerKey == request.target.ownerKey) extras.items.items else emptyList()
-            val notifications: List<NotificationSnapshot> =
-                if (extras.notifications.ownerKey == request.target.ownerKey) extras.notifications.notifications else emptyList()
             val widget: PopupWidgetState? = extras.widget?.takeIf { state -> state.ownerKey == request.target.ownerKey }
             PopupUiState.Open(
                 owner = owner,
                 anchor = request.anchor,
-                content = PopupContentResolver.resolve(
+                content = resolveCardContent(
                     owner = owner,
-                    shortcuts = shortcutResult ?: EMPTY_SHORTCUTS,
-                    hiddenShortcutIds = hiddenIds,
-                    items = popupItems,
-                    notifications = notifications
+                    target = request.target,
+                    shortcuts = shortcutResult,
+                    hidden = hidden,
+                    items = extras.items,
+                    notifications = extras.notifications
                 ),
                 widget = widget,
                 nowMillis = extras.nowMillis
@@ -340,7 +394,7 @@ class PopupViewModel(
         editItems
     ) { request, launchableState, shortcutResult, hidden, items ->
         val owner: Launchable? = request?.ownerKey?.let { ownerKey ->
-            launchableState.launchables.firstOrNull { launchable -> launchable.key == ownerKey }
+            launchableState.launchables.findLaunchable(key = ownerKey)
         }
         if (request == null ||
             owner == null ||
@@ -863,7 +917,7 @@ class PopupViewModel(
         }
         val request: ShortcutTarget = openRequest.value?.target ?: return
         val owner: Launchable = launchableRepository.launchableState.value.launchables
-            .firstOrNull { launchable -> launchable.key == request.ownerKey }
+            .findLaunchable(key = request.ownerKey)
             ?: return
         if (owner !is Folder) {
             return
@@ -1050,33 +1104,48 @@ class PopupViewModel(
         }
     )
 
-    /** Closes a card whose only content was notifications once the last one is gone. */
+    private fun resolveCardContent(
+        owner: Launchable,
+        target: ShortcutTarget,
+        shortcuts: ShortcutsResult?,
+        hidden: HiddenShortcutIds,
+        items: OwnerItems,
+        notifications: OwnerNotifications
+    ): PopupContent = PopupContentResolver.resolve(
+        owner = owner,
+        shortcuts = shortcuts ?: EMPTY_SHORTCUTS,
+        hiddenShortcutIds = if (hidden.ownerKey == target.ownerKey) hidden.ids else emptySet(),
+        items = if (items.ownerKey == target.ownerKey) items.items else emptyList(),
+        notifications = if (notifications.ownerKey == target.ownerKey) notifications.notifications else emptyList()
+    )
+
+    /** Closes a card whose only content was notifications once the last one it shows is gone. */
     private fun observeNotificationEmptying() {
         viewModelScope.launch {
             var previousOwnerKey: String? = null
             var hadNotifications: Boolean = false
-            cardNotifications.collect { state ->
-                val hasNotifications: Boolean = state.notifications.isNotEmpty()
-                if (state.ownerKey == previousOwnerKey) {
-                    if (hadNotifications && !hasNotifications) {
-                        closeNotificationOnlyCard(ownerKey = state.ownerKey)
+            cardClosability.collect { closability ->
+                try {
+                    if (closability.ownerKey == previousOwnerKey && hadNotifications && !closability.hasNotifications) {
+                        closeNotificationOnlyCard(closability = closability)
                     }
+                    previousOwnerKey = closability.ownerKey
+                    hadNotifications = closability.hasNotifications
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    Timber.e(exception, "Popup notification emptying failed")
                 }
-                previousOwnerKey = state.ownerKey
-                hadNotifications = hasNotifications
             }
         }
     }
 
-    private fun closeNotificationOnlyCard(ownerKey: String?) {
-        if (ownerKey == null) {
-            return
-        }
-        val open: PopupUiState.Open = popupState.value as? PopupUiState.Open ?: return
-        if (open.owner.key != ownerKey || open.widget != null) {
-            return
-        }
-        if (open.content.shortcuts.isNotEmpty() || open.content.items.isNotEmpty()) {
+    /**
+     * Closes the card when notifications were its only content. A Folder's member rows are its
+     * own content, not added items, so they do not keep its card open.
+     */
+    private fun closeNotificationOnlyCard(closability: CardClosability) {
+        if (closability.keepsOpenWithoutNotifications) {
             return
         }
         close()
@@ -1255,25 +1324,30 @@ class PopupViewModel(
         widgetEvents.send(report.toWidgetEvent())
     }
 
-    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?, indicatorVisible: Boolean): PopupWidgetState? {
+    private fun WidgetPlace.popupWidgetLayout(): PopupWidgetLayout? {
         val ownerKey: String = ownerKey ?: return null
         val appWidgets: List<PlacedWidget.AppWidget> = widgets.filterIsInstance<PlacedWidget.AppWidget>()
         if (appWidgets.isEmpty()) {
             return null
         }
-        val pages: List<PopupWidgetPage> = appWidgets.map { widget -> widget.toPopupWidgetPage() }
         val bounds: ResizeBounds = widgets.stackResizeBounds(providerInfo = ::providerInfoFor) ?: return null
+        return PopupWidgetLayout(ownerKey = ownerKey, appWidgets = appWidgets, bounds = bounds)
+    }
+
+    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?, indicatorVisible: Boolean): PopupWidgetState? {
+        val layout: PopupWidgetLayout = popupWidgetLayout() ?: return null
+        val pages: List<PopupWidgetPage> = layout.appWidgets.map { widget -> widget.toPopupWidgetPage() }
         return PopupWidgetState(
             placeId = id,
-            ownerKey = ownerKey,
+            ownerKey = layout.ownerKey,
             pages = pages,
             currentPage = currentPage.coerceIn(0, pages.lastIndex),
-            heightDp = bounds.clamp(
-                heightDp = heightDp ?: widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: bounds.minDp,
+            heightDp = layout.bounds.clamp(
+                heightDp = heightDp ?: widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: layout.bounds.minDp,
                 homeHeightDp = windowHeightDp?.let(::popupWidgetMaxHeightDp) ?: Int.MAX_VALUE
             ),
-            bounds = bounds,
-            isResizable = widgets.canResizeStack(bounds = bounds),
+            bounds = layout.bounds,
+            isResizable = widgets.canResizeStack(bounds = layout.bounds),
             indicatorVisible = widgets.stackIndicatorVisible(settingVisible = indicatorVisible)
         )
     }
@@ -1304,7 +1378,7 @@ class PopupViewModel(
                 .filter { state -> state.isLoaded }
                 .first()
                 .launchables
-            val owner: Launchable = launchables.firstOrNull { launchable -> launchable.key == ownerKey } ?: run {
+            val owner: Launchable = launchables.findLaunchable(key = ownerKey) ?: run {
                 clearReopenKeys()
                 return@launch
             }
@@ -1318,6 +1392,9 @@ class PopupViewModel(
         else -> null
     }
 }
+
+/** The Launchable with [key], or null when it is not available. */
+private fun List<Launchable>.findLaunchable(key: String): Launchable? = firstOrNull { launchable -> launchable.key == key }
 
 /** Every notification in the card, with whether it starts expanded. */
 private fun PopupContent.notificationRows(): List<NotificationExpansion> =

@@ -30,6 +30,12 @@ data class PopupContent(
     val ownerNotifications: List<NotificationSnapshot>,
     /** The notifications shown under each added item's row, keyed by that item's Launchable key. */
     val itemNotifications: Map<String, List<NotificationSnapshot>>,
+    /**
+     * Whether shortcuts or an App's added items keep the card open after its notifications empty.
+     * A Folder's member rows do not count as added items, so a Folder showing only its members'
+     * notifications closes when the last one goes.
+     */
+    val keepsOpenWithoutNotifications: Boolean,
     val emptyReason: PopupEmptyReason
 )
 
@@ -51,17 +57,20 @@ object PopupContentResolver {
         }
         val shownItems: List<PopupItem> = items.filterNot { item -> item is PopupItem.Shortcut && !item.isEnabled }
         val shownNotifications: List<NotificationSnapshot> = notificationsFor(owner = owner, notifications = notifications)
+        val hasShortcuts: Boolean = shownShortcuts.isNotEmpty()
+        val hasItems: Boolean = shownItems.isNotEmpty()
         return PopupContent(
             header = PopupHeader(name = owner.name, icon = owner.icon),
             shortcuts = shownShortcuts,
             items = shownItems,
             ownerNotifications = shownNotifications,
             itemNotifications = itemNotifications(items = shownItems, notifications = notifications),
+            keepsOpenWithoutNotifications = hasShortcuts || (owner !is Folder && hasItems),
             emptyReason = emptyReason(
                 owner = owner,
                 shortcuts = effectiveShortcuts,
-                shownShortcuts = shownShortcuts,
-                shownItems = shownItems,
+                hasShortcuts = hasShortcuts,
+                hasItems = hasItems,
                 hasNotifications = shownNotifications.isNotEmpty()
             )
         )
@@ -84,13 +93,13 @@ object PopupContentResolver {
     private fun emptyReason(
         owner: Launchable,
         shortcuts: ShortcutsResult,
-        shownShortcuts: List<ShortcutLaunchable>,
-        shownItems: List<PopupItem>,
+        hasShortcuts: Boolean,
+        hasItems: Boolean,
         hasNotifications: Boolean
     ): PopupEmptyReason = when {
         hasNotifications -> PopupEmptyReason.None
-        shownItems.isNotEmpty() -> PopupEmptyReason.None
-        shortcuts is ShortcutsResult.Available && shownShortcuts.isNotEmpty() -> PopupEmptyReason.None
+        hasItems -> PopupEmptyReason.None
+        shortcuts is ShortcutsResult.Available && hasShortcuts -> PopupEmptyReason.None
         owner is Folder -> PopupEmptyReason.FolderEmpty
         shortcuts is ShortcutsResult.Available -> PopupEmptyReason.Empty
         shortcuts is ShortcutsResult.Unavailable -> PopupEmptyReason.ShortcutsUnavailable
