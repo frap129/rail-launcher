@@ -16,6 +16,7 @@ import core.data.testing.createApp
 import core.data.testing.createNotificationAction
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationSnapshot
+import core.data.testing.createOtherNotificationProfile
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -232,7 +233,7 @@ class PopupContentResolverTest {
         val inputOtherPackage: NotificationSnapshot = createNotificationSnapshot(key = "other-package", packageName = "com.example.other")
         val inputOtherProfile: NotificationSnapshot = createNotificationSnapshot(
             key = "other-profile",
-            profile = createNotificationProfile(userId = 100_000)
+            profile = createOtherNotificationProfile()
         )
         val actualContent: PopupContent = PopupContentResolver.resolve(
             owner = inputApp,

@@ -152,6 +152,10 @@ class IAppWidgetHostSourceImpl(
         )
     }
 
+    override fun profileSerial(profile: UserHandle): Long? = userManager.userProfiles.firstOrNull { user -> user == profile }?.let { user ->
+        userManager.getSerialNumberForUser(user)
+    }
+
     override fun startListening() {
         appWidgetHost.startListening()
     }

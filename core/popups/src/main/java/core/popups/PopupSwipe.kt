@@ -46,6 +46,7 @@ fun Modifier.popupSwipe(enabled: Boolean, isSwipeBlocked: () -> Boolean = { fals
     var releaseJob: Job? by remember { mutableStateOf(null) }
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
     val currentOnSwipeOpen: () -> Unit by rememberUpdatedState(onSwipeOpen)
+    val currentIsSwipeBlocked: () -> Boolean by rememberUpdatedState(isSwipeBlocked)
     val thresholdPx: Float = SwipeToOpen.thresholdPx(density = density)
     val velocityThresholdPx: Float = SwipeToOpen.velocityThresholdPx(density = density)
     val animateToRest: () -> Job = {
@@ -83,7 +84,7 @@ fun Modifier.popupSwipe(enabled: Boolean, isSwipeBlocked: () -> Boolean = { fals
                     val event: PointerEvent = awaitPointerEvent()
                     val change: PointerInputChange =
                         event.changes.firstOrNull { pointerChange -> pointerChange.id == down.id } ?: break
-                    if (isSwipeBlocked() || change.isConsumed) {
+                    if (currentIsSwipeBlocked() || change.isConsumed) {
                         isCanceled = true
                         break
                     }
