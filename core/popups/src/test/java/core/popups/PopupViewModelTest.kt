@@ -38,6 +38,7 @@ import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
+import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.TEST_NOTIFICATION_REPLY_KEY
 import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
@@ -82,6 +83,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -113,6 +115,10 @@ class PopupViewModelTest {
         defaultName = "Other",
         profile = profile,
         componentName = ComponentName("com.example.other", "com.example.other.MainActivity")
+    )
+    private val inputOtherNotification: NotificationRecord = createNotificationRecord(
+        key = TEST_NOTIFICATION_OTHER_KEY,
+        packageName = inputOtherApp.packageName
     )
     private val inputPausedApp: App = App(
         defaultName = "Paused",
@@ -227,6 +233,39 @@ class PopupViewModelTest {
     }
 
     @Test
+    fun `dismissing the owner's last notification closes the card while another app has one`() = runTest {
+        val notificationSource: INotificationSource = createNotificationSource()
+        backgroundScope.launch { notificationSource.notifications.collect() }
+        val viewModel: PopupViewModel = openNotificationCard(
+            viewModel = createViewModel(notificationSource = notificationSource),
+            otherNotification = inputOtherNotification
+        )
+        val actualOpen: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(1, actualOpen.content.ownerNotifications.size)
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+        assertNotNull(mockNotificationRelay.record(key = TEST_NOTIFICATION_OTHER_KEY))
+    }
+
+    @Test
+    fun `another app's notification neither opens nor closes the card`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(
+            notification = null,
+            otherNotification = inputOtherNotification
+        )
+
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_OTHER_KEY)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+    }
+
+    @Test
     fun `dismissing notifications keeps a card with shortcuts open`() = runTest {
         fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
         val viewModel: PopupViewModel = openNotificationCard()
@@ -237,6 +276,18 @@ class PopupViewModelTest {
         val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
         assertEquals(emptyList<NotificationSnapshot>(), actualState.content.ownerNotifications)
         assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
+    }
+
+    @Test
+    fun `dismissing the last notification keeps a card with a widget open`() = runTest {
+        val viewModel: PopupViewModel = openNotificationCard(viewModel = createWidgetViewModel())
+
+        viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
+        advanceUntilIdle()
+
+        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(emptyList<NotificationSnapshot>(), actualState.content.ownerNotifications)
+        assertEquals(6L, actualState.widget?.pages?.single()?.widgetId)
     }
 
     @Test
@@ -381,16 +432,16 @@ class PopupViewModelTest {
     }
 
     @Test
-    fun `dismissing a member's last notification keeps the Folder card open`() = runTest {
+    fun `dismissing a member's last notification closes the Folder card`() = runTest {
         val viewModel: PopupViewModel = openNotificationCard(owner = inputFolder, items = listOf(inputApp))
-        assertEquals(1, (viewModel.popupState.value as PopupUiState.Open).content.itemNotifications.getValue(inputApp.key).size)
+        val actualOpen: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
+        assertEquals(1, actualOpen.content.itemNotifications.getValue(inputApp.key).size)
+        assertEquals(listOf(PopupItem.Launchable(inputApp)), actualOpen.content.items)
 
         viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
         advanceUntilIdle()
 
-        val actualState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
-        assertEquals(emptyMap<String, List<NotificationSnapshot>>(), actualState.content.itemNotifications)
-        assertEquals(listOf(PopupItem.Launchable(inputApp)), actualState.content.items)
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
     }
 
     @Test
@@ -1964,12 +2015,13 @@ class PopupViewModelTest {
         isAccessGranted = { accessCheck() }
     )
 
-    /** Opens [owner]'s card with notifications switched on and, unless null, one posted notification. */
+    /** Opens [owner]'s card with notifications switched on and posts zero, one or two notifications. */
     private suspend fun TestScope.openNotificationCard(
         viewModel: PopupViewModel = createViewModel(),
         owner: Launchable = inputApp,
         items: List<Launchable> = emptyList(),
         notification: NotificationRecord? = createNotificationRecord(),
+        otherNotification: NotificationRecord? = null,
         handle: NotificationHandle = createNotificationHandle()
     ): PopupViewModel {
         fakePopupRepository.setNotificationsEnabled(true)
@@ -1983,8 +2035,11 @@ class PopupViewModelTest {
         runCurrent()
         if (notification != null) {
             mockNotificationRelay.post(record = notification, handle = handle)
-            runCurrent()
         }
+        if (otherNotification != null) {
+            mockNotificationRelay.post(record = otherNotification, handle = createNotificationHandle())
+        }
+        runCurrent()
         return viewModel
     }
 

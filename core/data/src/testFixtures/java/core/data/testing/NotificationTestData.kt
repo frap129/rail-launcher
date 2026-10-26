@@ -13,6 +13,7 @@ import core.data.notifications.NotificationSnapshot
 
 const val TEST_NOTIFICATION_PACKAGE_NAME: String = "com.example.app"
 const val TEST_NOTIFICATION_KEY: String = "notification-key"
+const val TEST_NOTIFICATION_OTHER_KEY: String = "other-notification"
 const val TEST_NOTIFICATION_GROUP_KEY: String = "group"
 const val TEST_NOTIFICATION_USER_ID: Int = 0
 const val TEST_NOTIFICATION_ACTION_ACTION: String = "com.example.notification.ACTION"
