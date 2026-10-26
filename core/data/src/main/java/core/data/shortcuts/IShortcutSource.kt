@@ -32,12 +32,28 @@ interface IShortcutSource {
     fun appsWithShortcuts(): Flow<List<AppShortcuts>>
 
     /**
-     * The Shortcut for every requested key, or null when it no longer exists.
-     * A disabled Shortcut is returned with `isEnabled = false`.
-     * Keys whose shortcuts cannot be read are absent from the map.
+     * The Shortcuts this source could account for among [keys].
+     *
+     * The resolve query matches manifest, dynamic and pinned Shortcuts. A Shortcut that still
+     * exists is in [ShortcutResolution.shortcuts] with [ShortcutLaunchable.isEnabled] set
+     * accordingly. A disabled Shortcut resolves with `isEnabled = false` only while it is pinned;
+     * the platform force-deletes one that is neither pinned nor cached, so Rail relies on its pin
+     * succeeding for stored Shortcuts and reapplies those pins on start. A key is in
+     * [ShortcutResolution.goneKeys] only when the App still publishes Shortcuts but this query
+     * omitted it. Every other key is unresolved — the App publishes no Shortcuts, its profile is
+     * paused or the query failed — and must be kept.
      */
-    fun resolve(keys: Set<ShortcutKey>): Flow<Map<ShortcutKey, ShortcutLaunchable?>>
+    fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution>
 
     /** Pins [ids] for the package in [profile], or unpins every shortcut when [ids] is empty. */
     suspend fun pin(packageName: String, profile: UserHandle, ids: Set<String>)
 }
+
+/** What one [IShortcutSource.resolve] call could establish about the requested Shortcuts. */
+data class ShortcutResolution(
+    /** Every requested Shortcut the platform returned, including disabled ones. */
+    val shortcuts: Map<ShortcutKey, ShortcutLaunchable> = emptyMap(),
+
+    /** Keys a completed query reported gone. Empty when the Shortcuts could not be read. */
+    val goneKeys: Set<ShortcutKey> = emptySet()
+)

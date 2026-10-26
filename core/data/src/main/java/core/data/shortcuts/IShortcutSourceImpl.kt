@@ -64,9 +64,9 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
             }
         }
 
-    override fun resolve(keys: Set<ShortcutKey>): Flow<Map<ShortcutKey, ShortcutLaunchable?>> {
+    override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> {
         if (keys.isEmpty()) {
-            return flowOf(emptyMap())
+            return flowOf(ShortcutResolution())
         }
         val owners: Map<AppProfile, List<ShortcutKey>> = keys.groupBy { key ->
             AppProfile(packageName = key.packageName, profile = key.profile)
@@ -75,7 +75,7 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
             val refresh: Channel<Unit> = Channel(Channel.CONFLATED)
             val callback: LauncherApps.Callback = createCallback(owners = owners.keys, refresh = refresh)
             if (!registerCallback(callback)) {
-                trySend(emptyMap())
+                trySend(ShortcutResolution())
                 close()
                 awaitClose { }
                 return@callbackFlow
@@ -169,24 +169,34 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
         }
     }
 
-    private suspend fun loadResolution(owners: Map<AppProfile, List<ShortcutKey>>): Map<ShortcutKey, ShortcutLaunchable?> =
-        withContext(Dispatchers.IO) {
-            if (!launcherApps.hasShortcutHostPermission()) {
-                return@withContext emptyMap()
+    private suspend fun loadResolution(owners: Map<AppProfile, List<ShortcutKey>>): ShortcutResolution = withContext(Dispatchers.IO) {
+        if (!launcherApps.hasShortcutHostPermission()) {
+            return@withContext ShortcutResolution()
+        }
+        val shortcuts: MutableMap<ShortcutKey, ShortcutLaunchable> = mutableMapOf()
+        val goneKeys: MutableSet<ShortcutKey> = mutableSetOf()
+        for ((owner: AppProfile, keys: List<ShortcutKey>) in owners) {
+            if (userManager.isQuietModeEnabled(owner.profile)) {
+                continue
             }
-            buildMap {
-                for ((owner: AppProfile, keys: List<ShortcutKey>) in owners) {
-                    if (userManager.isQuietModeEnabled(owner.profile)) {
-                        continue
-                    }
-                    val shortcutsById: Map<String, ShortcutInfo> = readResolvedShortcuts(
-                        owner = owner,
-                        ids = keys.mapTo(mutableSetOf()) { key -> key.id }
-                    ) ?: continue
-                    keys.forEach { key -> put(key, shortcutsById[key.id]?.toLaunchable(owner = owner)) }
+            val shortcutsById: Map<String, ShortcutInfo> = readResolvedShortcuts(owner = owner) ?: continue
+            // An empty result can be a package that is mid-update, so only an App that still
+            // publishes Shortcuts can vouch that a requested one is gone.
+            if (shortcutsById.isEmpty()) {
+                Timber.w("No shortcuts published by %s; keeping requested shortcuts unresolved", owner.packageName)
+                continue
+            }
+            keys.forEach { key ->
+                val shortcut: ShortcutInfo? = shortcutsById[key.id]
+                if (shortcut != null) {
+                    shortcuts[key] = shortcut.toLaunchable(owner = owner)
+                } else {
+                    goneKeys += key
                 }
             }
         }
+        ShortcutResolution(shortcuts = shortcuts, goneKeys = goneKeys)
+    }
 
     private fun readShortcuts(owner: AppProfile): List<ShortcutLaunchable> {
         val query: LauncherApps.ShortcutQuery = LauncherApps.ShortcutQuery().apply {
@@ -207,8 +217,8 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
             .map { shortcut -> shortcut.toLaunchable(owner = owner) }
     }
 
-    private fun readResolvedShortcuts(owner: AppProfile, ids: Set<String>): Map<String, ShortcutInfo>? = try {
-        readShortcutsForIds(owner = owner, ids = ids)
+    private fun readResolvedShortcuts(owner: AppProfile): Map<String, ShortcutInfo>? = try {
+        readPackageShortcuts(owner = owner)
     } catch (exception: SecurityException) {
         Timber.w(exception, "No permission to resolve shortcuts for %s", owner.packageName)
         null
@@ -217,11 +227,10 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
         null
     }
 
-    private fun readShortcutsForIds(owner: AppProfile, ids: Set<String>): Map<String, ShortcutInfo> {
+    private fun readPackageShortcuts(owner: AppProfile): Map<String, ShortcutInfo> {
         val query: LauncherApps.ShortcutQuery = LauncherApps.ShortcutQuery().apply {
             setPackage(owner.packageName)
             setQueryFlags(SHORTCUT_RESOLVE_FLAGS)
-            setShortcutIds(ids.toList())
         }
         return launcherApps.getShortcuts(query, owner.profile).orEmpty().associateBy { shortcut -> shortcut.id }
     }

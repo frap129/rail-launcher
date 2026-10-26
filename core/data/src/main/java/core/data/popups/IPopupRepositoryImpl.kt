@@ -10,6 +10,7 @@ import core.data.room.dao.PopupDao
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.shortcuts.ShortcutResolution
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IRemoveOwnerWidgets
 import core.data.widgets.IWidgetAreaRepository
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -81,8 +81,8 @@ class IPopupRepositoryImpl(
             val shortcutKeys: Set<ShortcutKey> = records.mapNotNullTo(mutableSetOf()) { record -> ShortcutKey.parse(record.itemKey) }
             combine(
                 launchableRepository.launchableState,
-                if (shortcutKeys.isEmpty()) flowOf(emptyMap()) else shortcutSource.resolve(shortcutKeys)
-            ) { state, shortcuts -> resolveItems(records = records, state = state, shortcuts = shortcuts) }
+                shortcutSource.resolve(shortcutKeys)
+            ) { state, resolution -> resolveItems(records = records, state = state, resolution = resolution) }
         }
         .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_ITEMS)
@@ -240,11 +240,7 @@ private fun pinSets(records: List<PopupItemRecord>): Map<AppProfile, Set<String>
     .groupBy({ key -> AppProfile(packageName = key.packageName, profile = key.profile) }, { key -> key.id })
     .mapValues { (_, ids) -> ids.toSet() }
 
-private fun resolveItems(
-    records: List<PopupItemRecord>,
-    state: LaunchableState,
-    shortcuts: Map<ShortcutKey, ShortcutLaunchable?>
-): ItemResolution {
+private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState, resolution: ShortcutResolution): ItemResolution {
     if (!state.isLoaded) {
         return UNLOADED_ITEMS
     }
@@ -257,11 +253,11 @@ private fun resolveItems(
     val lookup: ItemLookup = ItemLookup(
         launchablesByKey = launchablesByKey,
         installedApps = installedApps,
-        shortcuts = shortcuts
+        resolution = resolution
     )
     records.sortedBy { record -> record.position }.forEach { record ->
-        when (val resolution: RecordResolution = resolveRecord(record = record, lookup = lookup)) {
-            is RecordResolution.Resolved -> itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(resolution.item)
+        when (val recordResolution: RecordResolution = resolveRecord(record = record, lookup = lookup)) {
+            is RecordResolution.Resolved -> itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(recordResolution.item)
             RecordResolution.Stale -> staleKeys.add(record.itemKey)
             RecordResolution.Unavailable -> Unit
         }
@@ -275,7 +271,7 @@ private fun resolveItems(
 private data class ItemLookup(
     val launchablesByKey: Map<String, Launchable>,
     val installedApps: Set<AppProfile>,
-    val shortcuts: Map<ShortcutKey, ShortcutLaunchable?>
+    val resolution: ShortcutResolution
 )
 
 private sealed interface RecordResolution {
@@ -287,13 +283,13 @@ private sealed interface RecordResolution {
 private fun resolveRecord(record: PopupItemRecord, lookup: ItemLookup): RecordResolution {
     if (ShortcutKey.hasPrefix(record.itemKey)) {
         val key: ShortcutKey = ShortcutKey.parse(record.itemKey) ?: return RecordResolution.Stale
-        if (!lookup.shortcuts.containsKey(key)) {
-            return RecordResolution.Unavailable
-        }
         if (AppProfile(packageName = key.packageName, profile = key.profile) !in lookup.installedApps) {
             return RecordResolution.Stale
         }
-        val shortcut: ShortcutLaunchable = lookup.shortcuts[key] ?: return RecordResolution.Stale
+        if (key in lookup.resolution.goneKeys) {
+            return RecordResolution.Stale
+        }
+        val shortcut: ShortcutLaunchable = lookup.resolution.shortcuts[key] ?: return RecordResolution.Unavailable
         return RecordResolution.Resolved(PopupItem.Shortcut(launchable = shortcut, isEnabled = shortcut.isEnabled))
     }
     val launchable: Launchable = lookup.launchablesByKey[record.itemKey] ?: return RecordResolution.Stale
