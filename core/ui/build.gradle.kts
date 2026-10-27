@@ -16,7 +16,6 @@ dependencies {
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
-    testImplementation(libs.test.robolectric)
     // The compose compiler plugin also runs on testFixtures and needs the runtime.
     testFixturesImplementation(platform(libs.compose.bom))
     testFixturesImplementation(libs.compose.ui)
