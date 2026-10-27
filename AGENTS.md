@@ -16,11 +16,10 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 
 ## Module layout
 - `app` (`dev.maples.rail`): a thin `MainActivity` that lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`, plus `SystemBarIconContrast` (system-bar icon-tone decision logic, unit-tested).
-- `core:lifecycle`: `MainApplication` (set in app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB. New repos/ViewModels must be registered here; it depends on the feature modules for that reason. Also `HomeSignals`, the activity-owned HOME-press channel exposed as a `Flow`.
-- `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP). No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
-- `core:widgets`: the presentation slice shared by both features: Header rendering/formatting, the clock-style chooser, the Move Widget Area slider, the notification-access dialog, the App Widget host view cache, picker and content, the add/resize controllers, and the widget event relay.
-- `core:popups`: Pop-up content types and resolver, placement/swipe helpers, resources, stateless cards/sheets and the shared editor, picker and Folder action collaborators; the Pop-up card ViewModel lives in `feature:launcher`.
-- `core:ui` (shared Compose, theme, `ScrollRail`, `Destination` model), `core:util`, `feature:launcher`, `feature:settings`.
+- `core:lifecycle`: application-level plumbing: `MainApplication` (installed by the app manifest) owns all Koin wiring (DAOs, repositories, ViewModels) and the Room DB, and the module also holds application-scoped implementations, the `TemplateActivity` base, and `HomeSignals`, the activity-owned HOME-press channel exposed as a `Flow`. New repos/ViewModels must be registered here; it depends on the feature modules for that reason. Only `app` depends on this module, as the composition root; nothing else may.
+- `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP), framework sources, and pure non-UI projections and helpers over repositories. No Compose and no Android UI. No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
+- `core:ui`: Compose UI, UI state, UI helpers and strings shared by both features (theme, `ScrollRail`, `Destination` model). No ViewModels and no feature dependencies.
+- `core:util`, `feature:launcher`, `feature:settings`: shared non-UI utilities and the feature modules; code (including strings) used by only one feature stays in that feature.
 - Feature modules must not depend on other feature modules; the Android library convention plugin fails the build when one declares such a dependency.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.
 - `core:baselineprofile` is a `com.android.test` module with its own hard-coded SDK/Java 11 config; don't apply convention plugins to it.
@@ -40,7 +39,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - Conventional Commits with module scopes, e.g. `feat(core:data): ...`, `refactor(launcher): ...`.
 - PRs are squash-merged; PR title becomes the commit subject: allowed types `build ci docs feat fix perf refactor style test chore revert`, max 50 chars (72 with `allow-long-subject` label), no trailing punctuation.
 - PR body above `****` becomes the commit body: lines <= 72 chars and must contain a `ticket: ` trailer (see `.github/pull_request_template.md`).
-- Commit scopes name a real module (`core:widgets`, `launcher`), never a feature area such as `widgets`.
+- Commit scopes name a real module (`core:ui`, `launcher`), never a feature area such as `widgets`.
 
 ### Ticket delivery
 
