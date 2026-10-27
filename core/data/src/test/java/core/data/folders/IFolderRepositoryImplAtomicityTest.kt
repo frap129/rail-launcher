@@ -24,6 +24,7 @@ import core.data.testing.createFavoriteDao
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createInMemoryDatabase
 import core.data.testing.createPopupRepository
+import core.data.testing.createRailLaunchable
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetAreaRepositoryImpl
@@ -49,6 +50,7 @@ private const val ITEM_PACKAGE_NAME: String = "com.example.app"
 private const val OTHER_OWNER_KEY: String = "com.other_owner"
 private const val FOLDER_ID: Long = 3L
 private const val APP_WIDGET_ID: Int = 42
+private val otherOwnerLaunchable: Launchable = createRailLaunchable(name = "Other", deeplink = OTHER_OWNER_KEY)
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -90,7 +92,10 @@ class IFolderRepositoryImplAtomicityTest {
     @Test
     fun `create rolls back the Folder and its items when the Favorite write fails`() = runTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(launchables = listOf(inputItem))
+        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
+            launchables = listOf(inputItem),
+            folders = listOf(Folder(folderId = 1L))
+        )
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
         mockFavoriteDao.failNextAdd.failWith(IllegalStateException("Favorite write failed"))
         val repository: IFolderRepository = createFolderRepository(
@@ -393,7 +398,7 @@ class IFolderRepositoryImplAtomicityTest {
         launchables: List<Launchable>,
         folders: List<Launchable> = emptyList()
     ): FakeLaunchableRepository = FakeLaunchableRepository(
-        groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = launchables)),
+        groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = launchables + otherOwnerLaunchable)),
         folders = folders
     )
 }
