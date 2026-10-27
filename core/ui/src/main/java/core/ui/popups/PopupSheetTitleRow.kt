@@ -9,10 +9,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-
-private val titleHorizontalPadding = 20.dp
-private val titleVerticalPadding = 10.dp
+import core.ui.composables.sheetHorizontalPadding
+import core.ui.composables.sheetVerticalPadding
 
 /** A trailing text action for [PopupSheetTitleRow]. */
 data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
@@ -24,7 +22,7 @@ fun PopupSheetTitleRow(title: String, action: PopupSheetTitleAction? = null) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = titleHorizontalPadding, vertical = titleVerticalPadding)
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
         Text(
             text = title,

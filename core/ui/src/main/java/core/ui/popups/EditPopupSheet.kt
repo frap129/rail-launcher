@@ -50,6 +50,8 @@ import core.data.shortcuts.ShortcutsResult
 import core.ui.R
 import core.ui.composables.DragHandle
 import core.ui.composables.SheetDragHandle
+import core.ui.composables.sheetHorizontalPadding
+import core.ui.composables.sheetVerticalPadding
 import core.ui.util.performSegmentTickHaptic
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
@@ -231,7 +233,7 @@ private fun EditShortcutRow(shortcut: ShortcutLaunchable, isShown: Boolean, onSh
                 role = Role.Checkbox,
                 onValueChange = onShownChange
             )
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
         AsyncImage(
             modifier = Modifier.size(editShortcutIconSize),

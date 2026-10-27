@@ -39,10 +39,10 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetSwitchRow
-import core.ui.composables.sheetRowHorizontalPadding
+import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetRowIconPadding
 import core.ui.composables.sheetRowIconSize
-import core.ui.composables.sheetRowVerticalPadding
+import core.ui.composables.sheetVerticalPadding
 import core.ui.widgets.HeaderClockStyleChooser
 import feature.launcher.R
 
@@ -63,7 +63,7 @@ fun WidgetMenu(
         is WidgetMenuState.HeaderMenu -> Column(modifier = modifier.fillMaxWidth()) {
             Text(
                 text = stringResource(R.string.header_title),
-                modifier = Modifier.padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
+                modifier = Modifier.padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
                 style = MaterialTheme.typography.headlineMedium
             )
             state.items.forEach { item ->
@@ -158,7 +158,7 @@ private fun ActionRow(item: WidgetMenuItem.Action, onAction: (WidgetMenuAction) 
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onAction(item.id) }
-            .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         WidgetMenuIcon(action = item.id)
@@ -180,7 +180,7 @@ private fun ChoiceRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button) { onChoiceClick(item.id) }
-                .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
+                .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             WidgetMenuIcon(action = item.id)

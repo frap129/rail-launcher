@@ -12,14 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.icons.model.Icon
-import core.ui.composables.sheetRowHorizontalPadding
-import core.ui.composables.sheetRowVerticalPadding
+import core.ui.composables.sheetHorizontalPadding
+import core.ui.composables.sheetVerticalPadding
 
 /** The icon and label heading a Widget's menu. */
 @Composable
 fun WidgetMenuTitle(icon: Icon, label: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(

@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.launchables.model.Launchable
+import core.ui.composables.sheetHorizontalPadding
+import core.ui.composables.sheetVerticalPadding
 
 private val checkboxRowIconSize: Dp = 32.dp
 private val checkboxRowIconGap: Dp = 12.dp
-internal val checkboxRowHorizontalPadding: Dp = 20.dp
-private val checkboxRowVerticalPadding: Dp = 10.dp
 
 /** A tappable Launchable row with a trailing checkbox. */
 @Composable
@@ -38,7 +38,7 @@ fun CheckboxLaunchableRow(launchable: Launchable, isChecked: Boolean, onCheckedC
                 role = Role.Checkbox,
                 onValueChange = onCheckedChange
             )
-            .padding(horizontal = checkboxRowHorizontalPadding, vertical = checkboxRowVerticalPadding)
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
         AsyncImage(
             modifier = Modifier.size(checkboxRowIconSize),
