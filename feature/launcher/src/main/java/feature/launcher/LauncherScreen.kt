@@ -62,7 +62,6 @@ import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
-import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.util.consumeTouches
@@ -238,16 +237,6 @@ fun LauncherScreen(
             actionLabel = editFolderLabel,
             message = { folder: Folder -> context.getString(PopupsR.string.added_to_folder, folder.name) },
             onAction = popupEditor::startEdit
-        )
-    }
-    val settingsLabel: String = stringResource(CoreUiR.string.settings)
-    LaunchedEffect(viewModel, navController, snackbarHostState, settingsLabel) {
-        showFolderSnackbars(
-            folders = viewModel.foldersOnlyInSettings,
-            snackbarHostState = snackbarHostState,
-            actionLabel = settingsLabel,
-            message = { folder: Folder -> context.getString(R.string.folder_only_in_settings, folder.name) },
-            onAction = { navController.navigate(POPUPS_SETTINGS_ROUTE) }
         )
     }
     LaunchedEffect(homeIntentRequest) {

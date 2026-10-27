@@ -15,7 +15,4 @@ interface IFolderRepository {
 
     /** Deletes [folder] and everything belonging to it, returning the App Widget ids it held. */
     suspend fun delete(folder: Folder): List<AppWidgetId>
-
-    /** Sets whether [folder] is shown in the App List. */
-    suspend fun setShowInAppList(folder: Folder, show: Boolean)
 }

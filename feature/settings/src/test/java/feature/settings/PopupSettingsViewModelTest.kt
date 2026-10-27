@@ -56,18 +56,18 @@ class PopupSettingsViewModelTest {
     @Test
     fun `lists every Folder with its item count and location`() = runTest {
         val inputHomeFolder: Folder = inputFolder
-        val inputNotShownFolder: Folder = Folder(folderId = 2L, name = OTHER_FOLDER_NAME)
-        val inputBothFolder: Folder = Folder(folderId = 3L, name = "Travel", showInAppList = true)
-        val inputAppListFolder: Folder = Folder(folderId = 4L, name = "Games", showInAppList = true)
+        val inputOtherFolder: Folder = Folder(folderId = 2L, name = OTHER_FOLDER_NAME)
+        val inputTravelFolder: Folder = Folder(folderId = 3L, name = "Travel")
+        val inputGamesFolder: Folder = Folder(folderId = 4L, name = "Games")
         val inputItem: Launchable = createRailLaunchable(name = "First")
         val inputOtherItem: Launchable = createRailLaunchable(name = "Second")
-        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputNotShownFolder, inputBothFolder, inputAppListFolder)
+        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputOtherFolder, inputTravelFolder, inputGamesFolder)
         val mockPopupRepository: FakePopupRepository = FakePopupRepository()
         mockPopupRepository.setItems(ownerKey = inputHomeFolder.key, items = listOf(inputItem, inputOtherItem))
         val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
             initialRecords = listOf(
                 FavoriteRecord(key = inputHomeFolder.key, position = 0),
-                FavoriteRecord(key = inputBothFolder.key, position = 1)
+                FavoriteRecord(key = inputTravelFolder.key, position = 1)
             )
         )
         val viewModel: PopupSettingsViewModel = createViewModel(
@@ -81,7 +81,12 @@ class PopupSettingsViewModelTest {
             assertEquals(inputFolders, actualState.folders.map { row -> row.folder })
             assertEquals(listOf(2, 0, 0, 0), actualState.folders.map { row -> row.itemCount })
             assertEquals(
-                listOf(FolderLocation.Home, FolderLocation.NotShown, FolderLocation.HomeAndAppList, FolderLocation.AppList),
+                listOf(
+                    FolderLocation.HomeAndAppList,
+                    FolderLocation.AppList,
+                    FolderLocation.HomeAndAppList,
+                    FolderLocation.AppList
+                ),
                 actualState.folders.map { row -> row.location }
             )
         }
@@ -121,7 +126,7 @@ class PopupSettingsViewModelTest {
             viewModel.openActions(inputFolder)
             viewModel.setOnHome(true)
             advanceUntilIdle()
-            assertEquals(FolderLocation.Home, expectMostRecentItem().selectedFolder?.location)
+            assertEquals(FolderLocation.HomeAndAppList, expectMostRecentItem().selectedFolder?.location)
         }
     }
 

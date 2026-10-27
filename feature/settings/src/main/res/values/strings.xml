@@ -102,7 +102,6 @@
     </plurals>
     <string name="on_home">On Home</string>
     <string name="in_app_list">In App List</string>
-    <string name="folder_location_not_shown">Not shown</string>
     <string name="folder_location_home_and_app_list">On Home · In App List</string>
     <string name="name">Name</string>
     <string name="edit_contents">Edit contents</string>

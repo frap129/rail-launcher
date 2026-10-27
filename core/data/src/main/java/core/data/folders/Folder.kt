@@ -15,7 +15,7 @@ private const val FOLDER_KEY_PREFIX: String = "rail-folder:"
 private const val FOLDER_SHADE_COUNT: Long = 3L
 
 /** A Launchable that only opens a Pop-up listing the Launchables the user put in it. */
-data class Folder(val folderId: Long, val showInAppList: Boolean = false, override val name: String = DEFAULT_NAME) : Launchable() {
+data class Folder(val folderId: Long, override val name: String = DEFAULT_NAME) : Launchable() {
     override val key: String = "$FOLDER_KEY_PREFIX$folderId"
     override val defaultName: String = DEFAULT_NAME
     override val defaultIcon: Icon = Icon.FolderIcon(shade = folderShade(folderId))
@@ -45,6 +45,6 @@ internal fun List<FolderRecord>.resolveFolders(names: LaunchableNames): List<Fol
 
 /** Resolves a Folder record's stored name, falling back to the default. */
 private fun FolderRecord.toFolder(names: LaunchableNames): Folder {
-    val folder: Folder = Folder(folderId = id, showInAppList = showInAppList)
+    val folder: Folder = Folder(folderId = id)
     return folder.copy(name = folder.resolveName(names))
 }

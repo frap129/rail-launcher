@@ -21,12 +21,6 @@ class FakeFolderDao(initialRecords: List<FolderRecord> = emptyList()) : FolderDa
         return id
     }
 
-    override suspend fun setShowInAppList(id: Long, showInAppList: Boolean) {
-        records.update { current ->
-            current.map { record -> if (record.id == id) record.copy(showInAppList = showInAppList) else record }
-        }
-    }
-
     override suspend fun delete(id: Long) {
         failNextDelete.throwIfPending()
         records.update { current -> current.filterNot { record -> record.id == id } }

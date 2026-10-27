@@ -31,9 +31,6 @@ interface IPopupFolderActions {
     /** Renames the Folder whose name dialog is showing, resetting its name when [name] is blank. */
     fun confirmRename(name: String)
 
-    /** Shows or hides [folder] in the App List. */
-    fun setShowInAppList(folder: Folder, show: Boolean)
-
     /** Opens the Add to Folder sheet for [launchable], which must not be a Folder. */
     fun startAddToFolder(launchable: Launchable)
 

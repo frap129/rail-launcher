@@ -4,7 +4,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.favorites.IFavoritesRepository
-import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
@@ -18,7 +17,6 @@ import core.data.prefs.IPreferencesRepository
 import core.popups.PopupContentResolver
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
-import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import kotlinx.coroutines.flow.Flow
@@ -174,11 +172,6 @@ class LauncherViewModel(
 
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
-
-    private val foldersOnlyInSettingsRequests: EventChannel<Folder> = EventChannel()
-
-    /** Folders removed from Favorites that are now reachable only from Settings. */
-    val foldersOnlyInSettings: Flow<Folder> = foldersOnlyInSettingsRequests.flow
 
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: StateFlow<List<Launchable>> = combine(
@@ -404,19 +397,14 @@ class LauncherViewModel(
 
     fun toggleFavorite(launchable: Launchable) {
         viewModelScope.launch {
-            val isRemoved: Boolean = favoritesMutex.withLock {
+            favoritesMutex.withLock {
                 if (favoritesRepo.isFavorite(launchable).first()) {
                     favoritesRepo.remove(launchable)
                     editedFavoriteKeys.update { keys -> keys?.filterNot { it == launchable.key } }
-                    true
                 } else {
                     favoritesRepo.add(launchable)
                     editedFavoriteKeys.update { keys -> keys?.plus(launchable.key) }
-                    false
                 }
-            }
-            if (isRemoved && launchable is Folder && !launchable.showInAppList) {
-                foldersOnlyInSettingsRequests.send(launchable)
             }
         }
     }

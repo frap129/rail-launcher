@@ -51,22 +51,32 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `keeps the Builtin group last`() {
-        val inputItems: List<Launchable> = listOf(createLaunchable("Zulu"))
-        val actualGroup: LaunchableGroup = inputItems.toLaunchableGroups(inputBuiltinGroup).last()
-        assertEquals(inputBuiltinGroup, actualGroup)
+    fun `places a Folder in the alphabetical group for its resolved name`() {
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Zulu")
+        val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"), inputFolder)
+        val actualGroups: List<LaunchableGroup> = inputItems.toLaunchableGroups(inputBuiltinGroup)
+
+        assertEquals(listOf("★", "A", "Z", "⌂"), actualGroups.map { group -> group.label })
+        assertEquals(
+            listOf(inputFolder),
+            actualGroups.filterIsInstance<LaunchableGroup.InitialGroup>().single { group ->
+                group.label == "Z"
+            }.items
+        )
     }
 
     @Test
-    fun `flattens the App List groups into their Launchables and skips the Folders group`() {
-        val inputGroups: List<LaunchableGroup> = listOf(
-            LaunchableGroup.Star,
-            LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
-            LaunchableGroup.Folders(items = listOf(Folder(folderId = 1L, showInAppList = true))),
-            inputBuiltinGroup
-        )
-        val actualNames: List<String> = inputGroups.toAppListLaunchables().map { launchable -> launchable.name }
-        assertEquals(listOf("Alpha", "Rail Settings"), actualNames)
+    fun `groups a Folder with a digit name under #`() {
+        val inputFolder: Folder = Folder(folderId = 1L, name = "1Games")
+        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup)[1]
+        assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputFolder)), actualGroup)
+    }
+
+    @Test
+    fun `groups a Folder with no initial character under #`() {
+        val inputFolder: Folder = Folder(folderId = 1L, name = "")
+        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup)[1]
+        assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputFolder)), actualGroup)
     }
 
     @Test
@@ -78,40 +88,10 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `places the Folders group after the letters and before Builtin`() {
-        val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"))
-        val inputFolder: Folder = Folder(folderId = 1L, showInAppList = true)
-        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup, folders = listOf(inputFolder)).map { it.label }
-        assertEquals(listOf("★", "A", "◇", "⌂"), actualLabels)
-    }
-
-    @Test
-    fun `omits the Folders group when no Folder is shown in the App List`() {
-        val inputFolder: Folder = Folder(folderId = 1L)
-        val actualLabels: List<String> = emptyList<Launchable>()
-            .toLaunchableGroups(inputBuiltinGroup, folders = listOf(inputFolder))
-            .map { it.label }
-        assertEquals(listOf("★", "⌂"), actualLabels)
-    }
-
-    @Test
-    fun `shows only the Folders with the App List switch on`() {
-        val inputShown: Folder = Folder(folderId = 1L, showInAppList = true)
-        val inputHidden: Folder = Folder(folderId = 2L)
-        val actualGroup: LaunchableGroup.Folders = emptyList<Launchable>()
-            .toLaunchableGroups(inputBuiltinGroup, folders = listOf(inputShown, inputHidden))
-            .filterIsInstance<LaunchableGroup.Folders>()
-            .single()
-        assertEquals(listOf(inputShown), actualGroup.items)
-    }
-
-    @Test
-    fun `never groups a Folder by its first character`() {
-        val inputFolder: Folder = Folder(folderId = 1L, name = "Zulu", showInAppList = true)
-        val actualLabels: List<String> = emptyList<Launchable>()
-            .toLaunchableGroups(inputBuiltinGroup, folders = listOf(inputFolder))
-            .map { it.label }
-        assertEquals(listOf("★", "◇", "⌂"), actualLabels)
+    fun `keeps the Builtin group last`() {
+        val inputItems: List<Launchable> = listOf(createLaunchable("Zulu"))
+        val actualGroup: LaunchableGroup = inputItems.toLaunchableGroups(inputBuiltinGroup).last()
+        assertEquals(inputBuiltinGroup, actualGroup)
     }
 
     @Test

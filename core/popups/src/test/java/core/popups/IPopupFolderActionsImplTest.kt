@@ -27,16 +27,6 @@ private const val BLANK_NAME: String = "   "
 class IPopupFolderActionsImplTest : PopupTestBase() {
 
     @Test
-    fun `shows a Folder in the App List`() = runTest {
-        val folderActions: IPopupFolderActions = createFolder()
-
-        folderActions.setShowInAppList(inputFolder, true)
-        runCurrent()
-
-        assertEquals(listOf(inputFolder to true), fakeFolderRepository.showInAppListChanges)
-    }
-
-    @Test
     fun `opens the rename dialog for the Folder`() = runTest {
         val folderActions: IPopupFolderActions = createFolder()
 

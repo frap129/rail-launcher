@@ -15,7 +15,7 @@ class FolderResolutionTest {
     @Test
     fun `resolves customization names and keeps the default for a new Folder`() {
         val inputRecords: List<FolderRecord> = listOf(
-            FolderRecord(id = RENAMED_FOLDER_ID, showInAppList = true),
+            FolderRecord(id = RENAMED_FOLDER_ID),
             FolderRecord(id = NEW_FOLDER_ID)
         )
         val inputCustomizations: List<LaunchableCustomization> = listOf(
@@ -26,6 +26,6 @@ class FolderResolutionTest {
 
         assertEquals(listOf(RENAMED_FOLDER_NAME, DEFAULT_FOLDER_NAME), actualFolders.map { folder -> folder.name })
         assertEquals(listOf(RENAMED_FOLDER_ID, NEW_FOLDER_ID), actualFolders.map { folder -> folder.folderId })
-        assertEquals(listOf(true, false), actualFolders.map { folder -> folder.showInAppList })
+        assertEquals(listOf(RENAMED_FOLDER_KEY, "rail-folder:$NEW_FOLDER_ID"), actualFolders.map { folder -> folder.key })
     }
 }

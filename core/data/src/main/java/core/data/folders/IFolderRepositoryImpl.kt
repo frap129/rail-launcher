@@ -80,10 +80,6 @@ class IFolderRepositoryImpl(
         return freedIds
     }
 
-    override suspend fun setShowInAppList(folder: Folder, show: Boolean) {
-        folderDao.setShowInAppList(id = folder.folderId, showInAppList = show)
-    }
-
     /** Undoes a failed [create]; a failure in one step does not skip the remaining steps. */
     private suspend fun discardFolder(folder: Folder) {
         deleteFolderRows(folder = folder, tolerateFailures = true)

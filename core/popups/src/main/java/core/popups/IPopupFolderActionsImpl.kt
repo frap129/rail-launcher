@@ -117,12 +117,6 @@ class IPopupFolderActionsImpl(
         }
     }
 
-    override fun setShowInAppList(folder: Folder, show: Boolean) {
-        scope.launchLogged(message = "Failed to change whether ${folder.key} is in the App List") {
-            folderRepository.setShowInAppList(folder = folder, show = show)
-        }
-    }
-
     override fun startAddToFolder(launchable: Launchable) {
         if (launchable is Folder) {
             return

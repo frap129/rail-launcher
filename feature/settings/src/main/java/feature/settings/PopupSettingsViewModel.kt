@@ -20,20 +20,13 @@ import kotlinx.coroutines.flow.stateIn
 
 /** Where a Folder shows, summarised under its name in Settings. */
 enum class FolderLocation {
-    Home,
     AppList,
-    HomeAndAppList,
-    NotShown
+    HomeAndAppList
 }
 
 /** One Folder as the Settings list shows it. */
 data class PopupSettingsFolder(val folder: Folder, val itemCount: Int, val isOnHome: Boolean) {
-    val location: FolderLocation = when {
-        isOnHome && folder.showInAppList -> FolderLocation.HomeAndAppList
-        isOnHome -> FolderLocation.Home
-        folder.showInAppList -> FolderLocation.AppList
-        else -> FolderLocation.NotShown
-    }
+    val location: FolderLocation = if (isOnHome) FolderLocation.HomeAndAppList else FolderLocation.AppList
 }
 
 data class PopupSettingsUiState(

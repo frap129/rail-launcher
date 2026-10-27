@@ -20,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
@@ -47,11 +46,6 @@ internal fun rememberAppListRowState(
         isPopupSwipeEnabled = isPopupSwipeEnabled
     )
 }
-
-/** The App List header: the Folders section reads as a word, every other group shows its Rail glyph. */
-@Composable
-internal fun LaunchableGroup.Listed.appListLabel(): String =
-    if (this is LaunchableGroup.Folders) stringResource(R.string.folders) else label
 
 @Composable
 fun LauncherAppList(
@@ -109,7 +103,7 @@ fun LauncherItemGroup(
     folderSummaries: Map<String, String> = emptyMap()
 ) {
     Column(modifier = modifier) {
-        LaunchableGroupHeader(label = group.appListLabel())
+        LaunchableGroupHeader(label = group.label)
         group.items.forEach { item ->
             LauncherItem(
                 item = item,
