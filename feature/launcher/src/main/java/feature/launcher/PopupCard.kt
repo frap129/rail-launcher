@@ -78,11 +78,11 @@ import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
+import core.ui.layout.compactIconSize
 import core.ui.layout.minTouchTargetSize
 import core.ui.popups.PopupEmptyState
 import core.ui.popups.PopupSheetTitleRow
 import core.ui.popups.PopupShortcutLabel
-import core.ui.popups.popupIconSize
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import feature.launcher.widgets.AppWidgetContent
@@ -717,7 +717,7 @@ private fun PopupShortcutRow(shortcut: ShortcutLaunchable, onClick: () -> Unit, 
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            modifier = Modifier.size(popupIconSize),
+            modifier = Modifier.size(compactIconSize),
             model = shortcut.icon,
             contentDescription = null
         )
@@ -738,7 +738,7 @@ internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () 
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            modifier = Modifier.size(if (shortcut != null) popupIconSize else itemIconSize),
+            modifier = Modifier.size(if (shortcut != null) compactIconSize else itemIconSize),
             model = item.launchable.icon,
             contentDescription = null
         )

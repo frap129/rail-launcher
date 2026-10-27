@@ -70,7 +70,7 @@
     <string name="allow_notification_access_body">Rail needs notification access to show notifications in Pop-ups and to see what’s playing in the Media Player. Notifications are read on this device only and are never stored or shared.</string>
     <string name="allow_notification_access_sideloaded">If the switch is greyed out, open Rail’s App info, tap ⋮ and choose Allow restricted settings.</string>
     <string name="not_now">Not now</string>
-    <string name="offset_dp">%1$d dp</string>
+    <string name="dp_value">%1$d dp</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
     <string name="no_own_shortcuts">This app has no shortcuts</string>

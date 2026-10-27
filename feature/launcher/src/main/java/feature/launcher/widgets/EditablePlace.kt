@@ -57,6 +57,7 @@ import compose.icons.fontawesomeicons.solid.MinusCircle
 import core.ui.R as CoreUiR
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
+import core.ui.layout.compactIconSize
 import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
@@ -421,7 +422,7 @@ private fun ExpandedPageRow(
                 imageVector = FontAwesomeIcons.Solid.MinusCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(compactIconSize)
             )
         }
         OutlinedText(
@@ -456,7 +457,7 @@ private fun ExpandedPageRow(
             Icon(
                 imageVector = FontAwesomeIcons.Solid.ExternalLinkAlt,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(compactIconSize)
             )
         }
         DragHandle(

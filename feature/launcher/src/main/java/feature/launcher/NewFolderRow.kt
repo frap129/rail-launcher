@@ -17,7 +17,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import core.ui.composables.OutlinedText
-import core.ui.popups.popupIconSize
+import core.ui.layout.compactIconSize
 
 private val newFolderRowHeight: Dp = 64.dp
 
@@ -38,7 +38,7 @@ fun NewFolderRow(label: String, onClick: () -> Unit) {
             Icon(
                 imageVector = FontAwesomeIcons.Solid.Plus,
                 contentDescription = null,
-                modifier = Modifier.size(popupIconSize),
+                modifier = Modifier.size(compactIconSize),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
