@@ -81,6 +81,8 @@ import core.data.widgets.IWidgetLifecycleReconcilerImpl
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import core.data.widgets.WidgetAreaSeedCallback
+import core.lifecycle.widgets.IAppWidgetViewCacheImpl
+import core.lifecycle.widgets.RailAppWidgetHost
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.ui.popups.IPopupCollaborators
@@ -98,8 +100,6 @@ import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.IHeaderTapTargetResolver
 import core.ui.widgets.IHeaderTapTargetResolverImpl
 import core.util.screenHeightPx
-import core.widgets.IAppWidgetViewCacheImpl
-import core.widgets.RailAppWidgetHost
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.launcher.PopupCardViewModel

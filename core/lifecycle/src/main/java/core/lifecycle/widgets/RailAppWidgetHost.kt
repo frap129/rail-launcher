@@ -1,4 +1,4 @@
-package core.widgets
+package core.lifecycle.widgets
 
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
