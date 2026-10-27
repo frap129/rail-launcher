@@ -17,8 +17,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-val sheetRowHorizontalPadding: Dp = 20.dp
-val sheetRowVerticalPadding: Dp = 10.dp
+val sheetHorizontalPadding: Dp = 20.dp
+val sheetVerticalPadding: Dp = 10.dp
 val sheetRowIconSize: Dp = 56.dp
 val sheetRowIconPadding: Dp = 10.dp
 
@@ -31,7 +31,7 @@ fun SheetMenuAction(imageVector: ImageVector, label: String, onClick: () -> Unit
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding)
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
         Image(
             modifier = Modifier.size(sheetRowIconSize).padding(sheetRowIconPadding),

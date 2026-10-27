@@ -45,7 +45,7 @@ fun SheetSwitchRow(
         modifier = modifier
             .fillMaxWidth()
             .then(rowSelectionModifier)
-            .padding(horizontal = sheetRowHorizontalPadding, vertical = sheetRowVerticalPadding),
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

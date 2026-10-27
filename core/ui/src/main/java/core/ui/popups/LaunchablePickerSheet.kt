@@ -16,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import core.ui.R
 import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.SheetDragHandle
+import core.ui.composables.sheetHorizontalPadding
 
 private const val PICKER_ITEM_KEY_PREFIX: String = "picker-item:"
 private const val PICKER_GROUP_KEY_PREFIX: String = "picker-group:"
@@ -44,7 +45,7 @@ fun LaunchablePickerSheet(state: PopupPickerState.Picking, onConfirm: (selectedI
             LazyColumn(modifier = Modifier.weight(1f)) {
                 state.groups.forEachIndexed { groupIndex, group ->
                     item(key = "$PICKER_GROUP_KEY_PREFIX$groupIndex") {
-                        LaunchableGroupHeader(label = group.label, endPadding = checkboxRowHorizontalPadding)
+                        LaunchableGroupHeader(label = group.label, endPadding = sheetHorizontalPadding)
                     }
                     items(items = group.items, key = { item -> "$PICKER_ITEM_KEY_PREFIX${item.key}" }) { item ->
                         CheckboxLaunchableRow(

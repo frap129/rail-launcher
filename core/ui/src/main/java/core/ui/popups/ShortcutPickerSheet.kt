@@ -40,12 +40,12 @@ import core.data.shortcuts.ShortcutsResult
 import core.ui.R
 import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.SheetDragHandle
+import core.ui.composables.sheetHorizontalPadding
+import core.ui.composables.sheetVerticalPadding
 
 private val pickerIconSize = 32.dp
 private val pickerIconGap = 12.dp
-private val pickerRowHorizontalPadding = 20.dp
-private val pickerRowVerticalPadding = 10.dp
-private val pickerShortcutRowStartPadding = pickerRowHorizontalPadding + pickerIconSize + pickerIconGap
+private val pickerShortcutRowStartPadding = sheetHorizontalPadding + pickerIconSize + pickerIconGap
 private const val PAUSED_APP_ALPHA: Float = 0.5f
 
 /** The full-height sheet for choosing which Shortcuts a Pop-up shows. */
@@ -76,7 +76,7 @@ fun ShortcutPickerSheet(state: ShortcutPickerState.Picking, onConfirm: (selected
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     state.groups.forEachIndexed { groupIndex, group ->
                         item(key = "shortcut-picker-group:$groupIndex") {
-                            LaunchableGroupHeader(label = group.label, endPadding = pickerRowHorizontalPadding)
+                            LaunchableGroupHeader(label = group.label, endPadding = sheetHorizontalPadding)
                         }
                         items(items = group.apps, key = { appShortcuts -> "shortcut-picker-app:${appShortcuts.app.key}" }) { appShortcuts ->
                             PickerAppSection(
@@ -116,7 +116,7 @@ private fun PickerAppSection(
                 .fillMaxWidth()
                 .alpha(if (isPaused) PAUSED_APP_ALPHA else 1f)
                 .clickable(enabled = canExpand, onClick = onToggleExpanded)
-                .padding(horizontal = pickerRowHorizontalPadding, vertical = pickerRowVerticalPadding)
+                .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
         ) {
             AsyncImage(
                 modifier = Modifier.size(pickerIconSize),
@@ -176,9 +176,9 @@ private fun PickerShortcutRow(shortcut: ShortcutLaunchable, isChecked: Boolean, 
             )
             .padding(
                 start = pickerShortcutRowStartPadding,
-                end = pickerRowHorizontalPadding,
-                top = pickerRowVerticalPadding,
-                bottom = pickerRowVerticalPadding
+                end = sheetHorizontalPadding,
+                top = sheetVerticalPadding,
+                bottom = sheetVerticalPadding
             )
     ) {
         AsyncImage(
