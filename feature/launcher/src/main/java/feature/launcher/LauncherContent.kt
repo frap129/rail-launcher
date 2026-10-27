@@ -92,7 +92,6 @@ internal fun LauncherContent(
                 onToggleFavorite = viewModel::toggleFavorite,
                 onItemOpenPopup = onItemOpenPopup,
                 onItemAnchorChanged = onItemAnchorChanged,
-                onNewFolder = viewModel::openNewFolderDialog,
                 railBounds = { railBounds.current }
             )
         }

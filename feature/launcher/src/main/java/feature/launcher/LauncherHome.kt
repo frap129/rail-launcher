@@ -30,8 +30,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import core.popups.NewFolderRow
-import core.popups.R as PopupsR
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.dragHandleEndPadding
@@ -57,7 +55,6 @@ import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private const val LAUNCHER_HOME_TEST_TAG: String = "launcherHome"
-private const val NEW_FOLDER_KEY: String = "newFolder"
 
 private data class HomeInteraction(
     val menuEnabled: Boolean,
@@ -324,14 +321,6 @@ private fun LazyListScope.favoriteItems(
                     }
                 }
             }
-        }
-    }
-    if (home.isEditingFavorites) {
-        item(key = NEW_FOLDER_KEY) {
-            NewFolderRow(
-                label = stringResource(PopupsR.string.new_folder),
-                onClick = itemActions.onNewFolder
-            )
         }
     }
 }

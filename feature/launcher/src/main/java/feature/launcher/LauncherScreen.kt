@@ -49,7 +49,6 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.popups.FolderDeleteHost
-import core.popups.FolderNameDialog
 import core.popups.IPopupEditor
 import core.popups.IPopupFolderActions
 import core.popups.IPopupPicker
@@ -231,9 +230,6 @@ fun LauncherScreen(
             )
         }
     }
-    LaunchedEffect(viewModel, popupEditor) {
-        viewModel.folderEdits.collect { folder -> popupEditor.startEdit(folder) }
-    }
     val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
     LaunchedEffect(popupFolderActions, snackbarHostState, editFolderLabel) {
         showFolderSnackbars(
@@ -290,7 +286,6 @@ fun LauncherScreen(
     val resizeState: ResizeState? by widgetViewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by widgetViewModel.editState.collectAsState()
     val moveState: MoveWidgetAreaState? by widgetViewModel.moveState.collectAsState()
-    val isNewFolderDialogOpen: Boolean by viewModel.isNewFolderDialogOpen.collectAsState()
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
     val isMovingWidgetArea: Boolean = moveState != null
@@ -412,12 +407,6 @@ fun LauncherScreen(
     }
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
-    }
-    if (isNewFolderDialogOpen) {
-        FolderNameDialog(
-            onConfirm = viewModel::createFolder,
-            onDismiss = viewModel::closeNewFolderDialog
-        )
     }
 }
 

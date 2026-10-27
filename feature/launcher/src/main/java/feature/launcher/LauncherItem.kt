@@ -70,7 +70,6 @@ data class LauncherItemActions(
     val onToggleFavorite: (Launchable) -> Unit,
     val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
-    val onNewFolder: () -> Unit,
     val railBounds: () -> Rect?
 )
 

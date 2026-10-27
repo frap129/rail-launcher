@@ -16,7 +16,6 @@ import core.data.testing.FakeFolderRepository
 import core.data.testing.FakeLaunchableRepository
 import core.data.testing.FakePopupRepository
 import core.data.testing.FakePreferencesRepository
-import core.data.testing.FolderCreateRequest
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
@@ -1085,48 +1084,6 @@ class LauncherViewModelTest {
         viewModel.editFavorites()
         assertEquals(HomeEditMode.Widgets, inputHomeEditState.mode.value)
         assertFalse(viewModel.isEditingFavorites.value)
-    }
-
-    @Test
-    fun `createFolder is ignored outside Edit Favorites`() = runTest {
-        val folderRepository: FakeFolderRepository = FakeFolderRepository()
-        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
-        viewModel.openNewFolderDialog()
-        assertFalse(viewModel.isNewFolderDialogOpen.value)
-        viewModel.createFolder("Work")
-        advanceUntilIdle()
-        assertTrue(folderRepository.createRequests.isEmpty())
-    }
-
-    @Test
-    fun `createFolder closes the dialog, creates a Folder and emits its editor request`() = runTest {
-        val folderRepository: FakeFolderRepository = FakeFolderRepository()
-        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
-        viewModel.editFavorites()
-        viewModel.openNewFolderDialog()
-        assertTrue(viewModel.isNewFolderDialogOpen.value)
-        viewModel.folderEdits.test {
-            viewModel.createFolder("Work")
-            assertFalse(viewModel.isNewFolderDialogOpen.value)
-            val folder: Folder = awaitItem()
-            assertEquals("Work", folder.name)
-        }
-        assertEquals(
-            listOf(FolderCreateRequest(name = "Work", initialItems = emptyList(), addToFavorites = true)),
-            folderRepository.createRequests
-        )
-    }
-
-    @Test
-    fun `createFolder appends the new Folder to the edited Favorites keys`() = runTest {
-        val folderRepository: FakeFolderRepository = FakeFolderRepository()
-        val viewModel: LauncherViewModel = createViewModel(mockFolderRepository = folderRepository)
-        viewModel.editFavorites()
-        viewModel.folderEdits.test {
-            viewModel.createFolder("Work")
-            val folder: Folder = awaitItem()
-            assertEquals(listOf(folder.key), viewModel.editingFavoriteKeys)
-        }
     }
 
     @Test
