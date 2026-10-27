@@ -32,6 +32,10 @@ _Avoid_: Popup editor, edit menu
 The card, editor, pickers and Folder actions of one Pop-up host, and the order Back closes them in.
 _Avoid_: Popup state, session (alone)
 
+**Pop-up collaborator**:
+A shared UI component, not a ViewModel, that a Pop-up host attaches to its Pop-up session: the editor, Add apps and Shortcut pickers, Folder actions, and the card and aggregate contracts that connect them.
+_Avoid_: Pop-up ViewModel, popup component
+
 **Shortcut**:
 A quick action published by an app, shown in a Pop-up and run without opening the app's main screen.
 _Avoid_: Deep link, quick action
