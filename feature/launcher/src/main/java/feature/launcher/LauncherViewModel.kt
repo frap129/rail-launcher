@@ -12,9 +12,9 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationSnapshot
 import core.data.popups.IPopupRepository
+import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
-import core.popups.PopupContentResolver
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS

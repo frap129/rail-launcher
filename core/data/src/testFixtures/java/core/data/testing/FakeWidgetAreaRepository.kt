@@ -10,6 +10,7 @@ import core.data.widgets.PlacedWidget
 import core.data.widgets.ReplaceHeaderUndo
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetPlace
+import core.data.widgets.hasHeader
 import core.data.widgets.placeOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,9 +74,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
 
     override suspend fun restoreHeader(position: Int, placeId: Long?, pagePosition: Int) {
         restoredHeaders.add(HeaderRemoval(position = position, placeId = placeId ?: 0L, pagePosition = pagePosition))
-        val hasHeader: Boolean = storedPlaces.value.any { place ->
-            place.widgets.any { widget -> widget is PlacedWidget.Header }
-        }
+        val hasHeader: Boolean = storedPlaces.value.hasHeader()
         if (hasHeader) {
             return
         }
@@ -193,7 +192,7 @@ class FakeWidgetAreaRepository(initialPlaces: List<WidgetPlace> = emptyList()) :
                 )
             }
         }
-        val hasHeader: Boolean = updated.any { place -> place.widgets.any { page -> page is PlacedWidget.Header } }
+        val hasHeader: Boolean = updated.hasHeader()
         if (!hasHeader) {
             val headerPlaceIndex: Int = updated.indexOfFirst { place -> place.id == undo.headerPlaceId }
             val header: PlacedWidget.Header = PlacedWidget.Header(id = nextWidgetId++)

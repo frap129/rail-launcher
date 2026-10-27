@@ -7,7 +7,12 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.popups.IPopupRepository
+import core.data.popups.OwnerItems
 import core.data.popups.PopupItem
+import core.data.popups.ShortcutTarget
+import core.data.popups.addedItems
+import core.data.popups.findLaunchable
+import core.data.popups.targetFor
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable

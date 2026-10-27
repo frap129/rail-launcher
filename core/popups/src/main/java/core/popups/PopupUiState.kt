@@ -1,6 +1,7 @@
 package core.popups
 
 import core.data.launchables.model.Launchable
+import core.data.popups.PopupContent
 
 /** Whether a Pop-up is showing and, when it is, its owner and content. */
 sealed interface PopupUiState {
