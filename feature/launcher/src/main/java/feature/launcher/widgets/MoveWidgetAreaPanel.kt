@@ -25,8 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
 import core.ui.util.performSegmentTickHaptic
-import core.widgets.MoveWidgetAreaSlider
-import core.widgets.R as CoreWidgetsR
+import core.ui.widgets.MoveWidgetAreaSlider
 import feature.launcher.R
 
 /** The non-modal bottom panel that moves the Widget Area down while Home stays visible. */
@@ -40,7 +39,7 @@ fun MoveWidgetAreaPanel(
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    val valueLabel: String = stringResource(CoreWidgetsR.string.offset_dp, state.draftOffsetDp)
+    val valueLabel: String = stringResource(CoreUiR.string.offset_dp, state.draftOffsetDp)
     var lastOffsetDp: Int by remember { mutableIntStateOf(state.draftOffsetDp) }
     LaunchedEffect(state.draftOffsetDp) {
         if (state.draftOffsetDp != lastOffsetDp) {

@@ -75,4 +75,8 @@
     <string name="notification_sent">Sent</string>
     <string name="add_to_folder_title">Add %1$s to Folder</string>
     <string name="no_folders">You don\'t have any Folders</string>
+    <string name="edit_folder">Edit Folder</string>
+    <string name="remove_from_popup">Remove from Pop-up</string>
+    <string name="add_to_folder">Add to Folder</string>
+    <string name="added_to_folder">Added to %1$s</string>
 </resources>

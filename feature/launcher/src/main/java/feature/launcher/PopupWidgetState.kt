@@ -2,7 +2,7 @@ package feature.launcher
 
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetProvider
-import core.widgets.AppWidgetModel
+import core.ui.widgets.AppWidgetModel
 
 /** The largest share of the window height a Pop-up widget may take. */
 const val POPUP_WIDGET_MAX_HEIGHT_FRACTION: Float = 0.6f

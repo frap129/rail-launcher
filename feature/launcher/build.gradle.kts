@@ -11,11 +11,9 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:util"))
-    implementation(project(":core:widgets"))
-    implementation(project(":core:popups"))
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
-    testImplementation(testFixtures(project(":core:popups")))
+    testImplementation(testFixtures(project(":core:ui")))
     testImplementation(libs.test.robolectric)
 }

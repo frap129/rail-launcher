@@ -19,12 +19,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.popups.CheckboxLaunchableRow
-import core.popups.FolderNameDialog
-import core.popups.PopupEmptyState
-import core.popups.PopupSheetTitleRow
-import core.popups.R as PopupsR
+import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
+import core.ui.popups.CheckboxLaunchableRow
+import core.ui.popups.FolderNameDialog
+import core.ui.popups.PopupEmptyState
+import core.ui.popups.PopupSheetTitleRow
 
 private val folderRowMinHeight: Dp = 56.dp
 
@@ -65,7 +65,7 @@ fun AddToFolderSheet(
                     )
                 }
                 NewFolderRow(
-                    label = stringResource(PopupsR.string.new_folder),
+                    label = stringResource(CoreUiR.string.new_folder),
                     onClick = { isNamingFolder = true }
                 )
             }

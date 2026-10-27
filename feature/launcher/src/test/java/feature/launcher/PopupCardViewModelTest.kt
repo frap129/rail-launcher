@@ -42,9 +42,9 @@ import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
-import core.popups.PopupEditState
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
+import core.ui.popups.PopupEditState
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo

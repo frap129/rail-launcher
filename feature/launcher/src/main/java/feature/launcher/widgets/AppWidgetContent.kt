@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetAvailability
-import core.widgets.AppWidgetModel
-import core.widgets.IAppWidgetViewCache
-import core.widgets.RailAppWidgetHostView
+import core.ui.widgets.AppWidgetModel
+import core.ui.widgets.IAppWidgetViewCache
+import core.ui.widgets.RailAppWidgetHostView
 import kotlin.math.roundToInt
 import org.koin.compose.koinInject
 

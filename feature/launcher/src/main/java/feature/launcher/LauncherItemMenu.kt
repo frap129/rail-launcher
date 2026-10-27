@@ -38,14 +38,13 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.popups.IPopupEditor
-import core.popups.IPopupFolderActions
-import core.popups.R as PopupsR
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.ui.popups.IPopupEditor
+import core.ui.popups.IPopupFolderActions
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 import org.koin.androidx.compose.koinViewModel
 
@@ -141,7 +140,7 @@ private fun AppMenuActions(
 private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
-        label = stringResource(PopupsR.string.edit_folder),
+        label = stringResource(R.string.edit_folder),
         onClick = {
             viewModel.closeItemMenu()
             editor.startEdit(item)
@@ -149,7 +148,7 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor
     )
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.TrashAlt,
-        label = stringResource(PopupsR.string.delete_folder),
+        label = stringResource(CoreUiR.string.delete_folder),
         onClick = {
             viewModel.closeItemMenu()
             folderActions.requestDeleteFolder(item)
@@ -161,7 +160,7 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor
 private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, folderActions: IPopupFolderActions) {
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.FolderPlus,
-        label = stringResource(PopupsR.string.add_to_folder),
+        label = stringResource(R.string.add_to_folder),
         onClick = {
             viewModel.closeItemMenu()
             folderActions.startAddToFolder(item)

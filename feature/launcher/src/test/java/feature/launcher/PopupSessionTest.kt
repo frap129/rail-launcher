@@ -6,11 +6,11 @@ import core.data.launchables.model.Launchable
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
-import core.popups.AddToFolderState
-import core.popups.FolderDialogState
-import core.popups.PopupEditState
-import core.popups.PopupPickerState
-import core.popups.ShortcutPickerState
+import core.ui.popups.AddToFolderState
+import core.ui.popups.FolderDialogState
+import core.ui.popups.PopupEditState
+import core.ui.popups.PopupPickerState
+import core.ui.popups.ShortcutPickerState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch

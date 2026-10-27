@@ -43,13 +43,13 @@ import core.data.widgets.canResizeStack
 import core.data.widgets.stackDefaultHeightDp
 import core.data.widgets.stackIndicatorVisible
 import core.data.widgets.stackResizeBounds
-import core.popups.IPopupCard
-import core.popups.IPopupCollaborators
-import core.popups.IPopupSession
-import core.popups.observeTargetLoss
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.popups.IPopupCard
+import core.ui.popups.IPopupCollaborators
+import core.ui.popups.IPopupSession
+import core.ui.popups.observeTargetLoss
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import feature.launcher.widgets.AddWidgetFlowState

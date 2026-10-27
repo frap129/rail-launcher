@@ -1,0 +1,107 @@
+package core.ui.widgets
+
+import android.annotation.SuppressLint
+import android.appwidget.AppWidgetHostView
+import android.appwidget.AppWidgetProviderInfo
+import android.content.Context
+import android.os.SystemClock
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
+import android.view.ViewConfiguration
+
+/**
+ * The host view Rail shows for every App Widget. It intercepts a long press
+ * before a child can turn it into a click and disables the system's default
+ * widget padding, since the Widget Area already has edge insets.
+ */
+@SuppressLint("ViewConstructor")
+class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
+    var onLongPress: (() -> Unit)? = null
+
+    private val touchSlop: Int = ViewConfiguration.get(context).scaledTouchSlop
+    private val longPressTimeout: Long = ViewConfiguration.getLongPressTimeout().toLong()
+    private var downX: Float = 0f
+    private var downY: Float = 0f
+    private var downAt: Long = 0L
+    private var isLongPressFired: Boolean = false
+    private var isLongPressPending: Boolean = false
+
+    private val longPressRunnable: Runnable = Runnable {
+        if (!isLongPressPending) {
+            return@Runnable
+        }
+        isLongPressPending = false
+        isLongPressFired = true
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        sendCancelToChildren()
+        onLongPress?.invoke()
+    }
+
+    init {
+        setPadding(0, 0, 0, 0)
+    }
+
+    override fun setAppWidget(appWidgetId: Int, info: AppWidgetProviderInfo?) {
+        super.setAppWidget(appWidgetId, info)
+        setPadding(0, 0, 0, 0)
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                downAt = SystemClock.uptimeMillis()
+                isLongPressFired = false
+                isLongPressPending = true
+                postDelayed(longPressRunnable, longPressTimeout)
+                return false
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (isLongPressPending) {
+                    val distanceX: Float = event.x - downX
+                    val distanceY: Float = event.y - downY
+                    if (distanceX * distanceX + distanceY * distanceY > touchSlop * touchSlop) {
+                        cancelPendingLongPress()
+                    }
+                }
+                return isLongPressFired
+            }
+
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_CANCEL -> {
+                cancelPendingLongPress()
+                return isLongPressFired
+            }
+        }
+        return isLongPressFired
+    }
+
+    override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
+        if (disallowIntercept) {
+            cancelPendingLongPress()
+        }
+        super.requestDisallowInterceptTouchEvent(disallowIntercept)
+    }
+
+    private fun cancelPendingLongPress() {
+        isLongPressPending = false
+        removeCallbacks(longPressRunnable)
+    }
+
+    private fun sendCancelToChildren() {
+        if (isLongPressFired) {
+            val cancel: MotionEvent = MotionEvent.obtain(
+                downAt,
+                SystemClock.uptimeMillis(),
+                MotionEvent.ACTION_CANCEL,
+                downX,
+                downY,
+                0
+            )
+            super.dispatchTouchEvent(cancel)
+            cancel.recycle()
+        }
+    }
+}

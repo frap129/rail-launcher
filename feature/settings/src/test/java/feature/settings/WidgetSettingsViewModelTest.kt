@@ -36,8 +36,8 @@ import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetPlace
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
-import core.widgets.HeaderFormatter
-import core.widgets.IHeaderTapTargetResolverImpl
+import core.ui.widgets.HeaderFormatter
+import core.ui.widgets.IHeaderTapTargetResolverImpl
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale

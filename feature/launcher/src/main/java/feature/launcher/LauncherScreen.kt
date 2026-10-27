@@ -48,14 +48,6 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
-import core.popups.FolderDeleteHost
-import core.popups.IPopupEditor
-import core.popups.IPopupFolderActions
-import core.popups.IPopupPicker
-import core.popups.IPopupSession
-import core.popups.PopupEditorHost
-import core.popups.R as PopupsR
-import core.popups.showFolderSnackbars
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -64,12 +56,19 @@ import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
+import core.ui.popups.FolderDeleteHost
+import core.ui.popups.IPopupEditor
+import core.ui.popups.IPopupFolderActions
+import core.ui.popups.IPopupPicker
+import core.ui.popups.IPopupSession
+import core.ui.popups.PopupEditorHost
+import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
+import core.ui.widgets.IAppWidgetViewCache
+import core.ui.widgets.NotificationAccessDialog
 import core.util.openApplicationDetailsSettings
 import core.util.requestQuietModeOff
 import core.util.userForSerial
-import core.widgets.IAppWidgetViewCache
-import core.widgets.NotificationAccessDialog
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.AddWidgetOrigin
 import feature.launcher.widgets.AddWidgetPlacement
@@ -229,13 +228,13 @@ fun LauncherScreen(
             )
         }
     }
-    val editFolderLabel: String = stringResource(PopupsR.string.edit_folder)
+    val editFolderLabel: String = stringResource(R.string.edit_folder)
     LaunchedEffect(popupFolderActions, snackbarHostState, editFolderLabel) {
         showFolderSnackbars(
             folders = popupFolderActions.folderAdditions,
             snackbarHostState = snackbarHostState,
             actionLabel = editFolderLabel,
-            message = { folder: Folder -> context.getString(PopupsR.string.added_to_folder, folder.name) },
+            message = { folder: Folder -> context.getString(R.string.added_to_folder, folder.name) },
             onAction = popupEditor::startEdit
         )
     }

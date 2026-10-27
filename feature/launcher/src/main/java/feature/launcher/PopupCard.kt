@@ -76,14 +76,13 @@ import core.data.popups.PopupEmptyReason
 import core.data.popups.PopupHeader
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
-import core.popups.PopupEmptyState
-import core.popups.PopupSheetTitleRow
-import core.popups.PopupShortcutLabel
-import core.popups.R as PopupsR
-import core.popups.popupIconSize
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.layout.minTouchTargetSize
+import core.ui.popups.PopupEmptyState
+import core.ui.popups.PopupSheetTitleRow
+import core.ui.popups.PopupShortcutLabel
+import core.ui.popups.popupIconSize
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import feature.launcher.widgets.AppWidgetContent
@@ -305,10 +304,10 @@ fun PopupCard(
                         )
 
                         PopupEmptyReason.ShortcutsUnavailable ->
-                            PopupEmptyState(messageResId = PopupsR.string.set_rail_as_home_for_shortcuts)
+                            PopupEmptyState(messageResId = CoreUiR.string.set_rail_as_home_for_shortcuts)
 
                         PopupEmptyReason.ProfilePaused -> PopupEmptyState(
-                            messageResId = PopupsR.string.work_apps_paused,
+                            messageResId = CoreUiR.string.work_apps_paused,
                             onTurnOn = onRequestQuietModeOff
                         )
                     }

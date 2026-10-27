@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.util.SizeF
 import android.view.ViewGroup
 import core.data.widgets.AppWidgetId
+import core.ui.widgets.IAppWidgetViewCache
+import core.ui.widgets.RailAppWidgetHostView
 
 /** One RailAppWidgetHostView per App Widget id, kept for the process lifetime. */
 class IAppWidgetViewCacheImpl(private val context: Context, private val host: AppWidgetHost) : IAppWidgetViewCache {
