@@ -131,14 +131,13 @@ import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.SETTINGS_ROUTE
+import core.ui.widgets.HeaderClockStyleChooser
+import core.ui.widgets.IAppWidgetViewCache
+import core.ui.widgets.MoveWidgetAreaSlider
+import core.ui.widgets.NotificationAccessDialog
+import core.ui.widgets.labelResource
+import core.ui.widgets.openRailNotificationListenerSettings
 import core.util.openApplicationDetailsSettings
-import core.widgets.HeaderClockStyleChooser
-import core.widgets.IAppWidgetViewCache
-import core.widgets.MoveWidgetAreaSlider
-import core.widgets.NotificationAccessDialog
-import core.widgets.R as CoreWidgetsR
-import core.widgets.labelResource
-import core.widgets.openRailNotificationListenerSettings
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -459,7 +458,7 @@ private fun WidgetSettingsList(
         item {
             SettingsActionRow(
                 title = stringResource(R.string.top_offset),
-                value = stringResource(CoreWidgetsR.string.offset_dp, uiState.topOffsetDp),
+                value = stringResource(CoreUiR.string.offset_dp, uiState.topOffsetDp),
                 onClick = { onDialogClick(WidgetSettingsDialog.TopOffset) }
             )
         }
@@ -749,7 +748,7 @@ private fun HeaderFormatRows(
 ) {
     Column {
         SettingsActionRow(
-            title = stringResource(CoreWidgetsR.string.clock_style_title),
+            title = stringResource(CoreUiR.string.clock_style_title),
             value = stringResource(uiState.clockStyle.labelResource()),
             enabled = uiState.headerShown,
             onClick = onClockStyleClick
@@ -1444,7 +1443,7 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
         homeHeightDp?.let(WidgetAreaSettings::maxOffsetDp) ?: displayMaxOffsetDp(context = context)
     }
     val currentOffsetDp: Int = offsetDp.coerceIn(0, maxOffsetDp)
-    val valueLabel: String = stringResource(CoreWidgetsR.string.offset_dp, currentOffsetDp)
+    val valueLabel: String = stringResource(CoreUiR.string.offset_dp, currentOffsetDp)
     val step: Int = WidgetAreaSettings.OFFSET_STEP_DP
     AlertDialog(
         onDismissRequest = onDismiss,

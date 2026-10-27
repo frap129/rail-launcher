@@ -75,11 +75,11 @@ import core.ui.layout.insetWidgetContentWidth
 import core.ui.model.data.placeKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
-import core.widgets.AppWidgetModel
-import core.widgets.HeaderContent
-import core.widgets.HeaderModel
-import core.widgets.HeaderTapTarget
-import core.widgets.WidgetModel
+import core.ui.widgets.AppWidgetModel
+import core.ui.widgets.HeaderContent
+import core.ui.widgets.HeaderModel
+import core.ui.widgets.HeaderTapTarget
+import core.ui.widgets.WidgetModel
 import feature.launcher.HomeReorder
 import feature.launcher.R
 import feature.launcher.ReorderRow

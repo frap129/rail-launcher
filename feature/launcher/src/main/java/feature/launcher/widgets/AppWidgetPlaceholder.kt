@@ -23,7 +23,7 @@ import core.data.widgets.WidgetAvailability
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.util.performLongPressHaptic
-import core.widgets.AppWidgetModel
+import core.ui.widgets.AppWidgetModel
 
 /** Shown in place of an App Widget whose provider cannot be rendered right now. */
 @Composable

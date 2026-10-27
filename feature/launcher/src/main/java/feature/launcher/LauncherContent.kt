@@ -40,11 +40,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
-import core.popups.IPopupEditor
-import core.popups.PopupEditState
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.popups.IPopupEditor
+import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
 import core.util.toDp
 import feature.launcher.widgets.WidgetAreaUi

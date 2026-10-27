@@ -54,16 +54,16 @@ import compose.icons.fontawesomeicons.solid.ChevronDown
 import compose.icons.fontawesomeicons.solid.ChevronUp
 import compose.icons.fontawesomeicons.solid.ExternalLinkAlt
 import compose.icons.fontawesomeicons.solid.MinusCircle
+import core.ui.R as CoreUiR
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
-import core.widgets.AppWidgetModel
-import core.widgets.HeaderModel
-import core.widgets.R as CoreWidgetsR
-import core.widgets.WidgetModel
+import core.ui.widgets.AppWidgetModel
+import core.ui.widgets.HeaderModel
+import core.ui.widgets.WidgetModel
 import feature.launcher.R
 import sh.calvin.reorderable.ReorderableColumn
 
@@ -218,8 +218,8 @@ private fun EditablePlace(
         null -> stringResource(R.string.widget_title)
     }
     val removeLabel: String = stringResource(R.string.remove_widget_named, label)
-    val moveUpLabel: String = stringResource(CoreWidgetsR.string.move_up)
-    val moveDownLabel: String = stringResource(CoreWidgetsR.string.move_down)
+    val moveUpLabel: String = stringResource(CoreUiR.string.move_up)
+    val moveDownLabel: String = stringResource(CoreUiR.string.move_down)
     val reorderLabel: String = stringResource(R.string.reorder_widget, label)
     val expandLabel: String = stringResource(if (isExpanded) R.string.collapse_stack else R.string.expand_stack)
     val elevation: Dp by animateDpAsState(

@@ -12,8 +12,6 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:util"))
-    implementation(project(":core:widgets"))
-    implementation(project(":core:popups"))
     implementation(libs.compose.material.icons.core)
     implementation(libs.icons.fontawesome)
     testImplementation(testFixtures(project(":core:data")))

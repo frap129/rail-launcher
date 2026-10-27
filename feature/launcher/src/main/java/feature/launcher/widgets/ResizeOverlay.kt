@@ -71,7 +71,7 @@ private fun ResizeHandle(state: ResizeState, onDrag: (Float) -> Unit, onReset: (
     val density = LocalDensity.current
     val hapticFeedback = LocalHapticFeedback.current
     val handleDescription: String = stringResource(CoreUiR.string.resize_handle)
-    val heightDescription: String = stringResource(CoreUiR.string.resize_height, state.draftHeightDp)
+    val heightDescription: String = stringResource(CoreUiR.string.offset_dp, state.draftHeightDp)
     val decreaseLabel: String = stringResource(CoreUiR.string.resize_decrease_height)
     val increaseLabel: String = stringResource(CoreUiR.string.resize_increase_height)
     val resetLabel: String = stringResource(CoreUiR.string.resize_reset)

@@ -16,8 +16,8 @@ import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
-import core.popups.popupIconSize
 import core.ui.composables.OutlinedText
+import core.ui.popups.popupIconSize
 
 private val newFolderRowHeight: Dp = 64.dp
 

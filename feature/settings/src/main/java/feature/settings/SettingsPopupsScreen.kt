@@ -37,20 +37,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.folders.Folder
-import core.popups.FolderDeleteHost
-import core.popups.FolderNameDialog
-import core.popups.IPopupEditor
-import core.popups.IPopupFolderActions
-import core.popups.IPopupPicker
-import core.popups.IPopupSession
-import core.popups.PopupEditorHost
-import core.popups.R as PopupsR
-import core.popups.showFolderSnackbars
+import core.ui.R as CoreUiR
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
-import core.widgets.NotificationAccessDialog
-import core.widgets.openRailNotificationListenerSettings
+import core.ui.popups.FolderDeleteHost
+import core.ui.popups.FolderNameDialog
+import core.ui.popups.IPopupEditor
+import core.ui.popups.IPopupFolderActions
+import core.ui.popups.IPopupPicker
+import core.ui.popups.IPopupSession
+import core.ui.popups.PopupEditorHost
+import core.ui.popups.showFolderSnackbars
+import core.ui.widgets.NotificationAccessDialog
+import core.ui.widgets.openRailNotificationListenerSettings
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
@@ -239,7 +239,7 @@ private fun FolderActionsSheet(
             SettingsActionRow(title = stringResource(R.string.name), value = row.folder.name, onClick = onRenameClick)
             SettingsActionRow(title = stringResource(R.string.edit_contents), value = "", onClick = onEditContents)
             SettingsSwitchRow(title = stringResource(R.string.on_home), checked = row.isOnHome, onCheckedChange = onOnHomeChange)
-            SettingsDestructiveRow(title = stringResource(PopupsR.string.delete_folder), onClick = onDeleteClick)
+            SettingsDestructiveRow(title = stringResource(CoreUiR.string.delete_folder), onClick = onDeleteClick)
         }
     }
 }

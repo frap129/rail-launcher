@@ -7,7 +7,7 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.data.widgets.WidgetWidth
-import core.widgets.WidgetModel
+import core.ui.widgets.WidgetModel
 
 /** How Home lays out the Widget Area. */
 sealed interface WidgetAreaLayout {

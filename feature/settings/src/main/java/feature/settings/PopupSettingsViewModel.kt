@@ -7,7 +7,7 @@ import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
-import core.popups.IPopupCollaborators
+import core.ui.popups.IPopupCollaborators
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged

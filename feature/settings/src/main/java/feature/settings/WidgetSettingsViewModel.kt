@@ -41,11 +41,11 @@ import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
+import core.ui.widgets.HeaderFormatter
+import core.ui.widgets.HeaderModel
+import core.ui.widgets.IHeaderTapTargetResolver
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
-import core.widgets.HeaderFormatter
-import core.widgets.HeaderModel
-import core.widgets.IHeaderTapTargetResolver
 import java.text.Normalizer
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi

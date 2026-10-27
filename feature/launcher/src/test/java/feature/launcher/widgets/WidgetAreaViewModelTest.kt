@@ -60,14 +60,13 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
-import core.widgets.AppWidgetModel
-import core.widgets.BatteryModel
-import core.widgets.HeaderFormatter
-import core.widgets.HeaderLineModel
-import core.widgets.HeaderModel
-import core.widgets.HeaderTapTarget
-import core.widgets.IHeaderTapTargetResolverImpl
-import core.widgets.R as CoreWidgetsR
+import core.ui.widgets.AppWidgetModel
+import core.ui.widgets.BatteryModel
+import core.ui.widgets.HeaderFormatter
+import core.ui.widgets.HeaderLineModel
+import core.ui.widgets.HeaderModel
+import core.ui.widgets.HeaderTapTarget
+import core.ui.widgets.IHeaderTapTargetResolverImpl
 import feature.launcher.R
 import java.time.Instant
 import java.time.ZoneId
@@ -110,8 +109,8 @@ class WidgetAreaViewModelTest {
             assertEquals("Tuesday, October 20", actualHeader.date?.text)
             assertEquals("2:05 PM", actualHeader.time?.spokenText)
             assertEquals("Tuesday, October 20, 2026", actualHeader.date?.spokenText)
-            assertEquals(CoreWidgetsR.string.open_alarms, actualHeader.time?.clickLabel)
-            assertEquals(CoreWidgetsR.string.open_calendar, actualHeader.date?.clickLabel)
+            assertEquals(CoreUiR.string.open_alarms, actualHeader.time?.clickLabel)
+            assertEquals(CoreUiR.string.open_calendar, actualHeader.date?.clickLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -201,7 +200,7 @@ class WidgetAreaViewModelTest {
         viewModel.widgetAreaState.test {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
             assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.time?.tapTarget)
-            assertEquals(CoreWidgetsR.string.open_launchable, actualHeader.time?.clickLabel)
+            assertEquals(CoreUiR.string.open_launchable, actualHeader.time?.clickLabel)
             assertEquals("Maps", actualHeader.time?.clickLabelArg)
             assertEquals(HeaderTapTarget.None, actualHeader.date?.tapTarget)
             assertNull(actualHeader.date?.clickLabel)
@@ -237,7 +236,7 @@ class WidgetAreaViewModelTest {
         viewModel.widgetAreaState.test {
             val actualDate: HeaderLineModel? = expectMostRecentItem().header().date
             assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualDate?.tapTarget)
-            assertEquals(CoreWidgetsR.string.open_launchable, actualDate?.clickLabel)
+            assertEquals(CoreUiR.string.open_launchable, actualDate?.clickLabel)
             assertEquals("Maps", actualDate?.clickLabelArg)
             cancelAndIgnoreRemainingEvents()
         }
@@ -572,7 +571,7 @@ class WidgetAreaViewModelTest {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
             assertEquals("84%", actualHeader.battery?.text)
             assertEquals(84, actualHeader.battery?.percent)
-            assertEquals(CoreWidgetsR.string.battery_content_description, actualHeader.battery?.contentDescriptionRes)
+            assertEquals(CoreUiR.string.battery_content_description, actualHeader.battery?.contentDescriptionRes)
             assertTrue(mockBatterySource.activeSubscribers > 0)
 
             mockBatterySource.emit(BatteryStatus(percent = 85, isCharging = false))
@@ -690,7 +689,7 @@ class WidgetAreaViewModelTest {
             val actualMenu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
             val actualBattery: WidgetMenuItem.Choice = actualMenu.items[2] as WidgetMenuItem.Choice
             assertEquals(WidgetMenuAction.Battery, actualBattery.id)
-            assertEquals(CoreWidgetsR.string.battery_never, actualBattery.valueLabel)
+            assertEquals(CoreUiR.string.battery_never, actualBattery.valueLabel)
             assertEquals(
                 listOf("NEVER", "ALWAYS", "CHARGING_OR_LOW"),
                 actualBattery.options.map { option -> option.key.value }

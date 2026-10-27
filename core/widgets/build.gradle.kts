@@ -10,7 +10,4 @@ android {
 dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
-    implementation(project(":core:util"))
-    implementation(libs.icons.fontawesome)
-    testImplementation(testFixtures(project(":core:data")))
 }

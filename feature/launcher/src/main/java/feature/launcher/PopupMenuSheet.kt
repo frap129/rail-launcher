@@ -27,13 +27,12 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
-import core.popups.IPopupEditor
-import core.popups.IPopupFolderActions
-import core.popups.R
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.ui.popups.IPopupEditor
+import core.ui.popups.IPopupFolderActions
 import core.util.openApplicationDetailsSettings
 import core.util.userForSerial
 import feature.launcher.widgets.WidgetMenuTitle
@@ -69,7 +68,7 @@ fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions
 
                         PopupMenuItem.DeleteFolder -> SheetMenuAction(
                             imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                            label = stringResource(R.string.delete_folder),
+                            label = stringResource(CoreUiR.string.delete_folder),
                             onClick = { folderActions.requestDeleteFolder(state.target) }
                         )
 
