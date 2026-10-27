@@ -20,14 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R
 
 private val emptyStatePadding = 16.dp
 private val addAppsButtonTopPadding = 8.dp
-val popupIconSize: Dp = 24.dp
 
 /** A Shortcut's one-line label: the long label, falling back to the short one when it overflows. */
 @Composable

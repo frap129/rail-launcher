@@ -19,6 +19,7 @@ import compose.icons.fontawesomeicons.solid.ArrowDown
 import compose.icons.fontawesomeicons.solid.ArrowUp
 import core.data.widgets.WidgetAreaSettings
 import core.ui.R
+import core.ui.util.formatDpLabel
 import kotlin.math.roundToInt
 
 /** The offset slider and step arrows shared by the Home panel and the Settings dialog. */
@@ -33,7 +34,7 @@ fun MoveWidgetAreaSlider(
     onMoveDown: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val valueLabel: String = stringResource(R.string.offset_dp, offsetDp)
+    val valueLabel: String = formatDpLabel(offsetDp)
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically

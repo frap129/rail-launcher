@@ -52,6 +52,7 @@ import core.ui.composables.DragHandle
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
+import core.ui.layout.compactIconSize
 import core.ui.util.performSegmentTickHaptic
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
@@ -306,7 +307,7 @@ private fun AddButton(labelResId: Int, onClick: () -> Unit) {
         Icon(
             imageVector = FontAwesomeIcons.Solid.Plus,
             contentDescription = null,
-            modifier = Modifier.size(popupIconSize)
+            modifier = Modifier.size(compactIconSize)
         )
         Spacer(Modifier.width(addAppsIconGap))
         Text(stringResource(labelResId))

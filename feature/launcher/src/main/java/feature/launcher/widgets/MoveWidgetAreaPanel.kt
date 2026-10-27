@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
+import core.ui.util.formatDpLabel
 import core.ui.util.performSegmentTickHaptic
 import core.ui.widgets.MoveWidgetAreaSlider
 import feature.launcher.R
@@ -39,7 +40,7 @@ fun MoveWidgetAreaPanel(
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    val valueLabel: String = stringResource(CoreUiR.string.offset_dp, state.draftOffsetDp)
+    val valueLabel: String = formatDpLabel(state.draftOffsetDp)
     var lastOffsetDp: Int by remember { mutableIntStateOf(state.draftOffsetDp) }
     LaunchedEffect(state.draftOffsetDp) {
         if (state.draftOffsetDp != lastOffsetDp) {

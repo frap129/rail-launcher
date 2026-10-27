@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import core.data.widgets.AppWidgetId
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.RailAppWidgetHostView
+import kotlin.math.abs
 
 /** One RailAppWidgetHostView per App Widget id, kept for the process lifetime. */
 class IAppWidgetViewCacheImpl(private val context: Context, private val host: AppWidgetHost) : IAppWidgetViewCache {
@@ -42,7 +43,7 @@ class IAppWidgetViewCacheImpl(private val context: Context, private val host: Ap
     override fun reportSizeIfChanged(id: AppWidgetId, widthDp: Int, heightDp: Int) {
         val view: RailAppWidgetHostView = views[id.value] ?: return
         val reported: ReportedSize? = reportedSizes[id.value]
-        if (reported != null && reported.heightDp == heightDp && kotlin.math.abs(reported.widthDp - widthDp) <= 1) {
+        if (reported != null && reported.heightDp == heightDp && abs(reported.widthDp - widthDp) <= 1) {
             return
         }
         val options: Bundle = Bundle().apply {

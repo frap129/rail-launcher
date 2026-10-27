@@ -30,6 +30,7 @@ import coil3.compose.AsyncImage
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
+import core.ui.layout.compactIconSize
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,7 +103,7 @@ private fun PickerGroupHeader(group: PickerGroup) {
         AsyncImage(
             model = group.appIcon,
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(compactIconSize)
         )
         Text(
             text = group.appLabel,

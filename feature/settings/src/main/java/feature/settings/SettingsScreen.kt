@@ -131,6 +131,7 @@ import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.SETTINGS_ROUTE
+import core.ui.util.formatDpLabel
 import core.ui.widgets.HeaderClockStyleChooser
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.MoveWidgetAreaSlider
@@ -458,7 +459,7 @@ private fun WidgetSettingsList(
         item {
             SettingsActionRow(
                 title = stringResource(R.string.top_offset),
-                value = stringResource(CoreUiR.string.offset_dp, uiState.topOffsetDp),
+                value = formatDpLabel(uiState.topOffsetDp),
                 onClick = { onDialogClick(WidgetSettingsDialog.TopOffset) }
             )
         }
@@ -1443,7 +1444,7 @@ private fun TopOffsetDialog(offsetDp: Int, homeHeightDp: Int?, onOffsetChange: (
         homeHeightDp?.let(WidgetAreaSettings::maxOffsetDp) ?: displayMaxOffsetDp(context = context)
     }
     val currentOffsetDp: Int = offsetDp.coerceIn(0, maxOffsetDp)
-    val valueLabel: String = stringResource(CoreUiR.string.offset_dp, currentOffsetDp)
+    val valueLabel: String = formatDpLabel(currentOffsetDp)
     val step: Int = WidgetAreaSettings.OFFSET_STEP_DP
     AlertDialog(
         onDismissRequest = onDismiss,
