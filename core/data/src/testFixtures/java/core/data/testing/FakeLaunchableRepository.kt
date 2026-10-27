@@ -4,7 +4,6 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
-import core.data.launchables.toAppListLaunchables
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +32,7 @@ class FakeLaunchableRepository(groups: List<LaunchableGroup>, isLoaded: Boolean 
     private fun createLaunchableState(groups: List<LaunchableGroup>, folders: List<Launchable>, isLoaded: Boolean): LaunchableState =
         LaunchableState(
             groups = groups,
-            launchables = groups.toAppListLaunchables() + folders,
+            launchables = groups.filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items } + folders,
             isLoaded = isLoaded
         )
 }

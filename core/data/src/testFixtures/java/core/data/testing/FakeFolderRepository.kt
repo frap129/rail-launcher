@@ -14,7 +14,6 @@ class FakeFolderRepository(initialFolders: List<Folder> = emptyList()) : IFolder
     private var nextFolderId: Long = (initialFolders.maxOfOrNull { folder -> folder.folderId } ?: 0L) + 1L
     val createRequests: MutableList<FolderCreateRequest> = mutableListOf()
     val deletedFolders: MutableList<Folder> = mutableListOf()
-    val showInAppListChanges: MutableList<Pair<Folder, Boolean>> = mutableListOf()
 
     override val folders: Flow<List<Folder>> = storedFolders
 
@@ -32,12 +31,5 @@ class FakeFolderRepository(initialFolders: List<Folder> = emptyList()) : IFolder
         deletedFolders += folder
         storedFolders.update { current -> current.filterNot { existing -> existing.key == folder.key } }
         return emptyList()
-    }
-
-    override suspend fun setShowInAppList(folder: Folder, show: Boolean) {
-        showInAppListChanges += folder to show
-        storedFolders.update { current ->
-            current.map { existing -> if (existing.key == folder.key) existing.copy(showInAppList = show) else existing }
-        }
     }
 }

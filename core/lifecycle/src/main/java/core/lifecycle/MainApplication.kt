@@ -43,6 +43,7 @@ import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.room.AppDatabase
+import core.data.room.MIGRATION_11_12
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -150,6 +151,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
+            .addMigrations(MIGRATION_11_12)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
@@ -196,7 +198,7 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }

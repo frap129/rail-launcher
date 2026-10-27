@@ -1087,26 +1087,6 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `reports a Folder hidden from the App List when it loses its favorite`() = runTest {
-        val fixture: FavoriteFolderFixture = createFavoriteFolderFixture(showInAppList = false)
-        fixture.viewModel.foldersOnlyInSettings.test {
-            fixture.viewModel.toggleFavorite(fixture.folder)
-            advanceUntilIdle()
-            assertEquals(fixture.folder, awaitItem())
-        }
-    }
-
-    @Test
-    fun `reports nothing when a Folder shown in the App List loses its favorite`() = runTest {
-        val fixture: FavoriteFolderFixture = createFavoriteFolderFixture(showInAppList = true)
-        fixture.viewModel.foldersOnlyInSettings.test {
-            fixture.viewModel.toggleFavorite(fixture.folder)
-            advanceUntilIdle()
-            expectNoEvents()
-        }
-    }
-
-    @Test
     fun `unstarring a Folder in Edit Favorites keeps the Folder`() = runTest {
         val folder: Folder = Folder(folderId = 42L)
         val launchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
@@ -1232,15 +1212,6 @@ class LauncherViewModelTest {
             relay = mockNotificationRelay
         )
 
-    private fun TestScope.createFavoriteFolderFixture(showInAppList: Boolean): FavoriteFolderFixture {
-        val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID, showInAppList = showInAppList)
-        val viewModel: LauncherViewModel = createViewModel(
-            mockLaunchableRepository = FakeLaunchableRepository(groups = inputGroups, folders = listOf(folder)),
-            mockFavoriteDao = FakeFavoriteDao(initialRecords = listOf(FavoriteRecord(key = folder.key, position = 0)))
-        )
-        return FavoriteFolderFixture(folder = folder, viewModel = viewModel)
-    }
-
     private suspend fun TestScope.createFolderSummaryFixture(members: List<App>): FolderSummaryFixture {
         val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
         val mockPopupRepository: FakePopupRepository = FakePopupRepository()
@@ -1279,7 +1250,5 @@ class LauncherViewModelTest {
         deeplink = "rail://$name"
     )
 }
-
-private data class FavoriteFolderFixture(val folder: Folder, val viewModel: LauncherViewModel)
 
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)

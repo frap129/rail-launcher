@@ -73,15 +73,11 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
-The launcher state showing every Launchable grouped alphabetically, followed by a Folders section holding the Folders the user chose to show there.
+The launcher state showing every Launchable grouped alphabetically. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder.
 _Avoid_: Drawer, all-apps, launcher list
 
-**Folders section**:
-The App List group after the letter groups holding the Folders whose Show in App List switch is on. Its Rail entry is "◇".
-_Avoid_: Pop-up folders, folder group
-
 **Rail**:
-The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its first entry is the Star, which stands for Home, and its Folders entry ("◇") jumps to the Folders section.
+The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its labels are the Star, which stands for Home, the letter groups and the Builtin group.
 _Avoid_: Scroll bar, alphabet, wave
 
 **Widget**:

@@ -70,7 +70,7 @@ class IPopupPickerImpl(
             PopupPickerState.Closed
         } else {
             PopupPickerState.Picking(
-                groups = pickerGroups(ownerKey = request.ownerKey, groups = launchableState.listedGroups),
+                groups = pickerGroups(ownerKey = request.ownerKey, groups = launchableState.pickerGroups),
                 selectedKeys = items.items.mapTo(mutableSetOf()) { item -> item.launchable.key }
             )
         }
@@ -104,7 +104,7 @@ class IPopupPickerImpl(
             } else {
                 shortcutSource.appsWithShortcuts().map { apps ->
                     ShortcutPickerState.Picking(
-                        groups = shortcutPickerGroups(groups = pickerRequest.launchableState.listedGroups, apps = apps, owner = request),
+                        groups = shortcutPickerGroups(groups = pickerRequest.launchableState.pickerGroups, apps = apps, owner = request),
                         selectedKeys = pickerRequest.items.items
                             .filterIsInstance<PopupItem.Shortcut>()
                             .mapTo(mutableSetOf()) { item -> item.launchable.key },

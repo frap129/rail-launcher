@@ -22,13 +22,6 @@ sealed interface LaunchableGroup {
         override fun withItems(items: List<Launchable>): LaunchableGroup.Listed = copy(items = items)
     }
 
-    /** Folders the user chose to show in the App List, shown as a real section. */
-    data class Folders(override val items: List<Launchable>) : Listed {
-        override val label: String = "◇"
-
-        override fun withItems(items: List<Launchable>): LaunchableGroup.Listed = copy(items = items)
-    }
-
     /** Rail's own Launchables, last on the Rail. */
     data class Builtin(override val items: List<Launchable>) : Listed {
         override val label: String = "⌂"
@@ -39,11 +32,10 @@ sealed interface LaunchableGroup {
 
 /**
  * A stable identity for the group in the App List. A name starting with a Rail
- * label (e.g. "⌂" or "◇") forms an Initial group that shares that label, so the
- * key includes the group kind; the Folders key is stable rather than glyph-based.
+ * label (e.g. "⌂") forms an Initial group that shares that label, so the key
+ * includes the group kind.
  */
 fun LaunchableGroup.Listed.appListKey(): String = when (this) {
     is LaunchableGroup.Builtin -> "builtin:$label"
     is LaunchableGroup.InitialGroup -> "initial:$label"
-    is LaunchableGroup.Folders -> "folders"
 }

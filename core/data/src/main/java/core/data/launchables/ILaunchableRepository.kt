@@ -7,7 +7,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /** The Rail groups, the App List groups, every Launchable, and whether the installed apps have loaded. */
-data class LaunchableState(val groups: List<LaunchableGroup>, val launchables: List<Launchable>, val isLoaded: Boolean) {
+data class LaunchableState(
+    val groups: List<LaunchableGroup>,
+    val launchables: List<Launchable>,
+    val isLoaded: Boolean,
+    val pickerGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+) {
     /** The groups shown in the App List, in Rail order. */
     val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
 }

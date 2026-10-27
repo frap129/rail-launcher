@@ -19,12 +19,4 @@ class AppListKeyTest {
         val actualKeys: List<String> = listOf(inputAlpha, inputBeta).map { group -> group.appListKey() }
         assertEquals(actualKeys.size, actualKeys.distinct().size)
     }
-
-    @Test
-    fun `keys the Folders group apart from an Initial group named with its Rail glyph`() {
-        val inputFolders: LaunchableGroup.Folders = LaunchableGroup.Folders(items = emptyList())
-        val inputInitial: LaunchableGroup.InitialGroup = LaunchableGroup.InitialGroup(label = inputFolders.label, items = emptyList())
-        val actualKeys: List<String> = listOf(inputInitial, inputFolders).map { group -> group.appListKey() }
-        assertEquals(listOf("initial:◇", "folders"), actualKeys)
-    }
 }

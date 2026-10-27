@@ -137,17 +137,6 @@ class IFolderRepositoryImplTest {
         assertEquals(listOf(AppWidgetId(55)), mockAppWidgetHost.deletedIds)
     }
 
-    @Test
-    fun `setShowInAppList stores the flag`() = runTest {
-        val inputFolder: Folder = Folder(folderId = 1L)
-        val mockFolderDao: FakeFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = inputFolder.folderId)))
-        val repository: IFolderRepository = createRepository(mockFolderDao = mockFolderDao)
-
-        repository.setShowInAppList(folder = inputFolder, show = true)
-
-        assertTrue(mockFolderDao.observeAll().firstValue().single().showInAppList)
-    }
-
     private fun createRepository(
         mockFolderDao: FakeFolderDao = FakeFolderDao(),
         mockCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao(),

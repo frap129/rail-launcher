@@ -14,9 +14,6 @@ interface FolderDao : TransactionalDao {
     @Insert
     suspend fun insert(record: FolderRecord): Long
 
-    @Query("UPDATE folders SET show_in_app_list = :showInAppList WHERE id = :id")
-    suspend fun setShowInAppList(id: Long, showInAppList: Boolean)
-
     @Query("DELETE FROM folders WHERE id = :id")
     suspend fun delete(id: Long)
 }

@@ -52,7 +52,7 @@ import core.data.widgets.WidgetRecord
         PopupSettingsRecord::class,
         FolderRecord::class
     ],
-    version = 11
+    version = 12
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

@@ -14,13 +14,16 @@ import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
+import core.data.popups.PopupItemRecord
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.room.dao.FolderDao
+import core.data.room.dao.PopupDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.FakeFavoriteDao
 import core.data.testing.FakeFolderDao
+import core.data.testing.FakePopupDao
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.TEST_SDK
 import core.data.testing.createFavoritesRepository
@@ -214,12 +217,14 @@ class ILaunchableRepositoryImplTest {
             inputIcon = Icon.ActivityIcon(inputComponentName)
         ),
         mockFolderDao: FolderDao = FakeFolderDao(),
+        mockPopupDao: PopupDao = FakePopupDao(),
         scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
         iconRepository = mockIconRepository,
         preferencesRepository = mockPreferencesRepository,
         folderDao = mockFolderDao,
+        popupDao = mockPopupDao,
         scope = scope
     )
 
@@ -232,7 +237,7 @@ class ILaunchableRepositoryImplTest {
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
 
     @Test
-    fun `Folders appear in launchables with resolved names and in no group`() = runTest {
+    fun `Folders appear in the group for their resolved names`() = runTest {
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = FakeAppRepository(inputApps = emptyList()),
             mockPreferencesRepository = FakePreferencesRepository(
@@ -243,64 +248,114 @@ class ILaunchableRepositoryImplTest {
 
         val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
         val actualFolder: Folder = actualState.launchables.filterIsInstance<Folder>().single()
+        val actualGroup: LaunchableGroup.InitialGroup = actualState.listedGroups
+            .filterIsInstance<LaunchableGroup.InitialGroup>()
+            .single { group -> group.label == "G" }
 
         assertEquals("Games", actualFolder.name)
-        assertEquals(listOf("★", "⌂"), actualState.groups.map { group -> group.label })
-        assertTrue(
-            actualState.groups.filterIsInstance<LaunchableGroup.Listed>().none { group ->
-                group.items.any { item -> item is Folder }
-            }
-        )
+        assertEquals(listOf("★", "G", "⌂"), actualState.groups.map { group -> group.label })
+        assertEquals(listOf(actualFolder), actualGroup.items)
     }
 
     @Test
-    fun `lists a Folder shown in the App List once in the Folders group before Builtin`() = runTest {
+    fun `groups Folders alongside Apps by their first character`() = runTest {
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = FakeAppRepository(inputApps = listOf(createApp())),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L, showInAppList = true)))
+            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
         )
 
         val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
         val actualFolder: Folder = actualState.launchables.filterIsInstance<Folder>().single()
+        val actualFolderGroup: LaunchableGroup.InitialGroup = actualState.listedGroups
+            .filterIsInstance<LaunchableGroup.InitialGroup>()
+            .single { group -> group.label == "F" }
 
-        assertEquals(listOf("★", "O", "◇", "⌂"), actualState.groups.map { group -> group.label })
-        assertEquals(listOf("O", "◇", "⌂"), actualState.listedGroups.map { group -> group.label })
-        assertEquals(listOf(actualFolder), actualState.listedGroups.filterIsInstance<LaunchableGroup.Folders>().single().items)
+        assertEquals(listOf("★", "F", "O", "⌂"), actualState.groups.map { group -> group.label })
+        assertEquals(listOf(actualFolder), actualFolderGroup.items)
     }
 
     @Test
-    fun `adds a Folder to the Folders group when its switch turns on`() = runTest {
-        val mockFolderDao: FakeFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+    fun `hides Folder members from the App List but keeps them launchable`() = runTest {
+        val inputApp: App = createApp()
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
+            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L))),
+            mockPopupDao = FakePopupDao(
+                initialItems = listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.key, position = 0))
+            )
+        )
+
+        val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+
+        assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
+        assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
+        assertTrue(actualState.pickerGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
+    }
+
+    @Test
+    fun `updates the App List when Folder membership changes`() = runTest {
+        val inputApp: App = createApp()
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val mockPopupDao: FakePopupDao = FakePopupDao()
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
+            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L))),
+            mockPopupDao = mockPopupDao
+        )
+        val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        assertTrue(actualBefore.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
+
+        mockPopupDao.appendItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
+        val actualHidden: LaunchableState = repository.launchableState.first { state ->
+            state.listedGroups.none { group -> group.items.any { item -> item.key == inputApp.key } }
+        }
+
+        assertTrue(actualHidden.launchables.any { launchable -> launchable.key == inputApp.key })
+
+        mockPopupDao.removeItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
+        val actualShown: LaunchableState = repository.launchableState.first { state ->
+            state.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } }
+        }
+
+        assertTrue(actualShown.launchables.any { launchable -> launchable.key == inputApp.key })
+    }
+
+    @Test
+    fun `adds and removes a Folder from the App List and Rail live`() = runTest {
+        val mockFolderDao: FakeFolderDao = FakeFolderDao()
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = FakeAppRepository(inputApps = emptyList()),
             mockFolderDao = mockFolderDao
         )
-        val actualBefore: List<String> = repository.launchableState.first { state -> state.isLoaded }
-            .groups
-            .map { group -> group.label }
+        val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
 
-        mockFolderDao.setShowInAppList(id = 1L, showInAppList = true)
-        val actualAfter: List<String> = repository.launchableState
-            .first { state -> state.groups.any { group -> group is LaunchableGroup.Folders } }
-            .groups
-            .map { group -> group.label }
+        val folderId: Long = mockFolderDao.insert(record = FolderRecord())
+        val actualAdded: LaunchableState = repository.launchableState.first { state ->
+            state.listedGroups.any { group -> group.items.any { item -> item is Folder && item.folderId == folderId } }
+        }
 
-        assertEquals(listOf("★", "⌂"), actualBefore)
-        assertEquals(listOf("★", "◇", "⌂"), actualAfter)
+        mockFolderDao.delete(id = folderId)
+        val actualRemoved: LaunchableState = repository.launchableState.first { state ->
+            state.listedGroups.none { group -> group.items.any { item -> item is Folder } }
+        }
+
+        assertEquals(listOf("★", "⌂"), actualBefore.groups.map { group -> group.label })
+        assertEquals(listOf("★", "F", "⌂"), actualAdded.groups.map { group -> group.label })
+        assertEquals(listOf("★", "⌂"), actualRemoved.groups.map { group -> group.label })
     }
 
     @Test
-    fun `groups an app named with the Folders label apart from the Folders group`() = runTest {
+    fun `groups an app named with the Builtin label apart from Builtin`() = runTest {
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(createApp(name = "◇ Game"))),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L, showInAppList = true)))
+            mockAppRepository = FakeAppRepository(inputApps = listOf(createApp(name = "⌂ Game")))
         )
 
         val actualGroups: List<LaunchableGroup.Listed> = repository.launchableState.first { state -> state.isLoaded }.listedGroups
         val actualKeys: List<String> = actualGroups.map { group -> group.appListKey() }
 
-        assertEquals(listOf("◇", "◇", "⌂"), actualGroups.map { group -> group.label })
-        assertEquals(listOf("initial:◇", "folders", "builtin:⌂"), actualKeys)
+        assertEquals(listOf("⌂", "⌂"), actualGroups.map { group -> group.label })
+        assertEquals(listOf("initial:⌂", "builtin:⌂"), actualKeys)
     }
 
     @Test

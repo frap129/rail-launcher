@@ -111,7 +111,6 @@ fun SettingsPopupsScreen() {
                 popupEditor.startEdit(selectedFolder.folder)
             },
             onOnHomeChange = viewModel::setOnHome,
-            onInAppListChange = { inAppList -> popupFolderActions.setShowInAppList(selectedFolder.folder, inAppList) },
             onDeleteClick = { popupFolderActions.requestDeleteFolder(selectedFolder.folder) }
         )
     }
@@ -215,10 +214,8 @@ private fun FolderSettingsRow(row: PopupSettingsFolder, onClick: () -> Unit) {
 
 @Composable
 private fun folderLocationSummary(location: FolderLocation): String = when (location) {
-    FolderLocation.Home -> stringResource(R.string.on_home)
     FolderLocation.AppList -> stringResource(R.string.in_app_list)
     FolderLocation.HomeAndAppList -> stringResource(R.string.folder_location_home_and_app_list)
-    FolderLocation.NotShown -> stringResource(R.string.folder_location_not_shown)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,7 +226,6 @@ private fun FolderActionsSheet(
     onRenameClick: () -> Unit,
     onEditContents: () -> Unit,
     onOnHomeChange: (Boolean) -> Unit,
-    onInAppListChange: (Boolean) -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -243,11 +239,6 @@ private fun FolderActionsSheet(
             SettingsActionRow(title = stringResource(R.string.name), value = row.folder.name, onClick = onRenameClick)
             SettingsActionRow(title = stringResource(R.string.edit_contents), value = "", onClick = onEditContents)
             SettingsSwitchRow(title = stringResource(R.string.on_home), checked = row.isOnHome, onCheckedChange = onOnHomeChange)
-            SettingsSwitchRow(
-                title = stringResource(R.string.in_app_list),
-                checked = row.folder.showInAppList,
-                onCheckedChange = onInAppListChange
-            )
             SettingsDestructiveRow(title = stringResource(PopupsR.string.delete_folder), onClick = onDeleteClick)
         }
     }
