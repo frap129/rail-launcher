@@ -5,6 +5,8 @@ import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepository
+import core.data.popups.findLaunchable
+import core.data.popups.ownerScoped
 import core.data.prefs.IPreferencesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState

@@ -1,6 +1,5 @@
-package core.popups
+package core.data.popups
 
-import core.data.popups.IPopupRepository
 import core.util.launchLogged
 import kotlinx.coroutines.CoroutineScope
 

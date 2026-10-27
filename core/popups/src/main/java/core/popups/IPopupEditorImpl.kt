@@ -4,8 +4,17 @@ import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
+import core.data.popups.HiddenShortcutIds
 import core.data.popups.IPopupRepository
+import core.data.popups.OwnerItems
 import core.data.popups.PopupItem
+import core.data.popups.ShortcutTarget
+import core.data.popups.addedItems
+import core.data.popups.collectShortcuts
+import core.data.popups.findLaunchable
+import core.data.popups.hiddenShortcutIds
+import core.data.popups.removeAddedItem
+import core.data.popups.targetFor
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult

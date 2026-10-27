@@ -13,6 +13,7 @@ import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationHandle
 import core.data.notifications.NotificationRecord
 import core.data.notifications.NotificationSnapshot
+import core.data.popups.PopupEmptyReason
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
@@ -43,7 +44,6 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.popups.PopupAnchor
 import core.popups.PopupEditState
-import core.popups.PopupEmptyReason
 import core.popups.PopupUiState
 import core.popups.PopupWidgetState
 import core.ui.R as CoreUiR

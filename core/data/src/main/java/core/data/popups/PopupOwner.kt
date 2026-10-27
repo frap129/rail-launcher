@@ -1,11 +1,9 @@
-package core.popups
+package core.data.popups
 
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.data.popups.IPopupRepository
-import core.data.popups.PopupItem
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutsResult
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS

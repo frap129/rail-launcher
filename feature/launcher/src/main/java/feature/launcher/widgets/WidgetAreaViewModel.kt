@@ -44,6 +44,8 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.canGrowStack
 import core.data.widgets.canResizeStack
+import core.data.widgets.hasHeader
+import core.data.widgets.headerPlace
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
 import core.data.widgets.placeOf
@@ -73,8 +75,6 @@ import core.widgets.WidgetPageSettler
 import core.widgets.WidgetSizeReport
 import core.widgets.appWidgetMenuCapabilities
 import core.widgets.finishResizeAndReport
-import core.widgets.hasHeader
-import core.widgets.headerPlace
 import core.widgets.labelResource
 import core.widgets.removeWidgetAndReport
 import core.widgets.startWidgetWiring

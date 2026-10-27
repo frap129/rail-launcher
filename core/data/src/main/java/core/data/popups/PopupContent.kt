@@ -1,4 +1,4 @@
-package core.popups
+package core.data.popups
 
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
@@ -6,7 +6,6 @@ import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.notifications.NotificationSnapshot
-import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 

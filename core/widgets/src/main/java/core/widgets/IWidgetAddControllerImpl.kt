@@ -14,6 +14,7 @@ import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.canGrowStack
+import core.data.widgets.headerPlace
 import core.data.widgets.placeOf
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode

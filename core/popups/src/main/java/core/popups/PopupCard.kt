@@ -72,6 +72,9 @@ import compose.icons.fontawesomeicons.solid.ChevronDown
 import core.data.icons.model.Icon
 import core.data.notifications.NotificationAction
 import core.data.notifications.NotificationSnapshot
+import core.data.popups.PopupContent
+import core.data.popups.PopupEmptyReason
+import core.data.popups.PopupHeader
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
