@@ -19,6 +19,17 @@ private val javaVersion = JavaVersion.VERSION_17
 private const val JVM_TOOLCHAIN_VERSION = 21
 private const val COMPILE_SDK = 37
 private const val MIN_SDK = 32
+private const val UNIT_TEST_IMPLEMENTATION = "testImplementation"
+private const val TEST_FIXTURES_IMPLEMENTATION = "testFixturesImplementation"
+private const val MOCKK_ALIAS = "test.mockk"
+
+private val unitTestLibraryAliases = listOf(
+    "test.junit",
+    "test.kotlinx.coroutines.test",
+    MOCKK_ALIAS,
+    "test.robolectric",
+    "test.turbine",
+)
 
 internal fun configureAndroid(target: Project, commonExtension: CommonExtension) {
     commonExtension.apply {
@@ -88,15 +99,26 @@ internal fun Project.configureAndroidBase() {
         implementation(libs, "koin.android")
         implementation(libs, "util.timber")
 
-        testImplementation(libs, "test.junit")
-        testImplementation(libs, "test.kotlinx.coroutines.test")
-        testImplementation(libs, "test.turbine")
         add("baselineProfile", project(":core:baselineprofile"))
     }
+
+    configureUnitTestDependencies()
 
     extensions.configure<BaselineProfileConsumerExtension> {
         mergeIntoMain = true
         dexLayoutOptimization = true
         saveInSrc = true
+    }
+}
+
+internal fun Project.configureUnitTestDependencies() {
+    val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+    if (configurations.findByName(UNIT_TEST_IMPLEMENTATION) != null) {
+        dependencies {
+            unitTestLibraryAliases.forEach { testImplementation(libs, it) }
+        }
+    }
+    if (configurations.findByName(TEST_FIXTURES_IMPLEMENTATION) != null) {
+        dependencies.add(TEST_FIXTURES_IMPLEMENTATION, libs.findLibrary(MOCKK_ALIAS).get())
     }
 }

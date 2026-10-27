@@ -17,8 +17,8 @@
 import com.android.build.api.dsl.TestExtension
 import dev.maples.build.androidTestImplementation
 import dev.maples.build.configureAndroid
+import dev.maples.build.configureUnitTestDependencies
 import dev.maples.build.debugImplementation
-import dev.maples.build.testImplementation
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalogsExtension
@@ -33,10 +33,10 @@ class AndroidTestConventionPlugin : Plugin<Project> {
             }
 
             configureAndroid(target, extensions.getByType<TestExtension>())
+            configureUnitTestDependencies()
 
             val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
             dependencies {
-                testImplementation(libs, "test.junit")
                 androidTestImplementation(libs, "test.androidx.ext.junit")
                 androidTestImplementation(libs, "test.espresso.core")
                 debugImplementation(libs, "compose.ui.tooling")
