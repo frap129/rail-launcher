@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -175,16 +174,6 @@ class LauncherViewModel(
 
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
-
-    private val newFolderDialogVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
-
-    /** Whether the New Folder name dialog is showing. */
-    val isNewFolderDialogOpen: StateFlow<Boolean> = newFolderDialogVisible.asStateFlow()
-
-    private val folderEditRequests: EventChannel<Folder> = EventChannel()
-
-    /** Folders created from Edit Favorites that the launcher should open for editing. */
-    val folderEdits: Flow<Folder> = folderEditRequests.flow
 
     private val foldersOnlyInSettingsRequests: EventChannel<Folder> = EventChannel()
 
@@ -438,32 +427,6 @@ class LauncherViewModel(
         }
         editedFavoriteKeys.value = favorites.value.map { it.key }
         closeItemMenu()
-    }
-
-    fun openNewFolderDialog() {
-        if (homeEditState.mode.value != HomeEditMode.Favorites) {
-            return
-        }
-        newFolderDialogVisible.value = true
-    }
-
-    fun closeNewFolderDialog() {
-        newFolderDialogVisible.value = false
-    }
-
-    /** Creates a Folder in Favorites and asks the launcher to open its editor. */
-    fun createFolder(name: String) {
-        if (homeEditState.mode.value != HomeEditMode.Favorites) {
-            return
-        }
-        closeNewFolderDialog()
-        viewModelScope.launchLogged(message = "Failed to create Folder") {
-            val folder: Folder = folderRepo.create(name)
-            favoritesMutex.withLock {
-                editedFavoriteKeys.update { keys -> keys?.plus(folder.key) }
-            }
-            folderEditRequests.send(folder)
-        }
     }
 
     fun moveFavorite(fromIndex: Int, toIndex: Int) {
