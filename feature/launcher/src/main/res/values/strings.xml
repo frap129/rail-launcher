@@ -54,4 +54,25 @@
     <string name="open_popup">Open Pop-up</string>
     <string name="couldnt_open_shortcut">Couldn\'t open shortcut</string>
     <string name="folder_summary_description">%1$s, %2$s</string>
+    <string name="popup_empty_hint">Long-press this Pop-up and tap Edit Pop-up to add apps, shortcuts or a widget</string>
+    <string name="close_popup">Close Pop-up</string>
+    <string name="popup_announcement">%1$s Pop-up</string>
+    <string name="folder_empty">This Folder is empty</string>
+    <string name="notification_app_and_age">%1$s • %2$s</string>
+    <string name="notification_age_now">now</string>
+    <string name="notification_age_minutes">%1$dm</string>
+    <string name="notification_age_hours">%1$dh</string>
+    <string name="notification_age_days">%1$dd</string>
+    <string name="notification_age_weeks">%1$dw</string>
+    <string name="notification_expand">Expand</string>
+    <string name="notification_collapse">Collapse</string>
+    <string name="notification_dismiss">Dismiss</string>
+    <string name="notification_open">Open notification</string>
+    <string name="notification_announcement">Notification from %1$s, %2$s</string>
+    <string name="notification_more_actions">…</string>
+    <string name="notification_reply_hint">Reply</string>
+    <string name="notification_send">Send</string>
+    <string name="notification_sent">Sent</string>
+    <string name="add_to_folder_title">Add %1$s to Folder</string>
+    <string name="no_folders">You don\'t have any Folders</string>
 </resources>

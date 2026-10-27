@@ -50,8 +50,6 @@ import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.popups.PopupAnchor
-import core.popups.popupSwipe
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
 import core.ui.layout.minTouchTargetSize

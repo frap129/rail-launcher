@@ -4,7 +4,6 @@ import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.WidgetProvider
-import core.popups.PopupWidgetPage
 
 /** One action in a Pop-up menu or an added item's menu. */
 internal sealed interface PopupMenuItem {

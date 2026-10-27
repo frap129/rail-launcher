@@ -29,7 +29,6 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.popups.IPopupEditor
 import core.popups.IPopupFolderActions
-import core.popups.PopupWidgetPage
 import core.popups.R
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
@@ -37,7 +36,7 @@ import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
 import core.util.openApplicationDetailsSettings
 import core.util.userForSerial
-import core.widgets.WidgetMenuTitle
+import feature.launcher.widgets.WidgetMenuTitle
 
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="popup_empty_hint">Long-press this Pop-up and tap Edit Pop-up to add apps, shortcuts or a widget</string>
     <string name="no_own_shortcuts">This app has no shortcuts</string>
     <string name="shortcuts">Shortcuts</string>
     <string name="items">Items</string>
@@ -17,33 +16,13 @@
     <string name="set_rail_as_home_to_add_shortcuts">Set Rail as your home app to add shortcuts</string>
     <string name="work_apps_paused">Work apps are paused</string>
     <string name="turn_on">Turn on</string>
-    <string name="close_popup">Close Pop-up</string>
-    <string name="popup_announcement">%1$s Pop-up</string>
-    <string name="folder_empty">This Folder is empty</string>
-    <string name="notification_app_and_age">%1$s • %2$s</string>
-    <string name="notification_age_now">now</string>
-    <string name="notification_age_minutes">%1$dm</string>
-    <string name="notification_age_hours">%1$dh</string>
-    <string name="notification_age_days">%1$dd</string>
-    <string name="notification_age_weeks">%1$dw</string>
-    <string name="notification_expand">Expand</string>
-    <string name="notification_collapse">Collapse</string>
-    <string name="notification_dismiss">Dismiss</string>
-    <string name="notification_open">Open notification</string>
-    <string name="notification_announcement">Notification from %1$s, %2$s</string>
-    <string name="notification_more_actions">…</string>
-    <string name="notification_reply_hint">Reply</string>
-    <string name="notification_send">Send</string>
-    <string name="notification_sent">Sent</string>
     <string name="edit_folder">Edit Folder</string>
     <string name="delete_folder">Delete Folder</string>
     <string name="edit_folder_title">Edit %1$s</string>
     <string name="delete_folder_title">Delete %1$s?</string>
     <string name="delete_folder_body">The apps in it stay installed.</string>
     <string name="add_to_folder">Add to Folder</string>
-    <string name="add_to_folder_title">Add %1$s to Folder</string>
     <string name="added_to_folder">Added to %1$s</string>
-    <string name="no_folders">You don\'t have any Folders</string>
     <string name="new_folder">New Folder</string>
     <string name="rename_folder_title">Rename Folder</string>
     <string name="create">Create</string>

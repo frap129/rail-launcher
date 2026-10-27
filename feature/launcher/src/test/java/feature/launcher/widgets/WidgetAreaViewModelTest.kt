@@ -60,9 +60,6 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
-import core.widgets.AddWidgetFlowState
-import core.widgets.AddWidgetOrigin
-import core.widgets.AddWidgetPlacement
 import core.widgets.AppWidgetModel
 import core.widgets.BatteryModel
 import core.widgets.HeaderFormatter
@@ -70,16 +67,7 @@ import core.widgets.HeaderLineModel
 import core.widgets.HeaderModel
 import core.widgets.HeaderTapTarget
 import core.widgets.IHeaderTapTargetResolverImpl
-import core.widgets.IWidgetResizeController
 import core.widgets.R as CoreWidgetsR
-import core.widgets.ResizeFinish
-import core.widgets.ResizeState
-import core.widgets.UndoAction
-import core.widgets.WidgetEvent
-import core.widgets.WidgetSizeReport
-import core.widgets.testing.appWidgetProviderInfo
-import core.widgets.testing.createAddController
-import core.widgets.testing.settingsAddOrigin
 import feature.launcher.R
 import java.time.Instant
 import java.time.ZoneId

@@ -38,9 +38,9 @@ import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
-import core.widgets.RESIZE_DIMMED_ALPHA
 import feature.launcher.widgets.CappedWidgetArea
 import feature.launcher.widgets.EditMergeState
+import feature.launcher.widgets.RESIZE_DIMMED_ALPHA
 import feature.launcher.widgets.WIDGET_AREA_OFFSET_KEY
 import feature.launcher.widgets.WidgetAreaLayout
 import feature.launcher.widgets.WidgetAreaResizeAutoScroll

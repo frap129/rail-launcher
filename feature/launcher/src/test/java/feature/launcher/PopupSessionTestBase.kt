@@ -27,11 +27,10 @@ import core.popups.IPopupFolderActions
 import core.popups.IPopupPicker
 import core.popups.IPopupSession
 import core.popups.IPopupSessionImpl
-import core.popups.PopupAnchor
 import core.popups.PopupTestBase
 import core.ui.layout.HomeEditState
-import core.widgets.IWidgetResizeControllerImpl
-import core.widgets.testing.createAddController
+import feature.launcher.widgets.IWidgetResizeControllerImpl
+import feature.launcher.widgets.createAddController
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
