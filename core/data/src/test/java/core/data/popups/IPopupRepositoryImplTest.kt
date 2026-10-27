@@ -40,14 +40,14 @@ import org.robolectric.annotation.Config
 
 private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
+private val inputOwner: RailLaunchable = createRailLaunchable(name = "Owner")
+private val inputOtherOwner: RailLaunchable = createRailLaunchable(name = "Other")
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 @OptIn(ExperimentalCoroutinesApi::class)
 class IPopupRepositoryImplTest {
     private val profile: UserHandle = UserHandle.getUserHandleForUid(TEST_USER_ID)
-    private val inputOwner: RailLaunchable = createRailLaunchable(name = "Owner")
-    private val inputOtherOwner: RailLaunchable = createRailLaunchable(name = "Other")
 
     @Test
     fun `hides and shows a shortcut`() = runTest {
@@ -833,9 +833,7 @@ private fun createShortcut(id: String, isEnabled: Boolean = true): ShortcutLaunc
 
 private fun TestScope.createRepository(
     mockPopupDao: FakePopupDao,
-    mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
-        groups = listOf(LaunchableGroup.InitialGroup(label = "O", items = emptyList()))
-    ),
+    mockLaunchableRepository: FakeLaunchableRepository = loadedRepository(inputOwner, inputOtherOwner),
     mockShortcutSource: FakeShortcutSource = FakeShortcutSource(),
     mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(),
     mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
