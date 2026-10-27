@@ -34,16 +34,8 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.launchables.model.Launchable
-import core.popups.PopupAnchor
-import core.popups.PopupCard
-import core.popups.PopupFrame
-import core.popups.PopupInsets
-import core.popups.PopupNotificationActions
-import core.popups.PopupPlacement
-import core.popups.PopupUiState
-import core.popups.popupWidgetHorizontalPadding
 import core.ui.util.consumeTouches
-import core.widgets.ResizeState
+import feature.launcher.widgets.ResizeState
 import kotlin.math.roundToInt
 
 private const val ENTER_DURATION_MILLIS: Int = 200

@@ -28,7 +28,6 @@ android {
 dependencies {
     implementation(libs.compose.activity)
     implementation(project(":core:ui"))
-    implementation(project(":core:widgets"))
     implementation(project(":core:lifecycle"))
     implementation(project(":feature:launcher"))
     implementation(project(":feature:settings"))

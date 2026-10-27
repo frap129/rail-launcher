@@ -27,7 +27,7 @@ private val checkboxRowVerticalPadding: Dp = 10.dp
 
 /** A tappable Launchable row with a trailing checkbox. */
 @Composable
-internal fun CheckboxLaunchableRow(launchable: Launchable, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit, minHeight: Dp = 0.dp) {
+fun CheckboxLaunchableRow(launchable: Launchable, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit, minHeight: Dp = 0.dp) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

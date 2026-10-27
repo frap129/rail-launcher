@@ -17,6 +17,5 @@ dependencies {
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:popups")))
-    testImplementation(testFixtures(project(":core:widgets")))
     testImplementation(libs.test.robolectric)
 }

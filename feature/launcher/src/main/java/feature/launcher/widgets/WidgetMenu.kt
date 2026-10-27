@@ -44,7 +44,6 @@ import core.ui.composables.sheetRowIconPadding
 import core.ui.composables.sheetRowIconSize
 import core.ui.composables.sheetRowVerticalPadding
 import core.widgets.HeaderClockStyleChooser
-import core.widgets.WidgetMenuTitle
 import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */

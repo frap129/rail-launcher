@@ -42,15 +42,12 @@ import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
-import core.popups.PopupAnchor
 import core.popups.PopupEditState
-import core.popups.PopupUiState
-import core.popups.PopupWidgetState
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
-import core.widgets.AddWidgetFlowState
-import core.widgets.WidgetEvent
-import core.widgets.testing.appWidgetProviderInfo
+import feature.launcher.widgets.AddWidgetFlowState
+import feature.launcher.widgets.WidgetEvent
+import feature.launcher.widgets.appWidgetProviderInfo
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect

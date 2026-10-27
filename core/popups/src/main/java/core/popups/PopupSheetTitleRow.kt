@@ -15,11 +15,11 @@ private val titleHorizontalPadding = 20.dp
 private val titleVerticalPadding = 10.dp
 
 /** A trailing text action for [PopupSheetTitleRow]. */
-internal data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
+data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
 
 /** The title row with an optional trailing text action, shared by the Pop-up editor and pickers. */
 @Composable
-internal fun PopupSheetTitleRow(title: String, action: PopupSheetTitleAction? = null) {
+fun PopupSheetTitleRow(title: String, action: PopupSheetTitleAction? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
