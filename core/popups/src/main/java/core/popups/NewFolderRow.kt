@@ -18,7 +18,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import core.ui.composables.OutlinedText
 
-private val newFolderIconSize: Dp = 64.dp
+private val newFolderRowHeight: Dp = 64.dp
 
 /** The "New Folder" row shared by the Favorites editor and the Add to Folder sheet. */
 @Composable
@@ -27,16 +27,17 @@ fun NewFolderRow(label: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = newFolderIconSize)
+            .heightIn(min = newFolderRowHeight)
             .clickable(onClick = onClick)
     ) {
         Box(
-            modifier = Modifier.size(newFolderIconSize),
+            modifier = Modifier.size(newFolderRowHeight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = FontAwesomeIcons.Solid.Plus,
                 contentDescription = null,
+                modifier = Modifier.size(popupIconSize),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
