@@ -4,17 +4,28 @@ import android.app.Application
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
+import android.os.Bundle
 import android.os.UserHandle
 import android.os.UserManager
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.TEST_SDK_36
 import core.data.testing.WORK_USER_ID
+import core.data.testing.createIntentSender
 import core.data.testing.createUserHandle
+import io.mockk.CapturingSlot
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -57,6 +68,40 @@ class IProfileSourceImplTest {
     }
 
     @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `reads the Private Space entrypoint flag again when the user config changes`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(privateUser)
+        every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), any()) } just Runs
+        val mockUserInfo: LauncherUserInfo = launcherUserInfo(user = privateUser, userType = UserManager.USER_TYPE_PROFILE_PRIVATE)
+        every { mockUserInfo.userConfig } returns entrypointConfig(hidden = false)
+        every { mockLauncherApps.getLauncherUserInfo(any()) } returns mockUserInfo
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertFalse(source.profiles.value.single().isEntrypointHidden)
+
+        every { mockUserInfo.userConfig } returns entrypointConfig(hidden = true)
+        callbackSlot.captured.onUserConfigChanged(mockUserInfo)
+
+        assertTrue(source.profiles.value.single().isEntrypointHidden)
+        assertNotNull(source.privateSpaceSettingsIntent())
+    }
+
+    @Test
+    fun `offers no Private Space settings below Android 16`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns emptyList<UserHandle>()
+        every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertNull(source.privateSpaceSettingsIntent())
+    }
+
+    @Test
     fun `maps the quiet request outcomes`() = runTest {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns listOf(workUser)
@@ -82,6 +127,10 @@ class IProfileSourceImplTest {
         val mockUserInfo: LauncherUserInfo = mockk(relaxed = true)
         every { mockUserInfo.userType } returns userType
         return mockUserInfo
+    }
+
+    private fun entrypointConfig(hidden: Boolean): Bundle = Bundle().apply {
+        putBoolean(LauncherUserInfo.PRIVATE_SPACE_ENTRYPOINT_HIDDEN, hidden)
     }
 
     private fun userTypeFor(user: UserHandle): String = when (user) {

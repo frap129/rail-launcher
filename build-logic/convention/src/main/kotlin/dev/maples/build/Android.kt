@@ -23,6 +23,9 @@ private const val UNIT_TEST_IMPLEMENTATION = "testImplementation"
 private const val TEST_FIXTURES_IMPLEMENTATION = "testFixturesImplementation"
 private const val MOCKK_ALIAS = "test.mockk"
 
+// Robolectric's documented Java 17+ flag; API 36's ApplicationSharedMemory reads jdk.internal.access.
+private const val ROBOLECTRIC_JVM_ARG = "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED"
+
 private val sharedTestLibraryAliases = listOf(
     "test.junit",
     "test.kotlinx.coroutines.test",
@@ -52,6 +55,10 @@ internal fun configureAndroid(target: Project, commonExtension: CommonExtension)
         }
 
         buildFeatures.buildConfig = true
+
+        testOptions.unitTests.all { test ->
+            test.jvmArgs(ROBOLECTRIC_JVM_ARG)
+        }
 
         target.extensions.configure<KotlinAndroidProjectExtension> {
             jvmToolchain(JVM_TOOLCHAIN_VERSION)

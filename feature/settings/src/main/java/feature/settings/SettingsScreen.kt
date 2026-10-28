@@ -254,9 +254,12 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
         ) {
             when (screen) {
                 SettingsScreen.Main -> SettingsMainScreen(
+                    hidePrivateSpaceWhenLocked = uiState.hidePrivateSpaceWhenLocked,
+                    isPrivateSpaceAvailable = uiState.isPrivateSpaceAvailable,
                     toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
                     toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
-                    toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) }
+                    toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
+                    onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
@@ -277,7 +280,14 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 }
 
 @Composable
-fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit, toPopups: () -> Unit) {
+fun SettingsMainScreen(
+    hidePrivateSpaceWhenLocked: Boolean,
+    isPrivateSpaceAvailable: Boolean,
+    toAppearance: () -> Unit,
+    toWidgets: () -> Unit,
+    toPopups: () -> Unit,
+    onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit
+) {
     LazyColumn {
         item {
             SettingsNavigationRow(
@@ -302,6 +312,16 @@ fun SettingsMainScreen(toAppearance: () -> Unit, toWidgets: () -> Unit, toPopups
                 icon = FontAwesomeIcons.Solid.Folder,
                 onClick = toPopups
             )
+        }
+        if (isPrivateSpaceAvailable) {
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.hide_private_space_when_locked),
+                    checked = hidePrivateSpaceWhenLocked,
+                    supportingText = stringResource(R.string.hide_private_space_when_locked_summary),
+                    onCheckedChange = onHidePrivateSpaceWhenLockedChange
+                )
+            }
         }
     }
 }

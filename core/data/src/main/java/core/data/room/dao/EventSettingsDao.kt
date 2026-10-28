@@ -10,20 +10,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 @Dao
-abstract class EventSettingsDao {
+abstract class EventSettingsDao : ISingleRowDao<EventSettings> {
     @Query("SELECT * FROM event_settings WHERE id = 0")
     abstract fun observeRow(): Flow<EventSettings?>
 
     fun observe(): Flow<EventSettings> = observeRow().map { settings -> (settings ?: EventSettings()).withValidMaxEvents() }
 
     @Query("SELECT * FROM event_settings WHERE id = 0")
-    abstract suspend fun getRow(): EventSettings?
+    abstract override suspend fun getRow(): EventSettings?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    abstract suspend fun upsert(settings: EventSettings)
+    abstract override suspend fun upsert(row: EventSettings)
 
     @Transaction
     open suspend fun update(transform: (EventSettings) -> EventSettings) {
-        upsert(transform(getRow() ?: EventSettings()).withValidMaxEvents())
+        updateRow(defaultRow = EventSettings(), transform = { settings -> transform(settings).withValidMaxEvents() })
     }
 }

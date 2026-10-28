@@ -90,6 +90,8 @@
     <string name="no_apps_found">No apps found</string>
     <string name="popups_and_folders">Pop-ups and Folders</string>
     <string name="popups_and_folders_summary">Manage your Folders</string>
+    <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
+    <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
     <string name="notifications">Notifications</string>
     <string name="show_notifications_in_popups">Show notifications in Pop-ups</string>
     <string name="folders">Folders</string>

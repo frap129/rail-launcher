@@ -13,9 +13,15 @@ private const val USER_ID_OFFSET: Int = 100_000
 fun createUserHandle(userId: Int): UserHandle = UserHandle.getUserHandleForUid(userId * USER_ID_OFFSET)
 
 /** A [ProfileInfo] for [userId], using the user id as its serial number. */
-fun createProfileInfo(userId: Int, kind: ProfileKind = ProfileKind.Personal, isQuiet: Boolean = false): ProfileInfo = ProfileInfo(
+fun createProfileInfo(
+    userId: Int,
+    kind: ProfileKind = ProfileKind.Personal,
+    isQuiet: Boolean = false,
+    isEntrypointHidden: Boolean = false
+): ProfileInfo = ProfileInfo(
     user = createUserHandle(userId = userId),
     serial = userId.toLong(),
     kind = kind,
-    isQuiet = isQuiet
+    isQuiet = isQuiet,
+    isEntrypointHidden = isEntrypointHidden
 )

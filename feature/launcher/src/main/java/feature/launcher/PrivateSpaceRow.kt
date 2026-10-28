@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.Lock
 import compose.icons.fontawesomeicons.solid.LockOpen
 import core.ui.composables.OutlinedText
@@ -29,15 +30,21 @@ import core.ui.composables.launchableIconSize
 
 /** The actions the Private Space container row offers. */
 @Immutable
-data class PrivateSpaceActions(val onUnlock: () -> Unit, val onLock: () -> Unit)
+data class PrivateSpaceActions(
+    val onUnlock: () -> Unit,
+    val onLock: () -> Unit,
+    /** Opens the system Private Space settings, or null when the system offers none. */
+    val onSettings: (() -> Unit)? = null
+)
 
-/** The Private Space container row: a lock indicator, its name and, while unlocked, a Lock action. */
+/** The Private Space container row: a lock indicator, its name and, while unlocked, its actions. */
 @Composable
 internal fun PrivateSpaceRow(isLocked: Boolean, actions: PrivateSpaceActions, modifier: Modifier = Modifier) {
     val label: String = stringResource(R.string.private_space)
     val state: String = stringResource(if (isLocked) R.string.private_space_locked else R.string.private_space_unlocked)
     val unlockLabel: String = stringResource(R.string.unlock_private_space)
     val lockLabel: String = stringResource(R.string.lock_private_space)
+    val settingsLabel: String = stringResource(R.string.private_space_settings)
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -63,6 +70,14 @@ internal fun PrivateSpaceRow(isLocked: Boolean, actions: PrivateSpaceActions, mo
             }
         }
         if (!isLocked) {
+            actions.onSettings?.let { onSettings ->
+                IconButton(onClick = onSettings) {
+                    Icon(
+                        imageVector = FontAwesomeIcons.Solid.Cog,
+                        contentDescription = settingsLabel
+                    )
+                }
+            }
             IconButton(onClick = actions.onLock) {
                 Icon(
                     imageVector = FontAwesomeIcons.Solid.Lock,

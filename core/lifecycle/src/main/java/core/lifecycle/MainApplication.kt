@@ -46,6 +46,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
 import core.data.room.MIGRATION_11_12
+import core.data.room.MIGRATION_12_13
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -153,7 +154,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(MIGRATION_11_12)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
@@ -338,7 +339,7 @@ class MainApplication :
                 collaborators = get { parametersOf(session) }
             )
         }
-        viewModel { SettingsViewModel(get(), get()) }
+        viewModel { SettingsViewModel(get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             PopupSettingsViewModel(
                 folderRepository = get(),

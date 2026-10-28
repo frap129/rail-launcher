@@ -1,6 +1,7 @@
 package feature.launcher
 
 import android.content.Context
+import android.content.IntentSender
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -51,6 +52,7 @@ import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import feature.launcher.widgets.rememberWidgetAreaUi
+import timber.log.Timber
 
 private val doneButtonPadding: Dp = 24.dp
 private val contentHorizontalPadding: Dp = 32.dp
@@ -82,9 +84,10 @@ internal fun LauncherContent(
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
+    val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions =
-        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds) {
+        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
                 onItemLaunch = onItemLaunch,
                 onItemLongPress = viewModel::openItemMenu,
@@ -93,7 +96,10 @@ internal fun LauncherContent(
                 onItemAnchorChanged = onItemAnchorChanged,
                 privateSpaceActions = PrivateSpaceActions(
                     onUnlock = viewModel::requestPrivateSpaceUnlock,
-                    onLock = viewModel::lockPrivateSpace
+                    onLock = viewModel::lockPrivateSpace,
+                    onSettings = privateSpaceSettingsIntent?.let { intentSender ->
+                        { context.openIntentSender(intentSender) }
+                    }
                 ),
                 railBounds = { railBounds.current }
             )
@@ -297,4 +303,11 @@ internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetVie
             Text(stringResource(CoreUiR.string.done))
         }
     }
+}
+
+/** Opens the screen behind [intentSender], logging when the system no longer offers it. */
+private fun Context.openIntentSender(intentSender: IntentSender) {
+    runCatching {
+        startIntentSender(intentSender, null, 0, 0, 0)
+    }.onFailure { exception -> Timber.w(exception, "Could not open an IntentSender") }
 }
