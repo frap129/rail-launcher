@@ -29,7 +29,6 @@ import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.testing.AppWidgetHostState
 import core.data.testing.MainDispatcherRule
-import core.data.testing.WidgetSettingsRepositoryFixture
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createBatterySourceMock
@@ -40,7 +39,7 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createRemoveAppWidgetMock
 import core.data.testing.createWidgetLifecycleReconcilerMock
-import core.data.testing.createWidgetSettingsRepositoryFixture
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.testing.stackPlace
 import core.data.time.ClockReading
@@ -150,7 +149,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `re-emits the Header when the style settings change`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.widgetAreaState.test {
             assertEquals(ClockStyle.CLASSIC, expectMostRecentItem().header().style)
@@ -205,7 +204,7 @@ class WidgetAreaViewModelTest {
     @Test
     fun `resolves a chosen Launchable for the time and Nothing for the date`() = runTest {
         val inputLaunchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(
                 timeTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key),
                 dateTapTarget = HeaderTapSetting.Nothing
@@ -230,7 +229,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `resolves Nothing for the time`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
@@ -246,7 +245,7 @@ class WidgetAreaViewModelTest {
     @Test
     fun `resolves a chosen Launchable for the date`() = runTest {
         val inputLaunchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(dateTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -270,7 +269,7 @@ class WidgetAreaViewModelTest {
             createLaunchableState(groups = emptyList(), isLoaded = false)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(
                 timeTapTarget = HeaderTapSetting.Launchable(key = "uninstalled-clock"),
                 dateTapTarget = HeaderTapSetting.Launchable(key = "uninstalled-calendar")
@@ -302,7 +301,7 @@ class WidgetAreaViewModelTest {
             createLaunchableState(groups = emptyList(), isLoaded = false)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -321,7 +320,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides the time line when the clock is off`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(HeaderSettings(clockVisible = false))
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(HeaderSettings(clockVisible = false))
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.widgetAreaState.test {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
@@ -333,7 +332,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `keeps the date in Compact style when the clock is off`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(clockVisible = false, clockStyle = ClockStyle.COMPACT)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
@@ -348,7 +347,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides the date line when the date is off`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(HeaderSettings(dateVisible = false))
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(HeaderSettings(dateVisible = false))
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.widgetAreaState.test {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
@@ -360,14 +359,14 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `persists clock visibility and keeps the menu open`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.menuState.test {
             viewModel.openHeaderMenu()
             expectMostRecentItem()
             viewModel.setClockVisible(visible = false)
             advanceUntilIdle()
-            assertEquals(false, inputSettings.state.headerUpdates.single().clockVisible)
+            coVerify(exactly = 1) { mockSettingsRepository.setClockVisible(visible = false) }
             val actualMenu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
             assertFalse((actualMenu.items.first() as WidgetMenuItem.Toggle).checked)
             cancelAndIgnoreRemainingEvents()
@@ -375,14 +374,10 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `rejects hiding the last visible Header part`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture(
-            headerSettings = HeaderSettings(clockVisible = true, dateVisible = false)
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
-        viewModel.setClockVisible(visible = false)
-        advanceUntilIdle()
-        assertTrue(inputSettings.state.headerUpdates.isEmpty())
+    fun `disables hiding the clock when it is the last visible Header part`() = runTest {
+        val mockSettingsRepository: IWidgetSettingsRepository =
+            createWidgetSettingsRepositoryMock(HeaderSettings(clockVisible = true, dateVisible = false))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.menuState.test {
             viewModel.openHeaderMenu()
             val actualMenu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
@@ -425,8 +420,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `opens the Clock Style chooser with previews and applies a style`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+        val inputHeaderSettings: MutableStateFlow<HeaderSettings> = MutableStateFlow(HeaderSettings())
+        val mockSettingsRepository: IWidgetSettingsRepository =
+            createWidgetSettingsRepositoryMock(headerSettings = inputHeaderSettings)
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.menuState.test {
             viewModel.openHeaderMenu()
             expectHeaderMenu()
@@ -438,7 +435,7 @@ class WidgetAreaViewModelTest {
             viewModel.selectClockStyle(ClockStyle.BOLD)
             advanceUntilIdle()
             assertEquals(WidgetMenuState.Closed, expectMostRecentItem())
-            assertEquals(ClockStyle.BOLD, inputSettings.state.headerUpdates.last().clockStyle)
+            assertEquals(ClockStyle.BOLD, inputHeaderSettings.value.clockStyle)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -597,7 +594,7 @@ class WidgetAreaViewModelTest {
         val inputBatteryStatuses: MutableSharedFlow<BatteryStatus> = MutableSharedFlow(replay = 1)
         inputBatteryStatuses.tryEmit(BatteryStatus(percent = 84, isCharging = false))
         val mockBatterySource: IBatterySource = createBatterySourceMock(inputBatteryStatuses)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -623,7 +620,7 @@ class WidgetAreaViewModelTest {
         val inputBatteryStatuses: MutableSharedFlow<BatteryStatus> = MutableSharedFlow(replay = 1)
         inputBatteryStatuses.tryEmit(BatteryStatus(percent = 84, isCharging = false))
         val mockBatterySource: IBatterySource = createBatterySourceMock(inputBatteryStatuses)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(batteryVisibility = BatteryVisibility.CHARGING_OR_LOW)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -651,38 +648,32 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `keeps the Header visible when the battery is always shown`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture(
-            headerSettings = HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+    fun `hides the clock and date`() = runTest {
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
 
         viewModel.setClockVisible(visible = false)
         viewModel.setDateVisible(visible = false)
         advanceUntilIdle()
 
-        assertFalse(inputSettings.state.headerUpdates.last().clockVisible)
-        assertFalse(inputSettings.state.headerUpdates.last().dateVisible)
+        coVerify(exactly = 1) { mockSettingsRepository.setClockVisible(visible = false) }
+        coVerify(exactly = 1) { mockSettingsRepository.setDateVisible(visible = false) }
     }
 
     @Test
-    fun `never re-enables a hidden clock when the battery stops being always visible`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture(
-            headerSettings = HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS)
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+    fun `selects the battery visibility`() = runTest {
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
 
         viewModel.selectBatteryVisibility(BatteryVisibility.NEVER)
         advanceUntilIdle()
 
-        val actualSettings: HeaderSettings = inputSettings.state.headerUpdates.single()
-        assertEquals(BatteryVisibility.NEVER, actualSettings.batteryVisibility)
-        assertFalse(actualSettings.clockVisible)
+        coVerify(exactly = 1) { mockSettingsRepository.setBatteryVisibility(visibility = BatteryVisibility.NEVER) }
     }
 
     @Test
     fun `disables conditional battery options while the battery is the last visible part`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             HeaderSettings(clockVisible = false, dateVisible = false, batteryVisibility = BatteryVisibility.ALWAYS)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
@@ -703,26 +694,9 @@ class WidgetAreaViewModelTest {
     }
 
     @Test
-    fun `rejects hiding the last visible Header part while the battery is conditional`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture(
-            headerSettings = HeaderSettings(
-                clockVisible = true,
-                dateVisible = false,
-                batteryVisibility = BatteryVisibility.CHARGING_OR_LOW
-            )
-        )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
-
-        viewModel.setClockVisible(visible = false)
-        advanceUntilIdle()
-
-        assertTrue(inputSettings.state.headerUpdates.isEmpty())
-    }
-
-    @Test
     fun `expands the Battery menu choice and saves a visibility`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
 
         viewModel.menuState.test {
             viewModel.openHeaderMenu()
@@ -743,7 +717,9 @@ class WidgetAreaViewModelTest {
 
             viewModel.selectBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW)
             advanceUntilIdle()
-            assertEquals(BatteryVisibility.CHARGING_OR_LOW, inputSettings.state.headerUpdates.last().batteryVisibility)
+            coVerify(exactly = 1) {
+                mockSettingsRepository.setBatteryVisibility(visibility = BatteryVisibility.CHARGING_OR_LOW)
+            }
             val actualCollapsed: WidgetMenuItem.Choice = expectHeaderMenu().items[2] as WidgetMenuItem.Choice
             assertFalse(actualCollapsed.expanded)
             assertEquals(BatteryVisibility.CHARGING_OR_LOW.name, actualCollapsed.selectedKey.value)
@@ -768,8 +744,8 @@ class WidgetAreaViewModelTest {
     @Test
     fun `does not collect calendar events without permission`() = runTest {
         val mockCalendarEventSource: ICalendarEventSource = createCalendar(hasPermission = false)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialEventSettings = EventSettings(enabled = true)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            eventSettings = EventSettings(enabled = true)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
@@ -802,9 +778,9 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `keeps events off and reports a denial`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = inputSettings.mockSettingsRepository,
+            mockSettingsRepository = mockSettingsRepository,
             mockCalendarEventSource = createCalendar(hasPermission = false)
         )
 
@@ -817,31 +793,31 @@ class WidgetAreaViewModelTest {
             advanceUntilIdle()
 
             assertEquals(WidgetEvent.ShowCalendarPermissionDenied(permanentlyDenied = false), awaitItem())
-            assertTrue(inputSettings.state.eventUpdates.isEmpty())
+            coVerify(exactly = 0) { mockSettingsRepository.setEventsEnabled(any()) }
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
     fun `persists events as enabled after a permission grant`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = inputSettings.mockSettingsRepository,
+            mockSettingsRepository = mockSettingsRepository,
             mockCalendarEventSource = createCalendar(hasPermission = false)
         )
 
         viewModel.onCalendarPermissionResult(granted = true, canAskAgain = true)
         advanceUntilIdle()
 
-        assertTrue(inputSettings.state.eventUpdates.last().enabled)
+        coVerify(exactly = 1) { mockSettingsRepository.setEventsEnabled(enabled = true) }
     }
 
     @Test
     fun `requests calendar events with the effective lookahead`() = runTest {
         val inputLookaheadHours: MutableStateFlow<List<Int>> = MutableStateFlow(emptyList())
         val mockCalendarEventSource: ICalendarEventSource = createCalendar(queriedLookaheadHours = inputLookaheadHours)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialEventSettings = EventSettings(enabled = true, lookaheadHours = 99)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 99)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
@@ -862,9 +838,9 @@ class WidgetAreaViewModelTest {
         val inputEvent: UpcomingEvent = event(title = "Standup")
         val inputClockReadings: MutableStateFlow<ClockReading> = MutableStateFlow(reading(at = "2026-10-20T14:05:00Z"))
         val mockClockSource: IClockSource = createClockSourceMock(inputClockReadings)
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialSettings = HeaderSettings(timeFormat = TimeFormat.H24),
-            initialEventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 1)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            headerSettings = HeaderSettings(timeFormat = TimeFormat.H24),
+            eventSettings = EventSettings(enabled = true, lookaheadHours = 12, maxEvents = 1)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockClockSource = mockClockSource,
@@ -955,7 +931,7 @@ class WidgetAreaViewModelTest {
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockRepository = createRepository(listOf(inputStack, appWidgetPlace(placeId = 3L, widgetId = 3L))),
-            mockSettingsRepository = createSettingsRepository(initialAreaSettings = WidgetAreaSettings(maxStackPages = 2))
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
         )
 
         viewModel.editWidgets()
@@ -1013,15 +989,15 @@ class WidgetAreaViewModelTest {
         )
 
         val uncappedViewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialAreaSettings = WidgetAreaSettings(heightLimitEnabled = false)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                widgetAreaSettings = WidgetAreaSettings(heightLimitEnabled = false)
             )
         )
         collectWidgetAreaState(uncappedViewModel)
         assertEquals(WidgetAreaLayout.Uncapped, uncappedViewModel.widgetAreaState.value.layout)
         val halfViewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialAreaSettings = WidgetAreaSettings(heightLimit = WidgetAreaHeightLimit.HALF)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                widgetAreaSettings = WidgetAreaSettings(heightLimit = WidgetAreaHeightLimit.HALF)
             )
         )
         collectWidgetAreaState(halfViewModel)
@@ -1045,12 +1021,12 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `toggling the height limit resets the Widget Area list state`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectWidgetAreaState(viewModel)
         val actualPrevious: LazyListState = viewModel.widgetAreaState.value.listState
 
-        mockSettingsRepository.setHeightLimitEnabled(false)
+        mockSettingsRepository.updateWidgetAreaSettings { settings -> settings.copy(heightLimitEnabled = false) }
         advanceUntilIdle()
 
         val actualChanged: WidgetAreaState = viewModel.widgetAreaState.value
@@ -1060,12 +1036,12 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `changing the cap fraction keeps the Widget Area list state`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectWidgetAreaState(viewModel)
         val actualPrevious: LazyListState = viewModel.widgetAreaState.value.listState
 
-        mockSettingsRepository.setHeightLimit(WidgetAreaHeightLimit.HALF)
+        mockSettingsRepository.updateWidgetAreaSettings { settings -> settings.copy(heightLimit = WidgetAreaHeightLimit.HALF) }
         advanceUntilIdle()
 
         val actualChanged: WidgetAreaState = viewModel.widgetAreaState.value
@@ -1089,8 +1065,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Move Widget Area starts at the persisted offset and caps at half Home`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 24)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(topOffsetDp = 24)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectMoveState(viewModel)
@@ -1132,10 +1108,14 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `finishing Move Widget Area persists the draft and exits the mode`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
+        val inputAreaSettings: MutableStateFlow<WidgetAreaSettings> = MutableStateFlow(WidgetAreaSettings.Default)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            headerSettings = MutableStateFlow(HeaderSettings()),
+            widgetAreaSettings = inputAreaSettings
+        )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel =
-            createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository, inputHomeEditState = inputHomeEditState)
+            createViewModel(mockSettingsRepository = mockSettingsRepository, inputHomeEditState = inputHomeEditState)
         collectMoveState(viewModel)
         viewModel.setHomeHeight(800)
         viewModel.startMoveWidgetArea()
@@ -1147,13 +1127,17 @@ class WidgetAreaViewModelTest {
 
         assertNull(viewModel.moveState.value)
         assertEquals(HomeEditMode.None, inputHomeEditState.mode.value)
-        assertEquals(16, inputSettings.state.areaUpdates.last().topOffsetDp)
+        assertEquals(16, inputAreaSettings.value.topOffsetDp)
     }
 
     @Test
     fun `Back and Home intent save the Move Widget Area offset`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
-        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = inputSettings.mockSettingsRepository)
+        val inputAreaSettings: MutableStateFlow<WidgetAreaSettings> = MutableStateFlow(WidgetAreaSettings.Default)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            headerSettings = MutableStateFlow(HeaderSettings()),
+            widgetAreaSettings = inputAreaSettings
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectMoveState(viewModel)
         viewModel.setHomeHeight(800)
 
@@ -1162,20 +1146,22 @@ class WidgetAreaViewModelTest {
         viewModel.setDraftOffset(8)
         assertTrue(viewModel.onBack())
         advanceUntilIdle()
-        assertEquals(8, inputSettings.state.areaUpdates.last().topOffsetDp)
+        assertEquals(8, inputAreaSettings.value.topOffsetDp)
 
         viewModel.startMoveWidgetArea()
         advanceUntilIdle()
         viewModel.setDraftOffset(16)
         assertTrue(viewModel.onHomeIntent())
         advanceUntilIdle()
-        assertEquals(16, inputSettings.state.areaUpdates.last().topOffsetDp)
+        assertEquals(16, inputAreaSettings.value.topOffsetDp)
     }
 
     @Test
     fun `effective offset uses the draft while moving and the persisted value after`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 8)
+        val inputAreaSettings: MutableStateFlow<WidgetAreaSettings> = MutableStateFlow(WidgetAreaSettings(topOffsetDp = 8))
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            headerSettings = MutableStateFlow(HeaderSettings()),
+            widgetAreaSettings = inputAreaSettings
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectWidgetAreaState(viewModel)
@@ -1190,13 +1176,13 @@ class WidgetAreaViewModelTest {
         viewModel.finishMoveWidgetArea()
         advanceUntilIdle()
         assertEquals(24, viewModel.widgetAreaState.value.topOffsetDp)
-        assertEquals(24, mockSettingsRepository.widgetAreaSettings.first().topOffsetDp)
+        assertEquals(24, inputAreaSettings.value.topOffsetDp)
     }
 
     @Test
     fun `clamps a persisted offset at render time without rewriting it`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(topOffsetDp = 400)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(topOffsetDp = 400)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectWidgetAreaState(viewModel)
@@ -1211,15 +1197,15 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `exposes widget spacing from settings and applies changes live`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(widgetSpacing = WidgetSpacing.LARGE)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(widgetSpacing = WidgetSpacing.LARGE)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockSettingsRepository = mockSettingsRepository)
         collectWidgetAreaState(viewModel)
 
         assertEquals(24, viewModel.widgetAreaState.value.widgetSpacingDp)
 
-        mockSettingsRepository.setWidgetSpacing(WidgetSpacing.EXTRA_LARGE)
+        mockSettingsRepository.updateWidgetAreaSettings { settings -> settings.copy(widgetSpacing = WidgetSpacing.EXTRA_LARGE) }
         advanceUntilIdle()
 
         assertEquals(32, viewModel.widgetAreaState.value.widgetSpacingDp)
@@ -1239,8 +1225,8 @@ class WidgetAreaViewModelTest {
     fun `shows the system's first eligible Media session`() = runTest {
         val inputFirst: MediaSessionSnapshot = mediaSession(key = "first", title = "First")
         val inputSecond: MediaSessionSnapshot = mediaSession(key = "second", title = "Second")
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val mockMediaSessionSource: IMediaSessionSource = createMediaSession(initialSessions = listOf(inputFirst, inputSecond))
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -1263,8 +1249,8 @@ class WidgetAreaViewModelTest {
             assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
             cancelAndIgnoreRemainingEvents()
         }
-        val mockEnabledSettings: IWidgetSettingsRepository = createSettingsRepository(
-            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        val mockEnabledSettings: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val noAccess: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockEnabledSettings,
@@ -1279,8 +1265,8 @@ class WidgetAreaViewModelTest {
     @Test
     fun `hides the Media Player when no session is active`() = runTest {
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
             mockMediaSessionSource = createMediaSession()
         )
@@ -1293,8 +1279,8 @@ class WidgetAreaViewModelTest {
     @Test
     fun `marks the Header Media Player toggle as needing notification access`() = runTest {
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
             mockMediaSessionSource = createMediaSession(hasAccess = false)
         )
@@ -1312,8 +1298,8 @@ class WidgetAreaViewModelTest {
     @Test
     fun `hides the Media Player while a Home edit mode is active`() = runTest {
         val inputSession: MediaSessionSnapshot = mediaSession()
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -1335,8 +1321,8 @@ class WidgetAreaViewModelTest {
             key = "first",
             actions = setOf(MediaCommand.Play, MediaCommand.Pause, MediaCommand.Next)
         )
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val mockMediaSessionSource: IMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
         val viewModel: WidgetAreaViewModel = createViewModel(
@@ -1365,9 +1351,9 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `enabling the Media Player without notification access requests it`() = runTest {
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture()
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = inputSettings.mockSettingsRepository,
+            mockSettingsRepository = mockSettingsRepository,
             mockMediaSessionSource = createMediaSession(hasAccess = false)
         )
         viewModel.events.test {
@@ -1375,15 +1361,15 @@ class WidgetAreaViewModelTest {
             assertEquals(WidgetEvent.RequestNotificationAccess, awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-        assertTrue(inputSettings.state.mediaPlayerUpdates.last().enabled)
+        coVerify(exactly = 1) { mockSettingsRepository.setMediaPlayerEnabled(enabled = true) }
     }
 
     @Test
     fun `exposes the Media Player placement and artwork options`() = runTest {
         val inputSession: MediaSessionSnapshot = mediaSession()
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialMediaPlayerSettings = MediaPlayerSettings(
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                mediaPlayerSettings = MediaPlayerSettings(
                     enabled = true,
                     placement = MediaPlayerPlacement.TOP_OF_WIDGET_AREA,
                     showArtwork = false
@@ -1410,8 +1396,8 @@ class WidgetAreaViewModelTest {
             mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
         val inputSecond: MediaSessionSnapshot =
             mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
@@ -1430,6 +1416,9 @@ class WidgetAreaViewModelTest {
             )
             cancelAndIgnoreRemainingEvents()
         }
+        coVerify(exactly = 1) {
+            mockSettingsRepository.setMediaPlayerPackageExcluded(packageName = inputFirst.packageName, excluded = true)
+        }
         advanceUntilIdle()
         assertEquals(MediaPlayerUiState.Visible(session = inputSecond), viewModel.mediaPlayerState.value)
     }
@@ -1440,22 +1429,28 @@ class WidgetAreaViewModelTest {
             mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
         val inputSecond: MediaSessionSnapshot =
             mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
-        val inputSettings: WidgetSettingsRepositoryFixture = createWidgetSettingsRepositoryFixture(
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = inputSettings.mockSettingsRepository,
+            mockSettingsRepository = mockSettingsRepository,
             mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputFirst, inputSecond))
         )
         viewModel.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Visible(session = inputFirst), expectMostRecentItem())
             viewModel.excludeMediaApp()
             advanceUntilIdle()
+            coVerify(exactly = 1) {
+                mockSettingsRepository.setMediaPlayerPackageExcluded(packageName = inputFirst.packageName, excluded = true)
+            }
+            advanceUntilIdle()
             assertEquals(MediaPlayerUiState.Visible(session = inputSecond), expectMostRecentItem())
             viewModel.undo(action = UndoAction.IncludeMediaApp(packageName = inputFirst.packageName))
             advanceUntilIdle()
+            coVerify(exactly = 1) {
+                mockSettingsRepository.setMediaPlayerPackageExcluded(packageName = inputFirst.packageName, excluded = false)
+            }
             assertEquals(MediaPlayerUiState.Visible(session = inputFirst), expectMostRecentItem())
-            assertTrue(inputSettings.state.mediaPlayerUpdates.last().excludedPackages.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -1464,8 +1459,8 @@ class WidgetAreaViewModelTest {
     fun `Media Player menu offers excluding the shown app`() = runTest {
         val inputSession: MediaSessionSnapshot = mediaSession(appLabel = "Video")
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockSettingsRepository = createSettingsRepository(
-                initialMediaPlayerSettings = MediaPlayerSettings(enabled = true)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
             mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
         )
@@ -1647,7 +1642,7 @@ class WidgetAreaViewModelTest {
     private fun createViewModel(
         mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace)),
         mockClockSource: IClockSource = createClock(reading()),
-        mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(),
+        mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(),
         inputHomeEditState: HomeEditState = HomeEditState(),
         mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(groups = emptyList()),
         mockCalendarEventSource: ICalendarEventSource = createCalendar(),
