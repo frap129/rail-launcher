@@ -19,9 +19,9 @@ import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
-import core.data.testing.FakePreferencesRepository
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createFavoritesRepository
+import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.failOnRequest
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -68,7 +68,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
-            mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             mockIconRepository = mockIconRepository
         )
         database.getFavoriteDao().add(inputApp.key)
@@ -150,7 +150,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(inputApps = listOf(createApp())),
-            mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             mockIconRepository = mockIconRepository
         )
 
@@ -183,8 +183,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `resolves a renamed App into a new instance and leaves the original unchanged`() = runTest {
         val inputApp: App = createApp()
-        val mockPreferencesRepository: FakePreferencesRepository = FakePreferencesRepository(
-            inputCustomizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
+            customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
@@ -209,8 +209,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
-            mockPreferencesRepository = FakePreferencesRepository(
-                inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
             ),
             mockIconRepository = createIconRepository(inputIcon = expectedIcon)
         )
@@ -228,8 +228,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(),
-            mockPreferencesRepository = FakePreferencesRepository(
-                inputCustomizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, name = "Games"))
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, name = "Games"))
             ),
             folderDao = folderDao
         )
@@ -358,7 +358,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(),
-            mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             folderDao = folderDao
         )
 
@@ -386,7 +386,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     private fun TestScope.createRepository(
         mockAppRepository: IAppRepository,
-        mockPreferencesRepository: IPreferencesRepository = FakePreferencesRepository(),
+        mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName)),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),

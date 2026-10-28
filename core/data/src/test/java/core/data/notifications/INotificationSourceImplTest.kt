@@ -9,7 +9,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import app.cash.turbine.test
 import core.data.media.RailNotificationListener
-import core.data.testing.FakePopupRepository
+import core.data.popups.IPopupRepository
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
@@ -21,6 +21,7 @@ import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
+import core.data.testing.createPopupRepositoryMock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -47,13 +48,13 @@ private const val SERVICE_NOTIFICATION_TITLE: String = "Service title"
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class INotificationSourceImplTest {
-    private val mockRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
+    private val relay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
 
     @Test
     fun `yields nothing while the switch is off`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
@@ -62,24 +63,22 @@ class INotificationSourceImplTest {
 
     @Test
     fun `does not retain notifications without a subscriber`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         createSource(
             mockPopupRepository = mockPopupRepository,
             hasAccess = true,
             observe = false
         )
 
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
-        assertTrue(mockRelay.records.value.isEmpty())
-        assertNull(mockRelay.record(key = TEST_NOTIFICATION_KEY))
+        assertTrue(relay.records.value.isEmpty())
+        assertNull(relay.record(key = TEST_NOTIFICATION_KEY))
     }
 
     @Test
     fun `clears the map when the last subscriber leaves`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(
             mockPopupRepository = mockPopupRepository,
             hasAccess = true,
@@ -89,27 +88,26 @@ class INotificationSourceImplTest {
         source.notifications.test {
             runCurrent()
             expectMostRecentItem()
-            mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+            relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
             runCurrent()
             assertEquals(1, expectMostRecentItem().size)
         }
 
-        assertTrue(mockRelay.records.value.isEmpty())
+        assertTrue(relay.records.value.isEmpty())
     }
 
     @Test
     fun `rebuilds the notification map from the service on subscribe`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
-        val mockService: NotificationListenerService = Robolectric.buildService(RailNotificationListener::class.java).create().get()
-        shadowOf(mockService).addActiveNotification(createStatusBarNotification())
-        mockRelay.attach(mockService)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
+        val service: NotificationListenerService = Robolectric.buildService(RailNotificationListener::class.java).create().get()
+        shadowOf(service).addActiveNotification(createStatusBarNotification())
+        relay.attach(service)
         val source: INotificationSourceImpl = createSource(
             mockPopupRepository = mockPopupRepository,
             hasAccess = true,
             observe = false
         )
-        assertTrue(mockRelay.records.value.isEmpty())
+        assertTrue(relay.records.value.isEmpty())
 
         source.notifications.test {
             runCurrent()
@@ -119,8 +117,7 @@ class INotificationSourceImplTest {
 
     @Test
     fun `opening sends the notification's content intent`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val context = RuntimeEnvironment.getApplication()
         val contentIntent: PendingIntent = PendingIntent.getBroadcast(
             context,
@@ -129,7 +126,7 @@ class INotificationSourceImplTest {
             PendingIntent.FLAG_IMMUTABLE
         )
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(
+        relay.post(
             record = createNotificationRecord(),
             handle = createNotificationHandle(contentIntent = contentIntent, isAutoCancel = false)
         )
@@ -141,21 +138,20 @@ class INotificationSourceImplTest {
 
     @Test
     fun `drops notifications that arrive while the switch is off`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
 
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
-        assertTrue(mockRelay.records.value.isEmpty())
+        assertTrue(relay.records.value.isEmpty())
         assertTrue(source.notifications.first().isEmpty())
     }
 
     @Test
     fun `yields nothing without notification access`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = false)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
@@ -165,10 +161,9 @@ class INotificationSourceImplTest {
 
     @Test
     fun `yields the owner's notifications with the switch on and access granted`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(title = "Hello"), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(title = "Hello"), handle = createNotificationHandle())
 
         source.notifications.test {
             runCurrent()
@@ -178,17 +173,16 @@ class INotificationSourceImplTest {
 
     @Test
     fun `clears the notifications when the switch turns off`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             runCurrent()
             assertEquals(1, expectMostRecentItem().size)
             mockPopupRepository.setNotificationsEnabled(false)
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
-            assertTrue(mockRelay.records.value.isEmpty())
+            assertTrue(relay.records.value.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -196,14 +190,13 @@ class INotificationSourceImplTest {
     @Test
     fun `clears the notifications when access is revoked`() = runTest {
         var inputAccess: Boolean = true
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(
             mockPopupRepository = mockPopupRepository,
             hasAccess = true,
             accessCheck = { inputAccess }
         )
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             runCurrent()
@@ -218,10 +211,9 @@ class INotificationSourceImplTest {
 
     @Test
     fun `dismiss removes a clearable notification`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
         source.notifications.test {
             runCurrent()
             assertEquals(1, expectMostRecentItem().size)
@@ -229,53 +221,49 @@ class INotificationSourceImplTest {
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-        assertNull(mockRelay.record(key = TEST_NOTIFICATION_KEY))
+        assertNull(relay.record(key = TEST_NOTIFICATION_KEY))
     }
 
     @Test
     fun `an ongoing notification cannot be dismissed`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(isClearable = false), handle = createNotificationHandle())
+        relay.post(record = createNotificationRecord(isClearable = false), handle = createNotificationHandle())
 
         source.dismiss(key = TEST_NOTIFICATION_KEY)
 
-        assertEquals(TEST_NOTIFICATION_KEY, mockRelay.record(key = TEST_NOTIFICATION_KEY)?.key)
+        assertEquals(TEST_NOTIFICATION_KEY, relay.record(key = TEST_NOTIFICATION_KEY)?.key)
     }
 
     @Test
     fun `opening an auto-cancel notification removes it`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle(isAutoCancel = true))
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle(isAutoCancel = true))
 
         source.open(key = TEST_NOTIFICATION_KEY)
 
-        assertNull(mockRelay.record(key = TEST_NOTIFICATION_KEY))
+        assertNull(relay.record(key = TEST_NOTIFICATION_KEY))
     }
 
     @Test
     fun `opening a notification without auto-cancel keeps it`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle(isAutoCancel = false))
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle(isAutoCancel = false))
         runCurrent()
 
         source.open(key = TEST_NOTIFICATION_KEY)
 
-        assertEquals(TEST_NOTIFICATION_KEY, mockRelay.record(key = TEST_NOTIFICATION_KEY)?.key)
+        assertEquals(TEST_NOTIFICATION_KEY, relay.record(key = TEST_NOTIFICATION_KEY)?.key)
     }
 
     @Test
     fun `running an action sends its intent`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val context = RuntimeEnvironment.getApplication()
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(
+        relay.post(
             record = createNotificationRecord(),
             handle = createNotificationHandle(actions = listOf(createPlatformNotificationAction(context = context)))
         )
@@ -290,8 +278,7 @@ class INotificationSourceImplTest {
 
     @Test
     fun `running a reply action delivers the reply text`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val context = RuntimeEnvironment.getApplication()
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
         val inputAction: Notification.Action = createPlatformNotificationAction(
@@ -299,7 +286,7 @@ class INotificationSourceImplTest {
             action = TEST_NOTIFICATION_REPLY_ACTION,
             withRemoteInput = true
         )
-        mockRelay.post(record = createNotificationRecord(), handle = createNotificationHandle(actions = listOf(inputAction)))
+        relay.post(record = createNotificationRecord(), handle = createNotificationHandle(actions = listOf(inputAction)))
 
         val didRun: Boolean = source.runAction(key = TEST_NOTIFICATION_KEY, index = 0, replyText = TEST_NOTIFICATION_REPLY_TEXT)
 
@@ -313,11 +300,10 @@ class INotificationSourceImplTest {
 
     @Test
     fun `running an action that does not exist returns false`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setNotificationsEnabled(true)
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
         val context = RuntimeEnvironment.getApplication()
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
-        mockRelay.post(
+        relay.post(
             record = createNotificationRecord(),
             handle = createNotificationHandle(actions = listOf(createPlatformNotificationAction(context = context)))
         )
@@ -331,7 +317,7 @@ class INotificationSourceImplTest {
     }
 
     private fun TestScope.createSource(
-        mockPopupRepository: FakePopupRepository,
+        mockPopupRepository: IPopupRepository,
         hasAccess: Boolean,
         accessCheck: () -> Boolean = { hasAccess },
         observe: Boolean = true
@@ -340,7 +326,7 @@ class INotificationSourceImplTest {
             context = RuntimeEnvironment.getApplication(),
             scope = backgroundScope,
             popupRepository = mockPopupRepository,
-            relay = mockRelay,
+            relay = relay,
             isAccessGranted = { accessCheck() }
         )
         if (observe) {

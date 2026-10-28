@@ -7,10 +7,11 @@ import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.os.UserHandle
 import app.cash.turbine.test
+import core.data.launchables.ILaunchableRepository
 import core.data.testing.FIRST_SHORTCUT_ID
-import core.data.testing.FakeLaunchableRepository
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_SDK
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,9 +30,10 @@ class IShortcutSourceImplTest {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val shadowLauncherApps: ShadowLauncherApps = Shadow.extract(launcherApps)
     private val profile: UserHandle = Process.myUserHandle()
+    private val mockLaunchableRepository: ILaunchableRepository = mockk()
     private val source: IShortcutSourceImpl = IShortcutSourceImpl(
         context = context,
-        launchableRepository = FakeLaunchableRepository(groups = emptyList())
+        launchableRepository = mockLaunchableRepository
     )
 
     @Test

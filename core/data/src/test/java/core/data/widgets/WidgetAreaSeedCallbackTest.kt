@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import core.data.room.AppDatabase
 import core.data.room.dao.WidgetAreaDao
-import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.TEST_SDK
+import core.data.testing.createAppWidgetHostMock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -59,7 +59,7 @@ class WidgetAreaSeedCallbackTest {
 
     private suspend fun assertSingleSeededHeader(database: AppDatabase) {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
-        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         val actualPlaces: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler).places.first()

@@ -2,6 +2,8 @@ package core.data.widgets
 
 import android.content.Context
 import core.data.icons.model.Icon
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
@@ -10,13 +12,15 @@ import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.room.dao.HeaderSettingsDao
-import core.data.testing.FakeLaunchableRepository
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.createLaunchableState
 import io.mockk.coVerify
 import io.mockk.spyk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -228,7 +232,10 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     fun `clears a stale tap target once the Launchables load`() = runTest {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         val inputKeptSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
-        val mockLaunchables: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), isLoaded = false)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(groups = emptyList(), isLoaded = false)
+        )
+        val mockLaunchables: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = inputStaleSetting, dateTapTarget = inputKeptSetting),
             mockLaunchables = mockLaunchables
@@ -236,7 +243,9 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(inputStaleSetting, repository.headerSettings.first().timeTapTarget)
 
-        mockLaunchables.setGroups(groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))))
+        launchableState.value = createLaunchableState(
+            groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable)))
+        )
 
         val actualSettings: HeaderSettings = repository.headerSettings.first { settings -> settings.timeTapTarget == null }
         assertNull(actualSettings.timeTapTarget)
@@ -264,7 +273,9 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         val mockHeaderSettingsDao: HeaderSettingsDao = spyk(database.getHeaderSettingsDao())
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettingsDao = mockHeaderSettingsDao,
-            mockLaunchables = FakeLaunchableRepository(groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))))
+            mockLaunchables = createLaunchableRepositoryMock(
+                groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable)))
+            )
         )
         val actualSettings = List(2) { async { repository.headerSettings.first() } }
 
@@ -279,7 +290,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         eventSettings: EventSettings? = null,
         headerSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao(),
         isLoaded: Boolean = true,
-        mockLaunchables: FakeLaunchableRepository = FakeLaunchableRepository(
+        mockLaunchables: ILaunchableRepository = createLaunchableRepositoryMock(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))),
             isLoaded = isLoaded
         )
