@@ -121,17 +121,13 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         collaborators = collaborators
     )
 
-    protected fun TestScope.createSession(
-        homeEditState: HomeEditState = inputHomeEditState,
-        notificationSource: INotificationSource = createNotificationSource(),
-        mockClockSource: IClockSource = this@PopupSessionTestBase.mockClockSource
-    ): PopupTestSession {
+    protected fun TestScope.createSession(): PopupTestSession {
         val session: IPopupSession = IPopupSessionImpl()
-        val collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = homeEditState)
+        val collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = inputHomeEditState)
         val card: PopupCardViewModel = createCard(
             session = session,
-            homeEditState = homeEditState,
-            notificationSource = notificationSource,
+            homeEditState = inputHomeEditState,
+            notificationSource = createNotificationSource(),
             mockClockSource = mockClockSource,
             collaborators = collaborators
         )
@@ -152,14 +148,16 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         return card
     }
 
-    /** Opens [owner]'s Pop-up and starts editing [editor], seeding [ownerItem] and [editorItem] as added items when given. */
+    /**
+     * Opens [owner]'s Pop-up and starts editing [editor], adding [inputOtherApp] to the owner and
+     * [editorItem], when given, to the editor.
+     */
     protected fun TestScope.openPopupWithEditor(
         owner: Launchable = inputApp,
         editor: Launchable = inputFolder,
-        ownerItem: Launchable? = inputOtherApp,
         editorItem: Launchable? = inputRailLaunchable
     ): PopupTestSession {
-        ownerItem?.let { item -> setPopupLaunchables(ownerKey = owner.key, launchables = listOf(item)) }
+        setPopupLaunchables(ownerKey = owner.key, launchables = listOf(inputOtherApp))
         editorItem?.let { item -> setPopupLaunchables(ownerKey = editor.key, launchables = listOf(item)) }
         val session: PopupTestSession = createSession()
         openPopup(

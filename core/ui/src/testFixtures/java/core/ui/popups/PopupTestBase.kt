@@ -1,6 +1,5 @@
 package core.ui.popups
 
-import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -21,6 +20,7 @@ import core.data.shortcuts.ShortcutsResult
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PopupRepositoryState
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
+import core.data.testing.createApp
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -36,8 +36,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
 import org.junit.Rule
 
-internal const val TEST_ACTIVITY_NAME: String = "com.example.app.MainActivity"
-
 /** The Pop-up fixtures and collaborator factories the feature tests build their sessions from. */
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class PopupTestBase {
@@ -45,21 +43,9 @@ abstract class PopupTestBase {
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
     protected val profile: UserHandle = createNotificationProfile()
-    protected val inputApp: App = App(
-        defaultName = "Example",
-        profile = profile,
-        componentName = ComponentName(TEST_NOTIFICATION_PACKAGE_NAME, TEST_ACTIVITY_NAME)
-    )
-    protected val inputOtherApp: App = App(
-        defaultName = "Other",
-        profile = profile,
-        componentName = ComponentName("com.example.other", "com.example.other.MainActivity")
-    )
-    protected val inputPausedApp: App = App(
-        defaultName = "Paused",
-        profile = profile,
-        componentName = ComponentName("com.example.paused", "com.example.paused.MainActivity")
-    )
+    protected val inputApp: App = createApp(name = "Example", packageName = TEST_NOTIFICATION_PACKAGE_NAME)
+    protected val inputOtherApp: App = createApp(name = "Other", packageName = "com.example.other")
+    protected val inputPausedApp: App = createApp(name = "Paused", packageName = "com.example.paused")
     protected val inputRailLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Rail Settings",
         defaultIcon = Icon.RailIcon(resId = 0),

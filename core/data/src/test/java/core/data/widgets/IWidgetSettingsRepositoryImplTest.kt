@@ -1,11 +1,8 @@
 package core.data.widgets
 
-import android.content.Context
-import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
-import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.EventSettings
@@ -15,6 +12,7 @@ import core.data.room.dao.HeaderSettingsDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
+import core.data.testing.createRailLaunchable
 import io.mockk.coVerify
 import io.mockk.spyk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,7 +30,7 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
-    private val inputKeptLaunchable: Launchable = testLaunchable(key = "kept")
+    private val inputKeptLaunchable: Launchable = createRailLaunchable(name = "kept")
 
     @Test
     fun `returns defaults when the settings row is absent`() = runTest {
@@ -304,17 +302,5 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
             mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao(),
             launchableRepository = mockLaunchables
         )
-    }
-
-    private fun testLaunchable(key: String): Launchable = object : Launchable() {
-        override val key: String = key
-        override val defaultName: String = key
-        override val defaultIcon: Icon = Icon.ApplicationIcon(packageName = key)
-        override val name: String = key
-        override val icon: Icon = defaultIcon
-
-        override fun withCustomization(appearance: LaunchableAppearance): Launchable = this
-
-        override fun launch(context: Context) = Unit
     }
 }

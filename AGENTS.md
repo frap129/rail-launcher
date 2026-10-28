@@ -7,7 +7,7 @@ Rail: Android home-screen launcher (Kotlin, Jetpack Compose, Koin, Room). Single
 All development commands must run inside the Nix flake. Do not export toolchain variables or use host JDK/Android SDK installations; use `nix develop --command <command>` for one-off commands, or enter an interactive shell with `nix develop`.
 
 - Build: `nix develop --command ./gradlew :app:assembleDebug`
-- Unit tests: `nix develop --command ./gradlew testDebugUnitTest` (JVM; JUnit, coroutines-test, Turbine, MockK and Robolectric are wired by the convention plugins).
+- Unit tests: `nix develop --command ./gradlew testDebugUnitTest` (JVM; JUnit, coroutines-test, Turbine, MockK and Robolectric are wired by the convention plugins; tests use MockK mocks, and data-layer tests use in-memory Room via Robolectric).
 - Lint: run `nix develop --command ./gradlew ktlintFormat` before `nix develop --command ./gradlew ktlintCheck` so autofixable formatting issues are resolved first (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
 - No `androidTest` in app/feature/core modules (only `core:baselineprofile`'s benchmark harness); verification = tests + build + ktlint.
 - Docs: `nix develop --command ./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.

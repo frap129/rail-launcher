@@ -5,6 +5,9 @@ import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 
+/** The App Widget id the Widget test fixtures use by default. */
+const val TEST_APP_WIDGET_ID: Int = 9
+
 val headerPlace: WidgetPlace = WidgetPlace(
     id = 1L,
     heightDp = null,
@@ -15,7 +18,7 @@ val headerPlace: WidgetPlace = WidgetPlace(
 fun appWidgetPlace(
     placeId: Long,
     widgetId: Long,
-    appWidgetId: Int = 9,
+    appWidgetId: Int = TEST_APP_WIDGET_ID,
     profileSerial: Long = 0L,
     availability: WidgetAvailability = WidgetAvailability.Available,
     defaultHeightDp: Int? = null,

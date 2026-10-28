@@ -6,8 +6,8 @@ import io.mockk.coEvery
 import io.mockk.mockk
 
 /** The mutable pending ids and recorded writes behind a [createAddFlowPendingIdsMock]. */
-class AddFlowPendingIdsState(initialIds: Set<AppWidgetId> = emptySet()) {
-    var ids: Set<AppWidgetId> = initialIds
+class AddFlowPendingIdsState {
+    var ids: Set<AppWidgetId> = emptySet()
         private set
     val updates: MutableList<Set<AppWidgetId>> = mutableListOf()
 

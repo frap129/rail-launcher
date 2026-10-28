@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /** The mutable Favorites behind a [createFavoritesRepositoryMock] repository. */
-class FavoritesRepositoryState(favorites: List<Launchable> = emptyList()) {
-    val favorites: MutableStateFlow<List<Launchable>> = MutableStateFlow(favorites)
+class FavoritesRepositoryState {
+    val favorites: MutableStateFlow<List<Launchable>> = MutableStateFlow(emptyList())
 }
 
 /** A MockK [IFavoritesRepository] over [state], appending, removing and reordering its Favorites. */
@@ -44,8 +44,8 @@ fun createFavoritesRepositoryMock(state: FavoritesRepositoryState = FavoritesRep
 /** The mutable Favorites with the mock over them. */
 class FavoritesRepositoryFixture(val state: FavoritesRepositoryState, val mockFavoritesRepository: IFavoritesRepository)
 
-/** A [FavoritesRepositoryFixture] holding [favorites]. */
-fun createFavoritesRepositoryFixture(favorites: List<Launchable> = emptyList()): FavoritesRepositoryFixture {
-    val state: FavoritesRepositoryState = FavoritesRepositoryState(favorites)
+/** A [FavoritesRepositoryFixture] with empty Favorites for the test to fill in. */
+fun createFavoritesRepositoryFixture(): FavoritesRepositoryFixture {
+    val state: FavoritesRepositoryState = FavoritesRepositoryState()
     return FavoritesRepositoryFixture(state = state, mockFavoritesRepository = createFavoritesRepositoryMock(state))
 }

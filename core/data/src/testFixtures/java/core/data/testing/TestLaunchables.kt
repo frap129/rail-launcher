@@ -12,16 +12,16 @@ import core.data.launchables.model.RailLaunchable
 private const val TEST_APP_USER_ID: Int = 0
 
 /** A Rail Launchable with a predictable key for tests. */
-fun createRailLaunchable(name: String, deeplink: String = "rail://$name", resId: Int = 0): RailLaunchable = RailLaunchable(
+fun createRailLaunchable(name: String, deeplink: String = "rail://$name"): RailLaunchable = RailLaunchable(
     defaultName = name,
-    defaultIcon = Icon.RailIcon(resId = resId),
+    defaultIcon = Icon.RailIcon(resId = 0),
     deeplink = deeplink
 )
 
 /** An installed App with a predictable activity and key for tests. */
-fun createApp(name: String, packageName: String, profile: UserHandle = UserHandle.getUserHandleForUid(TEST_APP_USER_ID)): App = App(
+fun createApp(name: String, packageName: String): App = App(
     defaultName = name,
-    profile = profile,
+    profile = UserHandle.getUserHandleForUid(TEST_APP_USER_ID),
     componentName = ComponentName(packageName, "$packageName.MainActivity")
 )
 
