@@ -158,17 +158,80 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `setClockVisible rejects hiding the last standing part`() = databaseTest {
-        val inputSettings: HeaderSettings = HeaderSettings(
-            clockVisible = true,
-            dateVisible = false,
-            timeTapTarget = HeaderTapSetting.SystemDefault,
-            dateTapTarget = HeaderTapSetting.SystemDefault
+        val inputBatteries: List<BatteryVisibility> =
+            listOf(BatteryVisibility.NEVER, BatteryVisibility.CHARGING_OR_LOW)
+        inputBatteries.forEach { inputBattery ->
+            val inputSettings: HeaderSettings = HeaderSettings(
+                clockVisible = true,
+                dateVisible = false,
+                batteryVisibility = inputBattery,
+                timeTapTarget = HeaderTapSetting.SystemDefault,
+                dateTapTarget = HeaderTapSetting.SystemDefault
+            )
+            val repository: IWidgetSettingsRepository = createRepository(headerSettings = inputSettings)
+
+            repository.setClockVisible(visible = false)
+
+            assertEquals(inputSettings, database.getHeaderSettingsDao().getRow())
+        }
+    }
+
+    @Test
+    fun `setClockVisible hides the clock while the battery is always shown`() = databaseTest {
+        val repository: IWidgetSettingsRepository = createRepository(
+            headerSettings = HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
         )
-        val repository: IWidgetSettingsRepository = createRepository(headerSettings = inputSettings, isLoaded = true)
 
         repository.setClockVisible(visible = false)
 
-        assertEquals(inputSettings, database.getHeaderSettingsDao().getRow())
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
+        assertFalse(actualSettings.clockVisible)
+        assertFalse(requireNotNull(database.getHeaderSettingsDao().getRow()).clockVisible)
+    }
+
+    @Test
+    fun `setDateVisible hides the date while the battery is always shown`() = databaseTest {
+        val repository: IWidgetSettingsRepository = createRepository(
+            headerSettings = HeaderSettings(batteryVisibility = BatteryVisibility.ALWAYS)
+        )
+
+        repository.setDateVisible(visible = false)
+
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
+        assertFalse(actualSettings.dateVisible)
+        assertFalse(requireNotNull(database.getHeaderSettingsDao().getRow()).dateVisible)
+    }
+
+    @Test
+    fun `setBatteryVisibility persists the chosen visibility`() = databaseTest {
+        val repository: IWidgetSettingsRepository = createRepository()
+
+        repository.setBatteryVisibility(visibility = BatteryVisibility.ALWAYS)
+
+        assertEquals(BatteryVisibility.ALWAYS, repository.headerSettings.first().batteryVisibility)
+    }
+
+    @Test
+    fun `pruneExcludedCalendarIds keeps only the available calendars`() = databaseTest {
+        val repository: IWidgetSettingsRepository = createRepository(
+            eventSettings = EventSettings(excludedCalendarIds = setOf("1", "2"))
+        )
+
+        repository.pruneExcludedCalendarIds(availableCalendarIds = setOf("1"))
+
+        assertEquals(setOf("1"), repository.eventSettings.first().excludedCalendarIds)
+    }
+
+    @Test
+    fun `pruneExcludedCalendarIds keeps the exclusions with no available calendars`() = databaseTest {
+        val inputExcluded: Set<String> = setOf("1", "2")
+        val repository: IWidgetSettingsRepository = createRepository(
+            eventSettings = EventSettings(excludedCalendarIds = inputExcluded)
+        )
+
+        repository.pruneExcludedCalendarIds(availableCalendarIds = emptySet())
+
+        assertEquals(inputExcluded, repository.eventSettings.first().excludedCalendarIds)
     }
 
     @Test

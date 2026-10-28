@@ -8,8 +8,6 @@ import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.media.IMediaSessionSource
 import core.data.media.MediaSessionSnapshot
-import core.data.prefs.EventSettings
-import core.data.prefs.HeaderSettings
 import core.data.testing.AppWidgetHostState
 import core.data.testing.TEST_APP_WIDGET_ID
 import core.data.testing.WidgetAreaRepositoryState
@@ -20,7 +18,7 @@ import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createMediaSessionSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
-import core.data.testing.createWidgetSettingsRepositoryFixture
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.time.ClockReading
 import core.data.time.IClockSource
@@ -30,8 +28,6 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
-import core.data.widgets.MediaPlayerSettings
-import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
@@ -106,18 +102,6 @@ fun createHost(
     providerInfos = mapOf(TEST_APP_WIDGET_ID to info) + providerInfos
 )
 
-fun createSettingsRepository(
-    initialSettings: HeaderSettings = HeaderSettings(),
-    initialEventSettings: EventSettings = EventSettings(),
-    initialAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default,
-    initialMediaPlayerSettings: MediaPlayerSettings = MediaPlayerSettings.Default
-): IWidgetSettingsRepository = createWidgetSettingsRepositoryFixture(
-    headerSettings = initialSettings,
-    eventSettings = initialEventSettings,
-    widgetAreaSettings = initialAreaSettings,
-    mediaPlayerSettings = initialMediaPlayerSettings
-).mockSettingsRepository
-
 fun createClock(initialReading: ClockReading): IClockSource = createClockSourceMock(MutableStateFlow(initialReading))
 
 fun createBattery(initialStatus: BatteryStatus): IBatterySource = createBatterySourceMock(MutableStateFlow(initialStatus))
@@ -141,7 +125,7 @@ fun createMediaSession(initialSessions: List<MediaSessionSnapshot> = emptyList()
 fun createAddController(
     mockRepository: IWidgetAreaRepository = createRepository(),
     mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(),
-    mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(),
+    mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(),
     homeEditState: HomeEditState = HomeEditState(),
     savedStateHandle: SavedStateHandle = SavedStateHandle(),
     mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock()

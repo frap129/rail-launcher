@@ -6,6 +6,7 @@ import core.data.testing.AddFlowPendingIdsState
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAddFlowPendingIds
@@ -194,8 +195,8 @@ class IWidgetAddControllerImplTest {
         val mockRepository: IWidgetAreaRepository = createRepository(listOf(inputStack))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockSettingsRepository = createSettingsRepository(
-                initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
             )
         )
 

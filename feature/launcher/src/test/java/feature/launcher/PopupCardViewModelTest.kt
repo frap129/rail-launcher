@@ -31,6 +31,7 @@ import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
 import core.data.testing.createWidgetAreaRepositoryMock
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.popupStackPlace
 import core.data.time.ClockReading
 import core.data.time.IClockSource
@@ -55,7 +56,6 @@ import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo
 import feature.launcher.widgets.createHost
 import feature.launcher.widgets.createRepository
-import feature.launcher.widgets.createSettingsRepository
 import io.mockk.coVerify
 import io.mockk.verify
 import java.time.Instant
@@ -1037,8 +1037,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `hides the stack indicator when the Widget Stacks setting is off`() = runTest {
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(stackIndicatorVisible = false)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(stackIndicatorVisible = false)
         )
         val viewModel: PopupCardViewModel = createStackViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.popupState.test {
@@ -1098,8 +1098,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     @Test
     fun `owner menu hides Add to stack at the stack cap`() = runTest {
         val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
         )
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,
@@ -1216,8 +1216,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     @Test
     fun `startAddWidget at the stack cap reports that the stack is full`() = runTest {
         val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
-        val mockSettingsRepository: IWidgetSettingsRepository = createSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
         )
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,

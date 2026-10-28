@@ -2,73 +2,142 @@ package core.data.testing
 
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
+import core.data.prefs.withBatteryVisibility
+import core.data.prefs.withClockVisible
+import core.data.prefs.withDateVisible
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.WidgetAreaSettings
-import io.mockk.spyk
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 
-/** The mutable settings and recorded updates behind a [createWidgetSettingsRepositoryMock] repository. */
-class WidgetSettingsRepositoryState(
+/** A MockK [IWidgetSettingsRepository] over the given initial settings. */
+fun createWidgetSettingsRepositoryMock(
     headerSettings: HeaderSettings = HeaderSettings(),
     eventSettings: EventSettings = EventSettings(),
     widgetAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default,
     mediaPlayerSettings: MediaPlayerSettings = MediaPlayerSettings.Default
-) : IWidgetSettingsRepository {
-    override val headerSettings: MutableStateFlow<HeaderSettings> = MutableStateFlow(headerSettings)
-    override val eventSettings: MutableStateFlow<EventSettings> = MutableStateFlow(eventSettings)
-    override val widgetAreaSettings: MutableStateFlow<WidgetAreaSettings> = MutableStateFlow(widgetAreaSettings)
-    override val mediaPlayerSettings: MutableStateFlow<MediaPlayerSettings> = MutableStateFlow(mediaPlayerSettings)
+): IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+    headerSettings = MutableStateFlow(headerSettings),
+    eventSettings = MutableStateFlow(eventSettings),
+    widgetAreaSettings = MutableStateFlow(widgetAreaSettings),
+    mediaPlayerSettings = MutableStateFlow(mediaPlayerSettings)
+)
 
-    val headerUpdates: MutableList<HeaderSettings> = mutableListOf()
-    val eventUpdates: MutableList<EventSettings> = mutableListOf()
-    val areaUpdates: MutableList<WidgetAreaSettings> = mutableListOf()
-    val mediaPlayerUpdates: MutableList<MediaPlayerSettings> = mutableListOf()
-
-    override suspend fun updateHeaderSettings(transform: (HeaderSettings) -> HeaderSettings) {
-        val updated: HeaderSettings = transform(headerSettings.value)
-        headerSettings.value = updated
-        headerUpdates.add(updated)
+/**
+ * A MockK [IWidgetSettingsRepository] reading and writing [headerSettings], [eventSettings],
+ * [widgetAreaSettings] and [mediaPlayerSettings]. Every member is stubbed: the update methods apply the
+ * caller's transform and the setters apply the repository's stored rules.
+ */
+fun createWidgetSettingsRepositoryMock(
+    headerSettings: MutableStateFlow<HeaderSettings>,
+    eventSettings: MutableStateFlow<EventSettings> = MutableStateFlow(EventSettings()),
+    widgetAreaSettings: MutableStateFlow<WidgetAreaSettings> = MutableStateFlow(WidgetAreaSettings.Default),
+    mediaPlayerSettings: MutableStateFlow<MediaPlayerSettings> = MutableStateFlow(MediaPlayerSettings.Default)
+): IWidgetSettingsRepository {
+    val mockWidgetSettingsRepository: IWidgetSettingsRepository = mockk()
+    every { mockWidgetSettingsRepository.headerSettings } returns headerSettings
+    every { mockWidgetSettingsRepository.eventSettings } returns eventSettings
+    every { mockWidgetSettingsRepository.widgetAreaSettings } returns widgetAreaSettings
+    every { mockWidgetSettingsRepository.mediaPlayerSettings } returns mediaPlayerSettings
+    coEvery { mockWidgetSettingsRepository.updateHeaderSettings(any()) } answers {
+        headerSettings.update { settings -> firstArg<(HeaderSettings) -> HeaderSettings>()(settings) }
     }
-
-    override suspend fun updateEventSettings(transform: (EventSettings) -> EventSettings) {
-        val updated: EventSettings = transform(eventSettings.value)
-        eventSettings.value = updated
-        eventUpdates.add(updated)
+    coEvery { mockWidgetSettingsRepository.updateEventSettings(any()) } answers {
+        eventSettings.update { settings -> firstArg<(EventSettings) -> EventSettings>()(settings) }
     }
-
-    override suspend fun updateWidgetAreaSettings(transform: (WidgetAreaSettings) -> WidgetAreaSettings) {
-        val updated: WidgetAreaSettings = transform(widgetAreaSettings.value)
-        widgetAreaSettings.value = updated
-        areaUpdates.add(updated)
+    coEvery { mockWidgetSettingsRepository.updateWidgetAreaSettings(any()) } answers {
+        widgetAreaSettings.update { settings -> firstArg<(WidgetAreaSettings) -> WidgetAreaSettings>()(settings) }
     }
-
-    override suspend fun updateMediaPlayerSettings(transform: (MediaPlayerSettings) -> MediaPlayerSettings) {
-        val updated: MediaPlayerSettings = transform(mediaPlayerSettings.value)
-        mediaPlayerSettings.value = updated
-        mediaPlayerUpdates.add(updated)
+    coEvery { mockWidgetSettingsRepository.updateMediaPlayerSettings(any()) } answers {
+        mediaPlayerSettings.update { settings -> firstArg<(MediaPlayerSettings) -> MediaPlayerSettings>()(settings) }
     }
-}
-
-/** A spy on [state], so the production default setters run against it and tests can verify their calls. */
-fun createWidgetSettingsRepositoryMock(state: WidgetSettingsRepositoryState = WidgetSettingsRepositoryState()): IWidgetSettingsRepository =
-    spyk(state)
-
-/** A [WidgetSettingsRepositoryState] with the spy over it, so a test can read writes and verify calls. */
-class WidgetSettingsRepositoryFixture(val state: WidgetSettingsRepositoryState, val mockSettingsRepository: IWidgetSettingsRepository)
-
-/** A [WidgetSettingsRepositoryFixture] over the given initial settings. */
-fun createWidgetSettingsRepositoryFixture(
-    headerSettings: HeaderSettings = HeaderSettings(),
-    eventSettings: EventSettings = EventSettings(),
-    widgetAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default,
-    mediaPlayerSettings: MediaPlayerSettings = MediaPlayerSettings.Default
-): WidgetSettingsRepositoryFixture {
-    val state: WidgetSettingsRepositoryState = WidgetSettingsRepositoryState(
-        headerSettings = headerSettings,
-        eventSettings = eventSettings,
-        widgetAreaSettings = widgetAreaSettings,
-        mediaPlayerSettings = mediaPlayerSettings
-    )
-    return WidgetSettingsRepositoryFixture(state = state, mockSettingsRepository = createWidgetSettingsRepositoryMock(state))
+    coEvery { mockWidgetSettingsRepository.setMaxStackPages(any()) } answers {
+        widgetAreaSettings.update { settings ->
+            settings.copy(
+                maxStackPages = firstArg<Int>().coerceIn(
+                    WidgetAreaSettings.MIN_STACK_PAGES,
+                    WidgetAreaSettings.MAX_STACK_PAGES
+                )
+            )
+        }
+    }
+    coEvery { mockWidgetSettingsRepository.setStackIndicatorVisible(any()) } answers {
+        widgetAreaSettings.update { settings -> settings.copy(stackIndicatorVisible = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setHeightLimitEnabled(any()) } answers {
+        widgetAreaSettings.update { settings -> settings.copy(heightLimitEnabled = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setHeightLimit(any()) } answers {
+        widgetAreaSettings.update { settings -> settings.copy(heightLimit = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setTopOffsetDp(any()) } answers {
+        widgetAreaSettings.update { settings ->
+            settings.copy(topOffsetDp = WidgetAreaSettings.snapOffsetToStep(offsetDp = firstArg()))
+        }
+    }
+    coEvery { mockWidgetSettingsRepository.setWidgetSpacing(any()) } answers {
+        widgetAreaSettings.update { settings -> settings.copy(widgetSpacing = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setClockVisible(any()) } answers {
+        headerSettings.update { settings -> settings.withClockVisible(visible = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setDateVisible(any()) } answers {
+        headerSettings.update { settings -> settings.withDateVisible(visible = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setBatteryVisibility(any()) } answers {
+        headerSettings.update { settings -> settings.withBatteryVisibility(visibility = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setEventsEnabled(any()) } answers {
+        eventSettings.update { settings -> settings.copy(enabled = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setEventLookaheadHours(any()) } answers {
+        eventSettings.update { settings -> settings.copy(lookaheadHours = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setEventMaxEvents(any()) } answers {
+        eventSettings.update { settings -> settings.copy(maxEvents = firstArg()).withValidMaxEvents() }
+    }
+    coEvery { mockWidgetSettingsRepository.setEventIncludeAllDay(any()) } answers {
+        eventSettings.update { settings -> settings.copy(includeAllDay = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setExcludedCalendarIds(any()) } answers {
+        eventSettings.update { settings -> settings.copy(excludedCalendarIds = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.pruneExcludedCalendarIds(any()) } answers {
+        val inputAvailableCalendarIds: Set<String> = firstArg()
+        if (inputAvailableCalendarIds.isNotEmpty()) {
+            eventSettings.update { settings ->
+                settings.copy(excludedCalendarIds = settings.excludedCalendarIds.intersect(inputAvailableCalendarIds))
+            }
+        }
+    }
+    coEvery { mockWidgetSettingsRepository.setMediaPlayerEnabled(any()) } answers {
+        mediaPlayerSettings.update { settings -> settings.copy(enabled = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setMediaPlayerShowWhenPaused(any()) } answers {
+        mediaPlayerSettings.update { settings -> settings.copy(showWhenPaused = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setMediaPlayerShowArtwork(any()) } answers {
+        mediaPlayerSettings.update { settings -> settings.copy(showArtwork = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setMediaPlayerPlacement(any()) } answers {
+        mediaPlayerSettings.update { settings -> settings.copy(placement = firstArg()) }
+    }
+    coEvery { mockWidgetSettingsRepository.setMediaPlayerPackageExcluded(any(), any()) } answers {
+        val inputPackageName: String = firstArg()
+        val inputExcluded: Boolean = arg(1)
+        mediaPlayerSettings.update { settings ->
+            settings.copy(
+                excludedPackages = if (inputExcluded) {
+                    settings.excludedPackages + inputPackageName
+                } else {
+                    settings.excludedPackages - inputPackageName
+                }
+            )
+        }
+    }
+    return mockWidgetSettingsRepository
 }
