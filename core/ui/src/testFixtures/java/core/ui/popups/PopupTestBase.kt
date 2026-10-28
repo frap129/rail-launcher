@@ -94,12 +94,7 @@ abstract class PopupTestBase {
         shortcutsResult = shortcutResult,
         appsWithShortcuts = shortcutsWithApps
     )
-    protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(
-        state = popupRepositoryState,
-        resolveLaunchable = { key ->
-            listOf(inputApp, inputOtherApp, inputPausedApp, inputRailLaunchable).firstOrNull { launchable -> launchable.key == key }
-        }
-    )
+    protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = popupRepositoryState)
     protected val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(folders)
     protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
@@ -170,7 +165,8 @@ abstract class PopupTestBase {
 
     protected fun TestScope.createFolder(
         session: IPopupSession = IPopupSessionImpl(),
-        homeEditState: HomeEditState = inputHomeEditState
+        homeEditState: HomeEditState = inputHomeEditState,
+        mockFolderRepository: IFolderRepository = this@PopupTestBase.mockFolderRepository
     ): IPopupFolderActions = IPopupFolderActionsImpl(
         parentScope = backgroundScope,
         launchableRepository = mockLaunchableRepository,

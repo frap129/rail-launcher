@@ -2,17 +2,18 @@ package feature.settings
 
 import app.cash.turbine.test
 import core.data.folders.Folder
+import core.data.folders.IFolderRepository
 import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.TEST_SDK
 import core.data.testing.createFavoritesRepositoryFixture
+import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createTestNotificationSource
 import core.ui.popups.PopupTestBase
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -72,14 +73,9 @@ class PopupSettingsViewModelTest : PopupTestBase() {
     fun `creates a Folder without a favorite`() = runTest {
         val viewModel: PopupSettingsViewModel = createViewModel()
 
-        viewModel.uiState.test {
-            viewModel.createFolder(name = NEW_FOLDER_NAME)
-            advanceUntilIdle()
-            assertEquals(
-                listOf(inputFolder.name, inputSecondFolder.name, NEW_FOLDER_NAME),
-                expectMostRecentItem().folders.map { row -> row.folder.name }
-            )
-        }
+        viewModel.createFolder(name = NEW_FOLDER_NAME)
+        advanceUntilIdle()
+
         coVerify(exactly = 1) {
             mockFolderRepository.create(name = NEW_FOLDER_NAME, initialItems = emptyList(), addToFavorites = false)
         }
@@ -87,7 +83,11 @@ class PopupSettingsViewModelTest : PopupTestBase() {
 
     @Test
     fun `emits a created Folder for the Snackbar`() = runTest {
-        val viewModel: PopupSettingsViewModel = createViewModel()
+        val viewModel: PopupSettingsViewModel = createViewModel(
+            mockFolderRepository = createFolderRepositoryMock(
+                createdFolder = Folder(folderId = 1L, name = NEW_FOLDER_NAME)
+            )
+        )
 
         viewModel.createdFolders.test {
             viewModel.createFolder(name = NEW_FOLDER_NAME)
@@ -103,8 +103,10 @@ class PopupSettingsViewModelTest : PopupTestBase() {
             viewModel.openActions(inputFolder)
             viewModel.setOnHome(true)
             advanceUntilIdle()
+            inputFavorites.state.favorites.value = listOf(inputFolder)
             assertEquals(FolderLocation.HomeAndAppList, expectMostRecentItem().selectedFolder?.location)
         }
+        coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputFolder) }
     }
 
     @Test
@@ -118,6 +120,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
             viewModel.collaborators.folder.requestDeleteFolder(inputFolder)
             viewModel.collaborators.folder.confirmDeleteFolder()
             advanceUntilIdle()
+            deleteFolder(inputFolder)
             val actualState: PopupSettingsUiState = expectMostRecentItem()
             assertNull(actualState.selectedFolder)
             assertTrue(actualState.folders.isEmpty())
@@ -184,17 +187,26 @@ class PopupSettingsViewModelTest : PopupTestBase() {
     fun `persists whether Pop-ups show notifications`() = runTest {
         val viewModel: PopupSettingsViewModel = createViewModel()
 
-        viewModel.uiState.test {
-            assertFalse(expectMostRecentItem().notificationsEnabled)
-            viewModel.setNotificationsEnabled(true)
-            advanceUntilIdle()
-            assertTrue(expectMostRecentItem().notificationsEnabled)
-        }
-        assertTrue(mockPopupRepository.notificationsEnabled.first())
+        viewModel.setNotificationsEnabled(true)
+        advanceUntilIdle()
+
         coVerify(exactly = 1) { mockPopupRepository.setNotificationsEnabled(true) }
     }
 
-    private fun TestScope.createViewModel(accessCheck: () -> Boolean = { true }): PopupSettingsViewModel = PopupSettingsViewModel(
+    @Test
+    fun `shows notifications as on when the repository has them on`() = runTest {
+        setNotificationsEnabled(true)
+        val viewModel: PopupSettingsViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            assertTrue(expectMostRecentItem().notificationsEnabled)
+        }
+    }
+
+    private fun TestScope.createViewModel(
+        accessCheck: () -> Boolean = { true },
+        mockFolderRepository: IFolderRepository = this@PopupSettingsViewModelTest.mockFolderRepository
+    ): PopupSettingsViewModel = PopupSettingsViewModel(
         folderRepository = mockFolderRepository,
         popupRepository = mockPopupRepository,
         notificationSource = createTestNotificationSource(

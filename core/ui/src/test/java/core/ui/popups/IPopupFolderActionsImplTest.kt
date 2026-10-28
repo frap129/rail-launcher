@@ -2,9 +2,11 @@ package core.ui.popups
 
 import app.cash.turbine.test
 import core.data.folders.Folder
+import core.data.folders.IFolderRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.testing.TEST_SDK
+import core.data.testing.createFolderRepositoryMock
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.verify
@@ -95,6 +97,8 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
 
         folderActions.toggleMembership(folderKey = inputFolder.key, member = true)
         runCurrent()
+        setPopupLaunchables(ownerKey = inputFolder.key, launchables = listOf(inputApp))
+        runCurrent()
 
         assertEquals(setOf(inputFolder.key), (folderActions.addToFolderState.value as AddToFolderState.Open).membership)
         coVerify(exactly = 1) { mockPopupRepository.setItems(any(), any(), any()) }
@@ -103,6 +107,8 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         }
 
         folderActions.toggleMembership(folderKey = inputFolder.key, member = false)
+        runCurrent()
+        setPopupLaunchables(ownerKey = inputFolder.key, launchables = emptyList())
         runCurrent()
 
         assertTrue((folderActions.addToFolderState.value as AddToFolderState.Open).membership.isEmpty())
@@ -115,7 +121,10 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
 
     @Test
     fun `startNewFolder creates a favorite Folder with the app and reports it`() = runTest {
-        val folderActions: IPopupFolderActions = createFolder()
+        val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(
+            createdFolder = Folder(folderId = 1L, name = "Games")
+        )
+        val folderActions: IPopupFolderActions = createFolder(mockFolderRepository = mockFolderRepository)
         val addedFolders: MutableList<Folder> = mutableListOf()
         backgroundScope.launch { folderActions.folderAdditions.collect { folder -> addedFolders += folder } }
         backgroundScope.launch { folderActions.addToFolderState.collect() }
