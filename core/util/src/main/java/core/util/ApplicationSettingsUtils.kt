@@ -20,10 +20,15 @@ fun Context.openApplicationDetailsSettings(packageName: String) {
 
 /** Opens the app details of [packageName] in [profile], which may be a work profile. */
 fun Context.openApplicationDetailsSettings(packageName: String, profile: UserHandle) {
+    openApplicationDetailsSettings(componentName = ComponentName(packageName, ""), profile = profile)
+}
+
+/** Opens the app details of [componentName] in [profile], which may be a work profile. */
+fun Context.openApplicationDetailsSettings(componentName: ComponentName, profile: UserHandle) {
     val launcherApps: LauncherApps = getSystemService(LauncherApps::class.java)
     runCatching {
-        launcherApps.startAppDetailsActivity(ComponentName(packageName, ""), profile, null, null)
-    }.onFailure { exception -> Timber.w(exception, "Could not open app info for %s", packageName) }
+        launcherApps.startAppDetailsActivity(componentName, profile, null, null)
+    }.onFailure { exception -> Timber.w(exception, "Could not open app info for %s", componentName.packageName) }
 }
 
 fun Context.openApplicationDetailsSettings() {

@@ -45,6 +45,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
@@ -67,8 +68,6 @@ import core.ui.util.consumeTouches
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.NotificationAccessDialog
 import core.util.openApplicationDetailsSettings
-import core.util.requestQuietModeOff
-import core.util.userForSerial
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.AddWidgetOrigin
 import feature.launcher.widgets.AddWidgetPlacement
@@ -126,6 +125,7 @@ fun LauncherScreen(
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
+    val profileSource: IProfileSource = koinInject()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -219,6 +219,7 @@ fun LauncherScreen(
                 snackbarHostState = snackbarHostState,
                 appWidgetHostSource = appWidgetHostSource,
                 appWidgetViewCache = appWidgetViewCache,
+                profileSource = profileSource,
                 bindLauncher = bindLauncher,
                 permissionLauncher = permissionLauncher,
                 navController = navController,
@@ -428,6 +429,7 @@ private suspend fun handleWidgetEvent(
     snackbarHostState: SnackbarHostState,
     appWidgetHostSource: IAppWidgetHostSource,
     appWidgetViewCache: IAppWidgetViewCache,
+    profileSource: IProfileSource,
     bindLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>,
     permissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
     navController: NavController,
@@ -480,7 +482,9 @@ private suspend fun handleWidgetEvent(
         WidgetEvent.RequestNotificationAccess -> showNotificationAccessDialog()
 
         is WidgetEvent.LaunchBind -> try {
-            bindLauncher.launch(AppWidgetViews.bindIntent(context = context, request = event.request))
+            bindLauncher.launch(
+                AppWidgetViews.bindIntent(context = context, request = event.request, profileSource = profileSource)
+            )
         } catch (exception: ActivityNotFoundException) {
             callbacks.onBindResult(false)
         } catch (exception: SecurityException) {
@@ -540,8 +544,8 @@ private suspend fun handleWidgetEvent(
             heightDp = event.heightDp
         )
 
-        is WidgetEvent.RequestQuietModeOff -> context.userForSerial(event.profileSerial)?.let { profile ->
-            context.requestQuietModeOff(profile)
+        is WidgetEvent.RequestQuietModeOff -> profileSource.userForSerial(event.profileSerial)?.let { profile ->
+            coroutineScope.launch { profileSource.requestQuiet(user = profile, quiet = false) }
         }
 
         is WidgetEvent.ScrollToPlace -> callbacks.onScrollToPlace(event.placeId)

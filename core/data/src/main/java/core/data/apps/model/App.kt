@@ -28,6 +28,6 @@ data class App(
     }
 
     fun openAppInfo(context: Context) {
-        context.openApplicationDetailsSettings(packageName = packageName)
+        context.openApplicationDetailsSettings(componentName = componentName, profile = profile)
     }
 }

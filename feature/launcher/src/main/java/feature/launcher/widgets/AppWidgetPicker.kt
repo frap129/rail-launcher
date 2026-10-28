@@ -27,10 +27,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import core.data.profiles.IProfileSource
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
 import core.ui.layout.compactIconSize
+import org.koin.compose.koinInject
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,12 +125,13 @@ private fun PickerGroupHeader(group: PickerGroup) {
 @Composable
 private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderInfo) -> Unit) {
     val context = LocalContext.current
+    val profileSource: IProfileSource = koinInject()
     val preview: Drawable? by produceState<Drawable?>(initialValue = null, widget) {
-        value = AppWidgetViews.loadPreview(context = context, info = widget)
+        value = AppWidgetViews.loadPreview(context = context, info = widget, profileSource = profileSource)
     }
     val workBadge: Drawable? by produceState<Drawable?>(initialValue = null, widget) {
         value = if (widget.isWorkProfile) {
-            AppWidgetViews.loadWorkBadge(context = context, profileSerial = widget.profileSerial)
+            AppWidgetViews.loadWorkBadge(context = context, profileSerial = widget.profileSerial, profileSource = profileSource)
         } else {
             null
         }

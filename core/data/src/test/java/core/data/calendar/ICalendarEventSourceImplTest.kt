@@ -8,6 +8,7 @@ import android.os.Looper
 import android.provider.CalendarContract
 import app.cash.turbine.test
 import core.data.testing.TEST_SDK
+import core.data.testing.createProfileSourceMock
 import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant
@@ -139,6 +140,7 @@ class ICalendarEventSourceImplTest {
     private fun createSource(context: Context, time: MutableTime, scheduler: TestCoroutineScheduler): ICalendarEventSourceImpl =
         ICalendarEventSourceImpl(
             context = context,
+            profileSource = createProfileSourceMock(),
             now = { time.current },
             zoneId = { time.zone },
             queryDispatcher = StandardTestDispatcher(scheduler)

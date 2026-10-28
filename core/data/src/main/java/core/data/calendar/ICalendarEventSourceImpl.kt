@@ -11,10 +11,11 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.os.Process
-import android.os.UserManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -50,6 +51,7 @@ internal data class EventQueryWindow(val startMillis: Long, val endMillis: Long)
 
 class ICalendarEventSourceImpl(
     context: Context,
+    private val profileSource: IProfileSource,
     private val now: () -> Instant = Instant::now,
     private val zoneId: () -> ZoneId = ZoneId::systemDefault,
     private val queryDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -103,15 +105,13 @@ class ICalendarEventSourceImpl(
         Manifest.permission.READ_CALENDAR
     ) == PackageManager.PERMISSION_GRANTED
 
-    /** Whether a profile other than the current user exists; null when it cannot be determined. */
+    /** Whether a Profile other than the personal one exists; null when the Profiles are unknown. */
     private fun hasSecondaryProfile(): Boolean? {
-        val userManager: UserManager = appContext.getSystemService(UserManager::class.java) ?: return null
-        return try {
-            userManager.userProfiles.any { profile -> profile != Process.myUserHandle() }
-        } catch (exception: Exception) {
-            Timber.w(exception, "Unable to enumerate user profiles")
-            null
+        val profiles: List<ProfileInfo> = profileSource.profiles.value
+        if (profiles.isEmpty()) {
+            return null
         }
+        return profiles.any { profile -> profile.kind == ProfileKind.Work || profile.kind == ProfileKind.Other }
     }
 
     @Suppress("DEPRECATION")

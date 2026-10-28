@@ -14,53 +14,55 @@ import android.os.Process
 import android.os.UserHandle
 import android.util.SparseIntArray
 import androidx.annotation.RequiresApi
+import core.data.profiles.IProfileSource
 import core.data.widgets.BindRequest
 import core.data.widgets.WidgetProviderInfo
-import core.util.userForSerial
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Android-only rendering helpers for App Widgets. */
 object AppWidgetViews {
-    fun bindIntent(context: Context, request: BindRequest): Intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
-        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, request.id.value)
-        putExtra(
-            AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
-            ComponentName(request.provider.packageName, request.provider.className)
-        )
-        context.userForSerial(request.profileSerial)?.let { user ->
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, user)
+    fun bindIntent(context: Context, request: BindRequest, profileSource: IProfileSource): Intent =
+        Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, request.id.value)
+            putExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
+                ComponentName(request.provider.packageName, request.provider.className)
+            )
+            profileSource.userForSerial(request.profileSerial)?.let { user ->
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, user)
+            }
         }
-    }
 
-    suspend fun loadPreview(context: Context, info: WidgetProviderInfo): Drawable? = withContext(Dispatchers.IO) {
-        val user: UserHandle = context.userForSerial(info.profileSerial) ?: Process.myUserHandle()
-        val manager: AppWidgetManager = AppWidgetManager.getInstance(context)
-        val platformInfo: AppWidgetProviderInfo? = runCatching {
-            manager.getInstalledProvidersForProfile(user)
-                .firstOrNull { provider ->
-                    provider.provider.packageName == info.provider.packageName &&
-                        provider.provider.className == info.provider.className
+    suspend fun loadPreview(context: Context, info: WidgetProviderInfo, profileSource: IProfileSource): Drawable? =
+        withContext(Dispatchers.IO) {
+            val user: UserHandle = profileSource.userForSerial(info.profileSerial) ?: Process.myUserHandle()
+            val manager: AppWidgetManager = AppWidgetManager.getInstance(context)
+            val platformInfo: AppWidgetProviderInfo? = runCatching {
+                manager.getInstalledProvidersForProfile(user)
+                    .firstOrNull { provider ->
+                        provider.provider.packageName == info.provider.packageName &&
+                            provider.provider.className == info.provider.className
+                    }
+            }.getOrNull()
+            runCatching {
+                val resourceId: Int = when {
+                    platformInfo != null && platformInfo.previewImage != 0 -> platformInfo.previewImage
+                    platformInfo != null && platformInfo.icon != 0 -> platformInfo.icon
+                    else -> 0
                 }
-        }.getOrNull()
-        runCatching {
-            val resourceId: Int = when {
-                platformInfo != null && platformInfo.previewImage != 0 -> platformInfo.previewImage
-                platformInfo != null && platformInfo.icon != 0 -> platformInfo.icon
-                else -> 0
-            }
-            if (resourceId == 0) {
-                null
-            } else {
-                val launcherApps = context.getSystemService(LauncherApps::class.java)
-                val appInfo = launcherApps.getApplicationInfo(info.provider.packageName, 0, user)
-                context.packageManager.getResourcesForApplication(appInfo).getDrawable(resourceId, null)
-            }
-        }.getOrNull()
-    }
+                if (resourceId == 0) {
+                    null
+                } else {
+                    val launcherApps = context.getSystemService(LauncherApps::class.java)
+                    val appInfo = launcherApps.getApplicationInfo(info.provider.packageName, 0, user)
+                    context.packageManager.getResourcesForApplication(appInfo).getDrawable(resourceId, null)
+                }
+            }.getOrNull()
+        }
 
-    fun loadWorkBadge(context: Context, profileSerial: Long): Drawable? {
-        val user: UserHandle = context.userForSerial(profileSerial) ?: return null
+    fun loadWorkBadge(context: Context, profileSerial: Long, profileSource: IProfileSource): Drawable? {
+        val user: UserHandle = profileSource.userForSerial(profileSerial) ?: return null
         return runCatching {
             context.packageManager.getUserBadgedIcon(ColorDrawable(Color.TRANSPARENT), user)
         }.getOrNull()

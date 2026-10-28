@@ -42,6 +42,8 @@ import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
+import core.data.profiles.IProfileSource
+import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
 import core.data.room.MIGRATION_11_12
 import core.data.room.dao.CustomIconPackDao
@@ -195,8 +197,9 @@ class MainApplication :
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
-        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IProfileSource> { IProfileSourceImpl(androidContext()) }
+        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
@@ -227,11 +230,11 @@ class MainApplication :
         single<AppWidgetResults> { AppWidgetResults() }
         single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
         single<IWidgetLifecycleReconciler> { IWidgetLifecycleReconcilerImpl(get(), get()) }
-        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
+        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get(), get()) }
         single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
         single<IRemoveOwnerWidgets> { IRemoveOwnerWidgetsImpl(get(), get()) }
-        single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext()) }
+        single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext(), get()) }
         factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
