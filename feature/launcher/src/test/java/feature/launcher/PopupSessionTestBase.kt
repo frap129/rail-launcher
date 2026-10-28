@@ -8,19 +8,21 @@ import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationRecord
-import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeClockSource
-import core.data.testing.FakeRemoveAppWidget
-import core.data.testing.FakeWidgetAreaDao
-import core.data.testing.FakeWidgetAreaRepository
-import core.data.testing.FakeWidgetSettingsRepository
+import core.data.testing.AppWidgetHostState
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
+import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createNotificationRecord
 import core.data.testing.createOtherNotificationProfile
+import core.data.testing.createRemoveAppWidgetMock
+import core.data.testing.createWidgetAreaRepositoryMock
+import core.data.testing.createWidgetLifecycleReconcilerMock
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.time.ClockReading
 import core.data.time.IClockSource
+import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveAppWidget
-import core.data.widgets.IWidgetLifecycleReconcilerImpl
+import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetSettingsRepository
 import core.ui.layout.HomeEditState
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
@@ -31,6 +33,7 @@ import core.ui.popups.IPopupSessionImpl
 import core.ui.popups.PopupTestBase
 import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.createAddController
+import feature.launcher.widgets.createClock
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -67,48 +70,50 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         componentName = ComponentName("com.example.work", "com.example.work.MainActivity")
     )
     protected val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
-    protected val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-    protected val mockRemoveAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget()
-    protected val mockWidgetSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
-    protected val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
-    protected val mockNotificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
+    protected val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
+    protected val inputAppWidgetHostState: AppWidgetHostState = AppWidgetHostState()
+    protected val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(inputAppWidgetHostState)
+    protected val mockRemoveAppWidget: IRemoveAppWidget = createRemoveAppWidgetMock()
+    protected val mockWidgetSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
+    protected val notificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
+    protected val mockClockSource: IClockSource = createClock(clockReading(instant = TEST_NOW))
 
     protected fun TestScope.createCard(
         session: IPopupSession = IPopupSessionImpl(),
         homeEditState: HomeEditState = inputHomeEditState,
         savedStateHandle: SavedStateHandle = inputSavedStateHandle,
-        widgetRepository: FakeWidgetAreaRepository = mockWidgetAreaRepository,
-        appWidgetHost: FakeAppWidgetHostSource = mockAppWidgetHost,
+        mockWidgetRepository: IWidgetAreaRepository = mockWidgetAreaRepository,
+        mockAppWidgetHost: IAppWidgetHostSource = this@PopupSessionTestBase.mockAppWidgetHost,
         removeAppWidget: IRemoveAppWidget = mockRemoveAppWidget,
-        widgetSettingsRepository: FakeWidgetSettingsRepository = mockWidgetSettingsRepository,
+        mockWidgetSettingsRepository: IWidgetSettingsRepository = this@PopupSessionTestBase.mockWidgetSettingsRepository,
         notificationSource: INotificationSource = createNotificationSource(),
-        clockSource: IClockSource = FakeClockSource(initialReading = clockReading(instant = TEST_NOW)),
+        mockClockSource: IClockSource = this@PopupSessionTestBase.mockClockSource,
         collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = homeEditState)
     ): PopupCardViewModel = PopupCardViewModel(
         launchableRepository = mockLaunchableRepository,
         shortcutSource = mockShortcutSource,
         popupRepository = mockPopupRepository,
         notificationSource = notificationSource,
-        clockSource = clockSource,
+        clockSource = mockClockSource,
         homeEditState = homeEditState,
-        widgetRepository = widgetRepository,
+        widgetRepository = mockWidgetRepository,
         addFlowController = createAddController(
-            repository = widgetRepository,
-            appWidgetHost = appWidgetHost,
+            mockRepository = mockWidgetRepository,
+            mockAppWidgetHost = mockAppWidgetHost,
             homeEditState = homeEditState,
             savedStateHandle = savedStateHandle,
-            settingsRepository = widgetSettingsRepository
+            mockSettingsRepository = mockWidgetSettingsRepository
         ),
         resizeController = IWidgetResizeControllerImpl(
-            repository = widgetRepository,
-            appWidgetHost = appWidgetHost,
-            settingsRepository = widgetSettingsRepository,
+            repository = mockWidgetRepository,
+            appWidgetHost = mockAppWidgetHost,
+            settingsRepository = mockWidgetSettingsRepository,
             homeEditState = homeEditState
         ),
-        appWidgetHost = appWidgetHost,
+        appWidgetHost = mockAppWidgetHost,
         removeAppWidget = removeAppWidget,
-        widgetLifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = FakeWidgetAreaDao(), host = appWidgetHost),
-        widgetSettingsRepository = widgetSettingsRepository,
+        widgetLifecycleReconciler = createWidgetLifecycleReconcilerMock(),
+        widgetSettingsRepository = mockWidgetSettingsRepository,
         savedStateHandle = savedStateHandle,
         session = session,
         collaborators = collaborators
@@ -117,7 +122,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
     protected fun TestScope.createSession(
         homeEditState: HomeEditState = inputHomeEditState,
         notificationSource: INotificationSource = createNotificationSource(),
-        clockSource: IClockSource = FakeClockSource(initialReading = clockReading(instant = TEST_NOW))
+        mockClockSource: IClockSource = this@PopupSessionTestBase.mockClockSource
     ): PopupTestSession {
         val session: IPopupSession = IPopupSessionImpl()
         val collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = homeEditState)
@@ -125,7 +130,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
             session = session,
             homeEditState = homeEditState,
             notificationSource = notificationSource,
-            clockSource = clockSource,
+            mockClockSource = mockClockSource,
             collaborators = collaborators
         )
         return PopupTestSession(
@@ -168,8 +173,8 @@ abstract class PopupSessionTestBase : PopupTestBase() {
     protected fun TestScope.createNotificationSource(accessCheck: () -> Boolean = { true }): INotificationSource =
         createTestNotificationSource(
             scope = backgroundScope,
-            popupRepository = mockPopupRepository,
-            relay = mockNotificationRelay,
+            mockPopupRepository = mockPopupRepository,
+            relay = notificationRelay,
             isAccessGranted = accessCheck
         )
 

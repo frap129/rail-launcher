@@ -7,12 +7,12 @@ import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createHeaderSettingsActions
+import core.data.testing.createWidgetSettingsRepositoryMock
 import io.mockk.CapturingSlot
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.just
-import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -184,12 +184,5 @@ class IHeaderSettingsActionsImplTest {
         actions.refreshCalendarPermission()
 
         verify(exactly = 1) { mockCalendarEventSource.refreshPermission() }
-    }
-
-    private fun createWidgetSettingsRepositoryMock(): IWidgetSettingsRepository = mockk {
-        coEvery { setClockVisible(any()) } just Runs
-        coEvery { setDateVisible(any()) } just Runs
-        coEvery { setBatteryVisibility(any()) } just Runs
-        coEvery { setEventsEnabled(any()) } just Runs
     }
 }

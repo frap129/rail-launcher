@@ -16,24 +16,32 @@ import core.data.popups.PopupEmptyReason
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
-import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeClockSource
-import core.data.testing.FakeWidgetAreaRepository
-import core.data.testing.FakeWidgetSettingsRepository
+import core.data.testing.AppWidgetHostState
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
 import core.data.testing.TEST_NOTIFICATION_REPLY_KEY
 import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
+import core.data.testing.WidgetAreaRepositoryState
+import core.data.testing.WidgetSettingsRepositoryState
 import core.data.testing.appWidgetPlace
+import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createClockSourceMock
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
+import core.data.testing.createWidgetAreaRepositoryMock
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.popupStackPlace
+import core.data.time.ClockReading
+import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
+import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IRemoveAppWidgetImpl
+import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetAreaSettings
@@ -47,10 +55,13 @@ import core.ui.popups.PopupEditState
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo
+import feature.launcher.widgets.createHost
+import feature.launcher.widgets.createRepository
 import io.mockk.coVerify
 import io.mockk.verify
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -74,6 +85,11 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupCardViewModelTest : PopupSessionTestBase() {
+    private val inputStackProviderInfos: Map<Int, WidgetProviderInfo> = mapOf(
+        9 to appWidgetProviderInfo(isVerticallyResizable = true),
+        10 to appWidgetProviderInfo(isVerticallyResizable = true),
+        11 to appWidgetProviderInfo(isVerticallyResizable = true)
+    )
 
     @Test
     fun `starts closed`() = runTest {
@@ -95,15 +111,16 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `advances notification ages with the clock`() = runTest {
-        val mockClockSource: FakeClockSource = FakeClockSource(initialReading = clockReading(instant = TEST_NOW))
+        val inputClockReadings: MutableStateFlow<ClockReading> = MutableStateFlow(clockReading(instant = TEST_NOW))
+        val mockClockSource: IClockSource = createClockSourceMock(inputClockReadings)
         val viewModel: PopupCardViewModel = openNotificationCard(
-            viewModel = createCard(clockSource = mockClockSource),
+            viewModel = createCard(mockClockSource = mockClockSource),
             notification = null
         )
         assertEquals(TEST_NOW.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
 
         val inputLater: Instant = TEST_NOW.plusSeconds(360L)
-        mockClockSource.emit(reading = clockReading(instant = inputLater))
+        inputClockReadings.value = clockReading(instant = inputLater)
         runCurrent()
 
         assertEquals(inputLater.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
@@ -117,7 +134,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         advanceUntilIdle()
 
         assertEquals(PopupUiState.Closed, viewModel.popupState.value)
-        assertNull(mockNotificationRelay.record(key = TEST_NOTIFICATION_KEY))
+        assertNull(notificationRelay.record(key = TEST_NOTIFICATION_KEY))
     }
 
     @Test
@@ -146,7 +163,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         advanceUntilIdle()
 
         assertEquals(PopupUiState.Closed, viewModel.popupState.value)
-        assertNotNull(mockNotificationRelay.record(key = TEST_NOTIFICATION_OTHER_KEY))
+        assertNotNull(notificationRelay.record(key = TEST_NOTIFICATION_OTHER_KEY))
     }
 
     @Test
@@ -483,7 +500,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
                 LaunchableGroup.InitialGroup(label = "W", items = listOf(inputWorkApp))
             )
         )
-        mockAppWidgetHost.profileSerials[inputWorkApp.profile] = TEST_WORK_PROFILE_SERIAL
+        inputAppWidgetHostState.profileSerials[inputWorkApp.profile] = TEST_WORK_PROFILE_SERIAL
         val viewModel: PopupCardViewModel = createCard()
 
         viewModel.popupState.test {
@@ -841,10 +858,10 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             appPackageName = "com.other",
             appLabel = "Alpha"
         )
-        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource(
-            initialProviders = listOf(inputOtherProvider, inputOwnerProvider)
+        val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(
+            AppWidgetHostState(providers = listOf(inputOtherProvider, inputOwnerProvider))
         )
-        val viewModel: PopupCardViewModel = createCard(appWidgetHost = mockAppWidgetHost)
+        val viewModel: PopupCardViewModel = createCard(mockAppWidgetHost = mockAppWidgetHost)
         backgroundScope.launch { viewModel.popupState.collect() }
         runCurrent()
         viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -892,7 +909,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(9)), awaitItem())
             assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
         }
-        assertEquals(listOf(6L), mockRemoveAppWidget.removedWidgetIds)
+        coVerify(exactly = 1) { mockRemoveAppWidget.invoke(6L) }
     }
 
     @Test
@@ -1002,9 +1019,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `shows the owner's widget stack with its remembered page`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, heightDp = 120, currentPage = 1, ownerKey = inputApp.key)
-        )
+        val mockRepository: IWidgetAreaRepository =
+            createRepository(listOf(popupStackPlace(placeId = 5L, heightDp = 120, currentPage = 1, ownerKey = inputApp.key)))
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
         viewModel.popupState.test {
             viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -1022,8 +1038,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `hides the stack indicator when the Widget Stacks setting is off`() = runTest {
-        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(stackIndicatorVisible = false)
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            WidgetSettingsRepositoryState(widgetAreaSettings = WidgetAreaSettings(stackIndicatorVisible = false))
         )
         val viewModel: PopupCardViewModel = createStackViewModel(mockSettingsRepository = mockSettingsRepository)
         viewModel.popupState.test {
@@ -1038,9 +1054,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `persists the stack page when paging settles`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
         backgroundScope.launch { viewModel.popupState.collect() }
         viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -1049,14 +1063,12 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.onPageChanged(page = 1)
         advanceUntilIdle()
 
-        assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
+        coVerify(exactly = 1) { mockRepository.setCurrentPage(placeId = 5L, page = 1) }
     }
 
     @Test
     fun `keeps the last settled page when paging back before the debounce`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
         backgroundScope.launch { viewModel.popupState.collect() }
         viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -1067,14 +1079,12 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.onPageChanged(page = 0)
         advanceUntilIdle()
 
-        assertEquals(listOf(5L to 0), mockRepository.currentPageUpdates)
+        coVerify(exactly = 1) { mockRepository.setCurrentPage(placeId = 5L, page = 0) }
     }
 
     @Test
     fun `ignores a settled page outside the stack`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
         backgroundScope.launch { viewModel.popupState.collect() }
         viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -1083,16 +1093,14 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.onPageChanged(page = 2)
         advanceUntilIdle()
 
-        assertTrue(mockRepository.currentPageUpdates.isEmpty())
+        coVerify(exactly = 0) { mockRepository.setCurrentPage(any(), any()) }
     }
 
     @Test
     fun `owner menu hides Add to stack at the stack cap`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
-        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            WidgetSettingsRepositoryState(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
         )
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,
@@ -1120,9 +1128,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `widget menu removes only the long-pressed stack page`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
         backgroundScope.launch { viewModel.popupState.collect() }
         viewModel.open(inputApp, TEST_INPUT_ANCHOR)
@@ -1138,7 +1144,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
         }
 
-        assertEquals(listOf(7L), mockRemoveAppWidget.removedWidgetIds)
+        coVerify(exactly = 1) { mockRemoveAppWidget.invoke(7L) }
     }
 
     @Test
@@ -1175,16 +1181,18 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             appPackageName = "com.other",
             appLabel = "Other"
         )
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(
-                placeId = 5L,
-                widgetIds = listOf(6L),
-                appWidgetIds = listOf(9),
-                heightDp = 120,
-                ownerKey = inputApp.key
+        val mockRepository: IWidgetAreaRepository = createRepository(
+            listOf(
+                popupStackPlace(
+                    placeId = 5L,
+                    widgetIds = listOf(6L),
+                    appWidgetIds = listOf(9),
+                    heightDp = 120,
+                    ownerKey = inputApp.key
+                )
             )
         )
-        val mockHost: FakeAppWidgetHostSource = stackHost(providers = listOf(inputProvider))
+        val mockHost: IAppWidgetHostSource = createHost(providers = listOf(inputProvider), providerInfos = inputStackProviderInfos)
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository, mockHost = mockHost)
         backgroundScope.launch { viewModel.popupState.collect() }
         runCurrent()
@@ -1199,17 +1207,18 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val actualWidget: PopupWidgetState = viewModel.widgetState.value!!
         assertEquals(2, actualWidget.pages.size)
         assertEquals(1, actualWidget.currentPage)
-        assertEquals(InsertPosition.IntoStack(placeId = 5L), mockRepository.addedAppWidgets.single().insertAt)
-        assertEquals(inputApp.key, mockRepository.addedAppWidgets.single().ownerKey)
+        coVerify(exactly = 1) {
+            mockRepository.addAppWidget(
+                match { request -> request.insertAt == InsertPosition.IntoStack(placeId = 5L) && request.ownerKey == inputApp.key }
+            )
+        }
     }
 
     @Test
     fun `startAddWidget at the stack cap reports that the stack is full`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        )
-        val mockSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository(
-            initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            WidgetSettingsRepositoryState(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
         )
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,
@@ -1231,10 +1240,9 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `clamps the shared height to the intersection of the pages' bounds`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(placeId = 5L, heightDp = 300, ownerKey = inputApp.key)
-        )
-        val mockHost: FakeAppWidgetHostSource = stackHost(
+        val mockRepository: IWidgetAreaRepository =
+            createRepository(listOf(popupStackPlace(placeId = 5L, heightDp = 300, ownerKey = inputApp.key)))
+        val mockHost: IAppWidgetHostSource = createHost(
             providerInfos = mapOf(
                 9 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 200),
                 10 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 160)
@@ -1255,11 +1263,13 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     @Test
     fun `hides Resize for a stack with an unavailable page`() = runTest {
         val inputPlace: WidgetPlace = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = inputPlace.copy(
-                widgets = inputPlace.widgets.map { widget ->
-                    (widget as PlacedWidget.AppWidget).copy(availability = WidgetAvailability.ProfilePaused)
-                }
+        val mockRepository: IWidgetAreaRepository = createRepository(
+            listOf(
+                inputPlace.copy(
+                    widgets = inputPlace.widgets.map { widget ->
+                        (widget as PlacedWidget.AppWidget).copy(availability = WidgetAvailability.ProfilePaused)
+                    }
+                )
             )
         )
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository)
@@ -1300,16 +1310,19 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `removing the current page clamps and persists the last page`() = runTest {
-        val mockRepository: FakeWidgetAreaRepository = stackRepository(
-            place = popupStackPlace(
-                placeId = 5L,
-                widgetIds = listOf(6L, 7L, 8L),
-                appWidgetIds = listOf(9, 10, 11),
-                currentPage = 2,
-                ownerKey = inputApp.key
+        val inputRepositoryState: WidgetAreaRepositoryState = WidgetAreaRepositoryState(
+            listOf(
+                popupStackPlace(
+                    placeId = 5L,
+                    widgetIds = listOf(6L, 7L, 8L),
+                    appWidgetIds = listOf(9, 10, 11),
+                    currentPage = 2,
+                    ownerKey = inputApp.key
+                )
             )
         )
-        val mockHost: FakeAppWidgetHostSource = stackHost()
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(inputRepositoryState)
+        val mockHost: IAppWidgetHostSource = createHost(providerInfos = inputStackProviderInfos)
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,
             mockHost = mockHost,
@@ -1325,7 +1338,9 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         advanceUntilIdle()
 
         assertEquals(listOf(6L, 7L), viewModel.widgetState.value?.pages?.map { page -> page.widgetId })
-        assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
+        coVerify(exactly = 1) { mockRepository.removeWidget(widgetId = 8L) }
+        verify(exactly = 1) { mockHost.deleteId(AppWidgetId(11)) }
+        assertEquals(listOf(5L to 1), inputRepositoryState.currentPageUpdates)
     }
 
     /** Verifies [app]'s Shortcut source was queried exactly [count] times. */
@@ -1342,39 +1357,25 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
         providerInfo: WidgetProviderInfo? = appWidgetProviderInfo(isVerticallyResizable = true)
     ): PopupCardViewModel {
-        val mockRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(listOf(widgetPlace))
-        val mockHost: FakeAppWidgetHostSource = if (providerInfo == null) {
-            FakeAppWidgetHostSource()
+        val mockRepository: IWidgetAreaRepository = createRepository(listOf(widgetPlace))
+        val mockHost: IAppWidgetHostSource = if (providerInfo == null) {
+            createAppWidgetHostMock()
         } else {
             val appWidgetId: Int = (widgetPlace.widgets.single() as PlacedWidget.AppWidget).appWidgetId
-            stackHost(providerInfos = mapOf(appWidgetId to providerInfo))
+            createHost(providerInfos = mapOf(appWidgetId to providerInfo))
         }
-        return createCard(widgetRepository = mockRepository, appWidgetHost = mockHost)
-    }
-
-    private fun stackRepository(place: WidgetPlace = popupStackPlace(placeId = 5L, ownerKey = inputApp.key)): FakeWidgetAreaRepository =
-        FakeWidgetAreaRepository(listOf(place))
-
-    private fun stackHost(
-        providers: List<WidgetProviderInfo> = emptyList(),
-        providerInfos: Map<Int, WidgetProviderInfo> = mapOf(
-            9 to appWidgetProviderInfo(isVerticallyResizable = true),
-            10 to appWidgetProviderInfo(isVerticallyResizable = true),
-            11 to appWidgetProviderInfo(isVerticallyResizable = true)
-        )
-    ): FakeAppWidgetHostSource = FakeAppWidgetHostSource(initialProviders = providers).apply {
-        providerInfos.forEach { (appWidgetId, info) -> providerInfoById[AppWidgetId(appWidgetId)] = info }
+        return createCard(mockWidgetRepository = mockRepository, mockAppWidgetHost = mockHost)
     }
 
     private fun TestScope.createStackViewModel(
-        mockRepository: FakeWidgetAreaRepository = stackRepository(),
-        mockHost: FakeAppWidgetHostSource = stackHost(),
-        mockSettingsRepository: FakeWidgetSettingsRepository = mockWidgetSettingsRepository,
+        mockRepository: IWidgetAreaRepository = createRepository(listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key))),
+        mockHost: IAppWidgetHostSource = createHost(providerInfos = inputStackProviderInfos),
+        mockSettingsRepository: IWidgetSettingsRepository = mockWidgetSettingsRepository,
         removeAppWidget: IRemoveAppWidget = mockRemoveAppWidget
     ): PopupCardViewModel = createCard(
-        widgetRepository = mockRepository,
-        appWidgetHost = mockHost,
-        widgetSettingsRepository = mockSettingsRepository,
+        mockWidgetRepository = mockRepository,
+        mockAppWidgetHost = mockHost,
+        mockWidgetSettingsRepository = mockSettingsRepository,
         removeAppWidget = removeAppWidget
     )
 
@@ -1385,14 +1386,14 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         owner: Launchable = inputApp,
         widgetId: Long = 6L
     ): PopupMenuState.Open {
-        val mockHost: FakeAppWidgetHostSource = stackHost(
+        val mockHost: IAppWidgetHostSource = createHost(
             providerInfos = widgetPlace.widgets
                 .filterIsInstance<PlacedWidget.AppWidget>()
                 .associate { widget -> widget.appWidgetId to providerInfo }
         )
         val viewModel: PopupCardViewModel = createCard(
-            widgetRepository = FakeWidgetAreaRepository(listOf(widgetPlace)),
-            appWidgetHost = mockHost
+            mockWidgetRepository = createRepository(listOf(widgetPlace)),
+            mockAppWidgetHost = mockHost
         )
         openPopup(card = viewModel, owner = owner, flows = listOf(viewModel.menuState))
         viewModel.openWidgetMenu(widgetId = widgetId)
@@ -1419,10 +1420,10 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             flows = listOf(viewModel.popupState, viewModel.expandedNotificationKeys)
         )
         if (notification != null) {
-            mockNotificationRelay.post(record = notification, handle = handle)
+            notificationRelay.post(record = notification, handle = handle)
         }
         if (otherNotification != null) {
-            mockNotificationRelay.post(record = otherNotification, handle = createNotificationHandle())
+            notificationRelay.post(record = otherNotification, handle = createNotificationHandle())
         }
         runCurrent()
         return viewModel
