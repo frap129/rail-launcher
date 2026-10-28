@@ -2,10 +2,12 @@ package core.ui.popups
 
 import app.cash.turbine.test
 import core.data.folders.Folder
+import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
-import core.data.testing.FakePreferencesRepository
-import core.data.testing.FolderCreateRequest
 import core.data.testing.TEST_SDK
+import io.mockk.coVerify
+import io.mockk.coVerifyOrder
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -44,21 +46,18 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         runCurrent()
 
         assertEquals(FolderDialogState.Closed, folderActions.folderDialogState.value)
-        assertEquals(
-            listOf(FakePreferencesRepository.ItemRename(item = inputFolder, name = RENAMED_NAME)),
-            mockPreferencesRepository.renames
-        )
+        verifyItemName(item = inputFolder, name = RENAMED_NAME)
     }
 
     @Test
-    fun `a blank rename resets the Folder name`() = runTest {
+    fun `forwards a blank rename to the preferences repository`() = runTest {
         val folderActions: IPopupFolderActions = createFolder()
         folderActions.requestRename(inputFolder)
 
         folderActions.confirmRename(BLANK_NAME)
         runCurrent()
 
-        assertEquals(listOf(inputFolder), mockPreferencesRepository.resets)
+        verifyItemName(item = inputFolder, name = BLANK_NAME)
     }
 
     @Test
@@ -69,12 +68,12 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         folderActions.dismissFolderDialog()
 
         assertEquals(FolderDialogState.Closed, folderActions.folderDialogState.value)
-        assertTrue(mockPreferencesRepository.renames.isEmpty())
+        verify(exactly = 0) { mockPreferencesRepository.setItemName(any(), any()) }
     }
 
     @Test
     fun `add to folder lists the Folders in creation order and reflects membership`() = runTest {
-        fakePopupRepository.setItems(ownerKey = inputSecondFolder.key, items = listOf(inputApp))
+        setPopupLaunchables(ownerKey = inputSecondFolder.key, launchables = listOf(inputApp))
         val folderActions: IPopupFolderActions = createFolder()
         backgroundScope.launch { folderActions.addToFolderState.collect() }
 
@@ -98,19 +97,20 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         runCurrent()
 
         assertEquals(setOf(inputFolder.key), (folderActions.addToFolderState.value as AddToFolderState.Open).membership)
-        assertEquals(
-            listOf(Triple(inputFolder.key, listOf(inputApp.key), emptySet<String>())),
-            fakePopupRepository.setItemsCalls
-        )
+        coVerify(exactly = 1) { mockPopupRepository.setItems(any(), any(), any()) }
+        coVerify(exactly = 1) {
+            mockPopupRepository.setItems(inputFolder.key, listOf(inputApp.key), emptySet())
+        }
 
         folderActions.toggleMembership(folderKey = inputFolder.key, member = false)
         runCurrent()
 
         assertTrue((folderActions.addToFolderState.value as AddToFolderState.Open).membership.isEmpty())
-        assertEquals(
-            Triple(inputFolder.key, emptyList<String>(), setOf(inputApp.key)),
-            fakePopupRepository.setItemsCalls.last()
-        )
+        coVerifyOrder {
+            mockPopupRepository.setItems(inputFolder.key, listOf(inputApp.key), emptySet())
+            mockPopupRepository.setItems(inputFolder.key, emptyList(), setOf(inputApp.key))
+        }
+        coVerify(exactly = 2) { mockPopupRepository.setItems(any(), any(), any()) }
     }
 
     @Test
@@ -125,10 +125,14 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         folderActions.startNewFolder(name = "Games")
         runCurrent()
 
-        assertEquals(
-            listOf(FolderCreateRequest(name = "Games", initialItems = listOf(inputApp.key), addToFavorites = true)),
-            fakeFolderRepository.createRequests
-        )
+        coVerify(exactly = 1) { mockFolderRepository.create(any(), any(), any()) }
+        coVerify(exactly = 1) {
+            mockFolderRepository.create(
+                name = "Games",
+                initialItems = listOf(inputApp.key),
+                addToFavorites = true
+            )
+        }
         assertEquals(listOf("Games"), addedFolders.map { folder -> folder.name })
     }
 
@@ -140,7 +144,7 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         runCurrent()
         assertTrue(folderActions.addToFolderState.value is AddToFolderState.Open)
 
-        fakeLaunchableRepository.setGroups(
+        setLaunchableGroups(
             groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = listOf(inputRailLaunchable)))
         )
         runCurrent()
@@ -155,11 +159,16 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
         folderActions.startAddToFolder(inputApp)
         runCurrent()
 
-        fakeFolderRepository.delete(inputSecondFolder)
+        deleteFolder(inputSecondFolder)
         runCurrent()
 
         val actualState: AddToFolderState.Open = folderActions.addToFolderState.value as AddToFolderState.Open
         assertEquals(listOf(inputFolder), actualState.folders)
+    }
+
+    private fun verifyItemName(item: Launchable, name: String) {
+        verify(exactly = 1) { mockPreferencesRepository.setItemName(any(), any()) }
+        verify(exactly = 1) { mockPreferencesRepository.setItemName(item, name) }
     }
 
     @Test

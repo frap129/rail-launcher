@@ -11,6 +11,7 @@ import core.ui.popups.FolderDialogState
 import core.ui.popups.PopupEditState
 import core.ui.popups.PopupPickerState
 import core.ui.popups.ShortcutPickerState
+import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -40,7 +41,7 @@ class PopupSessionTest : PopupSessionTestBase() {
         session.editor.removeEditedItem(inputRailLaunchable)
         runCurrent()
 
-        assertEquals(listOf(inputFolder.key to inputRailLaunchable.key), fakePopupRepository.removedItems)
+        verifyItemRemoved(ownerKey = inputFolder.key, itemKey = inputRailLaunchable.key)
         val actualPopup: PopupUiState.Open = session.card.popupState.value as PopupUiState.Open
         assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualPopup.content.items)
         assertEquals(emptyList<PopupItem>(), (session.editor.editState.value as PopupEditState.Editing).items)
@@ -56,7 +57,7 @@ class PopupSessionTest : PopupSessionTestBase() {
         session.card.removeMenuItem()
         runCurrent()
 
-        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+        verifyItemRemoved(ownerKey = inputApp.key, itemKey = inputOtherApp.key)
         assertEquals(emptyList<PopupItem>(), (session.card.popupState.value as PopupUiState.Open).content.items)
         assertEquals(
             listOf(PopupItem.Launchable(inputRailLaunchable)),
@@ -94,7 +95,10 @@ class PopupSessionTest : PopupSessionTestBase() {
             assertEquals(PopupPickerState.Closed, expectMostRecentItem())
         }
         runCurrent()
-        assertEquals(listOf(Triple(inputFolder.key, listOf(inputOtherApp.key), emptySet<String>())), fakePopupRepository.setItemsCalls)
+        coVerify(exactly = 1) { mockPopupRepository.setItems(any(), any(), any()) }
+        coVerify(exactly = 1) {
+            mockPopupRepository.setItems(inputFolder.key, listOf(inputOtherApp.key), emptySet())
+        }
         assertEquals(PopupEditState.Closed, session.editor.editState.value)
     }
 
@@ -131,7 +135,8 @@ class PopupSessionTest : PopupSessionTestBase() {
         runCurrent()
         assertEquals(FolderDialogState.Closed, session.folder.folderDialogState.value)
         assertEquals(PopupUiState.Closed, session.card.popupState.value)
-        assertEquals(listOf(inputFolder), fakeFolderRepository.deletedFolders)
+        coVerify(exactly = 1) { mockFolderRepository.delete(any()) }
+        coVerify(exactly = 1) { mockFolderRepository.delete(inputFolder) }
     }
 
     @Test
@@ -147,7 +152,7 @@ class PopupSessionTest : PopupSessionTestBase() {
         session.folder.dismissFolderDialog()
         assertEquals(FolderDialogState.Closed, session.folder.folderDialogState.value)
         assertTrue(session.card.popupState.value is PopupUiState.Open)
-        assertTrue(fakeFolderRepository.deletedFolders.isEmpty())
+        coVerify(exactly = 0) { mockFolderRepository.delete(any()) }
     }
 
     @Test
@@ -173,5 +178,10 @@ class PopupSessionTest : PopupSessionTestBase() {
         runCurrent()
 
         assertEquals(AddToFolderState.Closed, session.folder.addToFolderState.value)
+    }
+
+    private fun verifyItemRemoved(ownerKey: String, itemKey: String) {
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(any(), any()) }
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(ownerKey, itemKey) }
     }
 }

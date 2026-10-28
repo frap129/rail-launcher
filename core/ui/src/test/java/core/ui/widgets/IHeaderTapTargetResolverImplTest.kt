@@ -17,7 +17,7 @@ import org.junit.Test
 class IHeaderTapTargetResolverImplTest {
     private val resolver: IHeaderTapTargetResolver = IHeaderTapTargetResolverImpl()
     private val nowMillis: Long = 1_700_000_000_000L
-    private val mockLaunchable: RailLaunchable = RailLaunchable(
+    private val inputLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Maps",
         defaultIcon = Icon.ApplicationIcon(packageName = "com.example.maps"),
         deeplink = "rail://maps"
@@ -58,19 +58,19 @@ class IHeaderTapTargetResolverImplTest {
     fun `applies a chosen Launchable with its click labels`() {
         val inputHeader: HeaderModel = header()
         val inputSettings: HeaderSettings = HeaderSettings(
-            timeTapTarget = HeaderTapSetting.Launchable(key = mockLaunchable.key),
-            dateTapTarget = HeaderTapSetting.Launchable(key = mockLaunchable.key)
+            timeTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key),
+            dateTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key)
         )
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
-            launchables = listOf<Launchable>(mockLaunchable),
+            launchables = listOf<Launchable>(inputLaunchable),
             atEpochMillis = nowMillis
         )
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actualHeader.time?.tapTarget)
+        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.time?.tapTarget)
         assertEquals(R.string.open_launchable, actualHeader.time?.clickLabel)
         assertEquals("Maps", actualHeader.time?.clickLabelArg)
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = mockLaunchable), actualHeader.date?.tapTarget)
+        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.date?.tapTarget)
         assertEquals("Maps", actualHeader.date?.clickLabelArg)
     }
 
@@ -84,7 +84,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
-            launchables = listOf<Launchable>(mockLaunchable),
+            launchables = listOf<Launchable>(inputLaunchable),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
@@ -123,7 +123,7 @@ class IHeaderTapTargetResolverImplTest {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
-            launchables = listOf<Launchable>(mockLaunchable),
+            launchables = listOf<Launchable>(inputLaunchable),
             isLoaded = true
         )
         assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
@@ -142,14 +142,14 @@ class IHeaderTapTargetResolverImplTest {
 
     @Test
     fun `resolves a present Launchable, Nothing and the system default unchanged`() {
-        val inputLaunchable: HeaderTapSetting = HeaderTapSetting.Launchable(key = mockLaunchable.key)
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputLaunchable.key)
         val actualLaunchable: HeaderTapSetting =
-            resolver.resolveSetting(setting = inputLaunchable, launchables = listOf<Launchable>(mockLaunchable), isLoaded = true)
+            resolver.resolveSetting(setting = inputSetting, launchables = listOf<Launchable>(inputLaunchable), isLoaded = true)
         val actualNothing: HeaderTapSetting =
             resolver.resolveSetting(setting = HeaderTapSetting.Nothing, launchables = emptyList(), isLoaded = true)
         val actualDefault: HeaderTapSetting =
             resolver.resolveSetting(setting = HeaderTapSetting.SystemDefault, launchables = emptyList(), isLoaded = true)
-        assertEquals(inputLaunchable, actualLaunchable)
+        assertEquals(inputSetting, actualLaunchable)
         assertEquals(HeaderTapSetting.Nothing, actualNothing)
         assertEquals(HeaderTapSetting.SystemDefault, actualDefault)
     }

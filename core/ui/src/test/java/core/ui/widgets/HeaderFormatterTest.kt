@@ -10,21 +10,31 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.TimeFormat
-import core.data.testing.FakeDatePatternSource
+import core.data.testing.createDatePatternSourceMock
 import core.data.time.ClockReading
 import core.data.time.IDatePatternSource
 import core.ui.R
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+private val DAY_PERIOD_PATTERNS: Map<String, String> = mapOf(
+    "hm" to "a h:mm",
+    "Hm" to "H:mm"
+)
+
 class HeaderFormatterTest {
     private val inputReading: ClockReading = reading()
+    private val mockDatePatternSource: IDatePatternSource = createDatePatternSourceMock()
+    private val dayPeriodFormatter: HeaderFormatter = HeaderFormatter(
+        createDatePatternSourceMock(overrides = DAY_PERIOD_PATTERNS)
+    )
 
     @Test
     fun `formats each time format against the system 24-hour flag`() {
@@ -77,10 +87,7 @@ class HeaderFormatterTest {
 
     @Test
     fun `does not leak a locale day period prefix into stacked hours`() {
-        val formatter: HeaderFormatter = HeaderFormatter(
-            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
-        )
-        val actualHeader: HeaderModel = formatter.format(
+        val actualHeader: HeaderModel = dayPeriodFormatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(clockStyle = ClockStyle.STACKED, timeFormat = TimeFormat.H12, showAmPm = true)
@@ -92,15 +99,12 @@ class HeaderFormatterTest {
 
     @Test
     fun `keeps the locale day period position in 12-hour display`() {
-        val formatter: HeaderFormatter = HeaderFormatter(
-            FakeDatePatternSource(mapOf("hm" to "a h:mm", "Hm" to "H:mm"))
-        )
-        val actualWithMarker: HeaderModel = formatter.format(
+        val actualWithMarker: HeaderModel = dayPeriodFormatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = true)
         )
-        val actualWithoutMarker: HeaderModel = formatter.format(
+        val actualWithoutMarker: HeaderModel = dayPeriodFormatter.format(
             id = 1L,
             reading = reading(locale = Locale.KOREAN),
             settings = HeaderSettings(timeFormat = TimeFormat.H12, showAmPm = false)
@@ -111,7 +115,7 @@ class HeaderFormatterTest {
 
     @Test
     fun `speaks the time with the locale pattern`() {
-        val mockPatternSource: FakeDatePatternSource = FakeDatePatternSource(
+        val mockPatternSource: IDatePatternSource = createDatePatternSourceMock(
             overrides = mapOf("hm" to "h.mm a", "Hm" to "HH.mm")
         )
 
@@ -130,10 +134,11 @@ class HeaderFormatterTest {
 
     @Test
     fun `requests and formats every date preset skeleton`() {
-        val mockSkeletonSource: RecordingDatePatternSource = RecordingDatePatternSource()
+        val requestedSkeletons: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
+        val mockSkeletonSource: IDatePatternSource = createDatePatternSourceMock(requestedSkeletons = requestedSkeletons)
         val formatter: HeaderFormatter = HeaderFormatter(mockSkeletonSource)
         DateFormatPreset.entries.forEach { preset -> formatter.formatDate(inputReading, preset) }
-        assertEquals(DateFormatPreset.entries.map { preset -> preset.skeleton }, mockSkeletonSource.requestedSkeletons)
+        assertEquals(DateFormatPreset.entries.map { preset -> preset.skeleton }, requestedSkeletons.value)
         assertEquals(
             listOf("Tuesday, October 20", "Tue, Oct 20", "October 20", "Tuesday 20", "Tuesday", "10/20/2026"),
             DateFormatPreset.entries.map { preset -> formatter.formatDate(inputReading, preset) }
@@ -409,7 +414,7 @@ class HeaderFormatterTest {
     }
 
     private fun selectEvents(events: List<UpcomingEvent>, eventSettings: EventSettings): List<EventModel> =
-        HeaderFormatter(FakeDatePatternSource()).selectEvents(
+        HeaderFormatter(mockDatePatternSource).selectEvents(
             events = events,
             eventSettings = eventSettings,
             headerSettings = HeaderSettings(timeFormat = TimeFormat.H24),
@@ -438,7 +443,7 @@ class HeaderFormatterTest {
         settings: HeaderSettings,
         isSystem24Hour: Boolean = false,
         battery: BatteryStatus? = null,
-        datePatternSource: IDatePatternSource = FakeDatePatternSource()
+        datePatternSource: IDatePatternSource = mockDatePatternSource
     ): HeaderModel = HeaderFormatter(datePatternSource).format(
         id = 1L,
         reading = reading(isSystem24Hour = isSystem24Hour),
@@ -454,21 +459,4 @@ class HeaderFormatterTest {
         locale = locale,
         isSystem24Hour = isSystem24Hour
     )
-
-    private class RecordingDatePatternSource : IDatePatternSource {
-        val requestedSkeletons: MutableList<String> = mutableListOf()
-
-        override fun bestPattern(skeleton: String, locale: Locale): String {
-            requestedSkeletons.add(skeleton)
-            return when (skeleton) {
-                "EEEEMMMMd" -> "EEEE, MMMM d"
-                "EEEMMMd" -> "EEE, MMM d"
-                "MMMMd" -> "MMMM d"
-                "EEEEd" -> "EEEE d"
-                "EEEE" -> "EEEE"
-                "yMd" -> "M/d/y"
-                else -> skeleton
-            }
-        }
-    }
 }

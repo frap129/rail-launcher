@@ -67,27 +67,27 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         componentName = ComponentName("com.example.work", "com.example.work.MainActivity")
     )
     protected val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
-    protected val fakeAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-    protected val fakeRemoveAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget()
-    protected val fakeWidgetSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
-    protected val fakeWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
+    protected val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+    protected val mockRemoveAppWidget: FakeRemoveAppWidget = FakeRemoveAppWidget()
+    protected val mockWidgetSettingsRepository: FakeWidgetSettingsRepository = FakeWidgetSettingsRepository()
+    protected val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
     protected val mockNotificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
 
     protected fun TestScope.createCard(
         session: IPopupSession = IPopupSessionImpl(),
         homeEditState: HomeEditState = inputHomeEditState,
         savedStateHandle: SavedStateHandle = inputSavedStateHandle,
-        widgetRepository: FakeWidgetAreaRepository = fakeWidgetAreaRepository,
-        appWidgetHost: FakeAppWidgetHostSource = fakeAppWidgetHost,
-        removeAppWidget: IRemoveAppWidget = fakeRemoveAppWidget,
-        widgetSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository,
+        widgetRepository: FakeWidgetAreaRepository = mockWidgetAreaRepository,
+        appWidgetHost: FakeAppWidgetHostSource = mockAppWidgetHost,
+        removeAppWidget: IRemoveAppWidget = mockRemoveAppWidget,
+        widgetSettingsRepository: FakeWidgetSettingsRepository = mockWidgetSettingsRepository,
         notificationSource: INotificationSource = createNotificationSource(),
         clockSource: IClockSource = FakeClockSource(initialReading = clockReading(instant = TEST_NOW)),
         collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = homeEditState)
     ): PopupCardViewModel = PopupCardViewModel(
-        launchableRepository = fakeLaunchableRepository,
-        shortcutSource = fakeShortcutSource,
-        popupRepository = fakePopupRepository,
+        launchableRepository = mockLaunchableRepository,
+        shortcutSource = mockShortcutSource,
+        popupRepository = mockPopupRepository,
         notificationSource = notificationSource,
         clockSource = clockSource,
         homeEditState = homeEditState,
@@ -152,8 +152,8 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         ownerItem: Launchable? = inputOtherApp,
         editorItem: Launchable? = inputRailLaunchable
     ): PopupTestSession {
-        ownerItem?.let { item -> fakePopupRepository.setItems(ownerKey = owner.key, items = listOf(item)) }
-        editorItem?.let { item -> fakePopupRepository.setItems(ownerKey = editor.key, items = listOf(item)) }
+        ownerItem?.let { item -> setPopupLaunchables(ownerKey = owner.key, launchables = listOf(item)) }
+        editorItem?.let { item -> setPopupLaunchables(ownerKey = editor.key, launchables = listOf(item)) }
         val session: PopupTestSession = createSession()
         openPopup(
             card = session.card,
@@ -168,7 +168,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
     protected fun TestScope.createNotificationSource(accessCheck: () -> Boolean = { true }): INotificationSource =
         createTestNotificationSource(
             scope = backgroundScope,
-            popupRepository = fakePopupRepository,
+            popupRepository = mockPopupRepository,
             relay = mockNotificationRelay,
             isAccessGranted = accessCheck
         )
