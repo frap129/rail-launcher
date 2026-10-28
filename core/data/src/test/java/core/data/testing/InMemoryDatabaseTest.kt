@@ -1,0 +1,59 @@
+package core.data.testing
+
+import androidx.room.Room
+import core.data.favorites.FavoriteRecord
+import core.data.prefs.LaunchableCustomization
+import core.data.room.AppDatabase
+import core.data.room.dao.WidgetAreaDao
+import core.data.widgets.WidgetPlaceRecord
+import core.data.widgets.WidgetRecord
+import kotlinx.coroutines.flow.first
+import org.junit.After
+import org.junit.Before
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+
+/** Runs against a fresh in-memory Room database, so DAOs behave as they do in the app. */
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
+abstract class InMemoryDatabaseTest {
+    lateinit var database: AppDatabase
+        private set
+
+    @Before
+    fun createDatabase() {
+        database = Room.inMemoryDatabaseBuilder(
+            RuntimeEnvironment.getApplication(),
+            AppDatabase::class.java
+        )
+            .allowMainThreadQueries()
+            .build()
+    }
+
+    @After
+    fun closeDatabase() {
+        database.close()
+    }
+
+    fun widgetAreaDao(): WidgetAreaDao = database.getWidgetAreaDao()
+
+    /** Seeds the Widget Area rows a production write would store. */
+    suspend fun seedWidgetArea(places: List<WidgetPlaceRecord> = emptyList(), widgets: List<WidgetRecord> = emptyList()) {
+        places.forEach { place -> widgetAreaDao().insertPlace(place) }
+        widgets.forEach { widget -> widgetAreaDao().insertWidget(widget) }
+    }
+
+    /** Stores a Favorite for [key] at [position], as the Favorites repository would leave it. */
+    suspend fun seedFavorite(key: String, position: Int) {
+        database.getFavoriteDao().add(key)
+        database.getFavoriteDao().update(listOf(FavoriteRecord(key = key, position = position)))
+    }
+
+    suspend fun favoriteRecords(): List<FavoriteRecord> = database.getFavoriteDao().observeAll().first()
+
+    /** The stored Launchable name customizations, optionally waiting for [predicate]. */
+    suspend fun customizations(predicate: (List<LaunchableCustomization>) -> Boolean = { true }): List<LaunchableCustomization> =
+        database.getLaunchableCustomizationDao().observeAll().first(predicate)
+}

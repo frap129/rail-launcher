@@ -21,7 +21,7 @@ import org.robolectric.annotation.Config
 class WidgetAreaSeedCallbackTest {
     @Test
     fun `fresh database seeds one place with a Header`() = runTest {
-        val mockDatabase: AppDatabase = Room.inMemoryDatabaseBuilder(
+        val database: AppDatabase = Room.inMemoryDatabaseBuilder(
             RuntimeEnvironment.getApplication(),
             AppDatabase::class.java
         )
@@ -29,9 +29,9 @@ class WidgetAreaSeedCallbackTest {
             .allowMainThreadQueries()
             .build()
         try {
-            assertSingleSeededHeader(mockDatabase)
+            assertSingleSeededHeader(database)
         } finally {
-            mockDatabase.close()
+            database.close()
         }
     }
 
@@ -44,15 +44,15 @@ class WidgetAreaSeedCallbackTest {
             legacyDatabase.version = 4
         }
 
-        val mockDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
+        val database: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
             .addCallback(WidgetAreaSeedCallback())
             .fallbackToDestructiveMigration(dropAllTables = false)
             .allowMainThreadQueries()
             .build()
         try {
-            assertSingleSeededHeader(mockDatabase)
+            assertSingleSeededHeader(database)
         } finally {
-            mockDatabase.close()
+            database.close()
             inputContext.deleteDatabase(inputDatabaseName)
         }
     }

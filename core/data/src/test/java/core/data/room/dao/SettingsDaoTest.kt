@@ -1,32 +1,28 @@
 package core.data.room.dao
 
 import core.data.prefs.Settings
-import kotlinx.coroutines.flow.Flow
+import core.data.testing.InMemoryDatabaseTest
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class SettingsDaoTest {
+class SettingsDaoTest : InMemoryDatabaseTest() {
     @Test
     fun `defaults settings when the row is absent`() = runTest {
-        val mockSettingsDao: SettingsDao = FakeSettingsDao(settingsRow = null)
-        val actualSettings: Settings = mockSettingsDao.observe().first()
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        val actualSettings: Settings = settingsDao.observe().first()
         assertEquals(Settings(), actualSettings)
     }
 
     @Test
-    fun `emits the stored settings row when present`() = runTest {
+    fun `stores and emits the settings row`() = runTest {
         val expectedSettings: Settings = Settings(iconPack = "com.example.iconpack")
-        val mockSettingsDao: SettingsDao = FakeSettingsDao(settingsRow = expectedSettings)
-        val actualSettings: Settings = mockSettingsDao.observe().first()
+        val settingsDao: SettingsDao = database.getSettingsDao()
+
+        settingsDao.upsert(expectedSettings)
+
+        val actualSettings: Settings = settingsDao.observe().first()
         assertEquals(expectedSettings, actualSettings)
-    }
-
-    private class FakeSettingsDao(private val settingsRow: Settings?) : SettingsDao() {
-        override fun observeRow(): Flow<Settings?> = flowOf(settingsRow)
-
-        override suspend fun upsert(settings: Settings) = Unit
     }
 }

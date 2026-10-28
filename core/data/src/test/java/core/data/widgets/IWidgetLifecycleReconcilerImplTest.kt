@@ -1,21 +1,22 @@
 package core.data.widgets
 
 import app.cash.turbine.test
+import core.data.room.dao.WidgetAreaDao
 import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeWidgetAreaDao
+import core.data.testing.InMemoryDatabaseTest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class IWidgetLifecycleReconcilerImplTest {
+class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     @Test
     fun `frees system ids with no stored row`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
+        val dao: WidgetAreaDao = widgetAreaDao()
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.boundIdsState.addAll(listOf(AppWidgetId(7), AppWidgetId(8)))
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
 
@@ -25,10 +26,10 @@ class IWidgetLifecycleReconcilerImplTest {
 
     @Test
     fun `keeps an id that belongs to a pending add flow`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
+        val dao: WidgetAreaDao = widgetAreaDao()
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.boundIdsState.add(AppWidgetId(7))
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(7)))
 
@@ -37,12 +38,13 @@ class IWidgetLifecycleReconcilerImplTest {
 
     @Test
     fun `deletes stored rows whose system id is gone and emits them`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.removedIds.test {
             reconciler.reconcileAtStartup(pendingIds = emptySet())
@@ -50,33 +52,35 @@ class IWidgetLifecycleReconcilerImplTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        assertTrue(mockDao.getAppWidgets().isEmpty())
-        assertTrue(mockDao.observePlaces().first().isEmpty())
+        assertTrue(dao.getAppWidgets().isEmpty())
+        assertTrue(dao.observePlaces().first().isEmpty())
     }
 
     @Test
     fun `keeps a stored row whose id belongs to a pending add flow`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(42)))
 
-        assertEquals(1, mockDao.getAppWidgets().size)
+        assertEquals(1, dao.getAppWidgets().size)
     }
 
     @Test
     fun `removes a widget whose provider package is gone`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.defaultAvailability = WidgetAvailability.Gone
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.removedIds.test {
             reconciler.removeGoneProviders()
@@ -85,64 +89,67 @@ class IWidgetLifecycleReconcilerImplTest {
         }
 
         assertEquals(listOf(AppWidgetId(42)), mockHost.deletedIds)
-        assertTrue(mockDao.getAppWidgets().isEmpty())
-        assertTrue(mockDao.observePlaces().first().isEmpty())
+        assertTrue(dao.getAppWidgets().isEmpty())
+        assertTrue(dao.observePlaces().first().isEmpty())
     }
 
     @Test
     fun `keeps a widget that is only temporarily unavailable`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.defaultAvailability = WidgetAvailability.Updating
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.removeGoneProviders()
 
-        assertEquals(1, mockDao.getAppWidgets().size)
+        assertEquals(1, dao.getAppWidgets().size)
         assertTrue(mockHost.deletedIds.isEmpty())
     }
 
     @Test
     fun `keeps a Pop-up widget at startup while its system id is bound`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.boundIdsState.add(AppWidgetId(42))
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
 
-        assertEquals(1, mockDao.getAppWidgets().size)
+        assertEquals(1, dao.getAppWidgets().size)
         assertTrue(mockHost.deletedIds.isEmpty())
     }
 
     @Test
     fun `removes a Pop-up widget whose provider is gone`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
-            initialWidgets = listOf(appWidget(appWidgetId = 42))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
+            widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.defaultAvailability = WidgetAvailability.Gone
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.removeGoneProviders()
 
         assertEquals(listOf(AppWidgetId(42)), mockHost.deletedIds)
-        assertTrue(mockDao.getAppWidgets().isEmpty())
-        assertTrue(mockDao.observePlaces().first().isEmpty())
+        assertTrue(dao.getAppWidgets().isEmpty())
+        assertTrue(dao.observePlaces().first().isEmpty())
     }
 
     @Test
     fun `reconciles at startup only once`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
+        val dao: WidgetAreaDao = widgetAreaDao()
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         mockHost.boundIdsState.add(AppWidgetId(9))

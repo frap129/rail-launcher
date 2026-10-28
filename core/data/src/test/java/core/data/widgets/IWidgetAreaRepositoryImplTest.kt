@@ -1,8 +1,9 @@
 package core.data.widgets
 
 import app.cash.turbine.test
+import core.data.room.dao.WidgetAreaDao
 import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeWidgetAreaDao
+import core.data.testing.InMemoryDatabaseTest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -10,21 +11,22 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class IWidgetAreaRepositoryImplTest {
+class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `orders places by position and widgets by page position`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 2L, position = 1),
                 place(id = 1L, position = 0)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 22L, placeId = 2L),
                 header(id = 12L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 11L, placeId = 1L, pagePosition = 1)
             )
         )
-        repository(mockDao).places.test {
+        repository(dao).places.test {
             val actualPlaces: List<WidgetPlace> = awaitItem()
             assertEquals(listOf(1L, 2L), actualPlaces.map { place -> place.id })
             assertEquals(listOf(12L, 11L), actualPlaces.first().widgets.map { widget -> widget.id })
@@ -34,14 +36,15 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `drops places without widgets`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1)
             ),
-            initialWidgets = listOf(header(id = 2L, placeId = 2L, pagePosition = 0))
+            widgets = listOf(header(id = 2L, placeId = 2L, pagePosition = 0))
         )
-        repository(mockDao).places.test {
+        repository(dao).places.test {
             assertEquals(listOf(2L), awaitItem().map { place -> place.id })
             cancelAndIgnoreRemainingEvents()
         }
@@ -49,49 +52,52 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `remove then restore puts the Header at position 0 and shifts the others`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L),
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         repository.removeHeader()
         assertEquals(listOf(10L), repository.places.first().flatMap { place -> place.widgets.map { widget -> widget.id } })
         repository.restoreHeader(position = 0)
         val actualRestoredPlaces: List<WidgetPlace> = repository.places.first()
         assertEquals(2, actualRestoredPlaces.size)
         assertEquals(PlacedWidget.Header::class, actualRestoredPlaces.first().widgets.single()::class)
-        assertEquals(listOf(0, 1), mockDao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
+        assertEquals(listOf(0, 1), dao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
     }
 
     @Test
     fun `removeHeader returns the stored place position`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 5)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L),
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         assertEquals(5, repository.removeHeader()?.position)
     }
 
     @Test
     fun `restoreHeader inserts the Header into the saved place and shifts its pages`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.restoreHeader(position = 0, placeId = 1L, pagePosition = 0)
 
@@ -106,30 +112,32 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `resolves and deletes duplicate Headers`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 header(id = 11L, placeId = 1L, pagePosition = 1),
                 header(id = 20L, placeId = 2L, pagePosition = 0)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         val actualResolvedPlaces: List<WidgetPlace> = repository.places.first()
         assertEquals(listOf(1L), actualResolvedPlaces.map { place -> place.id })
         assertEquals(listOf(10L), actualResolvedPlaces.flatMap { place -> place.widgets.map { widget -> widget.id } })
-        assertEquals(listOf(10L), mockDao.observeWidgets().first().map { widget -> widget.id })
-        assertEquals(listOf(1L), mockDao.observePlaces().first().map { place -> place.id })
+        assertEquals(listOf(10L), dao.observeWidgets().first().map { widget -> widget.id })
+        assertEquals(listOf(1L), dao.observePlaces().first().map { place -> place.id })
     }
 
     @Test
     fun `drops widgets with unknown kinds`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(
                 WidgetRecord(
                     id = 1L,
                     placeId = 1L,
@@ -138,7 +146,7 @@ class IWidgetAreaRepositoryImplTest {
                 )
             )
         )
-        repository(mockDao).places.test {
+        repository(dao).places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -146,14 +154,15 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `addAppWidget inserts a place below the given place and shifts later positions`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1)
             ),
-            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+            widgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         val inputProvider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "Widget")
         val actualAdded: AddedAppWidget = repository.addAppWidget(
             AddAppWidget(
@@ -166,7 +175,7 @@ class IWidgetAreaRepositoryImplTest {
         )
         assertEquals(AddedAppWidget(widgetId = 11L, placeId = 3L), actualAdded)
         val actualPlaces: List<WidgetPlace> = repository.places.first()
-        assertEquals(listOf(0, 1, 2), mockDao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
+        assertEquals(listOf(0, 1, 2), dao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position })
         val actualInserted: PlacedWidget.AppWidget = actualPlaces[1].widgets.single() as PlacedWidget.AppWidget
         assertEquals(42, actualInserted.appWidgetId)
         assertEquals(inputProvider, actualInserted.provider)
@@ -175,11 +184,12 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `addAppWidget adds at the end for End`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         val actualAdded: AddedAppWidget = repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(7),
@@ -196,11 +206,12 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `addAppWidget stores the default height on the placed widget`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         repository.addAppWidget(
             AddAppWidget(
                 appWidgetId = AppWidgetId(7),
@@ -210,7 +221,7 @@ class IWidgetAreaRepositoryImplTest {
                 defaultHeightDp = 64
             )
         )
-        val actualStored: WidgetRecord = mockDao.observeWidgets().first().first { widget -> widget.appWidgetId == 7 }
+        val actualStored: WidgetRecord = dao.observeWidgets().first().first { widget -> widget.appWidgetId == 7 }
         assertEquals(64, actualStored.defaultHeightDp)
         val actualPlaced: PlacedWidget.AppWidget = repository.places.first().last().widgets.single() as PlacedWidget.AppWidget
         assertEquals(64, actualPlaced.defaultHeightDp)
@@ -218,27 +229,29 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `removeWidget deletes the place when empty and returns the system id`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(id = 11L, placeId = 1L))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 11L, placeId = 1L))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
         assertEquals(AppWidgetId(42), repository.removeWidget(widgetId = 11L))
         assertEquals(emptyList<WidgetPlace>(), repository.places.first())
-        assertEquals(emptyList<WidgetPlaceRecord>(), mockDao.observePlaces().first())
-        assertEquals(emptyList<WidgetRecord>(), mockDao.observeWidgets().first())
+        assertEquals(emptyList<WidgetPlaceRecord>(), dao.observePlaces().first())
+        assertEquals(emptyList<WidgetRecord>(), dao.observeWidgets().first())
     }
 
     @Test
     fun `hides the Widget Area until startup reconciliation finishes`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 10L, placeId = 1L))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.boundIdsState.add(AppWidgetId(42))
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(mockDao, mockHost, reconciler)
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
         repository.places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
             reconciler.reconcileAtStartup(pendingIds = emptySet())
@@ -249,13 +262,14 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `re-resolves availability when providers change`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(id = 10L, placeId = 1L))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 10L, placeId = 1L))
         )
         val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         mockHost.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Available
-        val repository: IWidgetAreaRepository = repository(mockDao = mockDao, mockHost = mockHost)
+        val repository: IWidgetAreaRepository = repository(dao = dao, mockHost = mockHost)
         repository.places.test {
             assertEquals(WidgetAvailability.Available, model(awaitItem()).availability)
             mockHost.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Unknown
@@ -267,11 +281,12 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `setPlaceHeight stores and clears the height`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(appWidget(id = 11L, placeId = 1L))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 11L, placeId = 1L))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.setPlaceHeight(placeId = 1L, heightDp = 120)
         assertEquals(120, repository.places.first().single().heightDp)
@@ -282,19 +297,20 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `commitEdit removes places, rewrites contiguous positions and returns freed ids`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1),
                 place(id = 3L, position = 2)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42),
                 appWidget(id = 30L, placeId = 3L, appWidgetId = 7)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualFreedIds: List<AppWidgetId> = repository.commitEdit(
             edit = WidgetAreaEdit(
@@ -306,24 +322,25 @@ class IWidgetAreaRepositoryImplTest {
         assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
         assertEquals(
             listOf(0, 1),
-            mockDao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position }
+            dao.observePlaces().first().sortedBy { place -> place.position }.map { place -> place.position }
         )
-        assertEquals(emptyList<WidgetRecord>(), mockDao.observeWidgets().first().filter { widget -> widget.placeId == 2L })
+        assertEquals(emptyList<WidgetRecord>(), dao.observeWidgets().first().filter { widget -> widget.placeId == 2L })
     }
 
     @Test
     fun `commitEdit keeps Pop-up places`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 popupPlace(id = 2L, ownerKey = "owner-key")
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualFreedIds: List<AppWidgetId> = repository.commitEdit(
             edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L))))
@@ -335,34 +352,36 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `commitEdit ignores removed places in the order`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
-            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0), appWidget(id = 20L, placeId = 2L))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
+            widgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0), appWidget(id = 20L, placeId = 2L))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.commitEdit(edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L)))))
 
         assertEquals(listOf(1L), repository.places.first().map { place -> place.id })
-        assertEquals(listOf(0), mockDao.observePlaces().first().map { place -> place.position })
+        assertEquals(listOf(0), dao.observePlaces().first().map { place -> place.position })
     }
 
     @Test
     fun `commitEdit keeps positions contiguous when a place vanished before commit`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1),
                 place(id = 3L, position = 2)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 200),
                 appWidget(id = 30L, placeId = 3L, pagePosition = 0, appWidgetId = 300)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
-        mockDao.deletePlaces(placeIds = listOf(2L))
+        val repository: IWidgetAreaRepository = repository(dao)
+        dao.deletePlaces(placeIds = listOf(2L))
 
         repository.commitEdit(
             edit = WidgetAreaEdit(
@@ -371,16 +390,17 @@ class IWidgetAreaRepositoryImplTest {
         )
 
         assertEquals(listOf(3L, 1L), repository.places.first().map { place -> place.id })
-        assertEquals(listOf(1, 0), mockDao.observePlaces().first().sortedBy { place -> place.id }.map { place -> place.position })
+        assertEquals(listOf(1, 0), dao.observePlaces().first().sortedBy { place -> place.id }.map { place -> place.position })
     }
 
     @Test
     fun `addAppWidget into a stack appends a page and makes it current`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(header(id = 10L, placeId = 1L, pagePosition = 0))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualAdded: AddedAppWidget = repository.addAppWidget(
             request = AddAppWidget(
@@ -401,14 +421,15 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `removeWidget dissolves a two-page stack and resets the current page`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, heightDp = 200, currentPage = 1)),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0, heightDp = 200, currentPage = 1)),
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 7)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.removeWidget(widgetId = 20L)
 
@@ -420,14 +441,15 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `commitEdit moves a widget between places`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.commitEdit(
             edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L, 20L))))
@@ -440,14 +462,15 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `commitEdit creates a place for a split page`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(place(id = 1L, position = 0)),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 200)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.commitEdit(
             edit = WidgetAreaEdit(
@@ -465,17 +488,18 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `replaceHeader moves a single widget into the Header place and deletes its old place`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0).copy(heightDp = 64),
                 place(id = 2L, position = 1).copy(heightDp = 120)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
 
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
 
@@ -493,23 +517,24 @@ class IWidgetAreaRepositoryImplTest {
             assertEquals(42, (actualPlaces.single().widgets.single() as PlacedWidget.AppWidget).appWidgetId)
             cancelAndIgnoreRemainingEvents()
         }
-        assertNull(mockDao.getPlace(placeId = 2L))
+        assertNull(dao.getPlace(placeId = 2L))
     }
 
     @Test
     fun `replaceHeader moves the widget into a stack page and keeps the stack height`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0).copy(heightDp = 200),
                 place(id = 2L, position = 1).copy(heightDp = 120)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 11L, placeId = 1L, pagePosition = 1, appWidgetId = 41),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
 
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
 
@@ -522,22 +547,23 @@ class IWidgetAreaRepositoryImplTest {
             assertEquals(0, actualPlace.currentPage)
             cancelAndIgnoreRemainingEvents()
         }
-        assertNull(mockDao.getPlace(placeId = 2L))
+        assertNull(dao.getPlace(placeId = 2L))
     }
 
     @Test
     fun `undoReplaceHeader restores places, heights and page positions`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0).copy(heightDp = 64),
                 place(id = 2L, position = 1).copy(heightDp = 120)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
 
         repository.undoReplaceHeader(undo = actualUndo)
@@ -550,24 +576,25 @@ class IWidgetAreaRepositoryImplTest {
             assertEquals(20L, actualPlaces.last().widgets.single().id)
             cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(listOf(1L, 2L), mockDao.getPlaceIds())
+        assertEquals(listOf(1L, 2L), dao.getPlaceIds())
     }
 
     @Test
     fun `undoReplaceHeader restores only the Header after the widget is uninstalled`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0).copy(heightDp = 64),
                 place(id = 2L, position = 1).copy(heightDp = 120)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
-        mockDao.deleteByAppWidgetIds(listOf(42))
+        dao.deleteByAppWidgetIds(listOf(42))
 
         repository.undoReplaceHeader(undo = actualUndo)
 
@@ -582,18 +609,19 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `setExtendsUnderRail only widens lone widgets`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L),
                 appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 43),
                 appWidget(id = 21L, placeId = 2L, pagePosition = 1, appWidgetId = 44)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
 
         repository.setExtendsUnderRail(widgetId = 10L, extendsUnderRail = true)
         repository.setExtendsUnderRail(widgetId = 20L, extendsUnderRail = true)
@@ -609,41 +637,43 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `undoReplaceHeader shifts a place that took the old position`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 place(id = 2L, position = 1).copy(heightDp = 120)
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 header(id = 10L, placeId = 1L, pagePosition = 0),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 42)
             )
         )
-        val repository: IWidgetAreaRepositoryImpl = repository(mockDao)
+        val repository: IWidgetAreaRepositoryImpl = repository(dao)
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
-        val inputAddedPlaceId: Long = mockDao.insertPlace(WidgetPlaceRecord(position = 1))
+        val inputAddedPlaceId: Long = dao.insertPlace(WidgetPlaceRecord(position = 1))
 
         repository.undoReplaceHeader(undo = actualUndo)
 
-        assertEquals(1, mockDao.getPlace(placeId = 2L)?.position)
-        assertEquals(2, mockDao.getPlace(placeId = inputAddedPlaceId)?.position)
-        assertEquals(listOf(1L, 2L, inputAddedPlaceId), mockDao.getPlaceIds())
+        assertEquals(1, dao.getPlace(placeId = 2L)?.position)
+        assertEquals(2, dao.getPlace(placeId = inputAddedPlaceId)?.position)
+        assertEquals(listOf(1L, 2L, inputAddedPlaceId), dao.getPlaceIds())
     }
 
     @Test
     fun `excludes Pop-up places from the Widget Area`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 popupPlace(id = 2L, ownerKey = "owner-key")
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
             )
         )
 
-        val actualPlaces: List<WidgetPlace> = repository(mockDao).places.first()
+        val actualPlaces: List<WidgetPlace> = repository(dao).places.first()
 
         assertEquals(listOf(1L), actualPlaces.map { place -> place.id })
         assertEquals(null, actualPlaces.single().ownerKey)
@@ -651,18 +681,19 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `popupPlace returns the place owned by its Pop-up`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(
                 place(id = 1L, position = 0),
                 popupPlace(id = 2L, ownerKey = "owner-key")
             ),
-            initialWidgets = listOf(
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 2L, appWidgetId = 200)
             )
         )
 
-        val actualPlace: WidgetPlace? = repository(mockDao).popupPlace(ownerKey = "owner-key").first()
+        val actualPlace: WidgetPlace? = repository(dao).popupPlace(ownerKey = "owner-key").first()
 
         assertEquals(2L, actualPlace?.id)
         assertEquals("owner-key", actualPlace?.ownerKey)
@@ -671,8 +702,9 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `addAppWidget with an owner key creates and fills its Pop-up place`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao()
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea()
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualAdded: AddedAppWidget = repository.addAppWidget(
             request = AddAppWidget(
@@ -694,11 +726,12 @@ class IWidgetAreaRepositoryImplTest {
 
     @Test
     fun `addAppWidget with an owner key appends a page and makes it current`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
-            initialWidgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualAdded: AddedAppWidget = repository.addAppWidget(
             request = AddAppWidget(
@@ -715,68 +748,71 @@ class IWidgetAreaRepositoryImplTest {
         assertEquals(actualAdded.placeId, actualPlace.id)
         assertEquals(listOf(20L, 21L), actualPlace.widgets.map { widget -> widget.id })
         assertEquals(1, actualPlace.currentPage)
-        assertEquals(1, mockDao.getPlace(placeId = 2L)?.currentPage)
+        assertEquals(1, dao.getPlace(placeId = 2L)?.currentPage)
     }
 
     @Test
     fun `setCurrentPage stores the page of an owned place`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            widgets = listOf(
                 appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 200),
                 appWidget(id = 21L, placeId = 2L, pagePosition = 1, appWidgetId = 201)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.setCurrentPage(placeId = 2L, page = 1)
 
         assertEquals(1, repository.popupPlace(ownerKey = "owner-key").first()?.currentPage)
-        assertEquals(1, mockDao.getPlace(placeId = 2L)?.currentPage)
+        assertEquals(1, dao.getPlace(placeId = 2L)?.currentPage)
     }
 
     @Test
     fun `removeWidget clamps the current page of a remaining stack`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(WidgetPlaceRecord(id = 1L, position = 0, currentPage = 2)),
-            initialWidgets = listOf(
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0, currentPage = 2)),
+            widgets = listOf(
                 appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
                 appWidget(id = 20L, placeId = 1L, pagePosition = 1, appWidgetId = 200),
                 appWidget(id = 30L, placeId = 1L, pagePosition = 2, appWidgetId = 300)
             )
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         repository.removeWidget(widgetId = 30L)
 
         val actualPlace: WidgetPlace = repository.places.first().single()
         assertEquals(1, actualPlace.currentPage)
-        assertEquals(1, mockDao.getPlace(placeId = 1L)?.currentPage)
+        assertEquals(1, dao.getPlace(placeId = 1L)?.currentPage)
     }
 
     @Test
     fun `removeOwnerPlaces deletes its place and returns the freed ids`() = runTest {
-        val mockDao: FakeWidgetAreaDao = FakeWidgetAreaDao(
-            initialPlaces = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
-            initialWidgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
         )
-        val repository: IWidgetAreaRepository = repository(mockDao)
+        val repository: IWidgetAreaRepository = repository(dao)
 
         val actualFreedIds: List<AppWidgetId> = repository.removeOwnerPlaces(ownerKey = "owner-key")
 
         assertEquals(listOf(AppWidgetId(200)), actualFreedIds)
-        assertTrue(mockDao.getPlaceIds().isEmpty())
-        assertTrue(mockDao.getAppWidgets().isEmpty())
+        assertTrue(dao.getPlaceIds().isEmpty())
+        assertTrue(dao.getAppWidgets().isEmpty())
     }
 
     private suspend fun repository(
-        mockDao: FakeWidgetAreaDao,
+        dao: WidgetAreaDao,
         mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
     ): IWidgetAreaRepositoryImpl {
-        mockHost.boundIdsState.addAll(mockDao.allAppWidgetIds().map { id -> AppWidgetId(id) })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = mockDao, host = mockHost)
+        mockHost.boundIdsState.addAll(dao.allAppWidgetIds().map { id -> AppWidgetId(id) })
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
-        return IWidgetAreaRepositoryImpl(mockDao, mockHost, reconciler)
+        return IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
     }
 
     private fun model(places: List<WidgetPlace>): PlacedWidget.AppWidget = places.single().widgets.single() as PlacedWidget.AppWidget

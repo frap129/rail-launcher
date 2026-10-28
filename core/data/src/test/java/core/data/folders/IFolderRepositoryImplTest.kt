@@ -4,14 +4,15 @@ import core.data.favorites.IFavoritesRepository
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepositoryImpl
+import core.data.prefs.LaunchableCustomization
+import core.data.room.dao.FolderDao
+import core.data.room.dao.LaunchableCustomizationDao
 import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeFolderDao
-import core.data.testing.FakeLaunchableCustomizationDao
 import core.data.testing.FakeLaunchableRepository
-import core.data.testing.FakePopupDao
 import core.data.testing.FakePopupRepository
 import core.data.testing.FakePreferencesRepository
 import core.data.testing.FakeWidgetAreaRepository
+import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.appWidgetPlace
 import core.data.testing.createPopupRepository
 import core.data.widgets.AppWidgetId
@@ -27,28 +28,26 @@ import org.junit.Test
 
 private const val ITEM_KEY: String = "com.example.app_0"
 private const val SECOND_ITEM_KEY: String = "com.example.app_1"
+private const val FOLDER_NAME: String = "Games"
 
-class IFolderRepositoryImplTest {
+class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `create derives the shade from the id and stores the name and items`() = runTest {
-        val mockFolderDao: FakeFolderDao = FakeFolderDao()
-        val mockCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao()
+        val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         val mockFavoritesRepository: RecordingFavoritesRepository = RecordingFavoritesRepository()
         val mockPopupRepository: FakePopupRepository = FakePopupRepository()
         val repository: IFolderRepository = createRepository(
-            mockFolderDao = mockFolderDao,
-            mockCustomizationDao = mockCustomizationDao,
+            customizationDao = customizationDao,
             mockFavoritesRepository = mockFavoritesRepository,
             mockPopupRepository = mockPopupRepository
         )
 
-        val actualFolder: Folder = repository.create(name = "Games", initialItems = listOf(ITEM_KEY, SECOND_ITEM_KEY))
+        val actualFolder: Folder = repository.create(name = FOLDER_NAME, initialItems = listOf(ITEM_KEY, SECOND_ITEM_KEY))
 
         assertEquals(1L, actualFolder.folderId)
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
-        assertEquals("Games", actualFolder.name)
-        assertEquals(1, mockCustomizationDao.renames.size)
-        assertEquals("Games", mockCustomizationDao.renames.single().name)
+        assertEquals(FOLDER_NAME, actualFolder.name)
+        assertEquals(listOf(LaunchableCustomization(actualFolder.key, FOLDER_NAME)), customizations())
         assertEquals(listOf(actualFolder.key), mockFavoritesRepository.added.map { folder -> folder.key })
         assertEquals(
             listOf(Triple(actualFolder.key, listOf(ITEM_KEY, SECOND_ITEM_KEY), emptySet<String>())),
@@ -58,9 +57,7 @@ class IFolderRepositoryImplTest {
 
     @Test
     fun `create keeps the default name when the name is blank or the default`() = runTest {
-        val mockCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao()
         val repository: IFolderRepository = createRepository(
-            mockCustomizationDao = mockCustomizationDao,
             mockFavoritesRepository = RecordingFavoritesRepository()
         )
 
@@ -69,7 +66,7 @@ class IFolderRepositoryImplTest {
 
         assertEquals(Folder.DEFAULT_NAME, blankNamedFolder.name)
         assertEquals(Folder.DEFAULT_NAME, defaultNamedFolder.name)
-        assertTrue(mockCustomizationDao.renames.isEmpty())
+        assertTrue(customizations().isEmpty())
     }
 
     @Test
@@ -79,7 +76,7 @@ class IFolderRepositoryImplTest {
             mockFavoritesRepository = mockFavoritesRepository
         )
 
-        repository.create(name = "Games", addToFavorites = false)
+        repository.create(name = FOLDER_NAME, addToFavorites = false)
 
         assertTrue(mockFavoritesRepository.added.isEmpty())
     }
@@ -87,24 +84,26 @@ class IFolderRepositoryImplTest {
     @Test
     fun `delete cascades through its Pop-up, Favorites and customization`() = runTest {
         val inputFolder: Folder = Folder(folderId = 3L)
-        val mockFolderDao: FakeFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = inputFolder.folderId)))
-        val mockCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao()
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = inputFolder.folderId))
+        val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        customizationDao.setName(key = inputFolder.key, name = FOLDER_NAME)
         val mockFavoritesRepository: RecordingFavoritesRepository = RecordingFavoritesRepository()
         val mockPopupRepository: FakePopupRepository = FakePopupRepository()
         val repository: IFolderRepository = createRepository(
-            mockFolderDao = mockFolderDao,
-            mockCustomizationDao = mockCustomizationDao,
+            folderDao = folderDao,
+            customizationDao = customizationDao,
             mockFavoritesRepository = mockFavoritesRepository,
             mockPopupRepository = mockPopupRepository
         )
 
         repository.delete(inputFolder)
 
-        assertTrue(mockFolderDao.observeAll().firstValue().isEmpty())
+        assertTrue(folderDao.observeAll().first().isEmpty())
         assertEquals(listOf(inputFolder.key), mockPopupRepository.deletedOwners)
         assertEquals(listOf(listOf(inputFolder.key)), mockPopupRepository.deletedItemKeys)
         assertEquals(listOf(inputFolder.key), mockFavoritesRepository.removed.map { folder -> folder.key })
-        assertEquals(listOf(inputFolder.key), mockCustomizationDao.deletedKeys)
+        assertTrue(customizations().isEmpty())
         assertEquals(Icon.FolderIcon(shade = 0), inputFolder.icon)
     }
 
@@ -116,18 +115,19 @@ class IFolderRepositoryImplTest {
         )
         val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
         val mockPopupRepository: IPopupRepositoryImpl = createPopupRepository(
-            popupDao = FakePopupDao(),
+            popupDao = database.getPopupDao(),
             launchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = listOf(inputFolder)),
             scope = backgroundScope,
             widgetAreaRepository = mockWidgetAreaRepository,
             appWidgetHost = mockAppWidgetHost
         )
+        database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
         val repository: IFolderRepository = IFolderRepositoryImpl(
-            folderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = inputFolder.folderId))),
+            folderDao = database.getFolderDao(),
             favoritesRepository = RecordingFavoritesRepository(),
             popupRepository = mockPopupRepository,
             preferencesRepository = FakePreferencesRepository(),
-            launchableCustomizationDao = FakeLaunchableCustomizationDao()
+            launchableCustomizationDao = database.getLaunchableCustomizationDao()
         )
 
         val actualFreedIds: List<AppWidgetId> = repository.delete(inputFolder)
@@ -138,20 +138,18 @@ class IFolderRepositoryImplTest {
     }
 
     private fun createRepository(
-        mockFolderDao: FakeFolderDao = FakeFolderDao(),
-        mockCustomizationDao: FakeLaunchableCustomizationDao = FakeLaunchableCustomizationDao(),
+        folderDao: FolderDao = database.getFolderDao(),
+        customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         mockPreferencesRepository: FakePreferencesRepository = FakePreferencesRepository(),
         mockFavoritesRepository: IFavoritesRepository = RecordingFavoritesRepository(),
         mockPopupRepository: FakePopupRepository = FakePopupRepository()
     ): IFolderRepository = IFolderRepositoryImpl(
-        folderDao = mockFolderDao,
+        folderDao = folderDao,
         favoritesRepository = mockFavoritesRepository,
         popupRepository = mockPopupRepository,
         preferencesRepository = mockPreferencesRepository,
-        launchableCustomizationDao = mockCustomizationDao
+        launchableCustomizationDao = customizationDao
     )
-
-    private suspend fun Flow<List<FolderRecord>>.firstValue(): List<FolderRecord> = first()
 }
 
 private class RecordingFavoritesRepository(initialFavorites: List<Launchable> = emptyList()) : IFavoritesRepository {
