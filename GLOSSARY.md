@@ -8,6 +8,18 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink, or a Folder).
 _Avoid_: App (when meaning any launchable), item, entry
 
+**Profile**:
+The personal, work or Private Space profile an App belongs to. Every App belongs to exactly one Profile.
+_Avoid_: User, space, account
+
+**Work profile**:
+The managed Profile a device administrator controls, separate from the personal Profile.
+_Avoid_: Work user, work space, managed profile
+
+**Private Space**:
+The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
+_Avoid_: Private profile, vault, space
+
 **Folder**:
 A Launchable that only opens a Pop-up listing the Launchables the user put in it.
 _Avoid_: Group, category, pop-up folder

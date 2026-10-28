@@ -26,6 +26,7 @@ import compose.icons.fontawesomeicons.solid.PlusSquare
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
+import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
@@ -34,8 +35,8 @@ import core.ui.composables.SheetTitle
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.openApplicationDetailsSettings
-import core.util.userForSerial
 import feature.launcher.widgets.WidgetMenuTitle
+import org.koin.compose.koinInject
 
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +45,7 @@ fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions
     val menuState: PopupMenuState by card.menuState.collectAsState()
     val state: PopupMenuState.Open = menuState as? PopupMenuState.Open ?: return
     val context: Context = LocalContext.current
+    val profileSource: IProfileSource = koinInject()
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
         onDismissRequest = card::closeMenu
@@ -119,7 +121,7 @@ fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions
                                 imageVector = FontAwesomeIcons.Solid.InfoCircle,
                                 label = stringResource(CoreUiR.string.app_info),
                                 onClick = {
-                                    context.openAppInfo(appInfo = appInfo)
+                                    context.openAppInfo(appInfo = appInfo, profileSource = profileSource)
                                     card.closeMenu()
                                     if (widgetPage == null) {
                                         card.close()
@@ -135,7 +137,7 @@ fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions
 }
 
 /** Opens the app info [appInfo] points at. */
-private fun Context.openAppInfo(appInfo: PopupAppInfo) {
+private fun Context.openAppInfo(appInfo: PopupAppInfo, profileSource: IProfileSource) {
     when (appInfo) {
         is PopupAppInfo.LaunchableAppInfo -> when (val launchable: Launchable = appInfo.launchable) {
             is App -> launchable.openAppInfo(this)
@@ -144,7 +146,7 @@ private fun Context.openAppInfo(appInfo: PopupAppInfo) {
         }
 
         is PopupAppInfo.WidgetProviderAppInfo -> {
-            val profile: UserHandle = userForSerial(appInfo.profileSerial) ?: Process.myUserHandle()
+            val profile: UserHandle = profileSource.userForSerial(appInfo.profileSerial) ?: Process.myUserHandle()
             openApplicationDetailsSettings(appInfo.provider.packageName, profile)
         }
     }

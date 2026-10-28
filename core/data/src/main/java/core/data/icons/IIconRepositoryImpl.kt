@@ -1,28 +1,32 @@
 package core.data.icons
 
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileChange
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.util.getIconsFromPack
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 class IIconRepositoryImpl(
     private val context: Context,
     private val iconPackDao: CustomIconPackDao,
     private val iconDao: PackIconDao,
-    private val scope: CoroutineScope
+    profileSource: IProfileSource,
+    private val scope: CoroutineScope,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
@@ -36,27 +40,20 @@ class IIconRepositoryImpl(
     private val _iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
     override val iconPacks: StateFlow<Set<IconPack>> = _iconPacks.asStateFlow()
 
-    private val appChangeReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            scope.launch(Dispatchers.IO) {
-                updateIconPacks()
-            }
-        }
-    }
-
     init {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             updateIconPacks()
         }
 
-        context.registerReceiver(
-            appChangeReceiver,
-            IntentFilter().apply {
-                addAction(Intent.ACTION_PACKAGE_ADDED)
-                addAction(Intent.ACTION_PACKAGE_REMOVED)
-                addDataScheme("package")
-            }
-        )
+        scope.launch(dispatcher) {
+            profileSource.changes
+                .filter { change ->
+                    change is ProfileChange.PackageAdded ||
+                        change is ProfileChange.PackageRemoved ||
+                        change is ProfileChange.PackageChanged
+                }
+                .collect { updateIconPacks() }
+        }
     }
 
     suspend fun updateIconPacks() {

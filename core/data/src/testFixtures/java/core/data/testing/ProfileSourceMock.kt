@@ -1,0 +1,44 @@
+package core.data.testing
+
+import android.os.UserHandle
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileActivity
+import core.data.profiles.ProfileChange
+import core.data.profiles.ProfileInfo
+import io.mockk.Runs
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+/** The mutable state behind a [createProfileSourceMock] source. */
+class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
+    val profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(profiles)
+    val changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(extraBufferCapacity = 32)
+    val activitiesByUser: MutableMap<UserHandle, List<ProfileActivity>> = mutableMapOf()
+    val usersBySerial: MutableMap<Long, UserHandle> = mutableMapOf()
+    val serialsByUser: MutableMap<UserHandle, Long> = mutableMapOf()
+}
+
+/** A MockK [IProfileSource] reading [state]. */
+fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): IProfileSource {
+    val mockProfileSource: IProfileSource = mockk()
+    every { mockProfileSource.profiles } returns state.profiles
+    every { mockProfileSource.changes } returns state.changes
+    every { mockProfileSource.profileFor(any()) } answers {
+        state.profiles.value.firstOrNull { profile -> profile.user == firstArg<UserHandle>() }
+    }
+    every { mockProfileSource.activities(any<UserHandle>()) } answers {
+        state.activitiesByUser[firstArg<UserHandle>()].orEmpty()
+    }
+    every { mockProfileSource.activities(any<String>(), any<UserHandle>()) } answers {
+        state.activitiesByUser[secondArg<UserHandle>()].orEmpty()
+            .filter { activity -> activity.componentName.packageName == firstArg<String>() }
+    }
+    coEvery { mockProfileSource.requestQuiet(any(), any()) } just Runs
+    every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }
+    every { mockProfileSource.serialForUser(any()) } answers { state.serialsByUser[firstArg<UserHandle>()] }
+    return mockProfileSource
+}
