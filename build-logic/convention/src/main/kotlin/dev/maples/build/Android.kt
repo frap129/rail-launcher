@@ -23,10 +23,15 @@ private const val UNIT_TEST_IMPLEMENTATION = "testImplementation"
 private const val TEST_FIXTURES_IMPLEMENTATION = "testFixturesImplementation"
 private const val MOCKK_ALIAS = "test.mockk"
 
-private val unitTestLibraryAliases = listOf(
+private val sharedTestLibraryAliases = listOf(
     "test.junit",
     "test.kotlinx.coroutines.test",
     MOCKK_ALIAS,
+)
+
+private val sharedFixtureLibraryAliases = sharedTestLibraryAliases + listOf("kotlinx.coroutines.core")
+
+private val unitTestLibraryAliases = sharedTestLibraryAliases + listOf(
     "test.robolectric",
     "test.turbine",
 )
@@ -118,7 +123,9 @@ internal fun Project.configureUnitTestDependencies() {
             unitTestLibraryAliases.forEach { testImplementation(libs, it) }
         }
     }
-    if (configurations.findByName(TEST_FIXTURES_IMPLEMENTATION) != null) {
-        dependencies.add(TEST_FIXTURES_IMPLEMENTATION, libs.findLibrary(MOCKK_ALIAS).get())
+    configurations.matching { it.name == TEST_FIXTURES_IMPLEMENTATION }.configureEach {
+        dependencies {
+            sharedFixtureLibraryAliases.forEach { alias -> testFixturesImplementation(libs, alias) }
+        }
     }
 }
