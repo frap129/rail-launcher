@@ -6,12 +6,10 @@ import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
-import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
-import core.data.launchables.model.RailLaunchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
@@ -31,6 +29,7 @@ import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createRailLaunchable
 import core.data.testing.createTestNotificationSource
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -73,17 +72,17 @@ class LauncherViewModelTest {
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-    private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
+    private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
     private val inputListedGroups: List<LaunchableGroup.Listed> = listOf(
-        LaunchableGroup.InitialGroup(label = "A", items = listOf(createLaunchable("Alpha"))),
-        LaunchableGroup.InitialGroup(label = "B", items = listOf(createLaunchable("Beta"))),
+        LaunchableGroup.InitialGroup(label = "A", items = listOf(createRailLaunchable("Alpha"))),
+        LaunchableGroup.InitialGroup(label = "B", items = listOf(createRailLaunchable("Beta"))),
         inputBuiltinGroup
     )
     private val inputGroups: List<LaunchableGroup> = listOf(LaunchableGroup.Star) + inputListedGroups
     private val inputItem: Launchable = inputListedGroups.first().items.first()
     private val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
     private val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
-    private val inputFavorites: FavoritesRepositoryFixture = createFavoritesRepositoryFixture()
+    private val mockFavoritesFixture: FavoritesRepositoryFixture = createFavoritesRepositoryFixture()
     private val inputFolders: MutableStateFlow<List<Folder>> = MutableStateFlow(emptyList())
     private val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(inputFolders)
     private val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
@@ -167,7 +166,7 @@ class LauncherViewModelTest {
         runTest {
             val inputDigitGroup: LaunchableGroup.InitialGroup = LaunchableGroup.InitialGroup(
                 label = "#",
-                items = listOf(createLaunchable("1Password"))
+                items = listOf(createRailLaunchable("1Password"))
             )
             inputLaunchableState.value = createLaunchableState(groups = listOf(LaunchableGroup.Star, inputDigitGroup) + inputListedGroups)
             val viewModel: LauncherViewModel = createViewModel()
@@ -376,7 +375,7 @@ class LauncherViewModelTest {
     fun `persists the edited order when Back is pressed on Home while editing Favorites`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -386,12 +385,12 @@ class LauncherViewModelTest {
                 assertEquals(listOf(inputSecondItem, inputItem), expectHome().favorites)
                 viewModel.onBack()
                 advanceUntilIdle()
-                inputFavorites.state.favorites.value = listOf(inputSecondItem, inputItem)
+                mockFavoritesFixture.state.favorites.value = listOf(inputSecondItem, inputItem)
                 val actualHome: LauncherUiState.Home = expectHome()
                 assertFalse(actualHome.isEditingFavorites)
                 assertEquals(listOf(inputSecondItem, inputItem), actualHome.favorites)
             }
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.reorder(listOf(inputSecondItem, inputItem)) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.reorder(listOf(inputSecondItem, inputItem)) }
         }
     }
 
@@ -546,7 +545,7 @@ class LauncherViewModelTest {
             viewModel.toggleFavorite(inputItem)
             advanceUntilIdle()
 
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputItem) }
         }
     }
 
@@ -561,8 +560,8 @@ class LauncherViewModelTest {
             advanceUntilIdle()
 
             coVerifyOrder {
-                inputFavorites.mockFavoritesRepository.add(inputItem)
-                inputFavorites.mockFavoritesRepository.add(inputSecondItem)
+                mockFavoritesFixture.mockFavoritesRepository.add(inputItem)
+                mockFavoritesFixture.mockFavoritesRepository.add(inputSecondItem)
             }
         }
     }
@@ -571,7 +570,7 @@ class LauncherViewModelTest {
     fun `shows Favorites in the repository order`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputSecondItem, inputItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputSecondItem, inputItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 assertEquals(listOf(inputSecondItem, inputItem), expectHome().favorites)
@@ -582,14 +581,14 @@ class LauncherViewModelTest {
     @Test
     fun `removes a Launchable from the Favorites`() {
         runTest {
-            inputFavorites.state.favorites.value = listOf(inputItem)
-            inputFavorites.state.isFavorite.value = true
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.isFavorite.value = true
             val viewModel: LauncherViewModel = createViewModel()
 
             viewModel.toggleFavorite(inputItem)
             advanceUntilIdle()
 
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.remove(inputItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.remove(inputItem) }
         }
     }
 
@@ -600,14 +599,14 @@ class LauncherViewModelTest {
 
             viewModel.toggleFavorite(inputItem)
             advanceUntilIdle()
-            inputFavorites.state.favorites.value = listOf(inputItem)
-            inputFavorites.state.isFavorite.value = true
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.isFavorite.value = true
             viewModel.toggleFavorite(inputItem)
             advanceUntilIdle()
 
             coVerifyOrder {
-                inputFavorites.mockFavoritesRepository.add(inputItem)
-                inputFavorites.mockFavoritesRepository.remove(inputItem)
+                mockFavoritesFixture.mockFavoritesRepository.add(inputItem)
+                mockFavoritesFixture.mockFavoritesRepository.remove(inputItem)
             }
         }
     }
@@ -631,7 +630,7 @@ class LauncherViewModelTest {
     @Test
     fun `enters Edit Favorites mode from the menu`() {
         runTest {
-            inputFavorites.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 assertFalse(expectHome().isEditingFavorites)
@@ -659,7 +658,7 @@ class LauncherViewModelTest {
     fun `returns to Home still editing Favorites when Back is pressed in the App List`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -675,7 +674,7 @@ class LauncherViewModelTest {
             }
             assertEquals(
                 listOf(inputItem, inputSecondItem),
-                inputFavorites.state.favorites.value
+                mockFavoritesFixture.state.favorites.value
             )
         }
     }
@@ -690,7 +689,7 @@ class LauncherViewModelTest {
                 val actualBefore: LauncherUiState.AppList.Browsing = expectAppList()
                 viewModel.toggleFavorite(inputItem)
                 advanceUntilIdle()
-                coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputItem) }
+                coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputItem) }
                 expectNoEvents()
                 val actualAfter: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
                 assertSame(actualBefore.lazyListState, actualAfter.lazyListState)
@@ -741,28 +740,28 @@ class LauncherViewModelTest {
                 assertTrue(expectAppList().isEditingFavorites)
                 viewModel.toggleFavorite(inputItem)
                 advanceUntilIdle()
-                coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputItem) }
+                coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputItem) }
                 val actualAfter: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
                 assertTrue(actualAfter.isEditingFavorites)
                 assertSame(actualBefore.lazyListState, actualAfter.lazyListState)
                 assertEquals(actualBefore.groups, actualAfter.groups)
-                inputFavorites.state.favorites.value = listOf(inputItem)
-                inputFavorites.state.isFavorite.value = true
+                mockFavoritesFixture.state.favorites.value = listOf(inputItem)
+                mockFavoritesFixture.state.isFavorite.value = true
                 viewModel.toggleFavorite(inputItem)
                 advanceUntilIdle()
-                inputFavorites.state.favorites.value = emptyList()
+                mockFavoritesFixture.state.favorites.value = emptyList()
                 advanceUntilIdle()
                 assertTrue(viewModel.favorites.value.isEmpty())
             }
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.remove(inputItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.remove(inputItem) }
         }
     }
 
     @Test
     fun `toggles a Favorite from Home in Edit Favorites mode`() {
         runTest {
-            inputFavorites.state.favorites.value = listOf(inputItem)
-            inputFavorites.state.isFavorite.value = true
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.isFavorite.value = true
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -770,12 +769,12 @@ class LauncherViewModelTest {
                 assertTrue(expectHome().isEditingFavorites)
                 viewModel.toggleFavorite(inputItem)
                 advanceUntilIdle()
-                inputFavorites.state.favorites.value = emptyList()
+                mockFavoritesFixture.state.favorites.value = emptyList()
                 val actualHome: LauncherUiState.Home = expectHome()
                 assertTrue(actualHome.isEditingFavorites)
                 assertTrue(actualHome.favorites.isEmpty())
             }
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.remove(inputItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.remove(inputItem) }
         }
     }
 
@@ -789,7 +788,7 @@ class LauncherViewModelTest {
             actualCollectionJob.cancel()
             advanceUntilIdle()
 
-            inputFavorites.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
             advanceUntilIdle()
 
             assertTrue(viewModel.favorites.value.isEmpty())
@@ -801,7 +800,7 @@ class LauncherViewModelTest {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
             val inputRailItem: Launchable = listedItem(inputListedGroups.lastIndex)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -809,7 +808,7 @@ class LauncherViewModelTest {
                 assertTrue(expectHome().isEditingFavorites)
                 viewModel.toggleFavorite(inputRailItem)
                 advanceUntilIdle()
-                inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem, inputRailItem)
+                mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem, inputRailItem)
                 advanceUntilIdle()
                 assertEquals(listOf(inputItem, inputSecondItem, inputRailItem), viewModel.favorites.value)
                 viewModel.moveFavorite(fromIndex = 2, toIndex = 0)
@@ -819,9 +818,9 @@ class LauncherViewModelTest {
                 advanceUntilIdle()
                 assertFalse(expectHome().isEditingFavorites)
             }
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputRailItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputRailItem) }
             coVerify(exactly = 1) {
-                inputFavorites.mockFavoritesRepository.reorder(listOf(inputRailItem, inputItem, inputSecondItem))
+                mockFavoritesFixture.mockFavoritesRepository.reorder(listOf(inputRailItem, inputItem, inputSecondItem))
             }
         }
     }
@@ -830,7 +829,7 @@ class LauncherViewModelTest {
     fun `exits Edit Favorites in place from the App List when Done is pressed`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -850,7 +849,7 @@ class LauncherViewModelTest {
                 assertFalse(actualAfter.isEditingFavorites)
                 assertEquals(inputListedGroups, actualAfter.groups)
             }
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.reorder(listOf(inputSecondItem, inputItem)) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.reorder(listOf(inputSecondItem, inputItem)) }
         }
     }
 
@@ -858,7 +857,7 @@ class LauncherViewModelTest {
     fun `moves a Favorite in Edit Favorites mode without persisting it`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -866,7 +865,7 @@ class LauncherViewModelTest {
                 viewModel.moveFavorite(fromIndex = 0, toIndex = 1)
                 assertEquals(listOf(inputSecondItem, inputItem), expectHome().favorites)
             }
-            coVerify(exactly = 0) { inputFavorites.mockFavoritesRepository.reorder(any()) }
+            coVerify(exactly = 0) { mockFavoritesFixture.mockFavoritesRepository.reorder(any()) }
         }
     }
 
@@ -875,7 +874,7 @@ class LauncherViewModelTest {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
             val inputRailItem: Launchable = listedItem(inputListedGroups.lastIndex)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem, inputRailItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem, inputRailItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 expectHome()
@@ -884,13 +883,13 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.finishEditingFavorites()
                 advanceUntilIdle()
-                inputFavorites.state.favorites.value = listOf(inputRailItem, inputItem, inputSecondItem)
+                mockFavoritesFixture.state.favorites.value = listOf(inputRailItem, inputItem, inputSecondItem)
                 val actualHome: LauncherUiState.Home = expectHome()
                 assertFalse(actualHome.isEditingFavorites)
                 assertEquals(listOf(inputRailItem, inputItem, inputSecondItem), actualHome.favorites)
             }
             coVerify(exactly = 1) {
-                inputFavorites.mockFavoritesRepository.reorder(listOf(inputRailItem, inputItem, inputSecondItem))
+                mockFavoritesFixture.mockFavoritesRepository.reorder(listOf(inputRailItem, inputItem, inputSecondItem))
             }
         }
     }
@@ -946,7 +945,7 @@ class LauncherViewModelTest {
             viewModel.toggleFavorite(inputRailItem)
             advanceUntilIdle()
 
-            coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputRailItem) }
+            coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputRailItem) }
         }
     }
 
@@ -954,11 +953,11 @@ class LauncherViewModelTest {
     fun `drops a Favorite from Home when the repository stops emitting it`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputItem, inputSecondItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem, inputSecondItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 assertEquals(listOf(inputItem, inputSecondItem), expectHome().favorites)
-                inputFavorites.state.favorites.value = listOf(inputSecondItem)
+                mockFavoritesFixture.state.favorites.value = listOf(inputSecondItem)
                 assertEquals(listOf(inputSecondItem), expectHome().favorites)
             }
         }
@@ -990,7 +989,7 @@ class LauncherViewModelTest {
                 createLaunchableState(groups = emptyList(), isLoaded = false)
             )
             val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputState)
-            inputFavorites.state.favorites.value = listOf(inputItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputItem)
             val viewModel: LauncherViewModel = createViewModel(mockLaunchableRepository = mockLaunchableRepository)
             viewModel.uiState.test {
                 assertEquals(LauncherUiState.Loading, expectMostRecentItem())
@@ -1004,7 +1003,7 @@ class LauncherViewModelTest {
     fun `keeps the repository Favorite order when the Launchables reload`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
-            inputFavorites.state.favorites.value = listOf(inputSecondItem, inputItem)
+            mockFavoritesFixture.state.favorites.value = listOf(inputSecondItem, inputItem)
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 assertEquals(listOf(inputSecondItem, inputItem), expectHome().favorites)
@@ -1045,8 +1044,8 @@ class LauncherViewModelTest {
             createLaunchableState(groups = inputGroups, folders = listOf(folder))
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputState)
-        inputFavorites.state.favorites.value = listOf(folder)
-        inputFavorites.state.isFavorite.value = true
+        mockFavoritesFixture.state.favorites.value = listOf(folder)
+        mockFavoritesFixture.state.isFavorite.value = true
         val viewModel: LauncherViewModel = createViewModel(mockLaunchableRepository = mockLaunchableRepository)
         viewModel.uiState.test {
             assertEquals(listOf(folder), expectHome().favorites)
@@ -1054,10 +1053,10 @@ class LauncherViewModelTest {
             assertTrue(expectHome().isEditingFavorites)
             viewModel.toggleFavorite(folder)
             advanceUntilIdle()
-            inputFavorites.state.favorites.value = emptyList()
+            mockFavoritesFixture.state.favorites.value = emptyList()
             assertTrue(expectHome().favorites.isEmpty())
         }
-        coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.remove(folder) }
+        coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.remove(folder) }
         assertTrue(mockLaunchableRepository.launchableState.value.launchables.any { launchable -> launchable.key == folder.key })
     }
 
@@ -1133,7 +1132,7 @@ class LauncherViewModelTest {
 
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
-        mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.inputFavorites.mockFavoritesRepository,
+        mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.mockFavoritesFixture.mockFavoritesRepository,
         mockFolderRepository: IFolderRepository = this@LauncherViewModelTest.mockFolderRepository,
         inputHomeEditState: HomeEditState = HomeEditState(),
         mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository
@@ -1158,7 +1157,7 @@ class LauncherViewModelTest {
 
     private suspend fun TestScope.createFolderSummaryFixture(members: List<App>): FolderSummaryFixture {
         val folder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
-        val inputPopupState: PopupRepositoryState = PopupRepositoryState(
+        val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState(
             notificationsEnabled = MutableStateFlow(true),
             itemsByOwner = MutableStateFlow(
                 mapOf(folder.key to members.map { member -> PopupItem.Launchable(launchable = member) })
@@ -1167,7 +1166,7 @@ class LauncherViewModelTest {
         inputFolders.value = listOf(folder)
         return FolderSummaryFixture(
             folder = folder,
-            viewModel = createViewModel(mockPopupRepository = createPopupRepositoryMock(state = inputPopupState))
+            viewModel = createViewModel(mockPopupRepository = createPopupRepositoryMock(state = mockPopupRepositoryState))
         )
     }
 
@@ -1188,12 +1187,6 @@ class LauncherViewModelTest {
     private fun railIndex(group: LaunchableGroup): Int = inputGroups.indexOf(group)
 
     private fun listedItem(index: Int): Launchable = inputListedGroups[index].items.first()
-
-    private fun createLaunchable(name: String): Launchable = RailLaunchable(
-        defaultName = name,
-        defaultIcon = Icon.RailIcon(resId = 0),
-        deeplink = "rail://$name"
-    )
 }
 
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)

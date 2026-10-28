@@ -26,7 +26,6 @@ import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createDatePatternSourceMock
-import core.data.testing.createGrantedCalendarEventSourceMock
 import core.data.testing.createHeaderSettingsActions
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -443,7 +442,7 @@ class WidgetSettingsViewModelTest {
         )
         val viewModel: WidgetSettingsViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createGrantedCalendarEventSourceMock(calendars = inputCalendars)
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = true, calendars = inputCalendars)
         )
 
         viewModel.uiState.test {
@@ -524,7 +523,7 @@ class WidgetSettingsViewModelTest {
         )
         val viewModel: WidgetSettingsViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createGrantedCalendarEventSourceMock(calendars = inputCalendars)
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = true, calendars = inputCalendars)
         )
 
         viewModel.uiState.test {
@@ -544,7 +543,7 @@ class WidgetSettingsViewModelTest {
         )
         val viewModel: WidgetSettingsViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createGrantedCalendarEventSourceMock()
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = true)
         )
 
         viewModel.uiState.test {

@@ -44,7 +44,7 @@ suspend fun StateFlow<List<PinCall>>.awaitPin(expectedPin: PinCall) {
     first { pins -> expectedPin in pins }
 }
 
-internal fun ShortcutResolution?.filterToKeys(keys: Set<ShortcutKey>): ShortcutResolution = this?.let { resolution ->
+private fun ShortcutResolution?.filterToKeys(keys: Set<ShortcutKey>): ShortcutResolution = this?.let { resolution ->
     ShortcutResolution(
         shortcuts = resolution.shortcuts.filterKeys { key -> key in keys },
         goneKeys = resolution.goneKeys.filterTo(mutableSetOf()) { key -> key in keys }

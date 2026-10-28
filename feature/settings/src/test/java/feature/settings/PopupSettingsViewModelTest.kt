@@ -37,7 +37,7 @@ private const val NEW_FOLDER_NAME: String = "Trips"
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupSettingsViewModelTest : PopupTestBase() {
-    private val inputFavorites: FavoritesRepositoryFixture = createFavoritesRepositoryFixture()
+    private val mockFavoritesFixture: FavoritesRepositoryFixture = createFavoritesRepositoryFixture()
 
     @Test
     fun `lists every Folder with its item count and location`() = runTest {
@@ -50,7 +50,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
         val inputOtherItem: Launchable = createRailLaunchable(name = "Second")
         setFolders(inputFolders)
         setPopupLaunchables(ownerKey = inputHomeFolder.key, launchables = listOf(inputItem, inputOtherItem))
-        inputFavorites.state.favorites.value = listOf(inputHomeFolder, inputTravelFolder)
+        mockFavoritesFixture.state.favorites.value = listOf(inputHomeFolder, inputTravelFolder)
         val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
@@ -103,10 +103,10 @@ class PopupSettingsViewModelTest : PopupTestBase() {
             viewModel.openActions(inputFolder)
             viewModel.setOnHome(true)
             advanceUntilIdle()
-            inputFavorites.state.favorites.value = listOf(inputFolder)
+            mockFavoritesFixture.state.favorites.value = listOf(inputFolder)
             assertEquals(FolderLocation.HomeAndAppList, expectMostRecentItem().selectedFolder?.location)
         }
-        coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputFolder) }
+        coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputFolder) }
     }
 
     @Test
@@ -149,7 +149,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
         viewModel.setOnHome(true)
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputFolder) }
+        coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputFolder) }
     }
 
     @Test
@@ -216,7 +216,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
             relay = INotificationListenerRelayImpl(),
             isAccessGranted = accessCheck
         ),
-        favoritesRepository = inputFavorites.mockFavoritesRepository,
+        favoritesRepository = mockFavoritesFixture.mockFavoritesRepository,
         collaborators = createCollaborators()
     )
 }

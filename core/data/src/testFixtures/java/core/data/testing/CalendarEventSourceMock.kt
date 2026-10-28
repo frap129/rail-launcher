@@ -38,8 +38,15 @@ fun createCalendarEventSourceMock(
     return mockCalendarEventSource
 }
 
-/** A [createCalendarEventSourceMock] with permission granted and [calendars] exposed. */
-fun createGrantedCalendarEventSourceMock(calendars: List<CalendarInfo> = emptyList()): ICalendarEventSource = createCalendarEventSourceMock(
-    permission = MutableStateFlow(true),
-    calendars = MutableStateFlow(calendars)
+/** A MockK [ICalendarEventSource] with permission [hasPermission], [events] and [calendars]. */
+fun createCalendarEventSourceMock(
+    hasPermission: Boolean,
+    events: Flow<List<UpcomingEvent>> = emptyFlow(),
+    calendars: List<CalendarInfo> = emptyList(),
+    queriedLookaheadHours: MutableStateFlow<List<Int>> = MutableStateFlow(emptyList())
+): ICalendarEventSource = createCalendarEventSourceMock(
+    permission = MutableStateFlow(hasPermission),
+    events = events,
+    calendars = MutableStateFlow(calendars),
+    queriedLookaheadHours = queriedLookaheadHours
 )

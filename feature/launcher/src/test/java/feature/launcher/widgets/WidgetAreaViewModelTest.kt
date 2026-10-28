@@ -27,17 +27,23 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
-import core.data.testing.AppWidgetHostState
+import core.data.testing.AppWidgetHostFixture
 import core.data.testing.MainDispatcherRule
+import core.data.testing.WidgetAreaRepositoryFixture
 import core.data.testing.appWidgetPlace
+import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createBatterySourceMock
+import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createDatePatternSourceMock
 import core.data.testing.createHeaderSettingsActions
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
+import core.data.testing.createMediaSessionSourceMock
 import core.data.testing.createRemoveAppWidgetMock
+import core.data.testing.createWidgetAreaRepositoryFixture
+import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetLifecycleReconcilerMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
@@ -77,12 +83,8 @@ import core.ui.widgets.HeaderModel
 import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.IHeaderTapTargetResolverImpl
 import feature.launcher.R
-import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
 import java.time.Instant
@@ -137,7 +139,7 @@ class WidgetAreaViewModelTest {
             assertEquals("2:05", expectMostRecentItem().header().time?.text)
             cancelAndIgnoreRemainingEvents()
         }
-        val twentyFourHour: WidgetAreaViewModel = createViewModel(mockClockSource = createClock(reading(isSystem24Hour = true)))
+        val twentyFourHour: WidgetAreaViewModel = createViewModel(mockClockSource = createClockSourceMock(reading(isSystem24Hour = true)))
         twentyFourHour.widgetAreaState.test {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
             assertEquals("14:05", actualHeader.time?.text)
@@ -191,7 +193,7 @@ class WidgetAreaViewModelTest {
     @Test
     fun `exposes alarms and calendar tap targets`() = runTest {
         val inputNow: Instant = Instant.parse("2026-10-20T14:05:00Z")
-        val viewModel: WidgetAreaViewModel = createViewModel(mockClockSource = createClock(reading(at = inputNow.toString())))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockClockSource = createClockSourceMock(reading(at = inputNow.toString())))
         viewModel.widgetAreaState.test {
             val actualHeader: HeaderModel = expectMostRecentItem().header()
             assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
@@ -460,7 +462,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `shows Restore Header before Widget settings when the Header is missing`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createRepository(emptyList()))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = emptyList()))
         viewModel.menuState.test {
             viewModel.openEmptyAreaMenu()
             val actualMenu: WidgetMenuState.EmptyAreaMenu = expectEmptyAreaMenu()
@@ -494,7 +496,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `removes the Header and emits Undo`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         coEvery { mockRepository.removeHeader() } returns HeaderRemoval(position = 0, placeId = 1L, pagePosition = 0)
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.events.test {
@@ -514,7 +516,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `does not emit Undo when the Header is missing`() = runTest {
-        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createRepository(emptyList()))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = emptyList()))
         viewModel.events.test {
             viewModel.removeHeader()
             advanceUntilIdle()
@@ -538,8 +540,8 @@ class WidgetAreaViewModelTest {
                 )
             )
         )
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(inputAppWidgetPlace, headerPlace.copy(id = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(inputAppWidgetPlace, headerPlace.copy(id = 2L))
         )
         coEvery { mockRepository.removeHeader() } returns HeaderRemoval(position = 1, placeId = 2L, pagePosition = 0)
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
@@ -728,7 +730,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `does not collect calendar events while the feature is off`() = runTest {
-        val mockCalendarEventSource: ICalendarEventSource = createCalendar()
+        val mockCalendarEventSource: ICalendarEventSource = createCalendarEventSourceMock(hasPermission = true)
         val viewModel: WidgetAreaViewModel = createViewModel(mockCalendarEventSource = mockCalendarEventSource)
 
         viewModel.widgetAreaState.test {
@@ -742,7 +744,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `does not collect calendar events without permission`() = runTest {
-        val mockCalendarEventSource: ICalendarEventSource = createCalendar(hasPermission = false)
+        val mockCalendarEventSource: ICalendarEventSource = createCalendarEventSourceMock(hasPermission = false)
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             eventSettings = EventSettings(enabled = true)
         )
@@ -763,7 +765,7 @@ class WidgetAreaViewModelTest {
     @Test
     fun `requests calendar permission when enabling events without it`() = runTest {
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockCalendarEventSource = createCalendar(hasPermission = false)
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = false)
         )
 
         viewModel.events.test {
@@ -780,7 +782,7 @@ class WidgetAreaViewModelTest {
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createCalendar(hasPermission = false)
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = false)
         )
 
         viewModel.events.test {
@@ -802,7 +804,7 @@ class WidgetAreaViewModelTest {
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createCalendar(hasPermission = false)
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = false)
         )
 
         viewModel.onCalendarPermissionResult(granted = true, canAskAgain = true)
@@ -814,7 +816,8 @@ class WidgetAreaViewModelTest {
     @Test
     fun `requests calendar events with the effective lookahead`() = runTest {
         val inputLookaheadHours: MutableStateFlow<List<Int>> = MutableStateFlow(emptyList())
-        val mockCalendarEventSource: ICalendarEventSource = createCalendar(queriedLookaheadHours = inputLookaheadHours)
+        val mockCalendarEventSource: ICalendarEventSource =
+            createCalendarEventSourceMock(hasPermission = true, queriedLookaheadHours = inputLookaheadHours)
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             eventSettings = EventSettings(enabled = true, lookaheadHours = 99)
         )
@@ -844,7 +847,7 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockClockSource = mockClockSource,
             mockSettingsRepository = mockSettingsRepository,
-            mockCalendarEventSource = createCalendar(events = MutableStateFlow(listOf(inputEvent)))
+            mockCalendarEventSource = createCalendarEventSourceMock(hasPermission = true, events = MutableStateFlow(listOf(inputEvent)))
         )
 
         viewModel.widgetAreaState.test {
@@ -894,7 +897,7 @@ class WidgetAreaViewModelTest {
             currentPage = 0,
             widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createRepository(listOf(inputStack)))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack)))
 
         viewModel.menuState.test {
             expectMostRecentItem()
@@ -908,7 +911,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `page settle persists the current page after the debounce`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
 
         viewModel.onPageSettled(placeId = 1L, page = 1)
@@ -929,7 +932,7 @@ class WidgetAreaViewModelTest {
             widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockRepository = createRepository(listOf(inputStack, appWidgetPlace(placeId = 3L, widgetId = 3L))),
+            mockRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack, appWidgetPlace(placeId = 3L, widgetId = 3L))),
             mockSettingsRepository = createWidgetSettingsRepositoryMock(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
         )
 
@@ -949,7 +952,7 @@ class WidgetAreaViewModelTest {
             currentPage = 0,
             widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createRepository(listOf(inputStack)))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack)))
 
         viewModel.editWidgets()
         advanceUntilIdle()
@@ -969,7 +972,7 @@ class WidgetAreaViewModelTest {
             currentPage = 0,
             widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createRepository(listOf(inputStack)))
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack)))
 
         viewModel.editWidgets()
         advanceUntilIdle()
@@ -1227,7 +1230,7 @@ class WidgetAreaViewModelTest {
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
-        val mockMediaSessionSource: IMediaSessionSource = createMediaSession(initialSessions = listOf(inputFirst, inputSecond))
+        val mockMediaSessionSource: IMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputFirst, inputSecond))
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
             mockMediaSessionSource = mockMediaSessionSource
@@ -1242,7 +1245,7 @@ class WidgetAreaViewModelTest {
     fun `hides the Media Player when disabled or without notification access`() = runTest {
         val inputSession: MediaSessionSnapshot = mediaSession()
         val disabled: WidgetAreaViewModel = createViewModel(
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         )
         disabled.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
@@ -1253,7 +1256,7 @@ class WidgetAreaViewModelTest {
         )
         val noAccess: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockEnabledSettings,
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession), hasAccess = false)
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession), hasAccess = false)
         )
         noAccess.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
@@ -1267,7 +1270,7 @@ class WidgetAreaViewModelTest {
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
-            mockMediaSessionSource = createMediaSession()
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = emptyList())
         )
         viewModel.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Hidden, expectMostRecentItem())
@@ -1281,7 +1284,7 @@ class WidgetAreaViewModelTest {
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
-            mockMediaSessionSource = createMediaSession(hasAccess = false)
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = emptyList(), hasAccess = false)
         )
         viewModel.menuState.test {
             viewModel.openHeaderMenu()
@@ -1304,7 +1307,7 @@ class WidgetAreaViewModelTest {
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
             inputHomeEditState = inputHomeEditState,
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         )
         viewModel.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Visible(session = inputSession), expectMostRecentItem())
@@ -1323,7 +1326,7 @@ class WidgetAreaViewModelTest {
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
-        val mockMediaSessionSource: IMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
+        val mockMediaSessionSource: IMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
             mockMediaSessionSource = mockMediaSessionSource
@@ -1353,7 +1356,7 @@ class WidgetAreaViewModelTest {
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockMediaSessionSource = createMediaSession(hasAccess = false)
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = emptyList(), hasAccess = false)
         )
         viewModel.events.test {
             viewModel.setMediaPlayerEnabled(enabled = true)
@@ -1374,7 +1377,7 @@ class WidgetAreaViewModelTest {
                     showArtwork = false
                 )
             ),
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         )
         viewModel.mediaPlayerState.test {
             assertEquals(
@@ -1400,7 +1403,7 @@ class WidgetAreaViewModelTest {
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputFirst, inputSecond))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputFirst, inputSecond))
         )
         backgroundScope.launch { viewModel.mediaPlayerState.collect {} }
         advanceUntilIdle()
@@ -1433,7 +1436,7 @@ class WidgetAreaViewModelTest {
         )
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = mockSettingsRepository,
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputFirst, inputSecond))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputFirst, inputSecond))
         )
         viewModel.mediaPlayerState.test {
             assertEquals(MediaPlayerUiState.Visible(session = inputFirst), expectMostRecentItem())
@@ -1461,7 +1464,7 @@ class WidgetAreaViewModelTest {
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 mediaPlayerSettings = MediaPlayerSettings(enabled = true)
             ),
-            mockMediaSessionSource = createMediaSession(initialSessions = listOf(inputSession))
+            mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         )
         viewModel.menuState.test {
             viewModel.openMediaPlayerMenu()
@@ -1475,8 +1478,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Add widget from an App Widget menu starts below that widget`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
 
@@ -1515,8 +1518,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `onBindResult places the App Widget after the dialog`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(false)
         )
@@ -1535,8 +1538,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `onConfigureResult failure reports a message and deletes the id`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo(needsConfiguration = true)),
             bindResults = listOf(true)
         )
@@ -1560,8 +1563,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `adding into a stack reports the grown page size`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo(isVerticallyResizable = true)),
             bindResults = listOf(true)
         )
@@ -1570,7 +1573,7 @@ class WidgetAreaViewModelTest {
             widthDp = 240,
             heightDp = 64
         )
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock(stackGrownReport = inputReport)
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock(stackGrownReport = inputReport)
         val actualViewModel: WidgetAreaViewModel = createViewModel(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost,
@@ -1605,52 +1608,19 @@ class WidgetAreaViewModelTest {
         draftHeightDp = 112
     )
 
-    private fun createResizeControllerMock(
-        resizeState: MutableStateFlow<ResizeState?> = MutableStateFlow(null),
-        startResult: Boolean = true,
-        finish: ResizeFinish? = null,
-        report: WidgetSizeReport? = null,
-        stackGrownReport: WidgetSizeReport? = null
-    ): IWidgetResizeController {
-        val homeHeightDp: MutableStateFlow<Int?> = MutableStateFlow(null)
-        return mockk {
-            every { this@mockk.resizeState } returns resizeState
-            every { this@mockk.homeHeightDp } returns homeHeightDp
-            every { setHomeHeight(any()) } answers { homeHeightDp.value = firstArg() }
-            every { setWidgetAreaWidth(any()) } just Runs
-            coEvery { startResize(any(), any(), any()) } returns startResult
-            coEvery { startResizeForWidget(any(), any(), any()) } returns startResult
-            every { dragResize(any()) } just Runs
-            every { resetResize() } just Runs
-            every { finishResize() } answers {
-                if (resizeState.value == null) {
-                    null
-                } else {
-                    resizeState.value = null
-                    finish
-                }
-            }
-            coEvery { persistResize(any()) } returns report
-            every { cancelResize() } answers { resizeState.value = null }
-            every { onPlacesChanged(any(), any()) } just Runs
-            coEvery { onStackGrown(any(), any(), any()) } returns stackGrownReport
-            coEvery { clampStackHeight(any(), any(), any()) } just Runs
-        }
-    }
-
     private fun createViewModel(
-        mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace)),
-        mockClockSource: IClockSource = createClock(reading()),
+        mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace)),
+        mockClockSource: IClockSource = createClockSourceMock(reading()),
         mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(),
         inputHomeEditState: HomeEditState = HomeEditState(),
         mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(groups = emptyList()),
-        mockCalendarEventSource: ICalendarEventSource = createCalendar(),
-        mockBatterySource: IBatterySource = createBattery(BatteryStatus(percent = 84, isCharging = false)),
-        mockAppWidgetHost: IAppWidgetHostSource = createHost(),
+        mockCalendarEventSource: ICalendarEventSource = createCalendarEventSourceMock(hasPermission = true),
+        mockBatterySource: IBatterySource = createBatterySourceMock(BatteryStatus(percent = 84, isCharging = false)),
+        mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(),
         mockWidgetLifecycleReconciler: IWidgetLifecycleReconciler = createWidgetLifecycleReconcilerMock(),
         homeHeightState: HomeHeightState = HomeHeightState(),
-        mockMediaSessionSource: IMediaSessionSource = createMediaSession(),
-        mockResizeController: IWidgetResizeController = createResizeControllerMock(),
+        mockMediaSessionSource: IMediaSessionSource = createMediaSessionSourceMock(initialSessions = emptyList()),
+        mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock(),
         mockRemoveAppWidget: IRemoveAppWidget = createRemoveAppWidgetMock()
     ): WidgetAreaViewModel = WidgetAreaViewModel(
         repository = mockRepository,
@@ -1707,10 +1677,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `offers Reconfigure only for an available reconfigurable provider`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(appWidgetProviderInfo(isReconfigurable = true))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1722,13 +1692,13 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Reconfigure while the widget is unavailable`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(
                 headerPlace,
                 appWidgetPlace(placeId = 2L, widgetId = 2L, availability = WidgetAvailability.ProfilePaused)
             )
         )
-        val mockHost: IAppWidgetHostSource = createHost(appWidgetProviderInfo(isReconfigurable = true))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1740,10 +1710,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Reconfigure when the provider has no configure activity`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             appWidgetProviderInfo(isReconfigurable = true, hasConfigureActivity = false)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -1757,10 +1727,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `reconfigure launches the provider and closes the menu`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(appWidgetProviderInfo(isReconfigurable = true))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(appWidgetProviderInfo(isReconfigurable = true))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1779,8 +1749,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `a failed reconfigure launch reports a message and keeps the widget`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.events.test {
@@ -1794,8 +1764,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `a successful reconfigure keeps the widget without a message`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.events.test {
@@ -1809,8 +1779,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `closes the App Widget menu when the widget disappears`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.menuState.test {
@@ -1825,8 +1795,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `tapping a paused work widget asks to leave quiet mode`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(
                 headerPlace,
                 appWidgetPlace(
                     placeId = 2L,
@@ -1859,8 +1829,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `App Widget models carry availability and the stored default height`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(
                 headerPlace,
                 appWidgetPlace(
                     placeId = 2L,
@@ -1881,10 +1851,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `offers Resize first for an available vertically resizable widget`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -1898,13 +1868,13 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Resize while the widget is unavailable`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(
                 headerPlace,
                 appWidgetPlace(placeId = 2L, widgetId = 2L, availability = WidgetAvailability.ProfilePaused)
             )
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -1918,10 +1888,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Resize when the provider is not vertically resizable`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(appWidgetProviderInfo(isVerticallyResizable = false))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(appWidgetProviderInfo(isVerticallyResizable = false))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1933,12 +1903,15 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `offers Resize without the provider list having been collected`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 9))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 9))
         )
-        val inputHostState: AppWidgetHostState = AppWidgetHostState()
-        inputHostState.providerInfoById[AppWidgetId(9)] = appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
-        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(inputHostState)
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
+            providerInfos = mapOf(
+                9 to appWidgetProviderInfo(isVerticallyResizable = true, maxResizeHeightDp = 240)
+            )
+        )
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.menuState.test {
             viewModel.openAppWidgetMenu(widgetId = 2L)
@@ -1950,9 +1923,9 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `startResize delegates to the controller and closes the menu`() = runTest {
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock(startResult = true)
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock(startResult = true)
         val viewModel: WidgetAreaViewModel = createViewModel(
-            mockRepository = createRepository(listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))),
+            mockRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))),
             mockResizeController = mockResizeController
         )
         viewModel.menuState.test {
@@ -1980,7 +1953,7 @@ class WidgetAreaViewModelTest {
             widthDp = 240,
             heightDp = 112
         )
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock(
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock(
             resizeState = MutableStateFlow(resizeState()),
             finish = inputFinish,
             report = inputReport
@@ -2010,7 +1983,7 @@ class WidgetAreaViewModelTest {
             heightDp = 112
         )
         val inputResizeState: MutableStateFlow<ResizeState?> = MutableStateFlow(resizeState())
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock(
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock(
             resizeState = inputResizeState,
             finish = inputFinish
         )
@@ -2030,7 +2003,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `forwards the Home height and Widget Area width to the resize controller`() = runTest {
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock()
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock()
         val viewModel: WidgetAreaViewModel = createViewModel(mockResizeController = mockResizeController)
 
         viewModel.setHomeHeight(heightDp = 400)
@@ -2042,11 +2015,11 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `forwards current places to the resize controller`() = runTest {
-        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
+        val mockWidgetAreaRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
-        val mockResizeController: IWidgetResizeController = createResizeControllerMock()
+        val mockRepository: IWidgetAreaRepository = mockWidgetAreaRepositoryFixture.mockWidgetAreaRepository
+        val mockResizeController: IWidgetResizeController = createWidgetResizeControllerMock()
         createViewModel(mockRepository = mockRepository, mockResizeController = mockResizeController)
         advanceUntilIdle()
 
@@ -2054,7 +2027,7 @@ class WidgetAreaViewModelTest {
             mockResizeController.onPlacesChanged(match { places -> places.map { place -> place.id } == listOf(1L, 2L) }, null)
         }
 
-        inputRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
+        mockWidgetAreaRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
         advanceUntilIdle()
 
         verify(exactly = 1) {
@@ -2064,10 +2037,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `renders a stored height clamped to the current bounds`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 400))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, heightDp = 400))
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             appWidgetProviderInfo(minResizeHeightDp = 48, maxResizeHeightDp = 200, isVerticallyResizable = true)
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -2081,8 +2054,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Edit Widgets from the Header menu enters the mode with a draft of the current order`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, inputHomeEditState = inputHomeEditState)
@@ -2096,8 +2069,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Edit Widgets from an App Widget menu enters the mode`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, inputHomeEditState = inputHomeEditState)
@@ -2126,8 +2099,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `moving a place in Edit Widgets reorders the draft and rejects out of range moves`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L), appWidgetPlace(placeId = 3L, widgetId = 3L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L), appWidgetPlace(placeId = 3L, widgetId = 3L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.editWidgets()
@@ -2141,10 +2114,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `removing a place in Edit Widgets only changes the draft`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost()
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.editWidgets()
         advanceUntilIdle()
@@ -2162,8 +2135,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `widgetAreaState renders the draft order and flags editing`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.widgetAreaState.test {
@@ -2183,11 +2156,11 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Done commits the draft, deletes freed ids and exits only after persistence`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
-        val mockHost: IAppWidgetHostSource = createHost()
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         coEvery { mockRepository.commitEdit(any()) } returns listOf(AppWidgetId(9))
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockRepository = mockRepository,
@@ -2212,10 +2185,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Done twice commits and frees ids once`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost()
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         coEvery { mockRepository.commitEdit(any()) } returns listOf(AppWidgetId(9))
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         viewModel.editWidgets()
@@ -2231,8 +2204,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Back commits Edit Widgets and is consumed`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, inputHomeEditState = inputHomeEditState)
@@ -2247,8 +2220,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Home commits Edit Widgets and is consumed`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         val inputHomeEditState: HomeEditState = HomeEditState()
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, inputHomeEditState = inputHomeEditState)
@@ -2263,26 +2236,26 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `a vanished place is dropped from the draft`() = runTest {
-        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
+        val mockWidgetAreaRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
+        val mockRepository: IWidgetAreaRepository = mockWidgetAreaRepositoryFixture.mockWidgetAreaRepository
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.editWidgets()
         advanceUntilIdle()
-        inputRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
+        mockWidgetAreaRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
         advanceUntilIdle()
         assertEquals(listOf(1L), viewModel.editState.value?.placeIds)
     }
 
     @Test
     fun `a place added while editing is appended to the draft`() = runTest {
-        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(listOf(headerPlace))
-        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
+        val mockWidgetAreaRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = mockWidgetAreaRepositoryFixture.mockWidgetAreaRepository
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.editWidgets()
         advanceUntilIdle()
-        inputRepositoryFixture.state.placesByOwner.value =
+        mockWidgetAreaRepositoryFixture.state.placesByOwner.value =
             mapOf(null to listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 7)))
         advanceUntilIdle()
         assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
@@ -2290,10 +2263,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Replace Header when there is no Header`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo())
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -2308,8 +2281,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides Replace Header when the Header shares the widget's stack`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(stackPlace()))
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(stackPlace()))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo())
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -2329,8 +2302,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `orders the stack page menu with Edit widgets before Remove from stack`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(stackPlace()))
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(stackPlace()))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo())
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -2349,10 +2322,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `shows Replace Header when a Header exists outside the widget's place`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
-        val mockHost: IAppWidgetHostSource = createHost(
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             providers = listOf(appWidgetProviderInfo())
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
@@ -2372,8 +2345,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `replaces the Header, emits Undo and undoes through the repository`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
         coEvery { mockRepository.replaceHeader(widgetId = 2L) } returns ReplaceHeaderUndo(
             widgetId = 2L,
@@ -2409,8 +2382,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `delegates Extend under Rail to the repository`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
-            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(appWidgetPlace(placeId = 1L, widgetId = 1L))
         )
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
 

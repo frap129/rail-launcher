@@ -8,9 +8,10 @@ import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationRecord
-import core.data.testing.AppWidgetHostState
+import core.data.testing.AppWidgetHostFixture
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
-import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createAppWidgetHostFixture
+import core.data.testing.createClockSourceMock
 import core.data.testing.createNotificationRecord
 import core.data.testing.createOtherNotificationProfile
 import core.data.testing.createRemoveAppWidgetMock
@@ -34,7 +35,6 @@ import core.ui.popups.IPopupSessionImpl
 import core.ui.popups.PopupTestBase
 import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.createAddController
-import feature.launcher.widgets.createClock
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
@@ -73,12 +73,12 @@ abstract class PopupSessionTestBase : PopupTestBase() {
     )
     protected val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
     protected val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
-    protected val inputAppWidgetHostState: AppWidgetHostState = AppWidgetHostState()
-    protected val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(inputAppWidgetHostState)
+    protected val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture()
+    protected val mockAppWidgetHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
     protected val mockRemoveAppWidget: IRemoveAppWidget = createRemoveAppWidgetMock()
     protected val mockWidgetSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
     protected val notificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
-    protected val mockClockSource: IClockSource = createClock(clockReading(instant = TEST_NOW))
+    protected val mockClockSource: IClockSource = createClockSourceMock(reading = clockReading(instant = TEST_NOW))
 
     protected fun TestScope.createCard(
         session: IPopupSession = IPopupSessionImpl(),

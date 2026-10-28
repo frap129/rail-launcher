@@ -34,6 +34,19 @@ class WidgetAreaRepositoryState(initialPlacesByOwner: Map<String?, List<WidgetPl
 /** The ids a stubbed add answers with by default: the first Widget and place ids the database allocates. */
 private val defaultAddedAppWidget: AddedAppWidget = AddedAppWidget(widgetId = 1L, placeId = 1L)
 
+/** The mutable places with the mock over them. */
+class WidgetAreaRepositoryFixture(val state: WidgetAreaRepositoryState, val mockWidgetAreaRepository: IWidgetAreaRepository)
+
+/** A [WidgetAreaRepositoryFixture] holding [places] under the owner each names; null is the Widget Area. */
+fun createWidgetAreaRepositoryFixture(places: List<WidgetPlace> = listOf(headerPlace)): WidgetAreaRepositoryFixture {
+    val state: WidgetAreaRepositoryState = WidgetAreaRepositoryState(initialPlacesByOwner = places.groupBy { place -> place.ownerKey })
+    return WidgetAreaRepositoryFixture(state = state, mockWidgetAreaRepository = createWidgetAreaRepositoryMock(state))
+}
+
+/** A MockK [IWidgetAreaRepository] holding [places], as a [createWidgetAreaRepositoryFixture] reports them. */
+fun createWidgetAreaRepositoryMock(places: List<WidgetPlace>): IWidgetAreaRepository =
+    createWidgetAreaRepositoryFixture(places = places).mockWidgetAreaRepository
+
 /** A MockK [IWidgetAreaRepository] over [state], adding [addedAppWidget] and freeing no App Widgets. */
 fun createWidgetAreaRepositoryMock(
     state: WidgetAreaRepositoryState = WidgetAreaRepositoryState(),
