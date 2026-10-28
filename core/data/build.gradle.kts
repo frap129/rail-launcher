@@ -21,7 +21,4 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
-    testFixturesImplementation(libs.kotlinx.coroutines.core)
-    testFixturesImplementation(libs.test.junit)
-    testFixturesImplementation(libs.test.kotlinx.coroutines.test)
 }

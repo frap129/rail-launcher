@@ -20,7 +20,4 @@ dependencies {
     testFixturesImplementation(platform(libs.compose.bom))
     testFixturesImplementation(libs.compose.ui)
     testFixturesImplementation(testFixtures(project(":core:data")))
-    testFixturesImplementation(libs.kotlinx.coroutines.core)
-    testFixturesImplementation(libs.test.junit)
-    testFixturesImplementation(libs.test.kotlinx.coroutines.test)
 }

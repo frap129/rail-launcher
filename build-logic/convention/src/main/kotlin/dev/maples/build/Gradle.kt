@@ -13,6 +13,9 @@ fun DependencyHandlerScope.debugImplementation(libs: VersionCatalog, alias: Stri
 fun DependencyHandlerScope.testImplementation(libs: VersionCatalog, alias: String): Dependency? =
     add("testImplementation", libs.findLibrary(alias).get())
 
+fun DependencyHandlerScope.testFixturesImplementation(libs: VersionCatalog, alias: String): Dependency? =
+    add("testFixturesImplementation", libs.findLibrary(alias).get())
+
 fun DependencyHandlerScope.annotationProcessor(libs: VersionCatalog, alias: String): Dependency? =
     add("annotationProcessor", libs.findLibrary(alias).get())
 
