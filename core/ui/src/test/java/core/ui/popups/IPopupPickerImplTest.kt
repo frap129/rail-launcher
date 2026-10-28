@@ -8,6 +8,7 @@ import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_SDK
+import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -23,19 +24,19 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class IPopupPickerImplTest : PopupTestBase() {
+    private val inputPickerGroups: List<LaunchableGroup> = listOf(
+        LaunchableGroup.Star,
+        LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
+        LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))
+    )
+    private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
+    private val inputAppShortcutsList: List<AppShortcuts> = listOf(inputAppShortcuts, inputOtherAppShortcuts)
 
     @Test
     fun `shortcut picker groups Apps with their shortcuts and checks existing items`() = runTest {
-        fakeLaunchableRepository.setGroups(
-            groups = listOf(
-                LaunchableGroup.Star,
-                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
-                LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
-            )
-        )
-        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputAppShortcuts, inputOtherAppShortcuts))
-        fakePopupRepository.setPopupItems(
+        setLaunchableGroups(groups = inputPickerGroups + inputBuiltinGroup)
+        setAppsWithShortcuts(apps = inputAppShortcutsList)
+        setPopupItems(
             ownerKey = inputApp.key,
             items = listOf(PopupItem.Shortcut(launchable = inputOtherShortcut, isEnabled = true))
         )
@@ -53,16 +54,12 @@ class IPopupPickerImplTest : PopupTestBase() {
 
     @Test
     fun `picker excludes the owner and shortcuts and checks existing items`() = runTest {
-        fakeLaunchableRepository.setGroups(
-            groups = listOf(
-                LaunchableGroup.Star,
-                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
-                LaunchableGroup.InitialGroup(label = "S", items = listOf(inputShortcut)),
-                LaunchableGroup.Builtin(items = listOf(inputRailLaunchable))
-            )
+        setLaunchableGroups(
+            groups = inputPickerGroups +
+                LaunchableGroup.InitialGroup(label = "S", items = listOf(inputShortcut)) +
+                inputBuiltinGroup
         )
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        setPopupLaunchables(ownerKey = inputApp.key, launchables = listOf(inputOtherApp))
         val picker: IPopupPicker = createPicker()
         picker.pickerState.test {
             assertEquals(PopupPickerState.Closed, expectMostRecentItem())
@@ -78,15 +75,9 @@ class IPopupPickerImplTest : PopupTestBase() {
 
     @Test
     fun `confirming the shortcut picker adds checked shortcuts and removes unchecked ones`() = runTest {
-        fakeLaunchableRepository.setGroups(
-            groups = listOf(
-                LaunchableGroup.Star,
-                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))
-            )
-        )
-        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputAppShortcuts, inputOtherAppShortcuts))
-        fakePopupRepository.setPopupItems(
+        setLaunchableGroups(groups = inputPickerGroups)
+        setAppsWithShortcuts(apps = inputAppShortcutsList)
+        setPopupItems(
             ownerKey = inputApp.key,
             items = listOf(PopupItem.Shortcut(launchable = inputShortcut, isEnabled = true))
         )
@@ -99,15 +90,19 @@ class IPopupPickerImplTest : PopupTestBase() {
             assertEquals(ShortcutPickerState.Closed, expectMostRecentItem())
         }
         runCurrent()
-        assertEquals(
-            listOf(Triple(inputApp.key, listOf(inputOtherShortcut.key), setOf(inputShortcut.key))),
-            fakePopupRepository.setItemsCalls
-        )
+        coVerify(exactly = 1) { mockPopupRepository.setItems(any(), any(), any()) }
+        coVerify(exactly = 1) {
+            mockPopupRepository.setItems(
+                inputApp.key,
+                listOf(inputOtherShortcut.key),
+                setOf(inputShortcut.key)
+            )
+        }
     }
 
     @Test
     fun `cancelling the shortcut picker changes nothing`() = runTest {
-        fakeShortcutSource.setAppsWithShortcuts(apps = listOf(inputOtherAppShortcuts))
+        setAppsWithShortcuts(apps = listOf(inputOtherAppShortcuts))
         val picker: IPopupPicker = createPicker()
         picker.shortcutPickerState.test {
             picker.startPickingShortcuts(inputApp)
@@ -117,20 +112,13 @@ class IPopupPickerImplTest : PopupTestBase() {
             assertEquals(ShortcutPickerState.Closed, expectMostRecentItem())
         }
         runCurrent()
-        assertTrue(fakePopupRepository.setItemsCalls.isEmpty())
+        coVerify(exactly = 0) { mockPopupRepository.setItems(any(), any(), any()) }
     }
 
     @Test
     fun `shortcut picker lists paused Apps and leaves out Apps with no shortcuts`() = runTest {
-        fakeLaunchableRepository.setGroups(
-            groups = listOf(
-                LaunchableGroup.Star,
-                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp)),
-                LaunchableGroup.InitialGroup(label = "P", items = listOf(inputPausedApp))
-            )
-        )
-        fakeShortcutSource.setAppsWithShortcuts(
+        setLaunchableGroups(groups = inputPickerGroups + LaunchableGroup.InitialGroup(label = "P", items = listOf(inputPausedApp)))
+        setAppsWithShortcuts(
             apps = listOf(
                 AppShortcuts(app = inputOtherApp, result = ShortcutsResult.Available(shortcuts = emptyList())),
                 AppShortcuts(app = inputPausedApp, result = ShortcutsResult.ProfilePaused)
@@ -148,14 +136,8 @@ class IPopupPickerImplTest : PopupTestBase() {
 
     @Test
     fun `shortcut picker reports when shortcuts are unavailable`() = runTest {
-        fakeLaunchableRepository.setGroups(
-            groups = listOf(
-                LaunchableGroup.Star,
-                LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp)),
-                LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))
-            )
-        )
-        fakeShortcutSource.setAppsWithShortcuts(
+        setLaunchableGroups(groups = inputPickerGroups)
+        setAppsWithShortcuts(
             apps = listOf(AppShortcuts(app = inputOtherApp, result = ShortcutsResult.Unavailable))
         )
         val picker: IPopupPicker = createPicker()

@@ -3,7 +3,6 @@ package feature.launcher
 import android.app.Notification
 import android.app.RemoteInput
 import android.content.Intent
-import android.os.UserHandle
 import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
@@ -48,6 +47,8 @@ import core.ui.popups.PopupEditState
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo
+import io.mockk.coVerify
+import io.mockk.verify
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -165,7 +166,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `dismissing notifications keeps a card with shortcuts open`() = runTest {
-        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
         val viewModel: PopupCardViewModel = openNotificationCard()
 
         viewModel.onDismissNotification(key = TEST_NOTIFICATION_KEY)
@@ -192,7 +193,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     fun `revoking access clears the open card's notifications`() = runTest {
         var inputAccess: Boolean = true
         val notificationSource: INotificationSource = createNotificationSource(accessCheck = { inputAccess })
-        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
         val viewModel: PopupCardViewModel = openNotificationCard(
             viewModel = createCard(notificationSource = notificationSource)
         )
@@ -361,7 +362,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.popupState.test {
             viewModel.open(inputApp, TEST_INPUT_ANCHOR)
             assertEquals(PopupEmptyReason.Empty, (expectMostRecentItem() as PopupUiState.Open).content.emptyReason)
-            fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+            setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
             assertEquals(PopupEmptyReason.None, actualState.content.emptyReason)
@@ -437,7 +438,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val viewModel: PopupCardViewModel = createCard()
         viewModel.popupState.test {
             viewModel.open(inputApp, TEST_INPUT_ANCHOR)
-            fakeLaunchableRepository.setGroups(
+            setLaunchableGroups(
                 groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = listOf(inputRailLaunchable)))
             )
             runCurrent()
@@ -467,22 +468,22 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             runCurrent()
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(inputApp, actualState.owner)
-            assertEquals(listOf(inputApp.packageName to inputApp.profile), fakeShortcutSource.requests)
+            verifyShortcutRequests(app = inputApp, count = 1)
             viewModel.reloadShortcuts()
             runCurrent()
-            assertEquals(expectedShortcutRequests(app = inputApp), fakeShortcutSource.requests)
+            verifyShortcutRequests(app = inputApp, count = 2)
         }
     }
 
     @Test
     fun `turning on a paused App asks to leave quiet mode and reloads its shortcuts`() = runTest {
-        fakeLaunchableRepository.setGroups(
+        setLaunchableGroups(
             groups = listOf(
                 LaunchableGroup.Star,
                 LaunchableGroup.InitialGroup(label = "W", items = listOf(inputWorkApp))
             )
         )
-        fakeAppWidgetHost.profileSerials[inputWorkApp.profile] = TEST_WORK_PROFILE_SERIAL
+        mockAppWidgetHost.profileSerials[inputWorkApp.profile] = TEST_WORK_PROFILE_SERIAL
         val viewModel: PopupCardViewModel = createCard()
 
         viewModel.popupState.test {
@@ -497,7 +498,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             }
             runCurrent()
 
-            assertEquals(expectedShortcutRequests(app = inputWorkApp), fakeShortcutSource.requests)
+            verifyShortcutRequests(app = inputWorkApp, count = 2)
         }
     }
 
@@ -515,7 +516,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
                 expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
-            assertEquals(emptyList<Pair<String, UserHandle>>(), fakeShortcutSource.requests)
+            verifyNoShortcutRequests()
         }
     }
 
@@ -528,7 +529,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(emptyList<Pair<String, UserHandle>>(), fakeShortcutSource.requests)
+        verifyNoShortcutRequests()
     }
 
     @Test
@@ -576,7 +577,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `updates the card content when a shortcut is hidden`() = runTest {
-        fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
         val session: PopupTestSession = createSession()
         val viewModel: PopupCardViewModel = session.card
         viewModel.popupState.test {
@@ -630,7 +631,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `item menu shows App info for Apps and Shortcuts but not Folders`() = runTest {
-        fakePopupRepository.setPopupItems(
+        setPopupItems(
             ownerKey = inputApp.key,
             items = listOf(
                 PopupItem.Launchable(inputOtherApp),
@@ -672,7 +673,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `removing an item closes its menu and updates the card`() = runTest {
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        setPopupLaunchables(ownerKey = inputApp.key, launchables = listOf(inputOtherApp))
         val viewModel: PopupCardViewModel = createCard()
         backgroundScope.launch { viewModel.popupState.collect() }
         backgroundScope.launch { viewModel.menuState.collect() }
@@ -689,7 +690,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val updatedState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
         assertEquals(emptyList<PopupItem>(), updatedState.content.items)
         assertEquals(PopupEmptyReason.Empty, updatedState.content.emptyReason)
-        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(any(), any()) }
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(inputApp.key, inputOtherApp.key) }
     }
 
     @Test
@@ -890,7 +892,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(9)), awaitItem())
             assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
         }
-        assertEquals(listOf(6L), fakeRemoveAppWidget.removedWidgetIds)
+        assertEquals(listOf(6L), mockRemoveAppWidget.removedWidgetIds)
     }
 
     @Test
@@ -965,7 +967,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val viewModel: PopupCardViewModel = createCard()
 
         viewModel.events.test {
-            fakePopupRepository.emitRemovedWidget(appWidgetId = AppWidgetId(33))
+            emitRemovedWidget(appWidgetId = AppWidgetId(33))
             runCurrent()
 
             assertEquals(WidgetEvent.RemoveHostView(appWidgetId = AppWidgetId(33)), awaitItem())
@@ -1136,7 +1138,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.widget_removed), awaitItem())
         }
 
-        assertEquals(listOf(7L), fakeRemoveAppWidget.removedWidgetIds)
+        assertEquals(listOf(7L), mockRemoveAppWidget.removedWidgetIds)
     }
 
     @Test
@@ -1326,9 +1328,15 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         assertEquals(listOf(5L to 1), mockRepository.currentPageUpdates)
     }
 
-    /** The Shortcut requests made when [app]'s Pop-up opens and then reloads. */
-    private fun expectedShortcutRequests(app: App): List<Pair<String, UserHandle>> =
-        listOf(app.packageName to app.profile, app.packageName to app.profile)
+    /** Verifies [app]'s Shortcut source was queried exactly [count] times. */
+    private fun verifyShortcutRequests(app: App, count: Int) {
+        verify(exactly = count) { mockShortcutSource.shortcuts(any(), any()) }
+        verify(exactly = count) { mockShortcutSource.shortcuts(app.packageName, app.profile) }
+    }
+
+    private fun verifyNoShortcutRequests() {
+        verify(exactly = 0) { mockShortcutSource.shortcuts(any(), any()) }
+    }
 
     private fun TestScope.createWidgetViewModel(
         widgetPlace: WidgetPlace = appWidgetPlace(placeId = 5L, widgetId = 6L, appWidgetId = 9, ownerKey = inputApp.key),
@@ -1361,8 +1369,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     private fun TestScope.createStackViewModel(
         mockRepository: FakeWidgetAreaRepository = stackRepository(),
         mockHost: FakeAppWidgetHostSource = stackHost(),
-        mockSettingsRepository: FakeWidgetSettingsRepository = fakeWidgetSettingsRepository,
-        removeAppWidget: IRemoveAppWidget = fakeRemoveAppWidget
+        mockSettingsRepository: FakeWidgetSettingsRepository = mockWidgetSettingsRepository,
+        removeAppWidget: IRemoveAppWidget = mockRemoveAppWidget
     ): PopupCardViewModel = createCard(
         widgetRepository = mockRepository,
         appWidgetHost = mockHost,
@@ -1401,9 +1409,9 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         otherNotification: NotificationRecord? = null,
         handle: NotificationHandle = createNotificationHandle()
     ): PopupCardViewModel {
-        fakePopupRepository.setNotificationsEnabled(true)
+        setNotificationsEnabled(true)
         if (items.isNotEmpty()) {
-            fakePopupRepository.setItems(ownerKey = owner.key, items = items)
+            setPopupLaunchables(ownerKey = owner.key, launchables = items)
         }
         openPopup(
             card = viewModel,

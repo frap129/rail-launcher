@@ -8,6 +8,7 @@ import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_SDK
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -26,8 +27,8 @@ class IPopupEditorImplTest : PopupTestBase() {
     @Test
     fun `edits an App's Pop-up with its live shortcuts and hidden ids`() = runTest {
         val inputShortcuts: ShortcutsResult = ShortcutsResult.Available(shortcuts = listOf(inputShortcut))
-        fakeShortcutSource.setResult(inputShortcuts)
-        fakePopupRepository.setHiddenShortcuts(inputApp.key, setOf(inputShortcut.shortcutId))
+        setShortcutResult(inputShortcuts)
+        setHiddenShortcuts(inputApp.key, setOf(inputShortcut.shortcutId))
         val editor: IPopupEditor = createEditor()
         editor.editState.test {
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
@@ -47,7 +48,7 @@ class IPopupEditorImplTest : PopupTestBase() {
             editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
-            fakeShortcutSource.setResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+            setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)), actualState.shortcuts)
         }
@@ -97,7 +98,8 @@ class IPopupEditorImplTest : PopupTestBase() {
         runCurrent()
         editor.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
         runCurrent()
-        assertEquals(listOf(Triple(inputApp.key, inputShortcut.shortcutId, true)), fakePopupRepository.setShortcutHiddenCalls)
+        coVerify(exactly = 1) { mockPopupRepository.setShortcutHidden(any(), any(), any()) }
+        coVerify(exactly = 1) { mockPopupRepository.setShortcutHidden(inputApp.key, inputShortcut.shortcutId, true) }
     }
 
     @Test
@@ -107,7 +109,7 @@ class IPopupEditorImplTest : PopupTestBase() {
             editor.startEdit(inputApp)
             runCurrent()
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
-            fakeLaunchableRepository.setGroups(
+            setLaunchableGroups(
                 groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = listOf(inputRailLaunchable)))
             )
             runCurrent()
@@ -117,7 +119,7 @@ class IPopupEditorImplTest : PopupTestBase() {
 
     @Test
     fun `edits an App's Pop-up with its live items`() = runTest {
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        seedPopupItem()
         val editor: IPopupEditor = createEditor()
         editor.editState.test {
             assertEquals(PopupEditState.Closed, expectMostRecentItem())
@@ -130,7 +132,7 @@ class IPopupEditorImplTest : PopupTestBase() {
 
     @Test
     fun `edit sheet keeps disabled shortcuts`() = runTest {
-        fakePopupRepository.setPopupItems(
+        setPopupItems(
             ownerKey = inputApp.key,
             items = listOf(
                 PopupItem.Shortcut(launchable = inputShortcut, isEnabled = false),
@@ -156,7 +158,7 @@ class IPopupEditorImplTest : PopupTestBase() {
 
     @Test
     fun `removing an item while editing uses the edited owner`() = runTest {
-        fakePopupRepository.setItems(inputApp.key, listOf(inputOtherApp))
+        seedPopupItem()
         val editor: IPopupEditor = createEditor()
         editor.editState.test {
             editor.startEdit(inputApp)
@@ -167,7 +169,8 @@ class IPopupEditorImplTest : PopupTestBase() {
             val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(emptyList<PopupItem>(), updatedState.items)
         }
-        assertEquals(listOf(inputApp.key to inputOtherApp.key), fakePopupRepository.removedItems)
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(any(), any()) }
+        coVerify(exactly = 1) { mockPopupRepository.removeItem(inputApp.key, inputOtherApp.key) }
     }
 
     @Test
@@ -180,7 +183,12 @@ class IPopupEditorImplTest : PopupTestBase() {
         editor.setItemOrder(orderedItemKeys = orderedKeys)
         runCurrent()
 
-        assertEquals(listOf(inputApp.key to orderedKeys), fakePopupRepository.itemOrders)
+        coVerify(exactly = 1) { mockPopupRepository.setItemOrder(any(), any()) }
+        coVerify(exactly = 1) { mockPopupRepository.setItemOrder(inputApp.key, orderedKeys) }
+    }
+
+    private fun seedPopupItem(item: Launchable = inputOtherApp) {
+        setPopupLaunchables(ownerKey = inputApp.key, launchables = listOf(item))
     }
 
     @Test

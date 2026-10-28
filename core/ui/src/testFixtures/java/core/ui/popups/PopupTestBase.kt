@@ -4,22 +4,35 @@ import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
+import core.data.folders.IFolderRepository
 import core.data.icons.model.Icon
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
+import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.popups.IPopupRepository
+import core.data.popups.PopupItem
+import core.data.prefs.IPreferencesRepository
 import core.data.shortcuts.AppShortcuts
+import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
-import core.data.testing.FakeFolderRepository
-import core.data.testing.FakeLaunchableRepository
-import core.data.testing.FakePopupRepository
-import core.data.testing.FakePreferencesRepository
-import core.data.testing.FakeShortcutSource
 import core.data.testing.MainDispatcherRule
+import core.data.testing.PopupRepositoryState
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
+import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.createLaunchableState
 import core.data.testing.createNotificationProfile
+import core.data.testing.createPopupRepositoryMock
+import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createShortcutSourceMock
+import core.data.widgets.AppWidgetId
 import core.ui.layout.HomeEditState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
 import org.junit.Rule
 
@@ -81,26 +94,74 @@ abstract class PopupTestBase {
         app = inputOtherApp,
         result = ShortcutsResult.Available(shortcuts = listOf(inputOtherShortcut))
     )
-    protected val fakeLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(
-        groups = inputGroups,
-        folders = listOf(inputFolder)
+    private val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+        createLaunchableState(groups = inputGroups, folders = listOf(inputFolder))
     )
-    protected val fakeShortcutSource: FakeShortcutSource = FakeShortcutSource()
-    protected val fakePopupRepository: FakePopupRepository = FakePopupRepository(resolveLaunchable = { key ->
-        listOf(inputApp, inputOtherApp, inputPausedApp, inputRailLaunchable).firstOrNull { launchable -> launchable.key == key }
-    })
-    protected val fakeFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder, inputSecondFolder))
-    protected val mockPreferencesRepository: FakePreferencesRepository = FakePreferencesRepository()
+    private val shortcutResult: MutableStateFlow<ShortcutsResult> = MutableStateFlow(
+        ShortcutsResult.Available(shortcuts = emptyList())
+    )
+    private val shortcutsWithApps: MutableStateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
+    private val popupRepositoryState: PopupRepositoryState = PopupRepositoryState()
+    private val folders: MutableStateFlow<List<Folder>> = MutableStateFlow(listOf(inputFolder, inputSecondFolder))
+    protected val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
+    protected val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
+        shortcutsResult = shortcutResult,
+        appsWithShortcuts = shortcutsWithApps
+    )
+    protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(
+        state = popupRepositoryState,
+        resolveLaunchable = { key ->
+            listOf(inputApp, inputOtherApp, inputPausedApp, inputRailLaunchable).firstOrNull { launchable -> launchable.key == key }
+        }
+    )
+    protected val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(folders)
+    protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
+
+    protected fun setLaunchableGroups(groups: List<LaunchableGroup>) {
+        launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder))
+    }
+
+    protected fun setShortcutResult(result: ShortcutsResult) {
+        shortcutResult.value = result
+    }
+
+    protected fun setAppsWithShortcuts(apps: List<AppShortcuts>) {
+        shortcutsWithApps.value = apps
+    }
+
+    protected fun setHiddenShortcuts(ownerKey: String, shortcutIds: Set<String>) {
+        popupRepositoryState.hiddenIdsByOwner.update { current -> current + (ownerKey to shortcutIds) }
+    }
+
+    protected fun setPopupItems(ownerKey: String, items: List<PopupItem>) {
+        popupRepositoryState.itemsByOwner.update { current -> current + (ownerKey to items) }
+    }
+
+    protected fun setPopupLaunchables(ownerKey: String, launchables: List<Launchable>) {
+        setPopupItems(ownerKey = ownerKey, items = launchables.map { launchable -> PopupItem.Launchable(launchable) })
+    }
+
+    protected fun setNotificationsEnabled(enabled: Boolean) {
+        popupRepositoryState.notificationsEnabled.value = enabled
+    }
+
+    protected fun emitRemovedWidget(appWidgetId: AppWidgetId) {
+        popupRepositoryState.removedWidgetIds.tryEmit(appWidgetId)
+    }
+
+    protected fun deleteFolder(folder: Folder) {
+        folders.value = folders.value.filterNot { existing -> existing.key == folder.key }
+    }
 
     protected fun TestScope.createEditor(
         session: IPopupSession = IPopupSessionImpl(),
         homeEditState: HomeEditState = inputHomeEditState
     ): IPopupEditor = IPopupEditorImpl(
         parentScope = backgroundScope,
-        launchableRepository = fakeLaunchableRepository,
-        shortcutSource = fakeShortcutSource,
-        popupRepository = fakePopupRepository,
+        launchableRepository = mockLaunchableRepository,
+        shortcutSource = mockShortcutSource,
+        popupRepository = mockPopupRepository,
         homeEditState = homeEditState,
         session = session
     )
@@ -110,9 +171,9 @@ abstract class PopupTestBase {
         homeEditState: HomeEditState = inputHomeEditState
     ): IPopupPicker = IPopupPickerImpl(
         parentScope = backgroundScope,
-        launchableRepository = fakeLaunchableRepository,
-        shortcutSource = fakeShortcutSource,
-        popupRepository = fakePopupRepository,
+        launchableRepository = mockLaunchableRepository,
+        shortcutSource = mockShortcutSource,
+        popupRepository = mockPopupRepository,
         homeEditState = homeEditState,
         session = session
     )
@@ -122,9 +183,9 @@ abstract class PopupTestBase {
         homeEditState: HomeEditState = inputHomeEditState
     ): IPopupFolderActions = IPopupFolderActionsImpl(
         parentScope = backgroundScope,
-        launchableRepository = fakeLaunchableRepository,
-        popupRepository = fakePopupRepository,
-        folderRepository = fakeFolderRepository,
+        launchableRepository = mockLaunchableRepository,
+        popupRepository = mockPopupRepository,
+        folderRepository = mockFolderRepository,
         preferencesRepository = mockPreferencesRepository,
         homeEditState = homeEditState,
         session = session
