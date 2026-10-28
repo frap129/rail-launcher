@@ -36,8 +36,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,7 +53,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     private val profile: UserHandle = UserHandle.getUserHandleForUid(TEST_USER_ID)
 
     @Test
-    fun `hides and shows a shortcut`() = runTest {
+    fun `hides and shows a shortcut`() = databaseTest {
         val repository: IPopupRepositoryImpl = createRepository(popupDao = database.getPopupDao())
 
         repository.setShortcutHidden(inputOwner.key, FIRST_SHORTCUT_ID, hidden = true)
@@ -66,7 +64,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps hidden shortcuts separate per owner`() = runTest {
+    fun `keeps hidden shortcuts separate per owner`() = databaseTest {
         val repository: IPopupRepositoryImpl = createRepository(popupDao = database.getPopupDao())
 
         repository.setShortcutHidden(inputOwner.key, FIRST_SHORTCUT_ID, hidden = true)
@@ -77,7 +75,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes stale owners only after the Launchables load`() = runTest {
+    fun `removes stale owners only after the Launchables load`() = databaseTest {
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertHiddenShortcut(ownerKey = inputOwner.key, shortcutId = FIRST_SHORTCUT_ID)
         popupDao.insertHiddenShortcut(ownerKey = GONE_OWNER_KEY, shortcutId = SECOND_SHORTCUT_ID)
@@ -86,15 +84,16 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(popupDao = popupDao, mockLaunchableRepository = mockLaunchableRepository)
-        runCurrent()
+        finishPendingWork()
         assertEquals(listOf(SECOND_SHORTCUT_ID), popupDao.observeHiddenShortcuts(GONE_OWNER_KEY).first())
         launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner), label = "O")
-        assertTrue(popupDao.observeHiddenShortcuts(GONE_OWNER_KEY).first { shortcutIds -> shortcutIds.isEmpty() }.isEmpty())
+        finishPendingWork()
+        assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(GONE_OWNER_KEY).first())
         assertEquals(listOf(FIRST_SHORTCUT_ID), popupDao.observeHiddenShortcuts(inputOwner.key).first())
     }
 
     @Test
-    fun `deletes only the given owner`() = runTest {
+    fun `deletes only the given owner`() = databaseTest {
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertHiddenShortcut(ownerKey = inputOwner.key, shortcutId = FIRST_SHORTCUT_ID)
         popupDao.insertHiddenShortcut(ownerKey = inputOtherOwner.key, shortcutId = SECOND_SHORTCUT_ID)
@@ -114,7 +113,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `emits the App Widget ids freed with a stale owner`() = runTest {
+    fun `emits the App Widget ids freed with a stale owner`() = databaseTest {
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
             popupOwnerKeysFlow = MutableStateFlow(listOf(inputOwner.key)),
             removeOwnerPlacesAnswer = { listOf(AppWidgetId(55)) }
@@ -141,7 +140,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `deleteOwner frees the owner's widget place and system id`() = runTest {
+    fun `deleteOwner frees the owner's widget place and system id`() = databaseTest {
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
             removeOwnerPlacesAnswer = { listOf(AppWidgetId(55)) }
         )
@@ -160,7 +159,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a stale App's widget place after the Launchables load`() = runTest {
+    fun `removes a stale App's widget place after the Launchables load`() = databaseTest {
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
             popupOwnerKeysFlow = MutableStateFlow(listOf(inputOwner.key)),
             removeOwnerPlacesAnswer = { listOf(AppWidgetId(55)) }
@@ -176,7 +175,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockWidgetAreaRepository = mockWidgetAreaRepository,
             mockAppWidgetHost = mockAppWidgetHost
         )
-        runCurrent()
+        finishPendingWork()
         coVerify(exactly = 0) { mockWidgetAreaRepository.removeOwnerPlaces(any()) }
 
         repository.removedWidgetIds.test {
@@ -189,7 +188,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `appends added items in order`() = runTest {
+    fun `appends added items in order`() = databaseTest {
         val first: RailLaunchable = createRailLaunchable(name = "First")
         val second: RailLaunchable = createRailLaunchable(name = "Second")
         val popupDao: PopupDao = database.getPopupDao()
@@ -200,7 +199,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.setItems(ownerKey = inputOwner.key, add = listOf(first.key, second.key), remove = emptySet())
 
-        assertEquals(listOf(first, second).asPopupItems(), repository.items(inputOwner.key).first { items -> items.isNotEmpty() })
+        assertItems(repository = repository, ownerKey = inputOwner.key, expected = listOf(first, second).asPopupItems())
         assertEquals(
             listOf(
                 PopupItemRecord(ownerKey = inputOwner.key, itemKey = first.key, position = 0),
@@ -211,7 +210,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `adds and removes items in one change`() = runTest {
+    fun `adds and removes items in one change`() = databaseTest {
         val first: RailLaunchable = createRailLaunchable(name = "First")
         val second: RailLaunchable = createRailLaunchable(name = "Second")
         val third: RailLaunchable = createRailLaunchable(name = "Third")
@@ -229,11 +228,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.setItems(ownerKey = inputOwner.key, add = listOf(third.key), remove = setOf(first.key))
 
-        assertEquals(listOf(second, third).asPopupItems(), repository.items(inputOwner.key).first { items -> items.size == 2 })
+        assertItems(repository = repository, ownerKey = inputOwner.key, expected = listOf(second, third).asPopupItems())
     }
 
     @Test
-    fun `counts the items shown in each Pop-up`() = runTest {
+    fun `counts the items shown in each Pop-up`() = databaseTest {
         val first: RailLaunchable = createRailLaunchable(name = "First")
         val second: RailLaunchable = createRailLaunchable(name = "Second")
         val third: RailLaunchable = createRailLaunchable(name = "Third")
@@ -253,14 +252,15 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             )
         )
 
+        finishPendingWork()
         assertEquals(
             mapOf(inputOwner.key to 2, inputOtherOwner.key to 1),
-            repository.itemCounts.first { counts -> counts.isNotEmpty() }
+            repository.itemCounts.first()
         )
     }
 
     @Test
-    fun `rejects adding the owner to its own Pop-up`() = runTest {
+    fun `rejects adding the owner to its own Pop-up`() = databaseTest {
         val item: RailLaunchable = createRailLaunchable(name = "Item")
         val repository: IPopupRepositoryImpl = createRepository(
             popupDao = database.getPopupDao(),
@@ -269,11 +269,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.setItems(ownerKey = inputOwner.key, add = listOf(inputOwner.key, item.key), remove = emptySet())
 
-        assertEquals(listOf(item).asPopupItems(), repository.items(inputOwner.key).first { items -> items.isNotEmpty() })
+        assertItems(repository = repository, ownerKey = inputOwner.key, expected = listOf(item).asPopupItems())
     }
 
     @Test
-    fun `removes an item`() = runTest {
+    fun `removes an item`() = databaseTest {
         val first: RailLaunchable = createRailLaunchable(name = "First")
         val second: RailLaunchable = createRailLaunchable(name = "Second")
         val popupDao: PopupDao = database.getPopupDao()
@@ -290,11 +290,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.removeItem(ownerKey = inputOwner.key, itemKey = first.key)
 
-        assertEquals(listOf(second).asPopupItems(), repository.items(inputOwner.key).first { items -> items.size == 1 })
+        assertItems(repository = repository, ownerKey = inputOwner.key, expected = listOf(second).asPopupItems())
     }
 
     @Test
-    fun `moves an item and rewrites positions`() = runTest {
+    fun `moves an item and rewrites positions`() = databaseTest {
         val first: RailLaunchable = createRailLaunchable(name = "First")
         val second: RailLaunchable = createRailLaunchable(name = "Second")
         val third: RailLaunchable = createRailLaunchable(name = "Third")
@@ -315,8 +315,9 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             ownerKey = inputOwner.key,
             orderedItemKeys = listOf(second.key, third.key, first.key)
         )
+        finishPendingWork()
 
-        assertEquals(listOf(second, third, first).asPopupItems(), repository.items(inputOwner.key).first { items -> items.size == 3 })
+        assertEquals(listOf(second, third, first).asPopupItems(), repository.items(inputOwner.key).first())
         assertEquals(
             listOf(
                 PopupItemRecord(ownerKey = inputOwner.key, itemKey = second.key, position = 0),
@@ -328,7 +329,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `reorders listed items without moving unlisted ones`() = runTest {
+    fun `reorders listed items without moving unlisted ones`() = databaseTest {
         val first: App = createApp(name = "First")
         val second: App = createApp(name = "Second", packageName = "com.example.second")
         val shortcutApp: App = createApp(name = "Shortcut app", packageName = "com.example.shortcuts")
@@ -361,7 +362,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes stale items and owners only after the Launchables load`() = runTest {
+    fun `removes stale items and owners only after the Launchables load`() = databaseTest {
         val known: RailLaunchable = createRailLaunchable(name = "Known")
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertItems(
@@ -376,18 +377,19 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(popupDao = popupDao, mockLaunchableRepository = mockLaunchableRepository)
-        runCurrent()
+        finishPendingWork()
         assertEquals(3, allItems().size)
         launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner, known), label = "K")
+        finishPendingWork()
 
         assertEquals(
             listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = known.key, position = 0)),
-            allItems { items -> items.size == 1 }
+            allItems()
         )
     }
 
     @Test
-    fun `returns a stored shortcut item with its enabled state`() = runTest {
+    fun `returns a stored shortcut item with its enabled state`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val shortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID, isEnabled = false)
@@ -403,14 +405,15 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertEquals(
-            listOf(PopupItem.Shortcut(launchable = shortcut, isEnabled = false)),
-            repository.items(owner.key).first { items -> items.isNotEmpty() }
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(PopupItem.Shortcut(launchable = shortcut, isEnabled = false))
         )
     }
 
     @Test
-    fun `removes a shortcut item when its app is uninstalled even if the shortcut still resolves`() = runTest {
+    fun `removes a shortcut item when its app is uninstalled even if the shortcut still resolves`() = databaseTest {
         val owner: App = createApp()
         val removedPackageName: String = "com.example.removed"
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = removedPackageName, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -426,12 +429,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertTrue(allItems { items -> items.isEmpty() }.isEmpty())
-        assertEquals(emptyList<PopupItem>(), repository.items(owner.key).first { items -> items.isEmpty() })
+        assertItemsRemoved(repository = repository, ownerKey = owner.key)
     }
 
     @Test
-    fun `removes a shortcut item when its shortcut is gone`() = runTest {
+    fun `removes a shortcut item when its shortcut is gone`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val popupDao: PopupDao = database.getPopupDao()
@@ -446,12 +448,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertTrue(allItems { items -> items.isEmpty() }.isEmpty())
-        assertEquals(emptyList<PopupItem>(), repository.items(owner.key).first { items -> items.isEmpty() })
+        assertItemsRemoved(repository = repository, ownerKey = owner.key)
     }
 
     @Test
-    fun `restores a kept shortcut item in its stored position`() = runTest {
+    fun `restores a kept shortcut item in its stored position`() = databaseTest {
         val owner: App = createApp()
         val otherLaunchable: RailLaunchable = createRailLaunchable(name = "Other")
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -471,24 +472,26 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertEquals(
-            listOf(PopupItem.Launchable(launchable = otherLaunchable)),
-            repository.items(owner.key).first { items -> items.isNotEmpty() }
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(PopupItem.Launchable(launchable = otherLaunchable))
         )
 
         shortcutResolution.value = ShortcutResolution(shortcuts = mapOf(shortcutKey to inputShortcut))
 
-        assertEquals(
-            listOf(
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(
                 PopupItem.Shortcut(launchable = inputShortcut, isEnabled = true),
                 PopupItem.Launchable(launchable = otherLaunchable)
-            ),
-            repository.items(owner.key).first { items -> items.size == 2 }
+            )
         )
     }
 
     @Test
-    fun `keeps a disabled shortcut item in its stored position`() = runTest {
+    fun `keeps a disabled shortcut item in its stored position`() = databaseTest {
         val owner: App = createApp()
         val otherLaunchable: RailLaunchable = createRailLaunchable(name = "Other")
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -511,27 +514,29 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertEquals(
-            listOf(
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(
                 PopupItem.Shortcut(launchable = inputDisabledShortcut, isEnabled = false),
                 PopupItem.Launchable(launchable = otherLaunchable)
-            ),
-            repository.items(owner.key).first { items -> items.size == 2 }
+            )
         )
 
         shortcutResolution.value = ShortcutResolution(shortcuts = mapOf(shortcutKey to inputEnabledShortcut))
 
-        assertEquals(
-            listOf(
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(
                 PopupItem.Shortcut(launchable = inputEnabledShortcut, isEnabled = true),
                 PopupItem.Launchable(launchable = otherLaunchable)
-            ),
-            repository.items(owner.key).first { items -> items.firstOrNull() == PopupItem.Shortcut(inputEnabledShortcut, true) }
+            )
         )
     }
 
     @Test
-    fun `removes a malformed shortcut key`() = runTest {
+    fun `removes a malformed shortcut key`() = databaseTest {
         val owner: App = createApp()
         val malformedKey: String = "shortcut:malformed"
         val popupDao: PopupDao = database.getPopupDao()
@@ -541,11 +546,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner), label = "O")
         )
 
-        assertTrue(allItems { items -> items.isEmpty() }.isEmpty())
+        assertNoItems()
     }
 
     @Test
-    fun `pins an added shortcut`() = runTest {
+    fun `pins an added shortcut`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val shortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID)
@@ -562,7 +567,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner, createApp()), label = "O"),
             mockShortcutSource = mockShortcutSource
         )
-        runCurrent()
+        finishPendingWork()
         pinCalls.value = emptyList()
 
         repository.setItems(ownerKey = owner.key, add = listOf(shortcutKey.format()), remove = emptySet())
@@ -574,7 +579,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `repins the remaining shortcuts when one is removed`() = runTest {
+    fun `repins the remaining shortcuts when one is removed`() = databaseTest {
         val owner: App = createApp()
         val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
@@ -613,7 +618,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `deleteItemsByKey defers pins until the transaction commits`() = runTest {
+    fun `deleteItemsByKey defers pins until the transaction commits`() = databaseTest {
         val inputOwner: App = createApp()
         val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
         val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -652,7 +657,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `deleteItemsByKey keeps pins when the transaction fails`() = runTest {
+    fun `deleteItemsByKey keeps pins when the transaction fails`() = databaseTest {
         val inputOwner: App = createApp()
         val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
         val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -692,7 +697,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps the union pinned across Pop-ups and unpins after the last owner is deleted`() = runTest {
+    fun `keeps the union pinned across Pop-ups and unpins after the last owner is deleted`() = databaseTest {
         val firstOwner: App = createApp(name = "First")
         val secondOwner: App = createApp(name = "Second", packageName = "com.example.second")
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -737,7 +742,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `does not clean up shortcut items while shortcuts are unavailable`() = runTest {
+    fun `does not clean up shortcut items while shortcuts are unavailable`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val popupDao: PopupDao = database.getPopupDao()
@@ -749,14 +754,14 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner, createApp()), label = "O"),
             mockShortcutSource = mockShortcutSource
         )
-        runCurrent()
+        finishPendingWork()
 
         assertEquals(emptyList<PopupItem>(), repository.items(owner.key).first())
         assertEquals(1, allItems().size)
     }
 
     @Test
-    fun `removes a shortcut item when its app is uninstalled while shortcuts are unavailable`() = runTest {
+    fun `removes a shortcut item when its app is uninstalled while shortcuts are unavailable`() = databaseTest {
         val owner: App = createApp()
         val hiddenPackageName: String = "com.example.hidden"
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = hiddenPackageName, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -770,11 +775,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockShortcutSource = mockShortcutSource
         )
 
-        assertTrue(allItems { items -> items.isEmpty() }.isEmpty())
+        assertNoItems()
     }
 
     @Test
-    fun `pins stored shortcuts on start after the Launchables load`() = runTest {
+    fun `pins stored shortcuts on start after the Launchables load`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
         val popupDao: PopupDao = database.getPopupDao()
@@ -796,7 +801,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockLaunchableRepository = mockLaunchableRepository,
             mockShortcutSource = mockShortcutSource
         )
-        runCurrent()
+        finishPendingWork()
         assertEquals(emptyList<PinCall>(), pinCalls.value)
 
         launchableState.value = createLoadedLaunchableState(launchables = listOf(owner))
@@ -806,7 +811,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `adding the same item twice keeps one row`() = runTest {
+    fun `adding the same item twice keeps one row`() = databaseTest {
         val item: RailLaunchable = createRailLaunchable(name = "Item")
         val popupDao: PopupDao = database.getPopupDao()
         val repository: IPopupRepositoryImpl = createRepository(
@@ -821,14 +826,14 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `notifications are off by default`() = runTest {
+    fun `notifications are off by default`() = databaseTest {
         val repository: IPopupRepositoryImpl = createRepository(popupDao = database.getPopupDao())
 
         assertFalse(repository.notificationsEnabled.first())
     }
 
     @Test
-    fun `stores whether Pop-ups show notifications`() = runTest {
+    fun `stores whether Pop-ups show notifications`() = databaseTest {
         val popupDao: PopupDao = database.getPopupDao()
         val repository: IPopupRepositoryImpl = createRepository(popupDao = popupDao)
 
@@ -838,8 +843,23 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         assertTrue(requireNotNull(popupDao.observeSettings().first()).notificationsEnabled)
     }
 
-    private suspend fun allItems(predicate: (List<PopupItemRecord>) -> Boolean = { true }): List<PopupItemRecord> =
-        database.getPopupDao().observeAllItems().first(predicate).sortedBy { item -> item.position }
+    private suspend fun allItems(): List<PopupItemRecord> =
+        database.getPopupDao().observeAllItems().first().sortedBy { item -> item.position }
+
+    private suspend fun TestScope.assertNoItems() {
+        finishPendingWork()
+        assertTrue(allItems().isEmpty())
+    }
+
+    private suspend fun TestScope.assertItemsRemoved(repository: IPopupRepositoryImpl, ownerKey: String) {
+        assertNoItems()
+        assertEquals(emptyList<PopupItem>(), repository.items(ownerKey).first())
+    }
+
+    private suspend fun TestScope.assertItems(repository: IPopupRepositoryImpl, ownerKey: String, expected: List<PopupItem>) {
+        finishPendingWork()
+        assertEquals(expected, repository.items(ownerKey).first())
+    }
 
     private fun pin(ids: Set<String>): PinCall = PinCall(packageName = APP_PACKAGE_NAME, profile = profile, ids = ids)
 

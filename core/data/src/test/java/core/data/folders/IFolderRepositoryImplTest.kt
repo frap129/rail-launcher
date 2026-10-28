@@ -28,7 +28,6 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,7 +38,7 @@ private const val FOLDER_NAME: String = "Games"
 
 class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
-    fun `create derives the shade from the id and stores the name and items`() = runTest {
+    fun `create derives the shade from the id and stores the name and items`() = databaseTest {
         val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         val mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository()
         val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
@@ -66,7 +65,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create keeps the default name when the name is blank or the default`() = runTest {
+    fun `create keeps the default name when the name is blank or the default`() = databaseTest {
         val repository: IFolderRepository = createRepository(
             mockFavoritesRepository = createMockFavoritesRepository()
         )
@@ -80,7 +79,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create can leave the Folder out of Favorites`() = runTest {
+    fun `create can leave the Folder out of Favorites`() = databaseTest {
         val mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository()
         val repository: IFolderRepository = createRepository(
             mockFavoritesRepository = mockFavoritesRepository
@@ -92,7 +91,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete cascades through its Pop-up, Favorites and customization`() = runTest {
+    fun `delete cascades through its Pop-up, Favorites and customization`() = databaseTest {
         val inputFolder: Folder = Folder(folderId = 3L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = inputFolder.folderId))
@@ -118,7 +117,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete frees the Folder's widget place and App Widget ids`() = runTest {
+    fun `delete frees the Folder's widget place and App Widget ids`() = databaseTest {
         val inputFolder: Folder = Folder(folderId = 3L)
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
             removeOwnerPlacesAnswer = { listOf(AppWidgetId(55)) }

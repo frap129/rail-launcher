@@ -3,7 +3,6 @@ package core.data.widgets
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -11,7 +10,7 @@ import org.junit.Test
 
 class WidgetAreaDaoTest : InMemoryDatabaseTest() {
     @Test
-    fun `removeWidget deletes the widget and its empty place`() = runTest {
+    fun `removeWidget deletes the widget and its empty place`() = databaseTest {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
         val placeId: Long = dao.insertPlace(WidgetPlaceRecord(position = 0))
         val widgetId: Long = dao.insertWidget(
@@ -33,7 +32,7 @@ class WidgetAreaDaoTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setPlaceHeight round-trips a height and null`() = runTest {
+    fun `setPlaceHeight round-trips a height and null`() = databaseTest {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
         val placeId: Long = dao.insertPlace(WidgetPlaceRecord(position = 0))
         dao.insertWidget(WidgetRecord(placeId = placeId, pagePosition = 0, kind = WidgetKind.APP_WIDGET, appWidgetId = 42))

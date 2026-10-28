@@ -21,7 +21,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,14 +32,14 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputKeptLaunchable: Launchable = createRailLaunchable(name = "kept")
 
     @Test
-    fun `returns defaults when the settings row is absent`() = runTest {
+    fun `returns defaults when the settings row is absent`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         assertEquals(HeaderSettings(), repository.headerSettings.first())
     }
 
     @Test
-    fun `persists a transformed Header setting`() = runTest {
+    fun `persists a transformed Header setting`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         repository.updateHeaderSettings { settings -> settings.copy(clockVisible = false) }
@@ -56,14 +55,14 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `returns Event settings defaults when the row is absent`() = runTest {
+    fun `returns Event settings defaults when the row is absent`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         assertEquals(EventSettings(), repository.eventSettings.first())
     }
 
     @Test
-    fun `round trips excluded calendar ids through Event settings`() = runTest {
+    fun `round trips excluded calendar ids through Event settings`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
         val inputExcluded: Set<String> = setOf("42", "w:7")
 
@@ -73,14 +72,14 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `clamps a stored event count on read`() = runTest {
+    fun `clamps a stored event count on read`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository(eventSettings = EventSettings(maxEvents = 9))
 
         assertEquals(3, repository.eventSettings.first().maxEvents)
     }
 
     @Test
-    fun `persists Event settings through their setters`() = runTest {
+    fun `persists Event settings through their setters`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         repository.setEventsEnabled(true)
@@ -96,7 +95,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `persists Widget Area height limit settings`() = runTest {
+    fun `persists Widget Area height limit settings`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         repository.setHeightLimitEnabled(false)
@@ -109,14 +108,14 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `returns Media Player settings defaults when the row is absent`() = runTest {
+    fun `returns Media Player settings defaults when the row is absent`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         assertEquals(MediaPlayerSettings.Default, repository.mediaPlayerSettings.first())
     }
 
     @Test
-    fun `persists the Media Player enabled switch`() = runTest {
+    fun `persists the Media Player enabled switch`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
 
         repository.setMediaPlayerEnabled(true)
@@ -126,7 +125,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `exposes the Media Player option defaults`() = runTest {
+    fun `exposes the Media Player option defaults`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
         val actualSettings: MediaPlayerSettings = repository.mediaPlayerSettings.first()
         assertTrue(actualSettings.showWhenPaused)
@@ -136,7 +135,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `persists the Media Player display options`() = runTest {
+    fun `persists the Media Player display options`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
         repository.setMediaPlayerShowWhenPaused(false)
         repository.setMediaPlayerShowArtwork(false)
@@ -149,7 +148,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `adds and removes excluded Media Player packages`() = runTest {
+    fun `adds and removes excluded Media Player packages`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository()
         repository.setMediaPlayerPackageExcluded(packageName = "com.example.video", excluded = true)
         repository.setMediaPlayerPackageExcluded(packageName = "com.example.music", excluded = true)
@@ -158,7 +157,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setClockVisible rejects hiding the last standing part`() = runTest {
+    fun `setClockVisible rejects hiding the last standing part`() = databaseTest {
         val inputSettings: HeaderSettings = HeaderSettings(
             clockVisible = true,
             dateVisible = false,
@@ -173,7 +172,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setBatteryVisibility never re-enables a hidden clock`() = runTest {
+    fun `setBatteryVisibility never re-enables a hidden clock`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS),
             isLoaded = true
@@ -187,7 +186,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setBatteryVisibility rejects hiding the last visible part`() = runTest {
+    fun `setBatteryVisibility rejects hiding the last visible part`() = databaseTest {
         val inputSettings: HeaderSettings = HeaderSettings(
             clockVisible = false,
             dateVisible = false,
@@ -203,7 +202,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps a tap target whose Launchable exists`() = runTest {
+    fun `keeps a tap target whose Launchable exists`() = databaseTest {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = inputSetting),
@@ -215,7 +214,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps a stale tap target until the Launchables load`() = runTest {
+    fun `keeps a stale tap target until the Launchables load`() = databaseTest {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = inputStaleSetting),
@@ -227,7 +226,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `clears a stale tap target once the Launchables load`() = runTest {
+    fun `clears a stale tap target once the Launchables load`() = databaseTest {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         val inputKeptSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
@@ -245,7 +244,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
             groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable)))
         )
 
-        val actualSettings: HeaderSettings = repository.headerSettings.first { settings -> settings.timeTapTarget == null }
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
         assertNull(actualSettings.timeTapTarget)
         assertEquals(inputKeptSetting, actualSettings.dateTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
@@ -253,7 +252,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `does not clear Nothing or the system default`() = runTest {
+    fun `does not clear Nothing or the system default`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = null),
             isLoaded = true
@@ -265,7 +264,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `cleans up a stale target once for multiple collectors`() = runTest {
+    fun `cleans up a stale target once for multiple collectors`() = databaseTest {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         database.getHeaderSettingsDao().upsert(HeaderSettings(timeTapTarget = inputStaleSetting))
         val mockHeaderSettingsDao: HeaderSettingsDao = spyk(database.getHeaderSettingsDao())
