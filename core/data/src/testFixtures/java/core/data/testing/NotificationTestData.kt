@@ -48,7 +48,6 @@ fun createPlatformNotificationAction(
 fun createNotificationRecord(
     key: String = TEST_NOTIFICATION_KEY,
     packageName: String = TEST_NOTIFICATION_PACKAGE_NAME,
-    profile: UserHandle = createNotificationProfile(),
     postTime: Long = 1_000L,
     title: String = "Title",
     text: String = "Text",
@@ -56,12 +55,11 @@ fun createNotificationRecord(
     messages: List<String> = emptyList(),
     isClearable: Boolean = true,
     actions: List<NotificationAction> = emptyList(),
-    isGroupSummary: Boolean = false,
-    groupKey: String = TEST_NOTIFICATION_GROUP_KEY
+    isGroupSummary: Boolean = false
 ): NotificationRecord = NotificationRecord(
     key = key,
     packageName = packageName,
-    profile = profile,
+    profile = createNotificationProfile(),
     postTime = postTime,
     title = title,
     text = text,
@@ -70,7 +68,7 @@ fun createNotificationRecord(
     isClearable = isClearable,
     actions = actions,
     isGroupSummary = isGroupSummary,
-    groupKey = groupKey
+    groupKey = TEST_NOTIFICATION_GROUP_KEY
 )
 
 fun createNotificationHandle(
@@ -84,19 +82,17 @@ fun createNotificationSnapshot(
     packageName: String = TEST_NOTIFICATION_PACKAGE_NAME,
     profile: UserHandle = createNotificationProfile(),
     postTime: Long = 1_000L,
-    title: String = "Title",
     body: String = "Body",
     expandedBody: String = body,
-    actions: List<NotificationAction> = emptyList(),
-    isClearable: Boolean = true
+    actions: List<NotificationAction> = emptyList()
 ): NotificationSnapshot = NotificationSnapshot(
     key = key,
     packageName = packageName,
     profile = profile,
     postTime = postTime,
-    title = title,
+    title = "Title",
     body = body,
     expandedBody = expandedBody,
     actions = actions,
-    isClearable = isClearable
+    isClearable = true
 )

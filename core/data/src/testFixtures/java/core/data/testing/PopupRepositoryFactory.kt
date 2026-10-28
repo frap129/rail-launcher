@@ -22,11 +22,12 @@ import kotlinx.coroutines.flow.update
 
 /** The mutable state behind a [createPopupRepositoryMock] Pop-up repository. */
 class PopupRepositoryState(
-    val hiddenIdsByOwner: MutableStateFlow<Map<String, Set<String>>> = MutableStateFlow(emptyMap()),
     val itemsByOwner: MutableStateFlow<Map<String, List<PopupItem>>> = MutableStateFlow(emptyMap()),
-    val notificationsEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false),
+    val notificationsEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false)
+) {
+    val hiddenIdsByOwner: MutableStateFlow<Map<String, Set<String>>> = MutableStateFlow(emptyMap())
     val removedWidgetIds: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(extraBufferCapacity = 8)
-)
+}
 
 /** The production Pop-up repository over [popupDao], with its background work on [scope]. */
 fun createPopupRepository(

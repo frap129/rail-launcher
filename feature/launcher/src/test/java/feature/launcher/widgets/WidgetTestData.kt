@@ -11,6 +11,7 @@ import core.data.media.MediaSessionSnapshot
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.testing.AppWidgetHostState
+import core.data.testing.TEST_APP_WIDGET_ID
 import core.data.testing.WidgetAreaRepositoryState
 import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostMock
@@ -46,7 +47,6 @@ fun appWidgetProviderInfo(
     appLabel: String = "Example",
     label: String = "Example Widget",
     needsConfiguration: Boolean = false,
-    profileSerial: Long = 0L,
     isReconfigurable: Boolean = false,
     hasConfigureActivity: Boolean = true,
     minHeightDp: Int = 48,
@@ -55,7 +55,7 @@ fun appWidgetProviderInfo(
     isVerticallyResizable: Boolean = false
 ): WidgetProviderInfo = WidgetProviderInfo(
     provider = provider,
-    profileSerial = profileSerial,
+    profileSerial = 0L,
     appPackageName = appPackageName,
     appLabel = appLabel,
     appIcon = Icon.ApplicationIcon(packageName = appPackageName),
@@ -98,13 +98,12 @@ fun createHost(
 
 fun createHost(
     info: WidgetProviderInfo,
-    appWidgetId: AppWidgetId = AppWidgetId(9),
     providerInfos: Map<Int, WidgetProviderInfo> = emptyMap(),
     bindResults: List<Boolean> = emptyList()
 ): IAppWidgetHostSource = createHost(
     providers = listOf(info),
     bindResults = bindResults,
-    providerInfos = mapOf(appWidgetId.value to info) + providerInfos
+    providerInfos = mapOf(TEST_APP_WIDGET_ID to info) + providerInfos
 )
 
 fun createSettingsRepository(
