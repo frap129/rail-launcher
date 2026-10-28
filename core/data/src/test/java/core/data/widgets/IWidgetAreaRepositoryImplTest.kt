@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -16,7 +15,7 @@ import org.junit.Test
 
 class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
-    fun `orders places by position and widgets by page position`() = runTest {
+    fun `orders places by position and widgets by page position`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -38,7 +37,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `drops places without widgets`() = runTest {
+    fun `drops places without widgets`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -54,7 +53,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `remove then restore puts the Header at position 0 and shifts the others`() = runTest {
+    fun `remove then restore puts the Header at position 0 and shifts the others`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -77,7 +76,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removeHeader returns the stored place position`() = runTest {
+    fun `removeHeader returns the stored place position`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -94,7 +93,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `restoreHeader inserts the Header into the saved place and shifts its pages`() = runTest {
+    fun `restoreHeader inserts the Header into the saved place and shifts its pages`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -114,7 +113,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves and deletes duplicate Headers`() = runTest {
+    fun `resolves and deletes duplicate Headers`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -136,7 +135,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `drops widgets with unknown kinds`() = runTest {
+    fun `drops widgets with unknown kinds`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -156,7 +155,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget inserts a place below the given place and shifts later positions`() = runTest {
+    fun `addAppWidget inserts a place below the given place and shifts later positions`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -186,7 +185,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget adds at the end for End`() = runTest {
+    fun `addAppWidget adds at the end for End`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -208,7 +207,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget stores the default height on the placed widget`() = runTest {
+    fun `addAppWidget stores the default height on the placed widget`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -231,7 +230,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removeWidget deletes the place when empty and returns the system id`() = runTest {
+    fun `removeWidget deletes the place when empty and returns the system id`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -245,7 +244,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `hides the Widget Area until startup reconciliation finishes`() = runTest {
+    fun `hides the Widget Area until startup reconciliation finishes`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -264,7 +263,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `re-resolves availability when providers change`() = runTest {
+    fun `re-resolves availability when providers change`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -289,7 +288,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setPlaceHeight stores and clears the height`() = runTest {
+    fun `setPlaceHeight stores and clears the height`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -305,7 +304,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit removes places, rewrites contiguous positions and returns freed ids`() = runTest {
+    fun `commitEdit removes places, rewrites contiguous positions and returns freed ids`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -337,7 +336,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit keeps Pop-up places`() = runTest {
+    fun `commitEdit keeps Pop-up places`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -360,7 +359,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit ignores removed places in the order`() = runTest {
+    fun `commitEdit ignores removed places in the order`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
@@ -375,7 +374,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit keeps positions contiguous when a place vanished before commit`() = runTest {
+    fun `commitEdit keeps positions contiguous when a place vanished before commit`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -403,7 +402,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget into a stack appends a page and makes it current`() = runTest {
+    fun `addAppWidget into a stack appends a page and makes it current`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -429,7 +428,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removeWidget dissolves a two-page stack and resets the current page`() = runTest {
+    fun `removeWidget dissolves a two-page stack and resets the current page`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0, heightDp = 200, currentPage = 1)),
@@ -449,7 +448,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit moves a widget between places`() = runTest {
+    fun `commitEdit moves a widget between places`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
@@ -470,7 +469,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `commitEdit creates a place for a split page`() = runTest {
+    fun `commitEdit creates a place for a split page`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(place(id = 1L, position = 0)),
@@ -496,7 +495,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `replaceHeader moves a single widget into the Header place and deletes its old place`() = runTest {
+    fun `replaceHeader moves a single widget into the Header place and deletes its old place`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -530,7 +529,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `replaceHeader moves the widget into a stack page and keeps the stack height`() = runTest {
+    fun `replaceHeader moves the widget into a stack page and keeps the stack height`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -560,7 +559,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `undoReplaceHeader restores places, heights and page positions`() = runTest {
+    fun `undoReplaceHeader restores places, heights and page positions`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -589,7 +588,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `undoReplaceHeader restores only the Header after the widget is uninstalled`() = runTest {
+    fun `undoReplaceHeader restores only the Header after the widget is uninstalled`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -617,7 +616,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setExtendsUnderRail only widens lone widgets`() = runTest {
+    fun `setExtendsUnderRail only widens lone widgets`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -645,7 +644,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `undoReplaceHeader shifts a place that took the old position`() = runTest {
+    fun `undoReplaceHeader shifts a place that took the old position`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -669,7 +668,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `excludes Pop-up places from the Widget Area`() = runTest {
+    fun `excludes Pop-up places from the Widget Area`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -689,7 +688,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `popupPlace returns the place owned by its Pop-up`() = runTest {
+    fun `popupPlace returns the place owned by its Pop-up`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(
@@ -710,7 +709,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget with an owner key creates and fills its Pop-up place`() = runTest {
+    fun `addAppWidget with an owner key creates and fills its Pop-up place`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea()
         val repository: IWidgetAreaRepository = repository(dao)
@@ -734,7 +733,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `addAppWidget with an owner key appends a page and makes it current`() = runTest {
+    fun `addAppWidget with an owner key appends a page and makes it current`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
@@ -761,7 +760,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `setCurrentPage stores the page of an owned place`() = runTest {
+    fun `setCurrentPage stores the page of an owned place`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
@@ -779,7 +778,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removeWidget clamps the current page of a remaining stack`() = runTest {
+    fun `removeWidget clamps the current page of a remaining stack`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0, currentPage = 2)),
@@ -799,7 +798,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removeOwnerPlaces deletes its place and returns the freed ids`() = runTest {
+    fun `removeOwnerPlaces deletes its place and returns the freed ids`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),

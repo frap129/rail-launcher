@@ -7,14 +7,13 @@ import core.data.testing.createAppWidgetHostMock
 import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     @Test
-    fun `frees system ids with no stored row`() = runTest {
+    fun `frees system ids with no stored row`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(7), AppWidgetId(8))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
@@ -31,7 +30,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps an id that belongs to a pending add flow`() = runTest {
+    fun `keeps an id that belongs to a pending add flow`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(7))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
@@ -43,7 +42,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `deletes stored rows whose system id is gone and emits them`() = runTest {
+    fun `deletes stored rows whose system id is gone and emits them`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
@@ -63,7 +62,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps a stored row whose id belongs to a pending add flow`() = runTest {
+    fun `keeps a stored row whose id belongs to a pending add flow`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
@@ -78,7 +77,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a widget whose provider package is gone`() = runTest {
+    fun `removes a widget whose provider package is gone`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
@@ -101,7 +100,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps a widget that is only temporarily unavailable`() = runTest {
+    fun `keeps a widget that is only temporarily unavailable`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
@@ -119,7 +118,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps a Pop-up widget at startup while its system id is bound`() = runTest {
+    fun `keeps a Pop-up widget at startup while its system id is bound`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
@@ -136,7 +135,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a Pop-up widget whose provider is gone`() = runTest {
+    fun `removes a Pop-up widget whose provider is gone`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
             places = listOf(WidgetPlaceRecord(id = 1L, position = 0, ownerKey = "owner-key")),
@@ -155,7 +154,7 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `reconciles at startup only once`() = runTest {
+    fun `reconciles at startup only once`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })

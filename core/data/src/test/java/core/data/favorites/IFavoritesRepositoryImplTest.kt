@@ -22,7 +22,6 @@ import io.mockk.just
 import io.mockk.spyk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -33,8 +32,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -51,7 +48,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputLaunchable: Launchable = createLaunchable(name = "App")
 
     @Test
-    fun `drops repeated Favorites values`() = runTest {
+    fun `drops repeated Favorites values`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val removalAttempted: CompletableDeferred<Unit> = CompletableDeferred()
         val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
@@ -64,20 +61,20 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             favoriteDao = mockFavoriteDao,
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
 
         repository.favorites.test {
             assertEquals(listOf(inputLaunchable), awaitItem())
             // A stale record changes the resolution but not the Favorites list.
             mockFavoriteDao.add(STALE_KEY)
             removalAttempted.await()
-            runCurrent()
+            finishPendingWork()
             expectNoEvents()
         }
     }
 
     @Test
-    fun `collecting Favorites does not remove stale records`() = runTest {
+    fun `collecting Favorites does not remove stale records`() = databaseTest {
         val inputStaleLaunchable: Launchable = createLaunchable(name = "Stale")
         val inputRecords: List<FavoriteRecord> = listOf(
             FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION),
@@ -102,7 +99,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.favorites.test {
             assertEquals(listOf(inputLaunchable), awaitItem())
-            runCurrent()
+            finishPendingWork()
             expectNoEvents()
         }
 
@@ -110,20 +107,20 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a Favorite when its Launchable disappears`() = runTest {
+    fun `removes a Favorite when its Launchable disappears`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputLaunchable)))
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(favoriteDao = database.getFavoriteDao(), mockLaunchableRepository = mockLaunchableRepository)
-        runCurrent()
+        finishPendingWork()
 
         launchableState.value = createLaunchableState(groups = emptyList())
 
-        assertTrue(database.getFavoriteDao().observeAll().first { records -> records.isEmpty() }.isEmpty())
+        assertNoFavorites()
     }
 
     @Test
-    fun `does not restore a removed Favorite when its Launchable reappears`() = runTest {
+    fun `does not restore a removed Favorite when its Launchable reappears`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputLaunchable)))
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
@@ -137,7 +134,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             favoriteDao = mockFavoriteDao,
             mockLaunchableRepository = mockLaunchableRepository
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
 
         repository.favorites.test {
             assertEquals(listOf(inputLaunchable), awaitItem())
@@ -145,15 +142,15 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals(emptyList<Launchable>(), awaitItem())
             recordsPurged.await()
             launchableState.value = createLoadedLaunchableState(listOf(inputLaunchable))
-            runCurrent()
+            finishPendingWork()
             expectNoEvents()
         }
 
-        assertTrue(database.getFavoriteDao().observeAll().first { records -> records.isEmpty() }.isEmpty())
+        assertNoFavorites()
     }
 
     @Test
-    fun `does not remove Favorites while the Launchables are loading`() = runTest {
+    fun `does not remove Favorites while the Launchables are loading`() = databaseTest {
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
@@ -161,30 +158,30 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(favoriteDao = database.getFavoriteDao(), mockLaunchableRepository = mockLaunchableRepository)
-        runCurrent()
+        finishPendingWork()
         assertEquals(inputRecords, favoriteRecords())
 
         launchableState.value = createLoadedLaunchableState(listOf(inputLaunchable))
-        runCurrent()
+        finishPendingWork()
         assertEquals(inputRecords, favoriteRecords())
     }
 
     @Test
-    fun `reports whether a Launchable is a Favorite`() = runTest {
+    fun `reports whether a Launchable is a Favorite`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val repository: IFavoritesRepositoryImpl = createRepository(
             favoriteDao = database.getFavoriteDao(),
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable, inputOtherLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
 
         assertTrue(repository.isFavorite(inputLaunchable).first())
         assertFalse(repository.isFavorite(inputOtherLaunchable).first())
     }
 
     @Test
-    fun `reports a stale record as not a Favorite`() = runTest {
+    fun `reports a stale record as not a Favorite`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
@@ -208,36 +205,36 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `reflects an added Favorite in isFavorite immediately`() = runTest {
+    fun `reflects an added Favorite in isFavorite immediately`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputOtherLaunchable.key, position = FIRST_POSITION)
         val repository: IFavoritesRepositoryImpl = createRepository(
             favoriteDao = database.getFavoriteDao(),
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable, inputOtherLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputOtherLaunchable))
 
-        writeAwaitingResolution { repository.add(inputLaunchable) }
+        repository.add(inputLaunchable)
 
         assertTrue(repository.isFavorite(inputLaunchable).first())
     }
 
     @Test
-    fun `reflects a removed Favorite in isFavorite immediately`() = runTest {
+    fun `reflects a removed Favorite in isFavorite immediately`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val repository: IFavoritesRepositoryImpl = createRepository(
             favoriteDao = database.getFavoriteDao(),
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
 
-        writeAwaitingResolution { repository.remove(inputLaunchable) }
+        repository.remove(inputLaunchable)
 
         assertFalse(repository.isFavorite(inputLaunchable).first())
     }
 
     @Test
-    fun `stops waiting for a Favorite to become visible after a timeout`() = runTest {
+    fun `stops waiting for a Favorite to become visible after a timeout`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputOtherLaunchable.key, position = FIRST_POSITION)
         val mockFavoriteDao: FavoriteDao = spyk(database.getFavoriteDao())
@@ -246,7 +243,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             favoriteDao = mockFavoriteDao,
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable, inputOtherLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputOtherLaunchable))
 
         val actualAddJob: Deferred<Unit> = async { repository.add(inputLaunchable) }
         runCurrent()
@@ -257,7 +254,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps removing stale Favorites after a failed remove`() = runTest {
+    fun `keeps removing stale Favorites after a failed remove`() = databaseTest {
         val inputStaleLaunchable: Launchable = createLaunchable(name = "Stale")
         val inputRemainingLaunchable: Launchable = createLaunchable(name = "Remaining")
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputStaleLaunchable.key, position = FIRST_POSITION))
@@ -276,26 +273,23 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         createRepository(favoriteDao = mockFavoriteDao, mockLaunchableRepository = mockLaunchableRepository)
         launchableState.value = createLoadedLaunchableState(listOf(inputRemainingLaunchable))
         firstRemovalAttempted.await()
-        runCurrent()
+        finishPendingWork()
         assertEquals(inputRecords, favoriteRecords())
 
         mockFavoriteDao.add(inputRemainingLaunchable.key)
-        runCurrent()
+        finishPendingWork()
         assertEquals(
             listOf(FavoriteRecord(key = inputRemainingLaunchable.key, position = SECOND_POSITION)),
-            database.getFavoriteDao().observeAll().first { records ->
-                records.size == 1 &&
-                    records.none { record -> record.key == inputStaleLaunchable.key }
-            }
+            favoriteRecords()
         )
 
         launchableState.value = createLaunchableState(groups = emptyList())
-        runCurrent()
-        assertTrue(database.getFavoriteDao().observeAll().first { records -> records.isEmpty() }.isEmpty())
+
+        assertNoFavorites()
     }
 
     @Test
-    fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
+    fun `restarts a failed upstream with exponential backoff and recovers`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val mockFavoriteDao: FavoriteDao = spyk(database.getFavoriteDao())
@@ -307,7 +301,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             favoriteDao = mockFavoriteDao,
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable, inputOtherLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
         failureRequests.send(Unit)
         failureDelivered.await()
         runCurrent()
@@ -319,11 +313,11 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(listOf(inputLaunchable), repository.favorites.first())
         advanceTimeBy(1)
         runCurrent()
-        assertEquals(listOf(inputLaunchable, inputOtherLaunchable), repository.favorites.first { favorites -> favorites.size == 2 })
+        assertEquals(listOf(inputLaunchable, inputOtherLaunchable), repository.favorites.first())
     }
 
     @Test
-    fun `shares one Favorites subscription between readers and the cleanup job`() = runTest {
+    fun `shares one Favorites subscription between readers and the cleanup job`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val mockFavoriteDao: FavoriteDao = spyk(database.getFavoriteDao())
         var actualSubscriptions: Int = 0
@@ -332,18 +326,22 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
             favoriteDao = mockFavoriteDao,
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputLaunchable))
         )
-        repository.favorites.first { favorites -> favorites.isNotEmpty() }
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
         repository.isFavorite(inputLaunchable).first()
         repository.isFavorite(inputLaunchable).first()
-        runCurrent()
+        finishPendingWork()
         assertEquals(1, actualSubscriptions)
     }
 
-    /**
-     * Runs [write] on a real dispatcher: the repository waits for the resolution on a real
-     * timeout, which the virtual clock would otherwise expire before Room delivers the write.
-     */
-    private suspend fun <T> writeAwaitingResolution(write: suspend () -> T): T = withContext(Dispatchers.Default) { write() }
+    private suspend fun TestScope.assertNoFavorites() {
+        finishPendingWork()
+        assertTrue(favoriteRecords().isEmpty())
+    }
+
+    private suspend fun TestScope.assertResolvedFavorites(repository: IFavoritesRepositoryImpl, expected: List<Launchable>) {
+        finishPendingWork()
+        assertEquals(expected, repository.favorites.first())
+    }
 
     private fun TestScope.createRepository(
         favoriteDao: FavoriteDao,

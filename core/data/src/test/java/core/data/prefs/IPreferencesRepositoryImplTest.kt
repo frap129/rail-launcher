@@ -9,7 +9,6 @@ import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -17,13 +16,14 @@ private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
 private const val CUSTOM_ICON_PACK_PACKAGE: String = "com.example.iconpack"
 private const val RENAMED_ITEM_NAME: String = "Renamed Item"
 private const val SECOND_RENAMED_ITEM_NAME: String = "Second Renamed Item"
+private const val ORIGINAL_ITEM_NAME: String = "Original"
 private const val RAIL_ICON_RES_ID: Int = 0
 private const val LAUNCHABLE_DEEPLINK: String = "rail-launcher://test"
 private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomization(key = "other", name = "Other")
 
 class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
-    fun `exposes launchable customizations from the DAO`() = runTest {
+    fun `exposes launchable customizations from the DAO`() = databaseTest {
         val expectedCustomizations: List<LaunchableCustomization> = listOf(
             LaunchableCustomization(key = "first", name = "First"),
             LaunchableCustomization(key = "second", name = "Second")
@@ -40,7 +40,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `exposes settings from the DAO`() = runTest {
+    fun `exposes settings from the DAO`() = databaseTest {
         val expectedSettings: Settings = Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE)
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(expectedSettings)
@@ -50,19 +50,19 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `stores a renamed launchable through the DAO`() = runTest {
+    fun `stores a renamed launchable through the DAO`() = databaseTest {
         val repository: IPreferencesRepository = createRepository()
         val inputItem: Launchable = createLaunchable()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        val actualCustomization: LaunchableCustomization = awaitCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        val actualCustomization: LaunchableCustomization = awaitNewCustomization(key = inputItem.key)
         assertEquals(LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME), actualCustomization)
     }
 
     @Test
-    fun `renames an existing launchable customization in place`() = runTest {
+    fun `renames an existing launchable customization in place`() = databaseTest {
         val inputItem: Launchable = createLaunchable()
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
-        launchableCustomizationDao.setName(key = inputItem.key, name = "Original")
+        launchableCustomizationDao.setName(key = inputItem.key, name = ORIGINAL_ITEM_NAME)
         launchableCustomizationDao.setName(key = OTHER_CUSTOMIZATION.key, name = requireNotNull(OTHER_CUSTOMIZATION.name))
         val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
         val expectedCustomizations: Set<LaunchableCustomization> = setOf(
@@ -70,26 +70,26 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             OTHER_CUSTOMIZATION
         )
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        awaitCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        awaitRenamedCustomization(key = inputItem.key, previousName = ORIGINAL_ITEM_NAME)
         val actualCustomizations: List<LaunchableCustomization> = repository.launchableCustomizations.first()
         assertEquals(expectedCustomizations.size, actualCustomizations.size)
         assertEquals(expectedCustomizations, actualCustomizations.toSet())
     }
 
     @Test
-    fun `applies repeated renames to the same launchable`() = runTest {
+    fun `applies repeated renames to the same launchable`() = databaseTest {
         val inputItem: Launchable = createLaunchable()
         val repository: IPreferencesRepository = createRepository()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        awaitCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        awaitNewCustomization(key = inputItem.key)
         repository.setItemName(item = inputItem, name = SECOND_RENAMED_ITEM_NAME)
-        awaitCustomization(key = inputItem.key, name = SECOND_RENAMED_ITEM_NAME)
+        awaitRenamedCustomization(key = inputItem.key, previousName = RENAMED_ITEM_NAME)
         val actualCustomization: LaunchableCustomization = repository.launchableCustomizations.first().single()
         assertEquals(SECOND_RENAMED_ITEM_NAME, actualCustomization.name)
     }
 
     @Test
-    fun `a blank name resets the launchable to its default name`() = runTest {
+    fun `a blank name resets the launchable to its default name`() = databaseTest {
         val inputItem: Launchable = createLaunchable()
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
@@ -105,30 +105,31 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `stores the selected custom icon pack through the DAO`() = runTest {
+    fun `stores the selected custom icon pack through the DAO`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
         val inputIconPack: IconPack = createCustomIconPack()
         repository.setIconPack(iconPack = inputIconPack)
-        val actualSettings: Settings = settingsDao.observe().first { settings -> settings.iconPack == CUSTOM_ICON_PACK_PACKAGE }
+        val actualSettings: Settings = awaitStoredSettings(settingsDao)
         assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
-    fun `exposes the selected icon pack after it is stored`() = runTest {
+    fun `exposes the selected icon pack after it is stored`() = databaseTest {
         val repository: IPreferencesRepository = createRepository()
         repository.setIconPack(iconPack = createCustomIconPack())
-        val actualSettings: Settings = repository.settings.first { settings -> settings.iconPack == CUSTOM_ICON_PACK_PACKAGE }
+        awaitStoredSettings(database.getSettingsDao())
+        val actualSettings: Settings = repository.settings.first()
         assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
-    fun `clears the stored icon pack when the system pack is selected`() = runTest {
+    fun `clears the stored icon pack when the system pack is selected`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE))
         val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
         repository.setIconPack(iconPack = IconPack.SystemIconPack)
-        val actualSettings: Settings = settingsDao.observe().first { settings -> settings.iconPack == null }
+        val actualSettings: Settings = awaitUpdatedSettings(settingsDao = settingsDao, previousIconPack = CUSTOM_ICON_PACK_PACKAGE)
         assertEquals(Settings(iconPack = null), actualSettings)
     }
 
@@ -141,9 +142,19 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         scope = backgroundScope
     )
 
-    private suspend fun awaitCustomization(key: String, name: String): LaunchableCustomization =
-        customizations { stored -> stored.any { customization -> customization.key == key && customization.name == name } }
+    private suspend fun awaitNewCustomization(key: String): LaunchableCustomization =
+        customizations { stored -> stored.any { customization -> customization.key == key } }
             .single { customization -> customization.key == key }
+
+    private suspend fun awaitRenamedCustomization(key: String, previousName: String): LaunchableCustomization = customizations { stored ->
+        stored.any { customization -> customization.key == key && customization.name != previousName }
+    }.single { customization -> customization.key == key }
+
+    private suspend fun awaitStoredSettings(settingsDao: SettingsDao): Settings =
+        requireNotNull(settingsDao.observeRow().first { row -> row != null })
+
+    private suspend fun awaitUpdatedSettings(settingsDao: SettingsDao, previousIconPack: String): Settings =
+        requireNotNull(settingsDao.observeRow().first { row -> row != null && row.iconPack != previousIconPack })
 
     private fun createLaunchable(): Launchable = RailLaunchable(
         defaultName = "Original Item",

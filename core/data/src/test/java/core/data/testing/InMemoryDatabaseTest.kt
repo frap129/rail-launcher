@@ -1,6 +1,7 @@
 package core.data.testing
 
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
 import core.data.prefs.LaunchableCustomization
 import core.data.room.AppDatabase
@@ -8,6 +9,13 @@ import core.data.room.dao.WidgetAreaDao
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.TestResult
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
 import org.junit.runner.RunWith
@@ -15,21 +23,44 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-/** Runs against a fresh in-memory Room database, so DAOs behave as they do in the app. */
+/**
+ * Runs against a fresh in-memory Room database, so DAOs behave as they do in the app. Its query
+ * and transaction work runs on [databaseDispatcher], so Room advances with the test scheduler;
+ * run test bodies through [databaseTest].
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 abstract class InMemoryDatabaseTest {
+    protected val databaseDispatcher: TestDispatcher = StandardTestDispatcher()
+
     lateinit var database: AppDatabase
         private set
 
+    /** Runs [testBody] with Room work on [databaseDispatcher] so it advances with the scheduler. */
+    protected fun databaseTest(testBody: suspend TestScope.() -> Unit): TestResult =
+        runTest(context = databaseDispatcher, testBody = testBody)
+
     @Before
     fun createDatabase() {
-        database = Room.inMemoryDatabaseBuilder(
-            RuntimeEnvironment.getApplication(),
-            AppDatabase::class.java
-        )
-            .allowMainThreadQueries()
-            .build()
+        database = createDatabaseBuilder().build()
+    }
+
+    /** The in-memory builder every database test uses; subclasses may add callbacks. */
+    protected open fun createDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> =
+        Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), AppDatabase::class.java)
+            .configureForTest()
+
+    /** Gives a database the main-thread access and test-controlled execution [databaseTest] expects. */
+    protected fun RoomDatabase.Builder<AppDatabase>.configureForTest(): RoomDatabase.Builder<AppDatabase> =
+        allowMainThreadQueries().setQueryCoroutineContext(databaseDispatcher)
+
+    /**
+     * Lets all pending work finish. Background-scope repository jobs only run through
+     * [runCurrent], while [advanceUntilIdle] drains foreground work scheduled for later.
+     */
+    protected fun TestScope.finishPendingWork() {
+        advanceUntilIdle()
+        runCurrent()
     }
 
     @After

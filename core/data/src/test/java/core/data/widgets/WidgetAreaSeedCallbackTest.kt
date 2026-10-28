@@ -2,41 +2,28 @@ package core.data.widgets
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import core.data.room.AppDatabase
 import core.data.room.dao.WidgetAreaDao
-import core.data.testing.TEST_SDK
+import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createAppWidgetHostMock
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [TEST_SDK])
-class WidgetAreaSeedCallbackTest {
+class WidgetAreaSeedCallbackTest : InMemoryDatabaseTest() {
+    override fun createDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> =
+        super.createDatabaseBuilder().addCallback(WidgetAreaSeedCallback())
+
     @Test
-    fun `fresh database seeds one place with a Header`() = runTest {
-        val database: AppDatabase = Room.inMemoryDatabaseBuilder(
-            RuntimeEnvironment.getApplication(),
-            AppDatabase::class.java
-        )
-            .addCallback(WidgetAreaSeedCallback())
-            .allowMainThreadQueries()
-            .build()
-        try {
-            assertSingleSeededHeader(database)
-        } finally {
-            database.close()
-        }
+    fun `fresh database seeds one place with a Header`() = databaseTest {
+        assertSingleSeededHeader(database)
     }
 
     @Test
-    fun `destructive migration seeds one place with a Header`() = runTest {
+    fun `destructive migration seeds one place with a Header`() = databaseTest {
         val inputContext: Context = RuntimeEnvironment.getApplication()
         val inputDatabaseName: String = "widget-area-destructive-migration.db"
         inputContext.deleteDatabase(inputDatabaseName)
@@ -44,15 +31,15 @@ class WidgetAreaSeedCallbackTest {
             legacyDatabase.version = 4
         }
 
-        val database: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
+        val actualDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
+            .configureForTest()
             .addCallback(WidgetAreaSeedCallback())
             .fallbackToDestructiveMigration(dropAllTables = false)
-            .allowMainThreadQueries()
             .build()
         try {
-            assertSingleSeededHeader(database)
+            assertSingleSeededHeader(actualDatabase)
         } finally {
-            database.close()
+            actualDatabase.close()
             inputContext.deleteDatabase(inputDatabaseName)
         }
     }

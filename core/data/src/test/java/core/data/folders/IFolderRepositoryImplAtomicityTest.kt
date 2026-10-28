@@ -43,8 +43,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -58,7 +56,7 @@ private val otherOwnerLaunchable: Launchable = createRailLaunchable(name = "Othe
 @OptIn(ExperimentalCoroutinesApi::class)
 class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     @Test
-    fun `create leaves no Folder when a Pop-up write fails`() = runTest {
+    fun `create leaves no Folder when a Pop-up write fails`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val mockPopupRepository: IPopupRepository = createPopupRepositoryMock().apply {
             coEvery { setItems(any(), any(), any()) } throws IllegalStateException("Pop-up write failed")
@@ -76,7 +74,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create rolls back the Folder and its items when the Favorite write fails`() = runTest {
+    fun `create rolls back the Folder and its items when the Favorite write fails`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
             launchables = listOf(inputItem, otherOwnerLaunchable),
@@ -100,7 +98,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create removes the Folder when the name write fails`() = runTest {
+    fun `create removes the Folder when the name write fails`() = databaseTest {
         val mockCustomizationDao: LaunchableCustomizationDao = spyk(database.getLaunchableCustomizationDao())
         coEvery { mockCustomizationDao.setName(any(), any()) } throws IllegalStateException("Name write failed")
         val repository: IFolderRepository = createFolderRepository(customizationDao = mockCustomizationDao)
@@ -113,7 +111,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create retries the Folder delete when its cleanup fails once`() = runTest {
+    fun `create retries the Folder delete when its cleanup fails once`() = databaseTest {
         val mockFolderDao: FolderDao = database.getFolderDao().failOnce(
             failure = IllegalStateException("Folder delete failed"),
             stub = { dao -> dao.delete(any()) },
@@ -129,7 +127,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create stores the Folder, its items and its Favorite together`() = runTest {
+    fun `create stores the Folder, its items and its Favorite together`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val expectedFolder: Folder = Folder(folderId = 1L, name = "Games")
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
@@ -154,7 +152,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete keeps the Folder when a Pop-up item write fails`() = runTest {
+    fun `delete keeps the Folder when a Pop-up item write fails`() = databaseTest {
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
         val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputFolder.key, position = FIRST_POSITION)
@@ -178,7 +176,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete keeps the Folder and its Pop-up rows when the owner delete fails`() = runTest {
+    fun `delete keeps the Folder and its Pop-up rows when the owner delete fails`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         val inputOwnedItem: PopupItemRecord = PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputItem.key, position = 0)
@@ -204,7 +202,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete rolls back the Folder, its Pop-up rows and name when releasing Widgets fails`() = runTest {
+    fun `delete rolls back the Folder, its Pop-up rows and name when releasing Widgets fails`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         val inputOwnedItem: PopupItemRecord = PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputItem.key, position = 0)
@@ -236,7 +234,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete releases no Widget ids when the transaction fails after the owner delete`() = runTest {
+    fun `delete releases no Widget ids when the transaction fails after the owner delete`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
@@ -273,7 +271,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete removes the Folder, its Pop-up rows, Place, name and Favorite`() = runTest {
+    fun `delete removes the Folder, its Pop-up rows, Place, name and Favorite`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         val inputOwnedItem: PopupItemRecord = PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputItem.key, position = 0)
@@ -304,7 +302,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete purges the Favorite when its removal fails after the Folder is gone`() = runTest {
+    fun `delete purges the Favorite when its removal fails after the Folder is gone`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         seedFolder(
@@ -332,10 +330,10 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
 
         repository.delete(inputFolder)
         launchableState.value = createLaunchableState(groups = emptyList())
-        runCurrent()
+        finishPendingWork()
 
         assertTrue(database.getFolderDao().observeAll().first().isEmpty())
-        assertTrue(database.getFavoriteDao().observeAll().first { records -> records.isEmpty() }.isEmpty())
+        assertTrue(favoriteRecords().isEmpty())
     }
 
     private suspend fun seedFolder(folder: Folder, items: List<PopupItemRecord>) {

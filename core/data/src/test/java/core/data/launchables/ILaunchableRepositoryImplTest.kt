@@ -29,8 +29,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,11 +38,14 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -61,7 +64,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
 
     @Test
-    fun `shares one upstream collection between every subscriber`() = runTest {
+    fun `shares one upstream collection between every subscriber`() = databaseTest {
         val inputApp: App = createApp()
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockAppRepository: IAppRepository = createAppRepository(inputAppState = inputAppState)
@@ -79,9 +82,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         backgroundScope.launch { repository.launchableState.collect() }
         backgroundScope.launch { repository.launchables.collect() }
         backgroundScope.launch { favoritesRepository.favorites.collect() }
-        val actualState: LaunchableState = repository.launchableState.first { it.isLoaded }
-        val actualMenuItems: List<Launchable> = repository.launchables.first { it.isNotEmpty() }
-        val actualFavorites: List<Launchable> = favoritesRepository.favorites.first { it.isNotEmpty() }
+        finishPendingWork()
+        val actualState: LaunchableState = repository.launchableState.first()
+        val actualMenuItems: List<Launchable> = repository.launchables.first()
+        val actualFavorites: List<Launchable> = favoritesRepository.favorites.first()
 
         assertEquals(1, inputAppState.subscriptionCount.value)
         coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
@@ -93,7 +97,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
+    fun `restarts a failed upstream with exponential backoff and recovers`() = databaseTest {
         val inputApp: App = createApp()
         val inputRenamedApp: App = createApp(name = RENAMED_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
@@ -110,7 +114,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             scope = backgroundScope
         )
         backgroundScope.launch { repository.launchableState.collect() }
-        repository.launchableState.first { it.isLoaded }
+        loadedState(repository)
         assertEquals(1, actualCollections)
         failureRequests.send(Unit)
         failureRequests.send(Unit)
@@ -134,44 +138,49 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
         advanceTimeBy(1)
         runCurrent()
-        val actualRecoveredName: String = repository.launchableState
-            .first { state -> state.launchables.filterIsInstance<App>().singleOrNull()?.defaultName == RENAMED_NAME }
-            .singleAppName()
+        val actualRecoveredName: String = repository.launchableState.value.singleAppName()
         assertEquals(RENAMED_NAME, actualRecoveredName)
         assertEquals(3, actualCollections)
     }
 
     @Test
-    fun `resolves Launchable State on the default dispatcher`() = runTest {
-        val actualThreadNames: MutableList<String> = mutableListOf()
-        val mockIconRepository: IIconRepository = createIconRepository(
-            inputIcon = Icon.ActivityIcon(inputComponentName),
-            inputThreadNames = actualThreadNames
-        )
+    fun `resolves Launchable State only when the injected dispatcher runs`() = databaseTest {
+        val inputDispatcher: TestDispatcher = StandardTestDispatcher(testScheduler)
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(createApp()))
+        val mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(createApp())),
+            mockAppRepository = createAppRepository(inputAppState = inputAppState),
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
-            mockIconRepository = mockIconRepository
+            mockIconRepository = mockIconRepository,
+            scope = CoroutineScope(inputDispatcher)
         )
+        val collection: Job = launch { repository.launchableState.collect { } }
+        try {
+            assertFalse(repository.launchableState.value.isLoaded)
+            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any()) }
 
-        repository.launchableState.first { it.isLoaded }
-
-        assertTrue(actualThreadNames.single().startsWith("DefaultDispatcher-worker"))
+            advanceUntilIdle()
+            assertEquals(1, inputAppState.subscriptionCount.value)
+            assertTrue(repository.launchableState.value.isLoaded)
+            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
+        } finally {
+            collection.cancel()
+        }
     }
 
     @Test
-    fun `keeps the Star and Builtin groups when there are no Apps`() = runTest {
+    fun `keeps the Star and Builtin groups when there are no Apps`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
 
-        val actualLabels: List<String> = repository.launchableState.first { it.isLoaded }.groups.map { group -> group.label }
+        val actualLabels: List<String> = loadedState(repository).groups.map { group -> group.label }
 
         assertEquals(listOf("★", "⌂"), actualLabels)
     }
 
     @Test
-    fun `resolves Builtin Launchables alongside Apps`() = runTest {
+    fun `resolves Builtin Launchables alongside Apps`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
-        val actualState: LaunchableState = repository.launchableState.first { it.isLoaded }
+        val actualState: LaunchableState = loadedState(repository)
         val actualBuiltinItems: List<Launchable> = actualState.groups
             .filterIsInstance<LaunchableGroup.Builtin>()
             .flatMap { group -> group.items }
@@ -181,7 +190,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves a renamed App into a new instance and leaves the original unchanged`() = runTest {
+    fun `resolves a renamed App into a new instance and leaves the original unchanged`() = databaseTest {
         val inputApp: App = createApp()
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
             customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
@@ -191,7 +200,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             mockPreferencesRepository = mockPreferencesRepository
         )
 
-        val actualApp: App = repository.launchableState.first { it.isLoaded }.launchables.filterIsInstance<App>().single()
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
 
         assertNotSame(inputApp, actualApp)
         assertEquals(RENAMED_NAME, actualApp.name)
@@ -200,7 +209,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = runTest {
+    fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = databaseTest {
         val inputApp: App = createApp()
         val expectedIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
@@ -215,7 +224,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             mockIconRepository = createIconRepository(inputIcon = expectedIcon)
         )
 
-        val actualApp: App = repository.launchableState.first { it.isLoaded }.launchables.filterIsInstance<App>().single()
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
 
         assertNotSame(inputApp, actualApp)
         assertEquals(expectedIcon, actualApp.icon)
@@ -223,7 +232,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `Folders appear in the group for their resolved names`() = runTest {
+    fun `Folders appear in the group for their resolved names`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
@@ -234,7 +243,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             folderDao = folderDao
         )
 
-        val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualState: LaunchableState = loadedState(repository)
         val actualFolder: Folder = actualState.launchables.filterIsInstance<Folder>().single()
         val actualGroup: LaunchableGroup.InitialGroup = actualState.listedGroups
             .filterIsInstance<LaunchableGroup.InitialGroup>()
@@ -246,7 +255,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `groups Folders alongside Apps by their first character`() = runTest {
+    fun `groups Folders alongside Apps by their first character`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
@@ -254,7 +263,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             folderDao = folderDao
         )
 
-        val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualState: LaunchableState = loadedState(repository)
         val actualFolder: Folder = actualState.launchables.filterIsInstance<Folder>().single()
         val actualFolderGroup: LaunchableGroup.InitialGroup = actualState.listedGroups
             .filterIsInstance<LaunchableGroup.InitialGroup>()
@@ -265,7 +274,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `hides Folder members from the App List but keeps them launchable`() = runTest {
+    fun `hides Folder members from the App List but keeps them launchable`() = databaseTest {
         val inputApp: App = createApp()
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
@@ -278,7 +287,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             popupDao = popupDao
         )
 
-        val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualState: LaunchableState = loadedState(repository)
 
         assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
         assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
@@ -286,7 +295,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `updates the App List when Folder membership changes`() = runTest {
+    fun `updates the App List when Folder membership changes`() = databaseTest {
         val inputApp: App = createApp()
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
@@ -297,42 +306,34 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             folderDao = folderDao,
             popupDao = popupDao
         )
-        val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualBefore: LaunchableState = loadedState(repository)
         assertTrue(actualBefore.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
 
         popupDao.appendItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
-        val actualHidden: LaunchableState = repository.launchableState.first { state ->
-            state.listedGroups.none { group -> group.items.any { item -> item.key == inputApp.key } }
-        }
+        val actualHidden: LaunchableState = loadedState(repository)
 
         assertTrue(actualHidden.launchables.any { launchable -> launchable.key == inputApp.key })
 
         popupDao.removeItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
-        val actualShown: LaunchableState = repository.launchableState.first { state ->
-            state.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } }
-        }
+        val actualShown: LaunchableState = loadedState(repository)
 
         assertTrue(actualShown.launchables.any { launchable -> launchable.key == inputApp.key })
     }
 
     @Test
-    fun `adds and removes a Folder from the App List and Rail live`() = runTest {
+    fun `adds and removes a Folder from the App List and Rail live`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(),
             folderDao = folderDao
         )
-        val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
+        val actualBefore: LaunchableState = loadedState(repository)
 
         val folderId: Long = folderDao.insert(record = FolderRecord())
-        val actualAdded: LaunchableState = repository.launchableState.first { state ->
-            state.listedGroups.any { group -> group.items.any { item -> item is Folder && item.folderId == folderId } }
-        }
+        val actualAdded: LaunchableState = loadedState(repository)
 
         folderDao.delete(id = folderId)
-        val actualRemoved: LaunchableState = repository.launchableState.first { state ->
-            state.listedGroups.none { group -> group.items.any { item -> item is Folder } }
-        }
+        val actualRemoved: LaunchableState = loadedState(repository)
 
         assertEquals(listOf("★", "⌂"), actualBefore.groups.map { group -> group.label })
         assertEquals(listOf("★", "F", "⌂"), actualAdded.groups.map { group -> group.label })
@@ -340,12 +341,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `groups an app named with the Builtin label apart from Builtin`() = runTest {
+    fun `groups an app named with the Builtin label apart from Builtin`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepository(inputApps = listOf(createApp(name = "⌂ Game")))
         )
 
-        val actualGroups: List<LaunchableGroup.Listed> = repository.launchableState.first { state -> state.isLoaded }.listedGroups
+        val actualGroups: List<LaunchableGroup.Listed> = loadedState(repository).listedGroups
         val actualKeys: List<String> = actualGroups.map { group -> group.appListKey() }
 
         assertEquals(listOf("⌂", "⌂"), actualGroups.map { group -> group.label })
@@ -353,7 +354,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `icon packs never replace Folder icons`() = runTest {
+    fun `icon packs never replace Folder icons`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
@@ -362,7 +363,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             folderDao = folderDao
         )
 
-        val actualFolder: Folder = repository.launchableState.first { state -> state.isLoaded }
+        val actualFolder: Folder = loadedState(repository)
             .launchables.filterIsInstance<Folder>().single()
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
@@ -375,14 +376,22 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         every { apps } returns inputAppState
     }
 
-    private fun createIconRepository(inputIcon: Icon, inputThreadNames: MutableList<String> = mutableListOf()): IIconRepository =
-        mockk<IIconRepository>().apply {
-            every { iconPacks } returns MutableStateFlow(setOf(IconPack.SystemIconPack))
-            coEvery { getIcon(any(), any()) } coAnswers {
-                inputThreadNames += Thread.currentThread().name
-                inputIcon
-            }
+    private fun createIconRepository(inputIcon: Icon): IIconRepository = mockk<IIconRepository>().apply {
+        every { iconPacks } returns MutableStateFlow(setOf(IconPack.SystemIconPack))
+        coEvery { getIcon(any(), any()) } returns inputIcon
+    }
+
+    private suspend fun TestScope.loadedState(repository: ILaunchableRepository): LaunchableState {
+        val collection: Job = backgroundScope.launch { repository.launchableState.collect { } }
+        try {
+            finishPendingWork()
+            val actualState: LaunchableState = repository.launchableState.first()
+            assertTrue(actualState.isLoaded)
+            return actualState
+        } finally {
+            collection.cancel()
         }
+    }
 
     private fun TestScope.createRepository(
         mockAppRepository: IAppRepository,
@@ -390,7 +399,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName)),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
-        scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
+        scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
         iconRepository = mockIconRepository,
