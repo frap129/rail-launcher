@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
-import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
@@ -20,26 +19,24 @@ import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
-import core.data.testing.FIRST_POSITION
-import core.data.testing.FakeFavoriteDao
-import core.data.testing.FakeFolderDao
-import core.data.testing.FakePopupDao
 import core.data.testing.FakePreferencesRepository
-import core.data.testing.TEST_SDK
+import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createFavoritesRepository
-import java.util.Collections
-import java.util.concurrent.atomic.AtomicInteger
+import core.data.testing.failOnRequest
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -49,9 +46,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
@@ -62,38 +56,35 @@ private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
-@RunWith(RobolectricTestRunner::class)
-@Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class ILaunchableRepositoryImplTest {
+@OptIn(ExperimentalCoroutinesApi::class)
+class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
 
     @Test
     fun `shares one upstream collection between every subscriber`() = runTest {
         val inputApp: App = createApp()
-        val mockAppRepository: FakeAppRepository = FakeAppRepository(inputApps = listOf(inputApp))
-        val mockIconRepository: FakeIconRepository = FakeIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
+        val mockAppRepository: IAppRepository = createAppRepository(inputAppState = inputAppState)
+        val mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
             mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             mockIconRepository = mockIconRepository
         )
-        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(FavoriteRecord(key = inputApp.key, position = FIRST_POSITION))
-        )
+        database.getFavoriteDao().add(inputApp.key)
         val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
-            favoriteDao = mockFavoriteDao,
+            favoriteDao = database.getFavoriteDao(),
             launchableRepository = repository
         )
-        val actualStateDeferred: Deferred<LaunchableState> = async { repository.launchableState.first { it.isLoaded } }
-        // The item menu reads the same launchables flow.
-        val actualMenuItemsDeferred: Deferred<List<Launchable>> = async { repository.launchables.first { it.isNotEmpty() } }
-        val actualFavoritesDeferred: Deferred<List<Launchable>> = async { favoritesRepository.favorites.first { it.isNotEmpty() } }
-        val actualState: LaunchableState = actualStateDeferred.await()
-        val actualMenuItems: List<Launchable> = actualMenuItemsDeferred.await()
-        val actualFavorites: List<Launchable> = actualFavoritesDeferred.await()
+        backgroundScope.launch { repository.launchableState.collect() }
+        backgroundScope.launch { repository.launchables.collect() }
+        backgroundScope.launch { favoritesRepository.favorites.collect() }
+        val actualState: LaunchableState = repository.launchableState.first { it.isLoaded }
+        val actualMenuItems: List<Launchable> = repository.launchables.first { it.isNotEmpty() }
+        val actualFavorites: List<Launchable> = favoritesRepository.favorites.first { it.isNotEmpty() }
 
-        assertEquals(1, mockAppRepository.collections)
-        assertEquals(1, mockIconRepository.iconRequests)
+        assertEquals(1, inputAppState.subscriptionCount.value)
+        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
         assertTrue(actualState.isLoaded)
         assertEquals(listOf("O", "⌂"), actualState.listedGroups.map { group -> group.label })
         assertTrue(actualMenuItems.isNotEmpty())
@@ -105,51 +96,72 @@ class ILaunchableRepositoryImplTest {
     fun `restarts a failed upstream with exponential backoff and recovers`() = runTest {
         val inputApp: App = createApp()
         val inputRenamedApp: App = createApp(name = RENAMED_NAME)
-        val mockAppRepository: FakeAppRepository = FakeAppRepository(inputApps = listOf(inputApp))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
+        val mockFolderDao: FolderDao = mockk()
+        val failureRequests: Channel<Unit> = Channel(Channel.UNLIMITED)
+        val actualFailureDelivered: CompletableDeferred<Unit> = CompletableDeferred()
+        var actualCollections: Int = 0
+        every { mockFolderDao.observeAll() } returns database.getFolderDao().observeAll()
+            .onStart { actualCollections++ }
+            .failOnRequest(failureRequests = failureRequests, onFailure = { actualFailureDelivered.complete(Unit) })
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = mockAppRepository,
+            mockAppRepository = createAppRepository(inputAppState = inputAppState),
+            folderDao = mockFolderDao,
             scope = backgroundScope
         )
         backgroundScope.launch { repository.launchableState.collect() }
+        repository.launchableState.first { it.isLoaded }
+        assertEquals(1, actualCollections)
+        failureRequests.send(Unit)
+        failureRequests.send(Unit)
+        actualFailureDelivered.await()
         runCurrent()
-        assertTrue(repository.launchableState.value.isLoaded)
-        mockAppRepository.failNextCollections(count = 2)
-        mockAppRepository.setApps(listOf(inputRenamedApp))
+        inputAppState.value = listOf(inputRenamedApp)
         runCurrent()
-        assertEquals(1, mockAppRepository.collections)
+        assertEquals(1, actualCollections)
         assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
         advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
         runCurrent()
-        assertEquals(1, mockAppRepository.collections)
+        assertEquals(1, actualCollections)
         assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
         advanceTimeBy(1)
         runCurrent()
-        assertEquals(2, mockAppRepository.collections)
+        assertEquals(2, actualCollections)
         assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
         advanceTimeBy(2 * INITIAL_RETRY_DELAY_MS - 1)
         runCurrent()
-        assertEquals(2, mockAppRepository.collections)
+        assertEquals(2, actualCollections)
         assertEquals(ORIGINAL_NAME, repository.launchableState.value.singleAppName())
         advanceTimeBy(1)
         runCurrent()
-        assertEquals(3, mockAppRepository.collections)
-        assertEquals(RENAMED_NAME, repository.launchableState.value.singleAppName())
+        val actualRecoveredName: String = repository.launchableState
+            .first { state -> state.launchables.filterIsInstance<App>().singleOrNull()?.defaultName == RENAMED_NAME }
+            .singleAppName()
+        assertEquals(RENAMED_NAME, actualRecoveredName)
+        assertEquals(3, actualCollections)
     }
 
     @Test
     fun `resolves Launchable State on the default dispatcher`() = runTest {
-        val mockAppRepository: FakeAppRepository = FakeAppRepository(inputApps = emptyList())
-        val repository: ILaunchableRepository = createRepository(mockAppRepository = mockAppRepository)
+        val actualThreadNames: MutableList<String> = mutableListOf()
+        val mockIconRepository: IIconRepository = createIconRepository(
+            inputIcon = Icon.ActivityIcon(inputComponentName),
+            inputThreadNames = actualThreadNames
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepository(inputApps = listOf(createApp())),
+            mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockIconRepository = mockIconRepository
+        )
 
         repository.launchableState.first { it.isLoaded }
 
-        val actualThreadName: String = mockAppRepository.collectionThreadNames.single()
-        assertTrue(actualThreadName.startsWith("DefaultDispatcher-worker"))
+        assertTrue(actualThreadNames.single().startsWith("DefaultDispatcher-worker"))
     }
 
     @Test
     fun `keeps the Star and Builtin groups when there are no Apps`() = runTest {
-        val repository: ILaunchableRepository = createRepository(mockAppRepository = FakeAppRepository(inputApps = emptyList()))
+        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
 
         val actualLabels: List<String> = repository.launchableState.first { it.isLoaded }.groups.map { group -> group.label }
 
@@ -158,7 +170,7 @@ class ILaunchableRepositoryImplTest {
 
     @Test
     fun `resolves Builtin Launchables alongside Apps`() = runTest {
-        val repository: ILaunchableRepository = createRepository(mockAppRepository = FakeAppRepository(inputApps = emptyList()))
+        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
         val actualState: LaunchableState = repository.launchableState.first { it.isLoaded }
         val actualBuiltinItems: List<Launchable> = actualState.groups
             .filterIsInstance<LaunchableGroup.Builtin>()
@@ -175,7 +187,7 @@ class ILaunchableRepositoryImplTest {
             inputCustomizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
         )
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
             mockPreferencesRepository = mockPreferencesRepository
         )
 
@@ -196,11 +208,11 @@ class ILaunchableRepositoryImplTest {
             resId = ICON_PACK_RES_ID
         )
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
             mockPreferencesRepository = FakePreferencesRepository(
                 inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
             ),
-            mockIconRepository = FakeIconRepository(inputIcon = expectedIcon)
+            mockIconRepository = createIconRepository(inputIcon = expectedIcon)
         )
 
         val actualApp: App = repository.launchableState.first { it.isLoaded }.launchables.filterIsInstance<App>().single()
@@ -210,40 +222,16 @@ class ILaunchableRepositoryImplTest {
         assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
     }
 
-    private fun TestScope.createRepository(
-        mockAppRepository: IAppRepository,
-        mockPreferencesRepository: IPreferencesRepository = FakePreferencesRepository(),
-        mockIconRepository: IIconRepository = FakeIconRepository(
-            inputIcon = Icon.ActivityIcon(inputComponentName)
-        ),
-        mockFolderDao: FolderDao = FakeFolderDao(),
-        mockPopupDao: PopupDao = FakePopupDao(),
-        scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
-    ): ILaunchableRepository = ILaunchableRepositoryImpl(
-        appRepository = mockAppRepository,
-        iconRepository = mockIconRepository,
-        preferencesRepository = mockPreferencesRepository,
-        folderDao = mockFolderDao,
-        popupDao = mockPopupDao,
-        scope = scope
-    )
-
-    private fun createApp(name: String = ORIGINAL_NAME): App = App(
-        defaultName = name,
-        profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
-        componentName = inputComponentName
-    )
-
-    private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
-
     @Test
     fun `Folders appear in the group for their resolved names`() = runTest {
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = emptyList()),
+            mockAppRepository = createAppRepository(),
             mockPreferencesRepository = FakePreferencesRepository(
                 inputCustomizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, name = "Games"))
             ),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+            folderDao = folderDao
         )
 
         val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
@@ -259,9 +247,11 @@ class ILaunchableRepositoryImplTest {
 
     @Test
     fun `groups Folders alongside Apps by their first character`() = runTest {
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(createApp())),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+            mockAppRepository = createAppRepository(inputApps = listOf(createApp())),
+            folderDao = folderDao
         )
 
         val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
@@ -278,12 +268,14 @@ class ILaunchableRepositoryImplTest {
     fun `hides Folder members from the App List but keeps them launchable`() = runTest {
         val inputApp: App = createApp()
         val inputFolder: Folder = Folder(folderId = 1L)
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.key, position = 0)))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L))),
-            mockPopupDao = FakePopupDao(
-                initialItems = listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.key, position = 0))
-            )
+            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            folderDao = folderDao,
+            popupDao = popupDao
         )
 
         val actualState: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
@@ -297,23 +289,25 @@ class ILaunchableRepositoryImplTest {
     fun `updates the App List when Folder membership changes`() = runTest {
         val inputApp: App = createApp()
         val inputFolder: Folder = Folder(folderId = 1L)
-        val mockPopupDao: FakePopupDao = FakePopupDao()
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
+        val popupDao: PopupDao = database.getPopupDao()
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(inputApp)),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L))),
-            mockPopupDao = mockPopupDao
+            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            folderDao = folderDao,
+            popupDao = popupDao
         )
         val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
         assertTrue(actualBefore.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
 
-        mockPopupDao.appendItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
+        popupDao.appendItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
         val actualHidden: LaunchableState = repository.launchableState.first { state ->
             state.listedGroups.none { group -> group.items.any { item -> item.key == inputApp.key } }
         }
 
         assertTrue(actualHidden.launchables.any { launchable -> launchable.key == inputApp.key })
 
-        mockPopupDao.removeItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
+        popupDao.removeItems(ownerKey = inputFolder.key, itemKeys = listOf(inputApp.key))
         val actualShown: LaunchableState = repository.launchableState.first { state ->
             state.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } }
         }
@@ -323,19 +317,19 @@ class ILaunchableRepositoryImplTest {
 
     @Test
     fun `adds and removes a Folder from the App List and Rail live`() = runTest {
-        val mockFolderDao: FakeFolderDao = FakeFolderDao()
+        val folderDao: FolderDao = database.getFolderDao()
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = emptyList()),
-            mockFolderDao = mockFolderDao
+            mockAppRepository = createAppRepository(),
+            folderDao = folderDao
         )
         val actualBefore: LaunchableState = repository.launchableState.first { state -> state.isLoaded }
 
-        val folderId: Long = mockFolderDao.insert(record = FolderRecord())
+        val folderId: Long = folderDao.insert(record = FolderRecord())
         val actualAdded: LaunchableState = repository.launchableState.first { state ->
             state.listedGroups.any { group -> group.items.any { item -> item is Folder && item.folderId == folderId } }
         }
 
-        mockFolderDao.delete(id = folderId)
+        folderDao.delete(id = folderId)
         val actualRemoved: LaunchableState = repository.launchableState.first { state ->
             state.listedGroups.none { group -> group.items.any { item -> item is Folder } }
         }
@@ -348,7 +342,7 @@ class ILaunchableRepositoryImplTest {
     @Test
     fun `groups an app named with the Builtin label apart from Builtin`() = runTest {
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = listOf(createApp(name = "⌂ Game")))
+            mockAppRepository = createAppRepository(inputApps = listOf(createApp(name = "⌂ Game")))
         )
 
         val actualGroups: List<LaunchableGroup.Listed> = repository.launchableState.first { state -> state.isLoaded }.listedGroups
@@ -360,10 +354,12 @@ class ILaunchableRepositoryImplTest {
 
     @Test
     fun `icon packs never replace Folder icons`() = runTest {
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = FakeAppRepository(inputApps = emptyList()),
+            mockAppRepository = createAppRepository(),
             mockPreferencesRepository = FakePreferencesRepository(inputSettings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
-            mockFolderDao = FakeFolderDao(initialRecords = listOf(FolderRecord(id = 1L)))
+            folderDao = folderDao
         )
 
         val actualFolder: Folder = repository.launchableState.first { state -> state.isLoaded }
@@ -371,46 +367,44 @@ class ILaunchableRepositoryImplTest {
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
     }
-}
 
-@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-private class FakeAppRepository(inputApps: List<App>) : IAppRepository {
-    private val state: MutableStateFlow<List<App>?> = MutableStateFlow(inputApps)
-    private val collectionCounter: AtomicInteger = AtomicInteger(0)
-    private val remainingFailures: AtomicInteger = AtomicInteger(0)
-    private val recordedThreadNames: MutableList<String> = Collections.synchronizedList(mutableListOf())
-    override val apps: StateFlow<List<App>?> = object : StateFlow<List<App>?> by state {
-        override suspend fun collect(collector: FlowCollector<List<App>?>): Nothing {
-            collectionCounter.incrementAndGet()
-            recordedThreadNames.add(Thread.currentThread().name)
-            return state.collect { apps ->
-                if (remainingFailures.getAndUpdate { count -> if (count > 0) count - 1 else 0 } > 0) {
-                    throw IllegalStateException("Apps upstream failure")
-                }
-                collector.emit(apps)
+    private fun createAppRepository(inputApps: List<App> = emptyList()): IAppRepository =
+        createAppRepository(inputAppState = MutableStateFlow(inputApps))
+
+    private fun createAppRepository(inputAppState: StateFlow<List<App>?>): IAppRepository = mockk<IAppRepository>().apply {
+        every { apps } returns inputAppState
+    }
+
+    private fun createIconRepository(inputIcon: Icon, inputThreadNames: MutableList<String> = mutableListOf()): IIconRepository =
+        mockk<IIconRepository>().apply {
+            every { iconPacks } returns MutableStateFlow(setOf(IconPack.SystemIconPack))
+            coEvery { getIcon(any(), any()) } coAnswers {
+                inputThreadNames += Thread.currentThread().name
+                inputIcon
             }
         }
-    }
 
-    val collections: Int get() = collectionCounter.get()
-    val collectionThreadNames: List<String> get() = recordedThreadNames.toList()
+    private fun TestScope.createRepository(
+        mockAppRepository: IAppRepository,
+        mockPreferencesRepository: IPreferencesRepository = FakePreferencesRepository(),
+        mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName)),
+        folderDao: FolderDao = database.getFolderDao(),
+        popupDao: PopupDao = database.getPopupDao(),
+        scope: CoroutineScope = CoroutineScope(backgroundScope.coroutineContext + Dispatchers.Default)
+    ): ILaunchableRepository = ILaunchableRepositoryImpl(
+        appRepository = mockAppRepository,
+        iconRepository = mockIconRepository,
+        preferencesRepository = mockPreferencesRepository,
+        folderDao = folderDao,
+        popupDao = popupDao,
+        scope = scope
+    )
 
-    fun failNextCollections(count: Int) {
-        remainingFailures.set(count)
-    }
+    private fun createApp(name: String = ORIGINAL_NAME): App = App(
+        defaultName = name,
+        profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
+        componentName = inputComponentName
+    )
 
-    fun setApps(apps: List<App>) {
-        state.value = apps
-    }
-}
-
-private class FakeIconRepository(private val inputIcon: Icon) : IIconRepository {
-    private val iconRequestCounter: AtomicInteger = AtomicInteger(0)
-    override val iconPacks: StateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
-    val iconRequests: Int get() = iconRequestCounter.get()
-
-    override suspend fun getIcon(packPackageName: String, componentName: ComponentName): Icon {
-        iconRequestCounter.incrementAndGet()
-        return inputIcon
-    }
+    private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
 }
