@@ -14,6 +14,7 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.ProfileKind
+import core.data.profiles.ProfileToken
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
@@ -107,8 +108,8 @@ abstract class PopupTestBase {
     protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
 
-    protected fun setLaunchableGroups(groups: List<LaunchableGroup>) {
-        launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder))
+    protected fun setLaunchableGroups(groups: List<LaunchableGroup>, keptKeys: Set<ProfileToken> = emptySet()) {
+        launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder), keptKeys = keptKeys)
     }
 
     protected fun setFolders(inputFolders: List<Folder>) {

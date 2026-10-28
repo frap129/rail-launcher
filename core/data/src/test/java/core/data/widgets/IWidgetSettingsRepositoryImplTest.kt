@@ -8,10 +8,15 @@ import core.data.prefs.BatteryVisibility
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
+import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.room.dao.HeaderSettingsDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
+import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import io.mockk.coVerify
 import io.mockk.spyk
@@ -312,6 +317,28 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(inputKeptSetting, actualSettings.dateTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
         assertEquals(inputKeptSetting, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
+    }
+
+    @Test
+    fun `keeps a Locked Profile's tap target until the Profile is removed`() = databaseTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp = createApp(name = "Secret", packageName = "com.example.secret", profileInfo = inputPrivateProfile)
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputPrivateApp.key)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(groups = emptyList(), keptKeys = setOf(inputPrivateProfile.user.toProfileToken()))
+        )
+        val repository: IWidgetSettingsRepository = createRepository(
+            headerSettings = HeaderSettings(timeTapTarget = inputSetting),
+            mockLaunchables = createLaunchableRepositoryMock(launchableState)
+        )
+
+        assertEquals(inputSetting, repository.headerSettings.first().timeTapTarget)
+        assertEquals(inputSetting, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
+
+        launchableState.value = createLaunchableState(groups = emptyList())
+
+        assertNull(repository.headerSettings.first().timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
     }
 
     @Test

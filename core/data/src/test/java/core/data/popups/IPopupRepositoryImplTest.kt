@@ -1,13 +1,18 @@
 package core.data.popups
 
-import android.content.ComponentName
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
+import core.data.profiles.ProfileToken
+import core.data.profiles.toProfileToken
 import core.data.room.TransactionEffects
 import core.data.room.dao.PopupDao
 import core.data.shortcuts.IShortcutSource
@@ -16,9 +21,12 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutResolution
 import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.PRIVATE_PACKAGE_NAME
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PinCall
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.awaitPin
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -91,6 +99,191 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         finishPendingWork()
         assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(GONE_OWNER_KEY).first())
         assertEquals(listOf(FIRST_SHORTCUT_ID), popupDao.observeHiddenShortcuts(inputOwner.key).first())
+    }
+
+    @Test
+    fun `keeps the items and hidden shortcuts of a Locked Profile until it is removed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputOtherApp: App = createApp()
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = 0),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputOtherApp.key, position = 1)
+            )
+        )
+        popupDao.insertHiddenShortcut(ownerKey = inputPrivateApp.key, shortcutId = FIRST_SHORTCUT_ID)
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        fun state(items: List<Launchable>, keptKeys: Set<ProfileToken> = emptySet()): LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = items)),
+            folders = listOf(inputFolder),
+            keptKeys = keptKeys
+        )
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            state(items = listOf(inputOtherApp), keptKeys = inputKeptKeys)
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        assertItems(repository = repository, ownerKey = inputFolder.key, expected = listOf(inputOtherApp).asPopupItems())
+        assertEquals(listOf(FIRST_SHORTCUT_ID), popupDao.observeHiddenShortcuts(inputPrivateApp.key).first())
+        assertEquals(2, allItems().size)
+
+        launchableState.value = state(items = listOf(inputPrivateApp, inputOtherApp))
+
+        assertItems(
+            repository = repository,
+            ownerKey = inputFolder.key,
+            expected = listOf(inputPrivateApp, inputOtherApp).asPopupItems()
+        )
+
+        launchableState.value = state(items = listOf(inputOtherApp), keptKeys = inputKeptKeys)
+
+        assertItems(repository = repository, ownerKey = inputFolder.key, expected = listOf(inputOtherApp).asPopupItems())
+
+        launchableState.value = state(items = listOf(inputOtherApp))
+
+        assertItems(repository = repository, ownerKey = inputFolder.key, expected = listOf(inputOtherApp).asPopupItems())
+        assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(inputPrivateApp.key).first())
+        assertEquals(listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputOtherApp.key, position = 1)), allItems())
+    }
+
+    @Test
+    fun `leaves a Locked Profile's shortcut pins alone until it is removed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputOwner: App = createApp()
+        val inputPrivateShortcut: ShortcutKey = ShortcutKey(
+            packageName = PRIVATE_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputPrivateProfile.user
+        )
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputPrivateShortcut.format(), position = 0)))
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        finishPendingWork()
+
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+        assertEquals(1, allItems().size)
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner))
+
+        finishPendingWork()
+        assertEquals(
+            listOf(PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = emptySet())),
+            pinCalls.value
+        )
+        assertTrue(allItems().isEmpty())
+    }
+
+    @Test
+    fun `reorders Folder members around kept ones while Locked`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = 0),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputFirst.key, position = 1),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputSecond.key, position = 2)
+            )
+        )
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "F", items = listOf(inputFirst, inputSecond))),
+                folders = listOf(inputFolder),
+                keptKeys = inputKeptKeys
+            )
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        repository.setItemOrder(ownerKey = inputFolder.key, orderedItemKeys = listOf(inputSecond.key, inputFirst.key))
+
+        assertEquals(
+            listOf(
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = 0),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputSecond.key, position = 1),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputFirst.key, position = 2)
+            ),
+            allItems()
+        )
+
+        launchableState.value = createLaunchableState(
+            groups = listOf(
+                LaunchableGroup.InitialGroup(label = "F", items = listOf(inputFirst, inputSecond)),
+                LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+            ),
+            folders = listOf(inputFolder)
+        )
+
+        assertItems(
+            repository = repository,
+            ownerKey = inputFolder.key,
+            expected = listOf(inputPrivateApp, inputSecond, inputFirst).asPopupItems()
+        )
+    }
+
+    @Test
+    fun `reapplies a Locked Profile's pins when it becomes Unlocked`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputOwner: App = createApp()
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputPrivateShortcut: ShortcutKey = ShortcutKey(
+            packageName = PRIVATE_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputPrivateProfile.user
+        )
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputPrivateShortcut.format(), position = 0)))
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        finishPendingWork()
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner, inputPrivateApp))
+
+        pinCalls.awaitPin(
+            PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = setOf(FIRST_SHORTCUT_ID))
+        )
     }
 
     @Test
@@ -882,12 +1075,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 }
 
 private fun List<Launchable>.asPopupItems(): List<PopupItem> = map { launchable -> PopupItem.Launchable(launchable) }
-
-private fun createApp(name: String = "App", packageName: String = APP_PACKAGE_NAME): App = App(
-    defaultName = name,
-    profileInfo = createProfileInfo(userId = TEST_USER_ID),
-    componentName = ComponentName(packageName, "$packageName.MainActivity")
-)
 
 private fun createShortcut(id: String, isEnabled: Boolean = true): ShortcutLaunchable = ShortcutLaunchable(
     packageName = APP_PACKAGE_NAME,

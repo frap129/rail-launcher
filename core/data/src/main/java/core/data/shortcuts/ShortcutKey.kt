@@ -21,6 +21,9 @@ data class ShortcutKey(val packageName: String, val id: String, val profile: Use
         /** Whether [key] is stored as a Shortcut key, even when it is malformed. */
         fun hasPrefix(key: String): Boolean = key.startsWith(KEY_PREFIX)
 
+        /** Whether [value] has the stored `UserHandle{id}` Profile token shape. */
+        internal fun isProfileToken(value: String): Boolean = profileUserId(value) != null
+
         /** Reads a [format]ted key, or null when [key] is malformed. */
         fun parse(key: String): ShortcutKey? {
             if (!key.startsWith(KEY_PREFIX)) {
@@ -42,6 +45,10 @@ data class ShortcutKey(val packageName: String, val id: String, val profile: Use
             URLDecoder.decode(encodedId, StandardCharsets.UTF_8.name())
         }.getOrNull()
         private fun parseProfile(value: String): UserHandle? {
+            val userId: Int = profileUserId(value) ?: return null
+            return UserHandle.getUserHandleForUid(userId * USER_ID_OFFSET)
+        }
+        private fun profileUserId(value: String): Int? {
             if (!value.startsWith(USER_HANDLE_PREFIX) || !value.endsWith(USER_HANDLE_SUFFIX)) {
                 return null
             }
@@ -49,8 +56,7 @@ data class ShortcutKey(val packageName: String, val id: String, val profile: Use
             if (digits.isEmpty() || !digits.all { character -> character in '0'..'9' }) {
                 return null
             }
-            val userId: Int = digits.toIntOrNull() ?: return null
-            return UserHandle.getUserHandleForUid(userId * USER_ID_OFFSET)
+            return digits.toIntOrNull()
         }
     }
 }

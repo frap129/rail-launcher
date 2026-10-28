@@ -1,7 +1,11 @@
 package core.data.favorites
 
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
+import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
+import core.data.launchables.staleKeys
+import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
 import core.data.runCleanup
@@ -36,14 +40,17 @@ private val UNLOADED_RESOLUTION: FavoriteResolution = FavoriteResolution(
     isLoaded = false
 )
 
-class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableRepository: ILaunchableRepository, scope: CoroutineScope) :
-    IFavoritesRepository {
+class IFavoritesRepositoryImpl(
+    private val favoriteDao: FavoriteDao,
+    private val launchableRepository: ILaunchableRepository,
+    scope: CoroutineScope
+) : IFavoritesRepository {
     private val resolution: StateFlow<FavoriteResolution> = combine(
         favoriteDao.observeAll(),
         launchableRepository.launchableState
     ) { records, state ->
         if (state.isLoaded) {
-            resolveFavorites(records, state.launchables)
+            resolveFavorites(records, state)
         } else {
             UNLOADED_RESOLUTION
         }
@@ -77,7 +84,16 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
     }
 
     override suspend fun reorder(favorites: List<Launchable>) {
-        favoriteDao.update(favorites.mapIndexed { index, launchable -> FavoriteRecord(key = launchable.key, position = index) })
+        val state: LaunchableState = launchableRepository.launchableState.value
+        val records: List<FavoriteRecord> = favoriteDao.observeAll()
+            .first()
+            .sortedBy { record -> record.position }
+        val reordered: List<FavoriteRecord> = records.reorderedPinned(
+            orderedKeys = favorites.map { favorite -> favorite.key },
+            keyOf = { record -> record.key },
+            isPinned = { record -> state.isKeptKey(record.key) }
+        )
+        favoriteDao.update(reordered.mapIndexed { index, record -> record.copy(position = index) })
     }
 
     // Writes reach the shared resolution asynchronously; wait briefly so a following
@@ -100,10 +116,10 @@ class IFavoritesRepositoryImpl(private val favoriteDao: FavoriteDao, launchableR
     }
 }
 
-private fun resolveFavorites(records: List<FavoriteRecord>, launchables: List<Launchable>): FavoriteResolution {
-    val launchablesByKey: Map<String, Launchable> = launchables.associateBy { it.key }
+private fun resolveFavorites(records: List<FavoriteRecord>, state: LaunchableState): FavoriteResolution {
+    val launchablesByKey: Map<String, Launchable> = state.launchables.associateBy { it.key }
     val favorites: List<Launchable> = records.sortedBy { it.position }.mapNotNull { record -> launchablesByKey[record.key] }
-    val staleKeys: List<String> = records.filterNot { record -> record.key in launchablesByKey }.map { record -> record.key }
+    val staleKeys: List<String> = state.staleKeys(records.map { record -> record.key })
     return FavoriteResolution(
         favorites = favorites,
         staleKeys = staleKeys,

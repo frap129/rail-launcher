@@ -12,6 +12,10 @@ _Avoid_: App (when meaning any launchable), item, entry
 The personal, work or Private Space profile an App belongs to. Every App belongs to exactly one Profile.
 _Avoid_: User, space, account
 
+**Profile token**:
+The stored text form of a Profile's user handle, appended to a Launchable key and embedded in a Shortcut key.
+_Avoid_: User id, profile suffix
+
 **Work profile**:
 The managed Profile a device administrator controls, separate from the personal Profile.
 _Avoid_: Work user, work space, managed profile
@@ -25,8 +29,12 @@ The hidden Profile Android 15+ provides for Apps the user keeps private, unlocke
 _Avoid_: Private profile, vault, space
 
 **Locked**:
-A Private Space in quiet mode: Rail shows only its Private Space container row and no private Apps anywhere.
+A Private Space in quiet mode: Rail shows only its Private Space container row and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
 _Avoid_: Off, closed, disabled
+
+**Kept key**:
+The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees. Stale-key cleanup keeps it, and resolution hides it until the Profile is Unlocked or removed.
+_Avoid_: Retained key, stale key
 
 **private App**:
 An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.

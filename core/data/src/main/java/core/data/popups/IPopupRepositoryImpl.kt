@@ -4,7 +4,12 @@ import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
+import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
+import core.data.launchables.staleKeys
+import core.data.profiles.ProfileToken
+import core.data.profiles.toProfileToken
+import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.DatabaseTransaction
 import core.data.room.TransactionEffects
@@ -53,6 +58,7 @@ class IPopupRepositoryImpl(
     private val removeOwnerWidgets: IRemoveOwnerWidgets
 ) : IPopupRepository {
     private val itemMutex: Mutex = Mutex()
+    private val pendingPinTokens: MutableSet<ProfileToken> = mutableSetOf()
     private val removedWidgets: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(
         extraBufferCapacity = 32,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -67,10 +73,8 @@ class IPopupRepositoryImpl(
         widgetAreaRepository.popupOwnerKeys
     ) { hiddenOwnerKeys, itemRecords, state, widgetOwnerKeys ->
         if (state.isLoaded) {
-            val launchableKeys: Set<String> = state.launchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
-            (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey } + widgetOwnerKeys)
-                .distinct()
-                .filterNot { ownerKey -> ownerKey in launchableKeys }
+            val ownerKeys: List<String> = (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey } + widgetOwnerKeys).distinct()
+            state.staleKeys(ownerKeys)
         } else {
             emptyList()
         }
@@ -100,6 +104,41 @@ class IPopupRepositoryImpl(
         scope.launch {
             launchableRepository.launchableState.filter { state -> state.isLoaded }.first()
             withItemLock { reapplyAllPins() }
+        }
+        scope.launch {
+            var previousKeptKeys: Set<ProfileToken>? = null
+            launchableRepository.launchableState
+                .filter { state -> state.isLoaded }
+                .collect { state ->
+                    val previous: Set<ProfileToken>? = previousKeptKeys
+                    if (previous != null) {
+                        pendingPinTokens += previous - state.keptKeys
+                        reapplyUnlockedPins(state = state)
+                    }
+                    previousKeptKeys = state.keptKeys
+                }
+        }
+    }
+
+    /** Re-applies pins once a Profile that was Locked lists its Apps again. */
+    private suspend fun reapplyUnlockedPins(state: LaunchableState) {
+        pendingPinTokens -= state.keptKeys
+        val liveTokens: Set<ProfileToken> = state.launchables
+            .filterIsInstance<App>()
+            .mapTo(mutableSetOf()) { app -> app.profile.toProfileToken() }
+        val unlockedTokens: Set<ProfileToken> = pendingPinTokens.intersect(liveTokens)
+        if (unlockedTokens.isEmpty()) {
+            return
+        }
+        pendingPinTokens -= unlockedTokens
+        withItemLock { reapplyPinsForProfiles(tokens = unlockedTokens) }
+    }
+
+    private suspend fun reapplyPinsForProfiles(tokens: Set<ProfileToken>) {
+        val pins: Map<AppProfile, Set<String>> = pinSets(popupDao.getAllItems())
+            .filterKeys { pin -> pin.profile.toProfileToken() in tokens }
+        for ((pin: AppProfile, ids: Set<String>) in pins) {
+            shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = ids)
         }
     }
 
@@ -146,16 +185,12 @@ class IPopupRepositoryImpl(
         withItemLock {
             val records: List<PopupItemRecord> = popupDao.getItems(ownerKey)
                 .sortedBy { item -> item.position }
-            val recordsByKey: Map<String, PopupItemRecord> = records.associateBy { record -> record.itemKey }
-            val orderedRecords: List<PopupItemRecord> = orderedItemKeys.mapNotNull { key -> recordsByKey[key] }
-            if (orderedRecords.isEmpty()) {
-                return
-            }
-            val orderedKeys: Set<String> = orderedRecords.mapTo(mutableSetOf()) { record -> record.itemKey }
-            var nextIndex: Int = 0
-            val reordered: List<PopupItemRecord> = records.map { record ->
-                if (record.itemKey in orderedKeys) orderedRecords[nextIndex++] else record
-            }
+            val state: LaunchableState = launchableRepository.launchableState.value
+            val reordered: List<PopupItemRecord> = records.reorderedPinned(
+                orderedKeys = orderedItemKeys,
+                keyOf = { record -> record.itemKey },
+                isPinned = { record -> state.isKeptKey(record.itemKey) }
+            )
             if (reordered != records) {
                 popupDao.updatePositions(reordered.mapIndexed { index, record -> record.copy(position = index) })
             }
@@ -243,10 +278,18 @@ class IPopupRepositoryImpl(
     }
 
     private suspend fun reapplyAllPins() {
-        for ((pin: AppProfile, ids: Set<String>) in pinSets(popupDao.observeAllItems().first())) {
+        val state: LaunchableState = launchableRepository.launchableState.filter { current -> current.isLoaded }.first()
+        val livePins: Map<AppProfile, Set<String>> = pinSets(
+            popupDao.observeAllItems().first()
+        ).withoutKeptProfiles(keptKeys = state.keptKeys)
+        for ((pin: AppProfile, ids: Set<String>) in livePins) {
             shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = ids)
         }
     }
+
+    /** A Locked Profile's pins are left as they are until the Profile is removed. */
+    private fun Map<AppProfile, Set<String>>.withoutKeptProfiles(keptKeys: Set<ProfileToken>): Map<AppProfile, Set<String>> =
+        filterKeys { pin -> pin.profile.toProfileToken() !in keptKeys }
 }
 
 private fun pinsOf(itemKeys: Iterable<String>): Set<AppProfile> = itemKeys
@@ -269,6 +312,7 @@ private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState,
     val itemsByOwner: MutableMap<String, MutableList<PopupItem>> = mutableMapOf()
     val staleKeys: MutableList<String> = mutableListOf()
     val lookup: ItemLookup = ItemLookup(
+        state = state,
         launchablesByKey = launchablesByKey,
         installedApps = installedApps,
         resolution = resolution
@@ -277,7 +321,7 @@ private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState,
         when (val recordResolution: RecordResolution = resolveRecord(record = record, lookup = lookup)) {
             is RecordResolution.Resolved -> itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(recordResolution.item)
             RecordResolution.Stale -> staleKeys.add(record.itemKey)
-            RecordResolution.Unavailable -> Unit
+            RecordResolution.Kept, RecordResolution.Unavailable -> Unit
         }
     }
     return ItemResolution(
@@ -287,6 +331,7 @@ private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState,
 }
 
 private data class ItemLookup(
+    val state: LaunchableState,
     val launchablesByKey: Map<String, Launchable>,
     val installedApps: Set<AppProfile>,
     val resolution: ShortcutResolution
@@ -295,10 +340,14 @@ private data class ItemLookup(
 private sealed interface RecordResolution {
     data class Resolved(val item: PopupItem) : RecordResolution
     data object Stale : RecordResolution
+    data object Kept : RecordResolution
     data object Unavailable : RecordResolution
 }
 
 private fun resolveRecord(record: PopupItemRecord, lookup: ItemLookup): RecordResolution {
+    if (lookup.state.isKeptKey(record.itemKey)) {
+        return RecordResolution.Kept
+    }
     if (ShortcutKey.hasPrefix(record.itemKey)) {
         val key: ShortcutKey = ShortcutKey.parse(record.itemKey) ?: return RecordResolution.Stale
         if (AppProfile(packageName = key.packageName, profile = key.profile) !in lookup.installedApps) {

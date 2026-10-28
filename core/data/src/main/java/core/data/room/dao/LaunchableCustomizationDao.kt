@@ -18,4 +18,7 @@ interface LaunchableCustomizationDao {
 
     @Query("DELETE FROM launchable_customizations WHERE key = :key")
     suspend fun delete(key: String)
+
+    @Query("DELETE FROM launchable_customizations WHERE key IN (:keys)")
+    suspend fun delete(keys: List<String>)
 }

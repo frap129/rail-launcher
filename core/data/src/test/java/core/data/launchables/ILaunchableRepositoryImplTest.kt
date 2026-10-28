@@ -13,14 +13,18 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
 import core.data.popups.PopupItemRecord
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
+import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.WORK_USER_ID
@@ -63,12 +67,49 @@ private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
-private const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+
+    @Test
+    fun `keeps a Locked Profile's name customization and removes it once the Profile is gone`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputPersonalApp: App = createApp(name = "Personal", packageName = "com.example.personal")
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setName(key = inputPrivateApp.key, name = "Secret name")
+        inputCustomizationDao.setName(key = inputPersonalApp.key, name = "Personal name")
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputPrivateProfile.copy(isQuiet = true))
+        )
+        val inputPreferencesRepository: IPreferencesRepository = IPreferencesRepositoryImpl(
+            launchableCustomizationDao = inputCustomizationDao,
+            settingsDao = database.getSettingsDao(),
+            scope = backgroundScope
+        )
+        createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPersonalApp)),
+            mockPreferencesRepository = inputPreferencesRepository,
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        finishPendingWork()
+
+        assertEquals(2, inputCustomizationDao.observeAll().first().size)
+
+        inputProfileState.profiles.value = emptyList()
+        finishPendingWork()
+
+        assertEquals(
+            listOf(LaunchableCustomization(key = inputPersonalApp.key, name = "Personal name")),
+            inputCustomizationDao.observeAll().first()
+        )
+    }
 
     @Test
     fun `shares one upstream collection between every subscriber`() = databaseTest {
@@ -455,7 +496,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `keeps private Apps out of the picker groups`() = databaseTest {
+    fun `lists private Apps in the picker groups while the Private Space is Unlocked`() = databaseTest {
         val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
         val repository: ILaunchableRepository = createRepository(
@@ -465,8 +506,47 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         val actualPickerGroups: List<LaunchableGroup.Listed> = loadedState(repository).pickerGroups
 
-        assertTrue(actualPickerGroups.none { group -> group is LaunchableGroup.PrivateSpace })
-        assertTrue(actualPickerGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+        val actualPrivateGroup: LaunchableGroup.PrivateSpace = actualPickerGroups.filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+        assertFalse(actualPrivateGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualPrivateGroup.items.map { item -> item.key })
+        assertTrue(actualPickerGroups.filterIsInstance<LaunchableGroup.InitialGroup>().isEmpty())
+    }
+
+    @Test
+    fun `keeps private Apps out of the picker groups while the Private Space is Locked`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+
+        assertTrue(actualState.pickerGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+        assertTrue(actualState.pickerGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualState.keptKeys)
+    }
+
+    @Test
+    fun `keeps the keys of a Locked Profile until it is removed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertTrue(loadedState(repository).keptKeys.isEmpty())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), loadedState(repository).keptKeys)
+
+        inputProfileState.profiles.value = emptyList()
+        assertTrue(loadedState(repository).keptKeys.isEmpty())
     }
 
     @Test

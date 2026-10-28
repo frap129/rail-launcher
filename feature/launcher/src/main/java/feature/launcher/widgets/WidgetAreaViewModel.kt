@@ -12,7 +12,7 @@ import core.data.calendar.UpcomingEventsOutcome
 import core.data.calendar.effectiveLookaheadHours
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
-import core.data.launchables.model.Launchable
+import core.data.launchables.LaunchableState
 import core.data.media.IMediaSessionSource
 import core.data.media.MediaCommand
 import core.data.media.MediaPlayerSelector
@@ -197,7 +197,7 @@ private data class WidgetAreaContent(
     val reading: ClockReading,
     val settings: HeaderSettings,
     val battery: BatteryStatus?,
-    val launchables: List<Launchable>,
+    val launchableState: LaunchableState,
     val events: List<UpcomingEvent>,
     val eventSettings: EventSettings,
     val widgetAreaSettings: WidgetAreaSettings
@@ -310,7 +310,7 @@ class WidgetAreaViewModel(
         val places: List<WidgetPlace>,
         val reading: ClockReading,
         val settingsAndBattery: HeaderSettingsAndBattery,
-        val launchables: List<Launchable>,
+        val launchableState: LaunchableState,
         val events: EventData
     )
 
@@ -325,7 +325,7 @@ class WidgetAreaViewModel(
             places = places,
             reading = reading,
             settingsAndBattery = settingsAndBattery,
-            launchables = launchableState.launchables,
+            launchableState = launchableState,
             events = events
         )
     }
@@ -339,7 +339,7 @@ class WidgetAreaViewModel(
             reading = base.reading,
             settings = base.settingsAndBattery.settings,
             battery = base.settingsAndBattery.battery,
-            launchables = base.launchables,
+            launchableState = base.launchableState,
             events = base.events.events,
             eventSettings = base.events.settings,
             widgetAreaSettings = widgetAreaSettings
@@ -386,7 +386,7 @@ class WidgetAreaViewModel(
                     reading = content.reading,
                     settings = content.settings,
                     battery = content.battery,
-                    launchables = content.launchables,
+                    launchableState = content.launchableState,
                     events = content.events,
                     eventSettings = content.eventSettings,
                     homeHeightDp = homeHeightDp,
@@ -1370,7 +1370,7 @@ class WidgetAreaViewModel(
         reading: ClockReading,
         settings: HeaderSettings,
         battery: BatteryStatus?,
-        launchables: List<Launchable>,
+        launchableState: LaunchableState,
         events: List<UpcomingEvent>,
         eventSettings: EventSettings,
         homeHeightDp: Int?,
@@ -1381,7 +1381,7 @@ class WidgetAreaViewModel(
                 reading = reading,
                 settings = settings,
                 battery = battery,
-                launchables = launchables,
+                launchableState = launchableState,
                 events = events,
                 eventSettings = eventSettings
             )
@@ -1419,7 +1419,7 @@ class WidgetAreaViewModel(
         reading: ClockReading,
         settings: HeaderSettings,
         battery: BatteryStatus?,
-        launchables: List<Launchable>,
+        launchableState: LaunchableState,
         events: List<UpcomingEvent>,
         eventSettings: EventSettings
     ): WidgetModel? = when (this) {
@@ -1433,7 +1433,7 @@ class WidgetAreaViewModel(
                 eventSettings = eventSettings
             ),
             settings = settings,
-            launchables = launchables,
+            launchableState = launchableState,
             atEpochMillis = reading.instant.toEpochMilli()
         )
 

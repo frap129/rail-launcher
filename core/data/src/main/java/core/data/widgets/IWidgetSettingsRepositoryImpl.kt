@@ -1,10 +1,10 @@
 package core.data.widgets
 
 import core.data.launchables.ILaunchableRepository
-import core.data.launchables.model.Launchable
+import core.data.launchables.LaunchableState
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
-import core.data.prefs.isStale
+import core.data.prefs.isRemovable
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.MediaPlayerSettingsDao
@@ -17,21 +17,20 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-internal data class TapTargetCleanup(val settings: HeaderSettings, val validKeys: Set<String>, val hadStaleTargets: Boolean)
+internal data class TapTargetCleanup(val settings: HeaderSettings, val state: LaunchableState, val hadStaleTargets: Boolean)
 
-internal fun HeaderSettings.planTapTargetCleanup(launchables: List<Launchable>): TapTargetCleanup {
-    val keys: Set<String> = launchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
-    val hadStaleTargets: Boolean = timeTapTarget.isStale(keys) || dateTapTarget.isStale(keys)
+internal fun HeaderSettings.planTapTargetCleanup(state: LaunchableState): TapTargetCleanup {
+    val hadStaleTargets: Boolean = timeTapTarget.isRemovable(state) || dateTapTarget.isRemovable(state)
     return TapTargetCleanup(
-        settings = withoutStaleTapTargets(keys),
-        validKeys = keys,
+        settings = withoutStaleTapTargets(state),
+        state = state,
         hadStaleTargets = hadStaleTargets
     )
 }
 
-internal fun HeaderSettings.withoutStaleTapTargets(keys: Set<String>): HeaderSettings = copy(
-    timeTapTarget = timeTapTarget.takeUnless { setting -> setting.isStale(keys) },
-    dateTapTarget = dateTapTarget.takeUnless { setting -> setting.isStale(keys) }
+internal fun HeaderSettings.withoutStaleTapTargets(state: LaunchableState): HeaderSettings = copy(
+    timeTapTarget = timeTapTarget.takeUnless { setting -> setting.isRemovable(state) },
+    dateTapTarget = dateTapTarget.takeUnless { setting -> setting.isRemovable(state) }
 )
 
 class IWidgetSettingsRepositoryImpl(
@@ -49,9 +48,9 @@ class IWidgetSettingsRepositoryImpl(
         launchableRepository.launchableState
     ) { settings, state ->
         if (state.isLoaded) {
-            settings.planTapTargetCleanup(state.launchables)
+            settings.planTapTargetCleanup(state)
         } else {
-            TapTargetCleanup(settings = settings, validKeys = emptySet(), hadStaleTargets = false)
+            TapTargetCleanup(settings = settings, state = state, hadStaleTargets = false)
         }
     }
         .onEach { cleanup ->
@@ -59,7 +58,7 @@ class IWidgetSettingsRepositoryImpl(
                 cleanupMutex.withLock {
                     // Recompute against the current row so a choice saved meanwhile is not clobbered.
                     headerSettingsDao.updateIfChanged { settings ->
-                        settings.withoutStaleTapTargets(keys = cleanup.validKeys)
+                        settings.withoutStaleTapTargets(state = cleanup.state)
                     }
                 }
             }

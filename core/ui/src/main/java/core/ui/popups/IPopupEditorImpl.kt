@@ -23,6 +23,7 @@ import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,7 @@ class IPopupEditorImpl(
     private val scope: CoroutineScope = collaboratorScope.scope
 
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
+    private val editOwnerKey: Flow<String?> = editRequest.map { request -> request?.ownerKey }
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val editHiddenShortcuts: StateFlow<HiddenShortcutIds> = hiddenShortcutIds(
         scope = scope,
@@ -97,11 +99,17 @@ class IPopupEditorImpl(
         )
         observeTargetLoss(
             scope = scope,
-            targetKeys = editRequest.map { request -> request?.ownerKey },
+            targetKeys = editOwnerKey,
             launchableRepository = launchableRepository,
             homeEditState = homeEditState,
             isClosedByMode = { mode -> mode != HomeEditMode.None && mode != HomeEditMode.Favorites },
             onTargetLost = ::finishEdit
+        )
+        observeLockedContent(
+            scope = scope,
+            contentKeys = combine(editOwnerKey, editItems) { ownerKey, items -> items.contentKeys(ownerKey = ownerKey) },
+            launchableRepository = launchableRepository,
+            onContentLocked = ::finishEdit
         )
     }
 

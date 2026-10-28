@@ -9,6 +9,9 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.profiles.ProfileToken
+import core.data.testing.createLaunchableState
+import core.data.testing.createLoadedLaunchableState
 import core.ui.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,7 +33,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = HeaderSettings(),
-            launchables = emptyList(),
+            launchableState = createLaunchableState(groups = emptyList()),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
@@ -45,7 +48,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = HeaderTapSetting.Nothing),
-            launchables = emptyList(),
+            launchableState = createLaunchableState(groups = emptyList()),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.None, actualHeader.time?.tapTarget)
@@ -64,7 +67,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
-            launchables = listOf<Launchable>(inputLaunchable),
+            launchableState = createLoadedLaunchableState(listOf(inputLaunchable)),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.time?.tapTarget)
@@ -84,7 +87,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
-            launchables = listOf<Launchable>(inputLaunchable),
+            launchableState = createLoadedLaunchableState(listOf(inputLaunchable)),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
@@ -101,7 +104,7 @@ class IHeaderTapTargetResolverImplTest {
         val actualHeader: HeaderModel = resolver.applyTo(
             header = inputHeader,
             settings = inputSettings,
-            launchables = listOf<Launchable>(inputFolder),
+            launchableState = createLaunchableState(groups = emptyList(), folders = listOf(inputFolder)),
             atEpochMillis = nowMillis
         )
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
@@ -112,8 +115,7 @@ class IHeaderTapTargetResolverImplTest {
     fun `resolves a stored Folder to the system default once loaded`() {
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = HeaderTapSetting.Launchable(key = inputFolder.key),
-            launchables = listOf<Launchable>(inputFolder),
-            isLoaded = true
+            launchableState = createLaunchableState(groups = emptyList(), folders = listOf(inputFolder))
         )
         assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
     }
@@ -123,8 +125,7 @@ class IHeaderTapTargetResolverImplTest {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
-            launchables = listOf<Launchable>(inputLaunchable),
-            isLoaded = true
+            launchableState = createLoadedLaunchableState(listOf(inputLaunchable))
         )
         assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
     }
@@ -134,8 +135,7 @@ class IHeaderTapTargetResolverImplTest {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
-            launchables = emptyList(),
-            isLoaded = false
+            launchableState = createLaunchableState(groups = emptyList(), isLoaded = false)
         )
         assertEquals(inputSetting, actualSetting)
     }
@@ -144,14 +144,42 @@ class IHeaderTapTargetResolverImplTest {
     fun `resolves a present Launchable, Nothing and the system default unchanged`() {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputLaunchable.key)
         val actualLaunchable: HeaderTapSetting =
-            resolver.resolveSetting(setting = inputSetting, launchables = listOf<Launchable>(inputLaunchable), isLoaded = true)
+            resolver.resolveSetting(setting = inputSetting, launchableState = createLoadedLaunchableState(listOf(inputLaunchable)))
         val actualNothing: HeaderTapSetting =
-            resolver.resolveSetting(setting = HeaderTapSetting.Nothing, launchables = emptyList(), isLoaded = true)
+            resolver.resolveSetting(setting = HeaderTapSetting.Nothing, launchableState = createLaunchableState(groups = emptyList()))
         val actualDefault: HeaderTapSetting =
-            resolver.resolveSetting(setting = HeaderTapSetting.SystemDefault, launchables = emptyList(), isLoaded = true)
+            resolver.resolveSetting(setting = HeaderTapSetting.SystemDefault, launchableState = createLaunchableState(groups = emptyList()))
         assertEquals(inputSetting, actualLaunchable)
         assertEquals(HeaderTapSetting.Nothing, actualNothing)
         assertEquals(HeaderTapSetting.SystemDefault, actualDefault)
+    }
+
+    @Test
+    fun `falls back to the system default for a Locked private App`() {
+        val inputKey: String = "com.example.secret_UserHandle{11}"
+        val inputSettings: HeaderSettings = HeaderSettings(
+            timeTapTarget = HeaderTapSetting.Launchable(key = inputKey),
+            dateTapTarget = HeaderTapSetting.Launchable(key = inputKey)
+        )
+        val inputState = createLaunchableState(
+            groups = emptyList(),
+            keptKeys = setOf(ProfileToken("UserHandle{11}"))
+        )
+        val inputHeader: HeaderModel = header()
+        val actualSetting: HeaderTapSetting = resolver.resolveSetting(
+            setting = HeaderTapSetting.Launchable(key = inputKey),
+            launchableState = inputState
+        )
+        val actualHeader: HeaderModel = resolver.applyTo(
+            header = inputHeader,
+            settings = inputSettings,
+            launchableState = inputState,
+            atEpochMillis = nowMillis
+        )
+
+        assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
+        assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
     }
 
     private fun header(): HeaderModel = HeaderModel(
