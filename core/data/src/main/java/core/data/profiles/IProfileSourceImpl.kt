@@ -112,15 +112,22 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         user = user
     )
 
-    override suspend fun requestQuiet(user: UserHandle, quiet: Boolean) {
-        withContext(Dispatchers.IO) {
-            try {
-                userManager.requestQuietModeEnabled(quiet, user)
-            } catch (exception: SecurityException) {
-                logQuietFailure(user = user, exception = exception)
-            } catch (exception: IllegalArgumentException) {
-                logQuietFailure(user = user, exception = exception)
+    override suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult = withContext(Dispatchers.IO) {
+        try {
+            if (userManager.requestQuietModeEnabled(quiet, user)) {
+                QuietRequestResult.Changed
+            } else if (!quiet) {
+                // The system shows its credential screen instead of leaving quiet mode.
+                QuietRequestResult.AwaitingCredential
+            } else {
+                QuietRequestResult.Failed
             }
+        } catch (exception: SecurityException) {
+            logQuietFailure(user = user, exception = exception)
+            QuietRequestResult.Failed
+        } catch (exception: IllegalArgumentException) {
+            logQuietFailure(user = user, exception = exception)
+            QuietRequestResult.Failed
         }
     }
 

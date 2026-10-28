@@ -3,6 +3,7 @@ package core.data.launchables
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.apps.model.isPrivateApp
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
 import core.data.folders.resolveFolders
@@ -18,6 +19,8 @@ import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.prefs.toLaunchableNames
 import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
+import core.data.profiles.privateSpace
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
@@ -66,17 +69,21 @@ class ILaunchableRepositoryImpl(
         )
     }.distinctUntilChanged()
 
+    // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
+    private val appsWithIconPacks: Flow<List<App>?> = combine(appRepository.apps, iconRepository.iconPacks) { apps, _ -> apps }
+
     override val launchableState: StateFlow<LaunchableState> = combine(
-        appRepository.apps,
+        appsWithIconPacks,
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
-        iconRepository.iconPacks,
+        profileSource.profiles,
         folderAppList
-    ) { appsOrNull, customizations, settings, _, folders ->
+    ) { appsOrNull, customizations, settings, profiles, folders ->
         resolveState(
             appsOrNull = appsOrNull,
             customizations = customizations,
             settings = settings,
+            profiles = profiles,
             folderAppList = folders
         )
     }
@@ -97,6 +104,7 @@ class ILaunchableRepositoryImpl(
         appsOrNull: List<App>?,
         customizations: List<LaunchableCustomization>,
         settings: Settings,
+        profiles: List<ProfileInfo>,
         folderAppList: FolderAppList
     ): LaunchableState {
         val apps: List<App> = appsOrNull.orEmpty()
@@ -108,7 +116,11 @@ class ILaunchableRepositoryImpl(
         val folders: List<Folder> = folderAppList.records.resolveFolders(names = names)
         val appListLaunchables: List<Launchable> =
             resolvedApps.filterNot { app -> app.key in folderAppList.memberKeys } + folders
-        val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(builtinGroup = resolvedBuiltinGroup)
+        val privateSpace: ProfileInfo? = profiles.privateSpace
+        val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
+            builtinGroup = resolvedBuiltinGroup,
+            privateSpace = privateSpace
+        )
         val pickerGroups: List<LaunchableGroup.Listed> =
             (resolvedApps + folders).toLaunchableGroups(builtinGroup = resolvedBuiltinGroup).filterIsInstance<LaunchableGroup.Listed>()
         return LaunchableState(
@@ -146,15 +158,33 @@ private const val DIGIT_GROUP_LABEL: String = "#"
 
 /**
  * Orders the Rail: the Star, then Initial groups sorted by label, then
- * [builtinGroup]. Names starting with a digit share the "#" group. Folders
- * group with the other Launchables by their resolved names. Always holds the
- * Star and the Builtin group so Home stays reachable without apps.
+ * [builtinGroup], then the Private Space container. Names starting with a
+ * digit share the "#" group. Private Apps belong to the Private Space group
+ * only, so they never form or join an Initial group. Folders group with the
+ * other Launchables by their resolved names. Always holds the Star and the
+ * Builtin group so Home stays reachable without apps.
+ *
+ * [privateSpace] is the Profile of the Private Space, or null when the device
+ * has none; its quiet mode makes the container Locked.
  */
-internal fun List<Launchable>.toLaunchableGroups(builtinGroup: LaunchableGroup.Builtin): List<LaunchableGroup> {
-    val initialGroups: List<LaunchableGroup.InitialGroup> = groupBy { it.groupLabel() }
+internal fun List<Launchable>.toLaunchableGroups(
+    builtinGroup: LaunchableGroup.Builtin,
+    privateSpace: ProfileInfo? = null
+): List<LaunchableGroup> {
+    val (privateApps, otherItems) = partition { launchable -> launchable.isPrivateApp }
+    val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { it.groupLabel() }
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
-    return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup
+    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = privateSpace?.let { profile ->
+        if (profile.isQuiet) {
+            LaunchableGroup.PrivateSpace.Locked
+        } else {
+            LaunchableGroup.PrivateSpace.Unlocked(
+                items = privateApps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name })
+            )
+        }
+    }
+    return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
 
 private fun Launchable.groupLabel(): String {

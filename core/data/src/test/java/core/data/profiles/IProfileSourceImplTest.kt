@@ -13,6 +13,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createUserHandle
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +54,28 @@ class IProfileSourceImplTest {
             ),
             source.profiles.value.associate { profile -> profile.user to profile.kind }
         )
+    }
+
+    @Test
+    fun `maps the quiet request outcomes`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(workUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val mockUserManager: UserManager = mockk(relaxed = true)
+        shadowOf(application).setSystemService(Context.USER_SERVICE, mockUserManager)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } returns true
+        assertEquals(QuietRequestResult.Changed, source.requestQuiet(user = workUser, quiet = true))
+
+        every { mockUserManager.requestQuietModeEnabled(false, workUser) } returns false
+        assertEquals(QuietRequestResult.AwaitingCredential, source.requestQuiet(user = workUser, quiet = false))
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } throws SecurityException()
+        assertEquals(QuietRequestResult.Failed, source.requestQuiet(user = workUser, quiet = true))
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } throws IllegalArgumentException()
+        assertEquals(QuietRequestResult.Failed, source.requestQuiet(user = workUser, quiet = true))
     }
 
     private fun launcherUserInfo(user: UserHandle, userType: String): LauncherUserInfo {

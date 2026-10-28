@@ -22,11 +22,42 @@ sealed interface LaunchableGroup {
         override fun withItems(items: List<Launchable>): LaunchableGroup.Listed = copy(items = items)
     }
 
-    /** Rail's own Launchables, last on the Rail. */
+    /** Rail's own Launchables, after the Initial groups. */
     data class Builtin(override val items: List<Launchable>) : Listed {
         override val label: String = "⌂"
 
         override fun withItems(items: List<Launchable>): LaunchableGroup.Listed = copy(items = items)
+    }
+
+    /**
+     * The Private Space container, last on the Rail. It holds the private Apps
+     * only while Unlocked and keeps them out of every other group.
+     */
+    sealed interface PrivateSpace : Listed {
+        /** Whether the Private Space is quiet, so it shows only its container row. */
+        val isLocked: Boolean
+
+        override val label: String get() = LABEL
+
+        /** The Locked container, which holds no private Apps. */
+        data object Locked : PrivateSpace {
+            override val isLocked: Boolean = true
+            override val items: List<Launchable> = emptyList()
+
+            override fun withItems(items: List<Launchable>): Listed = if (items.isEmpty()) this else Unlocked(items = items)
+        }
+
+        /** The Unlocked container holding its private Apps, A-Z. */
+        data class Unlocked(override val items: List<Launchable>) : PrivateSpace {
+            override val isLocked: Boolean = false
+
+            override fun withItems(items: List<Launchable>): Listed = copy(items = items)
+        }
+
+        companion object {
+            /** A monochrome lock-style glyph that no initial can produce. */
+            const val LABEL: String = "⚿"
+        }
     }
 }
 
@@ -38,4 +69,5 @@ sealed interface LaunchableGroup {
 fun LaunchableGroup.Listed.appListKey(): String = when (this) {
     is LaunchableGroup.Builtin -> "builtin:$label"
     is LaunchableGroup.InitialGroup -> "initial:$label"
+    is LaunchableGroup.PrivateSpace -> "private:$label"
 }

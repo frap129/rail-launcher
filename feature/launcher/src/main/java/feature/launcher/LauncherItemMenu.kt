@@ -36,6 +36,7 @@ import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
+import core.data.apps.model.isPrivateApp
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.ui.R as CoreUiR
@@ -86,11 +87,13 @@ internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, ed
     }
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
-        SheetMenuAction(
-            imageVector = FontAwesomeIcons.Solid.GripVertical,
-            label = stringResource(R.string.edit_favorites),
-            onClick = { viewModel.editFavorites() }
-        )
+        if (!item.isPrivateApp) {
+            SheetMenuAction(
+                imageVector = FontAwesomeIcons.Solid.GripVertical,
+                label = stringResource(R.string.edit_favorites),
+                onClick = { viewModel.editFavorites() }
+            )
+        }
         when (item) {
             is App -> AppMenuActions(
                 item = item,
@@ -120,15 +123,18 @@ private fun AppMenuActions(
     editor: IPopupEditor,
     folderActions: IPopupFolderActions
 ) {
-    SheetMenuAction(
-        imageVector = FontAwesomeIcons.Solid.PencilAlt,
-        label = stringResource(CoreUiR.string.edit_popup),
-        onClick = {
-            viewModel.closeItemMenu()
-            editor.startEdit(item)
-        }
-    )
-    AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
+    // Private Apps stay out of Favorites, Pop-ups and Folders while they are list-only.
+    if (!item.isPrivateApp) {
+        SheetMenuAction(
+            imageVector = FontAwesomeIcons.Solid.PencilAlt,
+            label = stringResource(CoreUiR.string.edit_popup),
+            onClick = {
+                viewModel.closeItemMenu()
+                editor.startEdit(item)
+            }
+        )
+        AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
+    }
     SheetMenuAction(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),

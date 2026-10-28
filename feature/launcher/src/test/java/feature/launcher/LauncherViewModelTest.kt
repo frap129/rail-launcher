@@ -18,8 +18,10 @@ import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.profiles.QuietRequestResult
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PopupRepositoryState
 import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_NOTIFICATION_KEY
@@ -82,6 +84,7 @@ class LauncherViewModelTest {
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
+    private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
     private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
     private val inputListedGroups: List<LaunchableGroup.Listed> = listOf(
         LaunchableGroup.InitialGroup(label = "A", items = listOf(createRailLaunchable("Alpha"))),
@@ -1094,6 +1097,164 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `tapping the Locked Private Space row requests unlock and stays Locked while awaiting credentials`() = runTest {
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Locked
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            quietRequestResult = QuietRequestResult.AwaitingCredential
+        }
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
+            mockProfileSource = mockPrivateProfileSource
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            assertTrue(expectAppList().groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+            viewModel.requestPrivateSpaceUnlock()
+            advanceUntilIdle()
+            val actualGroup: LaunchableGroup.PrivateSpace = (viewModel.uiState.value as LauncherUiState.AppList.Browsing)
+                .groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertTrue(actualGroup.isLocked)
+            assertTrue(actualGroup.items.isEmpty())
+        }
+        coVerify(exactly = 1) { mockPrivateProfileSource.requestQuiet(user = inputPrivateProfile.user, quiet = false) }
+    }
+
+    @Test
+    fun `locking Private Space hides the private Apps before the Profile reports itself quiet`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
+            mockProfileSource = mockPrivateProfileSource
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            val actualBefore: LaunchableGroup.PrivateSpace = expectAppList().groups
+                .filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertFalse(actualBefore.isLocked)
+            assertEquals(listOf(inputPrivateApp), actualBefore.items)
+            viewModel.lockPrivateSpace()
+            val actualAfter: LaunchableGroup.PrivateSpace = expectAppList().groups
+                .filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertTrue(actualAfter.isLocked)
+            assertTrue(actualAfter.items.isEmpty())
+        }
+        coVerify(exactly = 1) { mockPrivateProfileSource.requestQuiet(user = inputPrivateProfile.user, quiet = true) }
+    }
+
+    @Test
+    fun `clears the optimistic hide when the system refuses the lock`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            quietRequestResult = QuietRequestResult.Failed
+        }
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
+            mockProfileSource = mockPrivateProfileSource
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            assertFalse(expectAppList().groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+            viewModel.lockPrivateSpace()
+            advanceUntilIdle()
+            val actualRestored: LaunchableGroup.PrivateSpace = expectAppList().groups
+                .filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertFalse(actualRestored.isLocked)
+            assertEquals(listOf(inputPrivateApp), actualRestored.items)
+        }
+        coVerify(exactly = 1) { mockPrivateProfileSource.requestQuiet(user = inputPrivateProfile.user, quiet = true) }
+    }
+
+    @Test
+    fun `shows the private Apps when the Private Space becomes available`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Locked
+        )
+        val inputUnlockedGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            assertTrue(expectAppList().groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+            inputState.value = createLaunchableState(groups = inputUnlockedGroups)
+            val actualGroup: LaunchableGroup.PrivateSpace = expectAppList().groups
+                .filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertFalse(actualGroup.isLocked)
+            assertEquals(listOf(inputPrivateApp), actualGroup.items)
+        }
+    }
+
+    @Test
+    fun `hides the private Apps when the Private Space locks elsewhere`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        val inputLockedGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Locked
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            assertEquals(listOf(inputPrivateApp), expectAppList().groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().items)
+            inputState.value = createLaunchableState(groups = inputLockedGroups)
+            val actualGroup: LaunchableGroup.PrivateSpace = expectAppList().groups
+                .filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+            assertTrue(actualGroup.isLocked)
+            assertTrue(actualGroup.items.isEmpty())
+        }
+    }
+
+    @Test
+    fun `keeps the Private Space group last on the Rail`() = runTest {
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Locked
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.railLabels.test {
+            assertEquals(
+                listOf(LaunchableGroup.Star.label, "A", inputBuiltinGroup.label, LaunchableGroup.PrivateSpace.LABEL),
+                expectMostRecentItem()
+            )
+        }
+    }
+
+    @Test
     fun `adds a Rail deeplink to the Favorites`() {
         runTest {
             val inputRailItem: Launchable = listedItem(inputListedGroups.lastIndex)
@@ -1311,6 +1472,20 @@ class LauncherViewModelTest {
         packageName = "com.example.gmail",
         profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
         badgedLabel = "Work Gmail"
+    )
+
+    private fun createPrivateApp(name: String = "Secret", packageName: String = "com.example.secret"): App = createApp(
+        name = name,
+        packageName = packageName,
+        profileInfo = inputPrivateProfile,
+        badgedLabel = "Private $name"
+    )
+
+    private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
+        LaunchableGroup.Star,
+        LaunchableGroup.InitialGroup(label = "A", items = listOf(createRailLaunchable("Alpha"))),
+        inputBuiltinGroup,
+        privateSpace
     )
 
     private fun TestScope.createNotificationSource(mockPopupRepository: IPopupRepository): INotificationSource =

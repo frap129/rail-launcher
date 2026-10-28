@@ -21,8 +21,10 @@ import core.data.profiles.ProfileKind
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
@@ -55,13 +57,13 @@ import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
+private const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -70,7 +72,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `shares one upstream collection between every subscriber`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockAppRepository: IAppRepository = createAppRepositoryMock(inputAppState = inputAppState)
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
@@ -103,8 +105,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `restarts a failed upstream with exponential backoff and recovers`() = databaseTest {
-        val inputApp: App = createApp()
-        val inputRenamedApp: App = createApp(name = RENAMED_NAME)
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputRenamedApp: App = createApp(name = RENAMED_NAME, packageName = APP_PACKAGE_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockFolderDao: FolderDao = mockk()
         val failureRequests: Channel<Unit> = Channel(Channel.UNLIMITED)
@@ -151,7 +153,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `resolves Launchable State only when the injected dispatcher runs`() = databaseTest {
         val inputDispatcher: TestDispatcher = StandardTestDispatcher(testScheduler)
-        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(createApp()))
+        val inputAppState: MutableStateFlow<List<App>?> =
+            MutableStateFlow(listOf(createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)))
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
@@ -196,7 +199,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `resolves a renamed App into a new instance and leaves the original unchanged`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
             customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
         )
@@ -241,7 +244,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val expectedIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
             packPackageName = ICON_PACK_PACKAGE_NAME,
@@ -298,7 +301,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp())),
+            mockAppRepository = createAppRepositoryMock(
+                inputApps = listOf(createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME))
+            ),
             folderDao = folderDao
         )
 
@@ -314,7 +319,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `hides Folder members from the App List but keeps them launchable`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
@@ -335,7 +340,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `updates the App List when Folder membership changes`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
@@ -382,7 +387,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `groups an app named with the Builtin label apart from Builtin`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp(name = "⌂ Game")))
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp(name = "⌂ Game", packageName = APP_PACKAGE_NAME)))
         )
 
         val actualGroups: List<LaunchableGroup.Listed> = loadedState(repository).listedGroups
@@ -406,6 +411,91 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             .launchables.filterIsInstance<Folder>().single()
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
+    }
+
+    @Test
+    fun `shows a Locked Private Space container last without private Apps`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualGroup: LaunchableGroup.PrivateSpace = actualState.groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertTrue(actualGroup.isLocked)
+        assertTrue(actualGroup.items.isEmpty())
+        assertEquals(listOf("★", "⌂", LaunchableGroup.PrivateSpace.LABEL), actualState.groups.map { group -> group.label })
+    }
+
+    @Test
+    fun `lists private Apps A-Z in the Unlocked Private Space`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputZulu: App = createApp(name = "Zulu", packageName = "com.example.zulu", profileInfo = inputPrivateProfile)
+        val inputAlpha: App = createApp(name = "alpha", packageName = "com.example.alpha", profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputZulu, inputAlpha)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputAlpha.key, inputZulu.key), actualGroup.items.map { item -> item.key })
+    }
+
+    @Test
+    fun `keeps private Apps out of the picker groups`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualPickerGroups: List<LaunchableGroup.Listed> = loadedState(repository).pickerGroups
+
+        assertTrue(actualPickerGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+        assertTrue(actualPickerGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+    }
+
+    @Test
+    fun `hides and restores the private Apps as the Private Space locks`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertEquals(
+            listOf(inputPrivateApp.key),
+            loadedState(repository).groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().items.map { item -> item.key }
+        )
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        val actualLockedGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+        assertTrue(actualLockedGroup.isLocked)
+        assertTrue(actualLockedGroup.items.isEmpty())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        val actualRestoredGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+        assertFalse(actualRestoredGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualRestoredGroup.items.map { item -> item.key })
     }
 
     private suspend fun TestScope.loadedState(repository: ILaunchableRepository): LaunchableState {
@@ -436,12 +526,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao = folderDao,
         popupDao = popupDao,
         scope = scope
-    )
-
-    private fun createApp(name: String = ORIGINAL_NAME): App = App(
-        defaultName = name,
-        profileInfo = createProfileInfo(userId = TEST_USER_ID),
-        componentName = inputComponentName
     )
 
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name

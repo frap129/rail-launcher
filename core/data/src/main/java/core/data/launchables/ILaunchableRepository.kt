@@ -11,7 +11,12 @@ data class LaunchableState(
     val groups: List<LaunchableGroup>,
     val launchables: List<Launchable>,
     val isLoaded: Boolean,
-    val pickerGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+    /**
+     * The groups the pickers may list: the App List groups without the Private Space container.
+     * rail-25f.4: private Apps join the pickers while Private Space is Unlocked.
+     */
+    val pickerGroups: List<LaunchableGroup.Listed> =
+        groups.filterIsInstance<LaunchableGroup.Listed>().filterNot { group -> group is LaunchableGroup.PrivateSpace }
 ) {
     /** The groups shown in the App List, in Rail order. */
     val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()

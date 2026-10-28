@@ -6,10 +6,9 @@ import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
-import io.mockk.Runs
+import core.data.profiles.QuietRequestResult
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +23,14 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
 
     /** The system-badged label for a label and Profile; identity unless a test overrides it. */
     var badgedLabel: (String, UserHandle) -> String = { label, _ -> label }
+
+    /** The outcome of [IProfileSource.requestQuiet]; [QuietRequestResult.Changed] unless a test overrides it. */
+    var quietRequestResult: QuietRequestResult = QuietRequestResult.Changed
 }
+
+/** A MockK [IProfileSource] whose only listed Profile is [profile]. */
+fun createProfileSourceMock(profile: ProfileInfo): IProfileSource =
+    createProfileSourceMock(state = ProfileSourceState(profiles = listOf(profile)))
 
 /** A MockK [IProfileSource] reading [state]. */
 fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): IProfileSource {
@@ -47,7 +53,7 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
         state.activitiesByUser[secondArg<UserHandle>()].orEmpty()
             .filter { activity -> activity.componentName.packageName == firstArg<String>() }
     }
-    coEvery { mockProfileSource.requestQuiet(any(), any()) } just Runs
+    coEvery { mockProfileSource.requestQuiet(any(), any()) } answers { state.quietRequestResult }
     every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }
     every { mockProfileSource.serialForUser(any()) } answers { state.serialsByUser[firstArg<UserHandle>()] }
     return mockProfileSource

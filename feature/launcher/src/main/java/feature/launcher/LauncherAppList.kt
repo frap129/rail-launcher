@@ -104,6 +104,12 @@ fun LauncherItemGroup(
 ) {
     Column(modifier = modifier) {
         LaunchableGroupHeader(label = group.label)
+        if (group is LaunchableGroup.PrivateSpace) {
+            PrivateSpaceRow(
+                isLocked = group.isLocked,
+                actions = itemActions.privateSpaceActions
+            )
+        }
         group.items.forEach { item ->
             LauncherItem(
                 item = item,
