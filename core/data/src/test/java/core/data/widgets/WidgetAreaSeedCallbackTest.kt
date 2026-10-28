@@ -14,8 +14,8 @@ import org.junit.Test
 import org.robolectric.RuntimeEnvironment
 
 class WidgetAreaSeedCallbackTest : InMemoryDatabaseTest() {
-    override fun createDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> =
-        super.createDatabaseBuilder().addCallback(WidgetAreaSeedCallback())
+    override fun configureDatabaseBuilder(builder: RoomDatabase.Builder<AppDatabase>): RoomDatabase.Builder<AppDatabase> =
+        builder.addCallback(WidgetAreaSeedCallback())
 
     @Test
     fun `fresh database seeds one place with a Header`() = databaseTest {
