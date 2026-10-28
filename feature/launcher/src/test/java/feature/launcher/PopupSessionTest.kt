@@ -40,6 +40,8 @@ class PopupSessionTest : PopupSessionTestBase() {
 
         session.editor.removeEditedItem(inputRailLaunchable)
         runCurrent()
+        setPopupLaunchables(ownerKey = inputFolder.key, launchables = emptyList())
+        runCurrent()
 
         verifyItemRemoved(ownerKey = inputFolder.key, itemKey = inputRailLaunchable.key)
         val actualPopup: PopupUiState.Open = session.card.popupState.value as PopupUiState.Open
@@ -55,6 +57,8 @@ class PopupSessionTest : PopupSessionTestBase() {
         assertTrue(session.card.menuState.value is PopupMenuState.Open)
 
         session.card.removeMenuItem()
+        runCurrent()
+        setPopupLaunchables(ownerKey = inputApp.key, launchables = emptyList())
         runCurrent()
 
         verifyItemRemoved(ownerKey = inputApp.key, itemKey = inputOtherApp.key)

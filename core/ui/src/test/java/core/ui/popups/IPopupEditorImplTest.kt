@@ -166,6 +166,8 @@ class IPopupEditorImplTest : PopupTestBase() {
             assertTrue(expectMostRecentItem() is PopupEditState.Editing)
             editor.removeEditedItem(inputOtherApp)
             runCurrent()
+            setPopupLaunchables(ownerKey = inputApp.key, launchables = emptyList())
+            runCurrent()
             val updatedState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(emptyList<PopupItem>(), updatedState.items)
         }

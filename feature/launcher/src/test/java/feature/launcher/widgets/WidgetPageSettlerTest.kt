@@ -1,19 +1,18 @@
 package feature.launcher.widgets
 
-import core.data.testing.WidgetAreaRepositoryState
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.widgets.IWidgetAreaRepository
+import io.mockk.coVerify
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WidgetPageSettlerTest {
+    private val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
+
     @Test
     fun `stores only the last page settled within the debounce`() = runTest {
-        val inputRepositoryState: WidgetAreaRepositoryState = WidgetAreaRepositoryState()
-        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(inputRepositoryState)
         val settler: WidgetPageSettler = WidgetPageSettler(scope = backgroundScope, repository = mockRepository)
 
         settler.onPageSettled(placeId = 1L, page = 1)
@@ -22,13 +21,11 @@ class WidgetPageSettlerTest {
         advanceTimeBy(300)
         runCurrent()
 
-        assertEquals(listOf(1L to 2), inputRepositoryState.currentPageUpdates)
+        assertPageStored(page = 2)
     }
 
     @Test
     fun `stores a page that settles back where it started`() = runTest {
-        val inputRepositoryState: WidgetAreaRepositoryState = WidgetAreaRepositoryState()
-        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(inputRepositoryState)
         val settler: WidgetPageSettler = WidgetPageSettler(scope = backgroundScope, repository = mockRepository)
 
         settler.onPageSettled(placeId = 1L, page = 1)
@@ -37,6 +34,12 @@ class WidgetPageSettlerTest {
         advanceTimeBy(300)
         runCurrent()
 
-        assertEquals(listOf(1L to 0), inputRepositoryState.currentPageUpdates)
+        assertPageStored(page = 0)
+    }
+
+    /** Verifies the settler stored [page] for place 1 and no other page. */
+    private fun assertPageStored(page: Int) {
+        coVerify(exactly = 1) { mockRepository.setCurrentPage(placeId = 1L, page = page) }
+        coVerify(exactly = 1) { mockRepository.setCurrentPage(any(), any()) }
     }
 }

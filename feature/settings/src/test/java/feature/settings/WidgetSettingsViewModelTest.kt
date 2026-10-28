@@ -264,7 +264,7 @@ class WidgetSettingsViewModelTest {
     @Test
     fun `removes and restores the Header`() = runTest {
         val mockAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
-            WidgetAreaRepositoryState(listOf(headerPlace))
+            WidgetAreaRepositoryState(initialPlacesByOwner = mapOf(null to listOf(headerPlace)))
         )
         val viewModel: WidgetSettingsViewModel = createViewModel(mockAreaRepository = mockAreaRepository)
 
@@ -691,7 +691,7 @@ class WidgetSettingsViewModelTest {
     private fun createViewModel(
         mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(),
         mockAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
-            WidgetAreaRepositoryState(listOf(headerPlace))
+            WidgetAreaRepositoryState(initialPlacesByOwner = mapOf(null to listOf(headerPlace)))
         ),
         mockClockSource: IClockSource = createClockSourceMock(MutableStateFlow(reading())),
         mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(groups = emptyList()),

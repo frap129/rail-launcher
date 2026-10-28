@@ -8,6 +8,7 @@ import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
+import core.data.widgets.AddedAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
@@ -21,6 +22,7 @@ import core.data.widgets.WidgetProviderInfo
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import io.mockk.coEvery
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
@@ -410,6 +412,7 @@ class IWidgetAddControllerImplTest {
         )
         val inputProvider: WidgetProviderInfo = appWidgetProviderInfo(needsConfiguration = false)
         actualController.updateProviders(providers = listOf(inputProvider))
+        coEvery { mockRepository.addAppWidget(any()) } returns AddedAppWidget(widgetId = 2L, placeId = 2L)
         actualController.events.test {
             actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
 

@@ -71,8 +71,15 @@ fun appWidgetProviderInfo(
 
 fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
 
+class WidgetAreaRepositoryFixture(val state: WidgetAreaRepositoryState, val mockRepository: IWidgetAreaRepository)
+
+fun createWidgetAreaRepositoryFixture(places: List<WidgetPlace> = listOf(headerPlace)): WidgetAreaRepositoryFixture {
+    val state: WidgetAreaRepositoryState = WidgetAreaRepositoryState(initialPlacesByOwner = places.groupBy { place -> place.ownerKey })
+    return WidgetAreaRepositoryFixture(state = state, mockRepository = createWidgetAreaRepositoryMock(state))
+}
+
 fun createRepository(places: List<WidgetPlace> = listOf(headerPlace)): IWidgetAreaRepository =
-    createWidgetAreaRepositoryMock(WidgetAreaRepositoryState(places))
+    createWidgetAreaRepositoryFixture(places = places).mockRepository
 
 class HostFixture(val state: AppWidgetHostState, val mockHost: IAppWidgetHostSource)
 

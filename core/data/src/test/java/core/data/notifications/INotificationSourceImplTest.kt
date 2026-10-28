@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import app.cash.turbine.test
 import core.data.media.RailNotificationListener
 import core.data.popups.IPopupRepository
+import core.data.testing.PopupRepositoryState
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
@@ -23,6 +24,7 @@ import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
 import core.data.testing.createPopupRepositoryMock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -173,14 +175,15 @@ class INotificationSourceImplTest {
 
     @Test
     fun `clears the notifications when the switch turns off`() = runTest {
-        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(notificationsEnabled = true)
+        val inputPopupState: PopupRepositoryState = PopupRepositoryState(notificationsEnabled = MutableStateFlow(true))
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = inputPopupState)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
         relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             runCurrent()
             assertEquals(1, expectMostRecentItem().size)
-            mockPopupRepository.setNotificationsEnabled(false)
+            inputPopupState.notificationsEnabled.value = false
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
             assertTrue(relay.records.value.isEmpty())
             cancelAndIgnoreRemainingEvents()

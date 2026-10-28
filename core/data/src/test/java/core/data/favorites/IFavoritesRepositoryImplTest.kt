@@ -234,6 +234,34 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `appends an added Favorite after the stored ones and never twice`() = databaseTest {
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        val repository: IFavoritesRepositoryImpl = seedFavorites(
+            storedFavorites = listOf(inputLaunchable),
+            launchables = listOf(inputLaunchable, inputOtherLaunchable)
+        )
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable))
+
+        repository.add(inputOtherLaunchable)
+        repository.add(inputOtherLaunchable)
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable, inputOtherLaunchable))
+        assertEquals(listOf(inputLaunchable.key, inputOtherLaunchable.key), favoriteKeys())
+    }
+
+    @Test
+    fun `stores the Favorites in the reordered order`() = databaseTest {
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        val repository: IFavoritesRepositoryImpl = seedFavorites(storedFavorites = listOf(inputLaunchable, inputOtherLaunchable))
+        assertResolvedFavorites(repository = repository, expected = listOf(inputLaunchable, inputOtherLaunchable))
+
+        repository.reorder(listOf(inputOtherLaunchable, inputLaunchable))
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputOtherLaunchable, inputLaunchable))
+        assertEquals(listOf(inputOtherLaunchable.key, inputLaunchable.key), favoriteKeys())
+    }
+
+    @Test
     fun `stops waiting for a Favorite to become visible after a timeout`() = databaseTest {
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputOtherLaunchable.key, position = FIRST_POSITION)
@@ -350,6 +378,21 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         favoriteDao = favoriteDao,
         launchableRepository = mockLaunchableRepository
     )
+
+    /** Seeds [storedFavorites] as the stored Favorites and returns the repository over [launchables]. */
+    private suspend fun TestScope.seedFavorites(
+        storedFavorites: List<Launchable>,
+        launchables: List<Launchable> = storedFavorites
+    ): IFavoritesRepositoryImpl {
+        storedFavorites.forEachIndexed { position, favorite -> seedFavorite(key = favorite.key, position = position) }
+        return createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = launchables)
+        )
+    }
+
+    /** The stored Favorite keys in their stored order. */
+    private suspend fun favoriteKeys(): List<String> = favoriteRecords().sortedBy { record -> record.position }.map { record -> record.key }
 }
 
 private fun createLaunchable(name: String): Launchable = RailLaunchable(

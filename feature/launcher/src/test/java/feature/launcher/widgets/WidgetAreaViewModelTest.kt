@@ -44,7 +44,6 @@ import core.data.testing.headerPlace
 import core.data.testing.stackPlace
 import core.data.time.ClockReading
 import core.data.time.IClockSource
-import core.data.widgets.AddAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.HeaderRemoval
 import core.data.widgets.IAppWidgetHostSource
@@ -2043,9 +2042,10 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `forwards current places to the resize controller`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
+        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
+        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
         val mockResizeController: IWidgetResizeController = createResizeControllerMock()
         createViewModel(mockRepository = mockRepository, mockResizeController = mockResizeController)
         advanceUntilIdle()
@@ -2054,7 +2054,7 @@ class WidgetAreaViewModelTest {
             mockResizeController.onPlacesChanged(match { places -> places.map { place -> place.id } == listOf(1L, 2L) }, null)
         }
 
-        mockRepository.removeWidget(widgetId = 2L)
+        inputRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
         advanceUntilIdle()
 
         verify(exactly = 1) {
@@ -2263,32 +2263,27 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `a vanished place is dropped from the draft`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(
+        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
         )
+        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.editWidgets()
         advanceUntilIdle()
-        mockRepository.removeWidget(widgetId = 2L)
+        inputRepositoryFixture.state.placesByOwner.value = mapOf(null to listOf(headerPlace))
         advanceUntilIdle()
         assertEquals(listOf(1L), viewModel.editState.value?.placeIds)
     }
 
     @Test
     fun `a place added while editing is appended to the draft`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
         val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
         viewModel.editWidgets()
         advanceUntilIdle()
-        mockRepository.addAppWidget(
-            AddAppWidget(
-                appWidgetId = AppWidgetId(7),
-                provider = WidgetProvider(packageName = "com.example", className = "AddedWidget"),
-                profileSerial = 0L,
-                insertAt = InsertPosition.End,
-                defaultHeightDp = 48
-            )
-        )
+        inputRepositoryFixture.state.placesByOwner.value =
+            mapOf(null to listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L, appWidgetId = 7)))
         advanceUntilIdle()
         assertEquals(listOf(1L, 2L), viewModel.editState.value?.placeIds)
     }

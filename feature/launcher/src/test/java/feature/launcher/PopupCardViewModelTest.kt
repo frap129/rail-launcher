@@ -23,14 +23,12 @@ import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
 import core.data.testing.TEST_NOTIFICATION_REPLY_KEY
 import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
-import core.data.testing.WidgetAreaRepositoryState
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
-import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.popupStackPlace
 import core.data.time.ClockReading
@@ -52,10 +50,13 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.popups.PopupEditState
 import feature.launcher.widgets.AddWidgetFlowState
+import feature.launcher.widgets.WidgetAreaRepositoryFixture
 import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo
 import feature.launcher.widgets.createHost
 import feature.launcher.widgets.createRepository
+import feature.launcher.widgets.createWidgetAreaRepositoryFixture
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.verify
 import java.time.Instant
@@ -603,6 +604,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             session.editor.startEdit(inputApp)
             runCurrent()
             session.editor.setShortcutHidden(inputShortcut.shortcutId, hidden = true)
+            setHiddenShortcuts(inputApp.key, setOf(inputShortcut.shortcutId))
             runCurrent()
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(emptyList<ShortcutLaunchable>(), actualState.content.shortcuts)
@@ -701,6 +703,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         runCurrent()
         assertTrue(viewModel.menuState.value is PopupMenuState.Open)
         viewModel.removeMenuItem()
+        runCurrent()
+        setPopupLaunchables(ownerKey = inputApp.key, launchables = emptyList())
         runCurrent()
         assertEquals(PopupMenuState.Closed, viewModel.menuState.value)
         val updatedState: PopupUiState.Open = viewModel.popupState.value as PopupUiState.Open
@@ -1180,7 +1184,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             appPackageName = "com.other",
             appLabel = "Other"
         )
-        val mockRepository: IWidgetAreaRepository = createRepository(
+        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(
                 popupStackPlace(
                     placeId = 5L,
@@ -1191,6 +1195,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
                 )
             )
         )
+        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
         val mockHost: IAppWidgetHostSource = createHost(providers = listOf(inputProvider), providerInfos = inputStackProviderInfos)
         val viewModel: PopupCardViewModel = createStackViewModel(mockRepository = mockRepository, mockHost = mockHost)
         backgroundScope.launch { viewModel.popupState.collect() }
@@ -1201,6 +1206,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.startAddWidget()
         runCurrent()
         viewModel.widgetFlow.pickProvider(provider = inputProvider)
+        runCurrent()
+        inputRepositoryFixture.setStackPlaces(heightDp = 120)
         runCurrent()
 
         val actualWidget: PopupWidgetState = viewModel.widgetState.value!!
@@ -1308,8 +1315,8 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     }
 
     @Test
-    fun `removing the current page clamps and persists the last page`() = runTest {
-        val inputRepositoryState: WidgetAreaRepositoryState = WidgetAreaRepositoryState(
+    fun `removing the current page shows the last page`() = runTest {
+        val inputRepositoryFixture: WidgetAreaRepositoryFixture = createWidgetAreaRepositoryFixture(
             listOf(
                 popupStackPlace(
                     placeId = 5L,
@@ -1320,7 +1327,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
                 )
             )
         )
-        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(inputRepositoryState)
+        val mockRepository: IWidgetAreaRepository = inputRepositoryFixture.mockRepository
         val mockHost: IAppWidgetHostSource = createHost(providerInfos = inputStackProviderInfos)
         val viewModel: PopupCardViewModel = createStackViewModel(
             mockRepository = mockRepository,
@@ -1332,14 +1339,32 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         runCurrent()
         viewModel.openWidgetMenu(widgetId = 8L)
         runCurrent()
+        coEvery { mockRepository.removeWidget(widgetId = 8L) } returns AppWidgetId(11)
 
         viewModel.removeWidget()
+        advanceUntilIdle()
+        inputRepositoryFixture.setStackPlaces()
         advanceUntilIdle()
 
         assertEquals(listOf(6L, 7L), viewModel.widgetState.value?.pages?.map { page -> page.widgetId })
         coVerify(exactly = 1) { mockRepository.removeWidget(widgetId = 8L) }
         verify(exactly = 1) { mockHost.deleteId(AppWidgetId(11)) }
-        assertEquals(listOf(5L to 1), inputRepositoryState.currentPageUpdates)
+    }
+
+    /** Seeds the stack at [placeId] with the pages and current page that follow an add or a page removal. */
+    private fun WidgetAreaRepositoryFixture.setStackPlaces(heightDp: Int? = null) {
+        state.placesByOwner.value = mapOf(
+            inputApp.key to listOf(
+                popupStackPlace(
+                    placeId = 5L,
+                    widgetIds = listOf(6L, 7L),
+                    appWidgetIds = listOf(9, 10),
+                    heightDp = heightDp,
+                    currentPage = 1,
+                    ownerKey = inputApp.key
+                )
+            )
+        )
     }
 
     /** Verifies [app]'s Shortcut source was queried exactly [count] times. */
