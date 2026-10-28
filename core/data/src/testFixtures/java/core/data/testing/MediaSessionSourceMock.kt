@@ -17,5 +17,6 @@ fun createMediaSessionSourceMock(sessions: Flow<List<MediaSessionSnapshot>> = em
     every { mockMediaSessionSource.sessions } returns sessions
     every { mockMediaSessionSource.execute(any(), any()) } just Runs
     every { mockMediaSessionSource.open(any()) } returns true
+    every { mockMediaSessionSource.refreshAccess() } just Runs
     return mockMediaSessionSource
 }

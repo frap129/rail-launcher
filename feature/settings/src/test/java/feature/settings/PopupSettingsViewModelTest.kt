@@ -1,30 +1,16 @@
 package feature.settings
 
 import app.cash.turbine.test
-import core.data.favorites.FavoriteRecord
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
-import core.data.notifications.INotificationSourceImpl
-import core.data.testing.FakeFavoriteDao
-import core.data.testing.FakeFolderRepository
-import core.data.testing.FakeLaunchableRepository
-import core.data.testing.FakePopupRepository
-import core.data.testing.FakePreferencesRepository
-import core.data.testing.FakeShortcutSource
-import core.data.testing.FolderCreateRequest
-import core.data.testing.MainDispatcherRule
+import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.TEST_SDK
-import core.data.testing.createEagerFavoritesRepository
+import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createRailLaunchable
-import core.ui.layout.HomeEditState
-import core.ui.popups.IPopupCollaborators
-import core.ui.popups.IPopupCollaboratorsImpl
-import core.ui.popups.IPopupEditorImpl
-import core.ui.popups.IPopupFolderActionsImpl
-import core.ui.popups.IPopupPickerImpl
-import core.ui.popups.IPopupSession
-import core.ui.popups.IPopupSessionImpl
+import core.data.testing.createTestNotificationSource
+import core.ui.popups.PopupTestBase
+import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -34,7 +20,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,38 +28,29 @@ import org.robolectric.annotation.Config
 
 private const val FOLDER_NAME: String = "Work"
 private const val OTHER_FOLDER_NAME: String = "Play"
+private const val TRAVEL_FOLDER_NAME: String = "Travel"
+private const val GAMES_FOLDER_NAME: String = "Games"
+private const val NEW_FOLDER_NAME: String = "Trips"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class PopupSettingsViewModelTest {
-    @get:Rule
-    val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
-
-    private val inputFolder: Folder = Folder(folderId = 1L, name = FOLDER_NAME)
+class PopupSettingsViewModelTest : PopupTestBase() {
+    private val inputFavorites: FavoritesRepositoryFixture = createFavoritesRepositoryFixture()
 
     @Test
     fun `lists every Folder with its item count and location`() = runTest {
-        val inputHomeFolder: Folder = inputFolder
+        val inputHomeFolder: Folder = Folder(folderId = 1L, name = FOLDER_NAME)
         val inputOtherFolder: Folder = Folder(folderId = 2L, name = OTHER_FOLDER_NAME)
-        val inputTravelFolder: Folder = Folder(folderId = 3L, name = "Travel")
-        val inputGamesFolder: Folder = Folder(folderId = 4L, name = "Games")
+        val inputTravelFolder: Folder = Folder(folderId = 3L, name = TRAVEL_FOLDER_NAME)
+        val inputGamesFolder: Folder = Folder(folderId = 4L, name = GAMES_FOLDER_NAME)
+        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputOtherFolder, inputTravelFolder, inputGamesFolder)
         val inputItem: Launchable = createRailLaunchable(name = "First")
         val inputOtherItem: Launchable = createRailLaunchable(name = "Second")
-        val inputFolders: List<Folder> = listOf(inputHomeFolder, inputOtherFolder, inputTravelFolder, inputGamesFolder)
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.setItems(ownerKey = inputHomeFolder.key, items = listOf(inputItem, inputOtherItem))
-        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(
-            initialRecords = listOf(
-                FavoriteRecord(key = inputHomeFolder.key, position = 0),
-                FavoriteRecord(key = inputTravelFolder.key, position = 1)
-            )
-        )
-        val viewModel: PopupSettingsViewModel = createViewModel(
-            folders = inputFolders,
-            mockPopupRepository = mockPopupRepository,
-            mockFavoriteDao = mockFavoriteDao
-        )
+        setFolders(inputFolders)
+        setPopupLaunchables(ownerKey = inputHomeFolder.key, launchables = listOf(inputItem, inputOtherItem))
+        inputFavorites.state.favorites.value = listOf(inputHomeFolder, inputTravelFolder)
+        val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
             val actualState: PopupSettingsUiState = expectMostRecentItem()
@@ -94,18 +70,19 @@ class PopupSettingsViewModelTest {
 
     @Test
     fun `creates a Folder without a favorite`() = runTest {
-        val mockFolderRepository: FakeFolderRepository = FakeFolderRepository()
-        val viewModel: PopupSettingsViewModel = createViewModel(mockFolderRepository = mockFolderRepository)
+        val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
-            viewModel.createFolder(name = FOLDER_NAME)
+            viewModel.createFolder(name = NEW_FOLDER_NAME)
             advanceUntilIdle()
-            assertEquals(listOf(FOLDER_NAME), expectMostRecentItem().folders.map { row -> row.folder.name })
+            assertEquals(
+                listOf(inputFolder.name, inputSecondFolder.name, NEW_FOLDER_NAME),
+                expectMostRecentItem().folders.map { row -> row.folder.name }
+            )
         }
-        assertEquals(
-            listOf(FolderCreateRequest(name = FOLDER_NAME, initialItems = emptyList(), addToFavorites = false)),
-            mockFolderRepository.createRequests
-        )
+        coVerify(exactly = 1) {
+            mockFolderRepository.create(name = NEW_FOLDER_NAME, initialItems = emptyList(), addToFavorites = false)
+        }
     }
 
     @Test
@@ -113,8 +90,8 @@ class PopupSettingsViewModelTest {
         val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.createdFolders.test {
-            viewModel.createFolder(name = FOLDER_NAME)
-            assertEquals(FOLDER_NAME, awaitItem().name)
+            viewModel.createFolder(name = NEW_FOLDER_NAME)
+            assertEquals(NEW_FOLDER_NAME, awaitItem().name)
         }
     }
 
@@ -132,18 +109,20 @@ class PopupSettingsViewModelTest {
 
     @Test
     fun `deleting the open Folder closes its sheet and removes its row`() = runTest {
-        val mockFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = listOf(inputFolder))
-        val viewModel: PopupSettingsViewModel = createViewModel(mockFolderRepository = mockFolderRepository)
+        setFolders(listOf(inputFolder))
+        val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
             viewModel.openActions(inputFolder)
             assertEquals(inputFolder, expectMostRecentItem().selectedFolder?.folder)
-            mockFolderRepository.delete(inputFolder)
+            viewModel.collaborators.folder.requestDeleteFolder(inputFolder)
+            viewModel.collaborators.folder.confirmDeleteFolder()
             advanceUntilIdle()
             val actualState: PopupSettingsUiState = expectMostRecentItem()
             assertNull(actualState.selectedFolder)
             assertTrue(actualState.folders.isEmpty())
         }
+        coVerify(exactly = 1) { mockFolderRepository.delete(inputFolder) }
     }
 
     @Test
@@ -160,15 +139,14 @@ class PopupSettingsViewModelTest {
 
     @Test
     fun `adds the selected Folder to the Favorites before the list is collected`() = runTest {
-        val mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao()
-        val viewModel: PopupSettingsViewModel = createViewModel(mockFavoriteDao = mockFavoriteDao)
+        val viewModel: PopupSettingsViewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.openActions(inputFolder)
         viewModel.setOnHome(true)
         advanceUntilIdle()
 
-        assertEquals(listOf(inputFolder.key), mockFavoriteDao.records.map { record -> record.key })
+        coVerify(exactly = 1) { inputFavorites.mockFavoritesRepository.add(inputFolder) }
     }
 
     @Test
@@ -204,8 +182,7 @@ class PopupSettingsViewModelTest {
 
     @Test
     fun `persists whether Pop-ups show notifications`() = runTest {
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        val viewModel: PopupSettingsViewModel = createViewModel(mockPopupRepository = mockPopupRepository)
+        val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
             assertFalse(expectMostRecentItem().notificationsEnabled)
@@ -214,73 +191,20 @@ class PopupSettingsViewModelTest {
             assertTrue(expectMostRecentItem().notificationsEnabled)
         }
         assertTrue(mockPopupRepository.notificationsEnabled.first())
+        coVerify(exactly = 1) { mockPopupRepository.setNotificationsEnabled(true) }
     }
 
-    private fun TestScope.createViewModel(
-        folders: List<Folder> = listOf(inputFolder),
-        mockFolderRepository: FakeFolderRepository = FakeFolderRepository(initialFolders = folders),
-        mockPopupRepository: FakePopupRepository = FakePopupRepository(),
-        mockFavoriteDao: FakeFavoriteDao = FakeFavoriteDao(),
-        accessCheck: () -> Boolean = { true }
-    ): PopupSettingsViewModel {
-        val mockLaunchableRepository: FakeLaunchableRepository = FakeLaunchableRepository(groups = emptyList(), folders = folders)
-        return PopupSettingsViewModel(
-            folderRepository = mockFolderRepository,
-            popupRepository = mockPopupRepository,
-            notificationSource = INotificationSourceImpl(
-                context = RuntimeEnvironment.getApplication(),
-                scope = backgroundScope,
-                popupRepository = mockPopupRepository,
-                relay = INotificationListenerRelayImpl(),
-                isAccessGranted = { accessCheck() }
-            ),
-            favoritesRepository = createEagerFavoritesRepository(
-                favoriteDao = mockFavoriteDao,
-                launchableRepository = mockLaunchableRepository
-            ),
-            collaborators = createCollaborators(
-                mockFolderRepository = mockFolderRepository,
-                mockLaunchableRepository = mockLaunchableRepository,
-                mockPopupRepository = mockPopupRepository
-            )
-        )
-    }
-
-    private fun TestScope.createCollaborators(
-        mockFolderRepository: FakeFolderRepository,
-        mockLaunchableRepository: FakeLaunchableRepository,
-        mockPopupRepository: FakePopupRepository
-    ): IPopupCollaborators {
-        val session: IPopupSession = IPopupSessionImpl()
-        val inputHomeEditState: HomeEditState = HomeEditState()
-        val mockShortcutSource: FakeShortcutSource = FakeShortcutSource()
-        return IPopupCollaboratorsImpl(
-            session = session,
-            editor = IPopupEditorImpl(
-                parentScope = backgroundScope,
-                launchableRepository = mockLaunchableRepository,
-                shortcutSource = mockShortcutSource,
-                popupRepository = mockPopupRepository,
-                homeEditState = inputHomeEditState,
-                session = session
-            ),
-            picker = IPopupPickerImpl(
-                parentScope = backgroundScope,
-                launchableRepository = mockLaunchableRepository,
-                shortcutSource = mockShortcutSource,
-                popupRepository = mockPopupRepository,
-                homeEditState = inputHomeEditState,
-                session = session
-            ),
-            folder = IPopupFolderActionsImpl(
-                parentScope = backgroundScope,
-                launchableRepository = mockLaunchableRepository,
-                popupRepository = mockPopupRepository,
-                folderRepository = mockFolderRepository,
-                preferencesRepository = FakePreferencesRepository(),
-                homeEditState = inputHomeEditState,
-                session = session
-            )
-        )
-    }
+    private fun TestScope.createViewModel(accessCheck: () -> Boolean = { true }): PopupSettingsViewModel = PopupSettingsViewModel(
+        folderRepository = mockFolderRepository,
+        popupRepository = mockPopupRepository,
+        notificationSource = createTestNotificationSource(
+            context = RuntimeEnvironment.getApplication(),
+            scope = backgroundScope,
+            mockPopupRepository = mockPopupRepository,
+            relay = INotificationListenerRelayImpl(),
+            isAccessGranted = accessCheck
+        ),
+        favoritesRepository = inputFavorites.mockFavoritesRepository,
+        collaborators = createCollaborators()
+    )
 }

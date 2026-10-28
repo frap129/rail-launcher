@@ -12,6 +12,7 @@ import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.shortcuts.IShortcutSource
+import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
@@ -52,7 +53,6 @@ private const val ITEM_PACKAGE_NAME: String = "com.example.app"
 private const val OTHER_OWNER_KEY: String = "com.other_owner"
 private const val FOLDER_ID: Long = 3L
 private const val APP_WIDGET_ID: Int = 42
-private const val FIRST_POSITION: Int = 0
 private val otherOwnerLaunchable: Launchable = createRailLaunchable(name = "Other", deeplink = OTHER_OWNER_KEY)
 
 @OptIn(ExperimentalCoroutinesApi::class)

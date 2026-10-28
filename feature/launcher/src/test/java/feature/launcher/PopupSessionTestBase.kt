@@ -14,6 +14,7 @@ import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createNotificationRecord
 import core.data.testing.createOtherNotificationProfile
 import core.data.testing.createRemoveAppWidgetMock
+import core.data.testing.createTestNotificationSource
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetLifecycleReconcilerMock
 import core.data.testing.createWidgetSettingsRepositoryMock
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
+import org.robolectric.RuntimeEnvironment
 
 internal const val TEST_WORK_PROFILE_SERIAL: Long = 42L
 internal val TEST_NOW: Instant = Instant.ofEpochMilli(10_000_000L)
@@ -172,6 +174,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
 
     protected fun TestScope.createNotificationSource(accessCheck: () -> Boolean = { true }): INotificationSource =
         createTestNotificationSource(
+            context = RuntimeEnvironment.getApplication(),
             scope = backgroundScope,
             mockPopupRepository = mockPopupRepository,
             relay = notificationRelay,

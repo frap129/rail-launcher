@@ -53,3 +53,22 @@ class WidgetSettingsRepositoryState(
 /** A spy on [state], so the production default setters run against it and tests can verify their calls. */
 fun createWidgetSettingsRepositoryMock(state: WidgetSettingsRepositoryState = WidgetSettingsRepositoryState()): IWidgetSettingsRepository =
     spyk(state)
+
+/** A [WidgetSettingsRepositoryState] with the spy over it, so a test can read writes and verify calls. */
+class WidgetSettingsRepositoryFixture(val state: WidgetSettingsRepositoryState, val mockSettingsRepository: IWidgetSettingsRepository)
+
+/** A [WidgetSettingsRepositoryFixture] over the given initial settings. */
+fun createWidgetSettingsRepositoryFixture(
+    headerSettings: HeaderSettings = HeaderSettings(),
+    eventSettings: EventSettings = EventSettings(),
+    widgetAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default,
+    mediaPlayerSettings: MediaPlayerSettings = MediaPlayerSettings.Default
+): WidgetSettingsRepositoryFixture {
+    val state: WidgetSettingsRepositoryState = WidgetSettingsRepositoryState(
+        headerSettings = headerSettings,
+        eventSettings = eventSettings,
+        widgetAreaSettings = widgetAreaSettings,
+        mediaPlayerSettings = mediaPlayerSettings
+    )
+    return WidgetSettingsRepositoryFixture(state = state, mockSettingsRepository = createWidgetSettingsRepositoryMock(state))
+}

@@ -12,7 +12,6 @@ import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.testing.AppWidgetHostState
 import core.data.testing.WidgetAreaRepositoryState
-import core.data.testing.WidgetSettingsRepositoryState
 import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createBatterySourceMock
@@ -20,7 +19,7 @@ import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createMediaSessionSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
-import core.data.testing.createWidgetSettingsRepositoryMock
+import core.data.testing.createWidgetSettingsRepositoryFixture
 import core.data.testing.headerPlace
 import core.data.time.ClockReading
 import core.data.time.IClockSource
@@ -113,9 +112,12 @@ fun createSettingsRepository(
     initialEventSettings: EventSettings = EventSettings(),
     initialAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default,
     initialMediaPlayerSettings: MediaPlayerSettings = MediaPlayerSettings.Default
-): IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
-    WidgetSettingsRepositoryState(initialSettings, initialEventSettings, initialAreaSettings, initialMediaPlayerSettings)
-)
+): IWidgetSettingsRepository = createWidgetSettingsRepositoryFixture(
+    headerSettings = initialSettings,
+    eventSettings = initialEventSettings,
+    widgetAreaSettings = initialAreaSettings,
+    mediaPlayerSettings = initialMediaPlayerSettings
+).mockSettingsRepository
 
 fun createClock(initialReading: ClockReading): IClockSource = createClockSourceMock(MutableStateFlow(initialReading))
 
