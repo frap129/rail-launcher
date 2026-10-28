@@ -3,11 +3,9 @@ package feature.launcher.widgets
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import core.data.testing.AddFlowPendingIdsState
-import core.data.testing.WidgetSettingsRepositoryState
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostMock
-import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAddFlowPendingIds
@@ -196,8 +194,8 @@ class IWidgetAddControllerImplTest {
         val mockRepository: IWidgetAreaRepository = createRepository(listOf(inputStack))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockSettingsRepository = createWidgetSettingsRepositoryMock(
-                WidgetSettingsRepositoryState(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
+            mockSettingsRepository = createSettingsRepository(
+                initialAreaSettings = WidgetAreaSettings(maxStackPages = 2)
             )
         )
 

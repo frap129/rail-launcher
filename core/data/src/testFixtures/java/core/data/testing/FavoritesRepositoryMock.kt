@@ -40,3 +40,12 @@ fun createFavoritesRepositoryMock(state: FavoritesRepositoryState = FavoritesRep
     }
     return mockFavoritesRepository
 }
+
+/** The mutable Favorites with the mock over them. */
+class FavoritesRepositoryFixture(val state: FavoritesRepositoryState, val mockFavoritesRepository: IFavoritesRepository)
+
+/** A [FavoritesRepositoryFixture] holding [favorites]. */
+fun createFavoritesRepositoryFixture(favorites: List<Launchable> = emptyList()): FavoritesRepositoryFixture {
+    val state: FavoritesRepositoryState = FavoritesRepositoryState(favorites)
+    return FavoritesRepositoryFixture(state = state, mockFavoritesRepository = createFavoritesRepositoryMock(state))
+}

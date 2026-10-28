@@ -122,6 +122,10 @@ abstract class PopupTestBase {
         launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder))
     }
 
+    protected fun setFolders(inputFolders: List<Folder>) {
+        folders.value = inputFolders
+    }
+
     protected fun setShortcutResult(result: ShortcutsResult) {
         shortcutResult.value = result
     }
