@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.content.ComponentName
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.SavedStateHandle
 import core.data.apps.model.App
@@ -8,8 +7,11 @@ import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationRecord
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.data.testing.AppWidgetHostFixture
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createClockSourceMock
 import core.data.testing.createNotificationRecord
@@ -66,10 +68,17 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         key = TEST_NOTIFICATION_OTHER_KEY,
         packageName = inputOtherApp.packageName
     )
-    protected val inputWorkApp: App = App(
-        defaultName = "Work",
-        profile = createOtherNotificationProfile(),
-        componentName = ComponentName("com.example.work", "com.example.work.MainActivity")
+    protected val inputWorkProfile: ProfileInfo = ProfileInfo(
+        user = createOtherNotificationProfile(),
+        serial = TEST_WORK_PROFILE_SERIAL,
+        kind = ProfileKind.Work,
+        isQuiet = false
+    )
+    protected val inputWorkApp: App = createApp(
+        name = "Work",
+        packageName = "com.example.work",
+        profileInfo = inputWorkProfile,
+        badgedLabel = "Work Work"
     )
     protected val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
     protected val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()

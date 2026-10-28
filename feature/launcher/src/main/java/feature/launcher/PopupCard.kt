@@ -740,7 +740,7 @@ internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () 
         AsyncImage(
             modifier = Modifier.size(if (shortcut != null) compactIconSize else itemIconSize),
             model = item.launchable.icon,
-            contentDescription = null
+            contentDescription = item.launchable.accessibilityName
         )
         Spacer(Modifier.width(if (shortcut != null) shortcutIconGap else itemIconGap))
         if (shortcut != null) {

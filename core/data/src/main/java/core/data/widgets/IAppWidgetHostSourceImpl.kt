@@ -14,6 +14,7 @@ import android.os.UserHandle
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.SYSTEM_ICON_PACK_NAME
+import core.data.icons.model.badgedFor
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
@@ -116,7 +117,7 @@ class IAppWidgetHostSourceImpl(
         return info.toWidgetProviderInfo(
             user = user,
             profileSerial = profileSerial,
-            profileKind = profileSource.profileFor(user = user)?.kind ?: ProfileKind.Other,
+            profileKind = profileSource.kindFor(user = user),
             appIcon = cached?.appIcon ?: Icon.ApplicationIcon(info.provider.packageName)
         )
     }
@@ -154,7 +155,7 @@ class IAppWidgetHostSourceImpl(
                         user = profile.user,
                         profileSerial = profile.serial,
                         profileKind = profile.kind,
-                        appIcon = appIconFor(packageName = info.provider.packageName, user = profile.user, iconPack = iconPack)
+                        appIcon = appIconFor(packageName = info.provider.packageName, profile = profile, iconPack = iconPack)
                     )
                 }
         }
@@ -230,14 +231,14 @@ class IAppWidgetHostSourceImpl(
         )
     }
 
-    private suspend fun appIconFor(packageName: String, user: UserHandle, iconPack: String): Icon {
+    private suspend fun appIconFor(packageName: String, profile: ProfileInfo, iconPack: String): Icon {
         val componentName: ComponentName? = runCatching {
-            launcherApps.getActivityList(packageName, user).firstOrNull()?.componentName
+            launcherApps.getActivityList(packageName, profile.user).firstOrNull()?.componentName
         }.getOrNull()
         if (componentName == null) {
-            return Icon.ApplicationIcon(packageName)
+            return Icon.ApplicationIcon(packageName).badgedFor(profile = profile)
         }
-        return iconRepository.getIcon(packPackageName = iconPack, componentName = componentName)
+        return iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profile)
     }
 
     private fun appLabelFor(packageName: String, user: UserHandle): String = runCatching {

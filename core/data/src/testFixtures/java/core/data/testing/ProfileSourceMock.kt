@@ -5,6 +5,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -20,6 +21,9 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
     val activitiesByUser: MutableMap<UserHandle, List<ProfileActivity>> = mutableMapOf()
     val usersBySerial: MutableMap<Long, UserHandle> = mutableMapOf()
     val serialsByUser: MutableMap<UserHandle, Long> = mutableMapOf()
+
+    /** The system-badged label for a label and Profile; identity unless a test overrides it. */
+    var badgedLabel: (String, UserHandle) -> String = { label, _ -> label }
 }
 
 /** A MockK [IProfileSource] reading [state]. */
@@ -29,6 +33,12 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     every { mockProfileSource.changes } returns state.changes
     every { mockProfileSource.profileFor(any()) } answers {
         state.profiles.value.firstOrNull { profile -> profile.user == firstArg<UserHandle>() }
+    }
+    every { mockProfileSource.kindFor(any()) } answers {
+        state.profiles.value.firstOrNull { profile -> profile.user == firstArg<UserHandle>() }?.kind ?: ProfileKind.Other
+    }
+    every { mockProfileSource.badgedLabel(any(), any()) } answers {
+        state.badgedLabel(firstArg<String>(), secondArg<UserHandle>())
     }
     every { mockProfileSource.activities(any<UserHandle>()) } answers {
         state.activitiesByUser[firstArg<UserHandle>()].orEmpty()

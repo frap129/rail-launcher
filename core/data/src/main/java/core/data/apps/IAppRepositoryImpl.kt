@@ -38,7 +38,7 @@ class IAppRepositoryImpl(
 
     private fun loadApps(): List<App> = profileSource.profiles.value
         .filter { profile -> profile.isListed() }
-        .flatMap { profile -> profileSource.activities(profile.user).map { activity -> activity.toApp() } }
+        .flatMap { profile -> profileSource.activities(profile.user).map { activity -> activity.toApp(profile = profile) } }
         .excludingOwnPackage()
 
     private fun applyChange(change: ProfileChange) {
@@ -48,7 +48,7 @@ class IAppRepositoryImpl(
             is ProfileChange.PackageChanged -> replacePackage(user = change.user, packageName = change.packageName)
             is ProfileChange.ProfileAdded -> addProfile(user = change.user)
             is ProfileChange.ProfileRemoved -> removeProfile(user = change.user)
-            is ProfileChange.ProfileAvailable, is ProfileChange.ProfileUnavailable -> Unit
+            is ProfileChange.ProfileAvailable, is ProfileChange.ProfileUnavailable -> updatePausedState(user = change.user)
             is ProfileChange.PackagesUnavailable -> Unit
         }
     }
@@ -58,7 +58,7 @@ class IAppRepositoryImpl(
         if (!profile.isListed()) {
             return
         }
-        val addedApps: List<App> = profileSource.activities(user).map { activity -> activity.toApp() }
+        val addedApps: List<App> = profileSource.activities(user).map { activity -> activity.toApp(profile = profile) }
         _apps.update { current -> (current.orEmpty().filterNot { app -> app.profile == user } + addedApps).excludingOwnPackage() }
     }
 
@@ -66,12 +66,21 @@ class IAppRepositoryImpl(
         _apps.update { current -> current?.filterNot { app -> app.profile == user } }
     }
 
+    private fun updatePausedState(user: UserHandle) {
+        val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
+        _apps.update { current ->
+            current?.map { app ->
+                if (app.profileInfo.user == user) app.copy(profileInfo = app.profileInfo.copy(isQuiet = profile.isQuiet)) else app
+            }
+        }
+    }
+
     private fun replacePackage(user: UserHandle, packageName: String) {
         val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
         val replacedApps: List<App> = if (!profile.isListed() || packageName == ownPackageName) {
             emptyList()
         } else {
-            profileSource.activities(packageName, user).map { activity -> activity.toApp() }
+            profileSource.activities(packageName, user).map { activity -> activity.toApp(profile = profile) }
         }
         _apps.update { current ->
             current.orEmpty().filterNot { app -> app.profile == user && app.packageName == packageName } + replacedApps
@@ -88,9 +97,10 @@ class IAppRepositoryImpl(
 
     private fun List<App>.excludingOwnPackage(): List<App> = filterNot { app -> app.packageName == ownPackageName }
 
-    private fun ProfileActivity.toApp(): App = App(
+    private fun ProfileActivity.toApp(profile: ProfileInfo): App = App(
         defaultName = label,
-        profile = user,
-        componentName = componentName
+        profileInfo = profile,
+        componentName = componentName,
+        badgedLabel = badgedLabel
     )
 }

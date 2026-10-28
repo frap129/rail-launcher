@@ -1,8 +1,10 @@
 package feature.launcher
 
+import android.os.UserHandle
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
@@ -15,6 +17,7 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IProfileSource
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -135,7 +139,8 @@ class LauncherViewModel(
     private val folderRepo: IFolderRepository,
     private val popupRepo: IPopupRepository,
     private val notificationSource: INotificationSource,
-    private val homeEditState: HomeEditState
+    private val homeEditState: HomeEditState,
+    private val profileSource: IProfileSource
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -270,6 +275,59 @@ class LauncherViewModel(
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherMenuState.Closed
     )
+
+    private val requestedPausedApp: MutableStateFlow<App?> = MutableStateFlow(null)
+
+    /** The paused App whose tap asked to turn work apps on, or null when no prompt is open. */
+    val pausedPrompt: StateFlow<App?> = combine(
+        requestedPausedApp,
+        launcherItemRepo.launchables
+    ) { requestedApp, launchables ->
+        requestedApp?.let { prompt ->
+            launchables.filterIsInstance<App>().firstOrNull { app -> app.key == prompt.key }
+        }
+    }
+        .map { app -> app?.takeIf { current -> current.isPaused } }
+        .onEach { app -> if (app == null) requestedPausedApp.value = null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
+
+    /**
+     * Handles a request to launch [launchable]. Returns false and opens the paused prompt
+     * instead when [launchable] is a paused App.
+     */
+    fun requestLaunch(launchable: Launchable): Boolean {
+        val app: App = launchable as? App ?: return true
+        if (!app.isPaused) {
+            return true
+        }
+        requestedPausedApp.value = app
+        return false
+    }
+
+    /** Asks the system to leave quiet mode for the Profile with [profileSerial]. */
+    fun turnOnProfile(profileSerial: Long) {
+        val user: UserHandle = profileSource.userForSerial(serial = profileSerial) ?: return
+        requestQuietOff(user = user)
+    }
+
+    /** Asks the system to leave quiet mode for the paused App's Profile. */
+    fun turnOnPausedApp() {
+        val app: App = requestedPausedApp.value ?: return
+        requestedPausedApp.value = null
+        requestQuietOff(user = app.profile)
+    }
+
+    private fun requestQuietOff(user: UserHandle) {
+        viewModelScope.launch { profileSource.requestQuiet(user = user, quiet = false) }
+    }
+
+    fun dismissPausedPrompt() {
+        requestedPausedApp.value = null
+    }
 
     fun onRailPreview(index: Int) = handleRailGroup(index, isScrolling = true)
 

@@ -14,6 +14,6 @@ fun LaunchableIcon(launchable: Launchable) {
     AsyncImage(
         modifier = Modifier.size(64.dp).padding(10.dp),
         model = launchable.icon,
-        contentDescription = launchable.name
+        contentDescription = launchable.accessibilityName
     )
 }

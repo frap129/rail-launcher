@@ -5,6 +5,8 @@ import android.os.UserHandle
 import coil3.request.Options
 import core.data.icons.model.Icon
 import core.data.testing.TEST_SDK
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createUserHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -72,6 +74,32 @@ class IconKeyerTest {
         assertDifferentKeys(
             Icon.ShortcutIcon(SHORTCUT_PACKAGE, SHORTCUT_ID, profile),
             Icon.ShortcutIcon(SHORTCUT_PACKAGE, SECOND_SHORTCUT_ID, profile)
+        )
+    }
+
+    @Test
+    fun `equal Profile icons produce equal cache keys`() {
+        assertEqualKeys(
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(componentName), profile = profile),
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(componentName), profile = profile)
+        )
+    }
+
+    @Test
+    fun `Profile icons with different Profiles produce different cache keys`() {
+        val otherProfile: UserHandle = createUserHandle(userId = WORK_USER_ID)
+
+        assertDifferentKeys(
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(componentName), profile = profile),
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(componentName), profile = otherProfile)
+        )
+    }
+
+    @Test
+    fun `Profile icons with different base icons produce different cache keys`() {
+        assertDifferentKeys(
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(componentName), profile = profile),
+            Icon.ProfileIcon(icon = Icon.ApplicationIcon(APPLICATION_PACKAGE), profile = profile)
         )
     }
 

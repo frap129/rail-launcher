@@ -10,14 +10,17 @@ enum class ProfileKind {
     Personal,
     Work,
     Private,
-    Other
+    Other;
+
+    /** Whether this is the personal Profile, which takes no Profile badge. */
+    val isPersonal: Boolean get() = this == Personal
 }
 
 /** A Profile Rail can load Apps from. */
 data class ProfileInfo(val user: UserHandle, val serial: Long, val kind: ProfileKind, val isQuiet: Boolean)
 
 /** A launchable activity resolved for one Profile. */
-data class ProfileActivity(val componentName: ComponentName, val user: UserHandle, val label: String)
+data class ProfileActivity(val componentName: ComponentName, val user: UserHandle, val label: String, val badgedLabel: String)
 
 /** A package or Profile change Rail must react to. */
 sealed interface ProfileChange {
@@ -49,6 +52,12 @@ interface IProfileSource {
 
     /** The Profile for [user], or null when it is no longer listed. */
     fun profileFor(user: UserHandle): ProfileInfo?
+
+    /** The kind of [user]'s Profile, or [ProfileKind.Other] when it is no longer listed. */
+    fun kindFor(user: UserHandle): ProfileKind
+
+    /** The system-badged form of [label] for [user]. */
+    fun badgedLabel(label: String, user: UserHandle): String
 
     /** Every launchable activity in [user]. */
     fun activities(user: UserHandle): List<ProfileActivity>

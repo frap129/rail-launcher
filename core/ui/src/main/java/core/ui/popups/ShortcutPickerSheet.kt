@@ -42,12 +42,12 @@ import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
+import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.compactIconSize
 
 private val pickerIconSize = 32.dp
 private val pickerIconGap = 12.dp
 private val pickerShortcutRowStartPadding = sheetHorizontalPadding + pickerIconSize + pickerIconGap
-private const val PAUSED_APP_ALPHA: Float = 0.5f
 
 /** The full-height sheet for choosing which Shortcuts a Pop-up shows. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,14 +115,14 @@ private fun PickerAppSection(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(if (isPaused) PAUSED_APP_ALPHA else 1f)
+                .alpha(if (isPaused) UNAVAILABLE_ALPHA else 1f)
                 .clickable(enabled = canExpand, onClick = onToggleExpanded)
                 .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
         ) {
             AsyncImage(
                 modifier = Modifier.size(pickerIconSize),
                 model = appShortcuts.app.icon,
-                contentDescription = null
+                contentDescription = appShortcuts.app.accessibilityName
             )
             Spacer(Modifier.width(pickerIconGap))
             Column(modifier = Modifier.weight(1f)) {

@@ -6,8 +6,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.badgedFor
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
+import core.data.profiles.ProfileInfo
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.util.getIconsFromPack
@@ -24,7 +26,7 @@ class IIconRepositoryImpl(
     private val context: Context,
     private val iconPackDao: CustomIconPackDao,
     private val iconDao: PackIconDao,
-    profileSource: IProfileSource,
+    private val profileSource: IProfileSource,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IIconRepository {
@@ -89,8 +91,10 @@ class IIconRepositoryImpl(
         _iconPacks.value = installedIconPacks
     }
 
-    override suspend fun getIcon(packPackageName: String, componentName: ComponentName) =
-        iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
+    override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {
+        val baseIcon: Icon = iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
+        return baseIcon.badgedFor(profile = profile)
+    }
 
     private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {
         iconPackDao.getAll().forEach { pack ->

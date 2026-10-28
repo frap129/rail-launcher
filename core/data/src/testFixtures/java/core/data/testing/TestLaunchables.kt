@@ -1,13 +1,13 @@
 package core.data.testing
 
 import android.content.ComponentName
-import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.icons.model.Icon
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.profiles.ProfileInfo
 
 private const val TEST_APP_USER_ID: Int = 0
 
@@ -19,10 +19,16 @@ fun createRailLaunchable(name: String, deeplink: String = "rail://$name"): RailL
 )
 
 /** An installed App with a predictable activity and key for tests. */
-fun createApp(name: String, packageName: String): App = App(
+fun createApp(
+    name: String,
+    packageName: String,
+    profileInfo: ProfileInfo = createProfileInfo(userId = TEST_APP_USER_ID),
+    badgedLabel: String = name
+): App = App(
     defaultName = name,
-    profile = UserHandle.getUserHandleForUid(TEST_APP_USER_ID),
-    componentName = ComponentName(packageName, "$packageName.MainActivity")
+    profileInfo = profileInfo,
+    componentName = ComponentName(packageName, "$packageName.MainActivity"),
+    badgedLabel = badgedLabel
 )
 
 /** The Launchable State resolved from [groups] and [folders]. */

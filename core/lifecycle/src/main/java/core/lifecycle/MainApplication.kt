@@ -201,7 +201,9 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ILaunchableRepository> {
+            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
@@ -314,7 +316,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(

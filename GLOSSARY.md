@@ -16,6 +16,10 @@ _Avoid_: User, space, account
 The managed Profile a device administrator controls, separate from the personal Profile.
 _Avoid_: Work user, work space, managed profile
 
+**Paused**:
+A Work profile in quiet mode: its Apps stay in place but are greyed out, and tapping one offers to turn work apps on.
+_Avoid_: Off, disabled, stopped
+
 **Private Space**:
 The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
 _Avoid_: Private profile, vault, space
