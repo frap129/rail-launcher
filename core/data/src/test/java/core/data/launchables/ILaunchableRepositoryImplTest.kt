@@ -1,7 +1,6 @@
 package core.data.launchables
 
 import android.content.ComponentName
-import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepositoryImpl
@@ -16,13 +15,20 @@ import core.data.popups.PopupItemRecord
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.ProfileSourceState
+import core.data.testing.WORK_USER_ID
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createProfileInfo
+import core.data.testing.createProfileSourceMock
 import core.data.testing.failOnRequest
 import io.mockk.coVerify
 import io.mockk.every
@@ -87,7 +93,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualFavorites: List<Launchable> = favoritesRepository.favorites.first()
 
         assertEquals(1, inputAppState.subscriptionCount.value)
-        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
+        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
         assertTrue(actualState.isLoaded)
         assertEquals(listOf("O", "⌂"), actualState.listedGroups.map { group -> group.label })
         assertTrue(actualMenuItems.isNotEmpty())
@@ -156,12 +162,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val collection: Job = launch { repository.launchableState.collect { } }
         try {
             assertFalse(repository.launchableState.value.isLoaded)
-            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any()) }
+            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
 
             advanceUntilIdle()
             assertEquals(1, inputAppState.subscriptionCount.value)
             assertTrue(repository.launchableState.value.isLoaded)
-            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
+            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
         } finally {
             collection.cancel()
         }
@@ -208,6 +214,32 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `badges a renamed work App's displayed name for accessibility`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputApp: App = App(
+            defaultName = ORIGINAL_NAME,
+            profileInfo = inputProfile,
+            componentName = inputComponentName,
+            badgedLabel = "Work $ORIGINAL_NAME"
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile)).apply {
+            badgedLabel = { label, _ -> "Work $label" }
+        }
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
+            ),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(RENAMED_NAME, actualApp.name)
+        assertEquals("Work $RENAMED_NAME", actualApp.accessibilityName)
+    }
+
+    @Test
     fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = databaseTest {
         val inputApp: App = createApp()
         val expectedIcon: Icon = Icon.PackIcon(
@@ -215,12 +247,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             packPackageName = ICON_PACK_PACKAGE_NAME,
             resId = ICON_PACK_RES_ID
         )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
             ),
-            mockIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
+            mockIconRepository = mockIconRepository
         )
 
         val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
@@ -228,6 +261,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertNotSame(inputApp, actualApp)
         assertEquals(expectedIcon, actualApp.icon)
         assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
+        coVerify(exactly = 1) {
+            mockIconRepository.getIcon(
+                packPackageName = ICON_PACK_PACKAGE_NAME,
+                componentName = inputComponentName,
+                profile = inputApp.profileInfo
+            )
+        }
     }
 
     @Test
@@ -384,12 +424,14 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockAppRepository: IAppRepository,
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
+        mockProfileSource: IProfileSource = createProfileSourceMock(),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
         iconRepository = mockIconRepository,
+        profileSource = mockProfileSource,
         preferencesRepository = mockPreferencesRepository,
         folderDao = folderDao,
         popupDao = popupDao,
@@ -398,7 +440,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     private fun createApp(name: String = ORIGINAL_NAME): App = App(
         defaultName = name,
-        profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
+        profileInfo = createProfileInfo(userId = TEST_USER_ID),
         componentName = inputComponentName
     )
 

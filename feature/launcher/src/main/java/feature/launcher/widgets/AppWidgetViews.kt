@@ -6,8 +6,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Process
@@ -60,13 +58,6 @@ object AppWidgetViews {
                 }
             }.getOrNull()
         }
-
-    fun loadWorkBadge(context: Context, profileSerial: Long, profileSource: IProfileSource): Drawable? {
-        val user: UserHandle = profileSource.userForSerial(profileSerial) ?: return null
-        return runCatching {
-            context.packageManager.getUserBadgedIcon(ColorDrawable(Color.TRANSPARENT), user)
-        }.getOrNull()
-    }
 
     @RequiresApi(Build.VERSION_CODES.S)
     fun colorResources(context: Context): SparseIntArray = SparseIntArray().apply {

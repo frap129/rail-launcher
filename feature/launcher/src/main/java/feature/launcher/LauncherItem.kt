@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ColorFilter
@@ -52,6 +53,7 @@ import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
+import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
 import kotlin.math.roundToInt
@@ -107,6 +109,7 @@ fun LauncherItem(
     val longPressGate: LongPressGate = remember { LongPressGate() }
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
+    val isPaused: Boolean = item is App && item.isPaused
     val summaryDescription: String? = summary?.let { summaryText ->
         stringResource(R.string.folder_summary_description, item.name, summaryText)
     }
@@ -116,6 +119,7 @@ fun LauncherItem(
             horizontalArrangement = Arrangement.Start,
             modifier = modifier
                 .fillMaxWidth()
+                .alpha(if (isPaused) UNAVAILABLE_ALPHA else 1f)
                 .pointerInput(isEditingFavorites) {
                     if (!isEditingFavorites) {
                         detectTapGestures(

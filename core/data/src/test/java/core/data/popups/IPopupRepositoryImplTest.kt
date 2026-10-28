@@ -24,6 +24,7 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
+import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -884,7 +885,7 @@ private fun List<Launchable>.asPopupItems(): List<PopupItem> = map { launchable 
 
 private fun createApp(name: String = "App", packageName: String = APP_PACKAGE_NAME): App = App(
     defaultName = name,
-    profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
+    profileInfo = createProfileInfo(userId = TEST_USER_ID),
     componentName = ComponentName(packageName, "$packageName.MainActivity")
 )
 

@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import core.data.icons.model.Icon
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
+import timber.log.Timber
 
 internal sealed interface IconSource {
     val cacheKey: String
@@ -49,6 +50,18 @@ private class FolderIconSource(private val shade: Int) : IconSource {
     override fun loadDrawable(context: Context): Drawable = FolderIconDrawable(context = context, shade = shade)
 }
 
+private class ProfileIconSource(private val icon: Icon, private val profile: UserHandle) : IconSource {
+    private val source: IconSource = icon.toSource()
+    override val cacheKey: String = "${source.cacheKey}:profile:$profile"
+
+    override fun loadDrawable(context: Context): Drawable? {
+        val iconDrawable: Drawable = source.loadDrawable(context) ?: return null
+        return runCatching { context.packageManager.getUserBadgedIcon(iconDrawable, profile) }
+            .onFailure { exception -> Timber.w(exception, "Could not badge an icon") }
+            .getOrDefault(iconDrawable)
+    }
+}
+
 private class ShortcutIconSource(private val packageName: String, private val shortcutId: String, private val profile: UserHandle) :
     IconSource {
     override val cacheKey: String = ShortcutKey(packageName = packageName, id = shortcutId, profile = profile).format()
@@ -82,6 +95,7 @@ internal fun Icon.toSource(): IconSource = when (this) {
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName)
     is Icon.FolderIcon -> FolderIconSource(shade)
     is Icon.PackIcon -> PackIconSource(componentName, packPackageName, resId)
+    is Icon.ProfileIcon -> ProfileIconSource(icon = icon, profile = profile)
     is Icon.RailIcon -> RailIconSource(resId)
     is Icon.ShortcutIcon -> ShortcutIconSource(packageName, shortcutId, profile)
 }

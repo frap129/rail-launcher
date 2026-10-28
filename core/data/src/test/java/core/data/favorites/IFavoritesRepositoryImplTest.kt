@@ -1,19 +1,24 @@
 package core.data.favorites
 
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
+import core.data.profiles.ProfileKind
 import core.data.room.dao.FavoriteDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
+import core.data.testing.createProfileInfo
 import core.data.testing.failOnRequest
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -117,6 +122,22 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         launchableState.value = createLaunchableState(groups = emptyList())
 
         assertNoFavorites()
+    }
+
+    @Test
+    fun `keeps a Favorite App whose Profile is paused`() = databaseTest {
+        val inputPausedApp: App = createApp(
+            name = "Gmail",
+            packageName = "com.example.gmail",
+            profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        )
+        seedFavorite(key = inputPausedApp.key, position = FIRST_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPausedApp))
+        )
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputPausedApp))
     }
 
     @Test

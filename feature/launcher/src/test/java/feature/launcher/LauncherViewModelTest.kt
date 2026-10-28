@@ -15,20 +15,28 @@ import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PopupRepositoryState
+import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
+import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
+import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createProfileInfo
+import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createTestNotificationSource
 import core.ui.layout.HomeEditMode
@@ -49,6 +57,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -72,6 +81,7 @@ class LauncherViewModelTest {
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+    private val mockProfileSource: IProfileSource = createProfileSourceMock()
     private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
     private val inputListedGroups: List<LaunchableGroup.Listed> = listOf(
         LaunchableGroup.InitialGroup(label = "A", items = listOf(createRailLaunchable("Alpha"))),
@@ -937,6 +947,153 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `tapping a paused work App opens the paused prompt instead of launching`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            val actualCanLaunch: Boolean = viewModel.requestLaunch(inputPausedApp)
+            assertFalse(actualCanLaunch)
+            assertEquals(inputPausedApp, awaitItem())
+        }
+    }
+
+    @Test
+    fun `tapping an available App allows launching without a prompt`() = runTest {
+        val inputApp: App = createApp(name = "Gmail", packageName = "com.example.gmail")
+        val viewModel: LauncherViewModel = createViewModel()
+
+        assertTrue(viewModel.requestLaunch(inputApp))
+        assertNull(viewModel.pausedPrompt.value)
+    }
+
+    @Test
+    fun `turning on a paused App asks its Profile to leave quiet mode`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.requestLaunch(inputPausedApp)
+        advanceUntilIdle()
+        viewModel.turnOnPausedApp()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockProfileSource.requestQuiet(user = inputPausedApp.profile, quiet = false) }
+    }
+
+    @Test
+    fun `turning on a Profile by serial asks it to leave quiet mode`() = runTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputProfileState: ProfileSourceState = ProfileSourceState().apply {
+            usersBySerial[inputProfile.serial] = inputProfile.user
+            serialsByUser[inputProfile.user] = inputProfile.serial
+        }
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockProfileSource)
+
+        viewModel.turnOnProfile(profileSerial = inputProfile.serial)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockProfileSource.requestQuiet(user = inputProfile.user, quiet = false) }
+    }
+
+    @Test
+    fun `long-pressing a paused work App still opens its menu`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            viewModel.openItemMenu(inputPausedApp)
+            assertEquals(LauncherMenuState.Menu(item = inputPausedApp), expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `clears the paused prompt when the App becomes available`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            viewModel.requestLaunch(inputPausedApp)
+            assertEquals(inputPausedApp, awaitItem())
+            inputState.value =
+                createLoadedLaunchableState(listOf(inputPausedApp.copy(profileInfo = inputPausedApp.profileInfo.copy(isQuiet = false))))
+            assertNull(awaitItem())
+        }
+    }
+
+    @Test
+    fun `does not reopen the paused prompt when the Profile pauses again after resuming`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            viewModel.requestLaunch(inputPausedApp)
+            assertEquals(inputPausedApp, awaitItem())
+            val inputAvailableApp: App = inputPausedApp.copy(profileInfo = inputPausedApp.profileInfo.copy(isQuiet = false))
+            inputState.value = createLoadedLaunchableState(listOf(inputAvailableApp))
+            assertNull(awaitItem())
+            inputState.value = createLoadedLaunchableState(listOf(inputPausedApp))
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `does not reopen the paused prompt when the Profile resumes and pauses while unsubscribed`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+        assertFalse(viewModel.requestLaunch(inputPausedApp))
+        val inputAvailableApp: App = inputPausedApp.copy(profileInfo = inputPausedApp.profileInfo.copy(isQuiet = false))
+        inputState.value = createLoadedLaunchableState(listOf(inputAvailableApp))
+        advanceUntilIdle()
+        inputState.value = createLoadedLaunchableState(listOf(inputPausedApp))
+        advanceUntilIdle()
+
+        viewModel.pausedPrompt.test {
+            assertNull(expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `dismissing the paused prompt closes it`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            viewModel.requestLaunch(inputPausedApp)
+            assertEquals(inputPausedApp, awaitItem())
+            viewModel.dismissPausedPrompt()
+            assertNull(awaitItem())
+        }
+    }
+
+    @Test
     fun `adds a Rail deeplink to the Favorites`() {
         runTest {
             val inputRailItem: Launchable = listedItem(inputListedGroups.lastIndex)
@@ -1135,7 +1292,8 @@ class LauncherViewModelTest {
         mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.mockFavoritesFixture.mockFavoritesRepository,
         mockFolderRepository: IFolderRepository = this@LauncherViewModelTest.mockFolderRepository,
         inputHomeEditState: HomeEditState = HomeEditState(),
-        mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository
+        mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository,
+        mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -1144,7 +1302,15 @@ class LauncherViewModelTest {
         folderRepo = mockFolderRepository,
         popupRepo = mockPopupRepository,
         notificationSource = createNotificationSource(mockPopupRepository = mockPopupRepository),
-        homeEditState = inputHomeEditState
+        homeEditState = inputHomeEditState,
+        profileSource = mockProfileSource
+    )
+
+    private fun createPausedWorkApp(): App = createApp(
+        name = "Gmail",
+        packageName = "com.example.gmail",
+        profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
+        badgedLabel = "Work Gmail"
     )
 
     private fun TestScope.createNotificationSource(mockPopupRepository: IPopupRepository): INotificationSource =

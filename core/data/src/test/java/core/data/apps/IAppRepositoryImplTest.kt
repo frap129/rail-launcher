@@ -59,6 +59,76 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     )
 
     @Test
+    fun `carries each App's Profile kind, badged label and availability`() = databaseTest {
+        val inputPausedWorkProfile: ProfileInfo = workProfile.copy(isQuiet = true)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPausedWorkProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(
+                profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser, label = "Gmail", badgedLabel = "Gmail")
+            )
+        )
+        inputState.setActivities(
+            user = workUser,
+            activities = arrayOf(
+                profileActivity(packageName = WORK_PACKAGE, user = workUser, label = "Gmail", badgedLabel = "Work Gmail")
+            )
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        val actualPersonalApp: App = actualApps.single { app -> app.profile == personalUser }
+        assertEquals(ProfileKind.Personal, actualPersonalApp.kind)
+        assertEquals("Gmail", actualPersonalApp.badgedLabel)
+        assertFalse(actualPersonalApp.isPaused)
+        val actualWorkApp: App = actualApps.single { app -> app.profile == workUser }
+        assertEquals(ProfileKind.Work, actualWorkApp.kind)
+        assertEquals("Work Gmail", actualWorkApp.badgedLabel)
+        assertTrue(actualWorkApp.isPaused)
+    }
+
+    @Test
+    fun `marks Apps unavailable when their Profile pauses and available again when it resumes`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+
+        inputState.profiles.value = listOf(personalProfile, workProfile.copy(isQuiet = true))
+        inputState.changes.emit(ProfileChange.ProfileUnavailable(user = workUser))
+        assertTrue(loadApps(repository = repository).single { app -> app.profile == workUser }.isPaused)
+
+        inputState.profiles.value = listOf(personalProfile, workProfile)
+        inputState.changes.emit(ProfileChange.ProfileAvailable(user = workUser))
+        assertFalse(loadApps(repository = repository).single { app -> app.profile == workUser }.isPaused)
+    }
+
+    @Test
+    fun `does not reload a Profile's Apps when it resumes`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(personalProfile, workProfile.copy(isQuiet = true))
+        ).apply {
+            setActivities(
+                user = workUser,
+                activities = arrayOf(profileActivity(packageName = WORK_PACKAGE, user = workUser))
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        inputState.setActivities(
+            user = workUser,
+            activities = arrayOf(profileActivity(packageName = WORK_PACKAGE, user = workUser, label = RENAMED_NAME))
+        )
+
+        inputState.profiles.value = listOf(personalProfile, workProfile)
+        inputState.changes.emit(ProfileChange.ProfileAvailable(user = workUser))
+        val actualWorkApp: App = loadApps(repository = repository).single { app -> app.profile == workUser }
+
+        assertFalse(actualWorkApp.isPaused)
+        assertEquals(WORK_PACKAGE, actualWorkApp.defaultName)
+    }
+
+    @Test
     fun `loads Apps from the personal and work Profiles`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, workProfile))
         inputState.setActivities(
@@ -205,6 +275,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableRepository: ILaunchableRepositoryImpl = ILaunchableRepositoryImpl(
             appRepository = appRepository,
             iconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputWorkApp.componentName)),
+            profileSource = createProfileSourceMock(state = inputState),
             preferencesRepository = mockPreferencesRepository,
             folderDao = database.getFolderDao(),
             popupDao = database.getPopupDao(),
@@ -252,9 +323,15 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         activitiesByUser[user] = activities.toList()
     }
 
-    private fun profileActivity(packageName: String, user: UserHandle, label: String = packageName): ProfileActivity = ProfileActivity(
+    private fun profileActivity(
+        packageName: String,
+        user: UserHandle,
+        label: String = packageName,
+        badgedLabel: String = label
+    ): ProfileActivity = ProfileActivity(
         componentName = ComponentName(packageName, "$packageName.MainActivity"),
         user = user,
-        label = label
+        label = label,
+        badgedLabel = badgedLabel
     )
 }

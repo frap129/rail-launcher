@@ -1,17 +1,25 @@
 package core.data.icons
 
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.os.UserHandle
+import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.profiles.ProfileChange
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.RuntimeEnvironment
@@ -19,9 +27,45 @@ import org.robolectric.Shadows.shadowOf
 
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_LABEL: String = "Example icon pack"
+private const val APP_PACKAGE_NAME: String = "com.example.app"
+private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IIconRepositoryImplTest : InMemoryDatabaseTest() {
+    private val inputPersonalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
+    private val inputWorkUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
+    private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+
+    @Test
+    fun `leaves a personal Profile's icon unbadged`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
+        val repository: IIconRepositoryImpl = createRepository(state = inputState)
+
+        val actualIcon: Icon = repository.getIcon(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            componentName = inputComponentName,
+            profile = inputProfile
+        )
+
+        assertEquals(Icon.ActivityIcon(inputComponentName), actualIcon)
+    }
+
+    @Test
+    fun `badges a non-personal Profile's icon`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
+        val repository: IIconRepositoryImpl = createRepository(state = inputState)
+
+        val actualIcon: Icon = repository.getIcon(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            componentName = inputComponentName,
+            profile = inputProfile
+        )
+
+        assertEquals(Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName), profile = inputWorkUser), actualIcon)
+    }
+
     @Suppress("DEPRECATION")
     @Test
     fun `refreshes icon packs when a package changes`() = databaseTest {
@@ -33,7 +77,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
 
         inputState.changes.emit(
             ProfileChange.PackageChanged(
-                user = createUserHandle(userId = PERSONAL_USER_ID),
+                user = inputPersonalUser,
                 packageName = ICON_PACK_PACKAGE_NAME
             )
         )

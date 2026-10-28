@@ -10,6 +10,9 @@ abstract class Launchable {
     abstract val name: String
     abstract val icon: Icon
 
+    /** The label accessibility services read for this Launchable. */
+    open val accessibilityName: String get() = name
+
     /** Returns a copy of this Launchable showing [appearance]. */
     abstract fun withCustomization(appearance: LaunchableAppearance): Launchable
 

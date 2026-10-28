@@ -1,6 +1,5 @@
 package core.data.popups
 
-import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -31,14 +30,7 @@ private const val SECOND_PACKAGE_NAME: String = "com.example.second"
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupContentResolverTest {
     private val profile: UserHandle = createNotificationProfile()
-    private val inputApp: App = App(
-        defaultName = OWNER_NAME,
-        profile = profile,
-        componentName = ComponentName(
-            TEST_NOTIFICATION_PACKAGE_NAME,
-            "$TEST_NOTIFICATION_PACKAGE_NAME.MainActivity"
-        )
-    )
+    private val inputApp: App = createApp(name = OWNER_NAME, packageName = TEST_NOTIFICATION_PACKAGE_NAME)
     private val inputOwner: RailLaunchable = RailLaunchable(
         defaultName = OWNER_NAME,
         defaultIcon = Icon.RailIcon(resId = 0),

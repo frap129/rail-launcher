@@ -43,6 +43,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.profiles.IProfileSource
@@ -126,6 +127,7 @@ fun LauncherScreen(
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val profileSource: IProfileSource = koinInject()
+    val pausedApp: App? by viewModel.pausedPrompt.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -144,6 +146,9 @@ fun LauncherScreen(
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
         if (launchable is Folder) {
+            return@launchItem
+        }
+        if (!viewModel.requestLaunch(launchable)) {
             return@launchItem
         }
         popupCardViewModel.onLaunched()
@@ -220,6 +225,7 @@ fun LauncherScreen(
                 appWidgetHostSource = appWidgetHostSource,
                 appWidgetViewCache = appWidgetViewCache,
                 profileSource = profileSource,
+                onRequestQuietModeOff = viewModel::turnOnProfile,
                 bindLauncher = bindLauncher,
                 permissionLauncher = permissionLauncher,
                 navController = navController,
@@ -397,6 +403,22 @@ fun LauncherScreen(
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
+    if (pausedApp != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissPausedPrompt,
+            title = { Text(text = stringResource(CoreUiR.string.work_apps_paused)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::turnOnPausedApp) {
+                    Text(text = stringResource(CoreUiR.string.turn_on))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissPausedPrompt) {
+                    Text(text = stringResource(CoreUiR.string.cancel))
+                }
+            }
+        )
+    }
 }
 
 private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFailure: () -> Unit): Boolean =
@@ -430,6 +452,7 @@ private suspend fun handleWidgetEvent(
     appWidgetHostSource: IAppWidgetHostSource,
     appWidgetViewCache: IAppWidgetViewCache,
     profileSource: IProfileSource,
+    onRequestQuietModeOff: (Long) -> Unit,
     bindLauncher: ManagedActivityResultLauncher<Intent, ActivityResult>,
     permissionLauncher: ManagedActivityResultLauncher<String, Boolean>,
     navController: NavController,
@@ -544,9 +567,7 @@ private suspend fun handleWidgetEvent(
             heightDp = event.heightDp
         )
 
-        is WidgetEvent.RequestQuietModeOff -> profileSource.userForSerial(event.profileSerial)?.let { profile ->
-            coroutineScope.launch { profileSource.requestQuiet(user = profile, quiet = false) }
-        }
+        is WidgetEvent.RequestQuietModeOff -> onRequestQuietModeOff(event.profileSerial)
 
         is WidgetEvent.ScrollToPlace -> callbacks.onScrollToPlace(event.placeId)
 

@@ -17,6 +17,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.prefs.toLaunchableNames
+import core.data.profiles.IProfileSource
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
@@ -35,6 +36,7 @@ private data class FolderAppList(val records: List<FolderRecord>, val memberKeys
 class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
     private val iconRepository: IIconRepository,
+    private val profileSource: IProfileSource,
     preferencesRepository: IPreferencesRepository,
     folderDao: FolderDao,
     popupDao: PopupDao,
@@ -122,11 +124,21 @@ class ILaunchableRepositoryImpl(
         val name: String = resolveName(names)
         val iconPack: String? = settings.iconPack
         val icon: Icon = if (this is App && iconPack != null) {
-            iconRepository.getIcon(packPackageName = iconPack, componentName = componentName)
+            iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profileInfo)
         } else {
             defaultIcon
         }
-        return withCustomization(LaunchableAppearance(name = name, icon = icon))
+        return if (this is App) {
+            copy(name = name, icon = icon, badgedLabel = badgedLabel(name = name))
+        } else {
+            withCustomization(LaunchableAppearance(name = name, icon = icon))
+        }
+    }
+
+    private fun App.badgedLabel(name: String): String = when {
+        profileInfo.kind.isPersonal -> name
+        name == defaultName -> badgedLabel
+        else -> profileSource.badgedLabel(label = name, user = profile)
     }
 }
 

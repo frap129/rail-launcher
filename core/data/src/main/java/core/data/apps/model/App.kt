@@ -5,20 +5,28 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import core.data.icons.model.Icon
+import core.data.icons.model.badgedFor
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.util.openApplicationDetailsSettings
 
 data class App(
     override val defaultName: String,
-    val profile: UserHandle,
+    val profileInfo: ProfileInfo,
     val componentName: ComponentName,
+    val badgedLabel: String = defaultName,
     override val name: String = defaultName,
-    override val defaultIcon: Icon = Icon.ActivityIcon(componentName),
+    override val defaultIcon: Icon = Icon.ActivityIcon(componentName).badgedFor(profile = profileInfo),
     override val icon: Icon = defaultIcon
 ) : Launchable() {
+    val profile: UserHandle = profileInfo.user
+    val kind: ProfileKind = profileInfo.kind
+    val isPaused: Boolean = profileInfo.isQuiet
     val packageName: String = componentName.packageName
     override val key: String = "${packageName}_$profile"
+    override val accessibilityName: String get() = if (kind.isPersonal) name else badgedLabel
 
     override fun withCustomization(appearance: LaunchableAppearance): App = copy(name = appearance.name, icon = appearance.icon)
 

@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,6 +31,7 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     private val appContext: Context = context.applicationContext
     private val launcherApps: LauncherApps = appContext.getSystemService(LauncherApps::class.java)
     private val userManager: UserManager = appContext.getSystemService(UserManager::class.java)
+    private val packageManager: PackageManager = appContext.packageManager
     private val _profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(loadProfiles())
     override val profiles: StateFlow<List<ProfileInfo>> = _profiles.asStateFlow()
     private val _changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(
@@ -87,6 +89,21 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     }
 
     override fun profileFor(user: UserHandle): ProfileInfo? = profiles.value.firstOrNull { profile -> profile.user == user }
+
+    override fun kindFor(user: UserHandle): ProfileKind {
+        val profile: ProfileInfo? = profileFor(user = user)
+        if (profile == null) {
+            Timber.w("No Profile for %s", user)
+            return ProfileKind.Other
+        }
+        return profile.kind
+    }
+
+    override fun badgedLabel(label: String, user: UserHandle): String = runCatching {
+        packageManager.getUserBadgedLabel(label, user).toString()
+    }.onFailure { exception ->
+        Timber.w(exception, "Could not read a badged label")
+    }.getOrDefault(label)
 
     override fun activities(user: UserHandle): List<ProfileActivity> = loadActivities(packageName = null, user = user)
 
@@ -148,10 +165,12 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
             emptyList()
         }
         return activities.map { activity ->
+            val label: String = activity.label.toString()
             ProfileActivity(
                 componentName = activity.componentName,
                 user = activity.user,
-                label = activity.label.toString()
+                label = label,
+                badgedLabel = badgedLabel(label = label, user = activity.user)
             )
         }
     }
