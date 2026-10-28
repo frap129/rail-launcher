@@ -14,16 +14,21 @@ import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.LaunchableNames
 import core.data.launchables.model.RailLaunchable
+import core.data.launchables.model.toPickerGroups
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.prefs.toLaunchableNames
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileToken
+import core.data.profiles.isPrivate
 import core.data.profiles.privateSpace
+import core.data.profiles.toProfileToken
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
+import core.data.runCleanup
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +38,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -40,10 +46,10 @@ class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
     private val iconRepository: IIconRepository,
     private val profileSource: IProfileSource,
-    preferencesRepository: IPreferencesRepository,
+    private val preferencesRepository: IPreferencesRepository,
     folderDao: FolderDao,
     popupDao: PopupDao,
-    scope: CoroutineScope
+    private val scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
         items = listOf(
@@ -100,6 +106,32 @@ class ILaunchableRepositoryImpl(
 
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
 
+    init {
+        // Deleting stale names keeps a reinstalled Launchable from restoring an old rename.
+        scope.launch {
+            combine(
+                preferencesRepository.launchableCustomizations,
+                launchableState
+            ) { customizations, state -> customizations to state }
+                .retryWithExponentialBackoff()
+                .collect { (customizations, state) ->
+                    if (state.isLoaded) {
+                        removeStaleNames(state = state, customizations = customizations)
+                    }
+                }
+        }
+    }
+
+    private suspend fun removeStaleNames(state: LaunchableState, customizations: List<LaunchableCustomization>) {
+        val staleKeys: List<String> = state.staleKeys(customizations.map { customization -> customization.key })
+        if (staleKeys.isEmpty()) {
+            return
+        }
+        runCleanup(message = "Failed to remove ${staleKeys.size} stale name customizations") {
+            preferencesRepository.removeLaunchableNames(keys = staleKeys)
+        }
+    }
+
     private suspend fun resolveState(
         appsOrNull: List<App>?,
         customizations: List<LaunchableCustomization>,
@@ -108,6 +140,9 @@ class ILaunchableRepositoryImpl(
         folderAppList: FolderAppList
     ): LaunchableState {
         val apps: List<App> = appsOrNull.orEmpty()
+        val keptKeys: Set<ProfileToken> = profiles
+            .filter { profile -> profile.isPrivate && profile.isQuiet }
+            .mapTo(mutableSetOf()) { profile -> profile.user.toProfileToken() }
         val names: LaunchableNames = customizations.toLaunchableNames()
         val resolvedApps: List<Launchable> = apps.map { app -> app.resolve(names = names, settings = settings) }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -121,13 +156,15 @@ class ILaunchableRepositoryImpl(
             builtinGroup = resolvedBuiltinGroup,
             privateSpace = privateSpace
         )
-        val pickerGroups: List<LaunchableGroup.Listed> =
-            (resolvedApps + folders).toLaunchableGroups(builtinGroup = resolvedBuiltinGroup).filterIsInstance<LaunchableGroup.Listed>()
+        val pickerGroups: List<LaunchableGroup.Listed> = (resolvedApps + folders)
+            .toLaunchableGroups(builtinGroup = resolvedBuiltinGroup, privateSpace = privateSpace)
+            .toPickerGroups()
         return LaunchableState(
             groups = groups,
             // Folder members stay reachable through their Folder, pickers and the Favorites.
             launchables = resolvedApps + resolvedBuiltinGroup.items + folders,
             isLoaded = appsOrNull != null,
+            keptKeys = keptKeys,
             pickerGroups = pickerGroups
         )
     }

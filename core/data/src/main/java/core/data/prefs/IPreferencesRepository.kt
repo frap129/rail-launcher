@@ -11,5 +11,8 @@ interface IPreferencesRepository {
 
     /** Removes [item]'s stored customization so it uses its default name again. */
     fun resetItemName(item: Launchable)
+
+    /** Removes the stored name customizations for [keys]. */
+    suspend fun removeLaunchableNames(keys: List<String>)
     fun setIconPack(iconPack: IconPack)
 }

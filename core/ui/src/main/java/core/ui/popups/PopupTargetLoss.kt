@@ -1,6 +1,7 @@
 package core.ui.popups
 
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.isKeptKey
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import kotlinx.coroutines.CancellationException
@@ -40,6 +41,35 @@ fun observeTargetLoss(
                     throw exception
                 } catch (exception: Exception) {
                     Timber.e(exception, "Popup target loss observation failed")
+                }
+            }
+    }
+}
+
+/**
+ * Dismisses the layer showing [contentKeys] (its Owner and the Launchables it lists) when a
+ * Profile becomes Locked after the layer showed its content.
+ */
+fun observeLockedContent(
+    scope: CoroutineScope,
+    contentKeys: Flow<Set<String>>,
+    launchableRepository: ILaunchableRepository,
+    onContentLocked: () -> Unit
+) {
+    scope.launch {
+        var previousKeys: Set<String> = emptySet()
+        combine(contentKeys, launchableRepository.launchableState) { keys, state -> keys to state }
+            .collect { (keys, state) ->
+                try {
+                    val isContentLocked: Boolean = state.isLoaded && previousKeys.any { key -> state.isKeptKey(key) }
+                    if (isContentLocked) {
+                        onContentLocked()
+                    }
+                    previousKeys = if (isContentLocked) emptySet() else keys
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (exception: Exception) {
+                    Timber.e(exception, "Popup Locked content observation failed")
                 }
             }
     }

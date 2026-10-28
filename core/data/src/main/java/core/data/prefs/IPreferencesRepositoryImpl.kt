@@ -33,6 +33,13 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override suspend fun removeLaunchableNames(keys: List<String>) {
+        if (keys.isEmpty()) {
+            return
+        }
+        launchableCustomizationDao.delete(keys = keys)
+    }
+
     override fun setIconPack(iconPack: IconPack) {
         scope.launch(Dispatchers.IO) {
             settingsDao.upsert(Settings(iconPack = (iconPack as? IconPack.CustomIconPack)?.packageName))

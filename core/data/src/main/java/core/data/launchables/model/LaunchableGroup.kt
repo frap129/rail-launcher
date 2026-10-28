@@ -71,3 +71,7 @@ fun LaunchableGroup.Listed.appListKey(): String = when (this) {
     is LaunchableGroup.InitialGroup -> "initial:$label"
     is LaunchableGroup.PrivateSpace -> "private:$label"
 }
+
+/** The groups a picker may list: the Listed groups without the Locked Private Space container. */
+fun List<LaunchableGroup>.toPickerGroups(): List<LaunchableGroup.Listed> = filterIsInstance<LaunchableGroup.Listed>()
+    .filterNot { group -> group is LaunchableGroup.PrivateSpace && group.isLocked }

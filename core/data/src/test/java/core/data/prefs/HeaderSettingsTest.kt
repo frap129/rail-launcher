@@ -1,5 +1,10 @@
 package core.data.prefs
 
+import core.data.folders.Folder
+import core.data.profiles.ProfileToken
+import core.data.testing.createLaunchableState
+import core.data.testing.createLoadedLaunchableState
+import core.data.testing.createRailLaunchable
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -80,13 +85,40 @@ class HeaderSettingsTest {
     }
 
     @Test
-    fun `reports a Tap action as stale only when its Launchable key is missing`() {
-        val inputValidKeys: Set<String> = setOf("rail://maps")
+    fun `reports a Tap action as removable only when its Launchable is missing`() {
+        val inputState = createLoadedLaunchableState(launchables = listOf(createRailLaunchable(name = "Maps", deeplink = "rail://maps")))
         val inputMissingSetting: HeaderTapSetting? = null
-        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isStale(validKeys = inputValidKeys))
-        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isStale(validKeys = inputValidKeys))
-        assertFalse(HeaderTapSetting.Nothing.isStale(validKeys = inputValidKeys))
-        assertFalse(HeaderTapSetting.SystemDefault.isStale(validKeys = inputValidKeys))
-        assertFalse(inputMissingSetting.isStale(validKeys = inputValidKeys))
+        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isRemovable(state = inputState))
+        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isRemovable(state = inputState))
+        assertFalse(HeaderTapSetting.Nothing.isRemovable(state = inputState))
+        assertFalse(HeaderTapSetting.SystemDefault.isRemovable(state = inputState))
+        assertFalse(inputMissingSetting.isRemovable(state = inputState))
+    }
+
+    @Test
+    fun `reports a Tap action as displayable only when its Launchable is present`() {
+        val inputState = createLoadedLaunchableState(launchables = listOf(createRailLaunchable(name = "Maps", deeplink = "rail://maps")))
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputFolderState = createLaunchableState(groups = emptyList(), folders = listOf(inputFolder))
+        val inputLoadingState = createLaunchableState(groups = emptyList(), isLoaded = false)
+        assertTrue(HeaderTapSetting.Launchable(key = "rail://maps").isDisplayable(state = inputState))
+        assertFalse(HeaderTapSetting.Launchable(key = "rail://uninstalled").isDisplayable(state = inputState))
+        assertFalse(HeaderTapSetting.Launchable(key = inputFolder.key).isDisplayable(state = inputFolderState))
+        assertTrue(HeaderTapSetting.Nothing.isDisplayable(state = inputState))
+        assertTrue(HeaderTapSetting.SystemDefault.isDisplayable(state = inputState))
+        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isDisplayable(state = inputLoadingState))
+    }
+
+    @Test
+    fun `keeps a Tap action pointing into a Locked Profile`() {
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "com.example.secret_UserHandle{11}")
+        val inputLockedState = createLaunchableState(
+            groups = emptyList(),
+            keptKeys = setOf(ProfileToken("UserHandle{11}"))
+        )
+
+        assertFalse(inputSetting.isDisplayable(state = inputLockedState))
+        assertFalse(inputSetting.isRemovable(state = inputLockedState))
+        assertTrue(inputSetting.isRemovable(state = createLaunchableState(groups = emptyList())))
     }
 }

@@ -8,10 +8,16 @@ import android.os.Process
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.launchables.ILaunchableRepository
+import core.data.profiles.ProfileKind
 import core.data.testing.FIRST_SHORTCUT_ID
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.createApp
+import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.createProfileInfo
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -87,6 +93,27 @@ class IShortcutSourceImplTest {
             assertFalse(actualResolution.shortcuts.getValue(inputKey).isEnabled)
             assertEquals(emptySet<ShortcutKey>(), actualResolution.goneKeys)
         }
+    }
+
+    @Test
+    fun `offers Shortcuts for private Apps while the Private Space is Unlocked`() = runTest {
+        shadowLauncherApps.setHasShortcutHostPermission(true)
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp = createApp(name = "Secret", packageName = "com.example.secret", profileInfo = inputPrivateProfile)
+        val inputOtherApp = createApp(name = "Other", packageName = "com.example.other")
+        val sourceWithState: IShortcutSourceImpl = IShortcutSourceImpl(
+            context = context,
+            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOtherApp, inputPrivateApp))
+        )
+
+        val actualApps: List<AppShortcuts> = sourceWithState.appsWithShortcuts().first()
+
+        assertEquals(
+            setOf(inputOtherApp.key, inputPrivateApp.key),
+            actualApps.mapTo(mutableSetOf()) { appShortcuts ->
+                appShortcuts.app.key
+            }
+        )
     }
 
     private fun addShortcut(id: String, disabled: Boolean = false) {

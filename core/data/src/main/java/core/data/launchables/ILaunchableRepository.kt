@@ -2,6 +2,8 @@ package core.data.launchables
 
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.toPickerGroups
+import core.data.profiles.ProfileToken
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,11 +14,15 @@ data class LaunchableState(
     val launchables: List<Launchable>,
     val isLoaded: Boolean,
     /**
-     * The groups the pickers may list: the App List groups without the Private Space container.
-     * rail-25f.4: private Apps join the pickers while Private Space is Unlocked.
+     * The Profile tokens of every Locked Profile that still exists. Their Launchable and Shortcut
+     * keys are stale but retained, so cleanups keep them until the Profile is removed.
      */
-    val pickerGroups: List<LaunchableGroup.Listed> =
-        groups.filterIsInstance<LaunchableGroup.Listed>().filterNot { group -> group is LaunchableGroup.PrivateSpace }
+    val keptKeys: Set<ProfileToken> = emptySet(),
+    /**
+     * The groups the pickers may list: the App List groups without the Locked Private Space
+     * container, so private Apps join the pickers while the Private Space is Unlocked.
+     */
+    val pickerGroups: List<LaunchableGroup.Listed> = groups.toPickerGroups()
 ) {
     /** The groups shown in the App List, in Rail order. */
     val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()

@@ -49,7 +49,6 @@ import compose.icons.fontawesomeicons.regular.Star
 import compose.icons.fontawesomeicons.solid.ChevronRight
 import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
-import core.data.apps.model.isPrivateApp
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.ui.composables.LaunchableIcon
@@ -109,12 +108,10 @@ fun LauncherItem(
     val currentItemActions: LauncherItemActions by rememberUpdatedState(itemActions)
     val anchorHolder: PopupAnchorHolder = remember { PopupAnchorHolder() }
     val longPressGate: LongPressGate = remember { LongPressGate() }
-    val canOpenPopup: Boolean = !isEditingFavorites &&
-        !item.isPrivateApp &&
-        (item is Folder || (isPopupSwipeEnabled && item is App))
+    val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isPaused: Boolean = item is App && item.isPaused
-    val showsFavoriteToggle: Boolean = isEditingFavorites && !item.isPrivateApp
+    val showsFavoriteToggle: Boolean = isEditingFavorites
     val summaryDescription: String? = summary?.let { summaryText ->
         stringResource(R.string.folder_summary_description, item.name, summaryText)
     }

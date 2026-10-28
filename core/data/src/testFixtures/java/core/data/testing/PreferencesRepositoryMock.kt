@@ -4,6 +4,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -18,5 +19,6 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.launchableCustomizations } returns MutableStateFlow(customizations)
     every { mockPreferencesRepository.settings } returns MutableStateFlow(settings)
     every { mockPreferencesRepository.setItemName(any(), any()) } just Runs
+    coEvery { mockPreferencesRepository.removeLaunchableNames(any()) } just Runs
     return mockPreferencesRepository
 }

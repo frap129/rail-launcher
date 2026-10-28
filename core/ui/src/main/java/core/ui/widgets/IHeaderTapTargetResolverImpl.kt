@@ -1,50 +1,50 @@
 package core.ui.widgets
 
 import androidx.annotation.StringRes
-import core.data.folders.Folder
-import core.data.launchables.model.Launchable
+import core.data.launchables.LaunchableState
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
-import core.data.prefs.isStale
+import core.data.prefs.isDisplayable
 import core.ui.R
 
 class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
-    override fun applyTo(header: HeaderModel, settings: HeaderSettings, launchables: List<Launchable>, atEpochMillis: Long): HeaderModel =
-        header.copy(
-            time = header.time?.withTapTarget(resolveTimeTapTarget(settings.timeTapTarget, launchables)),
-            date = header.date?.withTapTarget(resolveDateTapTarget(settings.dateTapTarget, launchables, atEpochMillis))
-        )
+    override fun applyTo(
+        header: HeaderModel,
+        settings: HeaderSettings,
+        launchableState: LaunchableState,
+        atEpochMillis: Long
+    ): HeaderModel = header.copy(
+        time = header.time?.withTapTarget(resolveTimeTapTarget(settings.timeTapTarget, launchableState)),
+        date = header.date?.withTapTarget(resolveDateTapTarget(settings.dateTapTarget, launchableState, atEpochMillis))
+    )
 
-    override fun resolveSetting(setting: HeaderTapSetting, launchables: List<Launchable>, isLoaded: Boolean): HeaderTapSetting {
-        if (!isLoaded) {
-            return setting
-        }
-        val validKeys: Set<String> = launchables
-            .filterNot { launchable -> launchable is Folder }
-            .mapTo(mutableSetOf()) { launchable -> launchable.key }
-        return if (setting.isStale(validKeys = validKeys)) HeaderTapSetting.SystemDefault else setting
-    }
+    override fun resolveSetting(setting: HeaderTapSetting, launchableState: LaunchableState): HeaderTapSetting =
+        if (setting.isDisplayable(state = launchableState)) setting else HeaderTapSetting.SystemDefault
 
-    private fun resolveTimeTapTarget(setting: HeaderTapSetting?, launchables: List<Launchable>): HeaderTapTarget =
-        resolveTapTarget(setting = setting, launchables = launchables, fallback = HeaderTapTarget.SystemAlarms)
+    private fun resolveTimeTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState): HeaderTapTarget =
+        resolveTapTarget(setting = setting, launchableState = launchableState, fallback = HeaderTapTarget.SystemAlarms)
 
-    private fun resolveDateTapTarget(setting: HeaderTapSetting?, launchables: List<Launchable>, atEpochMillis: Long): HeaderTapTarget =
+    private fun resolveDateTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState, atEpochMillis: Long): HeaderTapTarget =
         resolveTapTarget(
             setting = setting,
-            launchables = launchables,
+            launchableState = launchableState,
             fallback = HeaderTapTarget.SystemCalendar(atEpochMillis = atEpochMillis)
         )
 
-    private fun resolveTapTarget(setting: HeaderTapSetting?, launchables: List<Launchable>, fallback: HeaderTapTarget): HeaderTapTarget =
+    private fun resolveTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState, fallback: HeaderTapTarget): HeaderTapTarget =
         when (setting) {
             null, HeaderTapSetting.SystemDefault -> fallback
             HeaderTapSetting.Nothing -> HeaderTapTarget.None
-            is HeaderTapSetting.Launchable -> launchableTarget(setting = setting, launchables = launchables) ?: fallback
+            is HeaderTapSetting.Launchable -> launchableTarget(setting = setting, launchableState = launchableState) ?: fallback
         }
 
-    private fun launchableTarget(setting: HeaderTapSetting.Launchable, launchables: List<Launchable>): HeaderTapTarget? =
-        launchables.firstOrNull { launchable -> launchable.key == setting.key && launchable !is Folder }
+    private fun launchableTarget(setting: HeaderTapSetting.Launchable, launchableState: LaunchableState): HeaderTapTarget? {
+        if (!setting.isDisplayable(state = launchableState)) {
+            return null
+        }
+        return launchableState.launchables.firstOrNull { launchable -> launchable.key == setting.key }
             ?.let { launchable -> HeaderTapTarget.LaunchLaunchable(launchable = launchable) }
+    }
 
     private fun HeaderTimeModel.withTapTarget(target: HeaderTapTarget): HeaderTimeModel = copy(
         tapTarget = target,

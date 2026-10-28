@@ -21,6 +21,7 @@ import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
@@ -412,23 +413,42 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
-    fun `keeps private Apps out of the tap action picker`() = runTest {
+    fun `lists private Apps in the tap action picker only while the Private Space is Unlocked`() = runTest {
         val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val inputPrivateApp = createApp(
             name = "Secret",
             packageName = "com.example.secret",
             profileInfo = inputPrivateProfile
         )
+        val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(
+                groups = listOf(
+                    LaunchableGroup.Star,
+                    LaunchableGroup.Builtin(items = emptyList()),
+                    LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+                )
+            )
+        )
         val viewModel: WidgetSettingsViewModel = createViewModel(
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPrivateApp))
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
         )
 
         viewModel.tapActionPicker.test {
             assertNull(awaitItem())
             viewModel.openTapActionPicker(HeaderTapTargetPart.Time)
-            val actualPicker: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
-            assertTrue(actualPicker.isLoaded)
-            assertTrue(actualPicker.launchables.isEmpty())
+            val actualUnlocked: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertEquals(listOf("Secret"), actualUnlocked.launchables.map { row -> row.name })
+
+            inputLaunchableState.value = createLaunchableState(
+                groups = listOf(
+                    LaunchableGroup.Star,
+                    LaunchableGroup.Builtin(items = emptyList()),
+                    LaunchableGroup.PrivateSpace.Locked
+                ),
+                keptKeys = setOf(inputPrivateProfile.user.toProfileToken())
+            )
+            val actualLocked: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertTrue(actualLocked.launchables.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -9,7 +9,6 @@ import android.os.UserHandle
 import android.os.UserManager
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
-import core.data.apps.model.isPrivateApp
 import core.data.launchables.ILaunchableRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -51,8 +50,7 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
     }
 
     override fun appsWithShortcuts(): Flow<List<AppShortcuts>> = launchableRepository.launchableState
-        // rail-25f.4: private Apps offer Shortcuts while Private Space is Unlocked.
-        .map { state -> state.launchables.filterIsInstance<App>().filterNot { app -> app.isPrivateApp } }
+        .map { state -> state.launchables.filterIsInstance<App>() }
         .distinctUntilChanged()
         .flatMapLatest { apps ->
             if (apps.isEmpty()) {
