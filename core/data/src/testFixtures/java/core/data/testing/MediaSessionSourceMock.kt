@@ -20,3 +20,7 @@ fun createMediaSessionSourceMock(sessions: Flow<List<MediaSessionSnapshot>> = em
     every { mockMediaSessionSource.refreshAccess() } just Runs
     return mockMediaSessionSource
 }
+
+/** A MockK [IMediaSessionSource] reading [initialSessions], which tests can update. */
+fun createMediaSessionSourceMock(initialSessions: List<MediaSessionSnapshot>, hasAccess: Boolean = true): IMediaSessionSource =
+    createMediaSessionSourceMock(sessions = MutableStateFlow(initialSessions), hasAccess = hasAccess)

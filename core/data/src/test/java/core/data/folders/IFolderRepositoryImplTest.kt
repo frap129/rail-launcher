@@ -10,6 +10,7 @@ import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createFavoritesRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createPopupRepository
@@ -20,11 +21,7 @@ import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
-import io.mockk.Runs
-import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.just
-import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -40,7 +37,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `create derives the shade from the id and stores the name and items`() = databaseTest {
         val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
-        val mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository()
+        val mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock()
         val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
         val repository: IFolderRepository = createRepository(
             customizationDao = customizationDao,
@@ -67,7 +64,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `create keeps the default name when the name is blank or the default`() = databaseTest {
         val repository: IFolderRepository = createRepository(
-            mockFavoritesRepository = createMockFavoritesRepository()
+            mockFavoritesRepository = createFavoritesRepositoryMock()
         )
 
         val blankNamedFolder: Folder = repository.create(name = "   ")
@@ -80,7 +77,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `create can leave the Folder out of Favorites`() = databaseTest {
-        val mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository()
+        val mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock()
         val repository: IFolderRepository = createRepository(
             mockFavoritesRepository = mockFavoritesRepository
         )
@@ -97,7 +94,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = inputFolder.folderId))
         val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         customizationDao.setName(key = inputFolder.key, name = FOLDER_NAME)
-        val mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository()
+        val mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock()
         val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
         val repository: IFolderRepository = createRepository(
             folderDao = folderDao,
@@ -136,7 +133,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
         val repository: IFolderRepository = IFolderRepositoryImpl(
             folderDao = database.getFolderDao(),
-            favoritesRepository = createMockFavoritesRepository(),
+            favoritesRepository = createFavoritesRepositoryMock(),
             popupRepository = mockPopupRepository,
             preferencesRepository = createPreferencesRepositoryMock(),
             launchableCustomizationDao = database.getLaunchableCustomizationDao()
@@ -153,7 +150,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao: FolderDao = database.getFolderDao(),
         customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockFavoritesRepository: IFavoritesRepository = createMockFavoritesRepository(),
+        mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock(),
         mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
     ): IFolderRepository = IFolderRepositoryImpl(
         folderDao = folderDao,
@@ -162,9 +159,4 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         preferencesRepository = mockPreferencesRepository,
         launchableCustomizationDao = customizationDao
     )
-
-    private fun createMockFavoritesRepository(): IFavoritesRepository = mockk<IFavoritesRepository>().apply {
-        coEvery { add(any()) } just Runs
-        coEvery { remove(any()) } just Runs
-    }
 }

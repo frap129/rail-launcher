@@ -3,9 +3,12 @@ package feature.launcher.widgets
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import core.data.testing.AddFlowPendingIdsState
+import core.data.testing.AppWidgetHostFixture
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAddFlowPendingIdsMock
+import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.widgets.AddedAppWidget
@@ -99,7 +102,7 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `an owned add places the widget in the Pop-up place without scrolling`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val actualController: IWidgetAddController = createAddController(mockRepository = mockRepository, mockAppWidgetHost = mockHost)
         val inputProvider: WidgetProviderInfo = appWidgetProviderInfo()
@@ -172,7 +175,7 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `startFromMenu offers a placement choice below the stack cap`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val actualController: IWidgetAddController = createAddController(mockRepository = mockRepository)
 
         actualController.startFromMenu(target = AddWidgetTarget.Header(widgetId = null))
@@ -194,7 +197,7 @@ class IWidgetAddControllerImplTest {
                 appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single()
             )
         )
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(inputStack))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
@@ -211,7 +214,7 @@ class IWidgetAddControllerImplTest {
     @Test
     fun `startFromMenu opens the picker at the end from the empty area`() = runTest {
         val actualController: IWidgetAddController =
-            createAddController(mockRepository = createRepository(emptyList()))
+            createAddController(mockRepository = createWidgetAreaRepositoryMock(places = emptyList()))
 
         actualController.startFromMenu(target = AddWidgetTarget.Empty)
 
@@ -221,7 +224,7 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `choosePlacement below keeps the place origin`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val actualController: IWidgetAddController = createAddController(mockRepository = mockRepository)
         actualController.startFromMenu(target = AddWidgetTarget.Header(widgetId = null))
 
@@ -234,12 +237,12 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `choosePlacement into the stack appends a page and makes it current`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -257,14 +260,14 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `a silent bind with no configuration places the App Widget at the end`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
-        val inputPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
-        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(inputPendingIdsState)
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
+        val mockAddFlowPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
+        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(mockAddFlowPendingIdsState)
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost,
@@ -286,19 +289,19 @@ class IWidgetAddControllerImplTest {
             )
         }
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-        assertEquals(listOf(AppWidgetId(1)), inputHost.state.allocatedIds)
-        assertTrue(inputHost.state.deletedIds.isEmpty())
-        assertEquals(listOf(setOf(AppWidgetId(1)), emptySet<AppWidgetId>()), inputPendingIdsState.updates)
+        assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.allocatedIds)
+        assertTrue(mockAppWidgetHostFixture.state.deletedIds.isEmpty())
+        assertEquals(listOf(setOf(AppWidgetId(1)), emptySet<AppWidgetId>()), mockAddFlowPendingIdsState.updates)
     }
 
     @Test
     fun `a refused silent bind launches the system dialog and a denial deletes the id`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(false)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -314,7 +317,7 @@ class IWidgetAddControllerImplTest {
             assertTrue(actualEvent is WidgetEvent.LaunchBind)
             actualController.onBindResult(granted = false)
             assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget), awaitItem())
-            assertEquals(listOf(AppWidgetId(1)), inputHost.state.deletedIds)
+            assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.deletedIds)
             coVerify(exactly = 0) { mockRepository.addAppWidget(any()) }
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
             cancelAndIgnoreRemainingEvents()
@@ -323,12 +326,12 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `a granted bind places the App Widget after the dialog`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(false)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -341,17 +344,17 @@ class IWidgetAddControllerImplTest {
         actualController.onBindResult(granted = true)
 
         coVerify(exactly = 1) { mockRepository.addAppWidget(any()) }
-        assertTrue(inputHost.state.deletedIds.isEmpty())
+        assertTrue(mockAppWidgetHostFixture.state.deletedIds.isEmpty())
     }
 
     @Test
     fun `a provider that needs configuration launches it and cancelling deletes the id`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -366,7 +369,7 @@ class IWidgetAddControllerImplTest {
             assertEquals(WidgetEvent.LaunchConfigure(AppWidgetId(1)), awaitItem())
             actualController.onConfigureResult(ok = false)
             assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
-            assertEquals(listOf(AppWidgetId(1)), inputHost.state.deletedIds)
+            assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.deletedIds)
             coVerify(exactly = 0) { mockRepository.addAppWidget(any()) }
             cancelAndIgnoreRemainingEvents()
         }
@@ -374,12 +377,12 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `a provider that needs configuration places the App Widget when configuration succeeds`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -400,12 +403,12 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `a provider with optional reconfigurable configuration is placed without launching configuration`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost
@@ -426,8 +429,8 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `cancelling the picker allocates nothing`() = runTest {
-        val inputHost: HostFixture = createHostFixture()
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture()
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(mockAppWidgetHost = mockHost)
         actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
         assertTrue(actualController.state.value is AddWidgetFlowState.Picking)
@@ -435,15 +438,15 @@ class IWidgetAddControllerImplTest {
         actualController.cancel()
 
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-        assertTrue(inputHost.state.allocatedIds.isEmpty())
+        assertTrue(mockAppWidgetHostFixture.state.allocatedIds.isEmpty())
     }
 
     @Test
     fun `add from the Header menu inserts directly below the Header`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockAppWidgetHost = createHost(
+            mockAppWidgetHost = createAppWidgetHostMock(
                 providers = listOf(appWidgetProviderInfo()),
                 bindResults = listOf(true)
             )
@@ -462,10 +465,11 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `add from an App Widget menu inserts directly below that widget`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L)))
+        val mockRepository: IWidgetAreaRepository =
+            createWidgetAreaRepositoryMock(places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L)))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockAppWidgetHost = createHost(
+            mockAppWidgetHost = createAppWidgetHostMock(
                 providers = listOf(appWidgetProviderInfo()),
                 bindResults = listOf(true)
             )
@@ -484,10 +488,10 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `add from the empty area inserts at the end`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(emptyList())
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = emptyList())
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockAppWidgetHost = createHost(
+            mockAppWidgetHost = createAppWidgetHostMock(
                 providers = listOf(appWidgetProviderInfo()),
                 bindResults = listOf(true)
             )
@@ -505,10 +509,10 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `add started from Settings returns to Settings after placing`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
         val actualController: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
-            mockAppWidgetHost = createHost(
+            mockAppWidgetHost = createAppWidgetHostMock(
                 providers = listOf(appWidgetProviderInfo()),
                 bindResults = listOf(true)
             )
@@ -543,7 +547,7 @@ class IWidgetAddControllerImplTest {
     @Test
     fun `denied bind for an add started from Settings returns to Settings`() = runTest {
         val actualController: IWidgetAddController = createAddController(
-            mockAppWidgetHost = createHost(
+            mockAppWidgetHost = createAppWidgetHostMock(
                 providers = listOf(appWidgetProviderInfo()),
                 bindResults = listOf(false)
             )
@@ -565,11 +569,11 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `cancelling while configuring returns to Settings without an error`() = runTest {
-        val inputHost: HostFixture = createHostFixture(
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(mockAppWidgetHost = mockHost)
         val inputProvider: WidgetProviderInfo = appWidgetProviderInfo(needsConfiguration = true)
         actualController.updateProviders(providers = listOf(inputProvider))
@@ -582,18 +586,18 @@ class IWidgetAddControllerImplTest {
 
             assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-            assertEquals(listOf(AppWidgetId(1)), inputHost.state.deletedIds)
+            assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.deletedIds)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
     fun `cancelling while binding returns to Settings without an error`() = runTest {
-        val inputHost: HostFixture = createHostFixture(
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(false)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(mockAppWidgetHost = mockHost)
         val inputProvider: WidgetProviderInfo = appWidgetProviderInfo()
         actualController.updateProviders(providers = listOf(inputProvider))
@@ -606,7 +610,7 @@ class IWidgetAddControllerImplTest {
 
             assertEquals(WidgetEvent.ReturnToSettings, awaitItem())
             assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-            assertEquals(listOf(AppWidgetId(1)), inputHost.state.deletedIds)
+            assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.deletedIds)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -627,10 +631,10 @@ class IWidgetAddControllerImplTest {
 
     @Test
     fun `rejects a pick when the provider is no longer offered`() = runTest {
-        val inputHost: HostFixture = createHostFixture(
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo())
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val actualController: IWidgetAddController = createAddController(mockAppWidgetHost = mockHost)
         actualController.updateProviders(providers = listOf(appWidgetProviderInfo()))
         actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
@@ -642,17 +646,17 @@ class IWidgetAddControllerImplTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
-        assertTrue(inputHost.state.allocatedIds.isEmpty())
+        assertTrue(mockAppWidgetHostFixture.state.allocatedIds.isEmpty())
     }
 
     @Test
     fun `restores a pending configuration after process recreation`() = runTest {
-        val mockRepository: IWidgetAreaRepository = createRepository(listOf(headerPlace))
-        val inputHost: HostFixture = createHostFixture(
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
             providers = listOf(appWidgetProviderInfo()),
             bindResults = listOf(true)
         )
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
         val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
         val actualFirst: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
@@ -664,8 +668,8 @@ class IWidgetAddControllerImplTest {
         actualFirst.pick(provider = appWidgetProviderInfo(needsConfiguration = true))
         assertTrue(actualFirst.state.value is AddWidgetFlowState.Configuring)
 
-        val inputPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
-        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(inputPendingIdsState)
+        val mockAddFlowPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
+        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(mockAddFlowPendingIdsState)
         val actualRestored: IWidgetAddController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockHost,
@@ -675,20 +679,20 @@ class IWidgetAddControllerImplTest {
         actualRestored.restore()
 
         assertTrue(actualRestored.state.value is AddWidgetFlowState.Configuring)
-        assertEquals(setOf(AppWidgetId(1)), inputPendingIdsState.ids)
+        assertEquals(setOf(AppWidgetId(1)), mockAddFlowPendingIdsState.ids)
 
         actualRestored.onConfigureResult(ok = true)
 
         coVerify(exactly = 1) { mockRepository.addAppWidget(any()) }
-        assertTrue(inputPendingIdsState.ids.isEmpty())
+        assertTrue(mockAddFlowPendingIdsState.ids.isEmpty())
     }
 
     @Test
     fun `restore fails an incomplete pending widget and keeps its ids clear`() = runTest {
-        val inputHost: HostFixture = createHostFixture()
-        val mockHost: IAppWidgetHostSource = inputHost.mockHost
-        val inputPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
-        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(inputPendingIdsState)
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture()
+        val mockHost: IAppWidgetHostSource = mockAppWidgetHostFixture.mockAppWidgetHost
+        val mockAddFlowPendingIdsState: AddFlowPendingIdsState = AddFlowPendingIdsState()
+        val mockPendingIds: IAddFlowPendingIds = createAddFlowPendingIdsMock(mockAddFlowPendingIdsState)
         val inputSavedStateHandle: SavedStateHandle = SavedStateHandle()
         inputSavedStateHandle[IWidgetAddControllerImpl.PENDING_APP_WIDGET_ID_KEY] = 7
         val actualController: IWidgetAddController = createAddController(
@@ -703,8 +707,8 @@ class IWidgetAddControllerImplTest {
             assertEquals(WidgetEvent.ShowMessage(CoreUiR.string.couldnt_add_widget), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-        assertEquals(listOf(AppWidgetId(7)), inputHost.state.deletedIds)
-        assertTrue(inputPendingIdsState.ids.isEmpty())
+        assertEquals(listOf(AppWidgetId(7)), mockAppWidgetHostFixture.state.deletedIds)
+        assertTrue(mockAddFlowPendingIdsState.ids.isEmpty())
         assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
     }
 }

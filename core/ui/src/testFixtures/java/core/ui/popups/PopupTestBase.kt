@@ -87,14 +87,14 @@ abstract class PopupTestBase {
         ShortcutsResult.Available(shortcuts = emptyList())
     )
     private val shortcutsWithApps: MutableStateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
-    private val popupRepositoryState: PopupRepositoryState = PopupRepositoryState()
+    private val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState()
     private val folders: MutableStateFlow<List<Folder>> = MutableStateFlow(listOf(inputFolder, inputSecondFolder))
     protected val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
     protected val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
         shortcutsResult = shortcutResult,
         appsWithShortcuts = shortcutsWithApps
     )
-    protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = popupRepositoryState)
+    protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = mockPopupRepositoryState)
     protected val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(folders)
     protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
@@ -116,11 +116,11 @@ abstract class PopupTestBase {
     }
 
     protected fun setHiddenShortcuts(ownerKey: String, shortcutIds: Set<String>) {
-        popupRepositoryState.hiddenIdsByOwner.update { current -> current + (ownerKey to shortcutIds) }
+        mockPopupRepositoryState.hiddenIdsByOwner.update { current -> current + (ownerKey to shortcutIds) }
     }
 
     protected fun setPopupItems(ownerKey: String, items: List<PopupItem>) {
-        popupRepositoryState.itemsByOwner.update { current -> current + (ownerKey to items) }
+        mockPopupRepositoryState.itemsByOwner.update { current -> current + (ownerKey to items) }
     }
 
     protected fun setPopupLaunchables(ownerKey: String, launchables: List<Launchable>) {
@@ -128,11 +128,11 @@ abstract class PopupTestBase {
     }
 
     protected fun setNotificationsEnabled(enabled: Boolean) {
-        popupRepositoryState.notificationsEnabled.value = enabled
+        mockPopupRepositoryState.notificationsEnabled.value = enabled
     }
 
     protected fun emitRemovedWidget(appWidgetId: AppWidgetId) {
-        popupRepositoryState.removedWidgetIds.tryEmit(appWidgetId)
+        mockPopupRepositoryState.removedWidgetIds.tryEmit(appWidgetId)
     }
 
     protected fun deleteFolder(folder: Folder) {

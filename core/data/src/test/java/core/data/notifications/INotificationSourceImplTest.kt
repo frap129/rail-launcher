@@ -175,15 +175,15 @@ class INotificationSourceImplTest {
 
     @Test
     fun `clears the notifications when the switch turns off`() = runTest {
-        val inputPopupState: PopupRepositoryState = PopupRepositoryState(notificationsEnabled = MutableStateFlow(true))
-        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = inputPopupState)
+        val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState(notificationsEnabled = MutableStateFlow(true))
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = mockPopupRepositoryState)
         val source: INotificationSourceImpl = createSource(mockPopupRepository = mockPopupRepository, hasAccess = true)
         relay.post(record = createNotificationRecord(), handle = createNotificationHandle())
 
         source.notifications.test {
             runCurrent()
             assertEquals(1, expectMostRecentItem().size)
-            inputPopupState.notificationsEnabled.value = false
+            mockPopupRepositoryState.notificationsEnabled.value = false
             assertEquals(emptyList<NotificationSnapshot>(), awaitItem())
             assertTrue(relay.records.value.isEmpty())
             cancelAndIgnoreRemainingEvents()

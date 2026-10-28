@@ -9,12 +9,12 @@ import core.data.launchables.model.RailLaunchable
 import core.data.room.dao.FavoriteDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.failOnRequest
-import core.data.testing.failOnce
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -51,7 +51,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `drops repeated Favorites values`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val removalAttempted: CompletableDeferred<Unit> = CompletableDeferred()
-        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
+        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().createFailOnceMock(
             failure = IllegalStateException("Favorite removal failed"),
             onFailure = { removalAttempted.complete(Unit) },
             stub = { dao -> dao.remove(any()) },
@@ -85,7 +85,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         val removalAttempted: CompletableDeferred<Unit> = CompletableDeferred()
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and collection is observed in isolation.
-        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
+        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().createFailOnceMock(
             failure = IllegalStateException("Favorite removal failed"),
             onFailure = { removalAttempted.complete(Unit) },
             stub = { dao -> dao.remove(any()) },
@@ -188,7 +188,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         val removalAttempted: CompletableDeferred<Unit> = CompletableDeferred()
         // The repository-owned cleanup removes stale rows regardless of collection;
         // fail it so the stale row survives and isFavorite must ignore it.
-        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
+        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().createFailOnceMock(
             failure = IllegalStateException("Favorite removal failed"),
             onFailure = { removalAttempted.complete(Unit) },
             stub = { dao -> dao.remove(any()) },
@@ -288,7 +288,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputStaleLaunchable.key, position = FIRST_POSITION))
         seedFavorite(key = inputStaleLaunchable.key, position = FIRST_POSITION)
         val firstRemovalAttempted: CompletableDeferred<Unit> = CompletableDeferred()
-        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
+        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().createFailOnceMock(
             failure = IllegalStateException("Favorite removal failed"),
             onFailure = { firstRemovalAttempted.complete(Unit) },
             stub = { dao -> dao.remove(any()) },

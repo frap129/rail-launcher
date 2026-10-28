@@ -9,7 +9,6 @@ import core.data.folders.Folder
 import core.data.folders.FolderRecord
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
-import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
@@ -20,10 +19,11 @@ import core.data.prefs.Settings
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.createAppRepositoryMock
 import core.data.testing.createFavoritesRepository
+import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.failOnRequest
-import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -33,7 +33,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
@@ -67,8 +66,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `shares one upstream collection between every subscriber`() = databaseTest {
         val inputApp: App = createApp()
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
-        val mockAppRepository: IAppRepository = createAppRepository(inputAppState = inputAppState)
-        val mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val mockAppRepository: IAppRepository = createAppRepositoryMock(inputAppState = inputAppState)
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
@@ -109,7 +108,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             .onStart { actualCollections++ }
             .failOnRequest(failureRequests = failureRequests, onFailure = { actualFailureDelivered.complete(Unit) })
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputAppState = inputAppState),
+            mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
             folderDao = mockFolderDao,
             scope = backgroundScope
         )
@@ -147,9 +146,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `resolves Launchable State only when the injected dispatcher runs`() = databaseTest {
         val inputDispatcher: TestDispatcher = StandardTestDispatcher(testScheduler)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(createApp()))
-        val mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputAppState = inputAppState),
+            mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             mockIconRepository = mockIconRepository,
             scope = CoroutineScope(inputDispatcher)
@@ -170,7 +169,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `keeps the Star and Builtin groups when there are no Apps`() = databaseTest {
-        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
+        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepositoryMock())
 
         val actualLabels: List<String> = loadedState(repository).groups.map { group -> group.label }
 
@@ -179,7 +178,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `resolves Builtin Launchables alongside Apps`() = databaseTest {
-        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepository())
+        val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepositoryMock())
         val actualState: LaunchableState = loadedState(repository)
         val actualBuiltinItems: List<Launchable> = actualState.groups
             .filterIsInstance<LaunchableGroup.Builtin>()
@@ -196,7 +195,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
         )
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = mockPreferencesRepository
         )
 
@@ -217,11 +216,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             resId = ICON_PACK_RES_ID
         )
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
             ),
-            mockIconRepository = createIconRepository(inputIcon = expectedIcon)
+            mockIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
         )
 
         val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
@@ -236,7 +235,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(),
+            mockAppRepository = createAppRepositoryMock(),
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 customizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, name = "Games"))
             ),
@@ -259,7 +258,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(createApp())),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp())),
             folderDao = folderDao
         )
 
@@ -282,7 +281,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.key, position = 0)))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             folderDao = folderDao,
             popupDao = popupDao
         )
@@ -302,7 +301,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = 1L))
         val popupDao: PopupDao = database.getPopupDao()
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(inputApp)),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             folderDao = folderDao,
             popupDao = popupDao
         )
@@ -324,7 +323,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `adds and removes a Folder from the App List and Rail live`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(),
+            mockAppRepository = createAppRepositoryMock(),
             folderDao = folderDao
         )
         val actualBefore: LaunchableState = loadedState(repository)
@@ -343,7 +342,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `groups an app named with the Builtin label apart from Builtin`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(inputApps = listOf(createApp(name = "⌂ Game")))
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp(name = "⌂ Game")))
         )
 
         val actualGroups: List<LaunchableGroup.Listed> = loadedState(repository).listedGroups
@@ -358,7 +357,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepository(),
+            mockAppRepository = createAppRepositoryMock(),
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
             folderDao = folderDao
         )
@@ -367,18 +366,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             .launchables.filterIsInstance<Folder>().single()
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
-    }
-
-    private fun createAppRepository(inputApps: List<App> = emptyList()): IAppRepository =
-        createAppRepository(inputAppState = MutableStateFlow(inputApps))
-
-    private fun createAppRepository(inputAppState: StateFlow<List<App>?>): IAppRepository = mockk<IAppRepository>().apply {
-        every { apps } returns inputAppState
-    }
-
-    private fun createIconRepository(inputIcon: Icon): IIconRepository = mockk<IIconRepository>().apply {
-        every { iconPacks } returns MutableStateFlow(setOf(IconPack.SystemIconPack))
-        coEvery { getIcon(any(), any()) } returns inputIcon
     }
 
     private suspend fun TestScope.loadedState(repository: ILaunchableRepository): LaunchableState {
@@ -396,7 +383,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private fun TestScope.createRepository(
         mockAppRepository: IAppRepository,
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockIconRepository: IIconRepository = createIconRepository(inputIcon = Icon.ActivityIcon(inputComponentName)),
+        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
         scope: CoroutineScope = backgroundScope

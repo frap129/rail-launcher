@@ -16,6 +16,7 @@ import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -26,7 +27,6 @@ import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
-import core.data.testing.failOnce
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
@@ -112,7 +112,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
 
     @Test
     fun `create retries the Folder delete when its cleanup fails once`() = databaseTest {
-        val mockFolderDao: FolderDao = database.getFolderDao().failOnce(
+        val mockFolderDao: FolderDao = database.getFolderDao().createFailOnceMock(
             failure = IllegalStateException("Folder delete failed"),
             stub = { dao -> dao.delete(any()) },
             delegate = { dao -> dao.delete(firstArg()) }
@@ -238,7 +238,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
         database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
-        val mockFolderDao: FolderDao = database.getFolderDao().failOnce(
+        val mockFolderDao: FolderDao = database.getFolderDao().createFailOnceMock(
             failure = IllegalStateException("Folder delete failed"),
             stub = { dao -> dao.delete(any()) },
             delegate = { dao -> dao.delete(firstArg()) }
@@ -309,7 +309,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
             folder = inputFolder,
             items = listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputItem.key, position = 0))
         )
-        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().failOnce(
+        val mockFavoriteDao: FavoriteDao = database.getFavoriteDao().createFailOnceMock(
             failure = IllegalStateException("Favorite removal failed"),
             stub = { dao -> dao.remove(any()) },
             delegate = { dao -> dao.remove(firstArg()) }

@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 /** The locale patterns the Date-pattern sources answer with unless overridden. */
-internal val STANDARD_DATE_PATTERNS: Map<String, String> = mapOf(
+private val STANDARD_DATE_PATTERNS: Map<String, String> = mapOf(
     "hm" to "h:mm a",
     "Hm" to "HH:mm",
     DateFormatPreset.FULL.skeleton to "EEEE, MMMM d",

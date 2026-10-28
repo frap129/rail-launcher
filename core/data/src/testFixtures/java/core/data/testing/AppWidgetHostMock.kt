@@ -52,3 +52,36 @@ fun createAppWidgetHostMock(
     every { mockAppWidgetHost.profileSerial(any()) } answers { state.profileSerials[firstArg()] }
     return mockAppWidgetHost
 }
+
+/** The mutable host with the mock over it. */
+class AppWidgetHostFixture(val state: AppWidgetHostState, val mockAppWidgetHost: IAppWidgetHostSource)
+
+/** An [AppWidgetHostFixture] offering [providers], binding [bindResults] in turn and holding [providerInfos]. */
+fun createAppWidgetHostFixture(
+    providers: List<WidgetProviderInfo> = emptyList(),
+    bindResults: List<Boolean> = emptyList(),
+    providerInfos: Map<Int, WidgetProviderInfo> = emptyMap()
+): AppWidgetHostFixture {
+    val state: AppWidgetHostState = AppWidgetHostState(providers = providers, bindResults = bindResults)
+    providerInfos.forEach { (appWidgetId, info) -> state.providerInfoById[AppWidgetId(appWidgetId)] = info }
+    return AppWidgetHostFixture(state = state, mockAppWidgetHost = createAppWidgetHostMock(state))
+}
+
+/** A MockK [IAppWidgetHostSource], as a [createAppWidgetHostFixture] builds it. */
+fun createAppWidgetHostMock(
+    providers: List<WidgetProviderInfo>,
+    bindResults: List<Boolean> = emptyList(),
+    providerInfos: Map<Int, WidgetProviderInfo> = emptyMap()
+): IAppWidgetHostSource =
+    createAppWidgetHostFixture(providers = providers, bindResults = bindResults, providerInfos = providerInfos).mockAppWidgetHost
+
+/** A MockK [IAppWidgetHostSource] offering [info] as provider [TEST_APP_WIDGET_ID], plus [providerInfos]. */
+fun createAppWidgetHostMock(
+    info: WidgetProviderInfo,
+    providerInfos: Map<Int, WidgetProviderInfo> = emptyMap(),
+    bindResults: List<Boolean> = emptyList()
+): IAppWidgetHostSource = createAppWidgetHostMock(
+    providers = listOf(info),
+    bindResults = bindResults,
+    providerInfos = mapOf(TEST_APP_WIDGET_ID to info) + providerInfos
+)
