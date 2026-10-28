@@ -29,8 +29,12 @@ The hidden Profile Android 15+ provides for Apps the user keeps private, unlocke
 _Avoid_: Private profile, vault, space
 
 **Locked**:
-A Private Space in quiet mode: Rail shows only its Private Space container row and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
+A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
 _Avoid_: Off, closed, disabled
+
+**Hidden Private Space**:
+A Locked Private Space whose container Rail leaves out of the App List and Rail because the Rail Settings switch or the system's "Hide private space" setting hides it; Unlocking shows it again.
+_Avoid_: Invisible space, hidden profile
 
 **Kept key**:
 The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees. Stale-key cleanup keeps it, and resolution hides it until the Profile is Unlocked or removed.

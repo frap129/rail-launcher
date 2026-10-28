@@ -1,5 +1,6 @@
 package core.data.testing
 
+import android.content.IntentSender
 import android.os.UserHandle
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
@@ -26,6 +27,9 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
 
     /** The outcome of [IProfileSource.requestQuiet]; [QuietRequestResult.Changed] unless a test overrides it. */
     var quietRequestResult: QuietRequestResult = QuietRequestResult.Changed
+
+    /** The system Private Space settings screen; null unless a test provides one. */
+    var privateSpaceSettingsIntent: IntentSender? = null
 }
 
 /** A MockK [IProfileSource] whose only listed Profile is [profile]. */
@@ -56,5 +60,6 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     coEvery { mockProfileSource.requestQuiet(any(), any()) } answers { state.quietRequestResult }
     every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }
     every { mockProfileSource.serialForUser(any()) } answers { state.serialsByUser[firstArg<UserHandle>()] }
+    every { mockProfileSource.privateSpaceSettingsIntent() } answers { state.privateSpaceSettingsIntent }
     return mockProfileSource
 }

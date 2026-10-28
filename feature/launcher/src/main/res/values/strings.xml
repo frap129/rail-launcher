@@ -84,4 +84,5 @@
     <string name="private_space_unlocked">Unlocked</string>
     <string name="unlock_private_space">Unlock</string>
     <string name="lock_private_space">Lock</string>
+    <string name="private_space_settings">Private Space settings</string>
 </resources>

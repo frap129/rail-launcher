@@ -15,4 +15,7 @@ interface IPreferencesRepository {
     /** Removes the stored name customizations for [keys]. */
     suspend fun removeLaunchableNames(keys: List<String>)
     fun setIconPack(iconPack: IconPack)
+
+    /** Sets whether Rail hides a Locked Private Space container. */
+    fun setHidePrivateSpaceWhenLocked(hide: Boolean)
 }

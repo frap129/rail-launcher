@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.IntentSender
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
@@ -14,7 +15,6 @@ import android.os.Looper
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -139,6 +139,14 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         userManager.getSerialNumberForUser(user)
     }.getOrNull()?.takeIf { serial -> serial >= 0 }
 
+    override fun privateSpaceSettingsIntent(): IntentSender? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+        runCatching { launcherApps.privateSpaceSettingsIntent }
+            .onFailure { exception -> Timber.w(exception, "Could not read the Private Space settings") }
+            .getOrNull()
+    } else {
+        null
+    }
+
     private fun loadProfiles(): List<ProfileInfo> {
         val users: List<UserHandle> = runCatching { launcherApps.profiles }
             .getOrElse { exception ->
@@ -146,11 +154,13 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
                 emptyList()
             }
         return users.map { user ->
+            val launcherUserInfo: LauncherUserInfo? = launcherUserInfo(user = user)
             ProfileInfo(
                 user = user,
                 serial = runCatching { userManager.getSerialNumberForUser(user) }.getOrDefault(-1L),
-                kind = profileKind(user = user),
-                isQuiet = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(false)
+                kind = profileKind(user = user, launcherUserInfo = launcherUserInfo),
+                isQuiet = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(false),
+                isEntrypointHidden = launcherUserInfo.isEntrypointHidden()
             )
         }
     }
@@ -186,26 +196,37 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         Timber.w(exception, "Could not change quiet mode for %s", user)
     }
 
-    private fun profileKind(user: UserHandle): ProfileKind = when {
+    private fun profileKind(user: UserHandle, launcherUserInfo: LauncherUserInfo?): ProfileKind = when {
         user == Process.myUserHandle() -> ProfileKind.Personal
-
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM -> launcherProfileKind(user = user)
 
         // Below API 35 no public API reports another Profile's managed type: UserManager's
         // isManagedProfile() only describes the process Profile, and the per-user overloads on
         // UserManager, DevicePolicyManager and CrossProfileApps are API 35 or system-only.
         // Private Space does not exist yet, so a non-personal Profile is treated as Work.
-        else -> ProfileKind.Work
-    }
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM -> ProfileKind.Work
 
-    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
-    private fun launcherProfileKind(user: UserHandle): ProfileKind {
-        val userType: String? = runCatching { launcherApps.getLauncherUserInfo(user) }.getOrNull()?.userType
-        return when (userType) {
+        else -> when (launcherUserInfo?.userType) {
             UserManager.USER_TYPE_PROFILE_MANAGED -> ProfileKind.Work
             UserManager.USER_TYPE_PROFILE_PRIVATE -> ProfileKind.Private
             else -> ProfileKind.Other
         }
+    }
+
+    private fun launcherUserInfo(user: UserHandle): LauncherUserInfo? = if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+    ) {
+        runCatching { launcherApps.getLauncherUserInfo(user) }.getOrNull()
+    } else {
+        null
+    }
+
+    private fun LauncherUserInfo?.isEntrypointHidden(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+            return false
+        }
+        return runCatching {
+            this?.userConfig?.getBoolean(LauncherUserInfo.PRIVATE_SPACE_ENTRYPOINT_HIDDEN, false) ?: false
+        }.getOrDefault(false)
     }
 
     private fun profileIntentFilter(): IntentFilter = IntentFilter().apply {

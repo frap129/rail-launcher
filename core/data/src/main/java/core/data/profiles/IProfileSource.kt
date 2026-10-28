@@ -1,6 +1,7 @@
 package core.data.profiles
 
 import android.content.ComponentName
+import android.content.IntentSender
 import android.os.UserHandle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,10 +18,23 @@ enum class ProfileKind {
 }
 
 /** A Profile Rail can load Apps from. */
-data class ProfileInfo(val user: UserHandle, val serial: Long, val kind: ProfileKind, val isQuiet: Boolean)
+data class ProfileInfo(
+    val user: UserHandle,
+    val serial: Long,
+    val kind: ProfileKind,
+    val isQuiet: Boolean,
+    /** Whether the system's "Hide private space" setting hides this Profile's entrypoint (API 36+). */
+    val isEntrypointHidden: Boolean = false
+)
 
 /** Whether this Profile is the Private Space. */
 val ProfileInfo.isPrivate: Boolean get() = kind == ProfileKind.Private
+
+/** Whether Rail's switch or the system's "Hide private space" setting hides this Profile's entrypoint. */
+fun ProfileInfo.isHiddenWhenLocked(hideWhenLocked: Boolean): Boolean = hideWhenLocked || isEntrypointHidden
+
+/** Whether Rail hides this Private Space's container: only while Locked, and only when Rail or the system hides it. */
+fun ProfileInfo.isHiddenWhileLocked(hideWhenLocked: Boolean): Boolean = isQuiet && isHiddenWhenLocked(hideWhenLocked = hideWhenLocked)
 
 /** The listed Private Space Profile, or null when the device has none or Rail cannot see it. */
 val List<ProfileInfo>.privateSpace: ProfileInfo? get() = firstOrNull { profile -> profile.isPrivate }
@@ -85,6 +99,9 @@ interface IProfileSource {
 
     /** Asks the system to change [user]'s quiet mode. */
     suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult
+
+    /** The system's Private Space settings screen, or null when the system does not offer one (API 36+). */
+    fun privateSpaceSettingsIntent(): IntentSender?
 
     /** The Profile whose serial number is [serial], or null when no Profile matches. */
     fun userForSerial(serial: Long): UserHandle?

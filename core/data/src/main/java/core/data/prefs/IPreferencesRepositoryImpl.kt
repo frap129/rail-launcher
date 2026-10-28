@@ -42,7 +42,14 @@ class IPreferencesRepositoryImpl(
 
     override fun setIconPack(iconPack: IconPack) {
         scope.launch(Dispatchers.IO) {
-            settingsDao.upsert(Settings(iconPack = (iconPack as? IconPack.CustomIconPack)?.packageName))
+            val packageName: String? = (iconPack as? IconPack.CustomIconPack)?.packageName
+            settingsDao.update { settings -> settings.copy(iconPack = packageName) }
+        }
+    }
+
+    override fun setHidePrivateSpaceWhenLocked(hide: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            settingsDao.update { settings -> settings.copy(hidePrivateSpaceWhenLocked = hide) }
         }
     }
 }

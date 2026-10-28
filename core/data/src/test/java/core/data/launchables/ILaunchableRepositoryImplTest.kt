@@ -27,6 +27,7 @@ import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
@@ -63,7 +64,6 @@ import org.junit.Test
 
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
-private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
@@ -119,7 +119,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             mockIconRepository = mockIconRepository
         )
         database.getFavoriteDao().add(inputApp.key)
@@ -199,7 +199,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             mockIconRepository = mockIconRepository,
             scope = CoroutineScope(inputDispatcher)
         )
@@ -288,14 +288,14 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val expectedIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
-            packPackageName = ICON_PACK_PACKAGE_NAME,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
             resId = ICON_PACK_RES_ID
         )
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = createPreferencesRepositoryMock(
-                settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
+                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
             ),
             mockIconRepository = mockIconRepository
         )
@@ -307,7 +307,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
         coVerify(exactly = 1) {
             mockIconRepository.getIcon(
-                packPackageName = ICON_PACK_PACKAGE_NAME,
+                packPackageName = TEST_ICON_PACK_PACKAGE,
                 componentName = inputComponentName,
                 profile = inputApp.profileInfo
             )
@@ -444,7 +444,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(),
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             folderDao = folderDao
         )
 
@@ -475,6 +475,64 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertTrue(actualGroup.isLocked)
         assertTrue(actualGroup.items.isEmpty())
         assertEquals(listOf("★", "⌂", LaunchableGroup.PrivateSpace.LABEL), actualState.groups.map { group -> group.label })
+    }
+
+    @Test
+    fun `hides a Locked Private Space while Rail hides it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualGroups: List<LaunchableGroup> = loadedState(repository).groups
+
+        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
+        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `hides a Locked Private Space the system hides and shows it again when the flag clears`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertTrue(loadedState(repository).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isEntrypointHidden = true))
+        assertTrue(loadedState(repository).groups.none { group -> group is LaunchableGroup.PrivateSpace })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        assertTrue(loadedState(repository).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `shows an Unlocked Private Space while Rail and the system hide it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile.copy(isEntrypointHidden = true))
+        )
+
+        val actualGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualGroup.items.map { item -> item.key })
     }
 
     @Test

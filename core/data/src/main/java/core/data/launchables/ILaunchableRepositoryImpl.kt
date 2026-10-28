@@ -22,6 +22,7 @@ import core.data.prefs.toLaunchableNames
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileToken
+import core.data.profiles.isHiddenWhileLocked
 import core.data.profiles.isPrivate
 import core.data.profiles.privateSpace
 import core.data.profiles.toProfileToken
@@ -154,7 +155,8 @@ class ILaunchableRepositoryImpl(
         val privateSpace: ProfileInfo? = profiles.privateSpace
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,
-            privateSpace = privateSpace
+            privateSpace = privateSpace,
+            hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked
         )
         val pickerGroups: List<LaunchableGroup.Listed> = (resolvedApps + folders)
             .toLaunchableGroups(builtinGroup = resolvedBuiltinGroup, privateSpace = privateSpace)
@@ -202,25 +204,30 @@ private const val DIGIT_GROUP_LABEL: String = "#"
  * Builtin group so Home stays reachable without apps.
  *
  * [privateSpace] is the Profile of the Private Space, or null when the device
- * has none; its quiet mode makes the container Locked.
+ * has none; its quiet mode makes the container Locked. A Locked container is
+ * left off when [hidePrivateSpaceWhenLocked] or the system hides it, and an
+ * Unlocked one is always shown.
  */
 internal fun List<Launchable>.toLaunchableGroups(
     builtinGroup: LaunchableGroup.Builtin,
-    privateSpace: ProfileInfo? = null
+    privateSpace: ProfileInfo? = null,
+    hidePrivateSpaceWhenLocked: Boolean = false
 ): List<LaunchableGroup> {
     val (privateApps, otherItems) = partition { launchable -> launchable.isPrivateApp }
     val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { it.groupLabel() }
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
-    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = privateSpace?.let { profile ->
-        if (profile.isQuiet) {
-            LaunchableGroup.PrivateSpace.Locked
-        } else {
-            LaunchableGroup.PrivateSpace.Unlocked(
-                items = privateApps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name })
-            )
+    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = privateSpace
+        ?.takeUnless { profile -> profile.isHiddenWhileLocked(hideWhenLocked = hidePrivateSpaceWhenLocked) }
+        ?.let { profile ->
+            if (profile.isQuiet) {
+                LaunchableGroup.PrivateSpace.Locked
+            } else {
+                LaunchableGroup.PrivateSpace.Unlocked(
+                    items = privateApps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name })
+                )
+            }
         }
-    }
     return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
 

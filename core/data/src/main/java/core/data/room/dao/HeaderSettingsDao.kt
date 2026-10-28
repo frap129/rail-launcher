@@ -10,21 +10,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 @Dao
-abstract class HeaderSettingsDao {
+abstract class HeaderSettingsDao : ISingleRowDao<HeaderSettings> {
     @Query("SELECT * FROM header_settings WHERE id = 0")
     abstract fun observeRow(): Flow<HeaderSettings?>
 
     open fun observe(): Flow<HeaderSettings> = observeRow().map { settings -> settings ?: HeaderSettings() }
 
     @Query("SELECT * FROM header_settings WHERE id = 0")
-    abstract suspend fun getRow(): HeaderSettings?
+    abstract override suspend fun getRow(): HeaderSettings?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    abstract suspend fun upsert(settings: HeaderSettings)
+    abstract override suspend fun upsert(row: HeaderSettings)
 
     @Transaction
     open suspend fun update(transform: (HeaderSettings) -> HeaderSettings) {
-        upsert(transform(getRow() ?: HeaderSettings()))
+        updateRow(defaultRow = HeaderSettings(), transform = transform)
     }
 
     @Transaction

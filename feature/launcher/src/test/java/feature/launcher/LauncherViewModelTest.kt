@@ -1,5 +1,6 @@
 package feature.launcher
 
+import android.content.IntentSender
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
 import core.data.apps.model.App
@@ -30,6 +31,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createIntentSender
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
@@ -1237,6 +1239,49 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `drops the Private Space group and Rail label when the system hides it while Locked`() = runTest {
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputPrivateProfile.copy(isQuiet = true))
+        )
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Locked
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        val inputRailLabels: List<String> = listOf(
+            LaunchableGroup.Star.label,
+            "A",
+            inputBuiltinGroup.label,
+            LaunchableGroup.PrivateSpace.LABEL
+        )
+        val expectedHiddenRailLabels: List<String> = listOf(
+            LaunchableGroup.Star.label,
+            "A",
+            inputBuiltinGroup.label
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            awaitAppListMatching { groups -> groups.any { group -> group is LaunchableGroup.PrivateSpace } }
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true, isEntrypointHidden = true))
+            awaitAppListMatching { groups -> groups.none { group -> group is LaunchableGroup.PrivateSpace } }
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+            awaitAppListMatching { groups -> groups.any { group -> group is LaunchableGroup.PrivateSpace } }
+        }
+        viewModel.railLabels.test {
+            assertEquals(inputRailLabels, awaitLabels(inputRailLabels))
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true, isEntrypointHidden = true))
+            assertEquals(expectedHiddenRailLabels, awaitLabels(expectedHiddenRailLabels))
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+            assertEquals(inputRailLabels, awaitLabels(inputRailLabels))
+        }
+    }
+
+    @Test
     fun `keeps the Private Space group last on the Rail`() = runTest {
         val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
             privateSpace = LaunchableGroup.PrivateSpace.Locked
@@ -1251,6 +1296,46 @@ class LauncherViewModelTest {
                 listOf(LaunchableGroup.Star.label, "A", inputBuiltinGroup.label, LaunchableGroup.PrivateSpace.LABEL),
                 expectMostRecentItem()
             )
+        }
+    }
+
+    @Test
+    fun `offers the Private Space settings action while the space is Unlocked`() = runTest {
+        val expectedIntentSender: IntentSender = createIntentSender(context = RuntimeEnvironment.getApplication())
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            privateSpaceSettingsIntent = expectedIntentSender
+        }
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+
+        viewModel.privateSpaceSettingsIntent.test {
+            assertEquals(expectedIntentSender, awaitIntentSender())
+        }
+    }
+
+    @Test
+    fun `offers no Private Space settings action without a system intent`() = runTest {
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+
+        viewModel.privateSpaceSettingsIntent.test {
+            assertNull(awaitItem())
+        }
+    }
+
+    @Test
+    fun `drops the Private Space settings action when the space locks without a reload`() = runTest {
+        val expectedIntentSender: IntentSender = createIntentSender(context = RuntimeEnvironment.getApplication())
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            privateSpaceSettingsIntent = expectedIntentSender
+        }
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+
+        viewModel.privateSpaceSettingsIntent.test {
+            assertEquals(expectedIntentSender, awaitIntentSender())
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+            assertNull(awaitItem())
         }
     }
 
@@ -1487,6 +1572,34 @@ class LauncherViewModelTest {
         inputBuiltinGroup,
         privateSpace
     )
+
+    // The settled action, skipping the StateFlow's initial null when it wins the subscription race.
+    private suspend fun TurbineTestContext<IntentSender?>.awaitIntentSender(): IntentSender {
+        var actualIntentSender: IntentSender? = awaitItem()
+        while (actualIntentSender == null) {
+            actualIntentSender = awaitItem()
+        }
+        return actualIntentSender
+    }
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitAppListMatching(
+        predicate: (List<LaunchableGroup.Listed>) -> Boolean
+    ): LauncherUiState.AppList.Browsing {
+        while (true) {
+            val actualState: LauncherUiState = awaitItem()
+            if (actualState is LauncherUiState.AppList.Browsing && predicate(actualState.groups)) {
+                return actualState
+            }
+        }
+    }
+
+    private suspend fun TurbineTestContext<List<String>>.awaitLabels(expected: List<String>): List<String> {
+        var actualLabels: List<String> = awaitItem()
+        while (actualLabels != expected) {
+            actualLabels = awaitItem()
+        }
+        return actualLabels
+    }
 
     private fun TestScope.createNotificationSource(mockPopupRepository: IPopupRepository): INotificationSource =
         createTestNotificationSource(

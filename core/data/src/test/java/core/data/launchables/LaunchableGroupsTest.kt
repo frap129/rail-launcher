@@ -8,6 +8,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createProfileInfo
@@ -18,8 +19,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-
-private const val RAIL_ICON_RES_ID: Int = 0
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -140,6 +139,43 @@ class LaunchableGroupsTest {
     }
 
     @Test
+    fun `hides a Locked Private Space while Rail hides it`() {
+        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile.copy(isQuiet = true),
+            hidePrivateSpaceWhenLocked = true
+        )
+
+        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
+        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `hides a Locked Private Space while the system hides it`() {
+        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile.copy(isQuiet = true, isEntrypointHidden = true)
+        )
+
+        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
+        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `shows an Unlocked Private Space while Rail and the system hide it`() {
+        val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
+
+        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile.copy(isEntrypointHidden = true),
+            hidePrivateSpaceWhenLocked = true
+        ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp), actualGroup.items)
+    }
+
+    @Test
     fun `lists private Apps A-Z in an Unlocked Private Space`() {
         val inputZulu: Launchable = createPrivateApp(name = "Zulu", packageName = "com.example.zulu")
         val inputAlpha: Launchable = createPrivateApp(name = "alpha", packageName = "com.example.alpha")
@@ -194,7 +230,7 @@ class LaunchableGroupsTest {
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(
         defaultName = name,
-        defaultIcon = Icon.RailIcon(resId = RAIL_ICON_RES_ID),
+        defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = "rail-launcher://$name"
     )
 }

@@ -2,6 +2,7 @@ package core.data.room
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import core.data.prefs.Settings
 
 private const val FOLDERS_TABLE: String = "folders"
 private const val REBUILT_FOLDERS_TABLE: String = "folders_rebuilt"
@@ -13,5 +14,16 @@ val MIGRATION_11_12: Migration = object : Migration(11, 12) {
         db.execSQL("INSERT INTO $REBUILT_FOLDERS_TABLE (id) SELECT id FROM $FOLDERS_TABLE")
         db.execSQL("DROP TABLE $FOLDERS_TABLE")
         db.execSQL("ALTER TABLE $REBUILT_FOLDERS_TABLE RENAME TO $FOLDERS_TABLE")
+    }
+}
+
+private const val SETTINGS_TABLE: String = "settings"
+
+/** Adds the switch that hides a Locked Private Space, leaving every other setting in place. */
+val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
+        )
     }
 }
