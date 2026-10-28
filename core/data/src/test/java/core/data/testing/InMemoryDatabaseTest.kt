@@ -42,13 +42,16 @@ abstract class InMemoryDatabaseTest {
 
     @Before
     fun createDatabase() {
-        database = createDatabaseBuilder().build()
+        val builder: RoomDatabase.Builder<AppDatabase> =
+            Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), AppDatabase::class.java)
+        database = configureDatabaseBuilder(builder).configureForTest().build()
     }
 
-    /** The in-memory builder every database test uses; subclasses may add callbacks. */
-    protected open fun createDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> =
-        Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), AppDatabase::class.java)
-            .configureForTest()
+    /**
+     * Adds callbacks or other builder options. The test-controlled execution is applied afterwards,
+     * so a database this base builds always runs its queries on the test scheduler.
+     */
+    protected open fun configureDatabaseBuilder(builder: RoomDatabase.Builder<AppDatabase>): RoomDatabase.Builder<AppDatabase> = builder
 
     /** Gives a database the main-thread access and test-controlled execution [databaseTest] expects. */
     protected fun RoomDatabase.Builder<AppDatabase>.configureForTest(): RoomDatabase.Builder<AppDatabase> =
