@@ -2,8 +2,11 @@ package core.data.widgets
 
 import app.cash.turbine.test
 import core.data.room.dao.WidgetAreaDao
-import core.data.testing.FakeAppWidgetHostSource
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.createAppWidgetHostMock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -248,8 +251,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
             places = listOf(place(id = 1L, position = 0)),
             widgets = listOf(appWidget(id = 10L, placeId = 1L))
         )
-        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        mockHost.boundIdsState.add(AppWidgetId(42))
+        val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(42))
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
         repository.places.test {
@@ -267,13 +270,19 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
             places = listOf(place(id = 1L, position = 0)),
             widgets = listOf(appWidget(id = 10L, placeId = 1L))
         )
-        val mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        mockHost.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Available
-        val repository: IWidgetAreaRepository = repository(dao = dao, mockHost = mockHost)
+        val availability: MutableMap<AppWidgetId, WidgetAvailability> = mutableMapOf(
+            AppWidgetId(42) to WidgetAvailability.Available
+        )
+        val providerChanges: MutableSharedFlow<Unit> = MutableSharedFlow(extraBufferCapacity = 1)
+        val repository: IWidgetAreaRepository = repository(
+            dao = dao,
+            availabilityProvider = { id -> availability[id] ?: WidgetAvailability.Available },
+            providerChangesFlow = providerChanges
+        )
         repository.places.test {
             assertEquals(WidgetAvailability.Available, model(awaitItem()).availability)
-            mockHost.availabilityResults[AppWidgetId(42)] = WidgetAvailability.Unknown
-            mockHost.emitProviderChange()
+            availability[AppWidgetId(42)] = WidgetAvailability.Unknown
+            providerChanges.tryEmit(Unit)
             assertEquals(WidgetAvailability.Unknown, model(awaitItem()).availability)
             cancelAndIgnoreRemainingEvents()
         }
@@ -807,13 +816,22 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
 
     private suspend fun repository(
         dao: WidgetAreaDao,
-        mockHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        availabilityProvider: (AppWidgetId) -> WidgetAvailability = { WidgetAvailability.Available },
+        providerChangesFlow: Flow<Unit> = emptyFlow()
     ): IWidgetAreaRepositoryImpl {
-        mockHost.boundIdsState.addAll(dao.allAppWidgetIds().map { id -> AppWidgetId(id) })
+        val boundIds: Set<AppWidgetId> = dao.boundAppWidgetIds()
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
+            boundIdsProvider = { boundIds },
+            availabilityProvider = availabilityProvider,
+            providerChangesFlow = providerChangesFlow
+        )
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         return IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
     }
+
+    private suspend fun WidgetAreaDao.boundAppWidgetIds(): Set<AppWidgetId> =
+        allAppWidgetIds().mapTo(mutableSetOf()) { id -> AppWidgetId(id) }
 
     private fun model(places: List<WidgetPlace>): PlacedWidget.AppWidget = places.single().widgets.single() as PlacedWidget.AppWidget
 

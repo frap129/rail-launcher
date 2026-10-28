@@ -28,11 +28,4 @@ class FakeLaunchableRepository(groups: List<LaunchableGroup>, isLoaded: Boolean 
     fun setFolders(folders: List<Launchable>) {
         setGroups(groups = currentGroups, folders = folders)
     }
-
-    private fun createLaunchableState(groups: List<LaunchableGroup>, folders: List<Launchable>, isLoaded: Boolean): LaunchableState =
-        LaunchableState(
-            groups = groups,
-            launchables = groups.filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items } + folders,
-            isLoaded = isLoaded
-        )
 }

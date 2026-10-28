@@ -1,8 +1,9 @@
 package core.data.folders
 
 import core.data.favorites.FavoriteRecord
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
-import core.data.launchables.model.LaunchableGroup
 import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.popups.PopupItemRecord
@@ -10,19 +11,23 @@ import core.data.prefs.LaunchableCustomization
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
-import core.data.testing.FakeAppWidgetHostSource
-import core.data.testing.FakeLaunchableRepository
-import core.data.testing.FakePopupRepository
-import core.data.testing.FakePreferencesRepository
-import core.data.testing.FakeWidgetAreaRepository
+import core.data.shortcuts.IShortcutSource
 import core.data.testing.InMemoryDatabaseTest
-import core.data.testing.appWidgetPlace
 import core.data.testing.createApp
+import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createFavoritesRepository
+import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.createLaunchableState
+import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
+import core.data.testing.createPopupRepositoryMock
+import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createRailLaunchable
+import core.data.testing.createShortcutSourceMock
+import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnce
 import core.data.widgets.AppWidgetId
+import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetAreaRepositoryImpl
 import core.data.widgets.IWidgetLifecycleReconcilerImpl
@@ -32,7 +37,9 @@ import core.data.widgets.WidgetRecord
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.spyk
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -53,8 +60,9 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     @Test
     fun `create leaves no Folder when a Pop-up write fails`() = runTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.failNextSetItems.failWith(IllegalStateException("Pop-up write failed"))
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock().apply {
+            coEvery { setItems(any(), any(), any()) } throws IllegalStateException("Pop-up write failed")
+        }
         val repository: IFolderRepository = createFolderRepository(mockPopupRepository = mockPopupRepository)
 
         val actualFailure: Throwable? = runCatching {
@@ -70,8 +78,8 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     @Test
     fun `create rolls back the Folder and its items when the Favorite write fails`() = runTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
+            launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(Folder(folderId = 1L))
         )
         val mockFavoriteDao: FavoriteDao = failingFavoriteAdd()
@@ -124,8 +132,8 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     fun `create stores the Folder, its items and its Favorite together`() = runTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val expectedFolder: Folder = Folder(folderId = 1L, name = "Games")
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
+            launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(expectedFolder)
         )
         val repository: IFolderRepository = createFolderRepository(
@@ -151,10 +159,14 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
         val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputFolder.key, position = FIRST_POSITION)
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.failNextDeleteItemsByKey.failWith(IllegalStateException("Pop-up write failed"))
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock().apply {
+            coEvery { deleteItemsByKey(any()) } throws IllegalStateException("Pop-up write failed")
+        }
         val repository: IFolderRepository = createFolderRepository(
-            launchableRepository = createLaunchableRepository(launchables = emptyList(), folders = listOf(inputFolder)),
+            launchableRepository = createLaunchableRepositoryMock(
+                launchables = listOf(otherOwnerLaunchable),
+                folders = listOf(inputFolder)
+            ),
             mockPopupRepository = mockPopupRepository
         )
 
@@ -173,10 +185,14 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         val inputReferencingItem: PopupItemRecord = PopupItemRecord(ownerKey = OTHER_OWNER_KEY, itemKey = inputFolder.key, position = 0)
         seedFolder(folder = inputFolder, items = listOf(inputOwnedItem, inputReferencingItem))
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
-        val mockPopupRepository: FakePopupRepository = FakePopupRepository()
-        mockPopupRepository.failNextDeleteOwner.failWith(IllegalStateException("Pop-up write failed"))
+        val mockPopupRepository: IPopupRepository = createPopupRepositoryMock().apply {
+            coEvery { deleteOwner(any()) } throws IllegalStateException("Pop-up write failed")
+        }
         val repository: IFolderRepository = createFolderRepository(
-            launchableRepository = createLaunchableRepository(launchables = listOf(inputItem), folders = listOf(inputFolder)),
+            launchableRepository = createLaunchableRepositoryMock(
+                launchables = listOf(inputItem, otherOwnerLaunchable),
+                folders = listOf(inputFolder)
+            ),
             mockPopupRepository = mockPopupRepository
         )
 
@@ -196,10 +212,11 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         seedFolder(folder = inputFolder, items = listOf(inputOwnedItem, inputReferencingItem))
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
         seedCustomization(key = inputFolder.key, name = "Games")
-        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository()
-        mockWidgetAreaRepository.failNextRemoveOwnerPlaces.failWith(IllegalStateException("Widget release failed"))
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
+        val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            removeOwnerPlacesAnswer = { throw IllegalStateException("Widget release failed") }
+        )
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
+            launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(inputFolder)
         )
         val repository: IFolderRepository = createFolderRepository(
@@ -228,31 +245,30 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
             stub = { dao -> dao.delete(any()) },
             delegate = { dao -> dao.delete(firstArg()) }
         )
-        val mockWidgetAreaRepository: FakeWidgetAreaRepository = FakeWidgetAreaRepository(
-            listOf(appWidgetPlace(placeId = 1L, widgetId = 1L, appWidgetId = APP_WIDGET_ID, ownerKey = inputFolder.key))
+        val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            removeOwnerPlacesAnswer = { listOf(AppWidgetId(APP_WIDGET_ID)) }
         )
-        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
+        val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock()
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
+            launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(inputFolder)
         )
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
         val repository: IFolderRepository = createFolderRepository(
             folderDao = mockFolderDao,
             launchableRepository = mockLaunchableRepository,
-            mockPopupRepository = createPopupRepository(
-                popupDao = database.getPopupDao(),
+            mockPopupRepository = createDatabasePopupRepository(
                 launchableRepository = mockLaunchableRepository,
-                scope = backgroundScope,
-                widgetAreaRepository = mockWidgetAreaRepository,
-                appWidgetHost = mockAppWidgetHost
+                mockWidgetAreaRepository = mockWidgetAreaRepository,
+                mockAppWidgetHost = mockAppWidgetHost
             )
         )
 
         val actualFailure: Throwable? = runCatching { repository.delete(inputFolder) }.exceptionOrNull()
 
         assertTrue(actualFailure is IllegalStateException)
-        assertTrue(mockAppWidgetHost.deletedIds.isEmpty())
+        verify(exactly = 0) { mockAppWidgetHost.deleteId(any()) }
+        coVerify(exactly = 1) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputFolder.key) }
         assertEquals(listOf(FolderRecord(id = inputFolder.folderId)), database.getFolderDao().observeAll().first())
     }
 
@@ -265,13 +281,16 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         seedFolder(folder = inputFolder, items = listOf(inputOwnedItem, inputReferencingItem))
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
         seedCustomization(key = inputFolder.key, name = "Games")
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
+            launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(inputFolder)
         )
         val repository: IFolderRepository = createFolderRepository(
             launchableRepository = mockLaunchableRepository,
-            mockPopupRepository = createDatabasePopupRepository(launchableRepository = mockLaunchableRepository)
+            mockPopupRepository = createDatabasePopupRepository(
+                launchableRepository = mockLaunchableRepository,
+                mockWidgetAreaRepository = createWidgetAreaRepository()
+            )
         )
 
         val actualFreedIds: List<AppWidgetId> = repository.delete(inputFolder)
@@ -298,10 +317,13 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
             delegate = { dao -> dao.remove(firstArg()) }
         )
         seedFavorite(key = inputFolder.key, position = FIRST_POSITION)
-        val mockLaunchableRepository: FakeLaunchableRepository = createLaunchableRepository(
-            launchables = listOf(inputItem),
-            folders = listOf(inputFolder)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(
+                launchables = listOf(inputItem, otherOwnerLaunchable),
+                folders = listOf(inputFolder)
+            )
         )
+        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         val repository: IFolderRepository = createFolderRepository(
             launchableRepository = mockLaunchableRepository,
             favoriteDao = mockFavoriteDao,
@@ -309,7 +331,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         )
 
         repository.delete(inputFolder)
-        mockLaunchableRepository.setFolders(folders = emptyList())
+        launchableState.value = createLaunchableState(groups = emptyList())
         runCurrent()
 
         assertTrue(database.getFolderDao().observeAll().first().isEmpty())
@@ -344,42 +366,38 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
 
     private fun TestScope.createFolderRepository(
         folderDao: FolderDao = database.getFolderDao(),
-        launchableRepository: FakeLaunchableRepository = createLaunchableRepository(launchables = emptyList()),
+        launchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(otherOwnerLaunchable)),
         favoriteDao: FavoriteDao = database.getFavoriteDao(),
         customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
-        mockPopupRepository: IPopupRepository = FakePopupRepository()
+        mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
     ): IFolderRepository = IFolderRepositoryImpl(
         folderDao = folderDao,
         favoritesRepository = createFavoritesRepository(favoriteDao, launchableRepository),
         popupRepository = mockPopupRepository,
-        preferencesRepository = FakePreferencesRepository(),
+        preferencesRepository = createPreferencesRepositoryMock(),
         launchableCustomizationDao = customizationDao
     )
 
     private fun TestScope.createDatabasePopupRepository(
-        launchableRepository: FakeLaunchableRepository,
-        mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepository()
+        launchableRepository: ILaunchableRepository,
+        mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(),
+        mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock(),
+        mockShortcutSource: IShortcutSource = createShortcutSourceMock()
     ): IPopupRepositoryImpl = createPopupRepository(
         popupDao = database.getPopupDao(),
         launchableRepository = launchableRepository,
         scope = backgroundScope,
-        widgetAreaRepository = mockWidgetAreaRepository
+        shortcutSource = mockShortcutSource,
+        widgetAreaRepository = mockWidgetAreaRepository,
+        appWidgetHost = mockAppWidgetHost
     )
 
     private fun createWidgetAreaRepository(): IWidgetAreaRepository {
-        val mockAppWidgetHost: FakeAppWidgetHostSource = FakeAppWidgetHostSource()
+        val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock()
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = database.getWidgetAreaDao(),
             appWidgetHost = mockAppWidgetHost,
             lifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = database.getWidgetAreaDao(), host = mockAppWidgetHost)
         )
     }
-
-    private fun createLaunchableRepository(
-        launchables: List<Launchable>,
-        folders: List<Launchable> = emptyList()
-    ): FakeLaunchableRepository = FakeLaunchableRepository(
-        groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = launchables + otherOwnerLaunchable)),
-        folders = folders
-    )
 }

@@ -12,9 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
-/** One pin call made through [FakeShortcutSource]. */
-data class PinCall(val packageName: String, val profile: UserHandle, val ids: Set<String>)
-
 /** A settleable [IShortcutSource] over one shared result and one resolution. */
 class FakeShortcutSource(initialResult: ShortcutsResult = ShortcutsResult.Available(shortcuts = emptyList())) : IShortcutSource {
     private val result: MutableStateFlow<ShortcutsResult> = MutableStateFlow(initialResult)
@@ -35,12 +32,7 @@ class FakeShortcutSource(initialResult: ShortcutsResult = ShortcutsResult.Availa
     override fun appsWithShortcuts(): Flow<List<AppShortcuts>> = apps.asStateFlow()
 
     override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> = resolution.map { current ->
-        current?.let { currentResolution ->
-            ShortcutResolution(
-                shortcuts = currentResolution.shortcuts.filterKeys { key -> key in keys },
-                goneKeys = currentResolution.goneKeys.filterTo(mutableSetOf()) { key -> key in keys }
-            )
-        } ?: ShortcutResolution()
+        current.filterToKeys(keys = keys)
     }
 
     override suspend fun pin(packageName: String, profile: UserHandle, ids: Set<String>) {
