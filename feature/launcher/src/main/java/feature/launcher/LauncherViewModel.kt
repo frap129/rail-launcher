@@ -18,6 +18,8 @@ import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IProfileSource
+import core.data.profiles.QuietRequestResult
+import core.data.profiles.privateSpace
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -96,12 +99,15 @@ private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favorites: List<Launchable>,
-    isEditingFavorites: Boolean
+    isEditingFavorites: Boolean,
+    isPrivateSpaceLockRequested: Boolean
 ): LauncherUiState {
     if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
-    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups.map { group ->
+        group.withPrivateSpaceLocked(isLockRequested = isPrivateSpaceLockRequested)
+    }
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
@@ -109,7 +115,9 @@ private fun toUiState(
             isEditingFavorites = isEditingFavorites
         )
     }
-    val selected: LaunchableGroup.Listed? = navigation.selected
+    val selected: LaunchableGroup.Listed? = navigation.selected?.withPrivateSpaceLocked(
+        isLockRequested = isPrivateSpaceLockRequested
+    )
     if (navigation.isScrolling) {
         return if (selected == null) {
             LauncherUiState.Loading
@@ -124,6 +132,14 @@ private fun toUiState(
         isEditingFavorites = isEditingFavorites
     )
 }
+
+// A Lock tap hides the private Apps before the system confirms the Profile is quiet.
+private fun LaunchableGroup.Listed.withPrivateSpaceLocked(isLockRequested: Boolean): LaunchableGroup.Listed =
+    if (isLockRequested && this is LaunchableGroup.PrivateSpace && !isLocked) {
+        LaunchableGroup.PrivateSpace.Locked
+    } else {
+        this
+    }
 
 private enum class MenuRequest {
     Closed,
@@ -163,6 +179,9 @@ class LauncherViewModel(
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
+    // Set when the Lock action hides the private Apps before the Profile reports itself quiet.
+    private val isPrivateSpaceLockRequested: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     /** The edited Favorites order; exposed for the ViewModel's behavioural tests. */
     internal val editingFavoriteKeys: List<String>? get() = editedFavoriteKeys.value
 
@@ -194,19 +213,33 @@ class LauncherViewModel(
         navigation,
         launchableState,
         favorites,
-        isEditingFavorites
-    ) { navigation, state, favorites, isEditingFavorites ->
+        isEditingFavorites,
+        isPrivateSpaceLockRequested
+    ) { navigation, state, favorites, isEditingFavorites, isLockRequested ->
         toUiState(
             navigation = navigation,
             state = state,
             favorites = favorites,
-            isEditingFavorites = isEditingFavorites
+            isEditingFavorites = isEditingFavorites,
+            isPrivateSpaceLockRequested = isLockRequested
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherUiState.Loading
     )
+
+    init {
+        // Drops the pending Lock once the Profile is quiet (or gone), so a later unlock is shown.
+        viewModelScope.launch {
+            launchableState
+                .map { state ->
+                    state.listedGroups.none { group -> group is LaunchableGroup.PrivateSpace && !group.isLocked }
+                }
+                .distinctUntilChanged()
+                .collect { isLocked -> if (isLocked) isPrivateSpaceLockRequested.value = false }
+        }
+    }
 
     /** The items of every Folder, keyed by the Folder key. */
     private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
@@ -314,6 +347,26 @@ class LauncherViewModel(
         requestQuietOff(user = user)
     }
 
+    /** Asks the system to unlock the Private Space; it stays Locked until the system reports it available. */
+    fun requestPrivateSpaceUnlock() {
+        val user: UserHandle = privateSpaceUser() ?: return
+        isPrivateSpaceLockRequested.value = false
+        requestQuietOff(user = user)
+    }
+
+    /** Hides the private Apps immediately, then asks the system to lock the Private Space. */
+    fun lockPrivateSpace() {
+        val user: UserHandle = privateSpaceUser() ?: return
+        isPrivateSpaceLockRequested.value = true
+        requestQuietOn(user = user) { result ->
+            if (result == QuietRequestResult.Failed) {
+                isPrivateSpaceLockRequested.value = false
+            }
+        }
+    }
+
+    private fun privateSpaceUser(): UserHandle? = profileSource.profiles.value.privateSpace?.user
+
     /** Asks the system to leave quiet mode for the paused App's Profile. */
     fun turnOnPausedApp() {
         val app: App = requestedPausedApp.value ?: return
@@ -321,8 +374,18 @@ class LauncherViewModel(
         requestQuietOff(user = app.profile)
     }
 
-    private fun requestQuietOff(user: UserHandle) {
-        viewModelScope.launch { profileSource.requestQuiet(user = user, quiet = false) }
+    private fun requestQuietOff(user: UserHandle, onResult: (QuietRequestResult) -> Unit = {}) {
+        requestQuiet(user = user, quiet = false, onResult = onResult)
+    }
+
+    private fun requestQuietOn(user: UserHandle, onResult: (QuietRequestResult) -> Unit = {}) {
+        requestQuiet(user = user, quiet = true, onResult = onResult)
+    }
+
+    private fun requestQuiet(user: UserHandle, quiet: Boolean, onResult: (QuietRequestResult) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(profileSource.requestQuiet(user = user, quiet = quiet))
+        }
     }
 
     fun dismissPausedPrompt() {

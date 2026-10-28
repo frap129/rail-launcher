@@ -20,6 +20,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,6 +39,8 @@ private const val SECOND_PERSONAL_PACKAGE: String = "com.example.second"
 private const val WORK_PACKAGE: String = "com.example.work"
 private const val NEW_WORK_PACKAGE: String = "com.example.new.work"
 private const val SHARED_PACKAGE: String = "com.example.shared"
+private const val PRIVATE_PACKAGE: String = "com.example.private"
+private const val NEW_PRIVATE_PACKAGE: String = "com.example.new.private"
 private const val RENAMED_NAME: String = "Renamed"
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -236,10 +239,32 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `does not list Apps from a Private Profile`() = databaseTest {
-        val inputPrivateProfile: ProfileInfo = ProfileInfo(
+    fun `does not list Apps from a Locked Private Space`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        inputState.setActivities(
             user = privateUser,
-            serial = PRIVATE_USER_ID.toLong(),
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
+    }
+
+    @Test
+    fun `lists Apps from an Unlocked Private Space`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
             kind = ProfileKind.Private,
             isQuiet = false
         )
@@ -250,13 +275,75 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
         inputState.setActivities(
             user = privateUser,
-            activities = arrayOf(profileActivity(packageName = "com.example.private", user = privateUser))
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
         )
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
 
         val actualApps: List<App> = loadApps(repository = repository)
 
-        assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
+        val actualPrivateApp: App = actualApps.single { app -> app.profile == privateUser }
+        assertEquals(PRIVATE_PACKAGE, actualPrivateApp.packageName)
+        assertEquals(ProfileKind.Private, actualPrivateApp.kind)
+        assertEquals(listOf(PERSONAL_PACKAGE, PRIVATE_PACKAGE), actualApps.map { app -> app.packageName })
+    }
+
+    @Test
+    fun `enumerates the Private Space's Apps when it unlocks and hides them when it locks`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
+
+        inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
+        inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
+        assertTrue(loadApps(repository = repository).any { app -> app.profile == privateUser })
+
+        inputState.profiles.value = listOf(personalProfile, inputPrivateProfile)
+        inputState.changes.emit(ProfileChange.ProfileUnavailable(user = privateUser))
+        assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
+    }
+
+    @Test
+    fun `adds and removes packages inside the Unlocked Private Space live`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = false
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(
+                profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser),
+                profileActivity(packageName = NEW_PRIVATE_PACKAGE, user = privateUser)
+            )
+        )
+
+        inputState.changes.emit(ProfileChange.PackageAdded(user = privateUser, packageName = NEW_PRIVATE_PACKAGE))
+        assertTrue(loadApps(repository = repository).any { app -> app.packageName == NEW_PRIVATE_PACKAGE })
+
+        inputState.changes.emit(ProfileChange.PackageRemoved(user = privateUser, packageName = NEW_PRIVATE_PACKAGE))
+        assertFalse(loadApps(repository = repository).any { app -> app.packageName == NEW_PRIVATE_PACKAGE })
+        assertTrue(loadApps(repository = repository).any { app -> app.packageName == PRIVATE_PACKAGE })
     }
 
     @Test

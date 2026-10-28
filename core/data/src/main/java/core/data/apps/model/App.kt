@@ -39,3 +39,6 @@ data class App(
         context.openApplicationDetailsSettings(componentName = componentName, profile = profile)
     }
 }
+
+/** Whether this Launchable is a private App, listed only inside the Private Space for now. */
+val Launchable.isPrivateApp: Boolean get() = this is App && kind == ProfileKind.Private

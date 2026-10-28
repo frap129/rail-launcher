@@ -20,8 +20,12 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.profiles.ProfileKind
 import core.data.testing.MainDispatcherRule
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_SDK
 import core.data.testing.WidgetAreaRepositoryState
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
@@ -30,6 +34,7 @@ import core.data.testing.createHeaderSettingsActions
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createMediaSessionSourceMock
+import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createRemoveAppWidgetMock
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -64,8 +69,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class WidgetSettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
@@ -397,6 +407,28 @@ class WidgetSettingsViewModelTest {
             val actualFiltered: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
             assertEquals("map", actualFiltered.query)
             assertEquals(listOf("Maps"), actualFiltered.launchables.map { row -> row.name })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps private Apps out of the tap action picker`() = runTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp = createApp(
+            name = "Secret",
+            packageName = "com.example.secret",
+            profileInfo = inputPrivateProfile
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPrivateApp))
+        )
+
+        viewModel.tapActionPicker.test {
+            assertNull(awaitItem())
+            viewModel.openTapActionPicker(HeaderTapTargetPart.Time)
+            val actualPicker: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertTrue(actualPicker.isLoaded)
+            assertTrue(actualPicker.launchables.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

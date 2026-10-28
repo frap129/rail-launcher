@@ -19,6 +19,12 @@ enum class ProfileKind {
 /** A Profile Rail can load Apps from. */
 data class ProfileInfo(val user: UserHandle, val serial: Long, val kind: ProfileKind, val isQuiet: Boolean)
 
+/** Whether this Profile is the Private Space. */
+val ProfileInfo.isPrivate: Boolean get() = kind == ProfileKind.Private
+
+/** The listed Private Space Profile, or null when the device has none or Rail cannot see it. */
+val List<ProfileInfo>.privateSpace: ProfileInfo? get() = firstOrNull { profile -> profile.isPrivate }
+
 /** A launchable activity resolved for one Profile. */
 data class ProfileActivity(val componentName: ComponentName, val user: UserHandle, val label: String, val badgedLabel: String)
 
@@ -41,6 +47,18 @@ sealed interface ProfileChange {
     data class ProfileAvailable(override val user: UserHandle) : ProfileChange
 
     data class ProfileUnavailable(override val user: UserHandle) : ProfileChange
+}
+
+/** The outcome of asking a Profile to change quiet mode. */
+sealed interface QuietRequestResult {
+    /** Quiet mode changed. */
+    data object Changed : QuietRequestResult
+
+    /** The system shows its credential screen before it changes quiet mode. */
+    data object AwaitingCredential : QuietRequestResult
+
+    /** The system refused the change. */
+    data object Failed : QuietRequestResult
 }
 
 /** The only source that enumerates Profiles and reads their launchable activities. */
@@ -66,7 +84,7 @@ interface IProfileSource {
     fun activities(packageName: String, user: UserHandle): List<ProfileActivity>
 
     /** Asks the system to change [user]'s quiet mode. */
-    suspend fun requestQuiet(user: UserHandle, quiet: Boolean)
+    suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult
 
     /** The Profile whose serial number is [serial], or null when no Profile matches. */
     fun userForSerial(serial: Long): UserHandle?

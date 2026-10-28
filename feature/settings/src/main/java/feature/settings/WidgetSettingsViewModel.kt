@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
+import core.data.apps.model.isPrivateApp
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.calendar.UpcomingEventsOutcome
@@ -344,7 +345,11 @@ class WidgetSettingsViewModel(
                 part = it,
                 query = query,
                 isLoaded = launchableState.isLoaded,
-                launchables = filterLaunchables(launchableState.launchables, query).map { launchable ->
+                // rail-25f.4: private Apps are tap-action choices while Private Space is Unlocked.
+                launchables = filterLaunchables(
+                    launchables = launchableState.launchables.filterNot { launchable -> launchable.isPrivateApp },
+                    query = query
+                ).map { launchable ->
                     TapActionLaunchable(
                         setting = HeaderTapSetting.Launchable(key = launchable.key),
                         name = launchable.name,

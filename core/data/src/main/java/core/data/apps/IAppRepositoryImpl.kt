@@ -7,7 +7,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
-import core.data.profiles.ProfileKind
+import core.data.profiles.isPrivate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +37,7 @@ class IAppRepositoryImpl(
     }
 
     private fun loadApps(): List<App> = profileSource.profiles.value
-        .filter { profile -> profile.isListed() }
+        .filter { profile -> profile.isEnumerated() }
         .flatMap { profile -> profileSource.activities(profile.user).map { activity -> activity.toApp(profile = profile) } }
         .excludingOwnPackage()
 
@@ -46,38 +46,48 @@ class IAppRepositoryImpl(
             is ProfileChange.PackageAdded -> replacePackage(user = change.user, packageName = change.packageName)
             is ProfileChange.PackageRemoved -> removePackage(user = change.user, packageName = change.packageName)
             is ProfileChange.PackageChanged -> replacePackage(user = change.user, packageName = change.packageName)
-            is ProfileChange.ProfileAdded -> addProfile(user = change.user)
+            is ProfileChange.ProfileAdded -> replaceProfile(user = change.user)
             is ProfileChange.ProfileRemoved -> removeProfile(user = change.user)
-            is ProfileChange.ProfileAvailable, is ProfileChange.ProfileUnavailable -> updatePausedState(user = change.user)
+            is ProfileChange.ProfileAvailable, is ProfileChange.ProfileUnavailable -> refreshProfile(user = change.user)
             is ProfileChange.PackagesUnavailable -> Unit
         }
     }
 
-    private fun addProfile(user: UserHandle) {
+    private fun replaceProfile(user: UserHandle) {
         val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
-        if (!profile.isListed()) {
-            return
+        val profileApps: List<App> = if (profile.isEnumerated()) {
+            profileSource.activities(profile.user).map { activity -> activity.toApp(profile = profile) }
+        } else {
+            emptyList()
         }
-        val addedApps: List<App> = profileSource.activities(user).map { activity -> activity.toApp(profile = profile) }
-        _apps.update { current -> (current.orEmpty().filterNot { app -> app.profile == user } + addedApps).excludingOwnPackage() }
+        _apps.update { current -> (current.orEmpty().filterNot { app -> app.profile == user } + profileApps).excludingOwnPackage() }
     }
 
     private fun removeProfile(user: UserHandle) {
         _apps.update { current -> current?.filterNot { app -> app.profile == user } }
     }
 
-    private fun updatePausedState(user: UserHandle) {
+    // A Private Space has no Apps to show while Locked; every other Profile stays listed while Paused.
+    private fun refreshProfile(user: UserHandle) {
         val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
+        if (profile.isPrivate) {
+            replaceProfile(user = user)
+        } else {
+            updatePausedState(profile = profile)
+        }
+    }
+
+    private fun updatePausedState(profile: ProfileInfo) {
         _apps.update { current ->
             current?.map { app ->
-                if (app.profileInfo.user == user) app.copy(profileInfo = app.profileInfo.copy(isQuiet = profile.isQuiet)) else app
+                if (app.profileInfo.user == profile.user) app.copy(profileInfo = app.profileInfo.copy(isQuiet = profile.isQuiet)) else app
             }
         }
     }
 
     private fun replacePackage(user: UserHandle, packageName: String) {
         val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
-        val replacedApps: List<App> = if (!profile.isListed() || packageName == ownPackageName) {
+        val replacedApps: List<App> = if (!profile.isEnumerated() || packageName == ownPackageName) {
             emptyList()
         } else {
             profileSource.activities(packageName, user).map { activity -> activity.toApp(profile = profile) }
@@ -93,7 +103,8 @@ class IAppRepositoryImpl(
         }
     }
 
-    private fun ProfileInfo.isListed(): Boolean = kind != ProfileKind.Private
+    // Apps of a Locked Private Space are never enumerated.
+    private fun ProfileInfo.isEnumerated(): Boolean = !isPrivate || !isQuiet
 
     private fun List<App>.excludingOwnPackage(): List<App> = filterNot { app -> app.packageName == ownPackageName }
 

@@ -91,6 +91,10 @@ internal fun LauncherContent(
                 onToggleFavorite = viewModel::toggleFavorite,
                 onItemOpenPopup = onItemOpenPopup,
                 onItemAnchorChanged = onItemAnchorChanged,
+                privateSpaceActions = PrivateSpaceActions(
+                    onUnlock = viewModel::requestPrivateSpaceUnlock,
+                    onLock = viewModel::lockPrivateSpace
+                ),
                 railBounds = { railBounds.current }
             )
         }

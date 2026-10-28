@@ -24,6 +24,14 @@ _Avoid_: Off, disabled, stopped
 The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
 _Avoid_: Private profile, vault, space
 
+**Locked**:
+A Private Space in quiet mode: Rail shows only its Private Space container row and no private Apps anywhere.
+_Avoid_: Off, closed, disabled
+
+**private App**:
+An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.
+_Avoid_: Private profile app, vault app
+
 **Folder**:
 A Launchable that only opens a Pop-up listing the Launchables the user put in it.
 _Avoid_: Group, category, pop-up folder
@@ -93,11 +101,11 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
-The launcher state showing every Launchable grouped alphabetically. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder.
+The launcher state showing every Launchable grouped alphabetically, then the Private Space group last. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
 **Rail**:
-The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its labels are the Star, which stands for Home, the letter groups and the Builtin group.
+The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its labels are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its lock glyph last.
 _Avoid_: Scroll bar, alphabet, wave
 
 **Widget**:
