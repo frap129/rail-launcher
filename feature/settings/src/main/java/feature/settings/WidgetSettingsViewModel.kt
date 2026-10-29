@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
+import core.data.apps.model.onePerPackage
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.calendar.UpcomingEventsOutcome
@@ -643,7 +644,7 @@ internal fun filterLaunchables(launchables: List<Launchable>, query: String): Li
 internal fun excludableApps(launchables: List<Launchable>, excludedPackages: Set<String>, query: String): List<ExcludableApp> =
     filterExcludableApps(
         apps = launchables.filterIsInstance<App>()
-            .distinctBy { app -> app.packageName }
+            .onePerPackage()
             .map { app ->
                 ExcludableApp(
                     packageName = app.packageName,

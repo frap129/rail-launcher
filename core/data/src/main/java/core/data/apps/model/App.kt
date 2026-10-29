@@ -25,6 +25,8 @@ data class App(
     val kind: ProfileKind = profileInfo.kind
     val isPaused: Boolean = profileInfo.isQuiet
     val packageName: String = componentName.packageName
+
+    /** The App's stored identity: its package name and Profile. */
     override val key: String = "${packageName}_$profile"
     override val accessibilityName: String get() = if (kind.isPersonal) name else badgedLabel
 
@@ -42,3 +44,12 @@ data class App(
 
 /** Whether this Launchable is a private App, listed only inside the Private Space for now. */
 val Launchable.isPrivateApp: Boolean get() = this is App && kind == ProfileKind.Private
+
+/**
+ * One App per package, choosing the alphabetically first activity class as the package's
+ * representative so the choice does not depend on the order the App source lists activities in.
+ * The App's label, icon and launch target all come from that same activity; a package's other
+ * launcher activities are not listed.
+ */
+fun List<App>.onePerPackage(): List<App> =
+    groupBy { app -> app.packageName }.values.map { apps -> apps.minBy { app -> app.componentName.className } }
