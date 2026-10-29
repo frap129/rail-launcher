@@ -82,6 +82,9 @@ interface IProfileSource {
     /** Package and Profile changes, emitted for the lifetime of the process. */
     val changes: SharedFlow<ProfileChange>
 
+    /** Re-reads the system Profiles, so a Profile the platform started reporting is listed without a restart. */
+    fun refreshProfiles()
+
     /** The Profile for [user], or null when it is no longer listed. */
     fun profileFor(user: UserHandle): ProfileInfo?
 

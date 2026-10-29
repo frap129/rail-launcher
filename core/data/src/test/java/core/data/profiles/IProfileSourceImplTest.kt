@@ -7,6 +7,7 @@ import android.content.pm.LauncherUserInfo
 import android.os.Bundle
 import android.os.UserHandle
 import android.os.UserManager
+import app.cash.turbine.test
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
@@ -65,6 +66,42 @@ class IProfileSourceImplTest {
             ),
             source.profiles.value.associate { profile -> profile.user to profile.kind }
         )
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles and publishes a Profile the platform started reporting`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        assertEquals(listOf(personalUser), source.profiles.value.map { profile -> profile.user })
+
+        source.changes.test {
+            every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+            source.refreshProfiles()
+
+            assertEquals(listOf(personalUser, privateUser), source.profiles.value.map { profile -> profile.user })
+            assertEquals(ProfileChange.ProfileAdded(user = privateUser), awaitItem())
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles and publishes a Profile the platform stopped reporting`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        assertEquals(listOf(personalUser, privateUser), source.profiles.value.map { profile -> profile.user })
+
+        source.changes.test {
+            every { mockLauncherApps.profiles } returns listOf(personalUser)
+            source.refreshProfiles()
+
+            assertEquals(listOf(personalUser), source.profiles.value.map { profile -> profile.user })
+            assertEquals(ProfileChange.ProfileRemoved(user = privateUser), awaitItem())
+        }
     }
 
     @Test

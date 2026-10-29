@@ -8,8 +8,10 @@ import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +43,7 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     val mockProfileSource: IProfileSource = mockk()
     every { mockProfileSource.profiles } returns state.profiles
     every { mockProfileSource.changes } returns state.changes
+    every { mockProfileSource.refreshProfiles() } just Runs
     every { mockProfileSource.profileFor(any()) } answers {
         state.profiles.value.firstOrNull { profile -> profile.user == firstArg<UserHandle>() }
     }

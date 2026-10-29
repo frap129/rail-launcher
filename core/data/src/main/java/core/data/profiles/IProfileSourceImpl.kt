@@ -88,6 +88,15 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         ContextCompat.registerReceiver(appContext, receiver, profileIntentFilter(), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
+    override fun refreshProfiles() {
+        val previousUsers: Set<UserHandle> = _profiles.value.mapTo(mutableSetOf()) { profile -> profile.user }
+        val profiles: List<ProfileInfo> = loadProfiles() ?: return
+        _profiles.value = profiles
+        val currentUsers: Set<UserHandle> = profiles.mapTo(mutableSetOf()) { profile -> profile.user }
+        (currentUsers - previousUsers).forEach { user -> _changes.tryEmit(ProfileChange.ProfileAdded(user = user)) }
+        (previousUsers - currentUsers).forEach { user -> _changes.tryEmit(ProfileChange.ProfileRemoved(user = user)) }
+    }
+
     override fun profileFor(user: UserHandle): ProfileInfo? = profiles.value.firstOrNull { profile -> profile.user == user }
 
     override fun kindFor(user: UserHandle): ProfileKind {
