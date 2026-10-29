@@ -1,13 +1,12 @@
 package feature.launcher
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -15,7 +14,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -28,7 +29,7 @@ import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconPadding
 import core.ui.composables.launchableIconSize
 
-/** The actions the Private Space container row offers. */
+/** The actions the Private Space group offers. */
 @Immutable
 data class PrivateSpaceActions(
     val onUnlock: () -> Unit,
@@ -37,53 +38,63 @@ data class PrivateSpaceActions(
     val onSettings: (() -> Unit)? = null
 )
 
-/** The Private Space container row: a lock indicator, its name and, while unlocked, its actions. */
+/** The Private Space container row: a lock indicator, its name and its Locked/Unlocked state. */
 @Composable
-internal fun PrivateSpaceRow(isLocked: Boolean, actions: PrivateSpaceActions, modifier: Modifier = Modifier) {
+internal fun PrivateSpaceRow(isLocked: Boolean, onUnlock: () -> Unit, modifier: Modifier = Modifier) {
     val label: String = stringResource(R.string.private_space)
     val state: String = stringResource(if (isLocked) R.string.private_space_locked else R.string.private_space_unlocked)
     val unlockLabel: String = stringResource(R.string.unlock_private_space)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (isLocked) Modifier.clickable(role = Role.Button, onClickLabel = unlockLabel, onClick = onUnlock) else Modifier)
+            .semantics(mergeDescendants = true) {
+                contentDescription = label
+                stateDescription = state
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PrivateSpaceRowContent(
+            imageVector = if (isLocked) FontAwesomeIcons.Solid.Lock else FontAwesomeIcons.Solid.LockOpen,
+            label = label
+        )
+    }
+}
+
+/** The Lock and Settings action rows under the Unlocked Private Space's Apps. */
+@Composable
+internal fun PrivateSpaceActionRows(isLocked: Boolean, actions: PrivateSpaceActions, modifier: Modifier = Modifier) {
+    if (isLocked) {
+        return
+    }
     val lockLabel: String = stringResource(R.string.lock_private_space)
     val settingsLabel: String = stringResource(R.string.private_space_settings)
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .then(if (isLocked) Modifier.clickable(onClickLabel = unlockLabel, onClick = actions.onUnlock) else Modifier)
-                .semantics(mergeDescendants = true) {
-                    contentDescription = label
-                    stateDescription = state
-                },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                modifier = Modifier.size(launchableIconSize).padding(launchableIconPadding),
-                imageVector = if (isLocked) FontAwesomeIcons.Solid.Lock else FontAwesomeIcons.Solid.LockOpen,
-                contentDescription = null
+    Column(modifier = modifier.fillMaxWidth()) {
+        LauncherActionRow(
+            imageVector = FontAwesomeIcons.Solid.Lock,
+            label = lockLabel,
+            onClick = actions.onLock,
+            contentDescription = lockLabel
+        )
+        actions.onSettings?.let { onSettings ->
+            LauncherActionRow(
+                imageVector = FontAwesomeIcons.Solid.Cog,
+                label = settingsLabel,
+                onClick = onSettings,
+                contentDescription = settingsLabel
             )
-            CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
-                OutlinedText(text = label)
-            }
         }
-        if (!isLocked) {
-            actions.onSettings?.let { onSettings ->
-                IconButton(onClick = onSettings) {
-                    Icon(
-                        imageVector = FontAwesomeIcons.Solid.Cog,
-                        contentDescription = settingsLabel
-                    )
-                }
-            }
-            IconButton(onClick = actions.onLock) {
-                Icon(
-                    imageVector = FontAwesomeIcons.Solid.Lock,
-                    contentDescription = lockLabel
-                )
-            }
-        }
+    }
+}
+
+@Composable
+private fun PrivateSpaceRowContent(imageVector: ImageVector, label: String) {
+    Icon(
+        modifier = Modifier.size(launchableIconSize).padding(launchableIconPadding),
+        imageVector = imageVector,
+        contentDescription = null
+    )
+    CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
+        OutlinedText(text = label)
     }
 }
