@@ -1,11 +1,14 @@
 package feature.launcher
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -14,20 +17,28 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.Lock
 import compose.icons.fontawesomeicons.solid.LockOpen
+import core.data.R as CoreDataR
 import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconPadding
 import core.ui.composables.launchableIconSize
+
+/** The glyph size inside the Private Space container's circular indicator. */
+private val privateSpaceGlyphSize: Dp = 32.dp
 
 /** The actions the Private Space group offers. */
 @Immutable
@@ -78,7 +89,7 @@ internal fun PrivateSpaceActionRows(isLocked: Boolean, actions: PrivateSpaceActi
         )
         actions.onSettings?.let { onSettings ->
             LauncherActionRow(
-                imageVector = FontAwesomeIcons.Solid.Cog,
+                imageVector = ImageVector.vectorResource(CoreDataR.drawable.settings_gear),
                 label = settingsLabel,
                 onClick = onSettings,
                 contentDescription = settingsLabel
@@ -89,11 +100,22 @@ internal fun PrivateSpaceActionRows(isLocked: Boolean, actions: PrivateSpaceActi
 
 @Composable
 private fun PrivateSpaceRowContent(imageVector: ImageVector, label: String) {
-    Icon(
-        modifier = Modifier.size(launchableIconSize).padding(launchableIconPadding),
-        imageVector = imageVector,
-        contentDescription = null
-    )
+    val circleColor: Color = colorResource(CoreDataR.color.rail_icon_circle)
+    val glyphColor: Color = colorResource(CoreDataR.color.rail_icon_glyph)
+    Box(
+        modifier = Modifier
+            .size(launchableIconSize)
+            .padding(launchableIconPadding)
+            .background(color = circleColor, shape = CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            modifier = Modifier.size(privateSpaceGlyphSize),
+            imageVector = imageVector,
+            contentDescription = null,
+            tint = glyphColor
+        )
+    }
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         OutlinedText(text = label)
     }
