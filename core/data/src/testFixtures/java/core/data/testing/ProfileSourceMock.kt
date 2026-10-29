@@ -1,6 +1,8 @@
 package core.data.testing
 
+import android.content.ComponentName
 import android.content.IntentSender
+import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
@@ -26,6 +28,12 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
 
     /** The system-badged label for a label and Profile; identity unless a test overrides it. */
     var badgedLabel: (String, UserHandle) -> String = { label, _ -> label }
+
+    /** The unbadged activity icon for a component and Profile; null unless a test overrides it. */
+    var activityIcon: (ComponentName, UserHandle) -> Drawable? = { _, _ -> null }
+
+    /** The unbadged application icon for a package and Profile; null unless a test overrides it. */
+    var applicationIcon: (String, UserHandle) -> Drawable? = { _, _ -> null }
 
     /** The outcome of [IProfileSource.requestQuiet]; [QuietRequestResult.Changed] unless a test overrides it. */
     var quietRequestResult: QuietRequestResult = QuietRequestResult.Changed
@@ -59,6 +67,12 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     every { mockProfileSource.activities(any<String>(), any<UserHandle>()) } answers {
         state.activitiesByUser[secondArg<UserHandle>()].orEmpty()
             .filter { activity -> activity.componentName.packageName == firstArg<String>() }
+    }
+    every { mockProfileSource.activityIcon(any(), any()) } answers {
+        state.activityIcon(firstArg<ComponentName>(), secondArg<UserHandle>())
+    }
+    every { mockProfileSource.applicationIcon(any(), any()) } answers {
+        state.applicationIcon(firstArg<String>(), secondArg<UserHandle>())
     }
     coEvery { mockProfileSource.requestQuiet(any(), any()) } answers { state.quietRequestResult }
     every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }

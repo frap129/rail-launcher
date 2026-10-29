@@ -1,14 +1,17 @@
 package core.data.profiles
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.IntentSender
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -121,6 +124,29 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         user = user
     )
 
+    override fun activityIcon(componentName: ComponentName, user: UserHandle): Drawable? {
+        val activity: LauncherActivityInfo? = launcherActivities(packageName = componentName.packageName, user = user)
+            .onFailure { Timber.w("Could not read an activity icon for %s", user) }
+            .getOrNull()
+            ?.firstOrNull { launcherActivity -> launcherActivity.componentName == componentName }
+        if (activity == null) {
+            Timber.w("Could not find an activity icon for %s", user)
+            return null
+        }
+        return runCatching {
+            activity.getIcon(appContext.resources.displayMetrics.densityDpi)
+        }.onFailure { Timber.w("Could not load an activity icon for %s", user) }
+            .getOrNull()
+    }
+
+    override fun applicationIcon(packageName: String, user: UserHandle): Drawable? = runCatching {
+        val applicationInfo: ApplicationInfo = launcherApps.getApplicationInfo(packageName, 0, user)
+        packageManager.getApplicationIcon(applicationInfo)
+    }.getOrElse {
+        Timber.w("Could not load an application icon for %s", user)
+        null
+    }
+
     override suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult = withContext(Dispatchers.IO) {
         try {
             if (userManager.requestQuietModeEnabled(quiet, user)) {
@@ -182,13 +208,13 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         _changes.tryEmit(change)
     }
 
+    private fun launcherActivities(packageName: String?, user: UserHandle): Result<List<LauncherActivityInfo>> =
+        runCatching { launcherApps.getActivityList(packageName, user) }
+
     private fun loadActivities(packageName: String?, user: UserHandle): List<ProfileActivity> {
-        val activities: List<LauncherActivityInfo> = runCatching {
-            launcherApps.getActivityList(packageName, user)
-        }.getOrElse { exception ->
-            Timber.w(exception, "Could not read the activities of %s", user)
-            emptyList()
-        }
+        val activities: List<LauncherActivityInfo> = launcherActivities(packageName = packageName, user = user)
+            .onFailure { exception -> Timber.w(exception, "Could not read the activities of %s", user) }
+            .getOrDefault(emptyList())
         return activities.map { activity ->
             val label: String = activity.label.toString()
             ProfileActivity(

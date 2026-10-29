@@ -466,7 +466,7 @@ class MainApplication :
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(context)
         .components {
             add(IconKeyer())
-            add(IconFetcher.Factory())
+            add(IconFetcher.Factory(profileSource = get()))
             add(MediaArtworkKeyer())
             add(MediaArtworkFetcher.Factory(store = get()))
         }

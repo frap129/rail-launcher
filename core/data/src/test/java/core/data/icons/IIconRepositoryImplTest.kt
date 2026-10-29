@@ -12,6 +12,7 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createProfileInfo
@@ -29,11 +30,13 @@ private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_LABEL: String = "Example icon pack"
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
+private const val PACK_ICON_RES_ID: Int = 42
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputPersonalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
     private val inputWorkUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
+    private val inputPrivateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
 
     @Test
@@ -64,6 +67,42 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         )
 
         assertEquals(Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName), profile = inputWorkUser), actualIcon)
+    }
+
+    @Test
+    fun `falls back to a Private Space Profile's activity icon`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
+        val repository: IIconRepositoryImpl = createRepository(state = inputState)
+
+        val actualIcon: Icon = repository.getIcon(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            componentName = inputComponentName,
+            profile = inputProfile
+        )
+
+        assertEquals(Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName), profile = inputPrivateUser), actualIcon)
+    }
+
+    @Test
+    fun `wraps a Private Space Profile's pack icon`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputBaseIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputComponentName,
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            resId = PACK_ICON_RES_ID
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
+        val repository: IIconRepositoryImpl = createRepository(state = inputState)
+        database.getPackIconDao().insert(inputBaseIcon)
+
+        val actualIcon: Icon = repository.getIcon(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            componentName = inputComponentName,
+            profile = inputProfile
+        )
+
+        assertEquals(Icon.ProfileIcon(icon = inputBaseIcon, profile = inputPrivateUser), actualIcon)
     }
 
     @Suppress("DEPRECATION")
