@@ -47,6 +47,7 @@ import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createProfileInfo
@@ -258,6 +259,32 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `lists every activity of a package in the App List and pickers`() = databaseTest {
+        val inputRepresentative: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME).copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.PolicyManagementActivity")
+        )
+        val inputOtherActivity: App = inputRepresentative.copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.SetupManagementLaunchActivity")
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputRepresentative, inputOtherActivity))
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualAppListKeys: List<String> = actualState.listedGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
+        val actualPickerKeys: List<String> = actualState.pickerGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
+
+        assertEquals(listOf(inputRepresentative.key, inputOtherActivity.key), actualAppListKeys)
+        assertEquals(listOf(inputRepresentative.key, inputOtherActivity.key), actualPickerKeys)
+    }
+
+    @Test
     fun `resolves a renamed App into a new instance and leaves the original unchanged`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
@@ -283,7 +310,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             defaultName = ORIGINAL_NAME,
             profileInfo = inputProfile,
             componentName = inputComponentName,
-            badgedLabel = "Work $ORIGINAL_NAME"
+            badgedLabel = "Work $ORIGINAL_NAME",
+            isPackageRepresentative = true
         )
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile)).apply {
             badgedLabel = { label, _ -> "Work $label" }
@@ -396,6 +424,41 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
         assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
         assertTrue(actualState.pickerGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
+    }
+
+    @Test
+    fun `applies a Legacy customization to its App's current key`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = "${APP_PACKAGE_NAME}_${inputApp.profile}", name = RENAMED_NAME))
+            )
+        )
+
+        assertEquals(RENAMED_NAME, loadedState(repository).singleAppName())
+    }
+
+    @Test
+    fun `hides a Folder member stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = "${APP_PACKAGE_NAME}_${inputApp.profile}", position = 0))
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            folderDao = folderDao,
+            popupDao = popupDao
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+
+        assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
+        assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
     }
 
     @Test
@@ -1031,6 +1094,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockProfileSource: IProfileSource = createProfileSourceMock(),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
+        legacyAppKeyUpgrader: ILegacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
@@ -1039,6 +1103,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         preferencesRepository = mockPreferencesRepository,
         folderDao = folderDao,
         popupDao = popupDao,
+        legacyAppKeyUpgrader = legacyAppKeyUpgrader,
         scope = scope
     )
 

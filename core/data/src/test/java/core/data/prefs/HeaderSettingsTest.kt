@@ -1,7 +1,10 @@
 package core.data.prefs
 
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.profiles.ProfileToken
+import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createRailLaunchable
@@ -9,7 +12,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class HeaderSettingsTest {
     @Test
     fun `allows hiding the clock while the battery is always visible`() {
@@ -107,6 +115,16 @@ class HeaderSettingsTest {
         assertTrue(HeaderTapSetting.Nothing.isDisplayable(state = inputState))
         assertTrue(HeaderTapSetting.SystemDefault.isDisplayable(state = inputState))
         assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isDisplayable(state = inputLoadingState))
+    }
+
+    @Test
+    fun `resolves a Tap action stored under a Legacy App key to the App's current key`() {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        val inputState = createLoadedLaunchableState(launchables = listOf(inputApp))
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "com.example.app_${inputApp.profile}")
+
+        assertTrue(inputSetting.isDisplayable(state = inputState))
+        assertFalse(inputSetting.isRemovable(state = inputState))
     }
 
     @Test

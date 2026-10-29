@@ -1,5 +1,6 @@
 package core.data.launchables
 
+import android.content.ComponentName
 import core.data.apps.model.App
 import core.data.launchables.model.LaunchableGroup
 import core.data.profiles.ProfileKind
@@ -15,6 +16,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createLaunchableState
 import core.data.testing.createProfileInfo
+import core.data.testing.createRailLaunchable
 import core.data.testing.createUserHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -35,7 +37,12 @@ class StoredLaunchableKeysTest {
     private val inputToken: ProfileToken = inputProfile.toProfileToken()
 
     @Test
-    fun `reads the Profile token of an App key`() {
+    fun `reads the Profile token of an activity App key`() {
+        assertEquals(inputToken, "com.example.app/com.example.app.MainActivity_$inputProfile".profileToken())
+    }
+
+    @Test
+    fun `reads the Profile token of a Legacy App key`() {
         assertEquals(inputToken, "com.example.app_$inputProfile".profileToken())
     }
 
@@ -67,6 +74,56 @@ class StoredLaunchableKeysTest {
         assertTrue(inputState.isKeptKey("com.example.app_$inputProfile"))
         assertTrue(inputState.isKeptKey(ShortcutKey(packageName = APP_PACKAGE_NAME, id = SHORTCUT_ID, profile = inputProfile).format()))
         assertFalse(inputState.isKeptKey("com.example.app_${createUserHandle(userId = 10)}"))
+    }
+
+    @Test
+    fun `resolves a Legacy App key to the package representative`() {
+        val inputPolicyApp: App = createApp(packageName = APP_PACKAGE_NAME).copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.PolicyManagementActivity")
+        )
+        val inputSetupApp: App = inputPolicyApp.copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.SetupManagementLaunchActivity"),
+            isPackageRepresentative = false
+        )
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputSetupApp, inputPolicyApp)))
+        )
+
+        assertEquals(inputPolicyApp.key, inputState.resolveKey("${APP_PACKAGE_NAME}_${inputPolicyApp.profile}"))
+        assertEquals(inputSetupApp.key, inputState.resolveKey(inputSetupApp.key))
+        assertNull(inputState.resolveKey("com.example.other_${inputPolicyApp.profile}"))
+    }
+
+    @Test
+    fun `lists every stored key an App may appear under`() {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputOtherActivity: App = inputApp.copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.OtherActivity"),
+            isPackageRepresentative = false
+        )
+        val inputRailLaunchable = createRailLaunchable(name = "Maps")
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputApp, inputOtherActivity)))
+        )
+
+        assertEquals(listOf(inputApp.key, "${APP_PACKAGE_NAME}_${inputApp.profile}"), inputApp.storedKeys())
+        assertEquals(listOf(inputOtherActivity.key), inputOtherActivity.storedKeys())
+        assertEquals(listOf(inputRailLaunchable.key), inputRailLaunchable.storedKeys())
+        assertEquals(listOf(inputApp.key, "${APP_PACKAGE_NAME}_${inputApp.profile}"), inputState.storedKeys(inputApp.key))
+        assertEquals(listOf(inputOtherActivity.key), inputState.storedKeys(inputOtherActivity.key))
+        assertEquals(listOf(inputRailLaunchable.key), inputState.storedKeys(inputRailLaunchable.key))
+    }
+
+    @Test
+    fun `keeps a Legacy App key while its App is installed and cleans it once the App is gone`() {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputApp)))
+        )
+        val inputInstalledKey: String = "${APP_PACKAGE_NAME}_${inputApp.profile}"
+        val inputGoneKey: String = "com.example.gone_${inputApp.profile}"
+
+        assertEquals(listOf(inputGoneKey), inputState.staleKeys(listOf(inputInstalledKey, inputGoneKey)))
     }
 
     @Test

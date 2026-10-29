@@ -4,13 +4,13 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
-import core.data.apps.model.onePerPackage
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.calendar.UpcomingEventsOutcome
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.media.IMediaSessionSource
 import core.data.prefs.BatteryVisibility
@@ -299,11 +299,11 @@ class WidgetSettingsViewModel(
             },
             timeTapAction = timeTapTarget.toSummary(
                 defaultResource = R.string.tap_action_clock_default,
-                launchables = launchableState.launchables
+                launchableState = launchableState
             ),
             dateTapAction = dateTapTarget.toSummary(
                 defaultResource = R.string.tap_action_calendar_default,
-                launchables = launchableState.launchables
+                launchableState = launchableState
             ),
             calendarAccess = eventSettingsState.hasPermission,
             eventsEnabled = eventSettingsState.settings.enabled,
@@ -640,11 +640,12 @@ internal fun filterLaunchables(launchables: List<Launchable>, query: String): Li
     return candidates.filter { launchable -> launchable.name.normalizedForSearch().contains(normalizedQuery) }
 }
 
-/** The installed apps offered in the Media Player exclusion list, excluded apps first. */
+/** The installed apps offered in the Media Player exclusion list, one row per package, excluded apps first. */
 internal fun excludableApps(launchables: List<Launchable>, excludedPackages: Set<String>, query: String): List<ExcludableApp> =
     filterExcludableApps(
         apps = launchables.filterIsInstance<App>()
-            .onePerPackage()
+            .filter { app -> app.isPackageRepresentative }
+            .distinctBy { app -> app.packageName }
             .map { app ->
                 ExcludableApp(
                     packageName = app.packageName,
@@ -674,17 +675,17 @@ internal fun filterExcludableApps(apps: List<ExcludableApp>, query: String): Lis
 private fun String.normalizedForSearch(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD).replace(COMBINING_MARKS_REGEX, "").lowercase(Locale.ROOT)
 
-private fun HeaderTapSetting.toSummary(defaultResource: Int, launchables: List<Launchable>): TapActionSummary = TapActionSummary(
+private fun HeaderTapSetting.toSummary(defaultResource: Int, launchableState: LaunchableState): TapActionSummary = TapActionSummary(
     setting = this,
-    label = toLabel(defaultResource = defaultResource, launchables = launchables)
+    label = toLabel(defaultResource = defaultResource, launchableState = launchableState)
 )
 
-private fun HeaderTapSetting.toLabel(defaultResource: Int, launchables: List<Launchable>): TapActionLabel = when (this) {
+private fun HeaderTapSetting.toLabel(defaultResource: Int, launchableState: LaunchableState): TapActionLabel = when (this) {
     HeaderTapSetting.SystemDefault -> TapActionLabel.Resource(defaultResource)
 
     HeaderTapSetting.Nothing -> TapActionLabel.Resource(R.string.tap_action_nothing)
 
-    is HeaderTapSetting.Launchable -> launchables.firstOrNull { launchable -> launchable.key == key }
+    is HeaderTapSetting.Launchable -> launchableState.launchableFor(key = key)
         ?.let { launchable -> TapActionLabel.Launchable(name = launchable.name) }
         ?: TapActionLabel.Resource(defaultResource)
 }

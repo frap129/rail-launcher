@@ -50,7 +50,7 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
     }
 
     override fun appsWithShortcuts(): Flow<List<AppShortcuts>> = launchableRepository.launchableState
-        .map { state -> state.launchables.filterIsInstance<App>() }
+        .map { state -> state.launchables.filterIsInstance<App>().filter { app -> app.isPackageRepresentative } }
         .distinctUntilChanged()
         .flatMapLatest { apps ->
             if (apps.isEmpty()) {

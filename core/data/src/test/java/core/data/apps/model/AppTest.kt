@@ -1,6 +1,7 @@
 package core.data.apps.model
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.LauncherApps
 import core.data.icons.model.Icon
@@ -27,11 +28,27 @@ private const val PACKAGE_NAME: String = "com.example.app"
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class AppTest {
     @Test
-    fun `keys an App by its package and Profile`() {
+    fun `keys an App by its activity component and Profile`() {
         val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
         val inputApp: App = createApp(name = "Example", packageName = PACKAGE_NAME, profileInfo = inputProfile)
 
-        assertEquals("com.example.app_UserHandle{10}", inputApp.key)
+        assertEquals("com.example.app/com.example.app.MainActivity_UserHandle{10}", inputApp.key)
+    }
+
+    @Test
+    fun `launches its own launcher activity`() {
+        val inputContext: Application = RuntimeEnvironment.getApplication()
+        val inputApp: App = createApp(name = "Example", packageName = PACKAGE_NAME).copy(
+            componentName = ComponentName(PACKAGE_NAME, "$PACKAGE_NAME.OtherActivity")
+        )
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        shadowOf(inputContext).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+
+        inputApp.launch(inputContext)
+
+        verify(exactly = 1) {
+            mockLauncherApps.startMainActivity(inputApp.componentName, inputApp.profile, null, null)
+        }
     }
 
     @Test

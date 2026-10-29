@@ -19,15 +19,20 @@ data class App(
     val badgedLabel: String = defaultName,
     override val name: String = defaultName,
     override val defaultIcon: Icon = Icon.ActivityIcon(componentName).badgedFor(profile = profileInfo),
-    override val icon: Icon = defaultIcon
+    override val icon: Icon = defaultIcon,
+    /**
+     * Whether this App is its package's representative in its Profile: the alphabetically first
+     * launcher activity, which owns the package's Shortcuts and notifications.
+     */
+    val isPackageRepresentative: Boolean
 ) : Launchable() {
     val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind
     val isPaused: Boolean = profileInfo.isQuiet
     val packageName: String = componentName.packageName
 
-    /** The App's stored identity: its package name and Profile. */
-    override val key: String = "${packageName}_$profile"
+    /** The App's stored identity: its activity component and Profile. */
+    override val key: String = "${componentName.flattenToString()}_$profile"
     override val accessibilityName: String get() = if (kind.isPersonal) name else badgedLabel
 
     override fun withCustomization(appearance: LaunchableAppearance): App = copy(name = appearance.name, icon = appearance.icon)
@@ -44,12 +49,3 @@ data class App(
 
 /** Whether this Launchable is a private App, listed only inside the Private Space for now. */
 val Launchable.isPrivateApp: Boolean get() = this is App && kind == ProfileKind.Private
-
-/**
- * One App per package, choosing the alphabetically first activity class as the package's
- * representative so the choice does not depend on the order the App source lists activities in.
- * The App's label, icon and launch target all come from that same activity; a package's other
- * launcher activities are not listed.
- */
-fun List<App>.onePerPackage(): List<App> =
-    groupBy { app -> app.packageName }.values.map { apps -> apps.minBy { app -> app.componentName.className } }

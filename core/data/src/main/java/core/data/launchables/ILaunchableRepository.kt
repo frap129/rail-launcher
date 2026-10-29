@@ -31,8 +31,18 @@ data class LaunchableState(
      */
     val pickerGroups: List<LaunchableGroup.Listed> = groups.toPickerGroups()
 ) {
+    private val keyResolver: LaunchableKeyResolver by lazy { LaunchableKeyResolver(launchables = launchables) }
+
     /** The groups shown in the App List, in Rail order. */
     val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+
+    /** The current key of the Launchable [key] refers to, resolving a Legacy App key, or null when it is gone. */
+    fun resolveKey(key: String): String? = keyResolver.resolve(key = key)
+
+    /** The Launchable [key] refers to, resolving a Legacy App key, or null when it is gone. */
+    fun launchableFor(key: String): Launchable? = resolveKey(key = key)?.let { resolvedKey ->
+        launchables.firstOrNull { launchable -> launchable.key == resolvedKey }
+    }
 }
 
 interface ILaunchableRepository {

@@ -73,6 +73,83 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `applies a hidden shortcut stored under a Legacy App key to its current key`() = databaseTest {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertHiddenShortcut(ownerKey = inputLegacyKey, shortcutId = FIRST_SHORTCUT_ID)
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        assertEquals(setOf(FIRST_SHORTCUT_ID), repository.hiddenShortcuts(inputApp.key).first())
+
+        repository.setShortcutHidden(inputApp.key, FIRST_SHORTCUT_ID, hidden = false)
+
+        assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(inputLegacyKey).first())
+        assertEquals(emptySet<String>(), repository.hiddenShortcuts(inputApp.key).first())
+    }
+
+    @Test
+    fun `adds an item after the items stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputApp.key, position = 0)))
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        repository.setItems(ownerKey = inputApp.key, add = listOf(inputOtherOwner.key), remove = emptySet())
+
+        assertEquals(
+            listOf(
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputApp.key, position = 0),
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputOtherOwner.key, position = 1)
+            ),
+            popupDao.getItems(ownerKey = inputApp.key).sortedBy { item -> item.position }
+        )
+        assertTrue(popupDao.getItems(ownerKey = inputLegacyKey).isEmpty())
+    }
+
+    @Test
+    fun `resolves items stored under Legacy App keys`() = databaseTest {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputLegacyKey, position = 0)))
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+        finishPendingWork()
+
+        assertEquals(listOf(PopupItem.Launchable(launchable = inputApp)), repository.items(ownerKey = inputApp.key).first())
+    }
+
+    @Test
+    fun `resolves a Legacy and a current item key to one item`() = databaseTest {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputLegacyKey, position = 0),
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputApp.key, position = 1)
+            )
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+        finishPendingWork()
+
+        assertEquals(listOf(PopupItem.Launchable(launchable = inputApp)), repository.items(ownerKey = inputApp.key).first())
+    }
+
+    @Test
     fun `keeps hidden shortcuts separate per owner`() = databaseTest {
         val repository: IPopupRepositoryImpl = createRepository(popupDao = database.getPopupDao())
 

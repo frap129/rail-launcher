@@ -1,5 +1,6 @@
 package core.data.shortcuts
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
@@ -7,6 +8,7 @@ import android.content.pm.ShortcutInfo
 import android.os.Process
 import android.os.UserHandle
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.launchables.ILaunchableRepository
 import core.data.profiles.ProfileKind
 import core.data.testing.FIRST_SHORTCUT_ID
@@ -114,6 +116,24 @@ class IShortcutSourceImplTest {
                 appShortcuts.app.key
             }
         )
+    }
+
+    @Test
+    fun `offers Shortcuts for the package representative only`() = runTest {
+        shadowLauncherApps.setHasShortcutHostPermission(true)
+        val inputRepresentative: App = createApp(name = "Example", packageName = "com.example.app")
+        val inputOtherActivity: App = inputRepresentative.copy(
+            componentName = ComponentName("com.example.app", "com.example.app.SettingsActivity"),
+            isPackageRepresentative = false
+        )
+        val sourceWithState: IShortcutSourceImpl = IShortcutSourceImpl(
+            context = context,
+            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputRepresentative, inputOtherActivity))
+        )
+
+        val actualApps: List<AppShortcuts> = sourceWithState.appsWithShortcuts().first()
+
+        assertEquals(listOf(inputRepresentative.key), actualApps.map { appShortcuts -> appShortcuts.app.key })
     }
 
     private fun addShortcut(id: String, disabled: Boolean = false) {

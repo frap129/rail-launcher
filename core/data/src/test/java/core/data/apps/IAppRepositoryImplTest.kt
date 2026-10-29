@@ -21,6 +21,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
@@ -136,7 +137,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `lists a package with several launcher activities as one App`() = databaseTest {
+    fun `lists every launcher activity as its own App`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile))
         inputState.setActivities(
             user = personalUser,
@@ -150,14 +151,17 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
         val actualApps: List<App> = loadApps(repository = repository)
 
-        val actualApp: App = actualApps.single()
-        assertEquals(PERSONAL_PACKAGE, actualApp.packageName)
-        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.defaultName)
-        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.componentName.className)
+        assertEquals(
+            listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS),
+            actualApps.map { app -> app.componentName.className }
+        )
+        assertEquals(actualApps.size, actualApps.map { app -> app.key }.distinct().size)
+        assertTrue(actualApps.first { app -> app.componentName.className == POLICY_ACTIVITY_CLASS }.isPackageRepresentative)
+        assertFalse(actualApps.first { app -> app.componentName.className == SETUP_ACTIVITY_CLASS }.isPackageRepresentative)
     }
 
     @Test
-    fun `keeps one App when a changed package has several launcher activities`() = databaseTest {
+    fun `keeps every App when a changed package has several launcher activities`() = databaseTest {
         val inputState: ProfileSourceState = baseState()
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
@@ -171,9 +175,13 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
 
         inputState.changes.emit(ProfileChange.PackageChanged(user = personalUser, packageName = PERSONAL_PACKAGE))
-        val actualApp: App = loadApps(repository = repository).single { app -> app.profile == personalUser }
+        val actualApps: List<App> = loadApps(repository = repository).filter { app -> app.profile == personalUser }
 
-        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.componentName.className)
+        assertEquals(
+            listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS),
+            actualApps.map { app -> app.componentName.className }
+        )
+        assertEquals(actualApps.size, actualApps.map { app -> app.key }.distinct().size)
     }
 
     @Test
@@ -198,6 +206,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             listOf(PERSONAL_PACKAGE, SECOND_PERSONAL_PACKAGE, WORK_PACKAGE),
             actualApps.map { app -> app.packageName }
         )
+        assertTrue(actualApps.all { app -> app.isPackageRepresentative })
     }
 
     @Test
@@ -367,7 +376,11 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
         inputState.setActivities(
             user = privateUser,
-            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+            activities = profileActivities(
+                packageName = PRIVATE_PACKAGE,
+                user = privateUser,
+                activityClasses = listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS)
+            )
         )
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
@@ -376,13 +389,28 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
         inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
-        assertTrue(loadApps(repository = repository).any { app -> app.profile == privateUser })
+        val actualUnlockedPrivateApps: List<App> = loadApps(repository = repository).filter { app -> app.profile == privateUser }
+        assertEquals(
+            listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS),
+            actualUnlockedPrivateApps.map { app -> app.componentName.className }
+        )
+        assertEquals(actualUnlockedPrivateApps.size, actualUnlockedPrivateApps.map { app -> app.key }.distinct().size)
         assertTrue(privateUser in repository.enumeratedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile)
         inputState.changes.emit(ProfileChange.ProfileUnavailable(user = privateUser))
         assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
         assertFalse(privateUser in repository.enumeratedProfiles.value)
+
+        inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
+        inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
+        assertEquals(
+            actualUnlockedPrivateApps.map { app -> app.key },
+            loadApps(repository = repository).filter { app ->
+                app.profile ==
+                    privateUser
+            }.map { app -> app.key }
+        )
     }
 
     @Test
@@ -439,6 +467,31 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(inputWorkApp.key, actualFavorite.key)
         assertEquals(RENAMED_NAME, actualFavorite.name)
+    }
+
+    @Test
+    fun `upgrades a Legacy Favorite to the package representative`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = profileActivities(
+                packageName = PERSONAL_PACKAGE,
+                user = personalUser,
+                activityClasses = listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS)
+            )
+        )
+        val appRepository: IAppRepositoryImpl = createRepository(state = inputState)
+        val repositories: LaunchableRepositories = createLaunchableRepositories(appRepository = appRepository, profileState = inputState)
+        seedFavorite(key = "${PERSONAL_PACKAGE}_$personalUser", position = FIRST_POSITION)
+        backgroundScope.launch { repositories.launchables.launchableState.collect() }
+        backgroundScope.launch { repositories.favorites.favorites.collect() }
+        finishPendingWork()
+        val expectedApp: App = repositories.launchables.launchableState.value.launchables
+            .filterIsInstance<App>()
+            .single { app -> app.componentName.className == POLICY_ACTIVITY_CLASS }
+
+        assertEquals(listOf(expectedApp.key), favoriteRecords().map { record -> record.key })
+        assertEquals(expectedApp.key, repositories.favorites.favorites.first().single().key)
     }
 
     @Test
@@ -515,6 +568,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             preferencesRepository = createPreferencesRepositoryMock(customizations = customizations),
             folderDao = database.getFolderDao(),
             popupDao = database.getPopupDao(),
+            legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
             scope = backgroundScope
         )
         return LaunchableRepositories(

@@ -174,6 +174,7 @@ class IPopupEditorImpl(
         }
         val appNames: Map<AppProfile, String> = launchables
             .filterIsInstance<App>()
+            .filter { app -> app.isPackageRepresentative }
             .associate { app -> AppProfile(packageName = app.packageName, profile = app.profile) to app.name }
         return items
             .filterIsInstance<PopupItem.Shortcut>()

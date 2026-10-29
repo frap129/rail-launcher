@@ -5,6 +5,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
 import core.data.launchables.staleKeys
+import core.data.launchables.storedKeys
 import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
@@ -79,7 +80,7 @@ class IFavoritesRepositoryImpl(
     }
 
     override suspend fun remove(launchable: Launchable) {
-        favoriteDao.remove(listOf(launchable.key))
+        favoriteDao.remove(launchable.storedKeys())
         awaitFavorite(launchable = launchable, isFavorite = false)
     }
 
@@ -89,7 +90,7 @@ class IFavoritesRepositoryImpl(
             .first()
             .sortedBy { record -> record.position }
         val reordered: List<FavoriteRecord> = records.reorderedPinned(
-            orderedKeys = favorites.map { favorite -> favorite.key },
+            orderedKeys = favorites.flatMap { favorite -> favorite.storedKeys() },
             keyOf = { record -> record.key },
             isPinned = { record -> state.isKeptKey(record.key) }
         )
@@ -118,7 +119,10 @@ class IFavoritesRepositoryImpl(
 
 private fun resolveFavorites(records: List<FavoriteRecord>, state: LaunchableState): FavoriteResolution {
     val launchablesByKey: Map<String, Launchable> = state.launchables.associateBy { it.key }
-    val favorites: List<Launchable> = records.sortedBy { it.position }.mapNotNull { record -> launchablesByKey[record.key] }
+    val favorites: List<Launchable> = records
+        .sortedBy { record -> record.position }
+        .mapNotNull { record -> state.launchableFor(record.key) }
+        .distinctBy { launchable -> launchable.key }
     val staleKeys: List<String> = state.staleKeys(records.map { record -> record.key })
     return FavoriteResolution(
         favorites = favorites,

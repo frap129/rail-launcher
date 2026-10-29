@@ -34,8 +34,14 @@ data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
 fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
-    is App -> ShortcutTarget(ownerKey = owner.key, packageName = owner.packageName, profile = owner.profile)
+    is App -> ShortcutTarget(
+        ownerKey = owner.key,
+        packageName = owner.packageName.takeIf { owner.isPackageRepresentative },
+        profile = owner.profile.takeIf { owner.isPackageRepresentative }
+    )
+
     is Folder -> ShortcutTarget(ownerKey = owner.key, packageName = null, profile = null)
+
     else -> null
 }
 

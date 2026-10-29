@@ -1,5 +1,6 @@
 package core.data.popups
 
+import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -236,6 +237,25 @@ class PopupContentResolverTest {
         assertEquals(listOf(inputOwnNotification), actualContent.ownerNotifications)
         assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `a non-representative App row shows no package notifications`() {
+        val inputOtherActivity: App = inputApp.copy(
+            componentName = ComponentName(inputApp.packageName, "${inputApp.packageName}.OtherActivity"),
+            isPackageRepresentative = false
+        )
+
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOtherActivity,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList(),
+            notifications = listOf(createNotificationSnapshot())
+        )
+
+        assertEquals(emptyList<NotificationSnapshot>(), actualContent.ownerNotifications)
+        assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
     }
 
     @Test
