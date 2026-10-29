@@ -69,6 +69,23 @@ class IProfileSourceImplTest {
 
     @Test
     @Config(sdk = [TEST_SDK_36])
+    fun `keeps the last Profiles when reading them fails`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), any()) } just Runs
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        val inputProfiles: List<ProfileInfo> = source.profiles.value
+
+        every { mockLauncherApps.profiles } throws IllegalStateException("Profiles unavailable")
+        callbackSlot.captured.onUserConfigChanged(mockk(relaxed = true))
+
+        assertEquals(inputProfiles, source.profiles.value)
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
     fun `reads the Private Space entrypoint flag again when the user config changes`() {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns listOf(privateUser)

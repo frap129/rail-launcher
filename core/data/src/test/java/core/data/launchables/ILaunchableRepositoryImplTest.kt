@@ -1,8 +1,10 @@
 package core.data.launchables
 
 import android.content.ComponentName
+import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
@@ -11,7 +13,11 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
+import core.data.popups.IPopupRepository
+import core.data.popups.PopupItem
 import core.data.popups.PopupItemRecord
+import core.data.prefs.HeaderSettings
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
@@ -23,20 +29,28 @@ import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
+import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_POSITION
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
+import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
+import core.data.testing.createShortcutSourceMock
+import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnRequest
+import core.data.widgets.IWidgetSettingsRepository
+import core.data.widgets.IWidgetSettingsRepositoryImpl
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -68,6 +82,7 @@ private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
+private const val FOLDER_ID: Long = 1L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
@@ -595,7 +610,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(),
+            mockAppRepository = createAppRepositoryMock(
+                inputAppState = MutableStateFlow(emptyList()),
+                inputEnumeratedProfiles = MutableStateFlow(setOf(inputPrivateProfile.user))
+            ),
             mockProfileSource = createProfileSourceMock(state = inputProfileState)
         )
         assertTrue(loadedState(repository).keptKeys.isEmpty())
@@ -605,6 +623,140 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         inputProfileState.profiles.value = emptyList()
         assertTrue(loadedState(repository).keptKeys.isEmpty())
+    }
+
+    @Test
+    fun `keeps private Favorites, Folder members and Header tap actions while the Private Space Unlocks`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        val inputMember: PopupItemRecord =
+            PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = FIRST_POSITION)
+        database.getPopupDao().insertItems(listOf(inputMember))
+        val inputTapTarget: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputPrivateApp.key)
+        database.getHeaderSettingsDao().upsert(HeaderSettings(timeTapTarget = inputTapTarget))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(emptyList<Launchable>(), repositories.favorites.favorites.first())
+        assertEquals(emptyList<PopupItem>(), repositories.popups.items(inputFolder.key).first())
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(emptyList<Launchable>(), repositories.favorites.favorites.first())
+        assertEquals(emptyList<PopupItem>(), repositories.popups.items(inputFolder.key).first())
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+
+        inputAppState.value = listOf(inputPrivateApp)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputMember), database.getPopupDao().getItems(inputFolder.key))
+        assertEquals(
+            listOf(inputPrivateApp.key),
+            repositories.popups.items(inputFolder.key).first().filterIsInstance<PopupItem.Launchable>().map { item -> item.launchable.key }
+        )
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+        val actualState: LaunchableState = loadedState(repositories.launchables)
+        assertTrue(actualState.keptKeys.isEmpty())
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualState.enumeratedKeys)
+    }
+
+    @Test
+    fun `removes a private Favorite once the Private Space lists its Apps without it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputGoneApp: App = createApp(name = "Gone", packageName = "com.example.gone", profileInfo = inputPrivateProfile)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputGoneFavorite: FavoriteRecord = FavoriteRecord(key = inputGoneApp.key, position = FIRST_POSITION)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = SECOND_POSITION)
+        seedFavorite(key = inputGoneFavorite.key, position = inputGoneFavorite.position)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+        assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
+
+        inputAppState.value = listOf(inputPrivateApp)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+    }
+
+    @Test
+    fun `removes a private Favorite when the Private Space Unlocks with no Apps`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertTrue(favoriteRecords().isEmpty())
+        assertTrue(loadedState(repositories.launchables).keptKeys.isEmpty())
+    }
+
+    @Test
+    fun `keeps a private Favorite when the Lock is not observed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertTrue(repositories.favorites.favorites.first().isEmpty())
     }
 
     @Test
@@ -666,5 +818,42 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         scope = scope
     )
 
+    private fun TestScope.createPrivateSpaceRepositories(
+        profileState: ProfileSourceState,
+        appState: MutableStateFlow<List<App>?>,
+        enumeratedState: MutableStateFlow<Set<UserHandle>>
+    ): PrivateSpaceRepositories {
+        val launchables: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputAppState = appState, inputEnumeratedProfiles = enumeratedState),
+            mockProfileSource = createProfileSourceMock(state = profileState)
+        )
+        return PrivateSpaceRepositories(
+            launchables = launchables,
+            favorites = createFavoritesRepository(favoriteDao = database.getFavoriteDao(), launchableRepository = launchables),
+            popups = createPopupRepository(
+                popupDao = database.getPopupDao(),
+                launchableRepository = launchables,
+                scope = backgroundScope,
+                shortcutSource = createShortcutSourceMock(),
+                widgetAreaRepository = createWidgetAreaRepositoryMock(),
+                appWidgetHost = createAppWidgetHostMock()
+            ),
+            headerSettings = IWidgetSettingsRepositoryImpl(
+                headerSettingsDao = database.getHeaderSettingsDao(),
+                eventSettingsDao = database.getEventSettingsDao(),
+                widgetAreaSettingsDao = database.getWidgetAreaSettingsDao(),
+                mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao(),
+                launchableRepository = launchables
+            )
+        )
+    }
+
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
 }
+
+private data class PrivateSpaceRepositories(
+    val launchables: ILaunchableRepository,
+    val favorites: IFavoritesRepositoryImpl,
+    val popups: IPopupRepository,
+    val headerSettings: IWidgetSettingsRepository
+)

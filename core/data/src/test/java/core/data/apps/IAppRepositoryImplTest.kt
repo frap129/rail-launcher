@@ -6,17 +6,19 @@ import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepositoryImpl
-import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_POSITION
 import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
@@ -259,6 +261,27 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val actualApps: List<App> = loadApps(repository = repository)
 
         assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
+        assertEquals(setOf(personalUser), repository.enumeratedProfiles.value)
+    }
+
+    @Test
+    fun `enumerates an Unlocked Private Space that lists no Apps`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = false
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
+        assertEquals(setOf(personalUser, privateUser), repository.enumeratedProfiles.value)
     }
 
     @Test
@@ -306,14 +329,17 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
         assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
+        assertFalse(privateUser in repository.enumeratedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
         inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
         assertTrue(loadApps(repository = repository).any { app -> app.profile == privateUser })
+        assertTrue(privateUser in repository.enumeratedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile)
         inputState.changes.emit(ProfileChange.ProfileUnavailable(user = privateUser))
         assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
+        assertFalse(privateUser in repository.enumeratedProfiles.value)
     }
 
     @Test
@@ -356,31 +382,59 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val appRepository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
         val inputWorkApp: App = appRepository.apps.value.orEmpty().single()
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
+        val repositories: LaunchableRepositories = createLaunchableRepositories(
+            appRepository = appRepository,
+            profileState = inputState,
             customizations = listOf(LaunchableCustomization(key = inputWorkApp.key, name = RENAMED_NAME))
         )
-        val launchableRepository: ILaunchableRepositoryImpl = ILaunchableRepositoryImpl(
-            appRepository = appRepository,
-            iconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputWorkApp.componentName)),
-            profileSource = createProfileSourceMock(state = inputState),
-            preferencesRepository = mockPreferencesRepository,
-            folderDao = database.getFolderDao(),
-            popupDao = database.getPopupDao(),
-            scope = backgroundScope
-        )
         database.getFavoriteDao().add(inputWorkApp.key)
-        val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
-            favoriteDao = database.getFavoriteDao(),
-            launchableRepository = launchableRepository
-        )
-        backgroundScope.launch { launchableRepository.launchableState.collect() }
-        backgroundScope.launch { favoritesRepository.favorites.collect() }
+        backgroundScope.launch { repositories.launchables.launchableState.collect() }
+        backgroundScope.launch { repositories.favorites.favorites.collect() }
         finishPendingWork()
 
-        val actualFavorite: App = favoritesRepository.favorites.first().single() as App
+        val actualFavorite: App = repositories.favorites.favorites.first().single() as App
 
         assertEquals(inputWorkApp.key, actualFavorite.key)
         assertEquals(RENAMED_NAME, actualFavorite.name)
+    }
+
+    @Test
+    fun `keeps a private Favorite when a package event arrives before the Unlocked Space enumerates`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE, profileInfo = inputPrivateProfile)
+        val inputOtherPrivateApp: App = createApp(name = "Other", packageName = NEW_PRIVATE_PACKAGE, profileInfo = inputPrivateProfile)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(
+                profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser),
+                profileActivity(packageName = NEW_PRIVATE_PACKAGE, user = privateUser)
+            )
+        )
+        val appRepository: IAppRepositoryImpl = createRepository(state = inputState)
+        val repositories: LaunchableRepositories = createLaunchableRepositories(appRepository = appRepository, profileState = inputState)
+        seedFavorite(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputOtherPrivateApp.key, position = SECOND_POSITION)
+        backgroundScope.launch { repositories.launchables.launchableState.collect() }
+        backgroundScope.launch { repositories.favorites.favorites.collect() }
+        finishPendingWork()
+        assertEquals(2, favoriteRecords().size)
+
+        inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
+        finishPendingWork()
+        inputState.changes.emit(ProfileChange.PackageAdded(user = privateUser, packageName = PRIVATE_PACKAGE))
+        finishPendingWork()
+
+        assertFalse(privateUser in appRepository.enumeratedProfiles.value)
+        assertEquals(2, favoriteRecords().size)
     }
 
     private fun baseState(): ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, workProfile)).apply {
@@ -406,6 +460,26 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         return repository.apps.value.orEmpty()
     }
 
+    private fun TestScope.createLaunchableRepositories(
+        appRepository: IAppRepository,
+        profileState: ProfileSourceState,
+        customizations: List<LaunchableCustomization> = emptyList()
+    ): LaunchableRepositories {
+        val launchableRepository: ILaunchableRepositoryImpl = ILaunchableRepositoryImpl(
+            appRepository = appRepository,
+            iconRepository = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = 0)),
+            profileSource = createProfileSourceMock(state = profileState),
+            preferencesRepository = createPreferencesRepositoryMock(customizations = customizations),
+            folderDao = database.getFolderDao(),
+            popupDao = database.getPopupDao(),
+            scope = backgroundScope
+        )
+        return LaunchableRepositories(
+            launchables = launchableRepository,
+            favorites = createFavoritesRepository(favoriteDao = database.getFavoriteDao(), launchableRepository = launchableRepository)
+        )
+    }
+
     private fun ProfileSourceState.setActivities(user: UserHandle, activities: Array<ProfileActivity>) {
         activitiesByUser[user] = activities.toList()
     }
@@ -422,3 +496,5 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         badgedLabel = badgedLabel
     )
 }
+
+private data class LaunchableRepositories(val launchables: ILaunchableRepositoryImpl, val favorites: IFavoritesRepositoryImpl)

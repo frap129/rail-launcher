@@ -37,7 +37,7 @@ A Locked Private Space whose container Rail leaves out of the App List and Rail 
 _Avoid_: Invisible space, hidden profile
 
 **Kept key**:
-The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees. Stale-key cleanup keeps it, and resolution hides it until the Profile is Unlocked or removed.
+The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees, or to a Private Space that has Unlocked but not listed its Apps yet. Stale-key cleanup keeps it until the Profile lists its Apps or is removed, and resolution hides it meanwhile.
 _Avoid_: Retained key, stale key
 
 **private App**:

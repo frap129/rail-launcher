@@ -17,10 +17,13 @@ internal fun String.profileToken(): ProfileToken? {
     return token.takeIf { value -> ShortcutKey.isProfileToken(value) }?.let { value -> ProfileToken(value) }
 }
 
-/** Whether [key] belongs to a Profile whose content Rail retains while it is Locked. */
+/**
+ * Whether [key] belongs to a Profile whose keys Rail keeps: a Locked Profile, or a Private Space
+ * whose Apps are not listed yet.
+ */
 fun LaunchableState.isKeptKey(key: String): Boolean = key.profileToken() in keptKeys
 
-/** The keys among [keys] that neither a listed Launchable nor a Locked Profile still needs. */
+/** The keys among [keys] that neither a listed Launchable nor a Profile whose keys Rail keeps still needs. */
 fun LaunchableState.staleKeys(keys: Iterable<String>): List<String> {
     val launchableKeys: Set<String> = launchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
     return keys.filterNot { key -> key in launchableKeys || isKeptKey(key) }

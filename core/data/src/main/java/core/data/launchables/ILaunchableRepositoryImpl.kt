@@ -1,5 +1,6 @@
 package core.data.launchables
 
+import android.os.UserHandle
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
@@ -43,6 +44,11 @@ import kotlinx.coroutines.launch
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
+private data class AppState(val appsOrNull: List<App>?, val enumeratedProfiles: Set<UserHandle>)
+
+/** The Private Spaces' tokens, split into the keys Rail keeps and those safely listed. */
+private data class PrivateKeys(val kept: Set<ProfileToken>, val enumerated: Set<ProfileToken>)
+
 class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
     private val iconRepository: IIconRepository,
@@ -77,17 +83,23 @@ class ILaunchableRepositoryImpl(
     }.distinctUntilChanged()
 
     // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
-    private val appsWithIconPacks: Flow<List<App>?> = combine(appRepository.apps, iconRepository.iconPacks) { apps, _ -> apps }
+    private val appState: Flow<AppState> = combine(
+        appRepository.apps,
+        appRepository.enumeratedProfiles,
+        iconRepository.iconPacks
+    ) { appsOrNull, enumeratedProfiles, _ ->
+        AppState(appsOrNull = appsOrNull, enumeratedProfiles = enumeratedProfiles)
+    }
 
     override val launchableState: StateFlow<LaunchableState> = combine(
-        appsWithIconPacks,
+        appState,
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
         profileSource.profiles,
         folderAppList
-    ) { appsOrNull, customizations, settings, profiles, folders ->
+    ) { apps, customizations, settings, profiles, folders ->
         resolveState(
-            appsOrNull = appsOrNull,
+            appState = apps,
             customizations = customizations,
             settings = settings,
             profiles = profiles,
@@ -134,16 +146,14 @@ class ILaunchableRepositoryImpl(
     }
 
     private suspend fun resolveState(
-        appsOrNull: List<App>?,
+        appState: AppState,
         customizations: List<LaunchableCustomization>,
         settings: Settings,
         profiles: List<ProfileInfo>,
         folderAppList: FolderAppList
     ): LaunchableState {
-        val apps: List<App> = appsOrNull.orEmpty()
-        val keptKeys: Set<ProfileToken> = profiles
-            .filter { profile -> profile.isPrivate && profile.isQuiet }
-            .mapTo(mutableSetOf()) { profile -> profile.user.toProfileToken() }
+        val apps: List<App> = appState.appsOrNull.orEmpty()
+        val privateKeys: PrivateKeys = resolvePrivateKeys(profiles = profiles, enumeratedProfiles = appState.enumeratedProfiles)
         val names: LaunchableNames = customizations.toLaunchableNames()
         val resolvedApps: List<Launchable> = apps.map { app -> app.resolve(names = names, settings = settings) }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -165,8 +175,9 @@ class ILaunchableRepositoryImpl(
             groups = groups,
             // Folder members stay reachable through their Folder, pickers and the Favorites.
             launchables = resolvedApps + resolvedBuiltinGroup.items + folders,
-            isLoaded = appsOrNull != null,
-            keptKeys = keptKeys,
+            isLoaded = appState.appsOrNull != null,
+            keptKeys = privateKeys.kept,
+            enumeratedKeys = privateKeys.enumerated,
             pickerGroups = pickerGroups
         )
     }
@@ -190,6 +201,18 @@ class ILaunchableRepositoryImpl(
         profileInfo.kind.isPersonal -> name
         name == defaultName -> badgedLabel
         else -> profileSource.badgedLabel(label = name, user = profile)
+    }
+
+    /**
+     * A Private Space's keys stay kept until Rail has enumerated its Apps while it is Unlocked.
+     * A Locked Space is never enumerated, and an empty enumeration still releases the keys.
+     */
+    private fun resolvePrivateKeys(profiles: List<ProfileInfo>, enumeratedProfiles: Set<UserHandle>): PrivateKeys {
+        val privateTokens: Map<ProfileToken, Boolean> = profiles
+            .filter { profile -> profile.isPrivate }
+            .associate { profile -> profile.user.toProfileToken() to (!profile.isQuiet && profile.user in enumeratedProfiles) }
+        val enumeratedKeys: Set<ProfileToken> = privateTokens.filterValues { isEnumerated -> isEnumerated }.keys
+        return PrivateKeys(kept = privateTokens.keys - enumeratedKeys, enumerated = enumeratedKeys)
     }
 }
 
