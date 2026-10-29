@@ -7,6 +7,8 @@ import core.data.profiles.ProfileKind
 const val PERSONAL_USER_ID: Int = 0
 const val WORK_USER_ID: Int = 10
 const val PRIVATE_USER_ID: Int = 11
+const val MISSING_WORK_USER_ID: Int = 12
+const val MISSING_PRIVATE_USER_ID: Int = 13
 private const val USER_ID_OFFSET: Int = 100_000
 
 /** The [UserHandle] of [userId], where user 0 is the personal Profile. */

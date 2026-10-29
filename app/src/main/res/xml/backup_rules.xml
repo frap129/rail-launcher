@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Every Rail preference lives in the one Room database, including the rows that
-   belong to a Private Space Profile. Per-file backup rules cannot separate
-   those rows, so the whole database is excluded. See ADR 0003.
+   Android 11 and lower use this file for full backup. With no rules, the
+   default includes the whole database directory: the Room database, its
+   private-profile rows and the SQLite WAL and -shm files. See ADR 0004.
 -->
-<full-backup-content>
-    <exclude
-        domain="database"
-        path="." />
-</full-backup-content>
+<full-backup-content />

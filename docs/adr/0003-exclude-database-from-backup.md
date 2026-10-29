@@ -1,6 +1,6 @@
 # 3. Exclude Rail's database from Android backup
 
-- Status: Accepted
+- Status: Superseded by [4. Back up the whole database, private rows included](0004-back-up-whole-database.md)
 - Date: 2026-10-28
 - Ticket: rail-25f.4
 

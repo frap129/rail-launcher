@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Every Rail preference lives in the one Room database, including the rows that
-   belong to a Private Space Profile. Per-file rules cannot separate those rows,
-   so the whole database is excluded from both cloud backup and device transfer.
-   See ADR 0003.
+   Android 12 and higher use this file for cloud backup and device transfer.
+   Both keep their default behavior, which includes the whole database
+   directory: the Room database, its private-profile rows and the SQLite WAL
+   and -shm files. See ADR 0004.
 -->
 <data-extraction-rules>
-    <cloud-backup>
-        <exclude
-            domain="database"
-            path="." />
-    </cloud-backup>
-    <device-transfer>
-        <exclude
-            domain="database"
-            path="." />
-    </device-transfer>
+    <cloud-backup />
+    <device-transfer />
 </data-extraction-rules>
