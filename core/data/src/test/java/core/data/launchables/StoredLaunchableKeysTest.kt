@@ -1,11 +1,20 @@
 package core.data.launchables
 
+import core.data.apps.model.App
+import core.data.launchables.model.LaunchableGroup
+import core.data.profiles.ProfileKind
 import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.shortcuts.ShortcutKey
+import core.data.testing.MISSING_PRIVATE_USER_ID
+import core.data.testing.MISSING_WORK_USER_ID
+import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createLaunchableState
+import core.data.testing.createProfileInfo
 import core.data.testing.createUserHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,5 +67,45 @@ class StoredLaunchableKeysTest {
         assertTrue(inputState.isKeptKey("com.example.app_$inputProfile"))
         assertTrue(inputState.isKeptKey(ShortcutKey(packageName = APP_PACKAGE_NAME, id = SHORTCUT_ID, profile = inputProfile).format()))
         assertFalse(inputState.isKeptKey("com.example.app_${createUserHandle(userId = 10)}"))
+    }
+
+    @Test
+    fun `cleans restored keys whose Profiles are missing while keeping personal and Locked Private keys`() {
+        val inputPersonalApp: App = createApp(
+            packageName = "com.example.personal",
+            profileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        )
+        val inputWorkApp: App = createApp(
+            packageName = "com.example.work",
+            profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        )
+        val inputMissingWorkApp: App = createApp(
+            packageName = "com.example.old-work",
+            profileInfo = createProfileInfo(userId = MISSING_WORK_USER_ID, kind = ProfileKind.Work)
+        )
+        val inputPrivateApp: App = createApp(
+            packageName = "com.example.secret",
+            profileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private, isQuiet = true)
+        )
+        val inputMissingPrivateApp: App = createApp(
+            packageName = "com.example.old-private",
+            profileInfo = createProfileInfo(userId = MISSING_PRIVATE_USER_ID, kind = ProfileKind.Private)
+        )
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputPersonalApp, inputWorkApp))),
+            keptKeys = setOf(inputToken)
+        )
+        val inputKeys: List<String> = listOf(
+            inputPersonalApp.key,
+            inputWorkApp.key,
+            inputMissingWorkApp.key,
+            inputPrivateApp.key,
+            inputMissingPrivateApp.key
+        )
+        val expectedStaleKeys: List<String> = listOf(inputMissingWorkApp.key, inputMissingPrivateApp.key)
+
+        val actualStaleKeys: List<String> = inputState.staleKeys(inputKeys)
+
+        assertEquals(expectedStaleKeys, actualStaleKeys)
     }
 }

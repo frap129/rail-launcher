@@ -44,6 +44,10 @@ _Avoid_: Invisible space, hidden profile
 The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees, or to a Private Space that has Unlocked but not listed its Apps yet. Stale-key cleanup keeps it until the Profile lists its Apps or is removed, and resolution hides it meanwhile.
 _Avoid_: Retained key, stale key
 
+**Restored key**:
+A key read from a database that Android cloud backup or device transfer restored. It resolves when its Profile token still matches a current Profile and its Launchable or Shortcut is still available; otherwise stale-key cleanup removes it, except for a Kept key, which survives until its Profile lists its Apps or is removed.
+_Avoid_: Backup key, old key
+
 **private App**:
 An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.
 _Avoid_: Private profile app, vault app
