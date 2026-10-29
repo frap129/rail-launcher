@@ -44,6 +44,8 @@ private const val SHARED_PACKAGE: String = "com.example.shared"
 private const val PRIVATE_PACKAGE: String = "com.example.private"
 private const val NEW_PRIVATE_PACKAGE: String = "com.example.new.private"
 private const val RENAMED_NAME: String = "Renamed"
+private const val POLICY_ACTIVITY_CLASS: String = "PolicyManagementActivity"
+private const val SETUP_ACTIVITY_CLASS: String = "SetupManagementLaunchActivity"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IAppRepositoryImplTest : InMemoryDatabaseTest() {
@@ -131,6 +133,47 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertFalse(actualWorkApp.isPaused)
         assertEquals(WORK_PACKAGE, actualWorkApp.defaultName)
+    }
+
+    @Test
+    fun `lists a package with several launcher activities as one App`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = profileActivities(
+                packageName = PERSONAL_PACKAGE,
+                user = personalUser,
+                activityClasses = listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS)
+            )
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        val actualApp: App = actualApps.single()
+        assertEquals(PERSONAL_PACKAGE, actualApp.packageName)
+        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.defaultName)
+        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.componentName.className)
+    }
+
+    @Test
+    fun `keeps one App when a changed package has several launcher activities`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        inputState.setActivities(
+            user = personalUser,
+            activities = profileActivities(
+                packageName = PERSONAL_PACKAGE,
+                user = personalUser,
+                activityClasses = listOf(SETUP_ACTIVITY_CLASS, POLICY_ACTIVITY_CLASS)
+            )
+        )
+
+        inputState.changes.emit(ProfileChange.PackageChanged(user = personalUser, packageName = PERSONAL_PACKAGE))
+        val actualApp: App = loadApps(repository = repository).single { app -> app.profile == personalUser }
+
+        assertEquals(POLICY_ACTIVITY_CLASS, actualApp.componentName.className)
     }
 
     @Test
@@ -484,13 +527,19 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         activitiesByUser[user] = activities.toList()
     }
 
+    private fun profileActivities(packageName: String, user: UserHandle, activityClasses: List<String>): Array<ProfileActivity> =
+        activityClasses.map { activityClass ->
+            profileActivity(packageName = packageName, user = user, label = activityClass, activityClass = activityClass)
+        }.toTypedArray()
+
     private fun profileActivity(
         packageName: String,
         user: UserHandle,
         label: String = packageName,
-        badgedLabel: String = label
+        badgedLabel: String = label,
+        activityClass: String = "$packageName.MainActivity"
     ): ProfileActivity = ProfileActivity(
-        componentName = ComponentName(packageName, "$packageName.MainActivity"),
+        componentName = ComponentName(packageName, activityClass),
         user = user,
         label = label,
         badgedLabel = badgedLabel

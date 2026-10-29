@@ -8,6 +8,10 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink, or a Folder).
 _Avoid_: App (when meaning any launchable), item, entry
 
+**App key**:
+The stored identity of an App: its package name and Profile, which makes each package in a Profile one App.
+_Avoid_: Component key, activity key
+
 **Profile**:
 The personal, work or Private Space profile an App belongs to. Every App belongs to exactly one Profile.
 _Avoid_: User, space, account
