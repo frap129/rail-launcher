@@ -58,7 +58,6 @@ class IPopupRepositoryImpl(
     private val removeOwnerWidgets: IRemoveOwnerWidgets
 ) : IPopupRepository {
     private val itemMutex: Mutex = Mutex()
-    private val pendingPinTokens: MutableSet<ProfileToken> = mutableSetOf()
     private val removedWidgets: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(
         extraBufferCapacity = 32,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -106,32 +105,20 @@ class IPopupRepositoryImpl(
             withItemLock { reapplyAllPins() }
         }
         scope.launch {
-            var previousKeptKeys: Set<ProfileToken>? = null
             launchableRepository.launchableState
                 .filter { state -> state.isLoaded }
-                .collect { state ->
-                    val previous: Set<ProfileToken>? = previousKeptKeys
-                    if (previous != null) {
-                        pendingPinTokens += previous - state.keptKeys
-                        reapplyUnlockedPins(state = state)
-                    }
-                    previousKeptKeys = state.keptKeys
-                }
+                .map { state -> state.enumeratedKeys }
+                .distinctUntilChanged()
+                .collect { tokens -> reapplyEnumeratedPins(tokens = tokens) }
         }
     }
 
     /** Re-applies pins once a Profile that was Locked lists its Apps again. */
-    private suspend fun reapplyUnlockedPins(state: LaunchableState) {
-        pendingPinTokens -= state.keptKeys
-        val liveTokens: Set<ProfileToken> = state.launchables
-            .filterIsInstance<App>()
-            .mapTo(mutableSetOf()) { app -> app.profile.toProfileToken() }
-        val unlockedTokens: Set<ProfileToken> = pendingPinTokens.intersect(liveTokens)
-        if (unlockedTokens.isEmpty()) {
+    private suspend fun reapplyEnumeratedPins(tokens: Set<ProfileToken>) {
+        if (tokens.isEmpty()) {
             return
         }
-        pendingPinTokens -= unlockedTokens
-        withItemLock { reapplyPinsForProfiles(tokens = unlockedTokens) }
+        withItemLock { reapplyPinsForProfiles(tokens = tokens) }
     }
 
     private suspend fun reapplyPinsForProfiles(tokens: Set<ProfileToken>) {

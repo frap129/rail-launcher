@@ -27,19 +27,27 @@ class IAppRepositoryImpl(
     private val ownPackageName: String = context.packageName
     private val _apps: MutableStateFlow<List<App>?> = MutableStateFlow(null)
     override val apps: StateFlow<List<App>?> = _apps.asStateFlow()
+    private val _enumeratedProfiles: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+    override val enumeratedProfiles: StateFlow<Set<UserHandle>> = _enumeratedProfiles.asStateFlow()
 
     init {
         scope.launch(dispatcher) {
             profileSource.changes
-                .onSubscription { _apps.value = loadApps() }
+                .onSubscription { publishAllProfiles() }
                 .collect { change -> applyChange(change = change) }
         }
     }
 
-    private fun loadApps(): List<App> = profileSource.profiles.value
-        .filter { profile -> profile.isEnumerated() }
-        .flatMap { profile -> profileSource.activities(profile.user).map { activity -> activity.toApp(profile = profile) } }
-        .excludingOwnPackage()
+    private fun publishAllProfiles() {
+        val profiles: List<ProfileInfo> = profileSource.profiles.value.filter { profile -> profile.isEnumerated() }
+        val apps: List<App> = profiles.flatMap { profile ->
+            profileSource.activities(profile.user).map { activity -> activity.toApp(profile = profile) }
+        }
+        publish(
+            apps = apps.excludingOwnPackage(),
+            enumeratedProfiles = profiles.mapTo(mutableSetOf()) { profile -> profile.user }
+        )
+    }
 
     private fun applyChange(change: ProfileChange) {
         when (change) {
@@ -60,11 +68,21 @@ class IAppRepositoryImpl(
         } else {
             emptyList()
         }
-        _apps.update { current -> (current.orEmpty().filterNot { app -> app.profile == user } + profileApps).excludingOwnPackage() }
+        publish(
+            apps = (_apps.value.orEmpty().filterNot { app -> app.profile == user } + profileApps).excludingOwnPackage(),
+            enumeratedProfiles = if (profile.isEnumerated()) _enumeratedProfiles.value + user else _enumeratedProfiles.value - user
+        )
     }
 
     private fun removeProfile(user: UserHandle) {
         _apps.update { current -> current?.filterNot { app -> app.profile == user } }
+        _enumeratedProfiles.update { current -> current - user }
+    }
+
+    // The Apps go out before the enumeration, so a Space's keys are never released before its Apps list.
+    private fun publish(apps: List<App>, enumeratedProfiles: Set<UserHandle>) {
+        _apps.value = apps
+        _enumeratedProfiles.value = enumeratedProfiles
     }
 
     // A Private Space has no Apps to show while Locked; every other Profile stays listed while Paused.
@@ -94,6 +112,10 @@ class IAppRepositoryImpl(
         }
         _apps.update { current ->
             current.orEmpty().filterNot { app -> app.profile == user && app.packageName == packageName } + replacedApps
+        }
+        // Only a full Profile load enumerates it; a package event may at most revoke that.
+        if (!profile.isEnumerated()) {
+            _enumeratedProfiles.update { current -> current - user }
         }
     }
 

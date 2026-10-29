@@ -15,6 +15,7 @@ import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.SECOND_POSITION
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFailOnceMock
@@ -48,7 +49,6 @@ import org.junit.Test
 
 private const val DEFAULT_RES_ID: Int = 0
 private const val STALE_KEY: String = "com.example.stale"
-private const val SECOND_POSITION: Int = 1
 private const val RESOLUTION_TIMEOUT_MS: Long = 500L
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 

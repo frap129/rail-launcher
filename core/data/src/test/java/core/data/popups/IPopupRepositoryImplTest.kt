@@ -279,7 +279,10 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         finishPendingWork()
         assertEquals(emptyList<PinCall>(), pinCalls.value)
 
-        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner, inputPrivateApp))
+        launchableState.value = createLoadedLaunchableState(
+            launchables = listOf(inputOwner, inputPrivateApp),
+            enumeratedKeys = inputKeptKeys
+        )
 
         pinCalls.awaitPin(
             PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = setOf(FIRST_SHORTCUT_ID))

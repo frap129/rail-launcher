@@ -32,7 +32,7 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     private val launcherApps: LauncherApps = appContext.getSystemService(LauncherApps::class.java)
     private val userManager: UserManager = appContext.getSystemService(UserManager::class.java)
     private val packageManager: PackageManager = appContext.packageManager
-    private val _profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(loadProfiles())
+    private val _profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(loadProfiles().orEmpty())
     override val profiles: StateFlow<List<ProfileInfo>> = _profiles.asStateFlow()
     private val _changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(
         extraBufferCapacity = PROFILE_CHANGE_BUFFER,
@@ -147,12 +147,10 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         null
     }
 
-    private fun loadProfiles(): List<ProfileInfo> {
+    private fun loadProfiles(): List<ProfileInfo>? {
         val users: List<UserHandle> = runCatching { launcherApps.profiles }
-            .getOrElse { exception ->
-                Timber.w(exception, "Could not read the Profiles")
-                emptyList()
-            }
+            .onFailure { exception -> Timber.w(exception, "Could not read the Profiles") }
+            .getOrNull() ?: return null
         return users.map { user ->
             val launcherUserInfo: LauncherUserInfo? = launcherUserInfo(user = user)
             ProfileInfo(
@@ -166,7 +164,8 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     }
 
     private fun reloadProfiles() {
-        _profiles.value = loadProfiles()
+        val profiles: List<ProfileInfo> = loadProfiles() ?: return
+        _profiles.value = profiles
     }
 
     private fun publishProfileChange(change: ProfileChange) {
