@@ -45,7 +45,7 @@ fun LaunchablePickerSheet(state: PopupPickerState.Picking, onConfirm: (selectedI
             LazyColumn(modifier = Modifier.weight(1f)) {
                 state.groups.forEachIndexed { groupIndex, group ->
                     item(key = "$PICKER_GROUP_KEY_PREFIX$groupIndex") {
-                        LaunchableGroupHeader(label = group.label, endPadding = sheetHorizontalPadding)
+                        LaunchableGroupHeader(group = group, endPadding = sheetHorizontalPadding)
                     }
                     items(items = group.items, key = { item -> "$PICKER_ITEM_KEY_PREFIX${item.key}" }) { item ->
                         CheckboxLaunchableRow(

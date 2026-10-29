@@ -341,7 +341,7 @@ class BaselineProfileGenerator {
     private fun MacrobenchmarkScope.exercisePrivateSpace(privateSpaceUserId: Int, favoriteName: String) {
         val launcherList = openAppList()
         scrollToEnd(container = launcherList)
-        val privateSpaceSelector: BySelector = By.desc(appString("private_space"))
+        val privateSpaceSelector: BySelector = By.desc(appString("private_space")).clickable(true)
         val lockSelector: BySelector = By.desc(appString("lock_private_space"))
         if (!device.hasObject(lockSelector)) {
             findOrThrow(privateSpaceSelector, "Private Space row not found").click()

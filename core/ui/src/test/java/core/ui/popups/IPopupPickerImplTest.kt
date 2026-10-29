@@ -47,7 +47,7 @@ class IPopupPickerImplTest : PopupTestBase() {
             runCurrent()
             val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
             assertEquals(setOf(inputOtherShortcut.key), picking.selectedKeys)
-            assertEquals(listOf("O"), picking.groups.map { group -> group.label })
+            assertEquals(listOf("O"), picking.groups.map { group -> group.launchableGroup.label })
             assertEquals(listOf(inputOtherAppShortcuts), picking.groups.flatMap { group -> group.apps })
         }
     }
@@ -129,7 +129,7 @@ class IPopupPickerImplTest : PopupTestBase() {
             picker.startPickingShortcuts(inputApp)
             runCurrent()
             val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
-            assertEquals(listOf("P"), picking.groups.map { group -> group.label })
+            assertEquals(listOf("P"), picking.groups.map { group -> group.launchableGroup.label })
             assertEquals(listOf(inputPausedApp), picking.groups.flatMap { group -> group.apps }.map { appShortcuts -> appShortcuts.app })
         }
     }

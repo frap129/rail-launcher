@@ -43,6 +43,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createTestNotificationSource
+import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import io.mockk.coVerify
@@ -134,8 +135,8 @@ class LauncherViewModelTest {
                 val actualHome: LauncherUiState.Home = expectHome()
                 assertTrue(actualHome.favorites.isEmpty())
             }
-            viewModel.railLabels.test {
-                assertEquals(listOf("★", "⌂"), expectMostRecentItem())
+            viewModel.railItems.test {
+                assertEquals(listOf(GroupMark.Label("★"), GroupMark.Label("⌂")), expectMostRecentItem())
             }
         }
     }
@@ -167,11 +168,14 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `exposes the Rail labels`() {
+    fun `exposes the Rail items`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
-            viewModel.railLabels.test {
-                assertEquals(listOf("★", "A", "B", "⌂"), expectMostRecentItem())
+            viewModel.railItems.test {
+                assertEquals(
+                    listOf(GroupMark.Label("★"), GroupMark.Label("A"), GroupMark.Label("B"), GroupMark.Label("⌂")),
+                    expectMostRecentItem()
+                )
             }
         }
     }
@@ -1239,7 +1243,7 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `drops the Private Space group and Rail label when the system hides it while Locked`() = runTest {
+    fun `drops the Private Space group and Rail item when the system hides it while Locked`() = runTest {
         val inputProfileState: ProfileSourceState = ProfileSourceState(
             profiles = listOf(inputPrivateProfile.copy(isQuiet = true))
         )
@@ -1251,17 +1255,8 @@ class LauncherViewModelTest {
             mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
             mockProfileSource = createProfileSourceMock(state = inputProfileState)
         )
-        val inputRailLabels: List<String> = listOf(
-            LaunchableGroup.Star.label,
-            "A",
-            inputBuiltinGroup.label,
-            LaunchableGroup.PrivateSpace.LABEL
-        )
-        val expectedHiddenRailLabels: List<String> = listOf(
-            LaunchableGroup.Star.label,
-            "A",
-            inputBuiltinGroup.label
-        )
+        val inputRailItems: List<GroupMark> = expectedRailItems(privateSpace = GroupMark.PrivateSpaceShield)
+        val expectedHiddenRailItems: List<GroupMark> = inputRailItems.dropLast(1)
 
         viewModel.uiState.test {
             expectHome()
@@ -1272,12 +1267,12 @@ class LauncherViewModelTest {
             inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
             awaitAppListMatching { groups -> groups.any { group -> group is LaunchableGroup.PrivateSpace } }
         }
-        viewModel.railLabels.test {
-            assertEquals(inputRailLabels, awaitLabels(inputRailLabels))
+        viewModel.railItems.test {
+            assertEquals(inputRailItems, awaitRailItems(inputRailItems))
             inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true, isEntrypointHidden = true))
-            assertEquals(expectedHiddenRailLabels, awaitLabels(expectedHiddenRailLabels))
+            assertEquals(expectedHiddenRailItems, awaitRailItems(expectedHiddenRailItems))
             inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
-            assertEquals(inputRailLabels, awaitLabels(inputRailLabels))
+            assertEquals(inputRailItems, awaitRailItems(inputRailItems))
         }
     }
 
@@ -1291,11 +1286,8 @@ class LauncherViewModelTest {
             mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
         )
 
-        viewModel.railLabels.test {
-            assertEquals(
-                listOf(LaunchableGroup.Star.label, "A", inputBuiltinGroup.label, LaunchableGroup.PrivateSpace.LABEL),
-                expectMostRecentItem()
-            )
+        viewModel.railItems.test {
+            assertEquals(expectedRailItems(privateSpace = GroupMark.PrivateSpaceShield), expectMostRecentItem())
         }
     }
 
@@ -1573,6 +1565,13 @@ class LauncherViewModelTest {
         privateSpace
     )
 
+    private fun expectedRailItems(privateSpace: GroupMark): List<GroupMark> = listOf(
+        GroupMark.Label(LaunchableGroup.Star.label),
+        GroupMark.Label("A"),
+        GroupMark.Label(inputBuiltinGroup.label),
+        privateSpace
+    )
+
     // The settled action, skipping the StateFlow's initial null when it wins the subscription race.
     private suspend fun TurbineTestContext<IntentSender?>.awaitIntentSender(): IntentSender {
         var actualIntentSender: IntentSender? = awaitItem()
@@ -1593,12 +1592,12 @@ class LauncherViewModelTest {
         }
     }
 
-    private suspend fun TurbineTestContext<List<String>>.awaitLabels(expected: List<String>): List<String> {
-        var actualLabels: List<String> = awaitItem()
-        while (actualLabels != expected) {
-            actualLabels = awaitItem()
+    private suspend fun TurbineTestContext<List<GroupMark>>.awaitRailItems(expected: List<GroupMark>): List<GroupMark> {
+        var actualRailItems: List<GroupMark> = awaitItem()
+        while (actualRailItems != expected) {
+            actualRailItems = awaitItem()
         }
-        return actualLabels
+        return actualRailItems
     }
 
     private fun TestScope.createNotificationSource(mockPopupRepository: IPopupRepository): INotificationSource =

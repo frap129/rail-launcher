@@ -132,8 +132,12 @@ _Avoid_: Favorites screen, home page, dashboard
 The launcher state showing every Launchable grouped alphabetically, then the Private Space group last. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
+**Group mark**:
+What a group shows on the Rail and above its App List section: its text label or, for Private Space, a shield.
+_Avoid_: Glyph, icon (when meaning a mark)
+
 **Rail**:
-The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its labels are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its lock glyph last.
+The index of marks along the screen edge used to jump through the App List; touching it from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last.
 _Avoid_: Scroll bar, alphabet, wave
 
 **Widget**:

@@ -77,7 +77,7 @@ fun ShortcutPickerSheet(state: ShortcutPickerState.Picking, onConfirm: (selected
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     state.groups.forEachIndexed { groupIndex, group ->
                         item(key = "shortcut-picker-group:$groupIndex") {
-                            LaunchableGroupHeader(label = group.label, endPadding = sheetHorizontalPadding)
+                            LaunchableGroupHeader(group = group.launchableGroup, endPadding = sheetHorizontalPadding)
                         }
                         items(items = group.apps, key = { appShortcuts -> "shortcut-picker-app:${appShortcuts.app.key}" }) { appShortcuts ->
                             PickerAppSection(

@@ -22,8 +22,10 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
 import core.data.profiles.isHiddenWhenLocked
 import core.data.profiles.privateSpace
+import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import kotlinx.coroutines.flow.Flow
@@ -199,12 +201,12 @@ class LauncherViewModel(
         initialValue = PrivateSpaceVisibility(isLockRequested = false, isHiddenWhenLocked = false)
     )
 
-    /** The Rail labels in index order, shared with the Rail. */
-    val railLabels: StateFlow<List<String>> = combine(
+    /** The Rail items in index order, shared with the Rail. */
+    val railItems: StateFlow<List<GroupMark>> = combine(
         launchableState,
         privateSpaceVisibility
     ) { state, visibility ->
-        state.groups.withoutHiddenPrivateSpace(visibility).map { group -> group.label }
+        state.groups.withoutHiddenPrivateSpace(visibility).map { group -> group.toGroupMark() }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),

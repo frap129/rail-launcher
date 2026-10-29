@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="private_space">Private Space</string>
     <string name="header_last_part_supporting_text">Use Remove Header to hide the Header</string>
     <string name="battery">Battery</string>
     <string name="calendar_permission_denied_title">Calendar access is off</string>

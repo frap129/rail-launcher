@@ -263,7 +263,7 @@ class IPopupPickerImpl(
             if (candidates.isEmpty()) {
                 null
             } else {
-                ShortcutPickerGroup(label = group.label, apps = candidates)
+                ShortcutPickerGroup(launchableGroup = group, apps = candidates)
             }
         }
     }
