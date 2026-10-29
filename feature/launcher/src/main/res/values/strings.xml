@@ -79,7 +79,6 @@
     <string name="remove_from_popup">Remove from Pop-up</string>
     <string name="add_to_folder">Add to Folder</string>
     <string name="added_to_folder">Added to %1$s</string>
-    <string name="private_space">Private Space</string>
     <string name="private_space_locked">Locked</string>
     <string name="private_space_unlocked">Unlocked</string>
     <string name="unlock_private_space">Unlock</string>

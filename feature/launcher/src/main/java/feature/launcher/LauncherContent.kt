@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
@@ -253,10 +254,10 @@ internal fun BoxScope.LauncherRail(
     onRailTouched: () -> Unit,
     enabled: Boolean = true
 ) {
-    val railLabels: List<String> by viewModel.railLabels.collectAsState()
+    val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railGesture: RailGesture = remember { RailGesture() }
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
-    LaunchedEffect(railLabels.size, enabled) {
+    LaunchedEffect(railItems.size, enabled) {
         railGesture.reset()
     }
     ScrollRail(
@@ -266,7 +267,7 @@ internal fun BoxScope.LauncherRail(
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
             .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) },
-        items = railLabels,
+        items = railItems,
         onScroll = { index ->
             if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
                 viewModel.onRailPreview(index)

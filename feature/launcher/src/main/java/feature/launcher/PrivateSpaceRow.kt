@@ -33,6 +33,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Lock
 import compose.icons.fontawesomeicons.solid.LockOpen
 import core.data.R as CoreDataR
+import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconPadding
 import core.ui.composables.launchableIconSize
@@ -52,7 +53,7 @@ data class PrivateSpaceActions(
 /** The Private Space container row: a lock indicator, its name and its Locked/Unlocked state. */
 @Composable
 internal fun PrivateSpaceRow(isLocked: Boolean, onUnlock: () -> Unit, modifier: Modifier = Modifier) {
-    val label: String = stringResource(R.string.private_space)
+    val label: String = stringResource(CoreUiR.string.private_space)
     val state: String = stringResource(if (isLocked) R.string.private_space_locked else R.string.private_space_unlocked)
     val unlockLabel: String = stringResource(R.string.unlock_private_space)
     Row(

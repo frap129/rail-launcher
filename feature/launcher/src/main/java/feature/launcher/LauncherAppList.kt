@@ -103,7 +103,7 @@ fun LauncherItemGroup(
     folderSummaries: Map<String, String> = emptyMap()
 ) {
     Column(modifier = modifier) {
-        LaunchableGroupHeader(label = group.label)
+        LaunchableGroupHeader(group = group)
         if (group is LaunchableGroup.PrivateSpace) {
             PrivateSpaceRow(
                 isLocked = group.isLocked,

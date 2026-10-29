@@ -55,7 +55,7 @@ sealed interface LaunchableGroup {
         }
 
         companion object {
-            /** A monochrome lock-style glyph that no initial can produce. */
+            /** A label apart from the other Rail labels and initials; the Rail and App List draw it as a shield. */
             const val LABEL: String = "⚿"
         }
     }

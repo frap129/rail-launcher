@@ -8,6 +8,7 @@ android {
     testFixtures {
         enable = true
     }
+    testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 dependencies {
@@ -16,6 +17,8 @@ dependencies {
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.test.compose.ui.testManifest)
     // The compose compiler plugin also runs on testFixtures and needs the runtime.
     testFixturesImplementation(platform(libs.compose.bom))
     testFixturesImplementation(libs.compose.ui)
