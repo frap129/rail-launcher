@@ -1,5 +1,6 @@
 package core.data.favorites
 
+import android.content.ComponentName
 import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.icons.model.Icon
@@ -145,9 +146,43 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `resolves a Favorite stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputApp))
+    }
+
+    @Test
+    fun `removes the Legacy and current keys of a Favorite together`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
+        seedFavorite(key = inputApp.key, position = SECOND_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        repository.remove(inputApp)
+
+        assertNoFavorites()
+    }
+
+    @Test
     fun `hides a Favorite of a Locked Profile and restores it in place`() = databaseTest {
         val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val inputPrivateApp: App = createApp(name = "Secret", packageName = "com.example.secret", profileInfo = inputPrivateProfile)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = "com.example.secret",
+            profileInfo = inputPrivateProfile
+        ).copy(
+            componentName = ComponentName("com.example.secret", "com.example.secret.OtherActivity"),
+            isPackageRepresentative = false
+        )
         val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
         seedFavorite(key = inputPrivateApp.key, position = FIRST_POSITION)
         seedFavorite(key = inputOtherLaunchable.key, position = SECOND_POSITION)

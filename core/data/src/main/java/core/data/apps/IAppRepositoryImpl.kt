@@ -1,9 +1,9 @@
 package core.data.apps
 
+import android.content.ComponentName
 import android.content.Context
 import android.os.UserHandle
 import core.data.apps.model.App
-import core.data.apps.model.onePerPackage
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
@@ -42,7 +42,7 @@ class IAppRepositoryImpl(
     private fun publishAllProfiles() {
         val profiles: List<ProfileInfo> = profileSource.profiles.value.filter { profile -> profile.isEnumerated() }
         val apps: List<App> = profiles.flatMap { profile ->
-            profileSource.activities(profile.user).toAppsOnePerPackage(profile = profile)
+            profileSource.activities(profile.user).toApps(profile = profile)
         }
         publish(
             apps = apps.excludingOwnPackage(),
@@ -65,7 +65,7 @@ class IAppRepositoryImpl(
     private fun replaceProfile(user: UserHandle) {
         val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return
         val profileApps: List<App> = if (profile.isEnumerated()) {
-            profileSource.activities(profile.user).toAppsOnePerPackage(profile = profile)
+            profileSource.activities(profile.user).toApps(profile = profile)
         } else {
             emptyList()
         }
@@ -109,7 +109,7 @@ class IAppRepositoryImpl(
         val replacedApps: List<App> = if (!profile.isEnumerated() || packageName == ownPackageName) {
             emptyList()
         } else {
-            profileSource.activities(packageName, user).toAppsOnePerPackage(profile = profile)
+            profileSource.activities(packageName, user).toApps(profile = profile)
         }
         _apps.update { current ->
             current.orEmpty().filterNot { app -> app.profile == user && app.packageName == packageName } + replacedApps
@@ -131,13 +131,20 @@ class IAppRepositoryImpl(
 
     private fun List<App>.excludingOwnPackage(): List<App> = filterNot { app -> app.packageName == ownPackageName }
 
-    private fun List<ProfileActivity>.toAppsOnePerPackage(profile: ProfileInfo): List<App> =
-        map { activity -> activity.toApp(profile = profile) }.onePerPackage()
+    private fun List<ProfileActivity>.toApps(profile: ProfileInfo): List<App> {
+        val representatives: Set<ComponentName> = groupBy { activity -> activity.componentName.packageName }
+            .values
+            .mapTo(mutableSetOf()) { activities -> activities.minBy { activity -> activity.componentName.className }.componentName }
+        return map { activity ->
+            activity.toApp(profile = profile, isPackageRepresentative = activity.componentName in representatives)
+        }
+    }
 
-    private fun ProfileActivity.toApp(profile: ProfileInfo): App = App(
+    private fun ProfileActivity.toApp(profile: ProfileInfo, isPackageRepresentative: Boolean): App = App(
         defaultName = label,
         profileInfo = profile,
         componentName = componentName,
-        badgedLabel = badgedLabel
+        badgedLabel = badgedLabel,
+        isPackageRepresentative = isPackageRepresentative
     )
 }

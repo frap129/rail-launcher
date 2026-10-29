@@ -10,13 +10,20 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.profiles.ProfileToken
+import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.ui.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class IHeaderTapTargetResolverImplTest {
     private val resolver: IHeaderTapTargetResolver = IHeaderTapTargetResolverImpl()
     private val nowMillis: Long = 1_700_000_000_000L
@@ -75,6 +82,24 @@ class IHeaderTapTargetResolverImplTest {
         assertEquals("Maps", actualHeader.time?.clickLabelArg)
         assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.date?.tapTarget)
         assertEquals("Maps", actualHeader.date?.clickLabelArg)
+    }
+
+    @Test
+    fun `applies an App stored under a Legacy App key`() {
+        val inputApp = createApp(name = "Maps", packageName = "com.example.maps")
+        val inputHeader: HeaderModel = header()
+        val inputSettings: HeaderSettings = HeaderSettings(
+            timeTapTarget = HeaderTapSetting.Launchable(key = "com.example.maps_${inputApp.profile}")
+        )
+
+        val actualHeader: HeaderModel = resolver.applyTo(
+            header = inputHeader,
+            settings = inputSettings,
+            launchableState = createLoadedLaunchableState(listOf(inputApp)),
+            atEpochMillis = nowMillis
+        )
+
+        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputApp), actualHeader.time?.tapTarget)
     }
 
     @Test

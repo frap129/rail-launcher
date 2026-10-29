@@ -38,6 +38,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,6 +58,7 @@ class ILaunchableRepositoryImpl(
     private val preferencesRepository: IPreferencesRepository,
     folderDao: FolderDao,
     popupDao: PopupDao,
+    private val legacyAppKeyUpgrader: ILegacyAppKeyUpgrader,
     private val scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -120,6 +123,17 @@ class ILaunchableRepositoryImpl(
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
 
     init {
+        scope.launch {
+            launchableState
+                .filter { state -> state.isLoaded }
+                .map { state -> state.launchables.filterIsInstance<App>() }
+                .distinctUntilChangedBy { apps -> apps.map { app -> app.key to app.isPackageRepresentative } }
+                .collect { apps ->
+                    runCleanup(message = "Failed to upgrade Legacy App keys") {
+                        legacyAppKeyUpgrader.upgrade(apps = apps)
+                    }
+                }
+        }
         // Deleting stale names keeps a reinstalled Launchable from restoring an old rename.
         scope.launch {
             combine(
@@ -153,15 +167,18 @@ class ILaunchableRepositoryImpl(
         folderAppList: FolderAppList
     ): LaunchableState {
         val apps: List<App> = appState.appsOrNull.orEmpty()
+        val appKeyResolver: LaunchableKeyResolver = LaunchableKeyResolver(launchables = apps)
         val privateKeys: PrivateKeys = resolvePrivateKeys(profiles = profiles, enumeratedProfiles = appState.enumeratedProfiles)
-        val names: LaunchableNames = customizations.toLaunchableNames()
+        val names: LaunchableNames = customizations.toLaunchableNames { key -> appKeyResolver.resolve(key = key) ?: key }
         val resolvedApps: List<Launchable> = apps.map { app -> app.resolve(names = names, settings = settings) }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
         val folders: List<Folder> = folderAppList.records.resolveFolders(names = names)
-        val appListLaunchables: List<Launchable> =
-            resolvedApps.filterNot { app -> app.key in folderAppList.memberKeys } + folders
+        val folderMemberKeys: Set<String> = folderAppList.memberKeys.mapNotNullTo(mutableSetOf()) { key ->
+            appKeyResolver.resolve(key = key) ?: key
+        }
+        val appListLaunchables: List<Launchable> = resolvedApps.filterNot { app -> app.key in folderMemberKeys } + folders
         val privateSpace: ProfileInfo? = profiles.privateSpace
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,

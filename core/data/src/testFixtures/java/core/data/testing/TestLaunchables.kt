@@ -34,7 +34,8 @@ fun createApp(
     defaultName = name,
     profileInfo = profileInfo,
     componentName = ComponentName(packageName, "$packageName.MainActivity"),
-    badgedLabel = badgedLabel
+    badgedLabel = badgedLabel,
+    isPackageRepresentative = true
 )
 
 /** The Launchable State resolved from [groups] and [folders]. */

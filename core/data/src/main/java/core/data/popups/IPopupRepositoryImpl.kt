@@ -7,6 +7,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
 import core.data.launchables.staleKeys
+import core.data.launchables.storedKeys
 import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.reorderedPinned
@@ -129,16 +130,24 @@ class IPopupRepositoryImpl(
         }
     }
 
-    override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = popupDao.observeHiddenShortcuts(ownerKey)
+    override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = launchableRepository.launchableState
+        .map { state -> state.storedKeys(key = ownerKey) }
+        .distinctUntilChanged()
+        .flatMapLatest { ownerKeys -> popupDao.observeHiddenShortcuts(ownerKeys = ownerKeys) }
         .map { shortcutIds -> shortcutIds.toSet() }
         .distinctUntilChanged()
 
     override suspend fun setShortcutHidden(ownerKey: String, shortcutId: String, hidden: Boolean) {
-        popupDao.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
+        val resolvedOwnerKey: String = canonicalOwnerKey(ownerKey = ownerKey)
+        if (hidden) {
+            popupDao.setShortcutHidden(ownerKey = resolvedOwnerKey, shortcutId = shortcutId, hidden = true)
+        } else {
+            popupDao.deleteHiddenShortcut(ownerKeys = storedKeys(key = resolvedOwnerKey), shortcutId = shortcutId)
+        }
     }
 
     override fun items(ownerKey: String): Flow<List<PopupItem>> = itemResolution
-        .map { resolution -> resolution.itemsByOwner[ownerKey].orEmpty() }
+        .map { resolution -> resolution.itemsByOwner[canonicalOwnerKey(ownerKey = ownerKey)].orEmpty() }
         .distinctUntilChanged()
 
     override val itemCounts: Flow<Map<String, Int>> = itemResolution
@@ -146,16 +155,22 @@ class IPopupRepositoryImpl(
         .distinctUntilChanged()
 
     override suspend fun setItems(ownerKey: String, add: List<String>, remove: Set<String>) {
+        val resolvedOwnerKey: String = canonicalOwnerKey(ownerKey = ownerKey)
         val additions: List<String> = add
-            .filterNot { itemKey -> itemKey == ownerKey || itemKey in remove }
+            .filterNot { itemKey -> itemKey == resolvedOwnerKey || itemKey in remove }
             .distinct()
         withItemLock {
+            mergeStoredOwnerKeys(ownerKey = resolvedOwnerKey)
             val affectedPins: Set<AppProfile> = pinsOf(additions + remove)
             if (remove.isNotEmpty()) {
-                popupDao.removeItems(ownerKey = ownerKey, itemKeys = remove.toList())
+                val ownerKeys: List<String> = storedKeys(key = resolvedOwnerKey)
+                val removableKeys: List<String> = remove.flatMap { key -> storedKeys(key = key) }.distinct()
+                ownerKeys.forEach { storedOwnerKey ->
+                    popupDao.removeItems(ownerKey = storedOwnerKey, itemKeys = removableKeys)
+                }
             }
             if (additions.isNotEmpty()) {
-                popupDao.appendItems(ownerKey = ownerKey, itemKeys = additions)
+                popupDao.appendItems(ownerKey = resolvedOwnerKey, itemKeys = additions)
             }
             reapplyPins(affectedPins = affectedPins)
         }
@@ -163,18 +178,24 @@ class IPopupRepositoryImpl(
 
     override suspend fun removeItem(ownerKey: String, itemKey: String) {
         withItemLock {
-            popupDao.removeItems(ownerKey = ownerKey, itemKeys = listOf(itemKey))
-            reapplyPins(affectedPins = pinsOf(listOf(itemKey)))
+            val resolvedOwnerKey: String = canonicalOwnerKey(ownerKey = ownerKey)
+            val itemKeys: List<String> = storedKeys(key = itemKey)
+            storedKeys(key = resolvedOwnerKey).forEach { storedOwnerKey ->
+                popupDao.removeItems(ownerKey = storedOwnerKey, itemKeys = itemKeys)
+            }
+            reapplyPins(affectedPins = pinsOf(itemKeys))
         }
     }
 
     override suspend fun setItemOrder(ownerKey: String, orderedItemKeys: List<String>) {
         withItemLock {
-            val records: List<PopupItemRecord> = popupDao.getItems(ownerKey)
+            val resolvedOwnerKey: String = canonicalOwnerKey(ownerKey = ownerKey)
+            mergeStoredOwnerKeys(ownerKey = resolvedOwnerKey)
+            val records: List<PopupItemRecord> = popupDao.getItems(resolvedOwnerKey)
                 .sortedBy { item -> item.position }
             val state: LaunchableState = launchableRepository.launchableState.value
             val reordered: List<PopupItemRecord> = records.reorderedPinned(
-                orderedKeys = orderedItemKeys,
+                orderedKeys = orderedItemKeys.flatMap { key -> storedKeys(key = key) },
                 keyOf = { record -> record.itemKey },
                 isPinned = { record -> state.isKeptKey(record.itemKey) }
             )
@@ -185,17 +206,23 @@ class IPopupRepositoryImpl(
     }
 
     override suspend fun deleteOwner(ownerKey: String): List<AppWidgetId> = withItemLock {
-        val removedKeys: List<String> = popupDao.getItems(ownerKey).map { item -> item.itemKey }
-        popupDao.deleteHiddenForOwner(ownerKey)
-        popupDao.deleteItemsForOwner(ownerKey)
+        val resolvedOwnerKey: String = canonicalOwnerKey(ownerKey = ownerKey)
+        val ownerKeys: List<String> = storedKeys(key = resolvedOwnerKey)
+        val removedKeys: List<String> = ownerKeys.flatMap { storedOwnerKey ->
+            popupDao.getItems(storedOwnerKey).map { item -> item.itemKey }
+        }
+        ownerKeys.forEach { storedOwnerKey ->
+            popupDao.deleteHiddenForOwner(storedOwnerKey)
+            popupDao.deleteItemsForOwner(storedOwnerKey)
+        }
         val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
         val freedIds: List<AppWidgetId> = if (effects == null) {
             reapplyPins(affectedPins = pinsOf(removedKeys))
-            removeOwnerWidgets(ownerKey).also { ownedIds ->
+            removeOwnerWidgets(resolvedOwnerKey).also { ownedIds ->
                 ownedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
             }
         } else {
-            widgetAreaRepository.removeOwnerPlaces(ownerKey).also { ownedIds ->
+            widgetAreaRepository.removeOwnerPlaces(resolvedOwnerKey).also { ownedIds ->
                 // Releasing system Widget ids and pins cannot be undone, so they wait for the commit.
                 effects.afterCommit {
                     removeOwnerWidgets.release(appWidgetIds = ownedIds)
@@ -212,8 +239,9 @@ class IPopupRepositoryImpl(
             return
         }
         withItemLock {
-            popupDao.deleteItemsByKey(itemKeys)
-            val affectedPins: Set<AppProfile> = pinsOf(itemKeys)
+            val storedItemKeys: List<String> = itemKeys.flatMap { key -> storedKeys(key = key) }.distinct()
+            popupDao.deleteItemsByKey(storedItemKeys)
+            val affectedPins: Set<AppProfile> = pinsOf(storedItemKeys)
             val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
             if (effects == null) {
                 reapplyPins(affectedPins = affectedPins)
@@ -229,6 +257,25 @@ class IPopupRepositoryImpl(
 
     override suspend fun setNotificationsEnabled(enabled: Boolean) {
         popupDao.upsertSettings(settings = PopupSettingsRecord(notificationsEnabled = enabled))
+    }
+
+    private fun storedKeys(key: String): List<String> = launchableRepository.launchableState.value.storedKeys(key = key)
+
+    private fun canonicalOwnerKey(ownerKey: String): String =
+        launchableRepository.launchableState.value.resolveKey(key = ownerKey) ?: ownerKey
+
+    /** Moves a Legacy owner's rows to its current key and renumbers them so positions stay unique. */
+    private suspend fun mergeStoredOwnerKeys(ownerKey: String) {
+        val canonicalKey: String = canonicalOwnerKey(ownerKey = ownerKey)
+        val aliasKeys: List<String> = storedKeys(key = canonicalKey).filterNot { key -> key == canonicalKey }
+        if (aliasKeys.isEmpty()) {
+            return
+        }
+        for (aliasKey: String in aliasKeys) {
+            popupDao.replaceOwnerKey(oldKey = aliasKey, newKey = canonicalKey)
+            popupDao.replaceHiddenShortcutOwnerKey(oldKey = aliasKey, newKey = canonicalKey)
+        }
+        normalizeItemPositions(popupDao = popupDao, ownerKey = canonicalKey)
     }
 
     private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
@@ -292,7 +339,6 @@ private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState,
     if (!state.isLoaded) {
         return UNLOADED_ITEMS
     }
-    val launchablesByKey: Map<String, Launchable> = state.launchables.associateBy { launchable -> launchable.key }
     val installedApps: Set<AppProfile> = state.launchables
         .filterIsInstance<App>()
         .mapTo(mutableSetOf()) { app -> AppProfile(packageName = app.packageName, profile = app.profile) }
@@ -300,29 +346,28 @@ private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState,
     val staleKeys: MutableList<String> = mutableListOf()
     val lookup: ItemLookup = ItemLookup(
         state = state,
-        launchablesByKey = launchablesByKey,
         installedApps = installedApps,
         resolution = resolution
     )
     records.sortedBy { record -> record.position }.forEach { record ->
         when (val recordResolution: RecordResolution = resolveRecord(record = record, lookup = lookup)) {
-            is RecordResolution.Resolved -> itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(recordResolution.item)
+            is RecordResolution.Resolved -> {
+                val ownerKey: String = lookup.state.resolveKey(record.ownerKey) ?: record.ownerKey
+                itemsByOwner.getOrPut(ownerKey) { mutableListOf() }.add(recordResolution.item)
+            }
+
             RecordResolution.Stale -> staleKeys.add(record.itemKey)
+
             RecordResolution.Kept, RecordResolution.Unavailable -> Unit
         }
     }
     return ItemResolution(
-        itemsByOwner = itemsByOwner,
+        itemsByOwner = itemsByOwner.mapValues { (_, items) -> items.distinctBy { item -> item.launchable.key } },
         staleKeys = staleKeys.distinct()
     )
 }
 
-private data class ItemLookup(
-    val state: LaunchableState,
-    val launchablesByKey: Map<String, Launchable>,
-    val installedApps: Set<AppProfile>,
-    val resolution: ShortcutResolution
-)
+private data class ItemLookup(val state: LaunchableState, val installedApps: Set<AppProfile>, val resolution: ShortcutResolution)
 
 private sealed interface RecordResolution {
     data class Resolved(val item: PopupItem) : RecordResolution
@@ -346,6 +391,6 @@ private fun resolveRecord(record: PopupItemRecord, lookup: ItemLookup): RecordRe
         val shortcut: ShortcutLaunchable = lookup.resolution.shortcuts[key] ?: return RecordResolution.Unavailable
         return RecordResolution.Resolved(PopupItem.Shortcut(launchable = shortcut, isEnabled = shortcut.isEnabled))
     }
-    val launchable: Launchable = lookup.launchablesByKey[record.itemKey] ?: return RecordResolution.Stale
+    val launchable: Launchable = lookup.state.launchableFor(record.itemKey) ?: return RecordResolution.Stale
     return RecordResolution.Resolved(PopupItem.Launchable(launchable = launchable))
 }

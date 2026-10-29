@@ -1,5 +1,6 @@
 package core.ui.popups
 
+import android.content.ComponentName
 import app.cash.turbine.test
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -127,6 +128,30 @@ class IPopupEditorImplTest : PopupTestBase() {
             runCurrent()
             val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
             assertEquals(listOf(PopupItem.Launchable(inputOtherApp)), actualState.items)
+        }
+    }
+
+    @Test
+    fun `names a Shortcut's source after the package representative`() = runTest {
+        val inputOtherActivity = inputApp.copy(
+            componentName = ComponentName(inputApp.packageName, "${inputApp.packageName}.OtherActivity"),
+            badgedLabel = "Other",
+            name = "Other",
+            isPackageRepresentative = false
+        )
+        setLaunchableGroups(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "E", items = listOf(inputApp, inputOtherActivity)))
+        )
+        setPopupItems(
+            ownerKey = inputApp.key,
+            items = listOf(PopupItem.Shortcut(launchable = inputShortcut, isEnabled = true))
+        )
+        val editor: IPopupEditor = createEditor()
+        editor.editState.test {
+            editor.startEdit(inputApp)
+            runCurrent()
+            val actualState: PopupEditState.Editing = expectMostRecentItem() as PopupEditState.Editing
+            assertEquals(mapOf(inputShortcut.key to inputApp.name), actualState.shortcutSourceNames)
         }
     }
 

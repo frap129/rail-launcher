@@ -20,7 +20,7 @@ fun createLaunchableRepositoryMock(state: StateFlow<LaunchableState>): ILaunchab
 
 /** A MockK [ILaunchableRepository] loaded with [launchables] in one Initial group, plus [folders]. */
 fun createLaunchableRepositoryMock(
-    launchables: List<Launchable>,
+    launchables: List<Launchable> = emptyList(),
     label: String = "A",
     folders: List<Launchable> = emptyList(),
     isLoaded: Boolean = true

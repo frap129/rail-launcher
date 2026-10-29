@@ -1,5 +1,6 @@
 package feature.settings
 
+import android.content.ComponentName
 import app.cash.turbine.test
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
@@ -705,6 +706,24 @@ class WidgetSettingsViewModelTest {
         assertTrue(actualSorted.first().isExcluded)
         val actualFiltered: List<ExcludableApp> = filterExcludableApps(apps = inputApps, query = "ma")
         assertEquals(listOf("Maps"), actualFiltered.map { app -> app.label })
+    }
+
+    @Test
+    fun `offers one Media Player exclusion per package`() {
+        val inputApp = createApp(name = "Music", packageName = "com.example.music")
+        val inputOtherActivity = inputApp.copy(
+            componentName = ComponentName(inputApp.packageName, "${inputApp.packageName}.OtherActivity"),
+            isPackageRepresentative = false
+        )
+
+        val actualApps: List<ExcludableApp> = excludableApps(
+            launchables = listOf(inputApp, inputOtherActivity),
+            excludedPackages = emptySet(),
+            query = ""
+        )
+
+        assertEquals(listOf("com.example.music"), actualApps.map { app -> app.packageName })
+        assertEquals("Music", actualApps.single().label)
     }
 
     @Test

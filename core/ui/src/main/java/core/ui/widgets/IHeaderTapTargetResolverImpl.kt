@@ -42,7 +42,7 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         if (!setting.isDisplayable(state = launchableState)) {
             return null
         }
-        return launchableState.launchables.firstOrNull { launchable -> launchable.key == setting.key }
+        return launchableState.launchableFor(key = setting.key)
             ?.let { launchable -> HeaderTapTarget.LaunchLaunchable(launchable = launchable) }
     }
 

@@ -9,6 +9,7 @@ import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
+import core.data.testing.createApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
@@ -102,6 +103,37 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             stored.none { customization -> customization.key == inputItem.key }
         }
         assertEquals(listOf(OTHER_CUSTOMIZATION), actualCustomizations)
+    }
+
+    @Test
+    fun `renaming an App removes its Legacy customization`() = databaseTest {
+        val inputApp = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputLegacyKey, name = ORIGINAL_ITEM_NAME)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setItemName(item = inputApp, name = RENAMED_ITEM_NAME)
+
+        val actualCustomizations: List<LaunchableCustomization> = customizations { stored ->
+            stored.any { customization -> customization.key == inputApp.key } &&
+                stored.none { customization -> customization.key == inputLegacyKey }
+        }
+        assertEquals(listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_ITEM_NAME)), actualCustomizations)
+    }
+
+    @Test
+    fun `resetting an App removes its Legacy customization`() = databaseTest {
+        val inputApp = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputLegacyKey, name = ORIGINAL_ITEM_NAME)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetItemName(item = inputApp)
+
+        val actualCustomizations: List<LaunchableCustomization> = customizations { stored -> stored.none { it.key == inputLegacyKey } }
+        assertEquals(emptyList<LaunchableCustomization>(), actualCustomizations)
     }
 
     @Test
