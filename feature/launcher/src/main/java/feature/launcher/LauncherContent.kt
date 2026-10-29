@@ -1,7 +1,9 @@
 package feature.launcher
 
+import android.app.ActivityOptions
 import android.content.Context
 import android.content.IntentSender
+import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -98,7 +100,7 @@ internal fun LauncherContent(
                     onUnlock = viewModel::requestPrivateSpaceUnlock,
                     onLock = viewModel::lockPrivateSpace,
                     onSettings = privateSpaceSettingsIntent?.let { intentSender ->
-                        { context.openIntentSender(intentSender) }
+                        { context.openPrivateSpaceSettings(intentSender) }
                     }
                 ),
                 railBounds = { railBounds.current }
@@ -305,9 +307,21 @@ internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetVie
     }
 }
 
-/** Opens the screen behind [intentSender], logging when the system no longer offers it. */
-private fun Context.openIntentSender(intentSender: IntentSender) {
+/**
+ * Activity options for opening the system's Private Space settings, which only Android 16 offers.
+ * [ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE] is the least permissive mode
+ * that still lets the visible launcher start the screen behind the system's IntentSender.
+ */
+internal fun privateSpaceSettingsOptions(): ActivityOptions? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+    ActivityOptions.makeBasic()
+        .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE)
+} else {
+    null
+}
+
+/** Opens the system's Private Space settings screen, logging when the system no longer offers it. */
+private fun Context.openPrivateSpaceSettings(intentSender: IntentSender) {
     runCatching {
-        startIntentSender(intentSender, null, 0, 0, 0)
-    }.onFailure { exception -> Timber.w(exception, "Could not open an IntentSender") }
+        startIntentSender(intentSender, null, 0, 0, 0, privateSpaceSettingsOptions()?.toBundle())
+    }.onFailure { exception -> Timber.w(exception, "Could not open the Private Space settings") }
 }
