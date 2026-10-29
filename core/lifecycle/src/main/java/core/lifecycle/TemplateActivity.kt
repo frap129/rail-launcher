@@ -5,8 +5,17 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.core.app.TaskStackBuilder
+import core.data.profiles.IProfileSource
+import org.koin.android.ext.android.inject
 
 open class TemplateActivity : ComponentActivity() {
+    private val profileSource: IProfileSource by inject()
+
+    override fun onResume() {
+        super.onResume()
+        profileSource.refreshProfiles()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
