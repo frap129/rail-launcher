@@ -1,9 +1,15 @@
 package core.data.profiles
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.UserHandle
 import android.os.UserManager
@@ -21,6 +27,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,8 +40,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import timber.log.Timber
 
 private const val OTHER_USER_ID: Int = 12
+private const val APP_PACKAGE_NAME: String = "com.example.app"
+private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -153,6 +163,65 @@ class IProfileSourceImplTest {
         val source: IProfileSourceImpl = IProfileSourceImpl(application)
 
         assertNull(source.privateSpaceSettingsIntent())
+    }
+
+    @Test
+    fun `loads an activity icon for a non-personal Profile`() {
+        val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+        val expectedIcon: Drawable = ColorDrawable(Color.RED)
+        val mockActivityInfo: LauncherActivityInfo = mockk(relaxed = true)
+        every { mockActivityInfo.componentName } returns inputComponentName
+        every { mockActivityInfo.getIcon(any()) } returns expectedIcon
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getActivityList(APP_PACKAGE_NAME, workUser) } returns listOf(mockActivityInfo)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualIcon: Drawable? = source.activityIcon(componentName = inputComponentName, user = workUser)
+
+        assertEquals(expectedIcon, actualIcon)
+        verify(exactly = 1) { mockActivityInfo.getIcon(application.resources.displayMetrics.densityDpi) }
+    }
+
+    @Test
+    fun `loads an application icon for a non-personal Profile`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getApplicationInfo(APP_PACKAGE_NAME, 0, workUser) } returns application.applicationInfo
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualIcon: Drawable? = source.applicationIcon(packageName = APP_PACKAGE_NAME, user = workUser)
+
+        assertNotNull(actualIcon)
+        verify(exactly = 1) { mockLauncherApps.getApplicationInfo(APP_PACKAGE_NAME, 0, workUser) }
+    }
+
+    @Test
+    fun `logs an activity icon failure without the App package`() {
+        val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every {
+            mockLauncherApps.getActivityList(APP_PACKAGE_NAME, workUser)
+        } throws PackageManager.NameNotFoundException(APP_PACKAGE_NAME)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        val logEntries: MutableList<String> = mutableListOf()
+        val logTree: Timber.Tree = object : Timber.Tree() {
+            override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                logEntries += message
+                t?.let { throwable -> logEntries += throwable.toString() }
+            }
+        }
+
+        Timber.plant(logTree)
+        try {
+            assertNull(source.activityIcon(componentName = inputComponentName, user = workUser))
+        } finally {
+            Timber.uproot(logTree)
+        }
+
+        assertTrue(logEntries.isNotEmpty())
+        assertTrue(logEntries.none { entry -> entry.contains(APP_PACKAGE_NAME) || entry.contains(APP_ACTIVITY_NAME) })
     }
 
     @Test

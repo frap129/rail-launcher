@@ -2,6 +2,7 @@ package core.data.profiles
 
 import android.content.ComponentName
 import android.content.IntentSender
+import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,6 +100,12 @@ interface IProfileSource {
 
     /** The launchable activities of [packageName] in [user]. */
     fun activities(packageName: String, user: UserHandle): List<ProfileActivity>
+
+    /** The unbadged launcher activity icon of [componentName] in [user]'s Profile, or null when it cannot be loaded. */
+    fun activityIcon(componentName: ComponentName, user: UserHandle): Drawable?
+
+    /** The unbadged application icon of [packageName] in [user]'s Profile, or null when it cannot be loaded. */
+    fun applicationIcon(packageName: String, user: UserHandle): Drawable?
 
     /** Asks the system to change [user]'s quiet mode. */
     suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult
