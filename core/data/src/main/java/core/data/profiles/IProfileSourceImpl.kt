@@ -19,6 +19,7 @@ import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
 import androidx.core.content.ContextCompat
+import core.util.logTypeName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -114,7 +115,7 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     override fun badgedLabel(label: String, user: UserHandle): String = runCatching {
         packageManager.getUserBadgedLabel(label, user).toString()
     }.onFailure { exception ->
-        Timber.w(exception, "Could not read a badged label")
+        Timber.w("Could not read a badged label for %s: %s", user, exception.logTypeName())
     }.getOrDefault(label)
 
     override fun activities(user: UserHandle): List<ProfileActivity> = loadActivities(packageName = null, user = user)
@@ -213,7 +214,7 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
 
     private fun loadActivities(packageName: String?, user: UserHandle): List<ProfileActivity> {
         val activities: List<LauncherActivityInfo> = launcherActivities(packageName = packageName, user = user)
-            .onFailure { exception -> Timber.w(exception, "Could not read the activities of %s", user) }
+            .onFailure { exception -> Timber.w("Could not read the activities of %s: %s", user, exception.logTypeName()) }
             .getOrDefault(emptyList())
         return activities.map { activity ->
             val label: String = activity.label.toString()

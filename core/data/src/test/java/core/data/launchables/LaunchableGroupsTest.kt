@@ -10,7 +10,7 @@ import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
-import core.data.testing.createApp
+import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -248,12 +248,6 @@ class LaunchableGroupsTest {
         assertFalse(actualLabel in inputOtherLabels)
         assertFalse(actualLabel.first().isLetterOrDigit())
     }
-
-    private fun createPrivateApp(name: String, packageName: String = "com.example.secret"): Launchable = createApp(
-        name = name,
-        packageName = packageName,
-        profileInfo = inputPrivateProfile
-    )
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(
         defaultName = name,

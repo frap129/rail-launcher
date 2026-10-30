@@ -28,6 +28,7 @@ import core.data.testing.PopupRepositoryState
 import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
+import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFavoritesRepositoryFixture
@@ -40,6 +41,7 @@ import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateApp
 import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
@@ -50,6 +52,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -544,6 +547,25 @@ class LauncherViewModelTest {
             viewModel.setItemName(inputItem, RENAMED_NAME)
             runCurrent()
             verify(exactly = 1) { mockPreferencesRepository.setItemName(item = inputItem, name = RENAMED_NAME) }
+        }
+    }
+
+    @Test
+    fun `logs a private Launchable rename failure without its package or key`() {
+        runTest {
+            val inputPrivateApp: App = createPrivateApp()
+            every {
+                mockPreferencesRepository.setItemName(any(), any())
+            } throws RuntimeException("Could not rename the Launchable")
+            val viewModel: LauncherViewModel = createViewModel()
+            val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+            logRecorder.recordSuspending {
+                viewModel.setItemName(inputPrivateApp, RENAMED_NAME)
+                runCurrent()
+            }
+
+            logRecorder.assertLoggedWithout(inputPrivateApp.key, inputPrivateApp.packageName)
         }
     }
 
@@ -1539,13 +1561,6 @@ class LauncherViewModelTest {
         packageName = "com.example.gmail",
         profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
         badgedLabel = "Work Gmail"
-    )
-
-    private fun createPrivateApp(name: String = "Secret", packageName: String = "com.example.secret"): App = createApp(
-        name = name,
-        packageName = packageName,
-        profileInfo = inputPrivateProfile,
-        badgedLabel = "Private $name"
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(

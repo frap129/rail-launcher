@@ -150,10 +150,10 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
             appContext.startActivity(launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             true
         } catch (exception: ActivityNotFoundException) {
-            Timber.w(exception, "No launch intent for %s", controller.packageName)
+            Timber.w("Could not launch the Media Player")
             false
         } catch (exception: SecurityException) {
-            Timber.w(exception, "No permission to launch %s", controller.packageName)
+            Timber.w("No permission to launch the Media Player")
             false
         }
     }

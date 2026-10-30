@@ -25,6 +25,7 @@ import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PinCall
 import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TimberLogRecorder
 import core.data.testing.awaitPin
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
@@ -32,6 +33,7 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
+import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
@@ -39,7 +41,9 @@ import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
+import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.spyk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -176,6 +180,33 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         finishPendingWork()
         assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(GONE_OWNER_KEY).first())
         assertEquals(listOf(FIRST_SHORTCUT_ID), popupDao.observeHiddenShortcuts(inputOwner.key).first())
+    }
+
+    @Test
+    fun `logs a stale owner cleanup failure without the owner key`() = databaseTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertHiddenShortcut(ownerKey = inputPrivateApp.key, shortcutId = FIRST_SHORTCUT_ID)
+        val mockPopupDao: PopupDao = spyk(popupDao)
+        coEvery {
+            mockPopupDao.deleteHiddenForOwner(inputPrivateApp.key)
+        } throws RuntimeException("Could not remove Pop-up preferences")
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(groups = emptyList(), isLoaded = false)
+        )
+        createRepository(
+            popupDao = mockPopupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+        finishPendingWork()
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.recordSuspending {
+            launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOtherOwner), label = "O")
+            finishPendingWork()
+        }
+
+        logRecorder.assertLoggedWithout(inputPrivateApp.key, inputPrivateApp.packageName)
     }
 
     @Test

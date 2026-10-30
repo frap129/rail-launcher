@@ -2,6 +2,7 @@ package core.data.notifications
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import core.util.logTypeName
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +62,7 @@ class INotificationListenerRelayImpl : INotificationListenerRelay {
         try {
             service.cancelNotification(key)
         } catch (exception: RuntimeException) {
-            Timber.w(exception, "Could not cancel a notification")
+            Timber.w("Could not cancel a notification: %s", exception.logTypeName())
         }
     }
 
@@ -70,7 +71,7 @@ class INotificationListenerRelayImpl : INotificationListenerRelay {
         val active: List<StatusBarNotification> = try {
             service.activeNotifications.orEmpty().toList()
         } catch (exception: RuntimeException) {
-            Timber.w(exception, "Could not read active notifications")
+            Timber.w("Could not read active notifications: %s", exception.logTypeName())
             return
         }
         val activeKeys: Set<String> = active.mapTo(mutableSetOf()) { notification -> notification.key }

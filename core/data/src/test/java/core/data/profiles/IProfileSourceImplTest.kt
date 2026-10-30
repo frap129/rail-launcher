@@ -18,6 +18,7 @@ import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_SDK_36
+import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createIntentSender
 import core.data.testing.createUserHandle
@@ -40,7 +41,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import timber.log.Timber
 
 private const val OTHER_USER_ID: Int = 12
 private const val APP_PACKAGE_NAME: String = "com.example.app"
@@ -197,7 +197,7 @@ class IProfileSourceImplTest {
     }
 
     @Test
-    fun `logs an activity icon failure without the App package`() {
+    fun `logs activity failures without the App package or activity`() {
         val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every {
@@ -205,23 +205,14 @@ class IProfileSourceImplTest {
         } throws PackageManager.NameNotFoundException(APP_PACKAGE_NAME)
         shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
         val source: IProfileSourceImpl = IProfileSourceImpl(application)
-        val logEntries: MutableList<String> = mutableListOf()
-        val logTree: Timber.Tree = object : Timber.Tree() {
-            override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-                logEntries += message
-                t?.let { throwable -> logEntries += throwable.toString() }
-            }
-        }
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
 
-        Timber.plant(logTree)
-        try {
+        logRecorder.record {
             assertNull(source.activityIcon(componentName = inputComponentName, user = workUser))
-        } finally {
-            Timber.uproot(logTree)
+            assertTrue(source.activities(packageName = APP_PACKAGE_NAME, user = workUser).isEmpty())
         }
 
-        assertTrue(logEntries.isNotEmpty())
-        assertTrue(logEntries.none { entry -> entry.contains(APP_PACKAGE_NAME) || entry.contains(APP_ACTIVITY_NAME) })
+        logRecorder.assertLoggedWithout(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
     }
 
     @Test

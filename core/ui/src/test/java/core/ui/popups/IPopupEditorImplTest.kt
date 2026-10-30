@@ -2,13 +2,17 @@ package core.ui.popups
 
 import android.content.ComponentName
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_SDK
+import core.data.testing.TimberLogRecorder
+import core.data.testing.createPrivateApp
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import io.mockk.coEvery
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -212,6 +216,26 @@ class IPopupEditorImplTest : PopupTestBase() {
 
         coVerify(exactly = 1) { mockPopupRepository.setItemOrder(any(), any()) }
         coVerify(exactly = 1) { mockPopupRepository.setItemOrder(inputApp.key, orderedKeys) }
+    }
+
+    @Test
+    fun `logs a private Pop-up reorder failure without its package or key`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        setLaunchableGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "S", items = listOf(inputPrivateApp))))
+        coEvery {
+            mockPopupRepository.setItemOrder(any(), any())
+        } throws RuntimeException("Could not reorder the items")
+        val editor: IPopupEditor = createEditor()
+        editor.startEdit(inputPrivateApp)
+        runCurrent()
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.recordSuspending {
+            editor.setItemOrder(orderedItemKeys = listOf(inputPrivateApp.key))
+            runCurrent()
+        }
+
+        logRecorder.assertLoggedWithout(inputPrivateApp.key, inputPrivateApp.packageName)
     }
 
     private fun seedPopupItem(item: Launchable = inputOtherApp) {

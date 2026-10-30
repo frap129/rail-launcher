@@ -32,7 +32,7 @@ private val sharedTestLibraryAliases = listOf(
     MOCKK_ALIAS,
 )
 
-private val sharedFixtureLibraryAliases = sharedTestLibraryAliases + listOf("kotlinx.coroutines.core")
+private val sharedFixtureLibraryAliases = sharedTestLibraryAliases + listOf("kotlinx.coroutines.core", "util.timber")
 
 private val unitTestLibraryAliases = sharedTestLibraryAliases + listOf(
     "test.robolectric",

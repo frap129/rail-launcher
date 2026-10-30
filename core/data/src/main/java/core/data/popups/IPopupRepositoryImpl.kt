@@ -280,7 +280,7 @@ class IPopupRepositoryImpl(
 
     private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
         for (ownerKey in ownerKeys) {
-            runCleanup(message = "Failed to remove Pop-up preferences for $ownerKey") { deleteOwner(ownerKey) }
+            runCleanup(message = "Failed to remove a stale Pop-up owner") { deleteOwner(ownerKey) }
         }
     }
 

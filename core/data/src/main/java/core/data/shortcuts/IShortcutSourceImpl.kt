@@ -10,6 +10,7 @@ import android.os.UserManager
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
+import core.util.logTypeName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -97,11 +98,11 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: SecurityException) {
-                logPinFailure(packageName = packageName, profile = profile, ids = ids, exception = exception)
+                logPinFailure(profile = profile, ids = ids, exception = exception)
             } catch (exception: IllegalArgumentException) {
-                logPinFailure(packageName = packageName, profile = profile, ids = ids, exception = exception)
+                logPinFailure(profile = profile, ids = ids, exception = exception)
             } catch (exception: IllegalStateException) {
-                logPinFailure(packageName = packageName, profile = profile, ids = ids, exception = exception)
+                logPinFailure(profile = profile, ids = ids, exception = exception)
             }
         }
     }
@@ -161,10 +162,10 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: SecurityException) {
-            Timber.w(exception, "No permission to read shortcuts for %s", owner.packageName)
+            Timber.w("No permission to read shortcuts for %s: %s", owner.profile, exception.logTypeName())
             ShortcutsResult.Unavailable
         } catch (exception: IllegalStateException) {
-            Timber.w(exception, "Could not read shortcuts for %s", owner.packageName)
+            Timber.w("Could not read shortcuts for %s: %s", owner.profile, exception.logTypeName())
             ShortcutsResult.Unavailable
         }
     }
@@ -183,7 +184,7 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
             // An empty result can be a package that is mid-update, so only an App that still
             // publishes Shortcuts can vouch that a requested one is gone.
             if (shortcutsById.isEmpty()) {
-                Timber.w("No shortcuts published by %s; keeping requested shortcuts unresolved", owner.packageName)
+                Timber.w("No shortcuts published by an App in %s; keeping requested shortcuts unresolved", owner.profile)
                 continue
             }
             keys.forEach { key ->
@@ -220,10 +221,10 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
     private fun readResolvedShortcuts(owner: AppProfile): Map<String, ShortcutInfo>? = try {
         readPackageShortcuts(owner = owner)
     } catch (exception: SecurityException) {
-        Timber.w(exception, "No permission to resolve shortcuts for %s", owner.packageName)
+        Timber.w("No permission to resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
         null
     } catch (exception: IllegalStateException) {
-        Timber.w(exception, "Could not resolve shortcuts for %s", owner.packageName)
+        Timber.w("Could not resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
         null
     }
 
@@ -235,9 +236,8 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
         return launcherApps.getShortcuts(query, owner.profile).orEmpty().associateBy { shortcut -> shortcut.id }
     }
 
-    private fun logPinFailure(packageName: String, profile: UserHandle, ids: Set<String>, exception: Exception) {
-        val keys: List<String> = ids.map { id -> ShortcutKey(packageName = packageName, id = id, profile = profile).format() }
-        Timber.w(exception, "Could not pin shortcuts %s", keys)
+    private fun logPinFailure(profile: UserHandle, ids: Set<String>, exception: Exception) {
+        Timber.w("Could not pin %d shortcuts for %s: %s", ids.size, profile, exception.logTypeName())
     }
 
     private fun ShortcutInfo.toLaunchable(owner: AppProfile): ShortcutLaunchable {

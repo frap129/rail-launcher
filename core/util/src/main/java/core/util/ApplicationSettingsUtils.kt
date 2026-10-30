@@ -28,7 +28,9 @@ fun Context.openApplicationDetailsSettings(componentName: ComponentName, profile
     val launcherApps: LauncherApps = getSystemService(LauncherApps::class.java)
     runCatching {
         launcherApps.startAppDetailsActivity(componentName, profile, null, null)
-    }.onFailure { exception -> Timber.w(exception, "Could not open app info for %s", componentName.packageName) }
+    }.onFailure { exception ->
+        Timber.w("Could not open app info for %s: %s", profile, exception.logTypeName())
+    }
 }
 
 fun Context.openApplicationDetailsSettings() {
