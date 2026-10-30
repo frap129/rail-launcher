@@ -19,7 +19,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 class IIconRepositoryImpl(
@@ -48,15 +47,26 @@ class IIconRepositoryImpl(
         }
 
         scope.launch(dispatcher) {
-            profileSource.changes
-                .filter { change ->
-                    change is ProfileChange.PackageAdded ||
-                        change is ProfileChange.PackageRemoved ||
-                        change is ProfileChange.PackageChanged
+            profileSource.changes.collect { change ->
+                val packageName: String = when (change) {
+                    is ProfileChange.PackageAdded -> change.packageName
+                    is ProfileChange.PackageRemoved -> change.packageName
+                    is ProfileChange.PackageChanged -> change.packageName
+                    else -> return@collect
                 }
-                .collect { updateIconPacks() }
+                if (isIconPackChange(packageName = packageName)) {
+                    updateIconPacks()
+                }
+            }
         }
     }
+
+    // A removed icon pack is only in the cached list; an installed one is only in PackageManager.
+    private fun isIconPackChange(packageName: String): Boolean =
+        _iconPacks.value.any { pack -> pack is IconPack.CustomIconPack && pack.packageName == packageName } ||
+            iconPackIntents.any { intent ->
+                packageManager.queryIntentActivities(intent, 0).any { info -> info.activityInfo.packageName == packageName }
+            }
 
     suspend fun updateIconPacks() {
         // Present cached packs for quick loading
