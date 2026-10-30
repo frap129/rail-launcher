@@ -111,7 +111,6 @@ fun LauncherItem(
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isPaused: Boolean = item is App && item.isPaused
-    val showsFavoriteToggle: Boolean = isEditingFavorites
     val summaryDescription: String? = summary?.let { summaryText ->
         stringResource(R.string.folder_summary_description, item.name, summaryText)
     }
@@ -194,7 +193,7 @@ fun LauncherItem(
                     }
                 )
         ) {
-            if (showsFavoriteToggle) {
+            if (isEditingFavorites) {
                 FavoriteToggleStar(
                     isFavorite = isFavorite,
                     onClick = { currentItemActions.onToggleFavorite(currentItem) }
