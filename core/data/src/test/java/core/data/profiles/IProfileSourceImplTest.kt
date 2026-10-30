@@ -1,0 +1,347 @@
+package core.data.profiles
+
+import android.app.Application
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
+import android.content.pm.LauncherUserInfo
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.os.Looper
+import android.os.UserHandle
+import android.os.UserManager
+import app.cash.turbine.test
+import core.data.testing.PERSONAL_USER_ID
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_SDK
+import core.data.testing.TEST_SDK_36
+import core.data.testing.TimberLogRecorder
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createIntentSender
+import core.data.testing.createUserHandle
+import io.mockk.CapturingSlot
+import io.mockk.Runs
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+
+private const val OTHER_USER_ID: Int = 12
+private const val APP_PACKAGE_NAME: String = "com.example.app"
+private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
+
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
+class IProfileSourceImplTest {
+    private val application: Application = RuntimeEnvironment.getApplication()
+    private val personalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
+    private val workUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
+    private val privateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
+    private val otherUser: UserHandle = createUserHandle(userId = OTHER_USER_ID)
+
+    @Suppress("DEPRECATION")
+    @Test
+    fun `maps LauncherUserInfo types to ProfileKind`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, workUser, privateUser, otherUser)
+        every { mockLauncherApps.getLauncherUserInfo(any()) } answers {
+            launcherUserInfo(user = firstArg(), userType = userTypeFor(user = firstArg()))
+        }
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertEquals(
+            mapOf(
+                personalUser to ProfileKind.Personal,
+                workUser to ProfileKind.Work,
+                privateUser to ProfileKind.Private,
+                otherUser to ProfileKind.Other
+            ),
+            source.profiles.value.associate { profile -> profile.user to profile.kind }
+        )
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles and publishes a Profile the platform started reporting`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        assertEquals(listOf(personalUser), source.profiles.value.map { profile -> profile.user })
+
+        source.changes.test {
+            every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+            source.refreshProfiles()
+
+            assertEquals(listOf(personalUser, privateUser), source.profiles.value.map { profile -> profile.user })
+            assertEquals(ProfileChange.ProfileAdded(user = privateUser), awaitItem())
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles and publishes a Profile the platform stopped reporting`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        assertEquals(listOf(personalUser, privateUser), source.profiles.value.map { profile -> profile.user })
+
+        source.changes.test {
+            every { mockLauncherApps.profiles } returns listOf(personalUser)
+            source.refreshProfiles()
+
+            assertEquals(listOf(personalUser), source.profiles.value.map { profile -> profile.user })
+            assertEquals(ProfileChange.ProfileRemoved(user = privateUser), awaitItem())
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `publishes availability changes when the Private Space locks and unlocks on refresh`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        every { mockLauncherApps.getLauncherUserInfo(privateUser) } returns
+            launcherUserInfo(user = privateUser, userType = UserManager.USER_TYPE_PROFILE_PRIVATE)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val mockUserManager: UserManager = mockk(relaxed = true)
+        every { mockUserManager.isQuietModeEnabled(privateUser) } returns true
+        shadowOf(application).setSystemService(Context.USER_SERVICE, mockUserManager)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        source.changes.test {
+            every { mockUserManager.isQuietModeEnabled(privateUser) } returns false
+            source.refreshProfiles()
+            assertEquals(ProfileChange.ProfileAvailable(user = privateUser), awaitItem())
+
+            every { mockUserManager.isQuietModeEnabled(privateUser) } returns true
+            source.refreshProfiles()
+            assertEquals(ProfileChange.ProfileUnavailable(user = privateUser), awaitItem())
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `publishes no changes when the refreshed Profiles are unchanged`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, workUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        source.changes.test {
+            source.refreshProfiles()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles off the main thread`() = runTest {
+        val backgroundCallRecorder: BackgroundCallRecorder = BackgroundCallRecorder()
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } answers {
+            backgroundCallRecorder.record()
+            listOf(personalUser)
+        }
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        backgroundCallRecorder.reset()
+
+        source.refreshProfiles()
+
+        backgroundCallRecorder.assertOffMainThread()
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `reads the Private Space settings off the main thread`() = runTest {
+        val backgroundCallRecorder: BackgroundCallRecorder = BackgroundCallRecorder()
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser)
+        every { mockLauncherApps.privateSpaceSettingsIntent } answers {
+            backgroundCallRecorder.record()
+            createIntentSender(context = application)
+        }
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertNotNull(source.privateSpaceSettingsIntent())
+
+        backgroundCallRecorder.assertOffMainThread()
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `keeps the last Profiles when reading them fails`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), any()) } just Runs
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        val inputProfiles: List<ProfileInfo> = source.profiles.value
+
+        every { mockLauncherApps.profiles } throws IllegalStateException("Profiles unavailable")
+        callbackSlot.captured.onUserConfigChanged(mockk(relaxed = true))
+
+        assertEquals(inputProfiles, source.profiles.value)
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `reads the Private Space entrypoint flag again when the user config changes`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(privateUser)
+        every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), any()) } just Runs
+        val mockUserInfo: LauncherUserInfo = launcherUserInfo(user = privateUser, userType = UserManager.USER_TYPE_PROFILE_PRIVATE)
+        every { mockUserInfo.userConfig } returns entrypointConfig(hidden = false)
+        every { mockLauncherApps.getLauncherUserInfo(any()) } returns mockUserInfo
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertFalse(source.profiles.value.single().isEntrypointHidden)
+
+        every { mockUserInfo.userConfig } returns entrypointConfig(hidden = true)
+        callbackSlot.captured.onUserConfigChanged(mockUserInfo)
+
+        assertTrue(source.profiles.value.single().isEntrypointHidden)
+        assertNotNull(source.privateSpaceSettingsIntent())
+    }
+
+    @Test
+    fun `offers no Private Space settings below Android 16`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns emptyList<UserHandle>()
+        every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertNull(source.privateSpaceSettingsIntent())
+    }
+
+    @Test
+    fun `loads an activity icon for a non-personal Profile`() {
+        val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+        val expectedIcon: Drawable = ColorDrawable(Color.RED)
+        val mockActivityInfo: LauncherActivityInfo = mockk(relaxed = true)
+        every { mockActivityInfo.componentName } returns inputComponentName
+        every { mockActivityInfo.getIcon(any()) } returns expectedIcon
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getActivityList(APP_PACKAGE_NAME, workUser) } returns listOf(mockActivityInfo)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualIcon: Drawable? = source.activityIcon(componentName = inputComponentName, user = workUser)
+
+        assertEquals(expectedIcon, actualIcon)
+        verify(exactly = 1) { mockActivityInfo.getIcon(application.resources.displayMetrics.densityDpi) }
+    }
+
+    @Test
+    fun `loads an application icon for a non-personal Profile`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getApplicationInfo(APP_PACKAGE_NAME, 0, workUser) } returns application.applicationInfo
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualIcon: Drawable? = source.applicationIcon(packageName = APP_PACKAGE_NAME, user = workUser)
+
+        assertNotNull(actualIcon)
+        verify(exactly = 1) { mockLauncherApps.getApplicationInfo(APP_PACKAGE_NAME, 0, workUser) }
+    }
+
+    @Test
+    fun `logs activity failures without the App package or activity`() {
+        val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every {
+            mockLauncherApps.getActivityList(APP_PACKAGE_NAME, workUser)
+        } throws PackageManager.NameNotFoundException(APP_PACKAGE_NAME)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.record {
+            assertNull(source.activityIcon(componentName = inputComponentName, user = workUser))
+            assertTrue(source.activities(packageName = APP_PACKAGE_NAME, user = workUser).isEmpty())
+        }
+
+        logRecorder.assertLoggedWithout(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+    }
+
+    @Test
+    fun `maps the quiet request outcomes`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(workUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val mockUserManager: UserManager = mockk(relaxed = true)
+        shadowOf(application).setSystemService(Context.USER_SERVICE, mockUserManager)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } returns true
+        assertEquals(QuietRequestResult.Changed, source.requestQuiet(user = workUser, quiet = true))
+
+        every { mockUserManager.requestQuietModeEnabled(false, workUser) } returns false
+        assertEquals(QuietRequestResult.AwaitingCredential, source.requestQuiet(user = workUser, quiet = false))
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } throws SecurityException()
+        assertEquals(QuietRequestResult.Failed, source.requestQuiet(user = workUser, quiet = true))
+
+        every { mockUserManager.requestQuietModeEnabled(true, workUser) } throws IllegalArgumentException()
+        assertEquals(QuietRequestResult.Failed, source.requestQuiet(user = workUser, quiet = true))
+    }
+
+    private fun launcherUserInfo(user: UserHandle, userType: String): LauncherUserInfo {
+        val mockUserInfo: LauncherUserInfo = mockk(relaxed = true)
+        every { mockUserInfo.userType } returns userType
+        return mockUserInfo
+    }
+
+    private fun entrypointConfig(hidden: Boolean): Bundle = Bundle().apply {
+        putBoolean(LauncherUserInfo.PRIVATE_SPACE_ENTRYPOINT_HIDDEN, hidden)
+    }
+
+    private fun userTypeFor(user: UserHandle): String = when (user) {
+        workUser -> UserManager.USER_TYPE_PROFILE_MANAGED
+        privateUser -> UserManager.USER_TYPE_PROFILE_PRIVATE
+        else -> UserManager.USER_TYPE_PROFILE_CLONE
+    }
+}
+
+private class BackgroundCallRecorder {
+    private var isMainThread: Boolean = true
+
+    fun record() {
+        isMainThread = Looper.myLooper() == Looper.getMainLooper()
+    }
+
+    fun reset() {
+        isMainThread = true
+    }
+
+    fun assertOffMainThread() {
+        assertFalse(isMainThread)
+    }
+}

@@ -43,7 +43,7 @@ fun CheckboxLaunchableRow(launchable: Launchable, isChecked: Boolean, onCheckedC
         AsyncImage(
             modifier = Modifier.size(checkboxRowIconSize),
             model = launchable.icon,
-            contentDescription = null
+            contentDescription = launchable.accessibilityName
         )
         Spacer(Modifier.width(checkboxRowIconGap))
         Text(

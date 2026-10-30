@@ -1,5 +1,6 @@
 package feature.settings
 
+import android.content.ComponentName
 import app.cash.turbine.test
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
@@ -20,8 +21,13 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
+import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.testing.MainDispatcherRule
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_SDK
 import core.data.testing.WidgetAreaRepositoryState
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createCalendarEventSourceMock
 import core.data.testing.createClockSourceMock
@@ -30,6 +36,7 @@ import core.data.testing.createHeaderSettingsActions
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createMediaSessionSourceMock
+import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createRemoveAppWidgetMock
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -64,8 +71,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class WidgetSettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
@@ -402,6 +414,47 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
+    fun `lists private Apps in the tap action picker only while the Private Space is Unlocked`() = runTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp = createApp(
+            name = "Secret",
+            packageName = "com.example.secret",
+            profileInfo = inputPrivateProfile
+        )
+        val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(
+                groups = listOf(
+                    LaunchableGroup.Star,
+                    LaunchableGroup.Builtin(items = emptyList()),
+                    LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+                )
+            )
+        )
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
+        )
+
+        viewModel.tapActionPicker.test {
+            assertNull(awaitItem())
+            viewModel.openTapActionPicker(HeaderTapTargetPart.Time)
+            val actualUnlocked: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertEquals(listOf("Secret"), actualUnlocked.launchables.map { row -> row.name })
+
+            inputLaunchableState.value = createLaunchableState(
+                groups = listOf(
+                    LaunchableGroup.Star,
+                    LaunchableGroup.Builtin(items = emptyList()),
+                    LaunchableGroup.PrivateSpace.Locked
+                ),
+                keptKeys = setOf(inputPrivateProfile.user.toProfileToken())
+            )
+            val actualLocked: TapActionPickerState = awaitItem() ?: error("Expected a picker state")
+            assertTrue(actualLocked.launchables.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `saves a tap action immediately and closes the picker`() = runTest {
         val inputHeaderSettings: MutableStateFlow<HeaderSettings> = MutableStateFlow(HeaderSettings())
         val mockSettingsRepository: IWidgetSettingsRepository =
@@ -653,6 +706,24 @@ class WidgetSettingsViewModelTest {
         assertTrue(actualSorted.first().isExcluded)
         val actualFiltered: List<ExcludableApp> = filterExcludableApps(apps = inputApps, query = "ma")
         assertEquals(listOf("Maps"), actualFiltered.map { app -> app.label })
+    }
+
+    @Test
+    fun `offers one Media Player exclusion per package`() {
+        val inputApp = createApp(name = "Music", packageName = "com.example.music")
+        val inputOtherActivity = inputApp.copy(
+            componentName = ComponentName(inputApp.packageName, "${inputApp.packageName}.OtherActivity"),
+            isPackageRepresentative = false
+        )
+
+        val actualApps: List<ExcludableApp> = excludableApps(
+            launchables = listOf(inputApp, inputOtherActivity),
+            excludedPackages = emptySet(),
+            query = ""
+        )
+
+        assertEquals(listOf("com.example.music"), actualApps.map { app -> app.packageName })
+        assertEquals("Music", actualApps.single().label)
     }
 
     @Test

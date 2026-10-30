@@ -13,6 +13,8 @@ import core.data.launchables.model.RailLaunchable
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.ProfileKind
+import core.data.profiles.ProfileToken
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
@@ -20,6 +22,7 @@ import core.data.shortcuts.ShortcutsResult
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PopupRepositoryState
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
+import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
@@ -27,6 +30,7 @@ import core.data.testing.createLaunchableState
 import core.data.testing.createNotificationProfile
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createProfileInfo
 import core.data.testing.createShortcutSourceMock
 import core.data.widgets.AppWidgetId
 import core.ui.layout.HomeEditState
@@ -45,7 +49,12 @@ abstract class PopupTestBase {
     protected val profile: UserHandle = createNotificationProfile()
     protected val inputApp: App = createApp(name = "Example", packageName = TEST_NOTIFICATION_PACKAGE_NAME)
     protected val inputOtherApp: App = createApp(name = "Other", packageName = "com.example.other")
-    protected val inputPausedApp: App = createApp(name = "Paused", packageName = "com.example.paused")
+    protected val inputPausedApp: App = createApp(
+        name = "Paused",
+        packageName = "com.example.paused",
+        profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
+        badgedLabel = "Work Paused"
+    )
     protected val inputRailLaunchable: RailLaunchable = RailLaunchable(
         defaultName = "Rail Settings",
         defaultIcon = Icon.RailIcon(resId = 0),
@@ -99,8 +108,8 @@ abstract class PopupTestBase {
     protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     protected val inputHomeEditState: HomeEditState = HomeEditState()
 
-    protected fun setLaunchableGroups(groups: List<LaunchableGroup>) {
-        launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder))
+    protected fun setLaunchableGroups(groups: List<LaunchableGroup>, keptKeys: Set<ProfileToken> = emptySet()) {
+        launchableState.value = createLaunchableState(groups = groups, folders = listOf(inputFolder), keptKeys = keptKeys)
     }
 
     protected fun setFolders(inputFolders: List<Folder>) {

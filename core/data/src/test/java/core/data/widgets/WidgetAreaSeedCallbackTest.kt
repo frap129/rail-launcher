@@ -7,6 +7,7 @@ import core.data.room.AppDatabase
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createLaunchableRepositoryMock
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -49,7 +50,12 @@ class WidgetAreaSeedCallbackTest : InMemoryDatabaseTest() {
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
-        val actualPlaces: List<WidgetPlace> = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler).places.first()
+        val actualPlaces: List<WidgetPlace> = IWidgetAreaRepositoryImpl(
+            widgetAreaDao = dao,
+            appWidgetHost = mockHost,
+            lifecycleReconciler = reconciler,
+            launchableRepository = createLaunchableRepositoryMock()
+        ).places.first()
         assertEquals(1, actualPlaces.size)
         val actualWidgets: List<PlacedWidget> = actualPlaces.single().widgets
         assertEquals(1, actualWidgets.size)

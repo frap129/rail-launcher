@@ -31,14 +31,7 @@ private const val SECOND_PACKAGE_NAME: String = "com.example.second"
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class PopupContentResolverTest {
     private val profile: UserHandle = createNotificationProfile()
-    private val inputApp: App = App(
-        defaultName = OWNER_NAME,
-        profile = profile,
-        componentName = ComponentName(
-            TEST_NOTIFICATION_PACKAGE_NAME,
-            "$TEST_NOTIFICATION_PACKAGE_NAME.MainActivity"
-        )
-    )
+    private val inputApp: App = createApp(name = OWNER_NAME, packageName = TEST_NOTIFICATION_PACKAGE_NAME)
     private val inputOwner: RailLaunchable = RailLaunchable(
         defaultName = OWNER_NAME,
         defaultIcon = Icon.RailIcon(resId = 0),
@@ -244,6 +237,25 @@ class PopupContentResolverTest {
         assertEquals(listOf(inputOwnNotification), actualContent.ownerNotifications)
         assertEquals(listOf(inputFirstShortcut), actualContent.shortcuts)
         assertEquals(PopupEmptyReason.None, actualContent.emptyReason)
+    }
+
+    @Test
+    fun `a non-representative App row shows no package notifications`() {
+        val inputOtherActivity: App = inputApp.copy(
+            componentName = ComponentName(inputApp.packageName, "${inputApp.packageName}.OtherActivity"),
+            isPackageRepresentative = false
+        )
+
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputOtherActivity,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList(),
+            notifications = listOf(createNotificationSnapshot())
+        )
+
+        assertEquals(emptyList<NotificationSnapshot>(), actualContent.ownerNotifications)
+        assertEquals(PopupEmptyReason.Empty, actualContent.emptyReason)
     }
 
     @Test

@@ -2,6 +2,7 @@ package core.data.shortcuts
 
 import android.os.UserHandle
 import core.data.testing.TEST_SDK
+import core.data.testing.createUserHandle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,12 +13,11 @@ import org.robolectric.annotation.Config
 private const val PACKAGE_NAME: String = "com.example.app"
 private const val SHORTCUT_ID: String = "compose/message_new_topic:now_日本語"
 private const val SECOND_USER_ID: Int = 10
-private const val USER_ID_OFFSET: Int = 100_000
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class ShortcutKeyTest {
-    private val inputProfile: UserHandle = UserHandle.getUserHandleForUid(SECOND_USER_ID * USER_ID_OFFSET)
+    private val inputProfile: UserHandle = createUserHandle(userId = SECOND_USER_ID)
 
     @Test
     fun `round-trips an id with a slash, underscore, colon and non-ASCII characters`() {

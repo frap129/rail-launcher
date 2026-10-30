@@ -1,9 +1,13 @@
 package core.data.widgets
 
 import app.cash.turbine.test
+import core.data.apps.model.App
+import core.data.launchables.ILaunchableRepository
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createLaunchableRepositoryMock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -253,7 +257,12 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(42))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
-        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(
+            widgetAreaDao = dao,
+            appWidgetHost = mockHost,
+            lifecycleReconciler = reconciler,
+            launchableRepository = createLaunchableRepositoryMock()
+        )
         repository.places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
             reconciler.reconcileAtStartup(pendingIds = emptySet())
@@ -709,6 +718,44 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `popupPlace resolves a place stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = inputLegacyKey)),
+            widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        )
+
+        val actualPlace: WidgetPlace? = repository(
+            dao = dao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        ).popupPlace(ownerKey = inputApp.key).first()
+
+        assertEquals(2L, actualPlace?.id)
+        assertEquals(200, (actualPlace?.widgets?.single() as PlacedWidget.AppWidget).appWidgetId)
+    }
+
+    @Test
+    fun `removeOwnerPlaces removes a place stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = inputLegacyKey)),
+            widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
+        )
+
+        val actualFreedIds: List<AppWidgetId> = repository(
+            dao = dao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        ).removeOwnerPlaces(ownerKey = inputApp.key)
+
+        assertEquals(listOf(AppWidgetId(200)), actualFreedIds)
+        assertTrue(dao.observePopupOwnerKeys().first().isEmpty())
+    }
+
+    @Test
     fun `addAppWidget with an owner key creates and fills its Pop-up place`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea()
@@ -816,7 +863,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     private suspend fun repository(
         dao: WidgetAreaDao,
         availabilityProvider: (AppWidgetId) -> WidgetAvailability = { WidgetAvailability.Available },
-        providerChangesFlow: Flow<Unit> = emptyFlow()
+        providerChangesFlow: Flow<Unit> = emptyFlow(),
+        mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock()
     ): IWidgetAreaRepositoryImpl {
         val boundIds: Set<AppWidgetId> = dao.boundAppWidgetIds()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
@@ -826,7 +874,12 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
         reconciler.reconcileAtStartup(pendingIds = emptySet())
-        return IWidgetAreaRepositoryImpl(dao, mockHost, reconciler)
+        return IWidgetAreaRepositoryImpl(
+            widgetAreaDao = dao,
+            appWidgetHost = mockHost,
+            lifecycleReconciler = reconciler,
+            launchableRepository = mockLaunchableRepository
+        )
     }
 
     private suspend fun WidgetAreaDao.boundAppWidgetIds(): Set<AppWidgetId> =

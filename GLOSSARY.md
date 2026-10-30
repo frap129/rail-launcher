@@ -8,6 +8,66 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink, or a Folder).
 _Avoid_: App (when meaning any launchable), item, entry
 
+**App key**:
+The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.
+_Avoid_: Component key, activity key, package key
+
+**Legacy App key**:
+An App key stored before Apps were keyed per activity: a package name and Profile. It resolves to the Package representative and is rewritten on upgrade.
+_Avoid_: Old key, package key
+
+**Package representative**:
+The App whose launcher activity is the alphabetically first in its package and Profile. It owns the package's Shortcuts and notifications, and a Legacy App key resolves to it.
+_Avoid_: Main app, primary activity
+
+**Profile**:
+The personal, work or Private Space profile an App belongs to. Every App belongs to exactly one Profile.
+_Avoid_: User, space, account
+
+**Profile token**:
+The stored text form of a Profile's user handle, appended to a Launchable key and embedded in a Shortcut key.
+_Avoid_: User id, profile suffix
+
+**Profile badge**:
+The system-drawn badge on the icon of an App or App Widget that belongs to a non-personal Profile.
+_Avoid_: Work badge (when meaning any Profile's badge), Rail badge
+
+**Work profile**:
+The managed Profile a device administrator controls, separate from the personal Profile.
+_Avoid_: Work user, work space, managed profile
+
+**Paused**:
+A Work profile in quiet mode: its Apps stay in place but are greyed out, and tapping one offers to turn work apps on.
+_Avoid_: Off, disabled, stopped
+
+**Private Space**:
+The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
+_Avoid_: Private profile, vault, space
+
+**Locked**:
+A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
+_Avoid_: Off, closed, disabled
+
+**Lock requested**:
+A Private Space that Rail has asked the system to Lock, before the system confirms; Rail treats it as Locked until the request settles.
+_Avoid_: Pending lock, locking
+
+**Hidden Private Space**:
+A Private Space whose container Rail leaves out of the App List and Rail because it is Locked, or a Lock is requested, and the Rail Settings switch or the system's "Hide private space" setting hides it; Unlocking shows it again.
+_Avoid_: Invisible space, hidden profile
+
+**Kept key**:
+The key of a Launchable or Shortcut that belongs to a Locked Profile Rail still sees, or to a Private Space that has Unlocked but not listed its Apps yet. Stale-key cleanup keeps it until the Profile lists its Apps or is removed, and resolution hides it meanwhile.
+_Avoid_: Retained key, stale key
+
+**Restored key**:
+A key read from a database that Android cloud backup or device transfer restored. It resolves when its Profile token still matches a current Profile and its Launchable or Shortcut is still available; otherwise stale-key cleanup removes it, except for a Kept key, which survives until its Profile lists its Apps or is removed.
+_Avoid_: Backup key, old key
+
+**private App**:
+An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.
+_Avoid_: Private profile app, vault app
+
 **Folder**:
 A Launchable that only opens a Pop-up listing the Launchables the user put in it.
 _Avoid_: Group, category, pop-up folder
@@ -77,11 +137,15 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
-The launcher state showing every Launchable grouped alphabetically. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder.
+The launcher state showing every Launchable grouped alphabetically, then the Private Space group last. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
+**Group mark**:
+What a group shows on the Rail and above its App List section: its text label or, for Private Space, a shield.
+_Avoid_: Glyph, icon (when meaning a mark)
+
 **Rail**:
-The index of labels along the screen edge used to jump through the App List; touching it from Home opens the App List. Its labels are the Star, which stands for Home, the letter groups and the Builtin group.
+The index of marks along the screen edge used to jump through the App List; touching it from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last.
 _Avoid_: Scroll bar, alphabet, wave
 
 **Widget**:

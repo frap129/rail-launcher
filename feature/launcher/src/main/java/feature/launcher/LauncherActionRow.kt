@@ -11,34 +11,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Plus
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import core.ui.composables.OutlinedText
+import core.ui.composables.launchableIconSize
 import core.ui.layout.compactIconSize
 
-private val newFolderRowHeight: Dp = 64.dp
-
-/** The "New Folder" row shared by the Favorites editor and the Add to Folder sheet. */
+/** A full-width launcher action row with a leading icon and a label. */
 @Composable
-fun NewFolderRow(label: String, onClick: () -> Unit) {
+internal fun LauncherActionRow(imageVector: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = newFolderRowHeight)
-            .clickable(onClick = onClick)
+            .heightIn(min = launchableIconSize)
+            .clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(newFolderRowHeight),
+            modifier = Modifier.size(launchableIconSize),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = FontAwesomeIcons.Solid.Plus,
-                contentDescription = null,
                 modifier = Modifier.size(compactIconSize),
+                imageVector = imageVector,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

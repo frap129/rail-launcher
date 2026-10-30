@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import compose.icons.FontAwesomeIcons
+import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Plus
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.ui.R as CoreUiR
@@ -64,7 +67,8 @@ fun AddToFolderSheet(
                         minHeight = folderRowMinHeight
                     )
                 }
-                NewFolderRow(
+                LauncherActionRow(
+                    imageVector = FontAwesomeIcons.Solid.Plus,
                     label = stringResource(CoreUiR.string.new_folder),
                     onClick = { isNamingFolder = true }
                 )

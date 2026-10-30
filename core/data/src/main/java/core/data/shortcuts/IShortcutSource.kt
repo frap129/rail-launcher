@@ -21,14 +21,14 @@ sealed interface ShortcutsResult {
     data object ProfilePaused : ShortcutsResult
 }
 
-/** Every App and what its shortcuts currently look like. */
+/** A package representative and what its Shortcuts currently look like. */
 data class AppShortcuts(val app: App, val result: ShortcutsResult)
 
 /** A live source of the shortcuts published by an app in one user profile. */
 interface IShortcutSource {
     fun shortcuts(packageName: String, profile: UserHandle): Flow<ShortcutsResult>
 
-    /** Every App in the launchable list with its shortcuts. Only queries while collected. */
+    /** Every package representative in the launchable list with its Shortcuts. Only queries while collected. */
     fun appsWithShortcuts(): Flow<List<AppShortcuts>>
 
     /**

@@ -1,6 +1,9 @@
 package feature.launcher
 
+import android.app.ActivityOptions
 import android.content.Context
+import android.content.IntentSender
+import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -40,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.ScrollRail
@@ -51,6 +55,7 @@ import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import feature.launcher.widgets.rememberWidgetAreaUi
+import timber.log.Timber
 
 private val doneButtonPadding: Dp = 24.dp
 private val contentHorizontalPadding: Dp = 32.dp
@@ -82,15 +87,23 @@ internal fun LauncherContent(
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
+    val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions =
-        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds) {
+        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
                 onItemLaunch = onItemLaunch,
                 onItemLongPress = viewModel::openItemMenu,
                 onToggleFavorite = viewModel::toggleFavorite,
                 onItemOpenPopup = onItemOpenPopup,
                 onItemAnchorChanged = onItemAnchorChanged,
+                privateSpaceActions = PrivateSpaceActions(
+                    onUnlock = viewModel::requestPrivateSpaceUnlock,
+                    onLock = viewModel::lockPrivateSpace,
+                    onSettings = privateSpaceSettingsIntent?.let { intentSender ->
+                        { context.openPrivateSpaceSettings(intentSender) }
+                    }
+                ),
                 railBounds = { railBounds.current }
             )
         }
@@ -241,10 +254,10 @@ internal fun BoxScope.LauncherRail(
     onRailTouched: () -> Unit,
     enabled: Boolean = true
 ) {
-    val railLabels: List<String> by viewModel.railLabels.collectAsState()
+    val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railGesture: RailGesture = remember { RailGesture() }
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
-    LaunchedEffect(railLabels.size, enabled) {
+    LaunchedEffect(railItems.size, enabled) {
         railGesture.reset()
     }
     ScrollRail(
@@ -254,7 +267,7 @@ internal fun BoxScope.LauncherRail(
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
             .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) },
-        items = railLabels,
+        items = railItems,
         onScroll = { index ->
             if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
                 viewModel.onRailPreview(index)
@@ -293,4 +306,23 @@ internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetVie
             Text(stringResource(CoreUiR.string.done))
         }
     }
+}
+
+/**
+ * Activity options for opening the system's Private Space settings, which only Android 16 offers.
+ * [ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE] is the least permissive mode
+ * that still lets the visible launcher start the screen behind the system's IntentSender.
+ */
+internal fun privateSpaceSettingsOptions(): ActivityOptions? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+    ActivityOptions.makeBasic()
+        .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE)
+} else {
+    null
+}
+
+/** Opens the system's Private Space settings screen, logging when the system no longer offers it. */
+private fun Context.openPrivateSpaceSettings(intentSender: IntentSender) {
+    runCatching {
+        startIntentSender(intentSender, null, 0, 0, 0, privateSpaceSettingsOptions()?.toBundle())
+    }.onFailure { exception -> Timber.w(exception, "Could not open the Private Space settings") }
 }

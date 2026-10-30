@@ -1,5 +1,7 @@
 package core.data.widgets
 
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.storedKeys
 import core.data.room.dao.WidgetAreaDao
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +15,8 @@ import kotlinx.coroutines.flow.onStart
 class IWidgetAreaRepositoryImpl(
     private val widgetAreaDao: WidgetAreaDao,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val lifecycleReconciler: IWidgetLifecycleReconciler
+    private val lifecycleReconciler: IWidgetLifecycleReconciler,
+    private val launchableRepository: ILaunchableRepository
 ) : IWidgetAreaRepository {
     override val places: Flow<List<WidgetPlace>> = placesFor(ownerKey = null)
 
@@ -25,12 +28,18 @@ class IWidgetAreaRepositoryImpl(
         widgetAreaDao.observePlaces(),
         widgetAreaDao.observeWidgets(),
         appWidgetHost.providerChanges.onStart { emit(Unit) },
-        lifecycleReconciler.isStartupReconciled
-    ) { places, widgets, _, startupReconciled ->
+        lifecycleReconciler.isStartupReconciled,
+        launchableRepository.launchableState
+    ) { places, widgets, _, startupReconciled, launchableState ->
         if (!startupReconciled) {
             emptyList()
         } else {
-            val ownedPlaces: List<WidgetPlaceRecord> = places.filter { place -> place.ownerKey == ownerKey }
+            val ownedPlaces: List<WidgetPlaceRecord> = if (ownerKey == null) {
+                places.filter { place -> place.ownerKey == null }
+            } else {
+                val ownerKeys: List<String> = launchableState.storedKeys(key = ownerKey)
+                places.filter { place -> place.ownerKey in ownerKeys }
+            }
             val ownedPlaceIds: Set<Long> = ownedPlaces.mapTo(mutableSetOf()) { place -> place.id }
             val ownedWidgets: List<WidgetRecord> = widgets.filter { widget -> widget.placeId in ownedPlaceIds }
             val resolution: WidgetAreaResolution = resolveWidgetArea(ownedPlaces, ownedWidgets) { widget ->
@@ -233,8 +242,10 @@ class IWidgetAreaRepositoryImpl(
     }
 
     private suspend fun addOwnedAppWidget(ownerKey: String, request: AddAppWidget): AddedAppWidget {
-        val placeId: Long = widgetAreaDao.getPlaceForOwner(ownerKey)?.id
-            ?: widgetAreaDao.insertPlace(WidgetPlaceRecord(position = 0, ownerKey = ownerKey))
+        val ownerKeys: List<String> = launchableRepository.launchableState.value.storedKeys(key = ownerKey)
+        val existingPlace: WidgetPlaceRecord? = ownerKeys
+            .firstNotNullOfOrNull { storedOwnerKey -> widgetAreaDao.getPlaceForOwner(storedOwnerKey) }
+        val placeId: Long = existingPlace?.id ?: widgetAreaDao.insertPlace(WidgetPlaceRecord(position = 0, ownerKey = ownerKey))
         val pagePosition: Int = widgetAreaDao.getWidgetsForPlace(placeId).size
         val widgetId: Long = insertAppWidget(placeId = placeId, pagePosition = pagePosition, request = request)
         widgetAreaDao.setCurrentPage(placeId = placeId, page = pagePosition)
@@ -261,12 +272,13 @@ class IWidgetAreaRepositoryImpl(
     }
 
     override suspend fun removeOwnerPlaces(ownerKey: String): List<AppWidgetId> = widgetAreaDao.inTransaction {
-        val placeIds: List<Long> = widgetAreaDao.placeIdsForOwner(ownerKey)
+        val ownerKeys: List<String> = launchableRepository.launchableState.value.storedKeys(key = ownerKey)
+        val placeIds: List<Long> = ownerKeys.flatMap { storedOwnerKey -> widgetAreaDao.placeIdsForOwner(storedOwnerKey) }
         if (placeIds.isEmpty()) {
             return@inTransaction emptyList()
         }
         val freedIds: List<AppWidgetId> = widgetAreaDao.appWidgetIdsForPlaces(placeIds).map(::AppWidgetId)
-        widgetAreaDao.deletePlacesForOwner(ownerKey)
+        ownerKeys.forEach { storedOwnerKey -> widgetAreaDao.deletePlacesForOwner(storedOwnerKey) }
         freedIds
     }
 

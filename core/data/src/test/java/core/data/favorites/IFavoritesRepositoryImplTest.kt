@@ -1,19 +1,30 @@
 package core.data.favorites
 
+import android.content.ComponentName
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
+import core.data.profiles.ProfileKind
+import core.data.profiles.ProfileToken
+import core.data.profiles.toProfileToken
 import core.data.room.dao.FavoriteDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.PRIVATE_PACKAGE_NAME
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.SECOND_POSITION
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
+import core.data.testing.createProfileInfo
 import core.data.testing.failOnRequest
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -39,7 +50,6 @@ import org.junit.Test
 
 private const val DEFAULT_RES_ID: Int = 0
 private const val STALE_KEY: String = "com.example.stale"
-private const val SECOND_POSITION: Int = 1
 private const val RESOLUTION_TIMEOUT_MS: Long = 500L
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 
@@ -117,6 +127,134 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         launchableState.value = createLaunchableState(groups = emptyList())
 
         assertNoFavorites()
+    }
+
+    @Test
+    fun `keeps a Favorite App whose Profile is paused`() = databaseTest {
+        val inputPausedApp: App = createApp(
+            name = "Gmail",
+            packageName = "com.example.gmail",
+            profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        )
+        seedFavorite(key = inputPausedApp.key, position = FIRST_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPausedApp))
+        )
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputPausedApp))
+    }
+
+    @Test
+    fun `resolves a Favorite stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputApp))
+    }
+
+    @Test
+    fun `removes the Legacy and current keys of a Favorite together`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
+        seedFavorite(key = inputApp.key, position = SECOND_POSITION)
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        repository.remove(inputApp)
+
+        assertNoFavorites()
+    }
+
+    @Test
+    fun `hides a Favorite of a Locked Profile and restores it in place`() = databaseTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = "com.example.secret",
+            profileInfo = inputPrivateProfile
+        ).copy(
+            componentName = ComponentName("com.example.secret", "com.example.secret.OtherActivity"),
+            isPackageRepresentative = false
+        )
+        val inputOtherLaunchable: Launchable = createLaunchable(name = "Other")
+        seedFavorite(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputOtherLaunchable.key, position = SECOND_POSITION)
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputOtherLaunchable), keptKeys = inputKeptKeys)
+        )
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputOtherLaunchable))
+        assertEquals(
+            listOf(
+                FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION),
+                FavoriteRecord(key = inputOtherLaunchable.key, position = SECOND_POSITION)
+            ),
+            favoriteRecords()
+        )
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputPrivateApp, inputOtherLaunchable))
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputPrivateApp, inputOtherLaunchable))
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOtherLaunchable), keptKeys = inputKeptKeys)
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputOtherLaunchable))
+
+        launchableState.value = createLaunchableState(groups = emptyList())
+
+        assertNoFavorites()
+    }
+
+    @Test
+    fun `reorders the visible Favorites around a kept one while Locked`() = databaseTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputFirst: Launchable = createLaunchable(name = "First")
+        val inputSecond: Launchable = createLaunchable(name = "Second")
+        seedFavorite(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFirst.key, position = SECOND_POSITION)
+        seedFavorite(key = inputSecond.key, position = 2)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(
+                launchables = listOf(inputFirst, inputSecond),
+                keptKeys = setOf(inputPrivateProfile.user.toProfileToken())
+            )
+        )
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        repository.reorder(favorites = listOf(inputSecond, inputFirst))
+
+        assertEquals(
+            listOf(
+                FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION),
+                FavoriteRecord(key = inputSecond.key, position = SECOND_POSITION),
+                FavoriteRecord(key = inputFirst.key, position = 2)
+            ),
+            favoriteRecords().sortedBy { record -> record.position }
+        )
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputPrivateApp, inputFirst, inputSecond))
+
+        assertResolvedFavorites(repository = repository, expected = listOf(inputPrivateApp, inputSecond, inputFirst))
     }
 
     @Test

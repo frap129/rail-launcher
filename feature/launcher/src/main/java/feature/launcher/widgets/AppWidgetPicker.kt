@@ -25,12 +25,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import core.data.profiles.IProfileSource
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
 import core.ui.layout.compactIconSize
+import org.koin.compose.koinInject
+
+private val profileBadgeSize: Dp = 18.dp
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,15 +128,12 @@ private fun PickerGroupHeader(group: PickerGroup) {
 @Composable
 private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderInfo) -> Unit) {
     val context = LocalContext.current
+    val profileSource: IProfileSource = koinInject()
     val preview: Drawable? by produceState<Drawable?>(initialValue = null, widget) {
-        value = AppWidgetViews.loadPreview(context = context, info = widget)
+        value = AppWidgetViews.loadPreview(context = context, info = widget, profileSource = profileSource)
     }
-    val workBadge: Drawable? by produceState<Drawable?>(initialValue = null, widget) {
-        value = if (widget.isWorkProfile) {
-            AppWidgetViews.loadWorkBadge(context = context, profileSerial = widget.profileSerial)
-        } else {
-            null
-        }
+    val profileBadge: Drawable? by produceState<Drawable?>(initialValue = null, widget.profileSerial) {
+        value = AppWidgetViews.loadProfileBadge(context = context, profileSerial = widget.profileSerial, profileSource = profileSource)
     }
     Row(
         modifier = Modifier
@@ -146,11 +148,11 @@ private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderI
                 contentDescription = stringResource(CoreUiR.string.widget_preview, widget.label),
                 modifier = Modifier.size(56.dp)
             )
-            if (workBadge != null) {
+            if (preview != null && profileBadge != null) {
                 AsyncImage(
-                    model = workBadge,
+                    model = profileBadge,
                     contentDescription = null,
-                    modifier = Modifier.align(Alignment.BottomEnd).size(18.dp)
+                    modifier = Modifier.align(Alignment.BottomEnd).size(profileBadgeSize)
                 )
             }
         }

@@ -2,6 +2,7 @@ package core.data.prefs
 
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
+import core.data.launchables.storedKeys
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
 import kotlinx.coroutines.CoroutineScope
@@ -24,18 +25,33 @@ class IPreferencesRepositoryImpl(
         }
         scope.launch(Dispatchers.IO) {
             launchableCustomizationDao.setName(key = item.key, name = name)
+            launchableCustomizationDao.delete(keys = item.storedKeys().filterNot { key -> key == item.key })
         }
     }
 
     override fun resetItemName(item: Launchable) {
         scope.launch(Dispatchers.IO) {
-            launchableCustomizationDao.delete(key = item.key)
+            launchableCustomizationDao.delete(keys = item.storedKeys())
         }
+    }
+
+    override suspend fun removeLaunchableNames(keys: List<String>) {
+        if (keys.isEmpty()) {
+            return
+        }
+        launchableCustomizationDao.delete(keys = keys)
     }
 
     override fun setIconPack(iconPack: IconPack) {
         scope.launch(Dispatchers.IO) {
-            settingsDao.upsert(Settings(iconPack = (iconPack as? IconPack.CustomIconPack)?.packageName))
+            val packageName: String? = (iconPack as? IconPack.CustomIconPack)?.packageName
+            settingsDao.update { settings -> settings.copy(iconPack = packageName) }
+        }
+    }
+
+    override fun setHidePrivateSpaceWhenLocked(hide: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            settingsDao.update { settings -> settings.copy(hidePrivateSpaceWhenLocked = hide) }
         }
     }
 }

@@ -29,6 +29,8 @@ import core.data.icons.IconFetcher
 import core.data.icons.IconKeyer
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
+import core.data.launchables.ILegacyAppKeyUpgrader
+import core.data.launchables.ILegacyAppKeyUpgraderImpl
 import core.data.media.IMediaSessionSource
 import core.data.media.IMediaSessionSourceImpl
 import core.data.media.MediaArtworkFetcher
@@ -42,8 +44,13 @@ import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
+import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceLockImpl
+import core.data.profiles.IProfileSource
+import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
 import core.data.room.MIGRATION_11_12
+import core.data.room.MIGRATION_12_13
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -151,7 +158,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(MIGRATION_11_12)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
@@ -195,15 +202,20 @@ class MainApplication :
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
-        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IProfileSource> { IProfileSourceImpl(androidContext()) }
+        single<IPrivateSpaceLock> { IPrivateSpaceLockImpl(profileSource = get(), scope = get(named(APP_SCOPE_QUALIFIER))) }
+        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<ILaunchableRepository> { ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ILegacyAppKeyUpgrader> { ILegacyAppKeyUpgraderImpl(get(), get(), get(), get(), get()) }
+        single<ILaunchableRepository> {
+            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
-        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
+        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }
         single<IMediaSessionSource> {
@@ -227,11 +239,11 @@ class MainApplication :
         single<AppWidgetResults> { AppWidgetResults() }
         single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
         single<IWidgetLifecycleReconciler> { IWidgetLifecycleReconcilerImpl(get(), get()) }
-        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get()) }
+        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get(), get()) }
         single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
         single<IRemoveOwnerWidgets> { IRemoveOwnerWidgetsImpl(get(), get()) }
-        single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext()) }
+        single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext(), get()) }
         factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
@@ -311,7 +323,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(
@@ -333,7 +345,7 @@ class MainApplication :
                 collaborators = get { parametersOf(session) }
             )
         }
-        viewModel { SettingsViewModel(get(), get()) }
+        viewModel { SettingsViewModel(get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             PopupSettingsViewModel(
                 folderRepository = get(),
@@ -457,7 +469,7 @@ class MainApplication :
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(context)
         .components {
             add(IconKeyer())
-            add(IconFetcher.Factory())
+            add(IconFetcher.Factory(profileSource = get()))
             add(MediaArtworkKeyer())
             add(MediaArtworkFetcher.Factory(store = get()))
         }

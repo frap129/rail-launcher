@@ -103,7 +103,13 @@ fun LauncherItemGroup(
     folderSummaries: Map<String, String> = emptyMap()
 ) {
     Column(modifier = modifier) {
-        LaunchableGroupHeader(label = group.label)
+        LaunchableGroupHeader(group = group)
+        if (group is LaunchableGroup.PrivateSpace) {
+            PrivateSpaceRow(
+                isLocked = group.isLocked,
+                onUnlock = itemActions.privateSpaceActions.onUnlock
+            )
+        }
         group.items.forEach { item ->
             LauncherItem(
                 item = item,
@@ -113,6 +119,9 @@ fun LauncherItemGroup(
                 itemActions = itemActions,
                 summary = folderSummaries[item.key]
             )
+        }
+        if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
+            PrivateSpaceActionRows(actions = itemActions.privateSpaceActions)
         }
     }
 }

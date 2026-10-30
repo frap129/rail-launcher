@@ -7,17 +7,18 @@ import core.data.launchables.model.RailLaunchable
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.TEST_ICON_PACK_PACKAGE
+import core.data.testing.TEST_RAIL_ICON_RES_ID
+import core.data.testing.createApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
-private const val CUSTOM_ICON_PACK_PACKAGE: String = "com.example.iconpack"
 private const val RENAMED_ITEM_NAME: String = "Renamed Item"
 private const val SECOND_RENAMED_ITEM_NAME: String = "Second Renamed Item"
 private const val ORIGINAL_ITEM_NAME: String = "Original"
-private const val RAIL_ICON_RES_ID: Int = 0
 private const val LAUNCHABLE_DEEPLINK: String = "rail-launcher://test"
 private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomization(key = "other", name = "Other")
 
@@ -41,7 +42,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `exposes settings from the DAO`() = databaseTest {
-        val expectedSettings: Settings = Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE)
+        val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(expectedSettings)
         val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
@@ -105,32 +106,75 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `renaming an App removes its Legacy customization`() = databaseTest {
+        val inputApp = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputLegacyKey, name = ORIGINAL_ITEM_NAME)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setItemName(item = inputApp, name = RENAMED_ITEM_NAME)
+
+        val actualCustomizations: List<LaunchableCustomization> = customizations { stored ->
+            stored.any { customization -> customization.key == inputApp.key } &&
+                stored.none { customization -> customization.key == inputLegacyKey }
+        }
+        assertEquals(listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_ITEM_NAME)), actualCustomizations)
+    }
+
+    @Test
+    fun `resetting an App removes its Legacy customization`() = databaseTest {
+        val inputApp = createApp(packageName = "com.example.app")
+        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputLegacyKey, name = ORIGINAL_ITEM_NAME)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetItemName(item = inputApp)
+
+        val actualCustomizations: List<LaunchableCustomization> = customizations { stored -> stored.none { it.key == inputLegacyKey } }
+        assertEquals(emptyList<LaunchableCustomization>(), actualCustomizations)
+    }
+
+    @Test
     fun `stores the selected custom icon pack through the DAO`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
         val inputIconPack: IconPack = createCustomIconPack()
         repository.setIconPack(iconPack = inputIconPack)
-        val actualSettings: Settings = awaitStoredSettings(settingsDao)
-        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
+        val actualSettings: Settings = awaitSettings(settingsDao)
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
     fun `exposes the selected icon pack after it is stored`() = databaseTest {
         val repository: IPreferencesRepository = createRepository()
         repository.setIconPack(iconPack = createCustomIconPack())
-        awaitStoredSettings(database.getSettingsDao())
+        awaitSettings(database.getSettingsDao())
         val actualSettings: Settings = repository.settings.first()
-        assertEquals(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE), actualSettings)
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE), actualSettings)
     }
 
     @Test
     fun `clears the stored icon pack when the system pack is selected`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
-        settingsDao.upsert(Settings(iconPack = CUSTOM_ICON_PACK_PACKAGE))
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
         val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
         repository.setIconPack(iconPack = IconPack.SystemIconPack)
-        val actualSettings: Settings = awaitUpdatedSettings(settingsDao = settingsDao, previousIconPack = CUSTOM_ICON_PACK_PACKAGE)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.iconPack != TEST_ICON_PACK_PACKAGE }
         assertEquals(Settings(iconPack = null), actualSettings)
+    }
+
+    @Test
+    fun `stores the Private Space switch without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+
+        repository.setHidePrivateSpaceWhenLocked(true)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.hidePrivateSpaceWhenLocked }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, hidePrivateSpaceWhenLocked = true), actualSettings)
     }
 
     private fun TestScope.createRepository(
@@ -150,21 +194,18 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         stored.any { customization -> customization.key == key && customization.name != previousName }
     }.single { customization -> customization.key == key }
 
-    private suspend fun awaitStoredSettings(settingsDao: SettingsDao): Settings =
-        requireNotNull(settingsDao.observeRow().first { row -> row != null })
-
-    private suspend fun awaitUpdatedSettings(settingsDao: SettingsDao, previousIconPack: String): Settings =
-        requireNotNull(settingsDao.observeRow().first { row -> row != null && row.iconPack != previousIconPack })
+    private suspend fun awaitSettings(settingsDao: SettingsDao, predicate: (Settings) -> Boolean = { true }): Settings =
+        requireNotNull(settingsDao.observeRow().first { row -> row != null && predicate(row) })
 
     private fun createLaunchable(): Launchable = RailLaunchable(
         defaultName = "Original Item",
-        defaultIcon = Icon.RailIcon(resId = RAIL_ICON_RES_ID),
+        defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = LAUNCHABLE_DEEPLINK
     )
 
     private fun createCustomIconPack(): IconPack = IconPack.CustomIconPack(
         name = CUSTOM_ICON_PACK_NAME,
-        packageName = CUSTOM_ICON_PACK_PACKAGE,
-        icon = Icon.ApplicationIcon(CUSTOM_ICON_PACK_PACKAGE)
+        packageName = TEST_ICON_PACK_PACKAGE,
+        icon = Icon.ApplicationIcon(TEST_ICON_PACK_PACKAGE)
     )
 }

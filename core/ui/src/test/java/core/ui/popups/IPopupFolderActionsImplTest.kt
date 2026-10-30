@@ -1,12 +1,16 @@
 package core.ui.popups
 
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.testing.TEST_SDK
+import core.data.testing.TimberLogRecorder
 import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createPrivateApp
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.verify
@@ -117,6 +121,27 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
             mockPopupRepository.setItems(inputFolder.key, emptyList(), setOf(inputApp.key))
         }
         coVerify(exactly = 2) { mockPopupRepository.setItems(any(), any(), any()) }
+    }
+
+    @Test
+    fun `logs a private Launchable Folder membership failure without its package or key`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        setLaunchableGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "S", items = listOf(inputPrivateApp))))
+        coEvery {
+            mockPopupRepository.setItems(any(), any(), any())
+        } throws RuntimeException("Could not change Folder membership")
+        val folderActions: IPopupFolderActions = createFolder()
+        backgroundScope.launch { folderActions.addToFolderState.collect() }
+        folderActions.startAddToFolder(inputPrivateApp)
+        runCurrent()
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.recordSuspending {
+            folderActions.toggleMembership(folderKey = inputFolder.key, member = true)
+            runCurrent()
+        }
+
+        logRecorder.assertLoggedWithout(inputPrivateApp.key, inputPrivateApp.packageName)
     }
 
     @Test

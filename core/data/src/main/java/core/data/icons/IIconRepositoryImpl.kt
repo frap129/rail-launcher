@@ -1,16 +1,19 @@
 package core.data.icons
 
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.badgedFor
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileChange
+import core.data.profiles.ProfileInfo
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.util.getIconsFromPack
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +25,9 @@ class IIconRepositoryImpl(
     private val context: Context,
     private val iconPackDao: CustomIconPackDao,
     private val iconDao: PackIconDao,
-    private val scope: CoroutineScope
+    private val profileSource: IProfileSource,
+    private val scope: CoroutineScope,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
@@ -36,28 +41,32 @@ class IIconRepositoryImpl(
     private val _iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
     override val iconPacks: StateFlow<Set<IconPack>> = _iconPacks.asStateFlow()
 
-    private val appChangeReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            scope.launch(Dispatchers.IO) {
-                updateIconPacks()
-            }
-        }
-    }
-
     init {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             updateIconPacks()
         }
 
-        context.registerReceiver(
-            appChangeReceiver,
-            IntentFilter().apply {
-                addAction(Intent.ACTION_PACKAGE_ADDED)
-                addAction(Intent.ACTION_PACKAGE_REMOVED)
-                addDataScheme("package")
+        scope.launch(dispatcher) {
+            profileSource.changes.collect { change ->
+                val packageName: String = when (change) {
+                    is ProfileChange.PackageAdded -> change.packageName
+                    is ProfileChange.PackageRemoved -> change.packageName
+                    is ProfileChange.PackageChanged -> change.packageName
+                    else -> return@collect
+                }
+                if (isIconPackChange(packageName = packageName)) {
+                    updateIconPacks()
+                }
             }
-        )
+        }
     }
+
+    // A removed icon pack is only in the cached list; an installed one is only in PackageManager.
+    private fun isIconPackChange(packageName: String): Boolean =
+        _iconPacks.value.any { pack -> pack is IconPack.CustomIconPack && pack.packageName == packageName } ||
+            iconPackIntents.any { intent ->
+                packageManager.queryIntentActivities(intent, 0).any { info -> info.activityInfo.packageName == packageName }
+            }
 
     suspend fun updateIconPacks() {
         // Present cached packs for quick loading
@@ -92,8 +101,10 @@ class IIconRepositoryImpl(
         _iconPacks.value = installedIconPacks
     }
 
-    override suspend fun getIcon(packPackageName: String, componentName: ComponentName) =
-        iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
+    override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {
+        val baseIcon: Icon = iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
+        return baseIcon.badgedFor(profile = profile)
+    }
 
     private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {
         iconPackDao.getAll().forEach { pack ->

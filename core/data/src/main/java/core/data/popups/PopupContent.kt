@@ -75,9 +75,12 @@ object PopupContentResolver {
         )
     }
 
-    /** The App's notifications, in the source's newest-first order. */
+    /** The package representative's notifications, in the source's newest-first order. */
     fun notificationsFor(owner: Launchable, notifications: List<NotificationSnapshot>): List<NotificationSnapshot> {
         val app: App = owner as? App ?: return emptyList()
+        if (!app.isPackageRepresentative) {
+            return emptyList()
+        }
         val appProfile: AppProfile = AppProfile(packageName = app.packageName, profile = app.profile)
         return notifications.filter { snapshot -> snapshot.owner == appProfile }
     }

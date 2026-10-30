@@ -136,7 +136,7 @@ class IPopupFolderActionsImpl(
             return
         }
         val launchableKey: String = state.launchable.key
-        scope.launchLogged(message = "Failed to change $launchableKey's Folder membership") {
+        scope.launchLogged(message = "Failed to change a Launchable's Folder membership") {
             popupRepository.setItems(
                 ownerKey = folderKey,
                 add = if (member) listOf(launchableKey) else emptyList(),
@@ -148,7 +148,7 @@ class IPopupFolderActionsImpl(
     override fun startNewFolder(name: String) {
         val state: AddToFolderState.Open = addToFolderState.value as? AddToFolderState.Open ?: return
         val launchableKey: String = state.launchable.key
-        scope.launchLogged(message = "Failed to create a Folder for $launchableKey") {
+        scope.launchLogged(message = "Failed to create a Folder for a Launchable") {
             val folder: Folder = folderRepository.create(
                 name = name,
                 initialItems = listOf(launchableKey),

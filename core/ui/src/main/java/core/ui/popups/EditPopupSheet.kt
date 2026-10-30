@@ -52,6 +52,7 @@ import core.ui.composables.DragHandle
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
+import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.compactIconSize
 import core.ui.util.performSegmentTickHaptic
 import sh.calvin.reorderable.ReorderableItem
@@ -69,7 +70,6 @@ private val editItemRemoveEndPadding = 4.dp
 private val addAppsButtonHorizontalPadding = 16.dp
 private val addAppsButtonVerticalPadding = 8.dp
 private val addAppsIconGap = 8.dp
-private const val UNAVAILABLE_ITEM_ALPHA: Float = 0.5f
 private const val SOURCE_SEPARATOR: String = " · "
 
 private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
@@ -257,7 +257,7 @@ private fun EditItemRow(item: PopupItem, sourceName: String?, dragHandle: @Compo
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (isUnavailable) UNAVAILABLE_ITEM_ALPHA else 1f)
+            .alpha(if (isUnavailable) UNAVAILABLE_ALPHA else 1f)
             .padding(
                 start = sectionTitleStartPadding,
                 end = editItemRemoveEndPadding,
@@ -269,7 +269,7 @@ private fun EditItemRow(item: PopupItem, sourceName: String?, dragHandle: @Compo
         AsyncImage(
             modifier = Modifier.size(editItemIconSize),
             model = item.launchable.icon,
-            contentDescription = null
+            contentDescription = item.launchable.accessibilityName
         )
         Spacer(Modifier.width(shortcutIconGap))
         Column(modifier = Modifier.weight(1f)) {

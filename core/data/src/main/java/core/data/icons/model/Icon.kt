@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.os.UserHandle
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import core.data.profiles.ProfileInfo
 
 sealed class Icon {
     data class RailIcon(val resId: Int) : Icon()
@@ -16,6 +17,9 @@ sealed class Icon {
 
     /** A Rail-drawn Folder icon in one of three accent shades. */
     data class FolderIcon(val shade: Int) : Icon()
+
+    /** [icon] carrying the system badge of a non-personal [profile]. */
+    data class ProfileIcon(val icon: Icon, val profile: UserHandle) : Icon()
 
     @Entity(
         tableName = "icons",
@@ -33,3 +37,7 @@ sealed class Icon {
         }
     }
 }
+
+/** The system-badged form of this icon for [profile], or this icon for the personal Profile. */
+fun Icon.badgedFor(profile: ProfileInfo): Icon =
+    if (profile.kind.isPersonal) this else Icon.ProfileIcon(icon = this, profile = profile.user)

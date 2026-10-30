@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -34,11 +32,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import core.ui.composables.OutlinedText
+import core.ui.GroupMark
+import core.ui.composables.GroupMarkContent
+import core.ui.composables.groupMarkLargeShieldSize
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.pow
@@ -83,10 +82,9 @@ private class RailPointerAnimation {
 }
 
 /**
- * A column of single character items along the screen edge that the
- * user can scrub through. It animates bending horizontally as the
- * user drags on it to ensure that it remains visible while being
- * touched.
+ * A column of marks along the screen edge that the user can scrub through.
+ * It animates bending horizontally as the user drags on it to ensure that
+ * it remains visible while being touched.
  *
  * Pointer positions are only read during layout, so scrubbing does not
  * recompose the Rail. A single animated pointer position drives the bend
@@ -94,14 +92,14 @@ private class RailPointerAnimation {
  * a scrub starts and ends.
  *
  * @param modifier the modifier applied to the row
- * @param items the labels shown on the Rail, top to bottom
+ * @param items the marks shown on the Rail, top to bottom
  * @param onScroll invoked when a scroll starts or the pointer crosses into another item
  * @param onScrollEnded invoked with the item under the pointer when the scroll ends
  */
 @Composable
 fun ScrollRail(
     modifier: Modifier = Modifier,
-    items: List<String>,
+    items: List<GroupMark>,
     onScroll: (Int) -> Unit,
     onScrollEnded: (Int) -> Unit,
     enabled: Boolean = true
@@ -175,13 +173,8 @@ fun ScrollRail(
             }
     ) {
         if (selectedItemIndex >= 0) {
-            Text(
-                text = items[selectedItemIndex],
-                fontSize = 28.sp,
-                color = theme.onPrimaryContainer,
-                lineHeight = highlightSize.value.sp,
-                textAlign = TextAlign.Center,
-                style = LocalTextStyle.current.copy(textMotion = TextMotion.Animated),
+            GroupMarkContent(
+                mark = items[selectedItemIndex],
                 modifier = Modifier
                     .size(highlightSize)
                     .offset {
@@ -191,7 +184,14 @@ fun ScrollRail(
                             bubble.y.toInt() - (railMetrics.highlightSizePx * 0.5f).toInt()
                         )
                     }
-                    .background(color = theme.primaryContainer, shape = CircleShape)
+                    .background(color = theme.primaryContainer, shape = CircleShape),
+                contentAlignment = Alignment.Center,
+                fontSize = 28.sp,
+                lineHeight = highlightSize.value.sp,
+                textAlign = TextAlign.Center,
+                fillColor = theme.onPrimaryContainer,
+                isOutlined = false,
+                shieldSize = groupMarkLargeShieldSize
             )
         }
         Column(
@@ -201,9 +201,9 @@ fun ScrollRail(
                 IntOffset(0, (railOffset * railPointer.bendStrength).toInt())
             }
         ) {
-            items.forEachIndexed { index, label ->
-                OutlinedText(
-                    text = label,
+            items.forEachIndexed { index, mark ->
+                GroupMarkContent(
+                    mark = mark,
                     contentAlignment = Alignment.Center,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W500,

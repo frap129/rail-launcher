@@ -49,6 +49,8 @@ import core.ui.layout.HomeEditState
 import core.ui.popups.IPopupCard
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupSession
+import core.ui.popups.contentKeys
+import core.ui.popups.observeLockedContent
 import core.ui.popups.observeTargetLoss
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -403,6 +405,12 @@ class PopupCardViewModel(
                     (mode !is HomeEditMode.Resizing || mode.placeId != widgetState.value?.placeId)
             },
             onTargetLost = ::close
+        )
+        observeLockedContent(
+            scope = viewModelScope,
+            contentKeys = combine(openOwnerKey, cardItems) { ownerKey, items -> items.contentKeys(ownerKey = ownerKey) },
+            launchableRepository = launchableRepository,
+            onContentLocked = ::close
         )
     }
 

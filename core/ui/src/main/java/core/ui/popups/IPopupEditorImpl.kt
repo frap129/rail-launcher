@@ -23,6 +23,7 @@ import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,7 @@ class IPopupEditorImpl(
     private val scope: CoroutineScope = collaboratorScope.scope
 
     private val editRequest: MutableStateFlow<ShortcutTarget?> = MutableStateFlow(null)
+    private val editOwnerKey: Flow<String?> = editRequest.map { request -> request?.ownerKey }
     private val editShortcuts: MutableStateFlow<ShortcutsResult?> = MutableStateFlow(null)
     private val editHiddenShortcuts: StateFlow<HiddenShortcutIds> = hiddenShortcutIds(
         scope = scope,
@@ -97,11 +99,17 @@ class IPopupEditorImpl(
         )
         observeTargetLoss(
             scope = scope,
-            targetKeys = editRequest.map { request -> request?.ownerKey },
+            targetKeys = editOwnerKey,
             launchableRepository = launchableRepository,
             homeEditState = homeEditState,
             isClosedByMode = { mode -> mode != HomeEditMode.None && mode != HomeEditMode.Favorites },
             onTargetLost = ::finishEdit
+        )
+        observeLockedContent(
+            scope = scope,
+            contentKeys = combine(editOwnerKey, editItems) { ownerKey, items -> items.contentKeys(ownerKey = ownerKey) },
+            launchableRepository = launchableRepository,
+            onContentLocked = ::finishEdit
         )
     }
 
@@ -125,7 +133,7 @@ class IPopupEditorImpl(
 
     override fun setShortcutHidden(shortcutId: String, hidden: Boolean) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        scope.launchLogged(message = "Failed to change hidden state of shortcut $shortcutId") {
+        scope.launchLogged(message = "Failed to change a shortcut's hidden state") {
             popupRepository.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
         }
     }
@@ -137,7 +145,7 @@ class IPopupEditorImpl(
 
     override fun setItemOrder(orderedItemKeys: List<String>) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        scope.launchLogged(message = "Failed to reorder the items in $ownerKey's Pop-up") {
+        scope.launchLogged(message = "Failed to reorder the items in a Pop-up") {
             popupRepository.setItemOrder(ownerKey = ownerKey, orderedItemKeys = orderedItemKeys)
         }
     }
@@ -166,6 +174,7 @@ class IPopupEditorImpl(
         }
         val appNames: Map<AppProfile, String> = launchables
             .filterIsInstance<App>()
+            .filter { app -> app.isPackageRepresentative }
             .associate { app -> AppProfile(packageName = app.packageName, profile = app.profile) to app.name }
         return items
             .filterIsInstance<PopupItem.Shortcut>()

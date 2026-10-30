@@ -12,6 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 fun createIconRepositoryMock(inputIcon: Icon): IIconRepository {
     val mockIconRepository: IIconRepository = mockk()
     every { mockIconRepository.iconPacks } returns MutableStateFlow(setOf(IconPack.SystemIconPack))
-    coEvery { mockIconRepository.getIcon(any(), any()) } returns inputIcon
+    coEvery { mockIconRepository.getIcon(any(), any(), any()) } returns inputIcon
     return mockIconRepository
 }

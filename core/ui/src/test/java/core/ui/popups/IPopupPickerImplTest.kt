@@ -1,6 +1,7 @@
 package core.ui.popups
 
 import app.cash.turbine.test
+import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.popups.PopupItem
@@ -8,8 +9,13 @@ import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.TEST_SDK
+import core.data.testing.TimberLogRecorder
+import core.data.testing.createPrivateApp
+import io.mockk.coEvery
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -47,7 +53,7 @@ class IPopupPickerImplTest : PopupTestBase() {
             runCurrent()
             val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
             assertEquals(setOf(inputOtherShortcut.key), picking.selectedKeys)
-            assertEquals(listOf("O"), picking.groups.map { group -> group.label })
+            assertEquals(listOf("O"), picking.groups.map { group -> group.launchableGroup.label })
             assertEquals(listOf(inputOtherAppShortcuts), picking.groups.flatMap { group -> group.apps })
         }
     }
@@ -101,6 +107,28 @@ class IPopupPickerImplTest : PopupTestBase() {
     }
 
     @Test
+    fun `logs a private Pop-up picker failure without its package or key`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        setLaunchableGroups(groups = listOf(LaunchableGroup.InitialGroup(label = "O", items = listOf(inputOtherApp))))
+        setPopupLaunchables(ownerKey = inputPrivateApp.key, launchables = emptyList())
+        coEvery {
+            mockPopupRepository.setItems(any(), any(), any())
+        } throws RuntimeException("Could not change the items")
+        val picker: IPopupPicker = createPicker()
+        backgroundScope.launch { picker.pickerState.collect() }
+        picker.startPicking(inputPrivateApp)
+        runCurrent()
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.recordSuspending {
+            picker.confirmPicking(selectedInOrder = listOf(inputOtherApp.key))
+            runCurrent()
+        }
+
+        logRecorder.assertLoggedWithout(inputPrivateApp.key, inputPrivateApp.packageName)
+    }
+
+    @Test
     fun `cancelling the shortcut picker changes nothing`() = runTest {
         setAppsWithShortcuts(apps = listOf(inputOtherAppShortcuts))
         val picker: IPopupPicker = createPicker()
@@ -129,7 +157,7 @@ class IPopupPickerImplTest : PopupTestBase() {
             picker.startPickingShortcuts(inputApp)
             runCurrent()
             val picking: ShortcutPickerState.Picking = expectMostRecentItem() as ShortcutPickerState.Picking
-            assertEquals(listOf("P"), picking.groups.map { group -> group.label })
+            assertEquals(listOf("P"), picking.groups.map { group -> group.launchableGroup.label })
             assertEquals(listOf(inputPausedApp), picking.groups.flatMap { group -> group.apps }.map { appShortcuts -> appShortcuts.app })
         }
     }

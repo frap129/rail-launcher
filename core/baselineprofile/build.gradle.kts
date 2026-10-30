@@ -55,4 +55,5 @@ dependencies {
     implementation(libs.test.espresso.core)
     implementation(libs.test.uiautomator)
     implementation(libs.test.benchmark.macro.junit4)
+    implementation(libs.util.timber)
 }

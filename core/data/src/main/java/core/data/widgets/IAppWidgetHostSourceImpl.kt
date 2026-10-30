@@ -4,28 +4,28 @@ import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.os.Bundle
 import android.os.Process
 import android.os.UserHandle
-import android.os.UserManager
-import androidx.core.content.ContextCompat
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.SYSTEM_ICON_PACK_NAME
+import core.data.icons.model.badgedFor
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileChange
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
+import core.data.profiles.isEnumerated
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -39,56 +39,25 @@ class IAppWidgetHostSourceImpl(
     private val appWidgetHost: AppWidgetHost,
     private val iconRepository: IIconRepository,
     private val preferencesRepository: IPreferencesRepository,
-    private val callbacks: AppWidgetHostCallbacks
+    private val callbacks: AppWidgetHostCallbacks,
+    private val profileSource: IProfileSource,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IAppWidgetHostSource {
     private val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
-    private val userManager: UserManager = context.getSystemService(UserManager::class.java)
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
 
     @Volatile
     private var cachedProviders: List<WidgetProviderInfo> = emptyList()
 
-    private val broadcastChanges: MutableSharedFlow<Unit> = MutableSharedFlow(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
     private val replacingPackages: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val packageName: String? = intent.data?.schemeSpecificPart
-            when (intent.action) {
-                Intent.ACTION_PACKAGE_REMOVED -> {
-                    if (packageName != null && intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
-                        replacingPackages.add(packageName)
-                    }
-                }
-
-                Intent.ACTION_PACKAGE_ADDED,
-                Intent.ACTION_PACKAGE_REPLACED,
-                Intent.ACTION_PACKAGE_CHANGED -> {
-                    packageName?.let { replacingPackages.remove(it) }
-                }
-            }
-            broadcastChanges.tryEmit(Unit)
+    override val providerChanges: Flow<Unit> = merge(
+        callbacks.providerChanges,
+        profileSource.changes.map { change ->
+            trackReplacingPackage(change = change)
+            Unit
         }
-    }
-
-    init {
-        val filter: IntentFilter = IntentFilter().apply {
-            addAction(Intent.ACTION_PACKAGE_ADDED)
-            addAction(Intent.ACTION_PACKAGE_REMOVED)
-            addAction(Intent.ACTION_PACKAGE_REPLACED)
-            addAction(Intent.ACTION_PACKAGE_CHANGED)
-            addAction(Intent.ACTION_MANAGED_PROFILE_ADDED)
-            addAction(Intent.ACTION_MANAGED_PROFILE_REMOVED)
-            addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE)
-            addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)
-        }
-        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
-    }
-
-    override val providerChanges: Flow<Unit> = merge(callbacks.providerChanges, broadcastChanges).conflate()
+    ).conflate()
 
     override val providers: Flow<List<WidgetProviderInfo>> = providerChanges
         .onStart { emit(Unit) }
@@ -97,7 +66,7 @@ class IAppWidgetHostSourceImpl(
             cachedProviders = loaded
             loaded
         }
-        .flowOn(Dispatchers.IO)
+        .flowOn(dispatcher)
 
     override fun allocateId(): AppWidgetId = AppWidgetId(appWidgetHost.allocateAppWidgetId())
 
@@ -110,7 +79,7 @@ class IAppWidgetHostSourceImpl(
     }
 
     override fun bindIfAllowed(request: BindRequest): Boolean {
-        val user: UserHandle = userForSerial(request.profileSerial) ?: return false
+        val user: UserHandle = profileSource.userForSerial(request.profileSerial) ?: return false
         val provider: ComponentName = ComponentName(request.provider.packageName, request.provider.className)
         return appWidgetManager.bindAppWidgetIdIfAllowed(request.id.value, user, provider, null)
     }
@@ -118,14 +87,14 @@ class IAppWidgetHostSourceImpl(
     override fun boundIds(): Set<AppWidgetId> = appWidgetHost.appWidgetIds.mapTo(mutableSetOf()) { id -> AppWidgetId(id) }
 
     override fun availability(id: AppWidgetId, provider: WidgetProvider, profileSerial: Long): WidgetAvailability {
-        val user: UserHandle = userForSerial(profileSerial) ?: return WidgetAvailability.Gone
+        val user: UserHandle = profileSource.userForSerial(profileSerial) ?: return WidgetAvailability.Gone
         if (provider.packageName in replacingPackages) {
             return WidgetAvailability.Updating
         }
         val appInfo: ApplicationInfo = runCatching {
             launcherApps.getApplicationInfo(provider.packageName, 0, user)
         }.getOrNull() ?: return WidgetAvailability.Gone
-        if (runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(false)) {
+        if (profileSource.profileFor(user = user)?.isQuiet == true) {
             return WidgetAvailability.ProfilePaused
         }
         if (!appInfo.enabled || appInfo.flags and ApplicationInfo.FLAG_SUSPENDED != 0) {
@@ -142,19 +111,19 @@ class IAppWidgetHostSourceImpl(
         val info: AppWidgetProviderInfo = appWidgetManager.getAppWidgetInfo(id.value) ?: return null
         val user: UserHandle = ownerOf(info) ?: Process.myUserHandle()
         val provider: WidgetProvider = WidgetProvider(packageName = info.provider.packageName, className = info.provider.className)
-        val profileSerial: Long = userManager.getSerialNumberForUser(user)
+        val profileSerial: Long = profileSource.serialForUser(user) ?: return null
         val cached: WidgetProviderInfo? = cachedProviders.firstOrNull { cached ->
             cached.provider == provider && cached.profileSerial == profileSerial
         }
         return info.toWidgetProviderInfo(
             user = user,
+            profileSerial = profileSerial,
+            profileKind = profileSource.kindFor(user = user),
             appIcon = cached?.appIcon ?: Icon.ApplicationIcon(info.provider.packageName)
         )
     }
 
-    override fun profileSerial(profile: UserHandle): Long? = userManager.userProfiles.firstOrNull { user -> user == profile }?.let { user ->
-        userManager.getSerialNumberForUser(user)
-    }
+    override fun profileSerial(profile: UserHandle): Long? = profileSource.serialForUser(profile)
 
     override fun startListening() {
         appWidgetHost.startListening()
@@ -170,9 +139,11 @@ class IAppWidgetHostSourceImpl(
 
     private suspend fun loadProviders(): List<WidgetProviderInfo> {
         val iconPack: String = preferencesRepository.settings.first().iconPack ?: SYSTEM_ICON_PACK_NAME
-        return userManager.userProfiles.flatMap { user ->
-            runCatching { appWidgetManager.getInstalledProvidersForProfile(user) }
-                .onFailure { exception -> Timber.w(exception, "Could not load App Widget providers for %s", user) }
+        return profileSource.profiles.value.filter { profile: ProfileInfo ->
+            profile.isEnumerated()
+        }.flatMap { profile: ProfileInfo ->
+            runCatching { appWidgetManager.getInstalledProvidersForProfile(profile.user) }
+                .onFailure { exception -> Timber.w(exception, "Could not load App Widget providers for %s", profile.user) }
                 .getOrDefault(emptyList())
                 .filter { info ->
                     isPickerProvider(
@@ -182,23 +153,50 @@ class IAppWidgetHostSourceImpl(
                 }
                 .map { info ->
                     info.toWidgetProviderInfo(
-                        user = user,
-                        appIcon = appIconFor(packageName = info.provider.packageName, user = user, iconPack = iconPack)
+                        user = profile.user,
+                        profileSerial = profile.serial,
+                        profileKind = profile.kind,
+                        appIcon = appIconFor(packageName = info.provider.packageName, profile = profile, iconPack = iconPack)
                     )
                 }
         }
     }
 
-    private fun ownerOf(info: AppWidgetProviderInfo): UserHandle? = userManager.userProfiles.firstOrNull { user ->
-        runCatching { appWidgetManager.getInstalledProvidersForProfile(user) }
-            .getOrDefault(emptyList())
-            .any { candidate -> candidate.provider == info.provider }
+    private fun ownerOf(info: AppWidgetProviderInfo): UserHandle? = profileSource.profiles.value.firstNotNullOfOrNull { profile ->
+        profile.user.takeIf { user -> hasProvider(user = user, info = info) }
     }
 
-    private fun userForSerial(serial: Long): UserHandle? =
-        userManager.userProfiles.firstOrNull { user -> userManager.getSerialNumberForUser(user) == serial }
+    private fun hasProvider(user: UserHandle, info: AppWidgetProviderInfo): Boolean = runCatching {
+        appWidgetManager.getInstalledProvidersForProfile(user)
+    }.getOrDefault(emptyList()).any { candidate -> candidate.provider == info.provider }
 
-    private fun AppWidgetProviderInfo.toWidgetProviderInfo(user: UserHandle, appIcon: Icon): WidgetProviderInfo {
+    private fun trackReplacingPackage(change: ProfileChange) {
+        when (change) {
+            is ProfileChange.PackagesUnavailable -> {
+                if (change.replacing) {
+                    replacingPackages.addAll(change.packageNames)
+                }
+            }
+
+            is ProfileChange.PackageRemoved -> Unit
+
+            is ProfileChange.PackageAdded -> replacingPackages.remove(change.packageName)
+
+            is ProfileChange.PackageChanged -> replacingPackages.remove(change.packageName)
+
+            is ProfileChange.ProfileAdded,
+            is ProfileChange.ProfileRemoved,
+            is ProfileChange.ProfileAvailable,
+            is ProfileChange.ProfileUnavailable -> Unit
+        }
+    }
+
+    private fun AppWidgetProviderInfo.toWidgetProviderInfo(
+        user: UserHandle,
+        profileSerial: Long,
+        profileKind: ProfileKind,
+        appIcon: Icon
+    ): WidgetProviderInfo {
         val appLabel: String = appLabelFor(provider.packageName, user)
         val features: Int = widgetFeatures
         val density: Float = context.resources.displayMetrics.density
@@ -207,7 +205,7 @@ class IAppWidgetHostSourceImpl(
         val isReconfigurable: Boolean = features and AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE != 0
         return WidgetProviderInfo(
             provider = WidgetProvider(packageName = provider.packageName, className = provider.className),
-            profileSerial = userManager.getSerialNumberForUser(user),
+            profileSerial = profileSerial,
             appPackageName = provider.packageName,
             appLabel = appLabel,
             appIcon = appIcon,
@@ -229,19 +227,19 @@ class IAppWidgetHostSourceImpl(
             ),
             isReconfigurable = isReconfigurable,
             hasConfigureActivity = configure != null,
-            isWorkProfile = user != Process.myUserHandle(),
+            isWorkProfile = profileKind == ProfileKind.Work,
             isVerticallyResizable = resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL != 0
         )
     }
 
-    private suspend fun appIconFor(packageName: String, user: UserHandle, iconPack: String): Icon {
+    private suspend fun appIconFor(packageName: String, profile: ProfileInfo, iconPack: String): Icon {
         val componentName: ComponentName? = runCatching {
-            launcherApps.getActivityList(packageName, user).firstOrNull()?.componentName
+            launcherApps.getActivityList(packageName, profile.user).firstOrNull()?.componentName
         }.getOrNull()
         if (componentName == null) {
-            return Icon.ApplicationIcon(packageName)
+            return Icon.ApplicationIcon(packageName).badgedFor(profile = profile)
         }
-        return iconRepository.getIcon(packPackageName = iconPack, componentName = componentName)
+        return iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profile)
     }
 
     private fun appLabelFor(packageName: String, user: UserHandle): String = runCatching {

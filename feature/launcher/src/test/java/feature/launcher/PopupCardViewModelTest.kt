@@ -14,9 +14,12 @@ import core.data.notifications.NotificationRecord
 import core.data.notifications.NotificationSnapshot
 import core.data.popups.PopupEmptyReason
 import core.data.popups.PopupItem
+import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.AppWidgetHostState
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
@@ -25,11 +28,13 @@ import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
 import core.data.testing.WidgetAreaRepositoryFixture
 import core.data.testing.appWidgetPlace
+import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createClockSourceMock
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
+import core.data.testing.createProfileInfo
 import core.data.testing.createWidgetAreaRepositoryFixture
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetSettingsRepositoryMock
@@ -96,6 +101,52 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.popupState.test {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
         }
+    }
+
+    @Test
+    fun `closes a Pop-up showing a private App when the Private Space locks`() = runTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = "com.example.private",
+            profileInfo = inputPrivateProfile
+        )
+        setPopupLaunchables(ownerKey = inputFolder.key, launchables = listOf(inputPrivateApp))
+        val viewModel: PopupCardViewModel = createCard()
+        openPopup(card = viewModel, owner = inputFolder, flows = listOf(viewModel.popupState))
+        assertTrue(viewModel.popupState.value is PopupUiState.Open)
+
+        setLaunchableGroups(
+            groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = emptyList())),
+            keptKeys = setOf(inputPrivateProfile.user.toProfileToken())
+        )
+        runCurrent()
+
+        assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+    }
+
+    @Test
+    fun `closes an editor showing a private App when the Private Space locks`() = runTest {
+        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = "com.example.private",
+            profileInfo = inputPrivateProfile
+        )
+        setPopupLaunchables(ownerKey = inputFolder.key, launchables = listOf(inputPrivateApp))
+        val session: PopupTestSession = createSession()
+        backgroundScope.launch { session.editor.editState.collect() }
+        session.editor.startEdit(inputFolder)
+        runCurrent()
+        assertTrue(session.editor.editState.value is PopupEditState.Editing)
+
+        setLaunchableGroups(
+            groups = listOf(LaunchableGroup.Star, LaunchableGroup.Builtin(items = emptyList())),
+            keptKeys = setOf(inputPrivateProfile.user.toProfileToken())
+        )
+        runCurrent()
+
+        assertEquals(PopupEditState.Closed, session.editor.editState.value)
     }
 
     @Test

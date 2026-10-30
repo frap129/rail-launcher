@@ -1,8 +1,11 @@
 package feature.launcher
 
+import android.content.IntentSender
+import android.os.UserHandle
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
@@ -15,8 +18,14 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IProfileSource
+import core.data.profiles.QuietRequestResult
+import core.data.profiles.privateSpace
+import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -71,6 +81,10 @@ private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchabl
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
 }
 
+private fun resolvePausedPrompt(requested: App?, state: LaunchableState): App? = requested?.let { app ->
+    state.launchables.filterIsInstance<App>().firstOrNull { current -> current.key == app.key }?.takeIf { current -> current.isPaused }
+}
+
 /** The names of the Folder members whose App has at least one visible notification. */
 private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: List<NotificationSnapshot>): List<String> {
     val notificationsByItem: Map<String, List<NotificationSnapshot>> =
@@ -87,6 +101,14 @@ private data class RailNavigation(
     val homeListState: LazyListState = LazyListState(),
     val appListState: LazyListState? = null
 )
+
+// The selected Private Space follows the latest Locked or Unlocked container, or null while Hidden.
+private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>): LaunchableGroup.Listed? =
+    if (this is LaunchableGroup.PrivateSpace) {
+        groups.firstOrNull { group -> group is LaunchableGroup.PrivateSpace }
+    } else {
+        this
+    }
 
 private fun toUiState(
     navigation: RailNavigation,
@@ -105,7 +127,7 @@ private fun toUiState(
             isEditingFavorites = isEditingFavorites
         )
     }
-    val selected: LaunchableGroup.Listed? = navigation.selected
+    val selected: LaunchableGroup.Listed? = navigation.selected?.refresh(groups = listedGroups)
     if (navigation.isScrolling) {
         return if (selected == null) {
             LauncherUiState.Loading
@@ -135,7 +157,9 @@ class LauncherViewModel(
     private val folderRepo: IFolderRepository,
     private val popupRepo: IPopupRepository,
     private val notificationSource: INotificationSource,
-    private val homeEditState: HomeEditState
+    private val homeEditState: HomeEditState,
+    private val profileSource: IProfileSource,
+    private val privateSpaceLock: IPrivateSpaceLock
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -143,9 +167,9 @@ class LauncherViewModel(
 
     private val launchableState: StateFlow<LaunchableState> = launcherItemRepo.launchableState
 
-    /** The Rail labels in index order, shared with the Rail. */
-    val railLabels: StateFlow<List<String>> = launchableState
-        .map { state -> state.groups.map { group -> group.label } }
+    /** The Rail items in index order, shared with the Rail. */
+    val railItems: StateFlow<List<GroupMark>> = launchableState
+        .map { state -> state.groups.map { group -> group.toGroupMark() } }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -271,6 +295,111 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
+    private val requestedPausedApp: MutableStateFlow<App?> = MutableStateFlow(null)
+
+    /** The paused App whose tap asked to turn work apps on, or null when no prompt is open. */
+    val pausedPrompt: StateFlow<App?> = combine(
+        requestedPausedApp,
+        launchableState
+    ) { requested, state ->
+        resolvePausedPrompt(requested = requested, state = state)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = null
+    )
+
+    /**
+     * The system's Private Space settings screen, while the space is Unlocked and offers one.
+     * Follows Profile changes so the action appears and disappears without a reload.
+     */
+    val privateSpaceSettingsIntent: StateFlow<IntentSender?> = combine(
+        profileSource.profiles,
+        privateSpaceLock.isLockRequested
+    ) { profiles, isLockRequested ->
+        profiles.privateSpace?.let { profile -> !profile.isQuiet && !isLockRequested } ?: false
+    }
+        .distinctUntilChanged()
+        .map { isUnlocked -> if (isUnlocked) profileSource.privateSpaceSettingsIntent() else null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = null
+        )
+
+    // Transitions the request when its App stops being paused, even while the prompt is unobserved.
+    init {
+        viewModelScope.launch {
+            launchableState.collect { state ->
+                requestedPausedApp.update { requested -> resolvePausedPrompt(requested = requested, state = state) }
+            }
+        }
+    }
+
+    /**
+     * Handles a request to launch [launchable]. Returns false and opens the paused prompt
+     * instead when [launchable] is a paused App.
+     */
+    fun requestLaunch(launchable: Launchable): Boolean {
+        val app: App = launchable as? App ?: return true
+        if (!app.isPaused) {
+            return true
+        }
+        requestedPausedApp.value = resolvePausedPrompt(requested = app, state = launchableState.value)
+        return false
+    }
+
+    /** Asks the system to leave quiet mode for the Profile with [profileSerial]. */
+    fun turnOnProfile(profileSerial: Long) {
+        val user: UserHandle = profileSource.userForSerial(serial = profileSerial) ?: return
+        requestQuietOff(user = user)
+    }
+
+    /** Asks the system to unlock the Private Space; it stays Locked until the system reports it available. */
+    fun requestPrivateSpaceUnlock() {
+        val user: UserHandle = privateSpaceUser() ?: return
+        privateSpaceLock.clearLockRequest()
+        requestQuietOff(user = user)
+    }
+
+    /** Hides the private Apps immediately, then asks the system to lock the Private Space. */
+    fun lockPrivateSpace() {
+        val user: UserHandle = privateSpaceUser() ?: return
+        privateSpaceLock.requestLock()
+        requestQuietOn(user = user) { result ->
+            if (result == QuietRequestResult.Failed) {
+                privateSpaceLock.clearLockRequest()
+            }
+        }
+    }
+
+    private fun privateSpaceUser(): UserHandle? = profileSource.profiles.value.privateSpace?.user
+
+    /** Asks the system to leave quiet mode for the paused App's Profile. */
+    fun turnOnPausedApp() {
+        val app: App = requestedPausedApp.value ?: return
+        requestedPausedApp.value = null
+        requestQuietOff(user = app.profile)
+    }
+
+    private fun requestQuietOff(user: UserHandle, onResult: (QuietRequestResult) -> Unit = {}) {
+        requestQuiet(user = user, quiet = false, onResult = onResult)
+    }
+
+    private fun requestQuietOn(user: UserHandle, onResult: (QuietRequestResult) -> Unit = {}) {
+        requestQuiet(user = user, quiet = true, onResult = onResult)
+    }
+
+    private fun requestQuiet(user: UserHandle, quiet: Boolean, onResult: (QuietRequestResult) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(profileSource.requestQuiet(user = user, quiet = quiet))
+        }
+    }
+
+    fun dismissPausedPrompt() {
+        requestedPausedApp.value = null
+    }
+
     fun onRailPreview(index: Int) = handleRailGroup(index, isScrolling = true)
 
     fun onRailReleased(index: Int) = handleRailGroup(index, isScrolling = false)
@@ -295,7 +424,7 @@ class LauncherViewModel(
 
     // Reads the shared state before update so a retried update cannot build a second scroll state.
     private fun createAppListState(group: LaunchableGroup.Listed): LazyListState {
-        val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.listedGroups
+        val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.groups.filterIsInstance<LaunchableGroup.Listed>()
         return LazyListState(
             firstVisibleItemIndex = listedGroups.indexOfFirst { listed -> listed == group } + 1,
             firstVisibleItemScrollOffset = -listStartOffsetPx
@@ -389,7 +518,7 @@ class LauncherViewModel(
     }
 
     fun setItemName(launchable: Launchable, name: String) {
-        viewModelScope.launchLogged(message = "Failed to rename ${launchable.key}") {
+        viewModelScope.launchLogged(message = "Failed to rename a Launchable") {
             prefsRepo.setItemName(launchable, name)
         }
         openItemMenu(launchable)

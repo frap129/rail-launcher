@@ -42,6 +42,40 @@ abstract class WidgetAreaDao : TransactionalDao {
     @Query("SELECT owner_key FROM widget_places WHERE owner_key IS NOT NULL")
     abstract fun observePopupOwnerKeys(): Flow<List<String>>
 
+    @Query("SELECT DISTINCT owner_key FROM widget_places WHERE owner_key IS NOT NULL")
+    abstract suspend fun getPopupOwnerKeys(): List<String>
+
+    @Query("UPDATE widget_places SET owner_key = :newKey WHERE owner_key = :oldKey")
+    protected abstract suspend fun updatePopupOwnerKey(oldKey: String, newKey: String)
+
+    /**
+     * Moves [oldKey]'s Place to [newKey]. When [newKey] already has a Place, appends [oldKey]'s
+     * Widgets to it and removes the old Place, so a Pop-up never owns two Places.
+     */
+    @Transaction
+    open suspend fun replacePopupOwnerKey(oldKey: String, newKey: String) {
+        if (oldKey == newKey) {
+            return
+        }
+        val targetPlace: WidgetPlaceRecord? = getPlaceForOwner(ownerKey = newKey)
+        val sourcePlace: WidgetPlaceRecord? = getPlaceForOwner(ownerKey = oldKey)
+        if (targetPlace == null) {
+            updatePopupOwnerKey(oldKey = oldKey, newKey = newKey)
+            return
+        }
+        if (sourcePlace == null) {
+            return
+        }
+        if (targetPlace.heightDp == null && sourcePlace.heightDp != null) {
+            setPlaceHeight(placeId = targetPlace.id, heightDp = sourcePlace.heightDp)
+        }
+        val nextPage: Int = (getWidgetsForPlace(placeId = targetPlace.id).maxOfOrNull { widget -> widget.pagePosition } ?: -1) + 1
+        getWidgetsForPlace(placeId = sourcePlace.id).forEachIndexed { index, widget ->
+            moveWidget(widgetId = widget.id, placeId = targetPlace.id, position = nextPage + index)
+        }
+        deletePlaces(placeIds = listOf(sourcePlace.id))
+    }
+
     @Query("SELECT id FROM widget_places WHERE owner_key = :ownerKey")
     abstract suspend fun placeIdsForOwner(ownerKey: String): List<Long>
 

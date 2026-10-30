@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
@@ -12,18 +13,55 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
+import core.data.popups.IPopupRepository
+import core.data.popups.PopupItem
 import core.data.popups.PopupItemRecord
+import core.data.prefs.HeaderSettings
+import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
+import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
+import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
+import core.data.testing.FIRST_POSITION
+import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.MISSING_PRIVATE_USER_ID
+import core.data.testing.MISSING_WORK_USER_ID
+import core.data.testing.PERSONAL_USER_ID
+import core.data.testing.PRIVATE_PACKAGE_NAME
+import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_POSITION
+import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TEST_ICON_PACK_PACKAGE
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
+import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLegacyAppKeyUpgrader
+import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceLock
+import core.data.testing.createProfileInfo
+import core.data.testing.createProfileSourceMock
+import core.data.testing.createShortcutSourceMock
+import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnRequest
+import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.IWidgetSettingsRepository
+import core.data.widgets.IWidgetSettingsRepositoryImpl
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -46,31 +84,66 @@ import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
-private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
+private const val FOLDER_ID: Long = 1L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
 
     @Test
+    fun `keeps a Locked Profile's name customization and removes it once the Profile is gone`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputPersonalApp: App = createApp(name = "Personal", packageName = "com.example.personal")
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setName(key = inputPrivateApp.key, name = "Secret name")
+        inputCustomizationDao.setName(key = inputPersonalApp.key, name = "Personal name")
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputPrivateProfile.copy(isQuiet = true))
+        )
+        val inputPreferencesRepository: IPreferencesRepository =
+            createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao)
+        createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPersonalApp)),
+            mockPreferencesRepository = inputPreferencesRepository,
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        finishPendingWork()
+
+        assertEquals(2, inputCustomizationDao.observeAll().first().size)
+
+        inputProfileState.profiles.value = emptyList()
+        finishPendingWork()
+
+        assertEquals(
+            listOf(LaunchableCustomization(key = inputPersonalApp.key, name = "Personal name")),
+            inputCustomizationDao.observeAll().first()
+        )
+    }
+
+    @Test
     fun `shares one upstream collection between every subscriber`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockAppRepository: IAppRepository = createAppRepositoryMock(inputAppState = inputAppState)
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             mockIconRepository = mockIconRepository
         )
         database.getFavoriteDao().add(inputApp.key)
@@ -87,7 +160,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualFavorites: List<Launchable> = favoritesRepository.favorites.first()
 
         assertEquals(1, inputAppState.subscriptionCount.value)
-        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
+        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
         assertTrue(actualState.isLoaded)
         assertEquals(listOf("O", "⌂"), actualState.listedGroups.map { group -> group.label })
         assertTrue(actualMenuItems.isNotEmpty())
@@ -97,8 +170,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `restarts a failed upstream with exponential backoff and recovers`() = databaseTest {
-        val inputApp: App = createApp()
-        val inputRenamedApp: App = createApp(name = RENAMED_NAME)
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputRenamedApp: App = createApp(name = RENAMED_NAME, packageName = APP_PACKAGE_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockFolderDao: FolderDao = mockk()
         val failureRequests: Channel<Unit> = Channel(Channel.UNLIMITED)
@@ -143,25 +216,60 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `retries a failed Legacy App key upgrade after the retry delay`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = inputApp.legacyAppKey
+        seedFavorite(key = inputLegacyKey, position = FIRST_POSITION)
+        database.getHeaderSettingsDao().upsert(
+            HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = inputLegacyKey))
+        )
+        val actualFailureDelivered: CompletableDeferred<Unit> = CompletableDeferred()
+        val mockHeaderSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao().createFailOnceMock(
+            failure = IllegalStateException("Legacy App key upgrade failed"),
+            onFailure = { actualFailureDelivered.complete(Unit) },
+            stub = { dao -> dao.upsert(any()) },
+            delegate = { dao -> dao.upsert(firstArg()) }
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database = database, headerSettingsDao = mockHeaderSettingsDao)
+        )
+        backgroundScope.launch { repository.launchableState.collect() }
+        actualFailureDelivered.await()
+        runCurrent()
+
+        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
+
+        advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
+        runCurrent()
+        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(inputApp.key), favoriteRecords().map { record -> record.key })
+    }
+
+    @Test
     fun `resolves Launchable State only when the injected dispatcher runs`() = databaseTest {
         val inputDispatcher: TestDispatcher = StandardTestDispatcher(testScheduler)
-        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(createApp()))
+        val inputAppState: MutableStateFlow<List<App>?> =
+            MutableStateFlow(listOf(createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)))
         val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             mockIconRepository = mockIconRepository,
             scope = CoroutineScope(inputDispatcher)
         )
         val collection: Job = launch { repository.launchableState.collect { } }
         try {
             assertFalse(repository.launchableState.value.isLoaded)
-            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any()) }
+            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
 
             advanceUntilIdle()
             assertEquals(1, inputAppState.subscriptionCount.value)
             assertTrue(repository.launchableState.value.isLoaded)
-            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any()) }
+            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
         } finally {
             collection.cancel()
         }
@@ -189,8 +297,34 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `lists every activity of a package in the App List and pickers`() = databaseTest {
+        val inputRepresentative: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME).copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.PolicyManagementActivity")
+        )
+        val inputOtherActivity: App = inputRepresentative.copy(
+            componentName = ComponentName(APP_PACKAGE_NAME, "$APP_PACKAGE_NAME.SetupManagementLaunchActivity")
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputRepresentative, inputOtherActivity))
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualAppListKeys: List<String> = actualState.listedGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
+        val actualPickerKeys: List<String> = actualState.pickerGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
+
+        assertEquals(listOf(inputRepresentative.key, inputOtherActivity.key), actualAppListKeys)
+        assertEquals(listOf(inputRepresentative.key, inputOtherActivity.key), actualPickerKeys)
+    }
+
+    @Test
     fun `resolves a renamed App into a new instance and leaves the original unchanged`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
             customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
         )
@@ -208,19 +342,47 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = databaseTest {
-        val inputApp: App = createApp()
-        val expectedIcon: Icon = Icon.PackIcon(
+    fun `badges a renamed work App's displayed name for accessibility`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputApp: App = App(
+            defaultName = ORIGINAL_NAME,
+            profileInfo = inputProfile,
             componentName = inputComponentName,
-            packPackageName = ICON_PACK_PACKAGE_NAME,
-            resId = ICON_PACK_RES_ID
+            badgedLabel = "Work $ORIGINAL_NAME",
+            isPackageRepresentative = true
         )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile)).apply {
+            badgedLabel = { label, _ -> "Work $label" }
+        }
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = createPreferencesRepositoryMock(
-                settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)
+                customizations = listOf(LaunchableCustomization(key = inputApp.key, name = RENAMED_NAME))
             ),
-            mockIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(RENAMED_NAME, actualApp.name)
+        assertEquals("Work $RENAMED_NAME", actualApp.accessibilityName)
+    }
+
+    @Test
+    fun `resolves an icon pack into a new App instance and leaves the original unchanged`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val expectedIcon: Icon = Icon.PackIcon(
+            componentName = inputComponentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = expectedIcon)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
+            ),
+            mockIconRepository = mockIconRepository
         )
 
         val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
@@ -228,6 +390,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertNotSame(inputApp, actualApp)
         assertEquals(expectedIcon, actualApp.icon)
         assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
+        coVerify(exactly = 1) {
+            mockIconRepository.getIcon(
+                packPackageName = TEST_ICON_PACK_PACKAGE,
+                componentName = inputComponentName,
+                profile = inputApp.profileInfo
+            )
+        }
     }
 
     @Test
@@ -258,7 +427,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp())),
+            mockAppRepository = createAppRepositoryMock(
+                inputApps = listOf(createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME))
+            ),
             folderDao = folderDao
         )
 
@@ -274,7 +445,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `hides Folder members from the App List but keeps them launchable`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
@@ -294,8 +465,43 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `applies a Legacy customization to its App's current key`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = "${APP_PACKAGE_NAME}_${inputApp.profile}", name = RENAMED_NAME))
+            )
+        )
+
+        assertEquals(RENAMED_NAME, loadedState(repository).singleAppName())
+    }
+
+    @Test
+    fun `hides a Folder member stored under a Legacy App key`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = "${APP_PACKAGE_NAME}_${inputApp.profile}", position = 0))
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            folderDao = folderDao,
+            popupDao = popupDao
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+
+        assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
+        assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
+    }
+
+    @Test
     fun `updates the App List when Folder membership changes`() = databaseTest {
-        val inputApp: App = createApp()
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
@@ -342,7 +548,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `groups an app named with the Builtin label apart from Builtin`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp(name = "⌂ Game")))
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(createApp(name = "⌂ Game", packageName = APP_PACKAGE_NAME)))
         )
 
         val actualGroups: List<LaunchableGroup.Listed> = loadedState(repository).listedGroups
@@ -358,7 +564,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao.insert(FolderRecord(id = 1L))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(),
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = ICON_PACK_PACKAGE_NAME)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
             folderDao = folderDao
         )
 
@@ -367,6 +573,609 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
     }
+
+    @Test
+    fun `shows a Locked Private Space container last without private Apps`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualGroup: LaunchableGroup.PrivateSpace = actualState.groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertTrue(actualGroup.isLocked)
+        assertTrue(actualGroup.items.isEmpty())
+        assertEquals(listOf("★", "⌂", LaunchableGroup.PrivateSpace.LABEL), actualState.groups.map { group -> group.label })
+    }
+
+    @Test
+    fun `hides a Locked Private Space while Rail hides it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualGroups: List<LaunchableGroup> = loadedState(repository).groups
+
+        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
+        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `hides a Locked Private Space the system hides and shows it again when the flag clears`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertTrue(loadedState(repository).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isEntrypointHidden = true))
+        assertTrue(loadedState(repository).groups.none { group -> group is LaunchableGroup.PrivateSpace })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        assertTrue(loadedState(repository).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `shows an Unlocked Private Space while Rail and the system hide it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile.copy(isEntrypointHidden = true))
+        )
+
+        val actualGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualGroup.items.map { item -> item.key })
+    }
+
+    @Test
+    fun `lists private Apps A-Z in the Unlocked Private Space`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputZulu: App = createApp(name = "Zulu", packageName = "com.example.zulu", profileInfo = inputPrivateProfile)
+        val inputAlpha: App = createApp(name = "alpha", packageName = "com.example.alpha", profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputZulu, inputAlpha)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputAlpha.key, inputZulu.key), actualGroup.items.map { item -> item.key })
+    }
+
+    @Test
+    fun `lists private Apps in the picker groups while the Private Space is Unlocked`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualPickerGroups: List<LaunchableGroup.Listed> = loadedState(repository).pickerGroups
+
+        val actualPrivateGroup: LaunchableGroup.PrivateSpace = actualPickerGroups.filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+        assertFalse(actualPrivateGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualPrivateGroup.items.map { item -> item.key })
+        assertTrue(actualPickerGroups.filterIsInstance<LaunchableGroup.InitialGroup>().isEmpty())
+    }
+
+    @Test
+    fun `keeps private Apps out of the picker groups while the Private Space is Locked`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+
+        assertTrue(actualState.pickerGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+        assertTrue(actualState.pickerGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualState.keptKeys)
+    }
+
+    @Test
+    fun `keeps the keys of a Locked Profile until it is removed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(
+                inputAppState = MutableStateFlow(emptyList()),
+                inputEnumeratedProfiles = MutableStateFlow(setOf(inputPrivateProfile.user))
+            ),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertTrue(loadedState(repository).keptKeys.isEmpty())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), loadedState(repository).keptKeys)
+
+        inputProfileState.profiles.value = emptyList()
+        assertTrue(loadedState(repository).keptKeys.isEmpty())
+    }
+
+    @Test
+    fun `keeps private Favorites, Folder members and Header tap actions while the Private Space Unlocks`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        val inputMember: PopupItemRecord =
+            PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = FIRST_POSITION)
+        database.getPopupDao().insertItems(listOf(inputMember))
+        val inputTapTarget: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputPrivateApp.key)
+        database.getHeaderSettingsDao().upsert(HeaderSettings(timeTapTarget = inputTapTarget))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(emptyList<Launchable>(), repositories.favorites.favorites.first())
+        assertEquals(emptyList<PopupItem>(), repositories.popups.items(inputFolder.key).first())
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(emptyList<Launchable>(), repositories.favorites.favorites.first())
+        assertEquals(emptyList<PopupItem>(), repositories.popups.items(inputFolder.key).first())
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+
+        inputAppState.value = listOf(inputPrivateApp)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputMember), database.getPopupDao().getItems(inputFolder.key))
+        assertEquals(
+            listOf(inputPrivateApp.key),
+            repositories.popups.items(inputFolder.key).first().filterIsInstance<PopupItem.Launchable>().map { item -> item.launchable.key }
+        )
+        assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
+        val actualState: LaunchableState = loadedState(repositories.launchables)
+        assertTrue(actualState.keptKeys.isEmpty())
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualState.enumeratedKeys)
+    }
+
+    @Test
+    fun `removes a private Favorite once the Private Space lists its Apps without it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputGoneApp: App = createApp(name = "Gone", packageName = "com.example.gone", profileInfo = inputPrivateProfile)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputGoneFavorite: FavoriteRecord = FavoriteRecord(key = inputGoneApp.key, position = FIRST_POSITION)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = SECOND_POSITION)
+        seedFavorite(key = inputGoneFavorite.key, position = inputGoneFavorite.position)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+        assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
+
+        inputAppState.value = listOf(inputPrivateApp)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+    }
+
+    @Test
+    fun `removes a private Favorite when the Private Space Unlocks with no Apps`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertTrue(favoriteRecords().isEmpty())
+        assertTrue(loadedState(repositories.launchables).keptKeys.isEmpty())
+    }
+
+    @Test
+    fun `keeps a private Favorite when the Lock is not observed`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        finishPendingWork()
+
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertTrue(repositories.favorites.favorites.first().isEmpty())
+    }
+
+    @Test
+    fun `hides and restores the private Apps as the Private Space locks`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        assertEquals(
+            listOf(inputPrivateApp.key),
+            loadedState(repository).groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().items.map { item -> item.key }
+        )
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        val actualLockedGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+        assertTrue(actualLockedGroup.isLocked)
+        assertTrue(actualLockedGroup.items.isEmpty())
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        val actualRestoredGroup: LaunchableGroup.PrivateSpace = loadedState(repository).groups
+            .filterIsInstance<LaunchableGroup.PrivateSpace>()
+            .single()
+        assertFalse(actualRestoredGroup.isLocked)
+        assertEquals(listOf(inputPrivateApp.key), actualRestoredGroup.items.map { item -> item.key })
+    }
+
+    @Test
+    fun `hides private Favorites and Folder members while a Lock is requested and restores them when refused`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        val inputMember: PopupItemRecord =
+            PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = FIRST_POSITION)
+        database.getPopupDao().insertItems(listOf(inputMember))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPrivateApp))
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(setOf(inputPrivateProfile.user))
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputPrivateApp.key), actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder))
+
+        repositories.privateSpaceLock.requestLock()
+        finishPendingWork()
+
+        assertTrue(repositories.favorites.favorites.first().isEmpty())
+        assertTrue(actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder).isEmpty())
+        val actualRequestedState: LaunchableState = loadedState(repositories.launchables)
+        assertTrue(actualRequestedState.groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualRequestedState.keptKeys)
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputMember), database.getPopupDao().getItems(inputFolder.key))
+
+        repositories.privateSpaceLock.clearLockRequest()
+        finishPendingWork()
+
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputPrivateApp.key), actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder))
+        assertFalse(loadedState(repositories.launchables).groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+    }
+
+    @Test
+    fun `hides a Hidden Private Space while a Lock is requested and shows it again when refused`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = MutableStateFlow(emptyList()),
+            enumeratedState = MutableStateFlow(setOf(inputPrivateProfile.user)),
+            preferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true))
+        )
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+
+        repositories.privateSpaceLock.requestLock()
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.none { group -> group is LaunchableGroup.PrivateSpace })
+
+        repositories.privateSpaceLock.clearLockRequest()
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
+    fun `restores personal data and cleans restored keys for missing Profiles`() = databaseTest {
+        val inputPersonalProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputMissingWorkProfile: ProfileInfo = createProfileInfo(userId = MISSING_WORK_USER_ID, kind = ProfileKind.Work)
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputMissingPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = MISSING_PRIVATE_USER_ID,
+            kind = ProfileKind.Private
+        )
+        val inputPersonalApp: App = createApp(
+            name = "Personal",
+            packageName = "com.example.personal",
+            profileInfo = inputPersonalProfile
+        )
+        val inputWorkApp: App = createApp(name = "Work", packageName = "com.example.work", profileInfo = inputWorkProfile)
+        val inputMissingWorkApp: App = createApp(
+            name = "Old work",
+            packageName = "com.example.old-work",
+            profileInfo = inputMissingWorkProfile
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputMissingPrivateApp: App = createApp(
+            name = "Old secret",
+            packageName = "com.example.old-private",
+            profileInfo = inputMissingPrivateProfile
+        )
+        val inputRestoredApps: List<App> =
+            listOf(inputPersonalApp, inputWorkApp, inputMissingWorkApp, inputPrivateApp, inputMissingPrivateApp)
+        val inputFolder: Folder = seedRestoredRows(
+            apps = inputRestoredApps,
+            headerSettings = HeaderSettings(
+                timeTapTarget = HeaderTapSetting.Launchable(key = inputPersonalApp.key),
+                dateTapTarget = HeaderTapSetting.Launchable(key = inputMissingWorkApp.key)
+            )
+        )
+        database.getPopupDao().insertHiddenShortcut(ownerKey = inputPrivateApp.key, shortcutId = FIRST_SHORTCUT_ID)
+        database.getPopupDao().insertHiddenShortcut(ownerKey = inputMissingPrivateApp.key, shortcutId = SECOND_SHORTCUT_ID)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputPersonalProfile, inputWorkProfile, inputPrivateProfile)
+        )
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPersonalApp, inputWorkApp))
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val inputPreferencesRepository: IPreferencesRepository = createPreferencesRepository()
+        val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
+        val actualRepositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState,
+            preferencesRepository = inputPreferencesRepository,
+            mockWidgetAreaRepository = mockWidgetAreaRepository
+        )
+        finishPendingWork()
+
+        assertEquals(
+            listOf(inputPersonalApp.key, inputWorkApp.key),
+            actualRepositories.favorites.favorites.first().map { favorite -> favorite.key }
+        )
+        assertEquals(
+            listOf(inputPersonalApp.key, inputWorkApp.key, inputPrivateApp.key),
+            actualFavoriteKeys()
+        )
+        assertEquals(
+            setOf(
+                LaunchableCustomization(key = inputPersonalApp.key, name = "Personal restored"),
+                LaunchableCustomization(key = inputWorkApp.key, name = "Work restored"),
+                LaunchableCustomization(key = inputPrivateApp.key, name = "Secret restored")
+            ),
+            customizations().toSet()
+        )
+        val actualHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
+        assertEquals(HeaderTapSetting.Launchable(key = inputPersonalApp.key), actualHeaderSettings.timeTapTarget)
+        assertNull(actualHeaderSettings.dateTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
+        assertEquals(
+            listOf(inputPersonalApp.key, inputWorkApp.key, inputPrivateApp.key),
+            actualPopupItemKeys(folder = inputFolder)
+        )
+        assertEquals(listOf(FIRST_SHORTCUT_ID), database.getPopupDao().observeHiddenShortcuts(inputPrivateApp.key).first())
+        assertEquals(emptyList<String>(), database.getPopupDao().observeHiddenShortcuts(inputMissingPrivateApp.key).first())
+        assertEquals(
+            listOf(inputPersonalApp.key, inputWorkApp.key),
+            actualVisiblePopupItemKeys(repositories = actualRepositories, folder = inputFolder)
+        )
+        coVerify(exactly = 0) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputPrivateApp.key) }
+        coVerify(exactly = 1) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputMissingPrivateApp.key) }
+    }
+
+    @Test
+    fun `keeps a restored Private Space key while Locked and cleans it when the Space is removed`() = databaseTest {
+        val inputPersonalProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputPersonalApp: App = createApp(
+            name = "Personal",
+            packageName = "com.example.personal",
+            profileInfo = inputPersonalProfile
+        )
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFolder: Folder = seedRestoredRows(
+            apps = listOf(inputPersonalApp, inputPrivateApp),
+            headerSettings = HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = inputPrivateApp.key))
+        )
+        database.getPopupDao().insertHiddenShortcut(ownerKey = inputPrivateApp.key, shortcutId = FIRST_SHORTCUT_ID)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputPersonalProfile, inputPrivateProfile)
+        )
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPersonalApp))
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
+        val inputPreferencesRepository: IPreferencesRepository = createPreferencesRepository()
+        val actualRepositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState,
+            preferencesRepository = inputPreferencesRepository
+        )
+        finishPendingWork()
+
+        assertEquals(
+            listOf(inputPersonalApp.key),
+            actualRepositories.favorites.favorites.first().map { favorite -> favorite.key }
+        )
+        assertEquals(listOf(inputPersonalApp.key, inputPrivateApp.key), actualFavoriteKeys())
+        assertEquals(
+            setOf(
+                LaunchableCustomization(key = inputPersonalApp.key, name = "Personal restored"),
+                LaunchableCustomization(key = inputPrivateApp.key, name = "Secret restored")
+            ),
+            customizations().toSet()
+        )
+        assertEquals(listOf(FIRST_SHORTCUT_ID), database.getPopupDao().observeHiddenShortcuts(inputPrivateApp.key).first())
+        assertEquals(
+            listOf(inputPersonalApp.key, inputPrivateApp.key),
+            actualPopupItemKeys(folder = inputFolder)
+        )
+        assertEquals(
+            listOf(inputPersonalApp.key),
+            actualVisiblePopupItemKeys(repositories = actualRepositories, folder = inputFolder)
+        )
+        val actualLockedHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
+        assertEquals(HeaderTapSetting.Launchable(key = inputPrivateApp.key), actualLockedHeaderSettings.timeTapTarget)
+        assertEquals(
+            HeaderTapSetting.Launchable(key = inputPrivateApp.key),
+            database.getHeaderSettingsDao().getRow()?.timeTapTarget
+        )
+
+        inputProfileState.profiles.value = listOf(inputPersonalProfile, inputPrivateProfile.copy(isQuiet = false))
+        inputAppState.value = listOf(inputPersonalApp, inputPrivateApp)
+        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        finishPendingWork()
+
+        assertEquals(
+            listOf(inputPersonalApp.key, inputPrivateApp.key),
+            actualRepositories.favorites.favorites.first().map { favorite -> favorite.key }
+        )
+        assertEquals(
+            listOf(inputPersonalApp.key, inputPrivateApp.key),
+            actualVisiblePopupItemKeys(repositories = actualRepositories, folder = inputFolder)
+        )
+        val actualUnlockedHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
+        assertEquals(HeaderTapSetting.Launchable(key = inputPrivateApp.key), actualUnlockedHeaderSettings.timeTapTarget)
+
+        inputProfileState.profiles.value = listOf(inputPersonalProfile)
+        inputAppState.value = listOf(inputPersonalApp)
+        inputEnumeratedState.value = emptySet()
+        finishPendingWork()
+
+        assertEquals(listOf(inputPersonalApp.key), actualFavoriteKeys())
+        assertEquals(
+            setOf(LaunchableCustomization(key = inputPersonalApp.key, name = "Personal restored")),
+            customizations().toSet()
+        )
+        assertEquals(listOf(inputPersonalApp.key), actualPopupItemKeys(folder = inputFolder))
+        assertEquals(emptyList<String>(), database.getPopupDao().observeHiddenShortcuts(inputPrivateApp.key).first())
+        val actualRemovedHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
+        assertNull(actualRemovedHeaderSettings.timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
+    }
+
+    private fun TestScope.createPreferencesRepository(
+        launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+    ): IPreferencesRepository = IPreferencesRepositoryImpl(
+        launchableCustomizationDao = launchableCustomizationDao,
+        settingsDao = database.getSettingsDao(),
+        scope = backgroundScope
+    )
+
+    /** Seeds the rows a restored database holds for [apps] and returns the Folder that owns their Pop-up. */
+    private suspend fun seedRestoredRows(apps: List<App>, headerSettings: HeaderSettings): Folder {
+        apps.forEachIndexed { position, app -> seedFavorite(key = app.key, position = position) }
+        apps.forEach { app -> database.getLaunchableCustomizationDao().setName(key = app.key, name = "${app.name} restored") }
+        val folder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        database.getPopupDao().insertItems(
+            apps.mapIndexed { position, app ->
+                PopupItemRecord(ownerKey = folder.key, itemKey = app.key, position = position)
+            }
+        )
+        database.getHeaderSettingsDao().upsert(headerSettings)
+        return folder
+    }
+
+    private suspend fun actualFavoriteKeys(): List<String> =
+        favoriteRecords().sortedBy { record -> record.position }.map { record -> record.key }
+
+    private suspend fun actualPopupItemKeys(folder: Folder): List<String> =
+        database.getPopupDao().getItems(folder.key).sortedBy { item -> item.position }.map { item -> item.itemKey }
+
+    private suspend fun actualVisiblePopupItemKeys(repositories: PrivateSpaceRepositories, folder: Folder): List<String> =
+        repositories.popups.items(folder.key).first()
+            .filterIsInstance<PopupItem.Launchable>()
+            .map { item -> item.launchable.key }
 
     private suspend fun TestScope.loadedState(repository: ILaunchableRepository): LaunchableState {
         val collection: Job = backgroundScope.launch { repository.launchableState.collect { } }
@@ -384,23 +1193,68 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockAppRepository: IAppRepository,
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
+        mockProfileSource: IProfileSource = createProfileSourceMock(),
+        privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
+        legacyAppKeyUpgrader: ILegacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
         iconRepository = mockIconRepository,
+        profileSource = mockProfileSource,
         preferencesRepository = mockPreferencesRepository,
         folderDao = folderDao,
         popupDao = popupDao,
+        legacyAppKeyUpgrader = legacyAppKeyUpgrader,
+        privateSpaceLock = privateSpaceLock,
         scope = scope
     )
 
-    private fun createApp(name: String = ORIGINAL_NAME): App = App(
-        defaultName = name,
-        profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
-        componentName = inputComponentName
-    )
+    private fun TestScope.createPrivateSpaceRepositories(
+        profileState: ProfileSourceState,
+        appState: MutableStateFlow<List<App>?>,
+        enumeratedState: MutableStateFlow<Set<UserHandle>>,
+        preferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
+        mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
+    ): PrivateSpaceRepositories {
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = profileState)
+        val privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
+        val launchables: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputAppState = appState, inputEnumeratedProfiles = enumeratedState),
+            mockPreferencesRepository = preferencesRepository,
+            mockProfileSource = mockProfileSource,
+            privateSpaceLock = privateSpaceLock
+        )
+        return PrivateSpaceRepositories(
+            privateSpaceLock = privateSpaceLock,
+            launchables = launchables,
+            favorites = createFavoritesRepository(favoriteDao = database.getFavoriteDao(), launchableRepository = launchables),
+            popups = createPopupRepository(
+                popupDao = database.getPopupDao(),
+                launchableRepository = launchables,
+                scope = backgroundScope,
+                shortcutSource = createShortcutSourceMock(),
+                widgetAreaRepository = mockWidgetAreaRepository,
+                appWidgetHost = createAppWidgetHostMock()
+            ),
+            headerSettings = IWidgetSettingsRepositoryImpl(
+                headerSettingsDao = database.getHeaderSettingsDao(),
+                eventSettingsDao = database.getEventSettingsDao(),
+                widgetAreaSettingsDao = database.getWidgetAreaSettingsDao(),
+                mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao(),
+                launchableRepository = launchables
+            )
+        )
+    }
 
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
 }
+
+private data class PrivateSpaceRepositories(
+    val privateSpaceLock: IPrivateSpaceLock,
+    val launchables: ILaunchableRepository,
+    val favorites: IFavoritesRepositoryImpl,
+    val popups: IPopupRepository,
+    val headerSettings: IWidgetSettingsRepository
+)
