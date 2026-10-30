@@ -13,7 +13,8 @@ import core.data.room.dao.WidgetAreaDao
 
 /**
  * Moves every stored package-level App key to the current key of [App]'s package representative.
- * A canonical row that already exists wins, so a change made before the upgrade is not overwritten.
+ * Each key's rows move in one transaction, and a canonical row that already exists wins, so a change
+ * made before the upgrade is not overwritten.
  */
 class ILegacyAppKeyUpgraderImpl(
     private val favoriteDao: FavoriteDao,
@@ -26,19 +27,24 @@ class ILegacyAppKeyUpgraderImpl(
         val resolver: LaunchableKeyResolver = LaunchableKeyResolver(launchables = apps)
         val headerSettings: HeaderSettings? = headerSettingsDao.getRow()
         val replacements: Map<String, String> = resolver.legacyReplacements(keys = storedKeys(headerSettings = headerSettings))
-        if (replacements.isEmpty()) {
-            return
-        }
         for ((oldKey: String, newKey: String) in replacements) {
-            favoriteDao.replaceKey(oldKey = oldKey, newKey = newKey)
-            launchableCustomizationDao.replaceKey(oldKey = oldKey, newKey = newKey)
-            popupDao.replaceOwnerKey(oldKey = oldKey, newKey = newKey)
-            popupDao.replaceItemKey(oldKey = oldKey, newKey = newKey)
-            popupDao.replaceHiddenShortcutOwnerKey(oldKey = oldKey, newKey = newKey)
-            widgetAreaDao.replacePopupOwnerKey(oldKey = oldKey, newKey = newKey)
+            widgetAreaDao.inTransaction {
+                upgradeKey(oldKey = oldKey, newKey = newKey)
+            }
         }
-        replacements.values.distinct().forEach { ownerKey -> normalizeItemPositions(popupDao = popupDao, ownerKey = ownerKey) }
-        headerSettingsDao.updateIfChanged { settings -> settings.withResolvedTapTargets(replacements = replacements) }
+    }
+
+    private suspend fun upgradeKey(oldKey: String, newKey: String) {
+        favoriteDao.replaceKey(oldKey = oldKey, newKey = newKey)
+        launchableCustomizationDao.replaceKey(oldKey = oldKey, newKey = newKey)
+        popupDao.replaceOwnerKey(oldKey = oldKey, newKey = newKey)
+        popupDao.replaceItemKey(oldKey = oldKey, newKey = newKey)
+        popupDao.replaceHiddenShortcutOwnerKey(oldKey = oldKey, newKey = newKey)
+        widgetAreaDao.replacePopupOwnerKey(oldKey = oldKey, newKey = newKey)
+        normalizeItemPositions(popupDao = popupDao, ownerKey = newKey)
+        headerSettingsDao.updateIfChanged { settings ->
+            settings.withResolvedTapTargets(replacements = mapOf(oldKey to newKey))
+        }
     }
 
     private suspend fun storedKeys(headerSettings: HeaderSettings?): Set<String> = buildSet {
