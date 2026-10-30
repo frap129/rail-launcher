@@ -1110,6 +1110,28 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `does not reopen the paused prompt when a stale paused tap arrives after the App became available`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        val inputAvailableApp: App = inputPausedApp.copy(profileInfo = inputPausedApp.profileInfo.copy(isQuiet = false))
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            inputState.value = createLoadedLaunchableState(listOf(inputAvailableApp))
+            advanceUntilIdle()
+            val actualCanLaunch: Boolean = viewModel.requestLaunch(inputPausedApp)
+            assertFalse(actualCanLaunch)
+            assertNull(viewModel.pausedPrompt.value)
+            inputState.value = createLoadedLaunchableState(listOf(inputPausedApp))
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `dismissing the paused prompt closes it`() = runTest {
         val inputPausedApp: App = createPausedWorkApp()
         val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))

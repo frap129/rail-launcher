@@ -38,7 +38,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -80,6 +79,10 @@ sealed class LauncherMenuState {
 private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchable> {
     val indexByKey: Map<String, Int> = keys.withIndex().associate { (index, key) -> key to index }
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
+}
+
+private fun resolvePausedPrompt(requested: App?, state: LaunchableState): App? = requested?.let { app ->
+    state.launchables.filterIsInstance<App>().firstOrNull { current -> current.key == app.key }?.takeIf { current -> current.isPaused }
 }
 
 /** The names of the Folder members whose App has at least one visible notification. */
@@ -297,19 +300,14 @@ class LauncherViewModel(
     /** The paused App whose tap asked to turn work apps on, or null when no prompt is open. */
     val pausedPrompt: StateFlow<App?> = combine(
         requestedPausedApp,
-        launcherItemRepo.launchables
-    ) { requestedApp, launchables ->
-        requestedApp?.let { prompt ->
-            launchables.filterIsInstance<App>().firstOrNull { app -> app.key == prompt.key }
-        }
-    }
-        .map { app -> app?.takeIf { current -> current.isPaused } }
-        .onEach { app -> if (app == null) requestedPausedApp.value = null }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = null
-        )
+        launchableState
+    ) { requested, state ->
+        resolvePausedPrompt(requested = requested, state = state)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = null
+    )
 
     /**
      * The system's Private Space settings screen, while the space is Unlocked and offers one.
@@ -329,6 +327,15 @@ class LauncherViewModel(
             initialValue = null
         )
 
+    // Transitions the request when its App stops being paused, even while the prompt is unobserved.
+    init {
+        viewModelScope.launch {
+            launchableState.collect { state ->
+                requestedPausedApp.update { requested -> resolvePausedPrompt(requested = requested, state = state) }
+            }
+        }
+    }
+
     /**
      * Handles a request to launch [launchable]. Returns false and opens the paused prompt
      * instead when [launchable] is a paused App.
@@ -338,7 +345,7 @@ class LauncherViewModel(
         if (!app.isPaused) {
             return true
         }
-        requestedPausedApp.value = app
+        requestedPausedApp.value = resolvePausedPrompt(requested = app, state = launchableState.value)
         return false
     }
 
