@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "feature.launcher"
+    testOptions.unitTests.isIncludeAndroidResources = true
 }
 dependencies {
     implementation(libs.compose.activity)

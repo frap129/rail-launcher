@@ -158,7 +158,7 @@ class IPopupPickerImpl(
             ownerKey = request.ownerKey,
             existingKeys = picking.selectedKeys,
             selectedInOrder = selectedInOrder,
-            message = "Failed to change the items in ${request.ownerKey}'s Pop-up"
+            message = "Failed to change the items in a Pop-up"
         )
     }
 
@@ -182,7 +182,7 @@ class IPopupPickerImpl(
             ownerKey = request.ownerKey,
             existingKeys = picking.selectedKeys,
             selectedInOrder = selectedInOrder,
-            message = "Failed to change the shortcuts in ${request.ownerKey}'s Pop-up"
+            message = "Failed to change the shortcuts in a Pop-up"
         )
     }
 

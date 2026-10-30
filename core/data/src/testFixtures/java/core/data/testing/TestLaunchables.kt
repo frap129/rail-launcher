@@ -8,6 +8,7 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
 import core.data.profiles.ProfileToken
 
 private const val TEST_APP_USER_ID: Int = 0
@@ -37,6 +38,15 @@ fun createApp(
     badgedLabel = badgedLabel,
     isPackageRepresentative = true
 )
+
+/** A private App in a Private Space Profile. */
+fun createPrivateApp(name: String = "Secret", packageName: String = PRIVATE_PACKAGE_NAME, badgedLabel: String = "Private $name"): App =
+    createApp(
+        name = name,
+        packageName = packageName,
+        profileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private),
+        badgedLabel = badgedLabel
+    )
 
 /** The Launchable State resolved from [groups] and [folders]. */
 fun createLaunchableState(

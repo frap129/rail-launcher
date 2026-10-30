@@ -80,6 +80,7 @@ import core.ui.widgets.HeaderContent
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.WidgetModel
+import core.util.logTypeName
 import feature.launcher.HomeReorder
 import feature.launcher.R
 import feature.launcher.ReorderRow
@@ -800,7 +801,7 @@ private fun Context.openEvent(target: HeaderTapTarget.OpenEvent) {
     openSystemIntent(intent = intent, target = target, messageResource = R.string.no_calendar_app)
 }
 
-private fun Context.openLaunchable(launchable: Launchable) {
+internal fun Context.openLaunchable(launchable: Launchable) {
     try {
         launchable.launch(this)
     } catch (exception: SecurityException) {
@@ -812,7 +813,7 @@ private fun Context.openLaunchable(launchable: Launchable) {
 
 private fun Context.showLaunchFailure(launchable: Launchable, exception: Exception) {
     Toast.makeText(this, getString(R.string.cannot_open_launchable, launchable.name), Toast.LENGTH_SHORT).show()
-    Timber.w(exception, "Could not open Launchable %s", launchable.key)
+    Timber.w("Could not open a Launchable: %s", exception.logTypeName())
 }
 
 private fun Context.openSystemIntent(intent: Intent, target: HeaderTapTarget, messageResource: Int) {

@@ -133,7 +133,7 @@ class IPopupEditorImpl(
 
     override fun setShortcutHidden(shortcutId: String, hidden: Boolean) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        scope.launchLogged(message = "Failed to change hidden state of shortcut $shortcutId") {
+        scope.launchLogged(message = "Failed to change a shortcut's hidden state") {
             popupRepository.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
         }
     }
@@ -145,7 +145,7 @@ class IPopupEditorImpl(
 
     override fun setItemOrder(orderedItemKeys: List<String>) {
         val ownerKey: String = editRequest.value?.ownerKey ?: return
-        scope.launchLogged(message = "Failed to reorder the items in $ownerKey's Pop-up") {
+        scope.launchLogged(message = "Failed to reorder the items in a Pop-up") {
             popupRepository.setItemOrder(ownerKey = ownerKey, orderedItemKeys = orderedItemKeys)
         }
     }

@@ -9,9 +9,12 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
+import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
@@ -108,5 +111,22 @@ class AppTest {
         verify(exactly = 1) {
             mockLauncherApps.startAppDetailsActivity(inputWorkApp.componentName, inputWorkProfile.user, null, null)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    @Test
+    fun `logs a private App info failure without its package or key`() {
+        val inputContext: Application = RuntimeEnvironment.getApplication()
+        val inputPrivateApp: App = createPrivateApp()
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every {
+            mockLauncherApps.startAppDetailsActivity(inputPrivateApp.componentName, inputPrivateApp.profile, null, null)
+        } throws SecurityException("Could not open ${inputPrivateApp.key}")
+        shadowOf(inputContext).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+
+        logRecorder.record { inputPrivateApp.openAppInfo(inputContext) }
+
+        logRecorder.assertLoggedWithout(inputPrivateApp.packageName, inputPrivateApp.key)
     }
 }
