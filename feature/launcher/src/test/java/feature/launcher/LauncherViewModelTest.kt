@@ -16,6 +16,7 @@ import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.Settings
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -1161,6 +1162,28 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `locking a Private Space hides its group immediately when Rail hides it while Locked`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = inputGroups))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true)),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(inputGroups.lastIndex)
+            assertFalse(expectAppList().groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+            viewModel.lockPrivateSpace()
+            awaitAppListMatching { groups -> groups.none { group -> group is LaunchableGroup.PrivateSpace } }
+        }
+    }
+
+    @Test
     fun `clears the optimistic hide when the system refuses the lock`() = runTest {
         val inputPrivateApp: App = createPrivateApp()
         val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
@@ -1531,7 +1554,8 @@ class LauncherViewModelTest {
         mockFolderRepository: IFolderRepository = this@LauncherViewModelTest.mockFolderRepository,
         inputHomeEditState: HomeEditState = HomeEditState(),
         mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository,
-        mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource
+        mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource,
+        mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,

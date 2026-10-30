@@ -31,11 +31,12 @@ data class ProfileInfo(
 /** Whether this Profile is the Private Space. */
 val ProfileInfo.isPrivate: Boolean get() = kind == ProfileKind.Private
 
-/** Whether Rail's switch or the system's "Hide private space" setting hides this Profile's entrypoint. */
-fun ProfileInfo.isHiddenWhenLocked(hideWhenLocked: Boolean): Boolean = hideWhenLocked || isEntrypointHidden
-
-/** Whether Rail hides this Private Space's container: only while Locked, and only when Rail or the system hides it. */
-fun ProfileInfo.isHiddenWhileLocked(hideWhenLocked: Boolean): Boolean = isQuiet && isHiddenWhenLocked(hideWhenLocked = hideWhenLocked)
+/**
+ * Whether this Private Space is Hidden: Locked, or with a Lock requested, and Rail's switch or
+ * the system's "Hide private space" setting hides its entrypoint.
+ */
+fun ProfileInfo.isHiddenPrivateSpace(hideWhenLocked: Boolean, isLockRequested: Boolean): Boolean =
+    (isQuiet || isLockRequested) && (hideWhenLocked || isEntrypointHidden)
 
 /** The listed Private Space Profile, or null when the device has none or Rail cannot see it. */
 val List<ProfileInfo>.privateSpace: ProfileInfo? get() = firstOrNull { profile -> profile.isPrivate }
