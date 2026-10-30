@@ -120,8 +120,8 @@ fun LauncherItemGroup(
                 summary = folderSummaries[item.key]
             )
         }
-        if (group is LaunchableGroup.PrivateSpace) {
-            PrivateSpaceActionRows(isLocked = group.isLocked, actions = itemActions.privateSpaceActions)
+        if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
+            PrivateSpaceActionRows(actions = itemActions.privateSpaceActions)
         }
     }
 }

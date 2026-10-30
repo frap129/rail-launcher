@@ -47,7 +47,7 @@ data class PrivateSpaceActions(
     val onUnlock: () -> Unit,
     val onLock: () -> Unit,
     /** Opens the system Private Space settings, or null when the system offers none. */
-    val onSettings: (() -> Unit)? = null
+    val onSettings: (() -> Unit)?
 )
 
 /** The Private Space container row: a lock indicator, its name and its Locked/Unlocked state. */
@@ -75,25 +75,20 @@ internal fun PrivateSpaceRow(isLocked: Boolean, onUnlock: () -> Unit, modifier: 
 
 /** The Lock and Settings action rows under the Unlocked Private Space's Apps. */
 @Composable
-internal fun PrivateSpaceActionRows(isLocked: Boolean, actions: PrivateSpaceActions, modifier: Modifier = Modifier) {
-    if (isLocked) {
-        return
-    }
+internal fun PrivateSpaceActionRows(actions: PrivateSpaceActions, modifier: Modifier = Modifier) {
     val lockLabel: String = stringResource(R.string.lock_private_space)
     val settingsLabel: String = stringResource(R.string.private_space_settings)
     Column(modifier = modifier.fillMaxWidth()) {
         LauncherActionRow(
             imageVector = FontAwesomeIcons.Solid.Lock,
             label = lockLabel,
-            onClick = actions.onLock,
-            contentDescription = lockLabel
+            onClick = actions.onLock
         )
         actions.onSettings?.let { onSettings ->
             LauncherActionRow(
                 imageVector = ImageVector.vectorResource(CoreDataR.drawable.settings_gear),
                 label = settingsLabel,
-                onClick = onSettings,
-                contentDescription = settingsLabel
+                onClick = onSettings
             )
         }
     }

@@ -13,36 +13,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconSize
 import core.ui.layout.compactIconSize
 
-/**
- * A full-width launcher action row with a leading icon and a label. When [contentDescription] is
- * set the row announces it instead of the label alone.
- */
+/** A full-width launcher action row with a leading icon and a label. */
 @Composable
-internal fun LauncherActionRow(
-    imageVector: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    contentDescription: String? = null
-) {
+internal fun LauncherActionRow(imageVector: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = launchableIconSize)
-            .clickable(role = Role.Button, onClick = onClick)
-            .then(
-                if (contentDescription == null) {
-                    Modifier
-                } else {
-                    Modifier.semantics(mergeDescendants = true) { this.contentDescription = contentDescription }
-                }
-            ),
+            .clickable(role = Role.Button, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
