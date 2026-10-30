@@ -23,7 +23,7 @@ import core.data.prefs.toLaunchableNames
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileToken
-import core.data.profiles.isHiddenWhileLocked
+import core.data.profiles.isHiddenPrivateSpace
 import core.data.profiles.isPrivate
 import core.data.profiles.privateSpace
 import core.data.profiles.toProfileToken
@@ -258,7 +258,9 @@ internal fun List<Launchable>.toLaunchableGroups(
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
     val privateSpaceGroup: LaunchableGroup.PrivateSpace? = privateSpace
-        ?.takeUnless { profile -> profile.isHiddenWhileLocked(hideWhenLocked = hidePrivateSpaceWhenLocked) }
+        ?.takeUnless { profile ->
+            profile.isHiddenPrivateSpace(hideWhenLocked = hidePrivateSpaceWhenLocked, isLockRequested = false)
+        }
         ?.let { profile ->
             if (profile.isQuiet) {
                 LaunchableGroup.PrivateSpace.Locked

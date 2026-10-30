@@ -20,7 +20,7 @@ import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
-import core.data.profiles.isHiddenWhenLocked
+import core.data.profiles.isHiddenPrivateSpace
 import core.data.profiles.privateSpace
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
@@ -99,17 +99,17 @@ private data class RailNavigation(
     val appListState: LazyListState? = null
 )
 
-private data class PrivateSpaceVisibility(val isLockRequested: Boolean, val isHiddenWhenLocked: Boolean)
+private data class PrivateSpaceVisibility(val isLockRequested: Boolean, val isHidden: Boolean)
 
 // A Hidden Private Space leaves the App List and the Rail while Locked, including an optimistic Lock.
-private fun LaunchableGroup.isHiddenPrivateSpace(visibility: PrivateSpaceVisibility): Boolean =
-    this is LaunchableGroup.PrivateSpace && (isLocked || visibility.isLockRequested) && visibility.isHiddenWhenLocked
+private fun LaunchableGroup.isHidden(visibility: PrivateSpaceVisibility): Boolean =
+    this is LaunchableGroup.PrivateSpace && visibility.isHidden
 
 private fun <T : LaunchableGroup> List<T>.withoutHiddenPrivateSpace(visibility: PrivateSpaceVisibility): List<T> =
-    filterNot { group -> group.isHiddenPrivateSpace(visibility) }
+    filterNot { group -> group.isHidden(visibility) }
 
 private fun <T : LaunchableGroup> T.withoutHiddenPrivateSpace(visibility: PrivateSpaceVisibility): T? =
-    takeUnless { group -> group.isHiddenPrivateSpace(visibility) }
+    takeUnless { group -> group.isHidden(visibility) }
 
 private fun toUiState(
     navigation: RailNavigation,
@@ -191,14 +191,15 @@ class LauncherViewModel(
     ) { profiles, settings, isLockRequested ->
         PrivateSpaceVisibility(
             isLockRequested = isLockRequested,
-            isHiddenWhenLocked = profiles.privateSpace?.isHiddenWhenLocked(
-                hideWhenLocked = settings.hidePrivateSpaceWhenLocked
+            isHidden = profiles.privateSpace?.isHiddenPrivateSpace(
+                hideWhenLocked = settings.hidePrivateSpaceWhenLocked,
+                isLockRequested = isLockRequested
             ) == true
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = PrivateSpaceVisibility(isLockRequested = false, isHiddenWhenLocked = false)
+        initialValue = PrivateSpaceVisibility(isLockRequested = false, isHidden = false)
     )
 
     /** The Rail items in index order, shared with the Rail. */

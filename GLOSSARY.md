@@ -44,8 +44,12 @@ _Avoid_: Private profile, vault, space
 A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
 _Avoid_: Off, closed, disabled
 
+**Lock requested**:
+A Private Space that Rail has asked the system to Lock, before the system confirms; Rail treats it as Locked until the request settles.
+_Avoid_: Pending lock, locking
+
 **Hidden Private Space**:
-A Locked Private Space whose container Rail leaves out of the App List and Rail because the Rail Settings switch or the system's "Hide private space" setting hides it; Unlocking shows it again.
+A Private Space whose container Rail leaves out of the App List and Rail because it is Locked, or a Lock is requested, and the Rail Settings switch or the system's "Hide private space" setting hides it; Unlocking shows it again.
 _Avoid_: Invisible space, hidden profile
 
 **Kept key**:
