@@ -76,26 +76,36 @@ class IAppWidgetHostSourceImplTest {
     )
 
     @Test
-    fun `lists providers from personal and work Profiles only`() = runTest {
+    fun `lists providers from personal, work and unlocked Private Space Profiles`() = runTest {
         val inputState: ProfileSourceState = ProfileSourceState(
             profiles = listOf(personalProfile, workProfile, privateProfile)
         )
-        val source: IAppWidgetHostSourceImpl = createSource(state = inputState, applicationInfo = { _, _ -> enabledApplicationInfo() })
-        val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(application)
-        shadowOf(appWidgetManager).addInstalledProvidersForProfile(personalUser, provider(packageName = PERSONAL_PACKAGE))
-        shadowOf(appWidgetManager).addInstalledProvidersForProfile(workUser, provider(packageName = WORK_PACKAGE))
-        shadowOf(appWidgetManager).addInstalledProvidersForProfile(privateUser, provider(packageName = PRIVATE_PACKAGE))
+        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(state = inputState)
+
+        val actualProviders: List<WidgetProviderInfo> = source.providers.first()
+
+        assertEquals(
+            listOf(PERSONAL_PACKAGE, WORK_PACKAGE, PRIVATE_PACKAGE),
+            actualProviders.map { provider -> provider.provider.packageName }
+        )
+        assertEquals(listOf(false, true, false), actualProviders.map { provider -> provider.isWorkProfile })
+    }
+
+    @Test
+    fun `hides providers from a Locked Private Space`() = runTest {
+        val inputState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(personalProfile, workProfile, privateProfile.copy(isQuiet = true))
+        )
+        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(state = inputState)
 
         val actualProviders: List<WidgetProviderInfo> = source.providers.first()
 
         assertEquals(listOf(PERSONAL_PACKAGE, WORK_PACKAGE), actualProviders.map { provider -> provider.provider.packageName })
-        assertEquals(listOf(false, true), actualProviders.map { provider -> provider.isWorkProfile })
     }
 
     @Test
     fun `reports a replacing package as updating`() = runTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(workProfile))
-        inputState.usersBySerial[WORK_SERIAL] = workUser
         val source: IAppWidgetHostSourceImpl = createSource(state = inputState, applicationInfo = { _, _ -> null })
         backgroundScope.launch { source.providerChanges.collect() }
         runCurrent()
@@ -118,7 +128,6 @@ class IAppWidgetHostSourceImplTest {
     @Test
     fun `reports an unavailable package as gone when it is not replacing`() = runTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(workProfile))
-        inputState.usersBySerial[WORK_SERIAL] = workUser
         val source: IAppWidgetHostSourceImpl = createSource(state = inputState, applicationInfo = { _, _ -> null })
 
         assertEquals(
@@ -132,7 +141,6 @@ class IAppWidgetHostSourceImplTest {
         val inputState: ProfileSourceState = ProfileSourceState(
             profiles = listOf(workProfile.copy(isQuiet = true))
         )
-        inputState.usersBySerial[WORK_SERIAL] = workUser
         val source: IAppWidgetHostSourceImpl = createSource(state = inputState, applicationInfo = { _, _ -> enabledApplicationInfo() })
 
         assertEquals(
@@ -161,6 +169,15 @@ class IAppWidgetHostSourceImplTest {
             profileSource = mockProfileSource,
             dispatcher = StandardTestDispatcher(testScheduler)
         )
+    }
+
+    private fun TestScope.createSourceWithAllProviders(state: ProfileSourceState): IAppWidgetHostSourceImpl {
+        val source: IAppWidgetHostSourceImpl = createSource(state = state, applicationInfo = { _, _ -> enabledApplicationInfo() })
+        val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(application)
+        shadowOf(appWidgetManager).addInstalledProvidersForProfile(personalUser, provider(packageName = PERSONAL_PACKAGE))
+        shadowOf(appWidgetManager).addInstalledProvidersForProfile(workUser, provider(packageName = WORK_PACKAGE))
+        shadowOf(appWidgetManager).addInstalledProvidersForProfile(privateUser, provider(packageName = PRIVATE_PACKAGE))
+        return source
     }
 
     private fun provider(packageName: String): AppWidgetProviderInfo {

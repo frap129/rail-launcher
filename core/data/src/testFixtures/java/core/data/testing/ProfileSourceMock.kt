@@ -23,8 +23,8 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
     val profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(profiles)
     val changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(extraBufferCapacity = 32)
     val activitiesByUser: MutableMap<UserHandle, List<ProfileActivity>> = mutableMapOf()
-    val usersBySerial: MutableMap<Long, UserHandle> = mutableMapOf()
-    val serialsByUser: MutableMap<UserHandle, Long> = mutableMapOf()
+    val usersBySerial: MutableMap<Long, UserHandle> = profiles.associate { profile -> profile.serial to profile.user }.toMutableMap()
+    val serialsByUser: MutableMap<UserHandle, Long> = profiles.associate { profile -> profile.user to profile.serial }.toMutableMap()
 
     /** The system-badged label for a label and Profile; identity unless a test overrides it. */
     var badgedLabel: (String, UserHandle) -> String = { label, _ -> label }

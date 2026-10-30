@@ -35,7 +35,7 @@ import core.ui.R as CoreUiR
 import core.ui.layout.compactIconSize
 import org.koin.compose.koinInject
 
-private val workBadgeSize: Dp = 18.dp
+private val profileBadgeSize: Dp = 18.dp
 
 /** Rail's App Widget picker, opened from any "Add widget" entry point. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,6 +132,9 @@ private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderI
     val preview: Drawable? by produceState<Drawable?>(initialValue = null, widget) {
         value = AppWidgetViews.loadPreview(context = context, info = widget, profileSource = profileSource)
     }
+    val profileBadge: Drawable? by produceState<Drawable?>(initialValue = null, widget.profileSerial) {
+        value = AppWidgetViews.loadProfileBadge(context = context, profileSerial = widget.profileSerial, profileSource = profileSource)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -145,11 +148,11 @@ private fun PickerWidgetRow(widget: WidgetProviderInfo, onPick: (WidgetProviderI
                 contentDescription = stringResource(CoreUiR.string.widget_preview, widget.label),
                 modifier = Modifier.size(56.dp)
             )
-            if (preview != null && widget.isWorkProfile) {
+            if (preview != null && profileBadge != null) {
                 AsyncImage(
-                    model = widget.appIcon,
+                    model = profileBadge,
                     contentDescription = null,
-                    modifier = Modifier.align(Alignment.BottomEnd).size(workBadgeSize)
+                    modifier = Modifier.align(Alignment.BottomEnd).size(profileBadgeSize)
                 )
             }
         }

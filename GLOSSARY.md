@@ -28,6 +28,10 @@ _Avoid_: User, space, account
 The stored text form of a Profile's user handle, appended to a Launchable key and embedded in a Shortcut key.
 _Avoid_: User id, profile suffix
 
+**Profile badge**:
+The system-drawn badge on the icon of an App or App Widget that belongs to a non-personal Profile.
+_Avoid_: Work badge (when meaning any Profile's badge), Rail badge
+
 **Work profile**:
 The managed Profile a device administrator controls, separate from the personal Profile.
 _Avoid_: Work user, work space, managed profile
