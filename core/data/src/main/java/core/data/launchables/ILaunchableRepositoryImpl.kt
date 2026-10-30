@@ -34,6 +34,7 @@ import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.runCleanup
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,8 +44,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -132,11 +135,9 @@ class ILaunchableRepositoryImpl(
                 .filter { state -> state.isLoaded }
                 .map { state -> state.launchables.filterIsInstance<App>() }
                 .distinctUntilChangedBy { apps -> apps.map { app -> app.key to app.isPackageRepresentative } }
-                .collect { apps ->
-                    runCleanup(message = "Failed to upgrade Legacy App keys") {
-                        legacyAppKeyUpgrader.upgrade(apps = apps)
-                    }
-                }
+                .onEach { apps -> upgradeLegacyAppKeys(apps = apps) }
+                .retryWithExponentialBackoff()
+                .collect { }
         }
         // Deleting stale names keeps a reinstalled Launchable from restoring an old rename.
         scope.launch {
@@ -150,6 +151,17 @@ class ILaunchableRepositoryImpl(
                         removeStaleNames(state = state, customizations = customizations)
                     }
                 }
+        }
+    }
+
+    private suspend fun upgradeLegacyAppKeys(apps: List<App>) {
+        try {
+            legacyAppKeyUpgrader.upgrade(apps = apps)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Timber.e(exception, "Failed to upgrade Legacy App keys")
+            throw exception
         }
     }
 

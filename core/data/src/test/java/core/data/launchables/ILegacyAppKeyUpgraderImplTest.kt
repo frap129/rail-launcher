@@ -8,11 +8,13 @@ import core.data.popups.PopupItemRecord
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.LaunchableCustomization
+import core.data.room.dao.HeaderSettingsDao
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.SECOND_POSITION
 import core.data.testing.createApp
+import core.data.testing.createFailOnceMock
 import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createProfileInfo
 import core.data.widgets.WidgetKind
@@ -42,31 +44,16 @@ class ILegacyAppKeyUpgraderImplTest : InMemoryDatabaseTest() {
         componentName = ComponentName(PACKAGE_NAME, OTHER_ACTIVITY),
         isPackageRepresentative = false
     )
+    private val inputFolder: Folder = Folder(folderId = 1L)
     private val inputLegacyKey: String = "${PACKAGE_NAME}_${inputProfile.user}"
     private val inputGoneLegacyKey: String = "${GONE_PACKAGE_NAME}_${inputProfile.user}"
 
     @Test
     fun `rewrites Legacy App keys in every key-bearing table`() = databaseTest {
-        val inputFolder: Folder = Folder(folderId = 1L)
         seedFavorite(key = inputGoneLegacyKey, position = 0)
         seedFavorite(key = inputLegacyKey, position = FIRST_POSITION)
         seedFavorite(key = inputRepresentative.key, position = SECOND_POSITION)
-        database.getLaunchableCustomizationDao().setName(key = inputLegacyKey, name = CUSTOM_NAME)
-        database.getHeaderSettingsDao().upsert(
-            HeaderSettings(
-                timeTapTarget = HeaderTapSetting.Launchable(key = inputLegacyKey),
-                dateTapTarget = HeaderTapSetting.Nothing
-            )
-        )
-        database.getPopupDao().insertItems(
-            listOf(
-                PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputOtherActivity.key, position = 0),
-                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputLegacyKey, position = 0),
-                PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputLegacyKey, position = 1)
-            )
-        )
-        database.getPopupDao().insertHiddenShortcut(ownerKey = inputLegacyKey, shortcutId = SHORTCUT_ID)
-        database.getWidgetAreaDao().insertPlace(WidgetPlaceRecord(position = 0, ownerKey = inputLegacyKey))
+        seedKeyBearingRows()
         val upgrader = createLegacyAppKeyUpgrader(database)
 
         upgrader.upgrade(apps = listOf(inputRepresentative, inputOtherActivity))
@@ -78,29 +65,7 @@ class ILegacyAppKeyUpgraderImplTest : InMemoryDatabaseTest() {
             ),
             favoriteRecords().sortedBy { record -> record.position }
         )
-        assertEquals(
-            listOf(LaunchableCustomization(key = inputRepresentative.key, name = CUSTOM_NAME)),
-            customizations()
-        )
-        val actualHeaderSettings: HeaderSettings = database.getHeaderSettingsDao().getRow()!!
-        assertEquals(HeaderTapSetting.Launchable(key = inputRepresentative.key), actualHeaderSettings.timeTapTarget)
-        assertEquals(HeaderTapSetting.Nothing, actualHeaderSettings.dateTapTarget)
-        assertEquals(
-            listOf(
-                PopupItemRecord(ownerKey = inputRepresentative.key, itemKey = inputOtherActivity.key, position = 0),
-                PopupItemRecord(ownerKey = inputRepresentative.key, itemKey = inputRepresentative.key, position = 1),
-                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputRepresentative.key, position = 0)
-            ),
-            database.getPopupDao().getAllItems().sortedWith(compareBy({ item -> item.ownerKey }, { item -> item.position }))
-        )
-        assertEquals(
-            listOf(inputRepresentative.key),
-            database.getPopupDao().observeAllOwnerKeys().first()
-        )
-        assertEquals(
-            listOf(inputRepresentative.key),
-            database.getWidgetAreaDao().getPopupOwnerKeys()
-        )
+        assertKeyBearingRowsStoredUnder(key = inputRepresentative.key)
     }
 
     @Test
@@ -167,6 +132,70 @@ class ILegacyAppKeyUpgraderImplTest : InMemoryDatabaseTest() {
 
         assertEquals(actualFirst, favoriteRecords())
         assertTrue(actualFirst.any { record -> record.key == inputRepresentative.key })
+    }
+
+    @Test
+    fun `rolls back a key when a mid-upgrade write fails and upgrades it on the next run`() = databaseTest {
+        seedFavorite(key = inputLegacyKey, position = FIRST_POSITION)
+        seedKeyBearingRows()
+        val mockHeaderSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao().createFailOnceMock(
+            failure = IllegalStateException("Header write failed"),
+            stub = { dao -> dao.upsert(any()) },
+            delegate = { dao -> dao.upsert(firstArg()) }
+        )
+        val upgrader = createLegacyAppKeyUpgrader(database = database, headerSettingsDao = mockHeaderSettingsDao)
+
+        val actualFailure: Throwable? = runCatching {
+            upgrader.upgrade(apps = listOf(inputRepresentative, inputOtherActivity))
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is IllegalStateException)
+        assertEquals(listOf(FavoriteRecord(key = inputLegacyKey, position = FIRST_POSITION)), favoriteRecords())
+        assertKeyBearingRowsStoredUnder(key = inputLegacyKey)
+
+        upgrader.upgrade(apps = listOf(inputRepresentative, inputOtherActivity))
+
+        assertEquals(
+            listOf(FavoriteRecord(key = inputRepresentative.key, position = FIRST_POSITION)),
+            favoriteRecords()
+        )
+        assertKeyBearingRowsStoredUnder(key = inputRepresentative.key)
+    }
+
+    private suspend fun seedKeyBearingRows() {
+        database.getLaunchableCustomizationDao().setName(key = inputLegacyKey, name = CUSTOM_NAME)
+        database.getHeaderSettingsDao().upsert(
+            HeaderSettings(
+                timeTapTarget = HeaderTapSetting.Launchable(key = inputLegacyKey),
+                dateTapTarget = HeaderTapSetting.Nothing
+            )
+        )
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputOtherActivity.key, position = 0),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputLegacyKey, position = 0),
+                PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputLegacyKey, position = 1)
+            )
+        )
+        database.getPopupDao().insertHiddenShortcut(ownerKey = inputLegacyKey, shortcutId = SHORTCUT_ID)
+        database.getWidgetAreaDao().insertPlace(WidgetPlaceRecord(position = 0, ownerKey = inputLegacyKey))
+    }
+
+    private suspend fun assertKeyBearingRowsStoredUnder(key: String) {
+        assertEquals(listOf(LaunchableCustomization(key = key, name = CUSTOM_NAME)), customizations())
+        val actualHeaderSettings: HeaderSettings = database.getHeaderSettingsDao().getRow()!!
+        assertEquals(HeaderTapSetting.Launchable(key = key), actualHeaderSettings.timeTapTarget)
+        assertEquals(HeaderTapSetting.Nothing, actualHeaderSettings.dateTapTarget)
+        assertEquals(
+            listOf(
+                PopupItemRecord(ownerKey = key, itemKey = inputOtherActivity.key, position = 0),
+                PopupItemRecord(ownerKey = key, itemKey = key, position = 1),
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = key, position = 0)
+            ),
+            database.getPopupDao().getAllItems().sortedWith(compareBy({ item -> item.ownerKey }, { item -> item.position }))
+        )
+        assertEquals(listOf(key), database.getPopupDao().observeAllOwnerKeys().first())
+        assertEquals(listOf(key), database.getWidgetAreaDao().getPopupOwnerKeys())
     }
 
     private fun appWidget(id: Long, placeId: Long, appWidgetId: Int): WidgetRecord = WidgetRecord(

@@ -28,6 +28,7 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
+import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
 import core.data.testing.FIRST_POSITION
@@ -46,6 +47,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLegacyAppKeyUpgrader
@@ -211,6 +213,40 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualRecoveredName: String = repository.launchableState.value.singleAppName()
         assertEquals(RENAMED_NAME, actualRecoveredName)
         assertEquals(3, actualCollections)
+    }
+
+    @Test
+    fun `retries a failed Legacy App key upgrade after the retry delay`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputLegacyKey: String = inputApp.legacyAppKey
+        seedFavorite(key = inputLegacyKey, position = FIRST_POSITION)
+        database.getHeaderSettingsDao().upsert(
+            HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = inputLegacyKey))
+        )
+        val actualFailureDelivered: CompletableDeferred<Unit> = CompletableDeferred()
+        val mockHeaderSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao().createFailOnceMock(
+            failure = IllegalStateException("Legacy App key upgrade failed"),
+            onFailure = { actualFailureDelivered.complete(Unit) },
+            stub = { dao -> dao.upsert(any()) },
+            delegate = { dao -> dao.upsert(firstArg()) }
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database = database, headerSettingsDao = mockHeaderSettingsDao)
+        )
+        backgroundScope.launch { repository.launchableState.collect() }
+        actualFailureDelivered.await()
+        runCurrent()
+
+        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
+
+        advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
+        runCurrent()
+        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
+
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(inputApp.key), favoriteRecords().map { record -> record.key })
     }
 
     @Test
