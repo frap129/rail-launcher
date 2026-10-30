@@ -139,6 +139,33 @@ class LaunchableGroupsTest {
     }
 
     @Test
+    fun `gives a Private Space with a Lock requested no items`() {
+        val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
+
+        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile,
+            isLockRequested = true
+        ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+
+        assertTrue(actualGroup.isLocked)
+        assertTrue(actualGroup.items.isEmpty())
+    }
+
+    @Test
+    fun `hides a Private Space with a Lock requested while Rail hides it`() {
+        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile,
+            hidePrivateSpaceWhenLocked = true,
+            isLockRequested = true
+        )
+
+        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
+        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
     fun `hides a Locked Private Space while Rail hides it`() {
         val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,

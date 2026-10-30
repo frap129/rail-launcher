@@ -18,9 +18,9 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
-import core.data.profiles.isHiddenPrivateSpace
 import core.data.profiles.privateSpace
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -99,31 +98,24 @@ private data class RailNavigation(
     val appListState: LazyListState? = null
 )
 
-private data class PrivateSpaceVisibility(val isLockRequested: Boolean, val isHidden: Boolean)
-
-// A Hidden Private Space leaves the App List and the Rail while Locked, including an optimistic Lock.
-private fun LaunchableGroup.isHidden(visibility: PrivateSpaceVisibility): Boolean =
-    this is LaunchableGroup.PrivateSpace && visibility.isHidden
-
-private fun <T : LaunchableGroup> List<T>.withoutHiddenPrivateSpace(visibility: PrivateSpaceVisibility): List<T> =
-    filterNot { group -> group.isHidden(visibility) }
-
-private fun <T : LaunchableGroup> T.withoutHiddenPrivateSpace(visibility: PrivateSpaceVisibility): T? =
-    takeUnless { group -> group.isHidden(visibility) }
+// The selected Private Space follows the latest Locked or Unlocked container, or null while Hidden.
+private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>): LaunchableGroup.Listed? =
+    if (this is LaunchableGroup.PrivateSpace) {
+        groups.firstOrNull { group -> group is LaunchableGroup.PrivateSpace }
+    } else {
+        this
+    }
 
 private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favorites: List<Launchable>,
-    isEditingFavorites: Boolean,
-    privateSpaceVisibility: PrivateSpaceVisibility
+    isEditingFavorites: Boolean
 ): LauncherUiState {
     if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
-        .withoutHiddenPrivateSpace(privateSpaceVisibility)
-        .map { group -> group.withPrivateSpaceLocked(isLockRequested = privateSpaceVisibility.isLockRequested) }
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
@@ -131,9 +123,7 @@ private fun toUiState(
             isEditingFavorites = isEditingFavorites
         )
     }
-    val selected: LaunchableGroup.Listed? = navigation.selected
-        ?.withoutHiddenPrivateSpace(privateSpaceVisibility)
-        ?.withPrivateSpaceLocked(isLockRequested = privateSpaceVisibility.isLockRequested)
+    val selected: LaunchableGroup.Listed? = navigation.selected?.refresh(groups = listedGroups)
     if (navigation.isScrolling) {
         return if (selected == null) {
             LauncherUiState.Loading
@@ -148,14 +138,6 @@ private fun toUiState(
         isEditingFavorites = isEditingFavorites
     )
 }
-
-// A Lock tap hides the private Apps before the system confirms the Profile is quiet.
-private fun LaunchableGroup.Listed.withPrivateSpaceLocked(isLockRequested: Boolean): LaunchableGroup.Listed =
-    if (isLockRequested && this is LaunchableGroup.PrivateSpace && !isLocked) {
-        LaunchableGroup.PrivateSpace.Locked
-    } else {
-        this
-    }
 
 private enum class MenuRequest {
     Closed,
@@ -172,7 +154,8 @@ class LauncherViewModel(
     private val popupRepo: IPopupRepository,
     private val notificationSource: INotificationSource,
     private val homeEditState: HomeEditState,
-    private val profileSource: IProfileSource
+    private val profileSource: IProfileSource,
+    private val privateSpaceLock: IPrivateSpaceLock
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -180,39 +163,14 @@ class LauncherViewModel(
 
     private val launchableState: StateFlow<LaunchableState> = launcherItemRepo.launchableState
 
-    // Set when the Lock action hides the private Apps before the Profile reports itself quiet.
-    private val isPrivateSpaceLockRequested: MutableStateFlow<Boolean> = MutableStateFlow(false)
-
-    // A Hidden Private Space leaves the App List and the Rail, including during an optimistic Lock.
-    private val privateSpaceVisibility: StateFlow<PrivateSpaceVisibility> = combine(
-        profileSource.profiles,
-        prefsRepo.settings,
-        isPrivateSpaceLockRequested
-    ) { profiles, settings, isLockRequested ->
-        PrivateSpaceVisibility(
-            isLockRequested = isLockRequested,
-            isHidden = profiles.privateSpace?.isHiddenPrivateSpace(
-                hideWhenLocked = settings.hidePrivateSpaceWhenLocked,
-                isLockRequested = isLockRequested
-            ) == true
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = PrivateSpaceVisibility(isLockRequested = false, isHidden = false)
-    )
-
     /** The Rail items in index order, shared with the Rail. */
-    val railItems: StateFlow<List<GroupMark>> = combine(
-        launchableState,
-        privateSpaceVisibility
-    ) { state, visibility ->
-        state.groups.withoutHiddenPrivateSpace(visibility).map { group -> group.toGroupMark() }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = emptyList()
-    )
+    val railItems: StateFlow<List<GroupMark>> = launchableState
+        .map { state -> state.groups.map { group -> group.toGroupMark() } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = emptyList()
+        )
 
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
@@ -251,33 +209,19 @@ class LauncherViewModel(
         navigation,
         launchableState,
         favorites,
-        isEditingFavorites,
-        privateSpaceVisibility
-    ) { navigation, state, favorites, isEditingFavorites, privateSpaceVisibility ->
+        isEditingFavorites
+    ) { navigation, state, favorites, isEditingFavorites ->
         toUiState(
             navigation = navigation,
             state = state,
             favorites = favorites,
-            isEditingFavorites = isEditingFavorites,
-            privateSpaceVisibility = privateSpaceVisibility
+            isEditingFavorites = isEditingFavorites
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
         initialValue = LauncherUiState.Loading
     )
-
-    init {
-        // Drops the pending Lock once the Profile is quiet (or gone), so a later unlock is shown.
-        viewModelScope.launch {
-            launchableState
-                .map { state ->
-                    state.listedGroups.none { group -> group is LaunchableGroup.PrivateSpace && !group.isLocked }
-                }
-                .distinctUntilChanged()
-                .collect { isLocked -> if (isLocked) isPrivateSpaceLockRequested.value = false }
-        }
-    }
 
     /** The items of every Folder, keyed by the Folder key. */
     private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
@@ -372,7 +316,7 @@ class LauncherViewModel(
      */
     val privateSpaceSettingsIntent: StateFlow<IntentSender?> = combine(
         profileSource.profiles,
-        isPrivateSpaceLockRequested
+        privateSpaceLock.isLockRequested
     ) { profiles, isLockRequested ->
         profiles.privateSpace
             ?.takeIf { profile -> !profile.isQuiet && !isLockRequested }
@@ -405,17 +349,17 @@ class LauncherViewModel(
     /** Asks the system to unlock the Private Space; it stays Locked until the system reports it available. */
     fun requestPrivateSpaceUnlock() {
         val user: UserHandle = privateSpaceUser() ?: return
-        isPrivateSpaceLockRequested.value = false
+        privateSpaceLock.clearLockRequest()
         requestQuietOff(user = user)
     }
 
     /** Hides the private Apps immediately, then asks the system to lock the Private Space. */
     fun lockPrivateSpace() {
         val user: UserHandle = privateSpaceUser() ?: return
-        isPrivateSpaceLockRequested.value = true
+        privateSpaceLock.requestLock()
         requestQuietOn(user = user) { result ->
             if (result == QuietRequestResult.Failed) {
-                isPrivateSpaceLockRequested.value = false
+                privateSpaceLock.clearLockRequest()
             }
         }
     }
@@ -471,7 +415,7 @@ class LauncherViewModel(
 
     // Reads the shared state before update so a retried update cannot build a second scroll state.
     private fun createAppListState(group: LaunchableGroup.Listed): LazyListState {
-        val listedGroups: List<LaunchableGroup.Listed> = railGroups().filterIsInstance<LaunchableGroup.Listed>()
+        val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.groups.filterIsInstance<LaunchableGroup.Listed>()
         return LazyListState(
             firstVisibleItemIndex = listedGroups.indexOfFirst { listed -> listed == group } + 1,
             firstVisibleItemScrollOffset = -listStartOffsetPx
@@ -490,10 +434,8 @@ class LauncherViewModel(
         appListState = appListState
     )
 
-    private fun railGroups(): List<LaunchableGroup> = launchableState.value.groups.withoutHiddenPrivateSpace(privateSpaceVisibility.value)
-
     private fun findRailGroup(index: Int): LaunchableGroup? {
-        val groups: List<LaunchableGroup> = railGroups()
+        val groups: List<LaunchableGroup> = launchableState.value.groups
         val group: LaunchableGroup? = groups.getOrNull(index)
         if (group == null) {
             Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
