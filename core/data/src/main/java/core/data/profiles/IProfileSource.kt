@@ -87,8 +87,11 @@ interface IProfileSource {
     /** Package and Profile changes, emitted for the lifetime of the process. */
     val changes: SharedFlow<ProfileChange>
 
-    /** Re-reads the system Profiles, so a Profile the platform started reporting is listed without a restart. */
-    fun refreshProfiles()
+    /**
+     * Re-reads the system Profiles, so a Profile the platform started reporting is listed without a restart.
+     * Availability changes are published through [changes].
+     */
+    suspend fun refreshProfiles()
 
     /** The Profile for [user], or null when it is no longer listed. */
     fun profileFor(user: UserHandle): ProfileInfo?
@@ -115,7 +118,7 @@ interface IProfileSource {
     suspend fun requestQuiet(user: UserHandle, quiet: Boolean): QuietRequestResult
 
     /** The system's Private Space settings screen, or null when the system does not offer one (API 36+). */
-    fun privateSpaceSettingsIntent(): IntentSender?
+    suspend fun privateSpaceSettingsIntent(): IntentSender?
 
     /** The Profile whose serial number is [serial], or null when no Profile matches. */
     fun userForSerial(serial: Long): UserHandle?

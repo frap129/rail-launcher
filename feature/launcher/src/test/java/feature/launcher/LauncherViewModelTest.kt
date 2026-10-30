@@ -1315,6 +1315,24 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `does not query the Private Space settings action again while the space stays Unlocked`() = runTest {
+        val expectedIntentSender: IntentSender = createIntentSender(context = RuntimeEnvironment.getApplication())
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            privateSpaceSettingsIntent = expectedIntentSender
+        }
+        val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+
+        viewModel.privateSpaceSettingsIntent.test {
+            assertEquals(expectedIntentSender, awaitIntentSender())
+            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(serial = 1L))
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+        coVerify(exactly = 1) { mockPrivateProfileSource.privateSpaceSettingsIntent() }
+    }
+
+    @Test
     fun `offers no Private Space settings action without a system intent`() = runTest {
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
         val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)

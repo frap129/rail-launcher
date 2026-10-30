@@ -92,13 +92,15 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         ContextCompat.registerReceiver(appContext, receiver, profileIntentFilter(), ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    override fun refreshProfiles() {
-        val previousUsers: Set<UserHandle> = _profiles.value.mapTo(mutableSetOf()) { profile -> profile.user }
-        val profiles: List<ProfileInfo> = loadProfiles() ?: return
-        _profiles.value = profiles
-        val currentUsers: Set<UserHandle> = profiles.mapTo(mutableSetOf()) { profile -> profile.user }
-        (currentUsers - previousUsers).forEach { user -> _changes.tryEmit(ProfileChange.ProfileAdded(user = user)) }
-        (previousUsers - currentUsers).forEach { user -> _changes.tryEmit(ProfileChange.ProfileRemoved(user = user)) }
+    override suspend fun refreshProfiles() {
+        withContext(Dispatchers.IO) {
+            val previousProfiles: List<ProfileInfo> = _profiles.value
+            val profiles: List<ProfileInfo> = loadProfiles() ?: return@withContext
+            if (!_profiles.compareAndSet(expect = previousProfiles, update = profiles)) {
+                return@withContext
+            }
+            publishRefreshedProfiles(previous = previousProfiles, current = profiles)
+        }
     }
 
     override fun profileFor(user: UserHandle): ProfileInfo? = profiles.value.firstOrNull { profile -> profile.user == user }
@@ -175,12 +177,14 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         userManager.getSerialNumberForUser(user)
     }.getOrNull()?.takeIf { serial -> serial >= 0 }
 
-    override fun privateSpaceSettingsIntent(): IntentSender? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-        runCatching { launcherApps.privateSpaceSettingsIntent }
-            .onFailure { exception -> Timber.w(exception, "Could not read the Private Space settings") }
-            .getOrNull()
-    } else {
-        null
+    override suspend fun privateSpaceSettingsIntent(): IntentSender? = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            runCatching { launcherApps.privateSpaceSettingsIntent }
+                .onFailure { exception -> Timber.w(exception, "Could not read the Private Space settings") }
+                .getOrNull()
+        } else {
+            null
+        }
     }
 
     private fun loadProfiles(): List<ProfileInfo>? {
@@ -202,6 +206,24 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     private fun reloadProfiles() {
         val profiles: List<ProfileInfo> = loadProfiles() ?: return
         _profiles.value = profiles
+    }
+
+    private fun publishRefreshedProfiles(previous: List<ProfileInfo>, current: List<ProfileInfo>) {
+        val previousByUser: Map<UserHandle, ProfileInfo> = previous.associateBy { profile -> profile.user }
+        val currentByUser: Map<UserHandle, ProfileInfo> = current.associateBy { profile -> profile.user }
+        (currentByUser.keys - previousByUser.keys).forEach { user -> _changes.tryEmit(ProfileChange.ProfileAdded(user = user)) }
+        (previousByUser.keys - currentByUser.keys).forEach { user -> _changes.tryEmit(ProfileChange.ProfileRemoved(user = user)) }
+        (currentByUser.keys intersect previousByUser.keys).forEach { user ->
+            val previousProfile: ProfileInfo = previousByUser.getValue(user)
+            val currentProfile: ProfileInfo = currentByUser.getValue(user)
+            availabilityChange(previous = previousProfile, current = currentProfile)?.let { change -> _changes.tryEmit(change) }
+        }
+    }
+
+    private fun availabilityChange(previous: ProfileInfo, current: ProfileInfo): ProfileChange? = when {
+        previous.isQuiet == current.isQuiet -> null
+        current.isQuiet -> ProfileChange.ProfileUnavailable(user = current.user)
+        else -> ProfileChange.ProfileAvailable(user = current.user)
     }
 
     private fun publishProfileChange(change: ProfileChange) {
