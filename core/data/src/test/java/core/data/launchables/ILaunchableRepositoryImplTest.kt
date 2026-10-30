@@ -22,6 +22,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -50,6 +51,7 @@ import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcutSourceMock
@@ -856,6 +858,70 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `hides private Favorites and Folder members while a Lock is requested and restores them when refused`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputFavorite: FavoriteRecord = FavoriteRecord(key = inputPrivateApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        val inputMember: PopupItemRecord =
+            PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputPrivateApp.key, position = FIRST_POSITION)
+        database.getPopupDao().insertItems(listOf(inputMember))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPrivateApp))
+        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(setOf(inputPrivateProfile.user))
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = inputAppState,
+            enumeratedState = inputEnumeratedState
+        )
+        finishPendingWork()
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputPrivateApp.key), actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder))
+
+        repositories.privateSpaceLock.requestLock()
+        finishPendingWork()
+
+        assertTrue(repositories.favorites.favorites.first().isEmpty())
+        assertTrue(actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder).isEmpty())
+        val actualRequestedState: LaunchableState = loadedState(repositories.launchables)
+        assertTrue(actualRequestedState.groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualRequestedState.keptKeys)
+        assertEquals(listOf(inputFavorite), favoriteRecords())
+        assertEquals(listOf(inputMember), database.getPopupDao().getItems(inputFolder.key))
+
+        repositories.privateSpaceLock.clearLockRequest()
+        finishPendingWork()
+
+        assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
+        assertEquals(listOf(inputPrivateApp.key), actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder))
+        assertFalse(loadedState(repositories.launchables).groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+    }
+
+    @Test
+    fun `hides a Hidden Private Space while a Lock is requested and shows it again when refused`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
+            profileState = inputProfileState,
+            appState = MutableStateFlow(emptyList()),
+            enumeratedState = MutableStateFlow(setOf(inputPrivateProfile.user)),
+            preferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true))
+        )
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+
+        repositories.privateSpaceLock.requestLock()
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.none { group -> group is LaunchableGroup.PrivateSpace })
+
+        repositories.privateSpaceLock.clearLockRequest()
+        finishPendingWork()
+        assertTrue(loadedState(repositories.launchables).groups.any { group -> group is LaunchableGroup.PrivateSpace })
+    }
+
+    @Test
     fun `restores personal data and cleans restored keys for missing Profiles`() = databaseTest {
         val inputPersonalProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
         val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
@@ -1092,6 +1158,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
         mockProfileSource: IProfileSource = createProfileSourceMock(),
+        privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
         legacyAppKeyUpgrader: ILegacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
@@ -1104,6 +1171,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao = folderDao,
         popupDao = popupDao,
         legacyAppKeyUpgrader = legacyAppKeyUpgrader,
+        privateSpaceLock = privateSpaceLock,
         scope = scope
     )
 
@@ -1114,12 +1182,16 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         preferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
     ): PrivateSpaceRepositories {
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = profileState)
+        val privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
         val launchables: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputAppState = appState, inputEnumeratedProfiles = enumeratedState),
             mockPreferencesRepository = preferencesRepository,
-            mockProfileSource = createProfileSourceMock(state = profileState)
+            mockProfileSource = mockProfileSource,
+            privateSpaceLock = privateSpaceLock
         )
         return PrivateSpaceRepositories(
+            privateSpaceLock = privateSpaceLock,
             launchables = launchables,
             favorites = createFavoritesRepository(favoriteDao = database.getFavoriteDao(), launchableRepository = launchables),
             popups = createPopupRepository(
@@ -1144,6 +1216,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 }
 
 private data class PrivateSpaceRepositories(
+    val privateSpaceLock: IPrivateSpaceLock,
     val launchables: ILaunchableRepository,
     val favorites: IFavoritesRepositoryImpl,
     val popups: IPopupRepository,

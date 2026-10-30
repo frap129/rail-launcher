@@ -15,9 +15,10 @@ data class LaunchableState(
     val isLoaded: Boolean,
     /**
      * The Profile tokens of every Private Space whose Launchable and Shortcut keys Rail keeps:
-     * a Locked one, or one whose Apps are not enumerated yet. The Apps leave the list while
-     * Locked and arrive after Unlocking, so keeping the keys until they do stops the cleanups
-     * from treating them as stale. A Private Space that is removed releases its keys.
+     * a Locked one, a Lock requested one, or one whose Apps are not enumerated yet. The Apps
+     * leave the list while Locked and arrive after Unlocking, so keeping the keys until they
+     * do stops the cleanups from treating them as stale. A Private Space that is removed
+     * releases its keys.
      */
     val keptKeys: Set<ProfileToken> = emptySet(),
     /**

@@ -44,6 +44,8 @@ import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
+import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceLockImpl
 import core.data.profiles.IProfileSource
 import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
@@ -201,12 +203,13 @@ class MainApplication :
      */
     private val repoModule = module {
         single<IProfileSource> { IProfileSourceImpl(androidContext()) }
+        single<IPrivateSpaceLock> { IPrivateSpaceLockImpl(profileSource = get(), scope = get(named(APP_SCOPE_QUALIFIER))) }
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ILegacyAppKeyUpgrader> { ILegacyAppKeyUpgraderImpl(get(), get(), get(), get(), get()) }
         single<ILaunchableRepository> {
-            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
@@ -320,7 +323,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(

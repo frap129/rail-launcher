@@ -7,6 +7,7 @@ import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepositoryImpl
 import core.data.prefs.LaunchableCustomization
+import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
@@ -23,6 +24,7 @@ import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
@@ -561,14 +563,16 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         profileState: ProfileSourceState,
         customizations: List<LaunchableCustomization> = emptyList()
     ): LaunchableRepositories {
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = profileState)
         val launchableRepository: ILaunchableRepositoryImpl = ILaunchableRepositoryImpl(
             appRepository = appRepository,
             iconRepository = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = 0)),
-            profileSource = createProfileSourceMock(state = profileState),
+            profileSource = mockProfileSource,
             preferencesRepository = createPreferencesRepositoryMock(customizations = customizations),
             folderDao = database.getFolderDao(),
             popupDao = database.getPopupDao(),
             legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
+            privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
             scope = backgroundScope
         )
         return LaunchableRepositories(
