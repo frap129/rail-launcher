@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -318,14 +319,15 @@ class LauncherViewModel(
         profileSource.profiles,
         privateSpaceLock.isLockRequested
     ) { profiles, isLockRequested ->
-        profiles.privateSpace
-            ?.takeIf { profile -> !profile.isQuiet && !isLockRequested }
-            ?.let { profileSource.privateSpaceSettingsIntent() }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = null
-    )
+        profiles.privateSpace?.let { profile -> !profile.isQuiet && !isLockRequested } ?: false
+    }
+        .distinctUntilChanged()
+        .map { isUnlocked -> if (isUnlocked) profileSource.privateSpaceSettingsIntent() else null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = null
+        )
 
     /**
      * Handles a request to launch [launchable]. Returns false and opens the paused prompt

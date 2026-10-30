@@ -51,7 +51,7 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     val mockProfileSource: IProfileSource = mockk()
     every { mockProfileSource.profiles } returns state.profiles
     every { mockProfileSource.changes } returns state.changes
-    every { mockProfileSource.refreshProfiles() } just Runs
+    coEvery { mockProfileSource.refreshProfiles() } just Runs
     every { mockProfileSource.profileFor(any()) } answers {
         state.profiles.value.firstOrNull { profile -> profile.user == firstArg<UserHandle>() }
     }
@@ -77,6 +77,6 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     coEvery { mockProfileSource.requestQuiet(any(), any()) } answers { state.quietRequestResult }
     every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }
     every { mockProfileSource.serialForUser(any()) } answers { state.serialsByUser[firstArg<UserHandle>()] }
-    every { mockProfileSource.privateSpaceSettingsIntent() } answers { state.privateSpaceSettingsIntent }
+    coEvery { mockProfileSource.privateSpaceSettingsIntent() } answers { state.privateSpaceSettingsIntent }
     return mockProfileSource
 }

@@ -11,6 +11,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.os.Looper
 import android.os.UserHandle
 import android.os.UserManager
 import app.cash.turbine.test
@@ -116,6 +117,81 @@ class IProfileSourceImplTest {
 
     @Test
     @Config(sdk = [TEST_SDK_36])
+    fun `publishes availability changes when the Private Space locks and unlocks on refresh`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
+        every { mockLauncherApps.getLauncherUserInfo(privateUser) } returns
+            launcherUserInfo(user = privateUser, userType = UserManager.USER_TYPE_PROFILE_PRIVATE)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val mockUserManager: UserManager = mockk(relaxed = true)
+        every { mockUserManager.isQuietModeEnabled(privateUser) } returns true
+        shadowOf(application).setSystemService(Context.USER_SERVICE, mockUserManager)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        source.changes.test {
+            every { mockUserManager.isQuietModeEnabled(privateUser) } returns false
+            source.refreshProfiles()
+            assertEquals(ProfileChange.ProfileAvailable(user = privateUser), awaitItem())
+
+            every { mockUserManager.isQuietModeEnabled(privateUser) } returns true
+            source.refreshProfiles()
+            assertEquals(ProfileChange.ProfileUnavailable(user = privateUser), awaitItem())
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `publishes no changes when the refreshed Profiles are unchanged`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, workUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        source.changes.test {
+            source.refreshProfiles()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `refreshes the Profiles off the main thread`() = runTest {
+        val backgroundCallRecorder: BackgroundCallRecorder = BackgroundCallRecorder()
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } answers {
+            backgroundCallRecorder.record()
+            listOf(personalUser)
+        }
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+        backgroundCallRecorder.reset()
+
+        source.refreshProfiles()
+
+        backgroundCallRecorder.assertOffMainThread()
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
+    fun `reads the Private Space settings off the main thread`() = runTest {
+        val backgroundCallRecorder: BackgroundCallRecorder = BackgroundCallRecorder()
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser)
+        every { mockLauncherApps.privateSpaceSettingsIntent } answers {
+            backgroundCallRecorder.record()
+            createIntentSender(context = application)
+        }
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertNotNull(source.privateSpaceSettingsIntent())
+
+        backgroundCallRecorder.assertOffMainThread()
+    }
+
+    @Test
+    @Config(sdk = [TEST_SDK_36])
     fun `keeps the last Profiles when reading them fails`() {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns listOf(personalUser, privateUser)
@@ -133,7 +209,7 @@ class IProfileSourceImplTest {
 
     @Test
     @Config(sdk = [TEST_SDK_36])
-    fun `reads the Private Space entrypoint flag again when the user config changes`() {
+    fun `reads the Private Space entrypoint flag again when the user config changes`() = runTest {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns listOf(privateUser)
         every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
@@ -155,7 +231,7 @@ class IProfileSourceImplTest {
     }
 
     @Test
-    fun `offers no Private Space settings below Android 16`() {
+    fun `offers no Private Space settings below Android 16`() = runTest {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns emptyList<UserHandle>()
         every { mockLauncherApps.privateSpaceSettingsIntent } returns createIntentSender(context = application)
@@ -251,5 +327,21 @@ class IProfileSourceImplTest {
         workUser -> UserManager.USER_TYPE_PROFILE_MANAGED
         privateUser -> UserManager.USER_TYPE_PROFILE_PRIVATE
         else -> UserManager.USER_TYPE_PROFILE_CLONE
+    }
+}
+
+private class BackgroundCallRecorder {
+    private var isMainThread: Boolean = true
+
+    fun record() {
+        isMainThread = Looper.myLooper() == Looper.getMainLooper()
+    }
+
+    fun reset() {
+        isMainThread = true
+    }
+
+    fun assertOffMainThread() {
+        assertFalse(isMainThread)
     }
 }

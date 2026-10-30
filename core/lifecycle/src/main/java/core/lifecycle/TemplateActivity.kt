@@ -5,7 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.core.app.TaskStackBuilder
+import androidx.lifecycle.lifecycleScope
 import core.data.profiles.IProfileSource
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 open class TemplateActivity : ComponentActivity() {
@@ -13,7 +15,7 @@ open class TemplateActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        profileSource.refreshProfiles()
+        lifecycleScope.launch { profileSource.refreshProfiles() }
     }
 
     override fun onNewIntent(intent: Intent) {
