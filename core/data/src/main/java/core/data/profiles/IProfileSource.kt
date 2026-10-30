@@ -34,6 +34,9 @@ val ProfileInfo.isPrivate: Boolean get() = kind == ProfileKind.Private
 /** Whether this Private Space is Locked, counting a Lock requested before the system confirms. */
 fun ProfileInfo.isLocked(isLockRequested: Boolean): Boolean = isQuiet || isLockRequested
 
+/** Whether Rail enumerates this Profile's Apps: every Profile except a Locked Private Space. */
+fun ProfileInfo.isEnumerated(): Boolean = !isPrivate || !isQuiet
+
 /**
  * Whether this Private Space is Hidden: Locked, or with a Lock requested, and Rail's switch or
  * the system's "Hide private space" setting hides its entrypoint.

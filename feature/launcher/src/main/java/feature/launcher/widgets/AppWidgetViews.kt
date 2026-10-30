@@ -6,17 +6,28 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.ShapeDrawable
 import android.os.Build
 import android.os.Process
 import android.os.UserHandle
 import android.util.SparseIntArray
 import androidx.annotation.RequiresApi
+import core.data.icons.badgedFor
 import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileInfo
 import core.data.widgets.BindRequest
 import core.data.widgets.WidgetProviderInfo
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+internal const val PROFILE_BADGE_CANVAS_DP: Int = 64
 
 /** Android-only rendering helpers for App Widgets. */
 object AppWidgetViews {
@@ -58,6 +69,51 @@ object AppWidgetViews {
                 }
             }.getOrNull()
         }
+
+    /** The system-drawn badge of [profileSerial]'s Profile, or null for the personal Profile. */
+    suspend fun loadProfileBadge(context: Context, profileSerial: Long, profileSource: IProfileSource): Drawable? =
+        withContext(Dispatchers.IO) {
+            val user: UserHandle = profileSource.userForSerial(serial = profileSerial) ?: return@withContext null
+            val profile: ProfileInfo = profileSource.profileFor(user = user) ?: return@withContext null
+            if (profile.kind.isPersonal) {
+                return@withContext null
+            }
+            val canvasSize: Int = (PROFILE_BADGE_CANVAS_DP * context.resources.displayMetrics.density).roundToInt()
+            val badgeCanvas: Drawable = ShapeDrawable().apply {
+                setIntrinsicWidth(canvasSize)
+                setIntrinsicHeight(canvasSize)
+            }
+            badgeCanvas.badgedFor(packageManager = context.packageManager, user = user)
+                ?.toBadgeDrawable(context = context, canvasSize = canvasSize)
+        }
+
+    private fun Drawable.toBadgeDrawable(context: Context, canvasSize: Int): Drawable? {
+        val bitmap: Bitmap = Bitmap.createBitmap(canvasSize, canvasSize, Bitmap.Config.ARGB_8888)
+        setBounds(0, 0, canvasSize, canvasSize)
+        draw(Canvas(bitmap))
+        val visible: Rect = bitmap.findVisibleBounds() ?: return null
+        return BitmapDrawable(context.resources, Bitmap.createBitmap(bitmap, visible.left, visible.top, visible.width(), visible.height()))
+    }
+
+    private fun Bitmap.findVisibleBounds(): Rect? {
+        val pixels: IntArray = IntArray(width * height)
+        getPixels(pixels, 0, width, 0, 0, width, height)
+        var left: Int = width
+        var top: Int = height
+        var right: Int = -1
+        var bottom: Int = -1
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (Color.alpha(pixels[y * width + x]) != 0) {
+                    left = minOf(left, x)
+                    top = minOf(top, y)
+                    right = maxOf(right, x)
+                    bottom = maxOf(bottom, y)
+                }
+            }
+        }
+        return if (right < 0) null else Rect(left, top, right + 1, bottom + 1)
+    }
 
     @RequiresApi(Build.VERSION_CODES.S)
     fun colorResources(context: Context): SparseIntArray = SparseIntArray().apply {

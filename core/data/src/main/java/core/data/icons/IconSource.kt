@@ -11,7 +11,6 @@ import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
-import timber.log.Timber
 
 internal sealed interface IconSource {
     val cacheKey: String
@@ -73,9 +72,7 @@ private class ProfileIconSource(private val icon: Icon, private val profile: Use
 
     override fun loadDrawable(context: Context): Drawable? {
         val iconDrawable: Drawable = source.loadDrawable(context) ?: return null
-        return runCatching { context.packageManager.getUserBadgedIcon(iconDrawable, profile) }
-            .onFailure { Timber.w("Could not badge an icon") }
-            .getOrDefault(iconDrawable)
+        return iconDrawable.badgedFor(packageManager = context.packageManager, user = profile) ?: iconDrawable
     }
 }
 

@@ -8,6 +8,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
+import core.data.profiles.isEnumerated
 import core.data.profiles.isPrivate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -125,9 +126,6 @@ class IAppRepositoryImpl(
             current?.filterNot { app -> app.profile == user && app.packageName == packageName }
         }
     }
-
-    // Apps of a Locked Private Space are never enumerated.
-    private fun ProfileInfo.isEnumerated(): Boolean = !isPrivate || !isQuiet
 
     private fun List<App>.excludingOwnPackage(): List<App> = filterNot { app -> app.packageName == ownPackageName }
 

@@ -20,7 +20,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
-import core.data.profiles.isPrivate
+import core.data.profiles.isEnumerated
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineDispatcher
@@ -139,8 +139,8 @@ class IAppWidgetHostSourceImpl(
 
     private suspend fun loadProviders(): List<WidgetProviderInfo> {
         val iconPack: String = preferencesRepository.settings.first().iconPack ?: SYSTEM_ICON_PACK_NAME
-        return profileSource.profiles.value.filterNot { profile: ProfileInfo ->
-            profile.isPrivate
+        return profileSource.profiles.value.filter { profile: ProfileInfo ->
+            profile.isEnumerated()
         }.flatMap { profile: ProfileInfo ->
             runCatching { appWidgetManager.getInstalledProvidersForProfile(profile.user) }
                 .onFailure { exception -> Timber.w(exception, "Could not load App Widget providers for %s", profile.user) }
