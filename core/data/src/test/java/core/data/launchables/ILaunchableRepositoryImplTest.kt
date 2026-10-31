@@ -28,7 +28,6 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
-import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
 import core.data.testing.FIRST_POSITION
@@ -47,10 +46,8 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
-import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
-import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -59,6 +56,7 @@ import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnRequest
+import core.data.testing.packageLevelKey
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
@@ -93,6 +91,7 @@ private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 private const val ICON_PACK_RES_ID: Int = 42
 private const val ORIGINAL_NAME: String = "Original"
 private const val RENAMED_NAME: String = "Renamed"
+private const val CURRENT_NAME: String = "Current"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 private const val FOLDER_ID: Long = 1L
 
@@ -213,40 +212,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualRecoveredName: String = repository.launchableState.value.singleAppName()
         assertEquals(RENAMED_NAME, actualRecoveredName)
         assertEquals(3, actualCollections)
-    }
-
-    @Test
-    fun `retries a failed Legacy App key upgrade after the retry delay`() = databaseTest {
-        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
-        val inputLegacyKey: String = inputApp.legacyAppKey
-        seedFavorite(key = inputLegacyKey, position = FIRST_POSITION)
-        database.getHeaderSettingsDao().upsert(
-            HeaderSettings(timeTapTarget = HeaderTapSetting.Launchable(key = inputLegacyKey))
-        )
-        val actualFailureDelivered: CompletableDeferred<Unit> = CompletableDeferred()
-        val mockHeaderSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao().createFailOnceMock(
-            failure = IllegalStateException("Legacy App key upgrade failed"),
-            onFailure = { actualFailureDelivered.complete(Unit) },
-            stub = { dao -> dao.upsert(any()) },
-            delegate = { dao -> dao.upsert(firstArg()) }
-        )
-        val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
-            legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database = database, headerSettingsDao = mockHeaderSettingsDao)
-        )
-        backgroundScope.launch { repository.launchableState.collect() }
-        actualFailureDelivered.await()
-        runCurrent()
-
-        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
-
-        advanceTimeBy(INITIAL_RETRY_DELAY_MS - 1)
-        runCurrent()
-        assertEquals(listOf(inputLegacyKey), favoriteRecords().map { record -> record.key })
-
-        advanceTimeBy(1)
-        runCurrent()
-        assertEquals(listOf(inputApp.key), favoriteRecords().map { record -> record.key })
     }
 
     @Test
@@ -465,27 +430,32 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `applies a Legacy customization to its App's current key`() = databaseTest {
+    fun `ignores and removes a name customization stored under a package-level key`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputPackageKey: String = inputApp.packageLevelKey()
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setName(key = inputPackageKey, name = RENAMED_NAME)
+        inputCustomizationDao.setName(key = inputApp.key, name = CURRENT_NAME)
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
-            mockPreferencesRepository = createPreferencesRepositoryMock(
-                customizations = listOf(LaunchableCustomization(key = "${APP_PACKAGE_NAME}_${inputApp.profile}", name = RENAMED_NAME))
-            )
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao)
         )
 
-        assertEquals(RENAMED_NAME, loadedState(repository).singleAppName())
+        val actualState: LaunchableState = loadedState(repository)
+
+        assertEquals(CURRENT_NAME, actualState.singleAppName())
+        assertEquals(listOf(LaunchableCustomization(key = inputApp.key, name = CURRENT_NAME)), customizations())
     }
 
     @Test
-    fun `hides a Folder member stored under a Legacy App key`() = databaseTest {
+    fun `does not hide an App referenced by a package-level Folder member key`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = 1L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertItems(
-            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = "${APP_PACKAGE_NAME}_${inputApp.profile}", position = 0))
+            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.packageLevelKey(), position = 0))
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
@@ -494,9 +464,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
 
         val actualState: LaunchableState = loadedState(repository)
+        val actualAppListKeys: List<String> = actualState.listedGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
 
-        assertEquals(listOf("★", "F", "⌂"), actualState.groups.map { group -> group.label })
-        assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
+        assertEquals(listOf("★", "F", "O", "⌂"), actualState.groups.map { group -> group.label })
+        assertEquals(listOf(inputApp.key), actualAppListKeys)
     }
 
     @Test
@@ -1197,7 +1171,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
-        legacyAppKeyUpgrader: ILegacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
         appRepository = mockAppRepository,
@@ -1206,7 +1179,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         preferencesRepository = mockPreferencesRepository,
         folderDao = folderDao,
         popupDao = popupDao,
-        legacyAppKeyUpgrader = legacyAppKeyUpgrader,
         privateSpaceLock = privateSpaceLock,
         scope = scope
     )

@@ -1,5 +1,6 @@
 package core.data.widgets
 
+import core.data.apps.model.App
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -18,6 +19,7 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
+import core.data.testing.packageLevelKey
 import io.mockk.coVerify
 import io.mockk.spyk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -279,6 +281,26 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(inputSetting, repository.headerSettings.first().timeTapTarget)
         assertEquals(inputSetting, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
+    }
+
+    @Test
+    fun `clears a tap target stored under a package-level key while its App stays`() = databaseTest {
+        val inputApp: App = createApp(packageName = "com.example.app")
+        val inputCurrentSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputApp.key)
+        val repository: IWidgetSettingsRepository = createRepository(
+            headerSettings = HeaderSettings(
+                timeTapTarget = HeaderTapSetting.Launchable(key = inputApp.packageLevelKey()),
+                dateTapTarget = inputCurrentSetting
+            ),
+            mockLaunchables = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+        )
+
+        val actualSettings: HeaderSettings = repository.headerSettings.first()
+
+        assertNull(actualSettings.timeTapTarget)
+        assertEquals(inputCurrentSetting, actualSettings.dateTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
+        assertEquals(inputCurrentSetting, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
     }
 
     @Test

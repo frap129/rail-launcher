@@ -22,12 +22,12 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
-import core.data.testing.createLegacyAppKeyUpgrader
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
+import core.data.testing.packageLevelKey
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -472,7 +472,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `upgrades a Legacy Favorite to the package representative`() = databaseTest {
+    fun `removes a Favorite stored under a package-level key while its current App stays`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile))
         inputState.setActivities(
             user = personalUser,
@@ -484,16 +484,15 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val appRepository: IAppRepositoryImpl = createRepository(state = inputState)
         val repositories: LaunchableRepositories = createLaunchableRepositories(appRepository = appRepository, profileState = inputState)
-        seedFavorite(key = "${PERSONAL_PACKAGE}_$personalUser", position = FIRST_POSITION)
+        val inputApp: App = loadApps(repository = appRepository).first { app -> app.componentName.className == POLICY_ACTIVITY_CLASS }
+        seedFavorite(key = inputApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputApp.packageLevelKey(), position = SECOND_POSITION)
         backgroundScope.launch { repositories.launchables.launchableState.collect() }
         backgroundScope.launch { repositories.favorites.favorites.collect() }
         finishPendingWork()
-        val expectedApp: App = repositories.launchables.launchableState.value.launchables
-            .filterIsInstance<App>()
-            .single { app -> app.componentName.className == POLICY_ACTIVITY_CLASS }
 
-        assertEquals(listOf(expectedApp.key), favoriteRecords().map { record -> record.key })
-        assertEquals(expectedApp.key, repositories.favorites.favorites.first().single().key)
+        assertEquals(listOf(inputApp.key), favoriteRecords().map { record -> record.key })
+        assertEquals(listOf(inputApp), repositories.favorites.favorites.first())
     }
 
     @Test
@@ -571,7 +570,6 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             preferencesRepository = createPreferencesRepositoryMock(customizations = customizations),
             folderDao = database.getFolderDao(),
             popupDao = database.getPopupDao(),
-            legacyAppKeyUpgrader = createLegacyAppKeyUpgrader(database),
             privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
             scope = backgroundScope
         )

@@ -12,12 +12,8 @@ _Avoid_: App (when meaning any launchable), item, entry
 The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.
 _Avoid_: Component key, activity key, package key
 
-**Legacy App key**:
-An App key stored before Apps were keyed per activity: a package name and Profile. It resolves to the Package representative and is rewritten on upgrade.
-_Avoid_: Old key, package key
-
 **Package representative**:
-The App whose launcher activity is the alphabetically first in its package and Profile. It owns the package's Shortcuts and notifications, and a Legacy App key resolves to it.
+The App whose launcher activity is the alphabetically first in its package and Profile. It owns the package's Shortcuts and notifications.
 _Avoid_: Main app, primary activity
 
 **Profile**:

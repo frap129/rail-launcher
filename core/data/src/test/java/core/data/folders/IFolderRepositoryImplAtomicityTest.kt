@@ -395,8 +395,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = database.getWidgetAreaDao(),
             appWidgetHost = mockAppWidgetHost,
-            lifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = database.getWidgetAreaDao(), host = mockAppWidgetHost),
-            launchableRepository = createLaunchableRepositoryMock()
+            lifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = database.getWidgetAreaDao(), host = mockAppWidgetHost)
         )
     }
 }
