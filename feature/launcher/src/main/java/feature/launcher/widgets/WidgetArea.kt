@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListItemInfo
@@ -56,11 +55,15 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -101,6 +104,7 @@ private const val WIDGET_AREA_SCROLL_TO_PLACE_TIMEOUT_MS: Long = 1_000L
 private val widgetAreaFadeHeight: Dp = 16.dp
 private const val WIDGET_AREA_EMPTY_KEY: String = "widgetAreaEmpty"
 const val WIDGET_AREA_OFFSET_KEY: String = "widgetAreaOffset"
+internal const val CAPPED_WIDGET_AREA_TEST_TAG: String = "cappedWidgetArea"
 
 /** The Widget Area callbacks shared by the Capped and Uncapped Home layouts. */
 @Immutable
@@ -249,6 +253,27 @@ internal fun mediaPlayerScrollTargetIndex(mediaAtTop: Boolean, totalItemsCount: 
     else -> null
 }
 
+/**
+ * Measures the child at [measureHeight], then reports [contentHeight] and places the child at the
+ * top. Unlike requiredHeight, an oversized child is not centered inside the shorter layout, so the
+ * list can measure at the cap while the Box stays at the measured content height.
+ */
+private fun Modifier.measureAtHeight(measureHeight: Dp, contentHeight: Dp): Modifier = layout { measurable, constraints ->
+    val heightPx: Int = measureHeight.roundToPx()
+    val placeable: Placeable = measurable.measure(
+        Constraints(
+            minWidth = constraints.minWidth,
+            maxWidth = constraints.maxWidth,
+            minHeight = heightPx,
+            maxHeight = heightPx
+        )
+    )
+    val contentHeightPx: Int = contentHeight.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
+    layout(width = placeable.width, height = contentHeightPx) {
+        placeable.placeRelative(x = 0, y = 0)
+    }
+}
+
 /** The scrollable, height-capped Widget Area shown above Favorites when the limit is on. */
 @Composable
 fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modifier) {
@@ -304,6 +329,7 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .testTag(CAPPED_WIDGET_AREA_TEST_TAG)
                 .clipToBounds()
                 .animateContentSize(animationSpec = tween(durationMillis = WIDGET_AREA_HEIGHT_ANIMATION_MILLIS))
                 .height(areaHeight)
@@ -315,11 +341,11 @@ fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, modifier: Modifier = Modif
         ) {
             LazyColumn(
                 state = state.listState,
-                // Always measure at the cap so the height calculation does not depend on the
-                // animated Box height; the Box clips the list to the measured content height.
+                // Measure at the cap so the content height does not depend on the clipped Box,
+                // then report the measured content height and place the list at the top.
                 modifier = Modifier
                     .fillMaxWidth()
-                    .requiredHeight(maxHeight),
+                    .measureAtHeight(measureHeight = maxHeight, contentHeight = areaHeight),
                 contentPadding = PaddingValues(
                     start = homeEdgePadding,
                     top = topPadding,
