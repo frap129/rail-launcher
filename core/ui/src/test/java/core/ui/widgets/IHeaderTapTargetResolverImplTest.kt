@@ -4,10 +4,7 @@ import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
-import core.data.prefs.ClockStyle
-import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSettings
-import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.profiles.ProfileToken
 import core.data.testing.TEST_SDK
@@ -208,27 +205,17 @@ class IHeaderTapTargetResolverImplTest {
         assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
     }
 
-    private fun header(): HeaderModel = HeaderModel(
+    private fun header(): HeaderModel = createHeaderModel(
         id = 1L,
-        time = HeaderTimeModel(
-            text = "2:05",
-            hourText = null,
-            minuteText = null,
-            amPmText = null,
-            spokenText = "2:05 PM",
-            tapTarget = HeaderTapTarget.SystemAlarms,
-            clickLabel = R.string.open_alarms
-        ),
+        timeText = "2:05",
+        spokenText = "2:05 PM",
+        tapTarget = HeaderTapTarget.SystemAlarms,
+        clickLabel = R.string.open_alarms,
         date = HeaderLineModel(
             text = "Tuesday, October 20",
             spokenText = "Tuesday, October 20, 2026",
             tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = 0L),
             clickLabel = R.string.open_calendar
-        ),
-        battery = null,
-        events = emptyList(),
-        style = ClockStyle.CLASSIC,
-        alignment = HeaderAlignment.START,
-        size = HeaderSize.DEFAULT
+        )
     )
 }

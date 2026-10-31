@@ -128,20 +128,20 @@ class BaselineProfileGenerator {
                 // Rail Settings > Widgets.
                 setHeightLimit(row = openWidgetsSettings(), enabled = true)
 
-                // Home with the widget height limit on, then scroll the widget area.
+                // Home with the widget height limit on: the Header renders inside the cap.
                 returnHome()
+                findOrThrow(HEADER_TIME_SELECTOR, "Header time not found in the capped Widget Area").longClick()
+                findOrThrow(By.text(appString("clock_style")), "Header menu not found")
+                device.pressBack()
+                check(device.wait(Until.gone(By.text(appString("clock_style"))), WAIT_TIMEOUT_MS)) {
+                    "Header menu did not close"
+                }
                 dragScrollRail()
 
                 // Home with the widget height limit off.
                 setHeightLimit(row = openWidgetsSettings(), enabled = false)
                 returnHome()
-
-                // The Header only renders in the uncapped Widget Area on a fresh install.
-                check(scrollHomeToTop()) { "Header time not found on Home" }
-                findOrThrow(HEADER_TIME_SELECTOR, "Header time not found on Home").longClick()
-                findOrThrow(By.text(appString("clock_style")), "Header menu not found")
-                device.pressBack()
-                device.waitForIdle()
+                check(scrollHomeToTop()) { "Header time not found on uncapped Home" }
 
                 // Media Player is hidden by default; exercise Home with no media player.
                 check(device.wait(Until.gone(By.desc(appString("media_player_menu"))), WAIT_TIMEOUT_MS)) {

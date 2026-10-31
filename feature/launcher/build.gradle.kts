@@ -16,4 +16,6 @@ dependencies {
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:ui")))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.test.compose.ui.testManifest)
 }
