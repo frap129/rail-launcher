@@ -26,6 +26,7 @@ import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createProfileInfo
 import core.data.testing.failOnRequest
+import core.data.testing.packageLevelKey
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -146,30 +147,17 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves a Favorite stored under a Legacy App key`() = databaseTest {
+    fun `removes a Favorite stored under a package-level key while its App stays`() = databaseTest {
         val inputApp: App = createApp(packageName = "com.example.app")
-        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
-        val repository: IFavoritesRepositoryImpl = createRepository(
-            favoriteDao = database.getFavoriteDao(),
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
-        )
-
-        assertResolvedFavorites(repository = repository, expected = listOf(inputApp))
-    }
-
-    @Test
-    fun `removes the Legacy and current keys of a Favorite together`() = databaseTest {
-        val inputApp: App = createApp(packageName = "com.example.app")
-        seedFavorite(key = "com.example.app_${inputApp.profile}", position = FIRST_POSITION)
+        seedFavorite(key = inputApp.packageLevelKey(), position = FIRST_POSITION)
         seedFavorite(key = inputApp.key, position = SECOND_POSITION)
         val repository: IFavoritesRepositoryImpl = createRepository(
             favoriteDao = database.getFavoriteDao(),
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
         )
 
-        repository.remove(inputApp)
-
-        assertNoFavorites()
+        assertResolvedFavorites(repository = repository, expected = listOf(inputApp))
+        assertEquals(listOf(FavoriteRecord(key = inputApp.key, position = SECOND_POSITION)), favoriteRecords())
     }
 
     @Test

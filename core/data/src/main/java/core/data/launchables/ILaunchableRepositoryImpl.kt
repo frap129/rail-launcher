@@ -34,20 +34,15 @@ import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.runCleanup
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -63,7 +58,6 @@ class ILaunchableRepositoryImpl(
     private val preferencesRepository: IPreferencesRepository,
     folderDao: FolderDao,
     popupDao: PopupDao,
-    private val legacyAppKeyUpgrader: ILegacyAppKeyUpgrader,
     private val privateSpaceLock: IPrivateSpaceLock,
     private val scope: CoroutineScope
 ) : ILaunchableRepository {
@@ -130,15 +124,6 @@ class ILaunchableRepositoryImpl(
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
 
     init {
-        scope.launch {
-            launchableState
-                .filter { state -> state.isLoaded }
-                .map { state -> state.launchables.filterIsInstance<App>() }
-                .distinctUntilChangedBy { apps -> apps.map { app -> app.key to app.isPackageRepresentative } }
-                .onEach { apps -> upgradeLegacyAppKeys(apps = apps) }
-                .retryWithExponentialBackoff()
-                .collect { }
-        }
         // Deleting stale names keeps a reinstalled Launchable from restoring an old rename.
         scope.launch {
             combine(
@@ -151,17 +136,6 @@ class ILaunchableRepositoryImpl(
                         removeStaleNames(state = state, customizations = customizations)
                     }
                 }
-        }
-    }
-
-    private suspend fun upgradeLegacyAppKeys(apps: List<App>) {
-        try {
-            legacyAppKeyUpgrader.upgrade(apps = apps)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Timber.e(exception, "Failed to upgrade Legacy App keys")
-            throw exception
         }
     }
 
@@ -183,7 +157,6 @@ class ILaunchableRepositoryImpl(
         folderAppList: FolderAppList
     ): LaunchableState {
         val apps: List<App> = appState.appsOrNull.orEmpty()
-        val appKeyResolver: LaunchableKeyResolver = LaunchableKeyResolver(launchables = apps)
         val privateSpace: ProfileInfo? = profiles.privateSpace
         val isPrivateSpaceLocked: Boolean = privateSpace?.isLocked(isLockRequested = appState.isLockRequested) ?: appState.isLockRequested
         val privateKeys: PrivateKeys = resolvePrivateKeys(
@@ -191,7 +164,7 @@ class ILaunchableRepositoryImpl(
             enumeratedProfiles = appState.enumeratedProfiles,
             isLockRequested = appState.isLockRequested
         )
-        val names: LaunchableNames = customizations.toLaunchableNames { key -> appKeyResolver.resolve(key = key) ?: key }
+        val names: LaunchableNames = customizations.toLaunchableNames()
         val resolvedApps: List<Launchable> = apps
             .map { app -> app.resolve(names = names, settings = settings) }
             .filterNot { launchable -> isPrivateSpaceLocked && launchable.isPrivateApp }
@@ -199,10 +172,7 @@ class ILaunchableRepositoryImpl(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
         val folders: List<Folder> = folderAppList.records.resolveFolders(names = names)
-        val folderMemberKeys: Set<String> = folderAppList.memberKeys.mapNotNullTo(mutableSetOf()) { key ->
-            appKeyResolver.resolve(key = key) ?: key
-        }
-        val appListLaunchables: List<Launchable> = resolvedApps.filterNot { app -> app.key in folderMemberKeys } + folders
+        val appListLaunchables: List<Launchable> = resolvedApps.filterNot { app -> app.key in folderAppList.memberKeys } + folders
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,
             privateSpace = privateSpace,

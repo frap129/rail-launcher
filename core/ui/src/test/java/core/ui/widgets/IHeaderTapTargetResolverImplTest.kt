@@ -14,6 +14,7 @@ import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
+import core.data.testing.packageLevelKey
 import core.ui.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -85,11 +86,11 @@ class IHeaderTapTargetResolverImplTest {
     }
 
     @Test
-    fun `applies an App stored under a Legacy App key`() {
+    fun `falls back to the system default for a package-level key`() {
         val inputApp = createApp(name = "Maps", packageName = "com.example.maps")
         val inputHeader: HeaderModel = header()
         val inputSettings: HeaderSettings = HeaderSettings(
-            timeTapTarget = HeaderTapSetting.Launchable(key = "com.example.maps_${inputApp.profile}")
+            timeTapTarget = HeaderTapSetting.Launchable(key = inputApp.packageLevelKey())
         )
 
         val actualHeader: HeaderModel = resolver.applyTo(
@@ -99,7 +100,7 @@ class IHeaderTapTargetResolverImplTest {
             atEpochMillis = nowMillis
         )
 
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputApp), actualHeader.time?.tapTarget)
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
     }
 
     @Test

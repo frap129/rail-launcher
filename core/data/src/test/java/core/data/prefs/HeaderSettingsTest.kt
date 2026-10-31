@@ -8,6 +8,7 @@ import core.data.testing.createApp
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createRailLaunchable
+import core.data.testing.packageLevelKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -118,13 +119,13 @@ class HeaderSettingsTest {
     }
 
     @Test
-    fun `resolves a Tap action stored under a Legacy App key to the App's current key`() {
+    fun `treats a Tap action stored under a package-level key as removable`() {
         val inputApp: App = createApp(packageName = "com.example.app")
         val inputState = createLoadedLaunchableState(launchables = listOf(inputApp))
-        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "com.example.app_${inputApp.profile}")
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputApp.packageLevelKey())
 
-        assertTrue(inputSetting.isDisplayable(state = inputState))
-        assertFalse(inputSetting.isRemovable(state = inputState))
+        assertFalse(inputSetting.isDisplayable(state = inputState))
+        assertTrue(inputSetting.isRemovable(state = inputState))
     }
 
     @Test

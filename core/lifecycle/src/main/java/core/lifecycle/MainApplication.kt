@@ -29,8 +29,6 @@ import core.data.icons.IconFetcher
 import core.data.icons.IconKeyer
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
-import core.data.launchables.ILegacyAppKeyUpgrader
-import core.data.launchables.ILegacyAppKeyUpgraderImpl
 import core.data.media.IMediaSessionSource
 import core.data.media.IMediaSessionSourceImpl
 import core.data.media.MediaArtworkFetcher
@@ -207,15 +205,14 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<ILegacyAppKeyUpgrader> { ILegacyAppKeyUpgraderImpl(get(), get(), get(), get(), get()) }
         single<ILaunchableRepository> {
-            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
         single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
-        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get(), get()) }
+        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
         single { MediaArtworkStore() }
         single<IMediaSessionSource> {

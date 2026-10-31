@@ -2,12 +2,11 @@ package core.data.widgets
 
 import app.cash.turbine.test
 import core.data.apps.model.App
-import core.data.launchables.ILaunchableRepository
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
-import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.packageLevelKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -260,8 +259,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
             appWidgetHost = mockHost,
-            lifecycleReconciler = reconciler,
-            launchableRepository = createLaunchableRepositoryMock()
+            lifecycleReconciler = reconciler
         )
         repository.places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
@@ -718,41 +716,34 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `popupPlace resolves a place stored under a Legacy App key`() = databaseTest {
+    fun `popupPlace ignores a place stored under a package-level key`() = databaseTest {
         val inputApp: App = createApp(packageName = "com.example.app")
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val inputPackageKey: String = inputApp.packageLevelKey()
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
-            places = listOf(popupPlace(id = 2L, ownerKey = inputLegacyKey)),
+            places = listOf(popupPlace(id = 2L, ownerKey = inputPackageKey)),
             widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
         )
 
-        val actualPlace: WidgetPlace? = repository(
-            dao = dao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
-        ).popupPlace(ownerKey = inputApp.key).first()
+        val actualPlace: WidgetPlace? = repository(dao).popupPlace(ownerKey = inputApp.key).first()
 
-        assertEquals(2L, actualPlace?.id)
-        assertEquals(200, (actualPlace?.widgets?.single() as PlacedWidget.AppWidget).appWidgetId)
+        assertNull(actualPlace)
     }
 
     @Test
-    fun `removeOwnerPlaces removes a place stored under a Legacy App key`() = databaseTest {
+    fun `removeOwnerPlaces leaves a place stored under a package-level key`() = databaseTest {
         val inputApp: App = createApp(packageName = "com.example.app")
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val inputPackageKey: String = inputApp.packageLevelKey()
         val dao: WidgetAreaDao = widgetAreaDao()
         seedWidgetArea(
-            places = listOf(popupPlace(id = 2L, ownerKey = inputLegacyKey)),
+            places = listOf(popupPlace(id = 2L, ownerKey = inputPackageKey)),
             widgets = listOf(appWidget(id = 20L, placeId = 2L, appWidgetId = 200))
         )
 
-        val actualFreedIds: List<AppWidgetId> = repository(
-            dao = dao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
-        ).removeOwnerPlaces(ownerKey = inputApp.key)
+        val actualFreedIds: List<AppWidgetId> = repository(dao).removeOwnerPlaces(ownerKey = inputApp.key)
 
-        assertEquals(listOf(AppWidgetId(200)), actualFreedIds)
-        assertTrue(dao.observePopupOwnerKeys().first().isEmpty())
+        assertEquals(emptyList<AppWidgetId>(), actualFreedIds)
+        assertEquals(listOf(inputPackageKey), dao.observePopupOwnerKeys().first())
     }
 
     @Test
@@ -863,8 +854,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     private suspend fun repository(
         dao: WidgetAreaDao,
         availabilityProvider: (AppWidgetId) -> WidgetAvailability = { WidgetAvailability.Available },
-        providerChangesFlow: Flow<Unit> = emptyFlow(),
-        mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock()
+        providerChangesFlow: Flow<Unit> = emptyFlow()
     ): IWidgetAreaRepositoryImpl {
         val boundIds: Set<AppWidgetId> = dao.boundAppWidgetIds()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
@@ -877,8 +867,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
             appWidgetHost = mockHost,
-            lifecycleReconciler = reconciler,
-            launchableRepository = mockLaunchableRepository
+            lifecycleReconciler = reconciler
         )
     }
 

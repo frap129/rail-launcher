@@ -59,17 +59,6 @@ enum class BatteryVisibility {
     CHARGING_OR_LOW
 }
 
-/** Rewrites every Tap action key in [replacements] to the key it maps to. */
-internal fun HeaderSettings.withResolvedTapTargets(replacements: Map<String, String>): HeaderSettings = copy(
-    timeTapTarget = timeTapTarget.resolved(replacements = replacements),
-    dateTapTarget = dateTapTarget.resolved(replacements = replacements)
-)
-
-private fun HeaderTapSetting?.resolved(replacements: Map<String, String>): HeaderTapSetting? = when (this) {
-    is HeaderTapSetting.Launchable -> replacements[key]?.let { newKey -> HeaderTapSetting.Launchable(key = newKey) } ?: this
-    else -> this
-}
-
 fun HeaderSettings.withClockVisible(visible: Boolean): HeaderSettings =
     if (!visible && !canHideClock) this else copy(clockVisible = visible)
 

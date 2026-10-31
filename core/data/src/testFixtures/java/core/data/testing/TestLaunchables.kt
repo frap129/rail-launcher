@@ -39,6 +39,9 @@ fun createApp(
     isPackageRepresentative = true
 )
 
+/** The stored key format used before Apps were keyed by launcher activity: package name and Profile. */
+fun App.packageLevelKey(): String = "${packageName}_$profile"
+
 /** A private App in a Private Space Profile. */
 fun createPrivateApp(name: String = "Secret", packageName: String = PRIVATE_PACKAGE_NAME, badgedLabel: String = "Private $name"): App =
     createApp(

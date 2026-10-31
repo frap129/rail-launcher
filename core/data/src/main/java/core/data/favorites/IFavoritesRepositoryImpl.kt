@@ -5,7 +5,6 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
 import core.data.launchables.staleKeys
-import core.data.launchables.storedKeys
 import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
@@ -80,7 +79,7 @@ class IFavoritesRepositoryImpl(
     }
 
     override suspend fun remove(launchable: Launchable) {
-        favoriteDao.remove(launchable.storedKeys())
+        favoriteDao.remove(listOf(launchable.key))
         awaitFavorite(launchable = launchable, isFavorite = false)
     }
 
@@ -90,7 +89,7 @@ class IFavoritesRepositoryImpl(
             .first()
             .sortedBy { record -> record.position }
         val reordered: List<FavoriteRecord> = records.reorderedPinned(
-            orderedKeys = favorites.flatMap { favorite -> favorite.storedKeys() },
+            orderedKeys = favorites.map { favorite -> favorite.key },
             keyOf = { record -> record.key },
             isPinned = { record -> state.isKeptKey(record.key) }
         )

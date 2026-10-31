@@ -38,6 +38,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
+import core.data.testing.packageLevelKey
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
@@ -77,80 +78,42 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `applies a hidden shortcut stored under a Legacy App key to its current key`() = databaseTest {
+    fun `removes a hidden shortcut stored under a package-level key while its App stays`() = databaseTest {
         val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val inputPackageKey: String = inputApp.packageLevelKey()
         val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertHiddenShortcut(ownerKey = inputLegacyKey, shortcutId = FIRST_SHORTCUT_ID)
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
-        )
-
-        assertEquals(setOf(FIRST_SHORTCUT_ID), repository.hiddenShortcuts(inputApp.key).first())
-
-        repository.setShortcutHidden(inputApp.key, FIRST_SHORTCUT_ID, hidden = false)
-
-        assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(inputLegacyKey).first())
-        assertEquals(emptySet<String>(), repository.hiddenShortcuts(inputApp.key).first())
-    }
-
-    @Test
-    fun `adds an item after the items stored under a Legacy App key`() = databaseTest {
-        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputApp.key, position = 0)))
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
-        )
-
-        repository.setItems(ownerKey = inputApp.key, add = listOf(inputOtherOwner.key), remove = emptySet())
-
-        assertEquals(
-            listOf(
-                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputApp.key, position = 0),
-                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputOtherOwner.key, position = 1)
-            ),
-            popupDao.getItems(ownerKey = inputApp.key).sortedBy { item -> item.position }
-        )
-        assertTrue(popupDao.getItems(ownerKey = inputLegacyKey).isEmpty())
-    }
-
-    @Test
-    fun `resolves items stored under Legacy App keys`() = databaseTest {
-        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputLegacyKey, itemKey = inputLegacyKey, position = 0)))
-        val repository: IPopupRepositoryImpl = createRepository(
+        popupDao.insertHiddenShortcut(ownerKey = inputPackageKey, shortcutId = FIRST_SHORTCUT_ID)
+        popupDao.insertHiddenShortcut(ownerKey = inputApp.key, shortcutId = SECOND_SHORTCUT_ID)
+        createRepository(
             popupDao = popupDao,
             mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
         )
         finishPendingWork()
 
-        assertEquals(listOf(PopupItem.Launchable(launchable = inputApp)), repository.items(ownerKey = inputApp.key).first())
+        assertEquals(emptyList<String>(), popupDao.observeHiddenShortcuts(inputPackageKey).first())
+        assertEquals(listOf(SECOND_SHORTCUT_ID), popupDao.observeHiddenShortcuts(inputApp.key).first())
     }
 
     @Test
-    fun `resolves a Legacy and a current item key to one item`() = databaseTest {
+    fun `removes Pop-up rows stored under a package-level key while its App stays`() = databaseTest {
         val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
-        val inputLegacyKey: String = "${inputApp.packageName}_${inputApp.profile}"
+        val inputOther: Launchable = createRailLaunchable(name = "Other")
+        val inputPackageKey: String = inputApp.packageLevelKey()
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertItems(
             listOf(
-                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputLegacyKey, position = 0),
-                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputApp.key, position = 1)
+                PopupItemRecord(ownerKey = inputPackageKey, itemKey = inputApp.key, position = 0),
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputPackageKey, position = 0),
+                PopupItemRecord(ownerKey = inputApp.key, itemKey = inputOther.key, position = 1)
             )
         )
-        val repository: IPopupRepositoryImpl = createRepository(
+        createRepository(
             popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp))
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputApp, inputOther))
         )
         finishPendingWork()
 
-        assertEquals(listOf(PopupItem.Launchable(launchable = inputApp)), repository.items(ownerKey = inputApp.key).first())
+        assertEquals(listOf(PopupItemRecord(ownerKey = inputApp.key, itemKey = inputOther.key, position = 1)), allItems())
     }
 
     @Test
@@ -464,9 +427,11 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a stale App's widget place after the Launchables load`() = databaseTest {
+    fun `removes a Pop-up Place stored under a package-level key after the Launchables load`() = databaseTest {
+        val inputApp: App = createApp(packageName = APP_PACKAGE_NAME)
+        val inputPackageKey: String = inputApp.packageLevelKey()
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
-            popupOwnerKeysFlow = MutableStateFlow(listOf(inputOwner.key)),
+            popupOwnerKeysFlow = MutableStateFlow(listOf(inputPackageKey)),
             removeOwnerPlacesAnswer = { listOf(AppWidgetId(55)) }
         )
         val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock()
@@ -484,11 +449,12 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         coVerify(exactly = 0) { mockWidgetAreaRepository.removeOwnerPlaces(any()) }
 
         repository.removedWidgetIds.test {
-            launchableState.value = createLaunchableState(groups = emptyList())
+            launchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
             assertEquals(AppWidgetId(55), awaitItem())
         }
 
-        coVerify(exactly = 1) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputOwner.key) }
+        coVerify(exactly = 1) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputPackageKey) }
+        coVerify(exactly = 0) { mockWidgetAreaRepository.removeOwnerPlaces(ownerKey = inputApp.key) }
         verify(exactly = 1) { mockAppWidgetHost.deleteId(id = AppWidgetId(55)) }
     }
 
