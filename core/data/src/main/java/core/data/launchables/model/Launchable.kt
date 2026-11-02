@@ -1,6 +1,7 @@
 package core.data.launchables.model
 
 import android.content.Context
+import android.os.UserHandle
 import core.data.icons.model.Icon
 
 abstract class Launchable {
@@ -10,8 +11,20 @@ abstract class Launchable {
     abstract val name: String
     abstract val icon: Icon
 
+    /** The Profile this Launchable belongs to, or null when it belongs to none. */
+    open val profile: UserHandle? get() = null
+
+    /** Whether this Launchable belongs to a Paused Profile. */
+    open val isPaused: Boolean get() = false
+
+    /** Whether this Launchable's publisher currently disables it, so tapping it cannot open it. */
+    open val isDisabled: Boolean get() = false
+
     /** The label accessibility services read for this Launchable. */
     open val accessibilityName: String get() = name
+
+    /** The label accessibility services read: the name for the personal Profile, else the badged label. */
+    protected fun accessibilityLabel(name: String, badgedLabel: String, isPersonal: Boolean): String = if (isPersonal) name else badgedLabel
 
     /** Returns a copy of this Launchable showing [appearance]. */
     abstract fun withCustomization(appearance: LaunchableAppearance): Launchable

@@ -131,8 +131,10 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
             if (!launcherApps.hasShortcutHostPermission()) {
                 return@withContext ShortcutsResult.Unavailable
             }
-            if (userManager.isQuietModeEnabled(owner.profile)) {
-                return@withContext ShortcutsResult.ProfilePaused
+            when (isQuietModeEnabled(profile = owner.profile)) {
+                true -> return@withContext ShortcutsResult.ProfilePaused
+                null -> return@withContext ShortcutsResult.Unavailable
+                false -> Unit
             }
             val shortcuts: List<ShortcutLaunchable> = readShortcuts(owner = owner)
             ShortcutsResult.Available(shortcuts = shortcuts)
@@ -154,7 +156,7 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         val shortcuts: MutableMap<ShortcutKey, ShortcutLaunchable> = mutableMapOf()
         val goneKeys: MutableSet<ShortcutKey> = mutableSetOf()
         for ((owner: AppProfile, keys: List<ShortcutKey>) in owners) {
-            if (userManager.isQuietModeEnabled(owner.profile)) {
+            if (isQuietModeEnabled(profile = owner.profile) != false) {
                 continue
             }
             val shortcutsById: Map<String, ShortcutInfo> = readResolvedShortcuts(owner = owner) ?: continue
@@ -174,6 +176,17 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
             }
         }
         ShortcutResolution(shortcuts = shortcuts, goneKeys = goneKeys)
+    }
+
+    /** Whether [profile] is in quiet mode, or null when the Profile no longer exists or is inaccessible. */
+    private fun isQuietModeEnabled(profile: UserHandle): Boolean? = try {
+        userManager.isQuietModeEnabled(profile)
+    } catch (exception: IllegalArgumentException) {
+        Timber.w("No Profile for %s: %s", profile, exception.logTypeName())
+        null
+    } catch (exception: SecurityException) {
+        Timber.w("No access to Profile %s: %s", profile, exception.logTypeName())
+        null
     }
 
     private fun readShortcuts(owner: AppProfile): List<ShortcutLaunchable> {
@@ -202,6 +215,9 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         null
     } catch (exception: IllegalStateException) {
         Timber.w("Could not resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
+        null
+    } catch (exception: IllegalArgumentException) {
+        Timber.w("No Profile to resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
         null
     }
 

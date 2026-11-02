@@ -2,13 +2,15 @@ package core.data.shortcuts
 
 import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
-import core.data.launchables.LaunchableState
+import core.data.profiles.IPrivateSpaceStatus
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.room.TransactionEffects
 import core.data.runCleanup
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -17,10 +19,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Serializes every [IShortcutSource.pin] call and reapplies pins after startup, writes and Profile enumeration. */
+/** Serializes every [IShortcutSource.pin] call and reapplies pins after startup, writes and Private Space listing. */
 class IShortcutPinCoordinatorImpl(
     private val shortcutSource: IShortcutSource,
     private val launchableRepository: ILaunchableRepository,
+    private val privateSpaceStatus: IPrivateSpaceStatus,
     private val pinSources: List<IShortcutPinSource>,
     scope: CoroutineScope
 ) : IShortcutPinCoordinator {
@@ -31,12 +34,15 @@ class IShortcutPinCoordinatorImpl(
             runCleanup(message = "Failed to reapply Shortcut pins on startup") { reapplyAllPins() }
         }
         scope.launch {
-            launchableRepository.launchableState
-                .filter { state -> state.isLoaded }
-                .map { state -> state.enumeratedKeys }
+            combine(
+                launchableRepository.launchableState.map { state -> state.isLoaded },
+                privateSpaceStatus.status
+            ) { isLoaded, status -> isLoaded to status }
+                .filter { (isLoaded, _) -> isLoaded }
+                .map { (_, status) -> status.enumeratedKeys }
                 .distinctUntilChanged()
                 .collect { tokens ->
-                    runCleanup(message = "Failed to reapply Shortcut pins after Profile enumeration") {
+                    runCleanup(message = "Failed to reapply Shortcut pins after a Private Space lists its Apps") {
                         reapplyPinsForProfiles(tokens = tokens)
                     }
                 }
@@ -64,8 +70,9 @@ class IShortcutPinCoordinatorImpl(
 
     /** Reapplies every merged pin set once the Launchables load, skipping Kept Profiles. */
     private suspend fun reapplyAllPins() {
-        val state: LaunchableState = launchableRepository.launchableState.filter { current -> current.isLoaded }.first()
-        reapplyPinsWhere { profile -> profile.profile.toProfileToken() !in state.keptKeys }
+        launchableRepository.launchableState.filter { current -> current.isLoaded }.first()
+        val status: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        reapplyPinsWhere { profile -> profile.profile.toProfileToken() !in status.keptKeys }
     }
 
     /** Reapplies pins once a Profile that was Locked lists its Apps again. */

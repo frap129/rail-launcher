@@ -3,6 +3,7 @@ package core.lifecycle
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -31,6 +32,7 @@ class MainApplicationModulesTest {
         val koin = GlobalContext.get()
 
         assertNotNull(koin.get<IPreferencesRepository>())
+        assertNotNull(koin.get<IPrivateSpaceStatus>())
         assertNotNull(koin.get<ILaunchableRepository>())
         assertNotNull(koin.get<IShortcutPickerSource>())
         assertNotNull(koin.get<IPopupShortcutPinSource>())

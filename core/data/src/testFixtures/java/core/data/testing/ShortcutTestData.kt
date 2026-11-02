@@ -1,6 +1,7 @@
 package core.data.testing
 
 import android.os.UserHandle
+import core.data.profiles.ProfileInfo
 import core.data.shortcuts.ShortcutLaunchable
 
 const val FIRST_SHORTCUT_ID: String = "first"
@@ -13,12 +14,14 @@ fun createShortcut(
     shortcutId: String = FIRST_SHORTCUT_ID,
     shortLabel: String = "Shortcut",
     longLabel: String = shortLabel,
-    isEnabled: Boolean = true
+    isEnabled: Boolean = true,
+    profileInfo: ProfileInfo? = null
 ): ShortcutLaunchable = ShortcutLaunchable(
     packageName = packageName,
     shortcutId = shortcutId,
     profile = profile,
     shortLabel = shortLabel,
     longLabel = longLabel,
-    isEnabled = isEnabled
+    isEnabled = isEnabled,
+    profileInfo = profileInfo
 )

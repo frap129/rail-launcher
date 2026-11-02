@@ -10,6 +10,7 @@ import core.data.folders.FolderRecord
 import core.data.folders.resolveFolders
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
+import core.data.icons.model.badgedFor
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
@@ -20,20 +21,16 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.prefs.toLaunchableNames
-import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
-import core.data.profiles.ProfileToken
-import core.data.profiles.isHiddenPrivateSpace
-import core.data.profiles.isLocked
-import core.data.profiles.isPrivate
-import core.data.profiles.privateSpace
-import core.data.profiles.toProfileToken
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
 import core.data.runCleanup
 import core.data.shortcuts.IStandaloneShortcutSource
+import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.StandaloneShortcuts
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -51,10 +48,7 @@ private data class FolderAppList(val records: List<FolderRecord>, val memberKeys
 
 private data class AppListSources(val folderAppList: FolderAppList, val standaloneShortcuts: StandaloneShortcuts)
 
-private data class AppState(val appsOrNull: List<App>?, val enumeratedProfiles: Set<UserHandle>, val isLockRequested: Boolean)
-
-/** The Private Spaces' tokens, split into the keys Rail keeps and those safely listed. */
-private data class PrivateKeys(val kept: Set<ProfileToken>, val enumerated: Set<ProfileToken>)
+private data class AppState(val appsOrNull: List<App>?, val privateSpaceStatus: PrivateSpaceStatus)
 
 class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
@@ -64,7 +58,7 @@ class ILaunchableRepositoryImpl(
     folderDao: FolderDao,
     popupDao: PopupDao,
     standaloneShortcutSource: IStandaloneShortcutSource,
-    private val privateSpaceLock: IPrivateSpaceLock,
+    private val privateSpaceStatus: IPrivateSpaceStatus,
     private val scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -99,11 +93,10 @@ class ILaunchableRepositoryImpl(
     // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
     private val appState: Flow<AppState> = combine(
         appRepository.apps,
-        appRepository.enumeratedProfiles,
-        iconRepository.iconPacks,
-        privateSpaceLock.isLockRequested
-    ) { appsOrNull, enumeratedProfiles, _, isLockRequested ->
-        AppState(appsOrNull = appsOrNull, enumeratedProfiles = enumeratedProfiles, isLockRequested = isLockRequested)
+        privateSpaceStatus.status,
+        iconRepository.iconPacks
+    ) { appsOrNull, status, _ ->
+        AppState(appsOrNull = appsOrNull, privateSpaceStatus = status)
     }
 
     override val launchableState: StateFlow<LaunchableState> = combine(
@@ -168,19 +161,18 @@ class ILaunchableRepositoryImpl(
         appListSources: AppListSources
     ): LaunchableState {
         val apps: List<App> = appState.appsOrNull.orEmpty()
-        val privateSpace: ProfileInfo? = profiles.privateSpace
-        val isPrivateSpaceLocked: Boolean = privateSpace?.isLocked(isLockRequested = appState.isLockRequested) ?: appState.isLockRequested
-        val privateKeys: PrivateKeys = resolvePrivateKeys(
-            profiles = profiles,
-            enumeratedProfiles = appState.enumeratedProfiles,
-            isLockRequested = appState.isLockRequested
-        )
+        val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
         val listedLaunchables: List<Launchable> = apps
             .map { app -> app.resolve(names = names, settings = settings) } +
-            appListSources.standaloneShortcuts.launchables.map { shortcut -> shortcut.resolve(names = names, settings = settings) }
+            appListSources.standaloneShortcuts.launchables.mapNotNull { shortcut ->
+                profilesByUser[shortcut.profile]?.let { profile -> shortcut.resolve(names = names, profileInfo = profile) }
+            }
         val resolvedLaunchables: List<Launchable> = listedLaunchables
-            .filterNot { launchable -> isPrivateSpaceLocked && launchable.isPrivateIn(privateSpace = privateSpace) }
+            .filterNot { launchable ->
+                appState.privateSpaceStatus.isLocked &&
+                    launchable.isPrivateIn(privateSpace = appState.privateSpaceStatus.profile)
+            }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
         )
@@ -189,15 +181,12 @@ class ILaunchableRepositoryImpl(
             .filterNot { launchable -> launchable.key in appListSources.folderAppList.memberKeys } + folders
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,
-            privateSpace = privateSpace,
-            hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
-            isLockRequested = appState.isLockRequested
+            privateSpaceStatus = appState.privateSpaceStatus
         )
         val pickerGroups: List<LaunchableGroup.Listed> = (resolvedLaunchables + folders)
             .toLaunchableGroups(
                 builtinGroup = resolvedBuiltinGroup,
-                privateSpace = privateSpace,
-                isLockRequested = appState.isLockRequested
+                privateSpaceStatus = appState.privateSpaceStatus
             )
             .toPickerGroups()
         return LaunchableState(
@@ -205,9 +194,10 @@ class ILaunchableRepositoryImpl(
             // Folder members stay reachable through their Folder, pickers and the Favorites.
             launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
             isLoaded = appState.appsOrNull != null,
-            keptKeys = privateKeys.kept,
-            enumeratedKeys = privateKeys.enumerated,
-            retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys,
+            keptKeys = appState.privateSpaceStatus.keptKeys,
+            retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
+                ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
+            },
             pickerGroups = pickerGroups
         )
     }
@@ -227,29 +217,29 @@ class ILaunchableRepositoryImpl(
         }
     }
 
-    private fun App.badgedLabel(name: String): String = when {
-        profileInfo.kind.isPersonal -> name
-        name == defaultName -> badgedLabel
-        else -> profileSource.badgedLabel(label = name, user = profile)
+    private fun ShortcutLaunchable.resolve(names: LaunchableNames, profileInfo: ProfileInfo): ShortcutLaunchable {
+        val name: String = resolveName(names)
+        val badgedIcon: Icon = Icon.ShortcutIcon(packageName = packageName, shortcutId = shortcutId, profile = profile)
+            .badgedFor(profile = profileInfo)
+        return copy(
+            profileInfo = profileInfo,
+            defaultIcon = badgedIcon,
+            name = name,
+            icon = badgedIcon,
+            badgedLabel = resolveBadgedLabel(name = name, profileInfo = profileInfo)
+        )
     }
 
-    /**
-     * A Private Space's keys stay kept until Rail has enumerated its Apps while it is Unlocked.
-     * A Locked Space is never enumerated, and an empty enumeration still releases the keys.
-     */
-    private fun resolvePrivateKeys(
-        profiles: List<ProfileInfo>,
-        enumeratedProfiles: Set<UserHandle>,
-        isLockRequested: Boolean
-    ): PrivateKeys {
-        val privateTokens: Map<ProfileToken, Boolean> = profiles
-            .filter { profile -> profile.isPrivate }
-            .associate { profile ->
-                profile.user.toProfileToken() to
-                    (!profile.isLocked(isLockRequested = isLockRequested) && profile.user in enumeratedProfiles)
-            }
-        val enumeratedKeys: Set<ProfileToken> = privateTokens.filterValues { isEnumerated -> isEnumerated }.keys
-        return PrivateKeys(kept = privateTokens.keys - enumeratedKeys, enumerated = enumeratedKeys)
+    private fun App.badgedLabel(name: String): String = resolveBadgedLabel(
+        name = name,
+        profileInfo = profileInfo,
+        badgedDefaultName = badgedLabel.takeIf { name == defaultName }
+    )
+
+    private fun resolveBadgedLabel(name: String, profileInfo: ProfileInfo, badgedDefaultName: String? = null): String = when {
+        profileInfo.kind.isPersonal -> name
+        badgedDefaultName != null -> badgedDefaultName
+        else -> profileSource.badgedLabel(label = name, user = profileInfo.user)
     }
 }
 
@@ -263,34 +253,27 @@ private const val DIGIT_GROUP_LABEL: String = "#"
  * Folders group with the other Launchables by their resolved names. Always
  * holds the Star and the Builtin group so Home stays reachable without apps.
  *
- * [privateSpace] is the Profile of the Private Space, or null when the device
- * has none; its quiet mode, or [isLockRequested], makes the container Locked.
- * A Locked container is left off when [hidePrivateSpaceWhenLocked] or the
- * system hides it, and an Unlocked one is always shown.
+ * [privateSpaceStatus] supplies the Private Space's Profile and whether its
+ * container is listed, Hidden or Locked.
  */
 internal fun List<Launchable>.toLaunchableGroups(
     builtinGroup: LaunchableGroup.Builtin,
-    privateSpace: ProfileInfo? = null,
-    hidePrivateSpaceWhenLocked: Boolean = false,
-    isLockRequested: Boolean = false
+    privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus()
 ): List<LaunchableGroup> {
+    val privateSpace: ProfileInfo? = privateSpaceStatus.profile
     val (privateItems, otherItems) = partition { launchable -> launchable.isPrivateIn(privateSpace = privateSpace) }
     val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { it.groupLabel() }
         .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
-    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = privateSpace
-        ?.takeUnless { profile ->
-            profile.isHiddenPrivateSpace(hideWhenLocked = hidePrivateSpaceWhenLocked, isLockRequested = isLockRequested)
-        }
-        ?.let { profile ->
-            if (profile.isLocked(isLockRequested = isLockRequested)) {
-                LaunchableGroup.PrivateSpace.Locked
-            } else {
-                LaunchableGroup.PrivateSpace.Unlocked(
-                    items = privateItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name })
-                )
-            }
-        }
+    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = when {
+        !privateSpaceStatus.isContainerListed -> null
+
+        privateSpaceStatus.isLocked -> LaunchableGroup.PrivateSpace.Locked
+
+        else -> LaunchableGroup.PrivateSpace.Unlocked(
+            items = privateItems.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name })
+        )
+    }
     return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
 

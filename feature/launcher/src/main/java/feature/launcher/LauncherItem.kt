@@ -110,7 +110,7 @@ fun LauncherItem(
     val longPressGate: LongPressGate = remember { LongPressGate() }
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
-    val isPaused: Boolean = item is App && item.isPaused
+    val isUnavailable: Boolean = item.isPaused || item.isDisabled
     val summaryDescription: String? = summary?.let { summaryText ->
         stringResource(R.string.folder_summary_description, item.name, summaryText)
     }
@@ -120,7 +120,7 @@ fun LauncherItem(
             horizontalArrangement = Arrangement.Start,
             modifier = modifier
                 .fillMaxWidth()
-                .alpha(if (isPaused) UNAVAILABLE_ALPHA else 1f)
+                .alpha(if (isUnavailable) UNAVAILABLE_ALPHA else 1f)
                 .pointerInput(isEditingFavorites) {
                     if (!isEditingFavorites) {
                         detectTapGestures(

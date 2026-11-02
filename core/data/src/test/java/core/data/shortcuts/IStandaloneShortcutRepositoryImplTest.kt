@@ -17,6 +17,7 @@ import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
+import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutPinCoordinator
 import core.data.testing.createShortcutSourceMock
@@ -196,6 +197,7 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(state = launchableState)
         val coordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(
             launchableRepository = mockLaunchableRepository,
+            privateSpaceStatus = createPrivateSpaceStatusMock(),
             scope = backgroundScope,
             shortcutSource = mockShortcutSource,
             pinSources = listOf(

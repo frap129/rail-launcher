@@ -26,14 +26,15 @@ data class App(
      */
     val isPackageRepresentative: Boolean
 ) : Launchable() {
-    val profile: UserHandle = profileInfo.user
+    override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind
-    val isPaused: Boolean = profileInfo.isQuiet
+    override val isPaused: Boolean = profileInfo.isQuiet
     val packageName: String = componentName.packageName
 
     /** The App's stored identity: its activity component and Profile. */
     override val key: String = "${componentName.flattenToString()}_$profile"
-    override val accessibilityName: String get() = if (kind.isPersonal) name else badgedLabel
+    override val accessibilityName: String
+        get() = accessibilityLabel(name = name, badgedLabel = badgedLabel, isPersonal = kind.isPersonal)
 
     override fun withCustomization(appearance: LaunchableAppearance): App = copy(name = appearance.name, icon = appearance.icon)
 

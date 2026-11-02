@@ -43,7 +43,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
-import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.profiles.IProfileSource
@@ -127,7 +126,7 @@ fun LauncherScreen(
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val profileSource: IProfileSource = koinInject()
-    val pausedApp: App? by viewModel.pausedPrompt.collectAsState()
+    val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -146,6 +145,10 @@ fun LauncherScreen(
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
         if (launchable is Folder) {
+            return@launchItem
+        }
+        if (launchable.isDisabled) {
+            coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
             return@launchItem
         }
         if (!viewModel.requestLaunch(launchable)) {
@@ -403,12 +406,12 @@ fun LauncherScreen(
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
-    if (pausedApp != null) {
+    if (pausedLaunchable != null) {
         AlertDialog(
             onDismissRequest = viewModel::dismissPausedPrompt,
             title = { Text(text = stringResource(CoreUiR.string.work_apps_paused)) },
             confirmButton = {
-                TextButton(onClick = viewModel::turnOnPausedApp) {
+                TextButton(onClick = viewModel::turnOnPausedLaunchable) {
                     Text(text = stringResource(CoreUiR.string.turn_on))
                 }
             },

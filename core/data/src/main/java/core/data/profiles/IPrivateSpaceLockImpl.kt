@@ -18,7 +18,10 @@ class IPrivateSpaceLockImpl(profileSource: IProfileSource, scope: CoroutineScope
     init {
         scope.launch {
             profileSource.profiles
-                .map { profiles -> profiles.privateSpace?.let { profile -> profile.isQuiet } ?: true }
+                .map { profiles ->
+                    val status: PrivateSpaceStatus = derivePrivateSpaceStatus(PrivateSpaceInputs(profiles = profiles))
+                    status.profile == null || status.isLocked
+                }
                 .distinctUntilChanged()
                 .collect { isLocked ->
                     try {

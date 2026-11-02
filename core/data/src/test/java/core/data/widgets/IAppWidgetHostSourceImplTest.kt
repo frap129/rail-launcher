@@ -11,7 +11,9 @@ import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.os.UserHandle
 import core.data.icons.model.Icon
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -22,11 +24,13 @@ import core.data.testing.TEST_SDK
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -80,7 +84,12 @@ class IAppWidgetHostSourceImplTest {
         val inputState: ProfileSourceState = ProfileSourceState(
             profiles = listOf(personalProfile, workProfile, privateProfile)
         )
-        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(state = inputState)
+        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(
+            state = inputState,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = privateProfile))
+            )
+        )
 
         val actualProviders: List<WidgetProviderInfo> = source.providers.first()
 
@@ -96,7 +105,14 @@ class IAppWidgetHostSourceImplTest {
         val inputState: ProfileSourceState = ProfileSourceState(
             profiles = listOf(personalProfile, workProfile, privateProfile.copy(isQuiet = true))
         )
-        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(state = inputState)
+        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(
+            state = inputState,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(
+                    PrivateSpaceStatus(profile = privateProfile.copy(isQuiet = true), isLocked = true)
+                )
+            )
+        )
 
         val actualProviders: List<WidgetProviderInfo> = source.providers.first()
 
@@ -152,7 +168,8 @@ class IAppWidgetHostSourceImplTest {
     @Suppress("DEPRECATION")
     private fun TestScope.createSource(
         state: ProfileSourceState,
-        applicationInfo: (String, UserHandle) -> ApplicationInfo?
+        applicationInfo: (String, UserHandle) -> ApplicationInfo?,
+        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()
     ): IAppWidgetHostSourceImpl {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.getApplicationInfo(any(), any(), any()) } answers {
@@ -167,12 +184,20 @@ class IAppWidgetHostSourceImplTest {
             preferencesRepository = createPreferencesRepositoryMock(),
             callbacks = AppWidgetHostCallbacks(),
             profileSource = mockProfileSource,
+            privateSpaceStatus = mockPrivateSpaceStatus,
             dispatcher = StandardTestDispatcher(testScheduler)
         )
     }
 
-    private fun TestScope.createSourceWithAllProviders(state: ProfileSourceState): IAppWidgetHostSourceImpl {
-        val source: IAppWidgetHostSourceImpl = createSource(state = state, applicationInfo = { _, _ -> enabledApplicationInfo() })
+    private fun TestScope.createSourceWithAllProviders(
+        state: ProfileSourceState,
+        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()
+    ): IAppWidgetHostSourceImpl {
+        val source: IAppWidgetHostSourceImpl = createSource(
+            state = state,
+            applicationInfo = { _, _ -> enabledApplicationInfo() },
+            mockPrivateSpaceStatus = mockPrivateSpaceStatus
+        )
         val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(application)
         shadowOf(appWidgetManager).addInstalledProvidersForProfile(personalUser, provider(packageName = PERSONAL_PACKAGE))
         shadowOf(appWidgetManager).addInstalledProvidersForProfile(workUser, provider(packageName = WORK_PACKAGE))

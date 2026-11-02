@@ -10,6 +10,7 @@ import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.createFixedPrivateSpaceStatus
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
@@ -120,7 +121,7 @@ class LaunchableGroupsTest {
 
         val actualLabels: List<String> = inputItems.toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         ).map { group -> group.label }
 
         assertEquals(listOf("★", "A", "⌂", LaunchableGroup.PrivateSpace.LABEL), actualLabels)
@@ -132,7 +133,7 @@ class LaunchableGroupsTest {
 
         val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile.copy(isQuiet = true)
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true)
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 
         assertTrue(actualGroup.isLocked)
@@ -140,67 +141,14 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `gives a Private Space with a Lock requested no items`() {
-        val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
-
-        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile,
-            isLockRequested = true
-        ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
-
-        assertTrue(actualGroup.isLocked)
-        assertTrue(actualGroup.items.isEmpty())
-    }
-
-    @Test
-    fun `hides a Private Space with a Lock requested while Rail hides it`() {
+    fun `leaves a Hidden Private Space off the groups`() {
         val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile,
-            hidePrivateSpaceWhenLocked = true,
-            isLockRequested = true
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isHidden = true, isLocked = true)
         )
 
         assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
         assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
-    }
-
-    @Test
-    fun `hides a Locked Private Space while Rail hides it`() {
-        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile.copy(isQuiet = true),
-            hidePrivateSpaceWhenLocked = true
-        )
-
-        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
-        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
-    }
-
-    @Test
-    fun `hides a Locked Private Space while the system hides it`() {
-        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile.copy(isQuiet = true, isEntrypointHidden = true)
-        )
-
-        assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
-        assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
-    }
-
-    @Test
-    fun `shows an Unlocked Private Space while Rail and the system hide it`() {
-        val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
-
-        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile.copy(isEntrypointHidden = true),
-            hidePrivateSpaceWhenLocked = true
-        ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
-
-        assertFalse(actualGroup.isLocked)
-        assertEquals(listOf(inputPrivateApp), actualGroup.items)
     }
 
     @Test
@@ -210,7 +158,7 @@ class LaunchableGroupsTest {
 
         val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputZulu, inputAlpha).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 
         assertFalse(actualGroup.isLocked)
@@ -233,7 +181,7 @@ class LaunchableGroupsTest {
 
         val actualGroups: List<LaunchableGroup> = listOf(inputPrivateApp, createLaunchable("Alpha")).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         )
         val actualInitialItems: List<Launchable> = actualGroups.filterIsInstance<LaunchableGroup.InitialGroup>()
             .flatMap { group -> group.items }
@@ -251,7 +199,7 @@ class LaunchableGroupsTest {
 
         val actualGroups: List<LaunchableGroup> = listOf(inputPrivateShortcut).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            privateSpace = inputPrivateProfile
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         )
         val actualGroup: LaunchableGroup.PrivateSpace = actualGroups.filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 

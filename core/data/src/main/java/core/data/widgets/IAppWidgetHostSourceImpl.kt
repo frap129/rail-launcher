@@ -16,11 +16,11 @@ import core.data.icons.model.Icon
 import core.data.icons.model.SYSTEM_ICON_PACK_NAME
 import core.data.icons.model.badgedFor
 import core.data.prefs.IPreferencesRepository
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
-import core.data.profiles.isEnumerated
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineDispatcher
@@ -41,6 +41,7 @@ class IAppWidgetHostSourceImpl(
     private val preferencesRepository: IPreferencesRepository,
     private val callbacks: AppWidgetHostCallbacks,
     private val profileSource: IProfileSource,
+    private val privateSpaceStatus: IPrivateSpaceStatus,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IAppWidgetHostSource {
     private val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
@@ -140,7 +141,7 @@ class IAppWidgetHostSourceImpl(
     private suspend fun loadProviders(): List<WidgetProviderInfo> {
         val iconPack: String = preferencesRepository.settings.first().iconPack ?: SYSTEM_ICON_PACK_NAME
         return profileSource.profiles.value.filter { profile: ProfileInfo ->
-            profile.isEnumerated()
+            privateSpaceStatus.canListApps(profile = profile)
         }.flatMap { profile: ProfileInfo ->
             runCatching { appWidgetManager.getInstalledProvidersForProfile(profile.user) }
                 .onFailure { exception -> Timber.w(exception, "Could not load App Widget providers for %s", profile.user) }

@@ -4,7 +4,8 @@ import app.cash.turbine.test
 import core.data.icons.model.Icon
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.Settings
-import core.data.profiles.IProfileSource
+import core.data.profiles.IPrivateSpaceStatus
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileKind
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
@@ -12,10 +13,12 @@ import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
-import core.data.testing.createProfileSourceMock
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -36,7 +39,9 @@ class SettingsViewModelTest {
     fun `offers the Private Space switch when a Private profile exists`() = runTest {
         val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val viewModel: SettingsViewModel = createViewModel(
-            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
         )
 
         viewModel.uiState.test {
@@ -46,7 +51,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `leaves the Private Space switch off without a Private profile`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(mockProfileSource = createProfileSourceMock())
+        val viewModel: SettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
             assertFalse(expectMostRecentItem().isPrivateSpaceAvailable)
@@ -78,12 +83,12 @@ class SettingsViewModelTest {
         }
     }
 
-    private fun createViewModel(
+    private fun TestScope.createViewModel(
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockProfileSource: IProfileSource = createProfileSourceMock()
+        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()
     ): SettingsViewModel = SettingsViewModel(
         prefsRepo = mockPreferencesRepository,
         iconRepo = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID)),
-        profileSource = mockProfileSource
+        privateSpaceStatus = mockPrivateSpaceStatus
     )
 }
