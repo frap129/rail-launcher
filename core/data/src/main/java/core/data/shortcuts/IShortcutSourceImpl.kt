@@ -7,9 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.os.UserManager
-import core.data.apps.model.App
 import core.data.apps.model.AppProfile
-import core.data.launchables.ILaunchableRepository
 import core.util.logTypeName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -17,17 +15,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /** Reads an app's launcher shortcuts from [LauncherApps] and refreshes while collected. */
-class IShortcutSourceImpl(private val context: Context, private val launchableRepository: ILaunchableRepository) : IShortcutSource {
+class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager: UserManager = context.getSystemService(UserManager::class.java)
 
@@ -49,21 +43,6 @@ class IShortcutSourceImpl(private val context: Context, private val launchableRe
         trySend(loadShortcuts(owner = owner))
         awaitClose { launcherApps.unregisterCallback(callback) }
     }
-
-    override fun appsWithShortcuts(): Flow<List<AppShortcuts>> = launchableRepository.launchableState
-        .map { state -> state.launchables.filterIsInstance<App>().filter { app -> app.isPackageRepresentative } }
-        .distinctUntilChanged()
-        .flatMapLatest { apps ->
-            if (apps.isEmpty()) {
-                flowOf(emptyList())
-            } else {
-                val appFlows: List<Flow<AppShortcuts>> = apps.map { app ->
-                    shortcuts(packageName = app.packageName, profile = app.profile)
-                        .map { result -> AppShortcuts(app = app, result = result) }
-                }
-                combine(appFlows) { results -> results.toList() }
-            }
-        }
 
     override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> {
         if (keys.isEmpty()) {

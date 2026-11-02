@@ -3,6 +3,7 @@ package core.data.testing
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.room.dao.PopupDao
+import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IShortcutSource
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveOwnerWidgetsImpl
@@ -16,11 +17,18 @@ fun createPopupRepository(
     scope: CoroutineScope,
     shortcutSource: IShortcutSource,
     widgetAreaRepository: IWidgetAreaRepository,
-    appWidgetHost: IAppWidgetHostSource
+    appWidgetHost: IAppWidgetHostSource,
+    shortcutPinCoordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(
+        popupDao = popupDao,
+        launchableRepository = launchableRepository,
+        scope = scope,
+        shortcutSource = shortcutSource
+    )
 ): IPopupRepositoryImpl = IPopupRepositoryImpl(
     popupDao = popupDao,
     launchableRepository = launchableRepository,
     shortcutSource = shortcutSource,
+    shortcutPinCoordinator = shortcutPinCoordinator,
     scope = scope,
     widgetAreaRepository = widgetAreaRepository,
     removeOwnerWidgets = IRemoveOwnerWidgetsImpl(repository = widgetAreaRepository, host = appWidgetHost)
