@@ -3,6 +3,7 @@ package core.data.testing
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.room.dao.PopupDao
+import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IShortcutSource
 import core.data.widgets.IAppWidgetHostSource
@@ -19,10 +20,10 @@ fun createPopupRepository(
     widgetAreaRepository: IWidgetAreaRepository,
     appWidgetHost: IAppWidgetHostSource,
     shortcutPinCoordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(
-        popupDao = popupDao,
         launchableRepository = launchableRepository,
         scope = scope,
-        shortcutSource = shortcutSource
+        shortcutSource = shortcutSource,
+        pinSources = listOf(IPopupShortcutPinSourceImpl(popupDao = popupDao))
     )
 ): IPopupRepositoryImpl = IPopupRepositoryImpl(
     popupDao = popupDao,

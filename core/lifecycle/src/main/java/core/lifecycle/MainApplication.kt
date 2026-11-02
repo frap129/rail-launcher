@@ -62,6 +62,8 @@ import core.data.room.dao.PopupDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.shortcuts.IPopupShortcutPinSource
+import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPickerSourceImpl
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -215,12 +217,12 @@ class MainApplication :
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
+        single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IShortcutPinCoordinator> {
             IShortcutPinCoordinatorImpl(
                 shortcutSource = get(),
                 launchableRepository = get(),
-                popupDao = get(),
-                pinSources = getAll(),
+                pinSources = listOf(get<IPopupShortcutPinSource>()),
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
         }

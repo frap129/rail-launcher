@@ -6,7 +6,6 @@ import core.data.launchables.LaunchableState
 import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.room.TransactionEffects
-import core.data.room.dao.PopupDao
 import core.data.runCleanup
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +21,6 @@ import kotlinx.coroutines.sync.withLock
 class IShortcutPinCoordinatorImpl(
     private val shortcutSource: IShortcutSource,
     private val launchableRepository: ILaunchableRepository,
-    private val popupDao: PopupDao,
     private val pinSources: List<IShortcutPinSource>,
     scope: CoroutineScope
 ) : IShortcutPinCoordinator {
@@ -56,6 +54,12 @@ class IShortcutPinCoordinatorImpl(
             // Releasing a system pin cannot be undone, so it waits for the caller's commit.
             effects.afterCommit { withPinLock { pinProfiles(affectedProfiles = affectedProfiles, pinSets = currentPinSets()) } }
         }
+    }
+
+    override suspend fun <T> runUnderPinLock(affectedProfiles: Set<AppProfile>, block: suspend () -> T): T = try {
+        withPinLock { block() }
+    } finally {
+        reapplyPins(affectedProfiles = affectedProfiles)
     }
 
     /** Reapplies every merged pin set once the Launchables load, skipping Kept Profiles. */
@@ -92,18 +96,12 @@ class IShortcutPinCoordinatorImpl(
         }
     }
 
-    /** The union of the Pop-up Shortcut items and every other source, so adding a source needs no pin-path change. */
+    /** The union of every source configured by the composition root. */
     private suspend fun currentPinSets(): Map<AppProfile, Set<String>> {
         val merged: MutableMap<AppProfile, MutableSet<String>> = mutableMapOf()
-        mergePinSets(into = merged, pinSets = popupPinSets())
         pinSources.forEach { source -> mergePinSets(into = merged, pinSets = source.pinSets()) }
         return merged.mapValues { (_, ids) -> ids.toSet() }
     }
-
-    private suspend fun popupPinSets(): Map<AppProfile, Set<String>> = popupDao.getAllItems()
-        .mapNotNull { record -> ShortcutKey.parse(record.itemKey) }
-        .groupBy({ key -> AppProfile(packageName = key.packageName, profile = key.profile) }, { key -> key.id })
-        .mapValues { (_, ids) -> ids.toSet() }
 
     private fun mergePinSets(into: MutableMap<AppProfile, MutableSet<String>>, pinSets: Map<AppProfile, Set<String>>) {
         pinSets.forEach { (profile: AppProfile, ids: Set<String>) ->

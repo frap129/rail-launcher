@@ -3,6 +3,7 @@ package core.lifecycle
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
+import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPinCoordinator
 import org.junit.After
@@ -29,6 +30,7 @@ class MainApplicationModulesTest {
         assertNotNull(koin.get<IPreferencesRepository>())
         assertNotNull(koin.get<ILaunchableRepository>())
         assertNotNull(koin.get<IShortcutPickerSource>())
+        assertNotNull(koin.get<IPopupShortcutPinSource>())
         assertNotNull(koin.get<IShortcutPinCoordinator>())
         assertNotNull(koin.get<IPopupRepository>())
     }
