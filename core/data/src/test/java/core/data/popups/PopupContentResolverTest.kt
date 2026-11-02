@@ -16,6 +16,7 @@ import core.data.testing.createNotificationAction
 import core.data.testing.createNotificationProfile
 import core.data.testing.createNotificationSnapshot
 import core.data.testing.createOtherNotificationProfile
+import core.data.testing.createShortcut as createTestShortcut
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -411,10 +412,10 @@ class PopupContentResolverTest {
         assertEquals(1, actualContent.itemNotifications.getValue(inputApp.key).size)
     }
 
-    private fun createShortcut(id: String): ShortcutLaunchable = ShortcutLaunchable(
+    private fun createShortcut(id: String): ShortcutLaunchable = createTestShortcut(
         packageName = TEST_NOTIFICATION_PACKAGE_NAME,
-        shortcutId = id,
         profile = profile,
+        shortcutId = id,
         shortLabel = "Short $id",
         longLabel = "Long $id"
     )

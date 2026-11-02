@@ -27,6 +27,11 @@ data class LaunchableState(
      */
     val enumeratedKeys: Set<ProfileToken> = emptySet(),
     /**
+     * Stored keys that are neither resolved nor reported gone, so the stale-key cleanups keep
+     * their Favorites, name customizations and other references until they resolve again.
+     */
+    val retainedKeys: Set<String> = emptySet(),
+    /**
      * The groups the pickers may list: the App List groups without the Locked Private Space
      * container, so private Apps join the pickers while the Private Space is Unlocked.
      */

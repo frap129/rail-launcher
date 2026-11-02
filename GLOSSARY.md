@@ -41,7 +41,7 @@ The hidden Profile Android 15+ provides for Apps the user keeps private, unlocke
 _Avoid_: Private profile, vault, space
 
 **Locked**:
-A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins and the Places of their Pop-ups for when it is Unlocked.
+A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins, Standalone shortcuts and the Places of their Pop-ups for when it is Unlocked.
 _Avoid_: Off, closed, disabled
 
 **Lock requested**:
@@ -99,6 +99,14 @@ _Avoid_: Deep link, quick action
 **Hidden shortcut**:
 A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays hidden if the app removes and later republishes the Shortcut.
 _Avoid_: Disabled shortcut, removed shortcut
+
+**Standalone shortcut**:
+A Shortcut another app asked Rail to add through a Pin request. Rail lists it in the App List and Favorites as its own Launchable instead of keeping it inside a Pop-up.
+_Avoid_: Pinned shortcut (when meaning a Standalone shortcut), home screen shortcut
+
+**Pin request**:
+The system's confirm-pin-shortcut request another app sends to the default launcher, asking it to add a Shortcut.
+_Avoid_: Shortcut install, add-to-home request
 
 **Added item**:
 A Launchable the user added to a Pop-up from its edit sheet, shown below that Launchable's Shortcuts. A Shortcut added this way is a Shortcut item.

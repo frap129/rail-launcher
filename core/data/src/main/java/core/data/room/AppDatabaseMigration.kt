@@ -27,3 +27,15 @@ val MIGRATION_12_13: Migration = object : Migration(12, 13) {
         )
     }
 }
+
+private const val STANDALONE_SHORTCUTS_TABLE: String = "standalone_shortcuts"
+
+/** Adds the table that stores Standalone shortcut keys and when each was added. */
+val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS $STANDALONE_SHORTCUTS_TABLE " +
+                "(key TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(key))"
+        )
+    }
+}

@@ -4,8 +4,9 @@ import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.shortcuts.ShortcutKey
 
-/** The keys among [keys] that neither a listed Launchable nor a Profile whose keys Rail keeps still needs. */
-fun LaunchableState.staleKeys(keys: Iterable<String>): List<String> = keys.filterNot { key -> launchableFor(key) != null || isKeptKey(key) }
+/** The keys among [keys] that neither a listed Launchable, a retained key nor a Profile whose keys Rail keeps still needs. */
+fun LaunchableState.staleKeys(keys: Iterable<String>): List<String> =
+    keys.filterNot { key -> launchableFor(key) != null || key in retainedKeys || isKeptKey(key) }
 
 /** The Profile token of a stored Launchable or Shortcut key, or null when [key] carries none. */
 internal fun String.profileToken(): ProfileToken? {
