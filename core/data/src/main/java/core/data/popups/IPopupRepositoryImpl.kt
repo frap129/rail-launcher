@@ -19,6 +19,7 @@ import core.data.widgets.IRemoveOwnerWidgets
 import core.data.widgets.IWidgetAreaRepository
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,7 +27,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -38,6 +41,7 @@ private data class ItemResolution(val itemsByOwner: Map<String, List<PopupItem>>
 
 private val UNLOADED_ITEMS: ItemResolution = ItemResolution(itemsByOwner = emptyMap())
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IPopupRepositoryImpl(
     private val popupDao: PopupDao,
     private val launchableRepository: ILaunchableRepository,
@@ -55,10 +59,18 @@ class IPopupRepositoryImpl(
 
     override val removedWidgetIds: SharedFlow<AppWidgetId> = removedWidgets.asSharedFlow()
 
-    private val itemResolution: StateFlow<ItemResolution> = popupDao.observeAllItems()
-        .flatMapLatest { records ->
-            val keys: Set<String> = records.mapTo(mutableSetOf()) { record -> record.itemKey }
-            storedKeyClassifier.observe(flowOf(keys)).map { states ->
+    private val itemRecords: StateFlow<List<PopupItemRecord>?> = popupDao.observeAllItems()
+        .map<List<PopupItemRecord>, List<PopupItemRecord>?> { records -> records }
+        .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = null)
+
+    private val itemResolution: StateFlow<ItemResolution> = itemRecords.filterNotNull()
+        .map { records -> records.mapTo(mutableSetOf()) { record -> record.itemKey } }
+        .distinctUntilChanged()
+        .flatMapLatest { keys ->
+            combine(
+                itemRecords.filterNotNull(),
+                storedKeyClassifier.observe(flowOf(keys))
+            ) { records, states ->
                 if (states == null) {
                     UNLOADED_ITEMS
                 } else {

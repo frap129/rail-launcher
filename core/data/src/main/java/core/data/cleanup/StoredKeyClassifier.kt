@@ -11,12 +11,17 @@ import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutResolution
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /** What Rail knows about one stored key. */
 sealed interface StoredKeyState {
@@ -46,26 +51,34 @@ interface IStoredKeyClassifier {
 @OptIn(ExperimentalCoroutinesApi::class)
 class IStoredKeyClassifierImpl(private val launchableRepository: ILaunchableRepository, private val shortcutSource: IShortcutSource) :
     IStoredKeyClassifier {
-    override fun observe(keys: Flow<Set<String>>): Flow<Map<String, StoredKeyState>?> =
-        combine(launchableRepository.launchableState, keys) { state, requestedKeys -> state to requestedKeys }
-            .distinctUntilChanged()
-            .flatMapLatest { (state, requestedKeys) ->
-                when {
-                    !state.isLoaded -> flowOf(null)
-
-                    requestedKeys.isEmpty() -> flowOf(emptyMap())
-
-                    else -> {
-                        val shortcutKeys: Set<ShortcutKey> = requestedKeys.mapNotNullTo(mutableSetOf()) { key ->
-                            ShortcutKey.parse(key)
-                        }
-                        shortcutSource.resolve(shortcutKeys).map { resolution ->
-                            classify(state = state, keys = requestedKeys, resolution = resolution)
+    // Resolves the Shortcut keys once and reclassifies with each Launchable change, so renames,
+    // icon pack changes and Folder edits do not restart the platform query.
+    override fun observe(keys: Flow<Set<String>>): Flow<Map<String, StoredKeyState>?> = flow {
+        val latestKeys: MutableStateFlow<Set<String>?> = MutableStateFlow(null)
+        coroutineScope {
+            launch {
+                keys.collect { requestedKeys -> latestKeys.value = requestedKeys }
+            }
+            val requestedKeys: Flow<Set<String>> = latestKeys.filterNotNull()
+            emitAll(
+                requestedKeys
+                    .map { currentKeys ->
+                        currentKeys.mapNotNullTo(mutableSetOf()) { key -> ShortcutKey.parse(key) }
+                    }
+                    .distinctUntilChanged()
+                    .flatMapLatest { shortcutKeys ->
+                        combine(
+                            launchableRepository.launchableState,
+                            requestedKeys,
+                            shortcutSource.resolve(shortcutKeys)
+                        ) { state, currentKeys, resolution ->
+                            if (state.isLoaded) classify(state = state, keys = currentKeys, resolution = resolution) else null
                         }
                     }
-                }
-            }
-            .distinctUntilChanged()
+                    .distinctUntilChanged()
+            )
+        }
+    }
 
     private fun classify(state: LaunchableState, keys: Set<String>, resolution: ShortcutResolution): Map<String, StoredKeyState> {
         val installedApps: Set<AppProfile> = state.launchables

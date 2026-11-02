@@ -1,6 +1,7 @@
 package core.data.shortcuts
 
 import core.data.apps.model.AppProfile
+import core.data.prefs.IPreferencesRepository
 import core.data.prefs.withoutTapTargets
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
@@ -15,6 +16,7 @@ class IStandaloneShortcutRepositoryImpl(
     private val standaloneShortcutDao: StandaloneShortcutDao,
     private val favoriteDao: FavoriteDao,
     private val headerSettingsDao: HeaderSettingsDao,
+    private val preferencesRepository: IPreferencesRepository,
     private val shortcutPinCoordinator: IShortcutPinCoordinator
 ) : IStandaloneShortcutRepository {
     override val shortcuts: Flow<List<ShortcutLaunchable>> = source.shortcuts.map { shortcuts -> shortcuts.launchables }
@@ -46,6 +48,7 @@ class IStandaloneShortcutRepositoryImpl(
                 standaloneShortcutDao.delete(keys = keys)
                 favoriteDao.remove(keys = keys)
                 headerSettingsDao.updateIfChanged { settings -> settings.withoutTapTargets(keys = keys.toSet()) }
+                preferencesRepository.removeLaunchableNames(keys = keys)
             }
         }
     }

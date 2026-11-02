@@ -4,7 +4,9 @@ import android.os.UserHandle
 import core.data.R
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
 import core.data.apps.model.isPrivateApp
+import core.data.apps.model.packageRepresentativeNames
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
 import core.data.folders.resolveFolders
@@ -135,10 +137,13 @@ class ILaunchableRepositoryImpl(
         val apps: List<App> = appState.appsOrNull.orEmpty()
         val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
+        val packageRepresentativeNames: Map<AppProfile, String> = apps.packageRepresentativeNames()
         val listedLaunchables: List<Launchable> = apps
             .map { app -> app.resolve(names = names, settings = settings) } +
             appListSources.standaloneShortcuts.launchables.mapNotNull { shortcut ->
-                profilesByUser[shortcut.profile]?.let { profile -> shortcut.resolve(names = names, profileInfo = profile) }
+                profilesByUser[shortcut.profile]?.let { profile ->
+                    shortcut.resolve(names = names, profileInfo = profile, representedNames = packageRepresentativeNames)
+                }
             }
         val resolvedLaunchables: List<Launchable> = listedLaunchables
             .filterNot { launchable ->
@@ -189,17 +194,34 @@ class ILaunchableRepositoryImpl(
         }
     }
 
-    private fun ShortcutLaunchable.resolve(names: LaunchableNames, profileInfo: ProfileInfo): ShortcutLaunchable {
-        val name: String = resolveName(names)
+    private fun ShortcutLaunchable.resolve(
+        names: LaunchableNames,
+        profileInfo: ProfileInfo,
+        representedNames: Map<AppProfile, String>
+    ): ShortcutLaunchable {
+        val labelledShortcut: ShortcutLaunchable = withRepresentedName(representedNames = representedNames, profileInfo = profileInfo)
+        val name: String = labelledShortcut.resolveName(names)
         val badgedIcon: Icon = Icon.ShortcutIcon(packageName = packageName, shortcutId = shortcutId, profile = profile)
             .badgedFor(profile = profileInfo)
-        return copy(
+        return labelledShortcut.copy(
             profileInfo = profileInfo,
             defaultIcon = badgedIcon,
             name = name,
             icon = badgedIcon,
             badgedLabel = resolveBadgedLabel(name = name, profileInfo = profileInfo)
         )
+    }
+
+    /** A never-resolved Paused Shortcut falls back to its Package representative's label instead of the package name. */
+    private fun ShortcutLaunchable.withRepresentedName(
+        representedNames: Map<AppProfile, String>,
+        profileInfo: ProfileInfo
+    ): ShortcutLaunchable {
+        if (!profileInfo.isQuiet || shortLabel != packageName || longLabel != packageName) {
+            return this
+        }
+        val representedName: String = representedNames[AppProfile(packageName = packageName, profile = profile)] ?: return this
+        return copy(shortLabel = representedName, longLabel = representedName, defaultName = representedName)
     }
 
     private fun App.badgedLabel(name: String): String = resolveBadgedLabel(

@@ -1,8 +1,10 @@
 package core.data.cleanup
 
+import app.cash.turbine.test
 import core.data.launchables.LaunchableState
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
+import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutResolution
 import core.data.testing.FIRST_SHORTCUT_ID
@@ -17,6 +19,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createUserHandle
+import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -45,6 +48,25 @@ class IStoredKeyClassifierImplTest {
         val actualStates: Map<String, StoredKeyState>? = classifier.observe(flowOf(setOf("key"))).first()
 
         assertNull(actualStates)
+    }
+
+    @Test
+    fun `does not resubscribe Shortcut resolution when the Launchables change with unchanged stored keys`() = runTest {
+        val inputShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile)
+        val inputState: MutableStateFlow<LaunchableState> =
+            MutableStateFlow(createLoadedLaunchableState(launchables = emptyList()))
+        val mockShortcutSource: IShortcutSource = createShortcutSourceMock()
+        val classifier: IStoredKeyClassifier = createClassifier(state = inputState, shortcutSource = mockShortcutSource)
+
+        classifier.observe(flowOf(setOf(inputShortcutKey.format()))).test {
+            assertEquals(StoredKeyState.Stale, awaitItem()?.get(inputShortcutKey.format()))
+
+            inputState.value = createLoadedLaunchableState(launchables = listOf(createApp(packageName = APP_PACKAGE_NAME)))
+
+            assertEquals(StoredKeyState.Unresolved, awaitItem()?.get(inputShortcutKey.format()))
+            verify(exactly = 1) { mockShortcutSource.resolve(any()) }
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -137,9 +159,10 @@ class IStoredKeyClassifierImplTest {
 
     private fun createClassifier(
         state: MutableStateFlow<LaunchableState>,
-        resolution: MutableStateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution())
+        resolution: MutableStateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution()),
+        shortcutSource: IShortcutSource = createShortcutSourceMock(resolution = resolution)
     ): IStoredKeyClassifier = IStoredKeyClassifierImpl(
         launchableRepository = createLaunchableRepositoryMock(state),
-        shortcutSource = createShortcutSourceMock(resolution = resolution)
+        shortcutSource = shortcutSource
     )
 }

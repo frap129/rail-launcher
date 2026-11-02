@@ -44,6 +44,7 @@ import core.data.testing.packageLevelKey
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
+import io.mockk.clearMocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.spyk
@@ -609,6 +610,36 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             ownerKey = owner.key,
             expected = listOf(PopupItem.Shortcut(launchable = shortcut, isEnabled = false))
         )
+    }
+
+    @Test
+    fun `does not resubscribe Shortcut resolution when only the item order changes`() = databaseTest {
+        val owner: App = createApp()
+        val otherItem: Launchable = createRailLaunchable(name = "Other")
+        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val shortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID)
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = owner.key, itemKey = shortcutKey.format(), position = 0),
+                PopupItemRecord(ownerKey = owner.key, itemKey = otherItem.key, position = 1)
+            )
+        )
+        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
+            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(shortcutKey to shortcut)))
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner, otherItem), label = "O"),
+            mockShortcutSource = mockShortcutSource
+        )
+        finishPendingWork()
+        clearMocks(mockShortcutSource, answers = false)
+
+        repository.setItemOrder(ownerKey = owner.key, orderedItemKeys = listOf(otherItem.key, shortcutKey.format()))
+        finishPendingWork()
+
+        verify(exactly = 0) { mockShortcutSource.resolve(any()) }
     }
 
     @Test

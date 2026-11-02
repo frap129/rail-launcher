@@ -50,3 +50,8 @@ data class App(
 
 /** Whether this Launchable is a private App, listed only inside the Private Space for now. */
 val Launchable.isPrivateApp: Boolean get() = this is App && kind == ProfileKind.Private
+
+/** The labels of [this] list's Package representatives, keyed by the package and Profile they represent. */
+fun List<Launchable>.packageRepresentativeNames(): Map<AppProfile, String> = filterIsInstance<App>()
+    .filter { app -> app.isPackageRepresentative }
+    .associate { app -> AppProfile(packageName = app.packageName, profile = app.profile) to app.name }

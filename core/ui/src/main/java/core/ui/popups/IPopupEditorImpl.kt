@@ -1,7 +1,7 @@
 package core.ui.popups
 
-import core.data.apps.model.App
 import core.data.apps.model.AppProfile
+import core.data.apps.model.packageRepresentativeNames
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.HiddenShortcutIds
@@ -172,10 +172,7 @@ class IPopupEditorImpl(
         if (items.none { item -> item is PopupItem.Shortcut }) {
             return emptyMap()
         }
-        val appNames: Map<AppProfile, String> = launchables
-            .filterIsInstance<App>()
-            .filter { app -> app.isPackageRepresentative }
-            .associate { app -> AppProfile(packageName = app.packageName, profile = app.profile) to app.name }
+        val appNames: Map<AppProfile, String> = launchables.packageRepresentativeNames()
         return items
             .filterIsInstance<PopupItem.Shortcut>()
             .associate { item ->
