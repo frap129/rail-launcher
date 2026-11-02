@@ -5,8 +5,10 @@ import core.data.prefs.withoutTapTargets
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.StandaloneShortcutDao
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 class IStandaloneShortcutRepositoryImpl(
     private val source: IStandaloneShortcutSource,
@@ -19,20 +21,20 @@ class IStandaloneShortcutRepositoryImpl(
 
     override suspend fun add(key: ShortcutKey, accept: suspend () -> Boolean): Boolean =
         shortcutPinCoordinator.runUnderPinLock(affectedProfiles = setOf(key.toAppProfile())) {
-            val formattedKey: String = key.format()
-            if (standaloneShortcutDao.exists(key = formattedKey)) {
-                true
-            } else if (!accept()) {
-                false
-            } else {
+            if (!accept()) {
+                return@runUnderPinLock false
+            }
+            // The system accepted the pin, so store it even if the requesting dialog is gone.
+            withContext(NonCancellable) {
+                val formattedKey: String = key.format()
                 standaloneShortcutDao.inTransaction {
                     standaloneShortcutDao.insert(
                         StandaloneShortcutRecord(key = formattedKey, addedAt = System.currentTimeMillis())
                     )
                     favoriteDao.add(key = formattedKey)
                 }
-                true
             }
+            true
         }
 
     override suspend fun remove(keys: List<String>) {

@@ -169,7 +169,7 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
             keys.forEach { key ->
                 val shortcut: ShortcutInfo? = shortcutsById[key.id]
                 if (shortcut != null) {
-                    shortcuts[key] = shortcut.toLaunchable(owner = owner)
+                    shortcuts[key] = shortcut.toShortcutLaunchable(owner = owner)
                 } else {
                     goneKeys += key
                 }
@@ -205,7 +205,7 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         }
         return shortcutsById.values
             .sortedWith(compareBy({ shortcut -> if (shortcut.isDeclaredInManifest) 0 else 1 }, { shortcut -> shortcut.rank }))
-            .map { shortcut -> shortcut.toLaunchable(owner = owner) }
+            .map { shortcut -> shortcut.toShortcutLaunchable(owner = owner) }
     }
 
     private fun readResolvedShortcuts(owner: AppProfile): Map<String, ShortcutInfo>? = try {
@@ -231,18 +231,5 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
 
     private fun logPinFailure(profile: UserHandle, ids: Set<String>, exception: Exception) {
         Timber.w("Could not pin %d shortcuts for %s: %s", ids.size, profile, exception.logTypeName())
-    }
-
-    private fun ShortcutInfo.toLaunchable(owner: AppProfile): ShortcutLaunchable {
-        val shortLabel: String = shortLabel?.toString()?.takeIf { label -> label.isNotBlank() } ?: owner.packageName
-        val longLabel: String = longLabel?.toString()?.takeIf { label -> label.isNotBlank() } ?: shortLabel
-        return ShortcutLaunchable(
-            packageName = owner.packageName,
-            shortcutId = id,
-            profile = owner.profile,
-            shortLabel = shortLabel,
-            longLabel = longLabel,
-            isEnabled = isEnabled
-        )
     }
 }

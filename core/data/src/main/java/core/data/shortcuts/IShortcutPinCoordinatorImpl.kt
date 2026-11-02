@@ -10,6 +10,7 @@ import core.data.room.TransactionEffects
 import core.data.runCleanup
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** Serializes every [IShortcutSource.pin] call and reapplies pins after startup, writes and Private Space listing. */
 class IShortcutPinCoordinatorImpl(
@@ -65,7 +67,8 @@ class IShortcutPinCoordinatorImpl(
     override suspend fun <T> runUnderPinLock(affectedProfiles: Set<AppProfile>, block: suspend () -> T): T = try {
         withPinLock { block() }
     } finally {
-        reapplyPins(affectedProfiles = affectedProfiles)
+        // Releasing a pin that was accepted before a failed or cancelled write must still finish.
+        withContext(NonCancellable) { reapplyPins(affectedProfiles = affectedProfiles) }
     }
 
     /** Reapplies every merged pin set once the Launchables load, skipping Kept Profiles. */

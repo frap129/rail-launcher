@@ -9,7 +9,11 @@ interface IStandaloneShortcutRepository {
 
     /**
      * Runs [accept] under the Shortcut pin lock, then stores [key] and adds it to the Favorites in
-     * one transaction when it succeeds. A failed or thrown [accept] stores and pins nothing.
+     * one transaction when it succeeds. A failed or thrown [accept] stores and pins nothing. Once
+     * [accept] succeeds, the write is not cancellable, and a failed write releases the pin.
+     *
+     * Adding an existing key accepts again, keeps its row and added order, and adds it back to the
+     * Favorites without moving the existing Favorites.
      *
      * @return whether the shortcut was added; adding an existing key is idempotent.
      */

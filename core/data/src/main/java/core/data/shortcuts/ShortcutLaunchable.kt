@@ -2,7 +2,9 @@ package core.data.shortcuts
 
 import android.content.Context
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.os.UserHandle
+import core.data.apps.model.AppProfile
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
@@ -48,4 +50,18 @@ data class ShortcutLaunchable(
     fun openAppInfo(context: Context) {
         context.openApplicationDetailsSettings(packageName = packageName, profile = profile)
     }
+}
+
+/** Resolves [this] Shortcut published by [owner], applying Rail's label fallbacks. */
+fun ShortcutInfo.toShortcutLaunchable(owner: AppProfile): ShortcutLaunchable {
+    val shortLabel: String = shortLabel?.toString()?.takeIf { label -> label.isNotBlank() } ?: owner.packageName
+    val longLabel: String = longLabel?.toString()?.takeIf { label -> label.isNotBlank() } ?: shortLabel
+    return ShortcutLaunchable(
+        packageName = owner.packageName,
+        shortcutId = id,
+        profile = owner.profile,
+        shortLabel = shortLabel,
+        longLabel = longLabel,
+        isEnabled = isEnabled
+    )
 }
