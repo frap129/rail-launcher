@@ -1,6 +1,7 @@
 package core.data.testing
 
 import android.os.UserHandle
+import core.data.apps.model.AppProfile
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 
@@ -13,6 +14,9 @@ private const val USER_ID_OFFSET: Int = 100_000
 
 /** The [UserHandle] of [userId], where user 0 is the personal Profile. */
 fun createUserHandle(userId: Int): UserHandle = UserHandle.getUserHandleForUid(userId * USER_ID_OFFSET)
+
+/** The [AppProfile] that publishes [packageName] in [profile]. */
+fun createAppProfile(packageName: String, profile: UserHandle): AppProfile = AppProfile(packageName = packageName, profile = profile)
 
 /** A [ProfileInfo] for [userId], using the user id as its serial number. */
 fun createProfileInfo(

@@ -1,6 +1,7 @@
 package core.data.shortcuts
 
 import android.os.UserHandle
+import core.data.apps.model.AppProfile
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -13,6 +14,9 @@ private const val USER_ID_OFFSET: Int = 100_000
 
 /** The identity of one shortcut published by an app in a user profile. */
 data class ShortcutKey(val packageName: String, val id: String, val profile: UserHandle) {
+    /** The publishing App's package and Profile. */
+    fun toAppProfile(): AppProfile = AppProfile(packageName = packageName, profile = profile)
+
     /** The stored form: `shortcut:<packageName>:<urlEncoded(id)>:<profile>`. */
     fun format(): String =
         "$KEY_PREFIX$packageName$KEY_SEPARATOR${URLEncoder.encode(id, StandardCharsets.UTF_8.name())}$KEY_SEPARATOR$profile"

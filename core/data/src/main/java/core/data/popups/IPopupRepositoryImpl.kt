@@ -221,7 +221,7 @@ class IPopupRepositoryImpl(
 
 private fun pinsOf(itemKeys: Iterable<String>): Set<AppProfile> = itemKeys
     .mapNotNull { itemKey -> ShortcutKey.parse(itemKey) }
-    .mapTo(mutableSetOf()) { key -> AppProfile(packageName = key.packageName, profile = key.profile) }
+    .mapTo(mutableSetOf()) { key -> key.toAppProfile() }
 
 private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState, resolution: ShortcutResolution): ItemResolution {
     if (!state.isLoaded) {
@@ -269,7 +269,7 @@ private fun resolveRecord(record: PopupItemRecord, lookup: ItemLookup): RecordRe
     }
     if (ShortcutKey.hasPrefix(record.itemKey)) {
         val key: ShortcutKey = ShortcutKey.parse(record.itemKey) ?: return RecordResolution.Stale
-        if (AppProfile(packageName = key.packageName, profile = key.profile) !in lookup.installedApps) {
+        if (key.toAppProfile() !in lookup.installedApps) {
             return RecordResolution.Stale
         }
         if (key in lookup.resolution.goneKeys) {

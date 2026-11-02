@@ -48,9 +48,7 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         if (keys.isEmpty()) {
             return flowOf(ShortcutResolution())
         }
-        val owners: Map<AppProfile, List<ShortcutKey>> = keys.groupBy { key ->
-            AppProfile(packageName = key.packageName, profile = key.profile)
-        }
+        val owners: Map<AppProfile, List<ShortcutKey>> = keys.groupBy { key -> key.toAppProfile() }
         return callbackFlow {
             val refresh: Channel<Unit> = Channel(Channel.CONFLATED)
             val callback: LauncherApps.Callback = createCallback(owners = owners.keys, refresh = refresh)
