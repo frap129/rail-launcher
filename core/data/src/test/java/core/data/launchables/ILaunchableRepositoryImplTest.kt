@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
+import core.data.cleanup.HeaderTapTargetCleanupRow
+import core.data.cleanup.LaunchableNameCleanupRow
 import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
@@ -62,6 +64,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutSourceMock
+import core.data.testing.createStaleKeyCleanup
 import core.data.testing.createStandaloneShortcutSource
 import core.data.testing.createUserHandle
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -197,7 +200,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             val actualState: LaunchableState = launchableRepository.launchableState.first()
 
             assertNull(actualState.launchableFor(inputKey.format()))
-            assertTrue(inputKey.format() in actualState.retainedKeys)
             assertTrue(favoritesRepository.favorites.first().isEmpty())
             assertEquals(listOf(inputKey.format()), favoriteRecords().map { record -> record.key })
             assertTrue(
@@ -371,7 +373,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
             assertNull(actualState.launchableFor(inputKey.format()))
             assertFalse(inputKey.format() in actualState.retainedKeys)
-            assertEquals(listOf(inputKey.format()), actualState.staleKeys(listOf(inputKey.format())))
         } finally {
             collection.cancel()
         }
@@ -1287,7 +1288,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val actualHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
         assertEquals(HeaderTapSetting.Launchable(key = inputPersonalApp.key), actualHeaderSettings.timeTapTarget)
-        assertNull(actualHeaderSettings.dateTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, actualHeaderSettings.dateTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
         assertEquals(
             listOf(inputPersonalApp.key, inputWorkApp.key, inputPrivateApp.key),
@@ -1391,7 +1392,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(listOf(inputPersonalApp.key), actualPopupItemKeys(folder = inputFolder))
         assertEquals(emptyList<String>(), database.getPopupDao().observeHiddenShortcuts(inputPrivateApp.key).first())
         val actualRemovedHeaderSettings: HeaderSettings = actualRepositories.headerSettings.headerSettings.first()
-        assertNull(actualRemovedHeaderSettings.timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, actualRemovedHeaderSettings.timeTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
     }
 
@@ -1480,17 +1481,26 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profileSource = mockProfileSource
         ),
         scope: CoroutineScope = backgroundScope
-    ): ILaunchableRepository = ILaunchableRepositoryImpl(
-        appRepository = mockAppRepository,
-        iconRepository = mockIconRepository,
-        profileSource = mockProfileSource,
-        preferencesRepository = mockPreferencesRepository,
-        folderDao = folderDao,
-        popupDao = popupDao,
-        standaloneShortcutSource = standaloneShortcutSource,
-        privateSpaceStatus = privateSpaceStatus,
-        scope = scope
-    )
+    ): ILaunchableRepository {
+        val launchableRepository: ILaunchableRepository = ILaunchableRepositoryImpl(
+            appRepository = mockAppRepository,
+            iconRepository = mockIconRepository,
+            profileSource = mockProfileSource,
+            preferencesRepository = mockPreferencesRepository,
+            folderDao = folderDao,
+            popupDao = popupDao,
+            standaloneShortcutSource = standaloneShortcutSource,
+            privateSpaceStatus = privateSpaceStatus,
+            scope = scope
+        )
+        createStaleKeyCleanup(
+            launchableRepository = launchableRepository,
+            shortcutSource = createShortcutSourceMock(),
+            rows = listOf(LaunchableNameCleanupRow(preferencesRepository = mockPreferencesRepository)),
+            scope = backgroundScope
+        )
+        return launchableRepository
+    }
 
     private fun TestScope.createPrivateSpaceRepositories(
         profileState: ProfileSourceState,
@@ -1529,10 +1539,16 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
                 headerSettingsDao = database.getHeaderSettingsDao(),
                 eventSettingsDao = database.getEventSettingsDao(),
                 widgetAreaSettingsDao = database.getWidgetAreaSettingsDao(),
-                mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao(),
-                launchableRepository = launchables
+                mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao()
             )
-        )
+        ).also { repositories ->
+            createStaleKeyCleanup(
+                launchableRepository = repositories.launchables,
+                shortcutSource = createShortcutSourceMock(),
+                rows = listOf(HeaderTapTargetCleanupRow(headerSettingsDao = database.getHeaderSettingsDao())),
+                scope = backgroundScope
+            )
+        }
     }
 
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name

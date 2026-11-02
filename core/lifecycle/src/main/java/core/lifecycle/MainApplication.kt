@@ -19,6 +19,16 @@ import core.data.calendar.ICalendarEventSource
 import core.data.calendar.ICalendarEventSourceImpl
 import core.data.calendar.ICalendarPermissionGate
 import core.data.calendar.ICalendarPermissionGateImpl
+import core.data.cleanup.FavoriteCleanupRow
+import core.data.cleanup.HeaderTapTargetCleanupRow
+import core.data.cleanup.IStaleKeyCleanup
+import core.data.cleanup.IStaleKeyCleanupImpl
+import core.data.cleanup.IStoredKeyClassifier
+import core.data.cleanup.IStoredKeyClassifierImpl
+import core.data.cleanup.LaunchableNameCleanupRow
+import core.data.cleanup.PopupItemCleanupRow
+import core.data.cleanup.PopupOwnerCleanupRow
+import core.data.cleanup.StandaloneShortcutCleanupRow
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
@@ -231,6 +241,9 @@ class MainApplication :
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
+        single<IStoredKeyClassifier> {
+            IStoredKeyClassifierImpl(launchableRepository = get(), shortcutSource = get())
+        }
         single<IStandaloneShortcutSource> {
             IStandaloneShortcutSourceImpl(standaloneShortcutDao = get(), shortcutSource = get(), profileSource = get())
         }
@@ -265,6 +278,7 @@ class MainApplication :
                 source = get(),
                 standaloneShortcutDao = get(),
                 favoriteDao = get(),
+                headerSettingsDao = get(),
                 shortcutPinCoordinator = get()
             )
         }
@@ -272,16 +286,19 @@ class MainApplication :
             IPopupRepositoryImpl(
                 popupDao = get(),
                 launchableRepository = get(),
-                shortcutSource = get(),
+                storedKeyClassifier = get(),
                 shortcutPinCoordinator = get(),
                 scope = get(named(APP_SCOPE_QUALIFIER)),
                 widgetAreaRepository = get(),
                 removeOwnerWidgets = get()
             )
         }
+        single<IStaleKeyCleanup> {
+            IStaleKeyCleanupImpl(classifier = get(), scope = get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
-        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
+        single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get()) }
         single { MediaArtworkStore() }
         single<IMediaSessionSource> {
             IMediaSessionSourceImpl(
@@ -388,7 +405,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(
@@ -479,6 +496,28 @@ class MainApplication :
         }
 
         startWidgetLifecycle()
+        startStaleKeyCleanup()
+    }
+
+    private fun startStaleKeyCleanup() {
+        val cleanup: IStaleKeyCleanup = get()
+        cleanup.register(LaunchableNameCleanupRow(preferencesRepository = get()))
+        cleanup.register(FavoriteCleanupRow(favoriteDao = get()))
+        cleanup.register(
+            PopupOwnerCleanupRow(
+                popupDao = get(),
+                widgetAreaRepository = get(),
+                popupRepository = get()
+            )
+        )
+        cleanup.register(PopupItemCleanupRow(popupDao = get(), popupRepository = get()))
+        cleanup.register(HeaderTapTargetCleanupRow(headerSettingsDao = get()))
+        cleanup.register(
+            StandaloneShortcutCleanupRow(
+                standaloneShortcutDao = get(),
+                standaloneShortcutRepository = get()
+            )
+        )
     }
 
     private fun startWidgetLifecycle() {

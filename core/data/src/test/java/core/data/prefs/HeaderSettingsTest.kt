@@ -2,7 +2,6 @@ package core.data.prefs
 
 import core.data.apps.model.App
 import core.data.folders.Folder
-import core.data.profiles.ProfileToken
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createLaunchableState
@@ -11,6 +10,7 @@ import core.data.testing.createRailLaunchable
 import core.data.testing.packageLevelKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -94,14 +94,20 @@ class HeaderSettingsTest {
     }
 
     @Test
-    fun `reports a Tap action as removable only when its Launchable is missing`() {
-        val inputState = createLoadedLaunchableState(launchables = listOf(createRailLaunchable(name = "Maps", deeplink = "rail://maps")))
-        val inputMissingSetting: HeaderTapSetting? = null
-        assertFalse(HeaderTapSetting.Launchable(key = "rail://maps").isRemovable(state = inputState))
-        assertTrue(HeaderTapSetting.Launchable(key = "rail://uninstalled").isRemovable(state = inputState))
-        assertFalse(HeaderTapSetting.Nothing.isRemovable(state = inputState))
-        assertFalse(HeaderTapSetting.SystemDefault.isRemovable(state = inputState))
-        assertFalse(inputMissingSetting.isRemovable(state = inputState))
+    fun `clears only the Tap actions whose keys are removed`() {
+        val inputSettings: HeaderSettings = HeaderSettings(
+            timeTapTarget = HeaderTapSetting.Launchable(key = "rail://maps"),
+            dateTapTarget = HeaderTapSetting.Launchable(key = "rail://uninstalled")
+        )
+
+        val actualSettings: HeaderSettings = inputSettings.withoutTapTargets(keys = setOf("rail://uninstalled"))
+
+        assertEquals(HeaderTapSetting.Launchable(key = "rail://maps"), actualSettings.timeTapTarget)
+        assertNull(actualSettings.dateTapTarget)
+        assertEquals(
+            HeaderTapSetting.Nothing,
+            HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing).withoutTapTargets(emptySet()).timeTapTarget
+        )
     }
 
     @Test
@@ -119,25 +125,13 @@ class HeaderSettingsTest {
     }
 
     @Test
-    fun `treats a Tap action stored under a package-level key as removable`() {
+    fun `clears a Tap action stored under a package-level key`() {
         val inputApp: App = createApp(packageName = "com.example.app")
         val inputState = createLoadedLaunchableState(launchables = listOf(inputApp))
-        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputApp.packageLevelKey())
+        val inputKey: String = inputApp.packageLevelKey()
+        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKey)
 
         assertFalse(inputSetting.isDisplayable(state = inputState))
-        assertTrue(inputSetting.isRemovable(state = inputState))
-    }
-
-    @Test
-    fun `keeps a Tap action pointing into a Locked Profile`() {
-        val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "com.example.secret_UserHandle{11}")
-        val inputLockedState = createLaunchableState(
-            groups = emptyList(),
-            keptKeys = setOf(ProfileToken("UserHandle{11}"))
-        )
-
-        assertFalse(inputSetting.isDisplayable(state = inputLockedState))
-        assertFalse(inputSetting.isRemovable(state = inputLockedState))
-        assertTrue(inputSetting.isRemovable(state = createLaunchableState(groups = emptyList())))
+        assertNull(HeaderSettings(timeTapTarget = inputSetting).withoutTapTargets(keys = setOf(inputKey)).timeTapTarget)
     }
 }

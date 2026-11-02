@@ -7,6 +7,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.profiles.ProfileInfo
+import core.util.openApplicationDetailsSettings
 
 /** A launcher shortcut published by an app in a user profile. */
 data class ShortcutLaunchable(
@@ -42,5 +43,9 @@ data class ShortcutLaunchable(
     override fun launch(context: Context) {
         val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
         launcherApps.startShortcut(packageName, shortcutId, null, null, profile)
+    }
+
+    fun openAppInfo(context: Context) {
+        context.openApplicationDetailsSettings(packageName = packageName, profile = profile)
     }
 }

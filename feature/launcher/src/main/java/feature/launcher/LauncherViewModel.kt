@@ -21,6 +21,8 @@ import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
+import core.data.shortcuts.IStandaloneShortcutRepository
+import core.data.shortcuts.ShortcutLaunchable
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -159,7 +161,8 @@ class LauncherViewModel(
     private val homeEditState: HomeEditState,
     private val profileSource: IProfileSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
-    private val privateSpaceLock: IPrivateSpaceLock
+    private val privateSpaceLock: IPrivateSpaceLock,
+    private val standaloneShortcutRepository: IStandaloneShortcutRepository
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -517,6 +520,13 @@ class LauncherViewModel(
             prefsRepo.setItemName(launchable, name)
         }
         openItemMenu(launchable)
+    }
+
+    fun removeShortcut(shortcut: ShortcutLaunchable) {
+        closeItemMenu()
+        viewModelScope.launchLogged(message = "Failed to remove a Standalone shortcut") {
+            standaloneShortcutRepository.remove(keys = listOf(shortcut.key))
+        }
     }
 
     fun toggleFavorite(launchable: Launchable) {

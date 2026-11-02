@@ -23,6 +23,7 @@ import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
+import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
@@ -51,6 +52,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcut
+import core.data.testing.createStandaloneShortcutRepositoryMock
 import core.data.testing.createTestNotificationSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
@@ -543,6 +545,21 @@ class LauncherViewModelTest {
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
         }
+    }
+
+    @Test
+    fun `removes a Standalone shortcut and closes its menu`() = runTest {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site")
+        val mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockStandaloneShortcutRepository = mockStandaloneShortcutRepository
+        )
+
+        viewModel.removeShortcut(inputShortcut)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockStandaloneShortcutRepository.remove(keys = listOf(inputShortcut.key)) }
+        assertEquals(LauncherMenuState.Closed, viewModel.menuState.value)
     }
 
     @Test
@@ -1642,7 +1659,8 @@ class LauncherViewModelTest {
         mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource,
         mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository,
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
-        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()
+        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
+        mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -1654,7 +1672,8 @@ class LauncherViewModelTest {
         homeEditState = inputHomeEditState,
         profileSource = mockProfileSource,
         privateSpaceStatus = mockPrivateSpaceStatus,
-        privateSpaceLock = privateSpaceLock
+        privateSpaceLock = privateSpaceLock,
+        standaloneShortcutRepository = mockStandaloneShortcutRepository
     )
 
     private fun createPausedWorkApp(): App = createApp(

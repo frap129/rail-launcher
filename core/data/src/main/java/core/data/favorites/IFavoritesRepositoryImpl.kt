@@ -4,11 +4,9 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
-import core.data.launchables.staleKeys
 import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FavoriteDao
-import core.data.runCleanup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,24 +16,17 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val AWAIT_RESOLUTION_TIMEOUT_MS: Long = 500L
 
-private data class FavoriteResolution(
-    val favorites: List<Launchable>,
-    val staleKeys: List<String>,
-    val launchableKeys: Set<String>,
-    val isLoaded: Boolean
-) {
+private data class FavoriteResolution(val favorites: List<Launchable>, val launchableKeys: Set<String>, val isLoaded: Boolean) {
     // Derived lookup index; recomputed with the resolution, so it is not part of equality.
     val favoriteKeys: Set<String> = favorites.mapTo(mutableSetOf()) { favorite -> favorite.key }
 }
 
 private val UNLOADED_RESOLUTION: FavoriteResolution = FavoriteResolution(
     favorites = emptyList(),
-    staleKeys = emptyList(),
     launchableKeys = emptySet(),
     isLoaded = false
 )
@@ -57,13 +48,6 @@ class IFavoritesRepositoryImpl(
     }
         .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_RESOLUTION)
-
-    init {
-        // Deleting stale rows keeps a reinstalled Launchable from restoring an old Favorite.
-        scope.launch {
-            resolution.collect { resolved -> removeStaleFavorites(resolved.staleKeys) }
-        }
-    }
 
     override val favorites: Flow<List<Launchable>> = resolution
         .map { resolved -> resolved.favorites }
@@ -107,13 +91,6 @@ class IFavoritesRepositoryImpl(
             }
         }
     }
-
-    private suspend fun removeStaleFavorites(staleKeys: List<String>) {
-        if (staleKeys.isEmpty()) {
-            return
-        }
-        runCleanup(message = "Failed to remove ${staleKeys.size} stale Favorites") { favoriteDao.remove(staleKeys) }
-    }
 }
 
 private fun resolveFavorites(records: List<FavoriteRecord>, state: LaunchableState): FavoriteResolution {
@@ -122,10 +99,8 @@ private fun resolveFavorites(records: List<FavoriteRecord>, state: LaunchableSta
         .sortedBy { record -> record.position }
         .mapNotNull { record -> state.launchableFor(record.key) }
         .distinctBy { launchable -> launchable.key }
-    val staleKeys: List<String> = state.staleKeys(records.map { record -> record.key })
     return FavoriteResolution(
         favorites = favorites,
-        staleKeys = staleKeys,
         launchableKeys = launchablesByKey.keys,
         isLoaded = true
     )

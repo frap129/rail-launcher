@@ -141,7 +141,7 @@ private fun Context.openAppInfo(appInfo: PopupAppInfo, profileSource: IProfileSo
     when (appInfo) {
         is PopupAppInfo.LaunchableAppInfo -> when (val launchable: Launchable = appInfo.launchable) {
             is App -> launchable.openAppInfo(this)
-            is ShortcutLaunchable -> openApplicationDetailsSettings(launchable.packageName, launchable.profile)
+            is ShortcutLaunchable -> launchable.openAppInfo(this)
             else -> Unit
         }
 

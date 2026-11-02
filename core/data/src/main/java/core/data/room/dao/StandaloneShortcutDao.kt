@@ -20,4 +20,7 @@ interface StandaloneShortcutDao : TransactionalDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(record: StandaloneShortcutRecord)
+
+    @Query("DELETE FROM standalone_shortcuts WHERE key IN (:keys)")
+    suspend fun delete(keys: List<String>)
 }

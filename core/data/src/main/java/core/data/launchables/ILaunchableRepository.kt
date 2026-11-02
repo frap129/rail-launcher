@@ -22,7 +22,7 @@ data class LaunchableState(
      */
     val keptKeys: Set<ProfileToken> = emptySet(),
     /**
-     * Stored keys that are neither resolved nor reported gone, so the stale-key cleanups keep
+     * Stored keys that are neither resolved nor reported gone, so the stale-key cleanup keeps
      * their Favorites, name customizations and other references until they resolve again.
      */
     val retainedKeys: Set<String> = emptySet(),

@@ -28,7 +28,6 @@ import core.data.profiles.ProfileInfo
 import core.data.retryWithExponentialBackoff
 import core.data.room.dao.FolderDao
 import core.data.room.dao.PopupDao
-import core.data.runCleanup
 import core.data.shortcuts.IStandaloneShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -42,7 +41,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -126,32 +124,6 @@ class ILaunchableRepositoryImpl(
         )
 
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
-
-    init {
-        // Deleting stale names keeps a reinstalled Launchable from restoring an old rename.
-        scope.launch {
-            combine(
-                preferencesRepository.launchableCustomizations,
-                launchableState
-            ) { customizations, state -> customizations to state }
-                .retryWithExponentialBackoff()
-                .collect { (customizations, state) ->
-                    if (state.isLoaded) {
-                        removeStaleNames(state = state, customizations = customizations)
-                    }
-                }
-        }
-    }
-
-    private suspend fun removeStaleNames(state: LaunchableState, customizations: List<LaunchableCustomization>) {
-        val staleKeys: List<String> = state.staleKeys(customizations.map { customization -> customization.key })
-        if (staleKeys.isEmpty()) {
-            return
-        }
-        runCleanup(message = "Failed to remove ${staleKeys.size} stale name customizations") {
-            preferencesRepository.removeLaunchableNames(keys = staleKeys)
-        }
-    }
 
     private suspend fun resolveState(
         appState: AppState,

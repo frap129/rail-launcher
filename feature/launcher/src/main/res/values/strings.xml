@@ -87,4 +87,5 @@
     <string name="pin_shortcut_from">From %1$s</string>
     <string name="pin_shortcut_icon">Shortcut icon</string>
     <string name="couldnt_add_shortcut">Couldn\'t add shortcut</string>
+    <string name="remove_shortcut">Remove shortcut</string>
 </resources>

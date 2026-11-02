@@ -5,7 +5,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import core.data.folders.Folder
 import core.data.launchables.LaunchableState
-import core.data.launchables.isKeptKey
 
 @Entity(tableName = "header_settings")
 data class HeaderSettings(
@@ -71,9 +70,14 @@ fun HeaderTapSetting?.isDisplayable(state: LaunchableState): Boolean = when {
     else -> state.launchableFor(key)?.let { launchable -> launchable !is Folder } == true
 }
 
-/** Reports whether this Tap action can be removed: its Launchable is gone and no Locked Profile keeps it. */
-fun HeaderTapSetting?.isRemovable(state: LaunchableState): Boolean =
-    this is HeaderTapSetting.Launchable && !isDisplayable(state) && !state.isKeptKey(key)
+/** Returns a copy with every Launchable Tap action whose key is in [keys] cleared. */
+fun HeaderSettings.withoutTapTargets(keys: Set<String>): HeaderSettings = copy(
+    timeTapTarget = timeTapTarget.withoutTapTargets(keys = keys),
+    dateTapTarget = dateTapTarget.withoutTapTargets(keys = keys)
+)
+
+private fun HeaderTapSetting?.withoutTapTargets(keys: Set<String>): HeaderTapSetting? =
+    takeUnless { setting -> setting is HeaderTapSetting.Launchable && setting.key in keys }
 
 /**
  * Reports whether [visibility] can be selected without hiding the Header's last standing part.

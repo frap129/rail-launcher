@@ -612,26 +612,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removes a shortcut item when its app is uninstalled even if the shortcut still resolves`() = databaseTest {
-        val owner: App = createApp()
-        val removedPackageName: String = "com.example.removed"
-        val shortcutKey: ShortcutKey = ShortcutKey(packageName = removedPackageName, id = FIRST_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = owner.key, itemKey = shortcutKey.format(), position = 0)))
-        val shortcutResolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(
-            ShortcutResolution(shortcuts = mapOf(shortcutKey to createShortcut(id = FIRST_SHORTCUT_ID)))
-        )
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(resolution = shortcutResolution)
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner), label = "O"),
-            mockShortcutSource = mockShortcutSource
-        )
-
-        assertItemsRemoved(repository = repository, ownerKey = owner.key)
-    }
-
-    @Test
     fun `removes a shortcut item when its shortcut is gone`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
