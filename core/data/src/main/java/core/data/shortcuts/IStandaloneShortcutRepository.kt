@@ -14,4 +14,16 @@ interface IStandaloneShortcutRepository {
      * @return whether the shortcut was added; adding an existing key is idempotent.
      */
     suspend fun add(key: ShortcutKey, accept: suspend () -> Boolean): Boolean
+
+    /**
+     * Removes [keys] from the Standalone shortcuts, the Favorites and the Header tap actions in
+     * one transaction, then reapplies pins for their Profiles.
+     */
+    suspend fun remove(keys: List<String>)
+
+    /**
+     * Removes only the Standalone shortcut rows for [keys], then reapplies pins for their Profiles.
+     * Stale-key cleanup uses this so each stored row kind deletes only its own rows.
+     */
+    suspend fun delete(keys: List<String>)
 }

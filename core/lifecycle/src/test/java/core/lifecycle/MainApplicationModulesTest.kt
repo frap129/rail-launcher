@@ -1,5 +1,7 @@
 package core.lifecycle
 
+import core.data.cleanup.IStaleKeyCleanup
+import core.data.cleanup.IStoredKeyClassifier
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
@@ -41,5 +43,7 @@ class MainApplicationModulesTest {
         assertNotNull(koin.get<IShortcutPinCoordinator>())
         assertNotNull(koin.get<IStandaloneShortcutRepository>())
         assertNotNull(koin.get<IPopupRepository>())
+        assertNotNull(koin.get<IStoredKeyClassifier>())
+        assertNotNull(koin.get<IStaleKeyCleanup>())
     }
 }

@@ -471,7 +471,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `shares one Favorites subscription between readers and the cleanup job`() = databaseTest {
+    fun `shares one Favorites subscription between readers while cleanup has its own`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val mockFavoriteDao: FavoriteDao = spyk(database.getFavoriteDao())
         var actualSubscriptions: Int = 0
@@ -484,7 +484,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         repository.isFavorite(inputLaunchable).first()
         repository.isFavorite(inputLaunchable).first()
         finishPendingWork()
-        assertEquals(1, actualSubscriptions)
+        assertEquals(2, actualSubscriptions)
     }
 
     private suspend fun TestScope.assertNoFavorites() {

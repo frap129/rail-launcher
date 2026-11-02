@@ -1,6 +1,7 @@
 package core.data.widgets
 
 import core.data.apps.model.App
+import core.data.cleanup.HeaderTapTargetCleanupRow
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -19,6 +20,8 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
+import core.data.testing.createShortcutSourceMock
+import core.data.testing.createStaleKeyCleanup
 import core.data.testing.packageLevelKey
 import io.mockk.coVerify
 import io.mockk.spyk
@@ -27,10 +30,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -294,10 +296,11 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
             ),
             mockLaunchables = createLaunchableRepositoryMock(launchables = listOf(inputApp))
         )
+        finishPendingWork()
 
         val actualSettings: HeaderSettings = repository.headerSettings.first()
 
-        assertNull(actualSettings.timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, actualSettings.timeTapTarget)
         assertEquals(inputCurrentSetting, actualSettings.dateTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
         assertEquals(inputCurrentSetting, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
@@ -333,9 +336,10 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         launchableState.value = createLaunchableState(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable)))
         )
+        finishPendingWork()
 
         val actualSettings: HeaderSettings = repository.headerSettings.first()
-        assertNull(actualSettings.timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, actualSettings.timeTapTarget)
         assertEquals(inputKeptSetting, actualSettings.dateTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
         assertEquals(inputKeptSetting, database.getHeaderSettingsDao().getRow()?.dateTapTarget)
@@ -358,8 +362,9 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(inputSetting, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
 
         launchableState.value = createLaunchableState(groups = emptyList())
+        finishPendingWork()
 
-        assertNull(repository.headerSettings.first().timeTapTarget)
+        assertEquals(HeaderTapSetting.SystemDefault, repository.headerSettings.first().timeTapTarget)
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
     }
 
@@ -388,13 +393,13 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val actualSettings = List(2) { async { repository.headerSettings.first() } }
 
-        advanceUntilIdle()
+        finishPendingWork()
         actualSettings.awaitAll()
 
         coVerify(exactly = 1) { mockHeaderSettingsDao.upsert(any()) }
     }
 
-    private suspend fun createRepository(
+    private suspend fun TestScope.createRepository(
         headerSettings: HeaderSettings? = null,
         eventSettings: EventSettings? = null,
         headerSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao(),
@@ -406,12 +411,17 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     ): IWidgetSettingsRepository {
         headerSettings?.let { settings -> headerSettingsDao.upsert(settings) }
         eventSettings?.let { settings -> database.getEventSettingsDao().upsert(settings) }
+        createStaleKeyCleanup(
+            launchableRepository = mockLaunchables,
+            shortcutSource = createShortcutSourceMock(),
+            rows = listOf(HeaderTapTargetCleanupRow(headerSettingsDao = headerSettingsDao)),
+            scope = backgroundScope
+        )
         return IWidgetSettingsRepositoryImpl(
             headerSettingsDao = headerSettingsDao,
             eventSettingsDao = database.getEventSettingsDao(),
             widgetAreaSettingsDao = database.getWidgetAreaSettingsDao(),
-            mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao(),
-            launchableRepository = mockLaunchables
+            mediaPlayerSettingsDao = database.getMediaPlayerSettingsDao()
         )
     }
 }

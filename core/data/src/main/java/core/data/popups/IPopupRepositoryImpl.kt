@@ -1,23 +1,19 @@
 package core.data.popups
 
-import core.data.apps.model.App
 import core.data.apps.model.AppProfile
+import core.data.cleanup.IStoredKeyClassifier
+import core.data.cleanup.StoredKeyState
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
-import core.data.launchables.model.Launchable
-import core.data.launchables.staleKeys
 import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.DatabaseTransaction
 import core.data.room.TransactionEffects
 import core.data.room.dao.PopupDao
-import core.data.runCleanup
 import core.data.shortcuts.IShortcutPinCoordinator
-import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
-import core.data.shortcuts.ShortcutResolution
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IRemoveOwnerWidgets
 import core.data.widgets.IWidgetAreaRepository
@@ -30,26 +26,22 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-private data class ItemResolution(val itemsByOwner: Map<String, List<PopupItem>>, val staleKeys: List<String>)
+private data class ItemResolution(val itemsByOwner: Map<String, List<PopupItem>>)
 
-private val UNLOADED_ITEMS: ItemResolution = ItemResolution(
-    itemsByOwner = emptyMap(),
-    staleKeys = emptyList()
-)
+private val UNLOADED_ITEMS: ItemResolution = ItemResolution(itemsByOwner = emptyMap())
 
 class IPopupRepositoryImpl(
     private val popupDao: PopupDao,
     private val launchableRepository: ILaunchableRepository,
-    private val shortcutSource: IShortcutSource,
+    private val storedKeyClassifier: IStoredKeyClassifier,
     private val shortcutPinCoordinator: IShortcutPinCoordinator,
     scope: CoroutineScope,
     private val widgetAreaRepository: IWidgetAreaRepository,
@@ -63,42 +55,19 @@ class IPopupRepositoryImpl(
 
     override val removedWidgetIds: SharedFlow<AppWidgetId> = removedWidgets.asSharedFlow()
 
-    private val staleOwnerKeys: StateFlow<List<String>> = combine(
-        popupDao.observeAllOwnerKeys(),
-        popupDao.observeAllItems(),
-        launchableRepository.launchableState,
-        widgetAreaRepository.popupOwnerKeys
-    ) { hiddenOwnerKeys, itemRecords, state, widgetOwnerKeys ->
-        if (state.isLoaded) {
-            val ownerKeys: List<String> = (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey } + widgetOwnerKeys).distinct()
-            state.staleKeys(ownerKeys)
-        } else {
-            emptyList()
-        }
-    }
-        .retryWithExponentialBackoff()
-        .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = emptyList())
-
     private val itemResolution: StateFlow<ItemResolution> = popupDao.observeAllItems()
         .flatMapLatest { records ->
-            val shortcutKeys: Set<ShortcutKey> = records.mapNotNullTo(mutableSetOf()) { record -> ShortcutKey.parse(record.itemKey) }
-            combine(
-                launchableRepository.launchableState,
-                shortcutSource.resolve(shortcutKeys)
-            ) { state, resolution -> resolveItems(records = records, state = state, resolution = resolution) }
+            val keys: Set<String> = records.mapTo(mutableSetOf()) { record -> record.itemKey }
+            storedKeyClassifier.observe(flowOf(keys)).map { states ->
+                if (states == null) {
+                    UNLOADED_ITEMS
+                } else {
+                    resolveItems(records = records, states = states)
+                }
+            }
         }
         .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_ITEMS)
-
-    init {
-        // Deleting stale rows keeps a reinstalled Launchable from restoring old Pop-up preferences.
-        scope.launch {
-            staleOwnerKeys.collect { ownerKeys -> deleteStaleOwners(ownerKeys) }
-        }
-        scope.launch {
-            itemResolution.collect { resolution -> deleteStaleItems(resolution.staleKeys) }
-        }
-    }
 
     override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = popupDao.observeHiddenShortcuts(ownerKey = ownerKey)
         .map { shortcutIds -> shortcutIds.toSet() }
@@ -195,19 +164,6 @@ class IPopupRepositoryImpl(
         popupDao.upsertSettings(settings = PopupSettingsRecord(notificationsEnabled = enabled))
     }
 
-    private suspend fun deleteStaleOwners(ownerKeys: List<String>) {
-        for (ownerKey in ownerKeys) {
-            runCleanup(message = "Failed to remove a stale Pop-up owner") { deleteOwner(ownerKey) }
-        }
-    }
-
-    private suspend fun deleteStaleItems(staleKeys: List<String>) {
-        if (staleKeys.isEmpty()) {
-            return
-        }
-        runCleanup(message = "Failed to remove ${staleKeys.size} stale Pop-up items") { deleteItemsByKey(staleKeys) }
-    }
-
     /**
      * Serializes Pop-up writes. Inside a database transaction the database already serializes them,
      * and taking the lock there could invert locks against a writer waiting for the write connection.
@@ -223,61 +179,20 @@ private fun pinsOf(itemKeys: Iterable<String>): Set<AppProfile> = itemKeys
     .mapNotNull { itemKey -> ShortcutKey.parse(itemKey) }
     .mapTo(mutableSetOf()) { key -> key.toAppProfile() }
 
-private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState, resolution: ShortcutResolution): ItemResolution {
-    if (!state.isLoaded) {
-        return UNLOADED_ITEMS
-    }
-    val installedApps: Set<AppProfile> = state.launchables
-        .filterIsInstance<App>()
-        .mapTo(mutableSetOf()) { app -> AppProfile(packageName = app.packageName, profile = app.profile) }
+private fun resolveItems(records: List<PopupItemRecord>, states: Map<String, StoredKeyState>): ItemResolution {
     val itemsByOwner: MutableMap<String, MutableList<PopupItem>> = mutableMapOf()
-    val staleKeys: MutableList<String> = mutableListOf()
-    val lookup: ItemLookup = ItemLookup(
-        state = state,
-        installedApps = installedApps,
-        resolution = resolution
-    )
     records.sortedBy { record -> record.position }.forEach { record ->
-        when (val recordResolution: RecordResolution = resolveRecord(record = record, lookup = lookup)) {
-            is RecordResolution.Resolved -> {
-                itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(recordResolution.item)
-            }
-
-            RecordResolution.Stale -> staleKeys.add(record.itemKey)
-
-            RecordResolution.Kept, RecordResolution.Unavailable -> Unit
+        val state: StoredKeyState = states[record.itemKey] ?: return@forEach
+        if (state is StoredKeyState.Present) {
+            itemsByOwner.getOrPut(record.ownerKey) { mutableListOf() }.add(state.toPopupItem())
         }
     }
     return ItemResolution(
-        itemsByOwner = itemsByOwner.mapValues { (_, items) -> items.distinctBy { item -> item.launchable.key } },
-        staleKeys = staleKeys.distinct()
+        itemsByOwner = itemsByOwner.mapValues { (_, items) -> items.distinctBy { item -> item.launchable.key } }
     )
 }
 
-private data class ItemLookup(val state: LaunchableState, val installedApps: Set<AppProfile>, val resolution: ShortcutResolution)
-
-private sealed interface RecordResolution {
-    data class Resolved(val item: PopupItem) : RecordResolution
-    data object Stale : RecordResolution
-    data object Kept : RecordResolution
-    data object Unavailable : RecordResolution
-}
-
-private fun resolveRecord(record: PopupItemRecord, lookup: ItemLookup): RecordResolution {
-    if (lookup.state.isKeptKey(record.itemKey)) {
-        return RecordResolution.Kept
-    }
-    if (ShortcutKey.hasPrefix(record.itemKey)) {
-        val key: ShortcutKey = ShortcutKey.parse(record.itemKey) ?: return RecordResolution.Stale
-        if (key.toAppProfile() !in lookup.installedApps) {
-            return RecordResolution.Stale
-        }
-        if (key in lookup.resolution.goneKeys) {
-            return RecordResolution.Stale
-        }
-        val shortcut: ShortcutLaunchable = lookup.resolution.shortcuts[key] ?: return RecordResolution.Unavailable
-        return RecordResolution.Resolved(PopupItem.Shortcut(launchable = shortcut, isEnabled = shortcut.isEnabled))
-    }
-    val launchable: Launchable = lookup.state.launchableFor(record.itemKey) ?: return RecordResolution.Stale
-    return RecordResolution.Resolved(PopupItem.Launchable(launchable = launchable))
+private fun StoredKeyState.Present.toPopupItem(): PopupItem = when (val current = launchable) {
+    is ShortcutLaunchable -> PopupItem.Shortcut(launchable = current, isEnabled = current.isEnabled)
+    else -> PopupItem.Launchable(launchable = current)
 }

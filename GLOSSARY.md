@@ -60,6 +60,10 @@ _Avoid_: Retained key, stale key
 A key read from a database that Android cloud backup or device transfer restored. It resolves when its Profile token still matches a current Profile and its Launchable or Shortcut is still available; otherwise stale-key cleanup removes it, except for a Kept key, which survives until its Profile lists its Apps or is removed.
 _Avoid_: Backup key, old key
 
+**Stale-key cleanup**:
+The one job in `core:data` that classifies the keys stored by Launchable names, Favorites, Pop-up owners and items, Header tap actions and Standalone shortcuts, then removes the rows whose key's Launchable, Shortcut or Profile is gone. Each stored row kind only supplies its keys and how to delete them.
+_Avoid_: Cleanup paths, stale purge, key sweep
+
 **private App**:
 An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.
 _Avoid_: Private profile app, vault app

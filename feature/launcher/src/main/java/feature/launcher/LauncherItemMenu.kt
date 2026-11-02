@@ -38,6 +38,7 @@ import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.SheetDragHandle
@@ -107,6 +108,13 @@ internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, ed
                 folderActions = folderActions
             )
 
+            is ShortcutLaunchable -> ShortcutMenuActions(
+                item = item,
+                context = context,
+                viewModel = viewModel,
+                folderActions = folderActions
+            )
+
             else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
         }
     }
@@ -133,6 +141,26 @@ private fun AppMenuActions(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),
         onClick = { item.openAppInfo(context) }
+    )
+}
+
+@Composable
+private fun ShortcutMenuActions(
+    item: ShortcutLaunchable,
+    context: Context,
+    viewModel: LauncherViewModel,
+    folderActions: IPopupFolderActions
+) {
+    AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
+    SheetMenuAction(
+        imageVector = FontAwesomeIcons.Solid.InfoCircle,
+        label = stringResource(CoreUiR.string.app_info),
+        onClick = { item.openAppInfo(context) }
+    )
+    SheetMenuAction(
+        imageVector = FontAwesomeIcons.Solid.TrashAlt,
+        label = stringResource(R.string.remove_shortcut),
+        onClick = { viewModel.removeShortcut(item) }
     )
 }
 
