@@ -36,6 +36,7 @@ import core.data.testing.createPopupRepository
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
+import core.data.testing.createShortcut as createTestShortcut
 import core.data.testing.createShortcutPinCoordinatorMock
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -1021,10 +1022,10 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
 
 private fun List<Launchable>.asPopupItems(): List<PopupItem> = map { launchable -> PopupItem.Launchable(launchable) }
 
-private fun createShortcut(id: String, isEnabled: Boolean = true): ShortcutLaunchable = ShortcutLaunchable(
+private fun createShortcut(id: String, isEnabled: Boolean = true): ShortcutLaunchable = createTestShortcut(
     packageName = APP_PACKAGE_NAME,
-    shortcutId = id,
     profile = UserHandle.getUserHandleForUid(TEST_USER_ID),
+    shortcutId = id,
     shortLabel = id,
     longLabel = id,
     isEnabled = isEnabled

@@ -12,6 +12,7 @@ import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
+import core.data.testing.createShortcut
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -238,6 +239,29 @@ class LaunchableGroupsTest {
             .flatMap { group -> group.items }
 
         assertFalse(actualInitialItems.contains(inputPrivateApp))
+    }
+
+    @Test
+    fun `puts a Private Space Shortcut in the Private Space group`() {
+        val inputPrivateShortcut: Launchable = createShortcut(
+            packageName = "com.example.private",
+            profile = inputPrivateProfile.user,
+            longLabel = "Secret shortcut"
+        )
+
+        val actualGroups: List<LaunchableGroup> = listOf(inputPrivateShortcut).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpace = inputPrivateProfile
+        )
+        val actualGroup: LaunchableGroup.PrivateSpace = actualGroups.filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+
+        assertFalse(actualGroup.isLocked)
+        assertEquals(listOf(inputPrivateShortcut), actualGroup.items)
+        assertFalse(
+            actualGroups.filterIsInstance<LaunchableGroup.InitialGroup>().any { group ->
+                group.items.contains(inputPrivateShortcut)
+            }
+        )
     }
 
     @Test

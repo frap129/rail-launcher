@@ -26,6 +26,8 @@ import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
+import core.data.testing.createShortcutSourceMock
+import core.data.testing.createStandaloneShortcutSource
 import core.data.testing.createUserHandle
 import core.data.testing.packageLevelKey
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -570,6 +572,10 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             preferencesRepository = createPreferencesRepositoryMock(customizations = customizations),
             folderDao = database.getFolderDao(),
             popupDao = database.getPopupDao(),
+            standaloneShortcutSource = createStandaloneShortcutSource(
+                standaloneShortcutDao = database.getStandaloneShortcutDao(),
+                shortcutSource = createShortcutSourceMock()
+            ),
             privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
             scope = backgroundScope
         )

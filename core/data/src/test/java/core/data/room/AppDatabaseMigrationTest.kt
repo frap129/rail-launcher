@@ -17,9 +17,14 @@ private const val FOLDER_DATABASE_NAME: String = "folder-migration-test"
 private const val FOLDERS_DATABASE_VERSION: Int = 11
 private const val SETTINGS_DATABASE_NAME: String = "settings-migration-test"
 private const val SETTINGS_DATABASE_VERSION: Int = 12
+private const val STANDALONE_SHORTCUTS_DATABASE_NAME: String = "standalone-shortcuts-migration-test"
+private const val STANDALONE_SHORTCUTS_DATABASE_VERSION: Int = 13
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
 private const val SETTINGS_TABLE: String = "settings"
+private const val STANDALONE_SHORTCUTS_TABLE: String = "standalone_shortcuts"
+private const val FAVORITES_TABLE: String = "favorites"
+private const val FAVORITE_KEY: String = "com.example.app/.MainActivity_UserHandle{0}"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -66,6 +71,25 @@ class AppDatabaseMigrationTest {
             assertEquals(TEST_ICON_PACK_PACKAGE, actualIconPack)
         }
     }
+
+    @Test
+    fun `adds the Standalone shortcut table and keeps the Favorites`() {
+        withDatabase(
+            name = STANDALONE_SHORTCUTS_DATABASE_NAME,
+            version = STANDALONE_SHORTCUTS_DATABASE_VERSION,
+            createTables = { db ->
+                db.execSQL(
+                    "CREATE TABLE $FAVORITES_TABLE (key TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(key))"
+                )
+                db.execSQL("INSERT INTO $FAVORITES_TABLE (key, position) VALUES ('$FAVORITE_KEY', 0)")
+            }
+        ) { db ->
+            MIGRATION_13_14.migrate(db)
+
+            assertEquals(listOf("key", "added_at"), db.columnNames(table = STANDALONE_SHORTCUTS_TABLE))
+            assertEquals(listOf(FAVORITE_KEY), db.favoriteKeys())
+        }
+    }
 }
 
 /** Opens [name] at [version] with [createTables], runs [testBody] against it and removes it again. */
@@ -102,6 +126,16 @@ private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = que
     buildList {
         while (!cursor.isAfterLast) {
             add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            cursor.moveToNext()
+        }
+    }
+}
+
+private fun SupportSQLiteDatabase.favoriteKeys(): List<String> = query("SELECT key FROM $FAVORITES_TABLE ORDER BY position").use { cursor ->
+    cursor.moveToFirst()
+    buildList {
+        while (!cursor.isAfterLast) {
+            add(cursor.getString(cursor.getColumnIndexOrThrow("key")))
             cursor.moveToNext()
         }
     }

@@ -25,8 +25,10 @@ import core.data.room.dao.PackIconDao
 import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.PopupDao
 import core.data.room.dao.SettingsDao
+import core.data.room.dao.StandaloneShortcutDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.shortcuts.StandaloneShortcutRecord
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PendingAppWidgetRecord
 import core.data.widgets.WidgetAreaSettingsRecord
@@ -50,9 +52,10 @@ import core.data.widgets.WidgetRecord
         PopupHiddenShortcut::class,
         PopupItemRecord::class,
         PopupSettingsRecord::class,
-        FolderRecord::class
+        FolderRecord::class,
+        StandaloneShortcutRecord::class
     ],
-    version = 13
+    version = 14
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -69,4 +72,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getPendingAppWidgetDao(): PendingAppWidgetDao
     abstract fun getPopupDao(): PopupDao
     abstract fun getFolderDao(): FolderDao
+    abstract fun getStandaloneShortcutDao(): StandaloneShortcutDao
 }

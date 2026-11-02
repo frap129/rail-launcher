@@ -49,6 +49,7 @@ import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
 import core.data.room.MIGRATION_11_12
 import core.data.room.MIGRATION_12_13
+import core.data.room.MIGRATION_13_14
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -60,6 +61,7 @@ import core.data.room.dao.PackIconDao
 import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.PopupDao
 import core.data.room.dao.SettingsDao
+import core.data.room.dao.StandaloneShortcutDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.shortcuts.IPopupShortcutPinSource
@@ -70,6 +72,12 @@ import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IShortcutPinCoordinatorImpl
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.IShortcutSourceImpl
+import core.data.shortcuts.IStandaloneShortcutPinSource
+import core.data.shortcuts.IStandaloneShortcutPinSourceImpl
+import core.data.shortcuts.IStandaloneShortcutRepository
+import core.data.shortcuts.IStandaloneShortcutRepositoryImpl
+import core.data.shortcuts.IStandaloneShortcutSource
+import core.data.shortcuts.IStandaloneShortcutSourceImpl
 import core.data.time.IClockSource
 import core.data.time.IClockSourceImpl
 import core.data.time.IDatePatternSource
@@ -162,7 +170,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
@@ -197,6 +205,7 @@ class MainApplication :
         single<PendingAppWidgetDao> { database.getPendingAppWidgetDao() }
         single<PopupDao> { database.getPopupDao() }
         single<FolderDao> { database.getFolderDao() }
+        single<StandaloneShortcutDao> { database.getStandaloneShortcutDao() }
     }
 
     /**
@@ -211,19 +220,41 @@ class MainApplication :
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
+        single<IStandaloneShortcutSource> {
+            IStandaloneShortcutSourceImpl(standaloneShortcutDao = get(), shortcutSource = get())
+        }
         single<ILaunchableRepository> {
-            ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+            ILaunchableRepositoryImpl(
+                appRepository = get(),
+                iconRepository = get(),
+                profileSource = get(),
+                preferencesRepository = get(),
+                folderDao = get(),
+                popupDao = get(),
+                standaloneShortcutSource = get(),
+                privateSpaceLock = get(),
+                scope = get(named(APP_SCOPE_QUALIFIER))
+            )
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
+        single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
         single<IShortcutPinCoordinator> {
             IShortcutPinCoordinatorImpl(
                 shortcutSource = get(),
                 launchableRepository = get(),
-                pinSources = listOf(get<IPopupShortcutPinSource>()),
+                pinSources = listOf(get<IPopupShortcutPinSource>(), get<IStandaloneShortcutPinSource>()),
                 scope = get(named(APP_SCOPE_QUALIFIER))
+            )
+        }
+        single<IStandaloneShortcutRepository> {
+            IStandaloneShortcutRepositoryImpl(
+                source = get(),
+                standaloneShortcutDao = get(),
+                favoriteDao = get(),
+                shortcutPinCoordinator = get()
             )
         }
         single<IPopupRepository> {
