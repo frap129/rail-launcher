@@ -81,6 +81,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
@@ -882,6 +883,43 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `never lists a hidden Locked Private Space before the hide setting loads`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputSettings: MutableSharedFlow<Settings> = MutableSharedFlow(replay = 1)
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings)
+        val mockProfileSource: IProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            preferencesRepository = mockPreferencesRepository
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockProfileSource = mockProfileSource,
+            privateSpaceStatus = privateSpaceStatus
+        )
+        val actualStates: MutableList<LaunchableState> = mutableListOf()
+        val collection: Job = backgroundScope.launch { repository.launchableState.collect { state -> actualStates += state } }
+        try {
+            assertTrue(privateSpaceStatus.status.value.isHidden)
+            finishPendingWork()
+
+            inputSettings.emit(Settings(hidePrivateSpaceWhenLocked = true))
+            finishPendingWork()
+
+            assertTrue(privateSpaceStatus.status.value.isHidden)
+            assertTrue(actualStates.any { state -> state.isLoaded })
+            assertTrue(actualStates.none { state -> state.groups.any { group -> group is LaunchableGroup.PrivateSpace } })
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
     fun `hides a Locked Private Space the system hides and shows it again when the flag clears`() = databaseTest {
         val inputPrivateProfile: ProfileInfo = createProfileInfo(
             userId = PRIVATE_USER_ID,
@@ -1180,6 +1218,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertTrue(actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder).isEmpty())
         val actualRequestedState: LaunchableState = loadedState(repositories.launchables)
         assertTrue(actualRequestedState.groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().isLocked)
+        assertFalse(actualRequestedState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
         assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualRequestedState.keptKeys)
         assertEquals(listOf(inputFavorite), favoriteRecords())
         assertEquals(listOf(inputMember), database.getPopupDao().getItems(inputFolder.key))

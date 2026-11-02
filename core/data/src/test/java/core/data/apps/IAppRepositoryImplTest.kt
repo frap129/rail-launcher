@@ -7,6 +7,7 @@ import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepositoryImpl
 import core.data.prefs.LaunchableCustomization
+import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
@@ -24,6 +25,7 @@ import core.data.testing.createApp
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createPrivateSpaceStatus
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
@@ -56,6 +58,7 @@ private const val SETUP_ACTIVITY_CLASS: String = "SetupManagementLaunchActivity"
 @OptIn(ExperimentalCoroutinesApi::class)
 class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     private lateinit var privateSpaceStatus: IPrivateSpaceStatus
+    private lateinit var privateSpaceLock: IPrivateSpaceLock
     private val personalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
     private val workUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
     private val privateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
@@ -450,6 +453,42 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `keeps a package's private Apps and the Private Space listed while a Lock is requested`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = false
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputPrivateProfile))
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        assertTrue(privateUser in privateSpaceStatus.listedProfiles.value)
+
+        privateSpaceLock.requestLock()
+        finishPendingWork()
+
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser, label = RENAMED_NAME))
+        )
+        inputState.changes.emit(ProfileChange.PackageChanged(user = privateUser, packageName = PRIVATE_PACKAGE))
+
+        val actualApps: List<App> = loadApps(repository = repository)
+        assertEquals(RENAMED_NAME, actualApps.single { app -> app.profile == privateUser }.defaultName)
+        assertTrue(privateUser in privateSpaceStatus.listedProfiles.value)
+        assertTrue(privateSpaceStatus.status.value.areKeysKept)
+
+        privateSpaceLock.clearLockRequest()
+        finishPendingWork()
+
+        assertFalse(privateSpaceStatus.status.value.areKeysKept)
+    }
+
+    @Test
     fun `resolves existing Favorites and customizations by App key`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, workProfile))
         inputState.setActivities(
@@ -551,7 +590,11 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
     private fun TestScope.createRepository(state: ProfileSourceState): IAppRepositoryImpl {
         val mockProfileSource: IProfileSource = createProfileSourceMock(state = state)
-        privateSpaceStatus = createPrivateSpaceStatus(profileSource = mockProfileSource)
+        privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
+        privateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            privateSpaceLock = privateSpaceLock
+        )
         return IAppRepositoryImpl(
             context = RuntimeEnvironment.getApplication(),
             profileSource = mockProfileSource,

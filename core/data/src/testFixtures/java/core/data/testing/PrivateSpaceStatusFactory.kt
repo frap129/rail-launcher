@@ -7,7 +7,7 @@ import core.data.profiles.IPrivateSpaceStatusImpl
 import core.data.profiles.IProfileSource
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
-import core.data.profiles.isPrivate
+import core.data.profiles.isListable
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +47,7 @@ fun createPrivateSpaceStatusMock(status: StateFlow<PrivateSpaceStatus> = Mutable
     every { mockPrivateSpaceStatus.listedProfiles } returns MutableStateFlow(emptySet())
     every { mockPrivateSpaceStatus.canListApps(any()) } answers {
         val profile: ProfileInfo = firstArg()
-        !profile.isPrivate || (status.value.profile?.user == profile.user && !status.value.isLocked)
+        profile.isListable()
     }
     return mockPrivateSpaceStatus
 }

@@ -31,6 +31,9 @@ data class ProfileInfo(
 /** Whether this Profile is the Private Space. */
 val ProfileInfo.isPrivate: Boolean get() = kind == ProfileKind.Private
 
+/** Whether Rail may list this Profile's Apps: every Profile except a Private Space in quiet mode. */
+fun ProfileInfo.isListable(): Boolean = !isPrivate || !isQuiet
+
 /** The listed Private Space Profile, or null when the device has none or Rail cannot see it. */
 val List<ProfileInfo>.privateSpace: ProfileInfo? get() = firstOrNull { profile -> profile.isPrivate }
 
