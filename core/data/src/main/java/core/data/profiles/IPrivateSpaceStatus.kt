@@ -60,16 +60,16 @@ fun derivePrivateSpaceStatus(inputs: PrivateSpaceInputs): PrivateSpaceStatus {
 
 /** The shared Private Space status and the Apps Rail has listed for its Profile. */
 interface IPrivateSpaceStatus {
-    /** The current Private Space status. */
+    /** The current Private Space status; a Locked Private Space starts Hidden until settings load. */
     val status: StateFlow<PrivateSpaceStatus>
 
-    /** The Private Space status derived synchronously from the latest inputs. */
+    /** The latest [status] value, for callers that cannot suspend. */
     fun currentStatus(): PrivateSpaceStatus
 
     /** The Profiles whose Apps Rail has listed, including those that listed none. */
     val listedProfiles: StateFlow<Set<UserHandle>>
 
-    /** Whether Rail may read [profile]'s Apps: every Profile except a Locked Private Space. */
+    /** Whether Rail may read [profile]'s Apps; every Profile except a Private Space in quiet mode. */
     fun canListApps(profile: ProfileInfo): Boolean
 
     /** Records the Profiles whose Apps Rail has listed, replacing the previous set. */
