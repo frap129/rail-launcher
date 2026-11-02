@@ -13,6 +13,7 @@ import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
+import core.data.room.dao.StandaloneShortcutDao
 import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.MISSING_WORK_USER_ID
@@ -36,9 +37,12 @@ import core.data.testing.createStaleKeyCleanup
 import core.data.testing.createStandaloneShortcutRepository
 import core.data.testing.createUserHandle
 import core.data.testing.createWidgetAreaRepositoryMock
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -157,12 +161,87 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
         )
         finishPendingWork()
 
-        assertEquals(1, actualAcceptCalls)
+        assertEquals(2, actualAcceptCalls)
         assertEquals(listOf(inputKey.format()), database.getStandaloneShortcutDao().getAll().map { record -> record.key })
         assertEquals(
             listOf(inputOwner.key, inputKey.format()),
             favoriteRecords().sortedBy { record -> record.position }.map { record -> record.key }
         )
+    }
+
+    @Test
+    fun `adding an existing Standalone shortcut accepts again and re-favorites it without reordering`() = databaseTest {
+        seedFavorite(key = inputOwner.key, position = 0)
+        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
+        val repositories: StandaloneShortcutRepositories = createRepositories(
+            mockShortcutSource = createShortcutSourceMock()
+        )
+        finishPendingWork()
+        var actualAcceptCalls: Int = 0
+
+        val actualAdded: Boolean = repositories.standaloneShortcuts.add(inputKey) {
+            actualAcceptCalls += 1
+            true
+        }
+        finishPendingWork()
+
+        assertTrue(actualAdded)
+        assertEquals(1, actualAcceptCalls)
+        assertEquals(listOf(inputKey.format()), database.getStandaloneShortcutDao().getAll().map { record -> record.key })
+        assertEquals(
+            listOf(
+                FavoriteRecord(key = inputOwner.key, position = 0),
+                FavoriteRecord(key = inputKey.format(), position = 1)
+            ),
+            favoriteRecords().sortedBy { record -> record.position }
+        )
+    }
+
+    @Test
+    fun `an add cancelled after accept still stores and favorites the Shortcut`() = databaseTest {
+        val repositories: StandaloneShortcutRepositories = createRepositories(
+            mockShortcutSource = createShortcutSourceMock()
+        )
+        finishPendingWork()
+
+        val mockAddJob: Job = launch {
+            repositories.standaloneShortcuts.add(inputKey) {
+                coroutineContext[Job]?.cancel()
+                true
+            }
+        }
+        mockAddJob.join()
+        finishPendingWork()
+
+        assertTrue(mockAddJob.isCancelled)
+        assertEquals(listOf(inputKey.format()), database.getStandaloneShortcutDao().getAll().map { record -> record.key })
+        assertEquals(listOf(FavoriteRecord(key = inputKey.format(), position = 0)), favoriteRecords())
+    }
+
+    @Test
+    fun `a failing store after accept releases the pin and stores nothing`() = databaseTest {
+        val inputPinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val mockStandaloneShortcutDao: StandaloneShortcutDao = object : StandaloneShortcutDao by database.getStandaloneShortcutDao() {
+            override suspend fun insert(record: StandaloneShortcutRecord) {
+                error("Store failed")
+            }
+        }
+        val repositories: StandaloneShortcutRepositories = createRepositories(
+            mockShortcutSource = createShortcutSourceMock(pinCalls = inputPinCalls),
+            standaloneShortcutDao = mockStandaloneShortcutDao
+        )
+        finishPendingWork()
+        inputPinCalls.value = emptyList()
+
+        val actualFailure: Result<Boolean> = runCatching {
+            repositories.standaloneShortcuts.add(inputKey) { true }
+        }
+        finishPendingWork()
+
+        assertTrue(actualFailure.isFailure)
+        assertTrue(database.getStandaloneShortcutDao().getAll().isEmpty())
+        assertTrue(favoriteRecords().isEmpty())
+        inputPinCalls.awaitPin(PinCall(packageName = APP_PACKAGE_NAME, profile = inputProfile, ids = emptySet()))
     }
 
     @Test
@@ -346,7 +425,9 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
 
     private fun TestScope.createRepositories(
         mockShortcutSource: IShortcutSource,
-        launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputOwner)))
+        launchableState: MutableStateFlow<LaunchableState> =
+            MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputOwner))),
+        standaloneShortcutDao: StandaloneShortcutDao = database.getStandaloneShortcutDao()
     ): StandaloneShortcutRepositories {
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(state = launchableState)
         val coordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(
@@ -356,13 +437,13 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
             shortcutSource = mockShortcutSource,
             pinSources = listOf(
                 IPopupShortcutPinSourceImpl(popupDao = database.getPopupDao()),
-                IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = database.getStandaloneShortcutDao())
+                IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = standaloneShortcutDao)
             )
         )
         return StandaloneShortcutRepositories(
             launchables = mockLaunchableRepository,
             standaloneShortcuts = createStandaloneShortcutRepository(
-                standaloneShortcutDao = database.getStandaloneShortcutDao(),
+                standaloneShortcutDao = standaloneShortcutDao,
                 favoriteDao = database.getFavoriteDao(),
                 headerSettingsDao = database.getHeaderSettingsDao(),
                 shortcutSource = mockShortcutSource,

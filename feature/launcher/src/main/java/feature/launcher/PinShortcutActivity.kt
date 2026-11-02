@@ -25,6 +25,8 @@ import androidx.lifecycle.lifecycleScope
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutKey
+import core.data.shortcuts.ShortcutLaunchable
+import core.data.shortcuts.toShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.theme.AppTheme
 import core.util.logTypeName
@@ -36,20 +38,42 @@ import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 
+private const val ADD_IN_PROGRESS_KEY: String = "add_in_progress"
+
 /** Confirms a Pin request from another app before adding its Shortcut as a Standalone shortcut. */
 class PinShortcutActivity : ComponentActivity() {
     private val standaloneShortcutRepository: IStandaloneShortcutRepository by inject()
 
-    private var pinRequest: LauncherApps.PinItemRequest? = null
+    private var pinShortcut: PinShortcut? = null
     private val isAdding: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val dialogContent: MutableStateFlow<PinShortcutDialogContent?> = MutableStateFlow(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState?.getBoolean(ADD_IN_PROGRESS_KEY) == true) {
+            return finish()
+        }
         val launcherApps: LauncherApps = getSystemService(LauncherApps::class.java)
         val request: LauncherApps.PinItemRequest = readPinRequest(intent = intent, launcherApps = launcherApps) ?: return finish()
-        val shortcut: ShortcutInfo = request.shortcutInfo ?: return finish()
-        pinRequest = request
+        if (request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+            Timber.w("Ignoring a pin request of type %d", request.requestType)
+            return finish()
+        }
+        if (!request.isValid) {
+            Timber.w("A Shortcut pin request is no longer valid")
+            return finishWithAddError()
+        }
+        val shortcut: ShortcutInfo? = request.shortcutInfo
+        if (shortcut == null) {
+            Timber.w("A Shortcut pin request has no Shortcut")
+            return finishWithAddError()
+        }
+        val key: ShortcutKey = ShortcutKey(
+            packageName = shortcut.getPackage(),
+            id = shortcut.id,
+            profile = shortcut.userHandle ?: Process.myUserHandle()
+        )
+        pinShortcut = PinShortcut(request = request, key = key)
         setContent {
             val adding: Boolean by isAdding.collectAsState()
             val content: PinShortcutDialogContent? by dialogContent.collectAsState()
@@ -67,42 +91,38 @@ class PinShortcutActivity : ComponentActivity() {
             }
         }
         lifecycleScope.launch(Dispatchers.IO) {
-            val profile: UserHandle = shortcut.userHandle ?: Process.myUserHandle()
+            val launchable: ShortcutLaunchable = shortcut.toShortcutLaunchable(owner = key.toAppProfile())
             dialogContent.value = PinShortcutDialogContent(
-                shortcutLabel = readLabel(shortcut = shortcut),
-                sourceAppName = readSourceAppName(launcherApps = launcherApps, shortcut = shortcut, profile = profile),
-                shortcutIcon = readIcon(launcherApps = launcherApps, shortcut = shortcut, profile = profile)
+                shortcutLabel = launchable.defaultName,
+                sourceAppName = readSourceAppName(launcherApps = launcherApps, shortcut = shortcut, profile = key.profile),
+                shortcutIcon = readIcon(launcherApps = launcherApps, shortcut = shortcut, profile = key.profile)
             )
         }
     }
 
-    private fun readPinRequest(intent: Intent, launcherApps: LauncherApps): LauncherApps.PinItemRequest? {
-        val request: LauncherApps.PinItemRequest? = try {
-            launcherApps.getPinItemRequest(intent)
-        } catch (exception: SecurityException) {
-            logRequestFailure(exception = exception)
-            null
-        } catch (exception: IllegalArgumentException) {
-            logRequestFailure(exception = exception)
-            null
-        }
-        if (request == null || !request.isValid) {
-            return null
-        }
-        if (request.requestType != LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
-            Timber.w("Ignoring a pin request of type %d", request.requestType)
-            return null
-        }
-        return request
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(ADD_IN_PROGRESS_KEY, isAdding.value)
+    }
+
+    private fun readPinRequest(intent: Intent, launcherApps: LauncherApps): LauncherApps.PinItemRequest? = try {
+        launcherApps.getPinItemRequest(intent)
+    } catch (exception: SecurityException) {
+        logRequestFailure(exception = exception)
+        null
+    } catch (exception: IllegalArgumentException) {
+        logRequestFailure(exception = exception)
+        null
     }
 
     private fun logRequestFailure(exception: Exception) {
         Timber.w("Could not read a Shortcut pin request: %s", exception.logTypeName())
     }
 
-    private fun readLabel(shortcut: ShortcutInfo): String = shortcut.longLabel?.toString()?.takeIf { label -> label.isNotBlank() }
-        ?: shortcut.shortLabel?.toString()?.takeIf { label -> label.isNotBlank() }
-        ?: shortcut.getPackage()
+    private fun finishWithAddError() {
+        Toast.makeText(this, R.string.couldnt_add_shortcut, Toast.LENGTH_SHORT).show()
+        finish()
+    }
 
     private fun readSourceAppName(launcherApps: LauncherApps, shortcut: ShortcutInfo, profile: UserHandle): String = runCatching {
         launcherApps.getApplicationInfo(shortcut.getPackage(), 0, profile).loadLabel(packageManager).toString()
@@ -137,17 +157,11 @@ class PinShortcutActivity : ComponentActivity() {
         if (isAdding.value) {
             return
         }
-        val request: LauncherApps.PinItemRequest = pinRequest ?: return
-        val shortcut: ShortcutInfo = request.shortcutInfo ?: return
-        val key: ShortcutKey = ShortcutKey(
-            packageName = shortcut.getPackage(),
-            id = shortcut.id,
-            profile = shortcut.userHandle ?: Process.myUserHandle()
-        )
+        val currentPinShortcut: PinShortcut = pinShortcut ?: return
         isAdding.value = true
         lifecycleScope.launch(Dispatchers.IO) {
             val isAdded: Boolean = try {
-                standaloneShortcutRepository.add(key = key, accept = { request.accept() })
+                standaloneShortcutRepository.add(key = currentPinShortcut.key, accept = { currentPinShortcut.request.accept() })
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
@@ -156,13 +170,16 @@ class PinShortcutActivity : ComponentActivity() {
             }
             withContext(Dispatchers.Main) {
                 if (!isAdded) {
-                    Toast.makeText(this@PinShortcutActivity, R.string.couldnt_add_shortcut, Toast.LENGTH_SHORT).show()
+                    finishWithAddError()
+                } else {
+                    finish()
                 }
-                finish()
             }
         }
     }
 }
+
+private data class PinShortcut(val request: LauncherApps.PinItemRequest, val key: ShortcutKey)
 
 private data class PinShortcutDialogContent(val shortcutLabel: String, val sourceAppName: String, val shortcutIcon: Drawable?)
 
