@@ -62,6 +62,10 @@ import core.data.room.dao.PopupDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.shortcuts.IShortcutPickerSource
+import core.data.shortcuts.IShortcutPickerSourceImpl
+import core.data.shortcuts.IShortcutPinCoordinator
+import core.data.shortcuts.IShortcutPinCoordinatorImpl
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.IShortcutSourceImpl
 import core.data.time.IClockSource
@@ -209,8 +213,28 @@ class MainApplication :
             ILaunchableRepositoryImpl(get(), get(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IShortcutSource> { IShortcutSourceImpl(androidContext(), get()) }
-        single<IPopupRepository> { IPopupRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)), get(), get()) }
+        single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
+        single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
+        single<IShortcutPinCoordinator> {
+            IShortcutPinCoordinatorImpl(
+                shortcutSource = get(),
+                launchableRepository = get(),
+                popupDao = get(),
+                pinSources = getAll(),
+                scope = get(named(APP_SCOPE_QUALIFIER))
+            )
+        }
+        single<IPopupRepository> {
+            IPopupRepositoryImpl(
+                popupDao = get(),
+                launchableRepository = get(),
+                shortcutSource = get(),
+                shortcutPinCoordinator = get(),
+                scope = get(named(APP_SCOPE_QUALIFIER)),
+                widgetAreaRepository = get(),
+                removeOwnerWidgets = get()
+            )
+        }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get(), get()) }
@@ -287,7 +311,7 @@ class MainApplication :
             IPopupPickerImpl(
                 parentScope = get(named(APP_SCOPE_QUALIFIER)),
                 launchableRepository = get(),
-                shortcutSource = get(),
+                shortcutPickerSource = get(),
                 popupRepository = get(),
                 homeEditState = get(),
                 session = session

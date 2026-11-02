@@ -1,7 +1,6 @@
 package core.data.testing
 
 import android.os.UserHandle
-import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutResolution
@@ -18,16 +17,14 @@ import kotlinx.coroutines.flow.update
 /** One pin call made through an [IShortcutSource] test double. */
 data class PinCall(val packageName: String, val profile: UserHandle, val ids: Set<String>)
 
-/** A MockK [IShortcutSource] over [resolution], [shortcutsResult] and [appsWithShortcuts], recording every pin in [pinCalls]. */
+/** A MockK [IShortcutSource] over [resolution] and [shortcutsResult], recording every pin in [pinCalls]. */
 fun createShortcutSourceMock(
     resolution: StateFlow<ShortcutResolution?> = MutableStateFlow(ShortcutResolution()),
     pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList()),
-    shortcutsResult: StateFlow<ShortcutsResult> = MutableStateFlow(ShortcutsResult.Available(shortcuts = emptyList())),
-    appsWithShortcuts: StateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
+    shortcutsResult: StateFlow<ShortcutsResult> = MutableStateFlow(ShortcutsResult.Available(shortcuts = emptyList()))
 ): IShortcutSource {
     val mockShortcutSource: IShortcutSource = mockk()
     every { mockShortcutSource.shortcuts(any(), any()) } returns shortcutsResult
-    every { mockShortcutSource.appsWithShortcuts() } returns appsWithShortcuts
     every { mockShortcutSource.resolve(any()) } answers {
         val keys: Set<ShortcutKey> = firstArg()
         resolution.map { current -> current.filterToKeys(keys = keys) }

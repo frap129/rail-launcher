@@ -14,7 +14,7 @@ import core.data.popups.addedItems
 import core.data.popups.findLaunchable
 import core.data.popups.targetFor
 import core.data.shortcuts.AppShortcuts
-import core.data.shortcuts.IShortcutSource
+import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.ui.layout.HomeEditMode
@@ -42,7 +42,7 @@ private data class ShortcutPickerRequest(
 class IPopupPickerImpl(
     parentScope: CoroutineScope,
     private val launchableRepository: ILaunchableRepository,
-    private val shortcutSource: IShortcutSource,
+    private val shortcutPickerSource: IShortcutPickerSource,
     private val popupRepository: IPopupRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
@@ -107,7 +107,7 @@ class IPopupPickerImpl(
             ) {
                 flowOf(ShortcutPickerState.Closed)
             } else {
-                shortcutSource.appsWithShortcuts().map { apps ->
+                shortcutPickerSource.appsWithShortcuts().map { apps ->
                     ShortcutPickerState.Picking(
                         groups = shortcutPickerGroups(groups = pickerRequest.launchableState.pickerGroups, apps = apps, owner = request),
                         selectedKeys = pickerRequest.items.items

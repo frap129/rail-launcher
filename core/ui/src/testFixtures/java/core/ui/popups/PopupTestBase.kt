@@ -16,6 +16,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.profiles.ProfileKind
 import core.data.profiles.ProfileToken
 import core.data.shortcuts.AppShortcuts
+import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
@@ -31,6 +32,7 @@ import core.data.testing.createNotificationProfile
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createProfileInfo
+import core.data.testing.createShortcutPickerSourceMock
 import core.data.testing.createShortcutSourceMock
 import core.data.widgets.AppWidgetId
 import core.ui.layout.HomeEditState
@@ -99,10 +101,8 @@ abstract class PopupTestBase {
     private val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState()
     private val folders: MutableStateFlow<List<Folder>> = MutableStateFlow(listOf(inputFolder, inputSecondFolder))
     protected val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
-    protected val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-        shortcutsResult = shortcutResult,
-        appsWithShortcuts = shortcutsWithApps
-    )
+    protected val mockShortcutSource: IShortcutSource = createShortcutSourceMock(shortcutsResult = shortcutResult)
+    protected val mockShortcutPickerSource: IShortcutPickerSource = createShortcutPickerSourceMock(appsWithShortcuts = shortcutsWithApps)
     protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = mockPopupRepositoryState)
     protected val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(folders)
     protected val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
@@ -166,7 +166,7 @@ abstract class PopupTestBase {
     ): IPopupPicker = IPopupPickerImpl(
         parentScope = backgroundScope,
         launchableRepository = mockLaunchableRepository,
-        shortcutSource = mockShortcutSource,
+        shortcutPickerSource = mockShortcutPickerSource,
         popupRepository = mockPopupRepository,
         homeEditState = homeEditState,
         session = session

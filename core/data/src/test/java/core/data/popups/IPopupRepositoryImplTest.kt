@@ -59,6 +59,7 @@ import org.junit.Test
 private const val TEST_USER_ID: Int = 0
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val GONE_OWNER_KEY: String = "com.gone_gone"
+private const val GONE_PACKAGE_NAME: String = "com.example.gone"
 private val inputOwner: RailLaunchable = createRailLaunchable(name = "Owner")
 private val inputOtherOwner: RailLaunchable = createRailLaunchable(name = "Other")
 
@@ -228,42 +229,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `leaves a Locked Profile's shortcut pins alone until it is removed`() = databaseTest {
-        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val inputOwner: App = createApp()
-        val inputPrivateShortcut: ShortcutKey = ShortcutKey(
-            packageName = PRIVATE_PACKAGE_NAME,
-            id = FIRST_SHORTCUT_ID,
-            profile = inputPrivateProfile.user
-        )
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputPrivateShortcut.format(), position = 0)))
-        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
-        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState),
-            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
-        )
-        finishPendingWork()
-
-        assertEquals(emptyList<PinCall>(), pinCalls.value)
-        assertEquals(1, allItems().size)
-
-        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner))
-
-        finishPendingWork()
-        assertEquals(
-            listOf(PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = emptySet())),
-            pinCalls.value
-        )
-        assertTrue(allItems().isEmpty())
-    }
-
-    @Test
     fun `reorders Folder members around kept ones while Locked`() = databaseTest {
         val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val inputPrivateApp: App = createApp(
@@ -318,45 +283,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             repository = repository,
             ownerKey = inputFolder.key,
             expected = listOf(inputPrivateApp, inputSecond, inputFirst).asPopupItems()
-        )
-    }
-
-    @Test
-    fun `reapplies a Locked Profile's pins when it becomes Unlocked`() = databaseTest {
-        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val inputOwner: App = createApp()
-        val inputPrivateApp: App = createApp(
-            name = "Secret",
-            packageName = PRIVATE_PACKAGE_NAME,
-            profileInfo = inputPrivateProfile
-        )
-        val inputPrivateShortcut: ShortcutKey = ShortcutKey(
-            packageName = PRIVATE_PACKAGE_NAME,
-            id = FIRST_SHORTCUT_ID,
-            profile = inputPrivateProfile.user
-        )
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputPrivateShortcut.format(), position = 0)))
-        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
-        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState),
-            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
-        )
-        finishPendingWork()
-        assertEquals(emptyList<PinCall>(), pinCalls.value)
-
-        launchableState.value = createLoadedLaunchableState(
-            launchables = listOf(inputOwner, inputPrivateApp),
-            enumeratedKeys = inputKeptKeys
-        )
-
-        pinCalls.awaitPin(
-            PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = setOf(FIRST_SHORTCUT_ID))
         )
     }
 
@@ -821,198 +747,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `pins an added shortcut`() = databaseTest {
-        val owner: App = createApp()
-        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val shortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID)
-        val shortcutResolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(
-            ShortcutResolution(shortcuts = mapOf(shortcutKey to shortcut))
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = shortcutResolution,
-            pinCalls = pinCalls
-        )
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = database.getPopupDao(),
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner, createApp()), label = "O"),
-            mockShortcutSource = mockShortcutSource
-        )
-        finishPendingWork()
-        pinCalls.value = emptyList()
-
-        repository.setItems(ownerKey = owner.key, add = listOf(shortcutKey.format()), remove = emptySet())
-
-        assertEquals(
-            listOf(PinCall(packageName = APP_PACKAGE_NAME, profile = profile, ids = setOf(FIRST_SHORTCUT_ID))),
-            pinCalls.value
-        )
-    }
-
-    @Test
-    fun `repins the remaining shortcuts when one is removed`() = databaseTest {
-        val owner: App = createApp()
-        val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(
-            listOf(
-                PopupItemRecord(ownerKey = owner.key, itemKey = firstKey.format(), position = 0),
-                PopupItemRecord(ownerKey = owner.key, itemKey = secondKey.format(), position = 1)
-            )
-        )
-        val shortcutResolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(
-            ShortcutResolution(
-                shortcuts = mapOf(
-                    firstKey to createShortcut(id = FIRST_SHORTCUT_ID),
-                    secondKey to createShortcut(id = SECOND_SHORTCUT_ID)
-                )
-            )
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = shortcutResolution,
-            pinCalls = pinCalls
-        )
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(owner, createApp()), label = "O"),
-            mockShortcutSource = mockShortcutSource
-        )
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
-        pinCalls.value = emptyList()
-
-        repository.removeItem(ownerKey = owner.key, itemKey = firstKey.format())
-
-        pinCalls.awaitPin(pin(ids = setOf(SECOND_SHORTCUT_ID)))
-        assertEquals(listOf(pin(ids = setOf(SECOND_SHORTCUT_ID))), pinCalls.value)
-    }
-
-    @Test
-    fun `deleteItemsByKey defers pins until the transaction commits`() = databaseTest {
-        val inputOwner: App = createApp()
-        val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
-        val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val inputRemainingKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(
-            listOf(
-                PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputRemovedKey.format(), position = 0),
-                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = inputRemainingKey.format(), position = 0)
-            )
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(
-                launchables = listOf(inputOwner, inputOtherOwner, createApp()),
-                label = "O"
-            ),
-            mockShortcutSource = mockShortcutSource
-        )
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
-        pinCalls.value = emptyList()
-        val effects: TransactionEffects = TransactionEffects()
-
-        database.getFolderDao().inTransaction {
-            withContext(effects) {
-                repository.deleteItemsByKey(listOf(inputRemovedKey.format()))
-            }
-        }
-
-        assertEquals(emptyList<PinCall>(), pinCalls.value)
-        effects.run()
-        pinCalls.awaitPin(pin(ids = setOf(SECOND_SHORTCUT_ID)))
-        assertEquals(listOf(pin(ids = setOf(SECOND_SHORTCUT_ID))), pinCalls.value)
-    }
-
-    @Test
-    fun `deleteItemsByKey keeps pins when the transaction fails`() = databaseTest {
-        val inputOwner: App = createApp()
-        val inputOtherOwner: App = createApp(name = "Other", packageName = "com.example.other")
-        val inputRemovedKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val inputRemainingKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(
-            listOf(
-                PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputRemovedKey.format(), position = 0),
-                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = inputRemainingKey.format(), position = 0)
-            )
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(
-                launchables = listOf(inputOwner, inputOtherOwner, createApp()),
-                label = "O"
-            ),
-            mockShortcutSource = mockShortcutSource
-        )
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
-        pinCalls.value = emptyList()
-        val effects: TransactionEffects = TransactionEffects()
-
-        val actualFailure: Throwable? = runCatching {
-            database.getFolderDao().inTransaction {
-                withContext(effects) {
-                    repository.deleteItemsByKey(listOf(inputRemovedKey.format()))
-                    throw IllegalStateException("Folder delete failed")
-                }
-            }
-        }.exceptionOrNull()
-
-        assertTrue(actualFailure is IllegalStateException)
-        assertEquals(emptyList<PinCall>(), pinCalls.value)
-    }
-
-    @Test
-    fun `keeps the union pinned across Pop-ups and unpins after the last owner is deleted`() = databaseTest {
-        val firstOwner: App = createApp(name = "First")
-        val secondOwner: App = createApp(name = "Second", packageName = "com.example.second")
-        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(
-            listOf(
-                PopupItemRecord(ownerKey = firstOwner.key, itemKey = shortcutKey.format(), position = 0),
-                PopupItemRecord(ownerKey = secondOwner.key, itemKey = shortcutKey.format(), position = 0)
-            )
-        )
-        val shortcutResolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(
-            ShortcutResolution(shortcuts = mapOf(shortcutKey to createShortcut(id = FIRST_SHORTCUT_ID)))
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = shortcutResolution,
-            pinCalls = pinCalls
-        )
-        val repository: IPopupRepositoryImpl = createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = createLaunchableRepositoryMock(
-                launchables = listOf(firstOwner, secondOwner, createApp()),
-                label = "O"
-            ),
-            mockShortcutSource = mockShortcutSource
-        )
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
-        pinCalls.value = emptyList()
-
-        repository.removeItem(ownerKey = firstOwner.key, itemKey = shortcutKey.format())
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
-
-        assertEquals(listOf(pin(ids = setOf(FIRST_SHORTCUT_ID))), pinCalls.value)
-
-        repository.deleteOwner(ownerKey = secondOwner.key)
-        pinCalls.awaitPin(pin(ids = emptySet()))
-
-        assertEquals(
-            listOf(pin(ids = setOf(FIRST_SHORTCUT_ID)), pin(ids = emptySet())),
-            pinCalls.value
-        )
-    }
-
-    @Test
     fun `does not clean up shortcut items while shortcuts are unavailable`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
@@ -1050,38 +784,6 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `pins stored shortcuts on start after the Launchables load`() = databaseTest {
-        val owner: App = createApp()
-        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
-        val popupDao: PopupDao = database.getPopupDao()
-        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = owner.key, itemKey = shortcutKey.format(), position = 0)))
-        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
-        )
-        val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
-        val shortcutResolution: MutableStateFlow<ShortcutResolution?> = MutableStateFlow(
-            ShortcutResolution(shortcuts = mapOf(shortcutKey to createShortcut(id = FIRST_SHORTCUT_ID)))
-        )
-        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = shortcutResolution,
-            pinCalls = pinCalls
-        )
-        createRepository(
-            popupDao = popupDao,
-            mockLaunchableRepository = mockLaunchableRepository,
-            mockShortcutSource = mockShortcutSource
-        )
-        finishPendingWork()
-        assertEquals(emptyList<PinCall>(), pinCalls.value)
-
-        launchableState.value = createLoadedLaunchableState(launchables = listOf(owner))
-
-        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
-        assertEquals(listOf(pin(ids = setOf(FIRST_SHORTCUT_ID))), pinCalls.value)
-    }
-
-    @Test
     fun `adding the same item twice keeps one row`() = databaseTest {
         val item: RailLaunchable = createRailLaunchable(name = "Item")
         val popupDao: PopupDao = database.getPopupDao()
@@ -1094,6 +796,244 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         repository.setItems(ownerKey = inputOwner.key, add = listOf(item.key), remove = emptySet())
 
         assertEquals(listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = item.key, position = 0)), allItems())
+    }
+
+    @Test
+    fun `pins an added Shortcut`() = databaseTest {
+        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, createApp())),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        finishPendingWork()
+        pinCalls.value = emptyList()
+
+        repository.setItems(ownerKey = inputOwner.key, add = listOf(shortcutKey.format()), remove = emptySet())
+
+        assertEquals(listOf(pin(ids = setOf(FIRST_SHORTCUT_ID))), pinCalls.value)
+    }
+
+    @Test
+    fun `repins the remaining Shortcuts when one is removed`() = databaseTest {
+        val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = firstKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = secondKey.format(), position = 1)
+            )
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, createApp())),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+
+        repository.removeItem(ownerKey = inputOwner.key, itemKey = firstKey.format())
+
+        pinCalls.awaitPin(pin(ids = setOf(SECOND_SHORTCUT_ID)))
+        assertEquals(listOf(pin(ids = setOf(SECOND_SHORTCUT_ID))), pinCalls.value)
+    }
+
+    @Test
+    fun `reordering Shortcut items keeps the pins unchanged`() = databaseTest {
+        val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = firstKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = secondKey.format(), position = 1)
+            )
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, createApp())),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+
+        repository.setItemOrder(ownerKey = inputOwner.key, orderedItemKeys = listOf(secondKey.format(), firstKey.format()))
+
+        finishPendingWork()
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+    }
+
+    @Test
+    fun `deleteItemsByKey defers unpinning until the transaction commits`() = databaseTest {
+        val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = firstKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = secondKey.format(), position = 0)
+            )
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, inputOtherOwner)),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+        val effects: TransactionEffects = TransactionEffects()
+
+        database.getFolderDao().inTransaction {
+            withContext(effects) {
+                repository.deleteItemsByKey(listOf(firstKey.format(), secondKey.format()))
+            }
+        }
+
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+        effects.run()
+        pinCalls.awaitPin(pin(ids = emptySet()))
+        assertEquals(listOf(pin(ids = emptySet())), pinCalls.value)
+    }
+
+    @Test
+    fun `deleteItemsByKey keeps pins when the transaction fails`() = databaseTest {
+        val firstKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val secondKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = SECOND_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = firstKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = secondKey.format(), position = 0)
+            )
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, inputOtherOwner)),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID, SECOND_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+        val effects: TransactionEffects = TransactionEffects()
+
+        val actualFailure: Throwable? = runCatching {
+            database.getFolderDao().inTransaction {
+                withContext(effects) {
+                    repository.deleteItemsByKey(listOf(firstKey.format()))
+                    throw IllegalStateException("Folder delete failed")
+                }
+            }
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is IllegalStateException)
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+    }
+
+    @Test
+    fun `deleteOwner defers unpinning until the transaction commits`() = databaseTest {
+        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = shortcutKey.format(), position = 0))
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner)),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+        val effects: TransactionEffects = TransactionEffects()
+
+        database.getFolderDao().inTransaction {
+            withContext(effects) {
+                repository.deleteOwner(ownerKey = inputOwner.key)
+            }
+        }
+
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+        effects.run()
+        pinCalls.awaitPin(pin(ids = emptySet()))
+        assertEquals(listOf(pin(ids = emptySet())), pinCalls.value)
+    }
+
+    @Test
+    fun `keeps the union pinned across Pop-ups and unpins after the last owner is deleted`() = databaseTest {
+        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = shortcutKey.format(), position = 0),
+                PopupItemRecord(ownerKey = inputOtherOwner.key, itemKey = shortcutKey.format(), position = 0)
+            )
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner, inputOtherOwner)),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
+        pinCalls.value = emptyList()
+
+        repository.removeItem(ownerKey = inputOwner.key, itemKey = shortcutKey.format())
+        pinCalls.awaitPin(pin(ids = setOf(FIRST_SHORTCUT_ID)))
+        assertEquals(listOf(pin(ids = setOf(FIRST_SHORTCUT_ID))), pinCalls.value)
+
+        repository.deleteOwner(ownerKey = inputOtherOwner.key)
+        pinCalls.awaitPin(pin(ids = emptySet()))
+        assertEquals(
+            listOf(pin(ids = setOf(FIRST_SHORTCUT_ID)), pin(ids = emptySet())),
+            pinCalls.value
+        )
+    }
+
+    @Test
+    fun `stale cleanup unpins the Shortcuts it removes`() = databaseTest {
+        val staleKey: ShortcutKey = ShortcutKey(packageName = GONE_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        database.getPopupDao().insertItems(
+            listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = staleKey.format(), position = 0))
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOwner)),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+
+        pinCalls.awaitPin(PinCall(packageName = GONE_PACKAGE_NAME, profile = profile, ids = emptySet()))
+        assertTrue(allItems().isEmpty())
+    }
+
+    @Test
+    fun `removes a kept Shortcut once its Profile is no longer kept and unpins it`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateShortcut: ShortcutKey = ShortcutKey(
+            packageName = PRIVATE_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputPrivateProfile.user
+        )
+        database.getPopupDao().insertItems(
+            listOf(PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputPrivateShortcut.format(), position = 0))
+        )
+        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
+        )
+        val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
+        createRepository(
+            popupDao = database.getPopupDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState),
+            mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
+        )
+        finishPendingWork()
+        assertEquals(emptyList<PinCall>(), pinCalls.value)
+        assertEquals(1, allItems().size)
+
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner))
+
+        pinCalls.awaitPin(PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = emptySet()))
+        assertTrue(allItems().isEmpty())
     }
 
     @Test
@@ -1132,7 +1072,8 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(expected, repository.items(ownerKey).first())
     }
 
-    private fun pin(ids: Set<String>): PinCall = PinCall(packageName = APP_PACKAGE_NAME, profile = profile, ids = ids)
+    private fun pin(ids: Set<String>, packageName: String = APP_PACKAGE_NAME): PinCall =
+        PinCall(packageName = packageName, profile = profile, ids = ids)
 
     private fun TestScope.createRepository(
         popupDao: PopupDao,

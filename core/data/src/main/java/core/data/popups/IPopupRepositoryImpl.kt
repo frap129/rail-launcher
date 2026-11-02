@@ -7,14 +7,13 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.isKeptKey
 import core.data.launchables.model.Launchable
 import core.data.launchables.staleKeys
-import core.data.profiles.ProfileToken
-import core.data.profiles.toProfileToken
 import core.data.reorderedPinned
 import core.data.retryWithExponentialBackoff
 import core.data.room.DatabaseTransaction
 import core.data.room.TransactionEffects
 import core.data.room.dao.PopupDao
 import core.data.runCleanup
+import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -33,8 +32,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -53,6 +50,7 @@ class IPopupRepositoryImpl(
     private val popupDao: PopupDao,
     private val launchableRepository: ILaunchableRepository,
     private val shortcutSource: IShortcutSource,
+    private val shortcutPinCoordinator: IShortcutPinCoordinator,
     scope: CoroutineScope,
     private val widgetAreaRepository: IWidgetAreaRepository,
     private val removeOwnerWidgets: IRemoveOwnerWidgets
@@ -100,33 +98,6 @@ class IPopupRepositoryImpl(
         scope.launch {
             itemResolution.collect { resolution -> deleteStaleItems(resolution.staleKeys) }
         }
-        scope.launch {
-            launchableRepository.launchableState.filter { state -> state.isLoaded }.first()
-            withItemLock { reapplyAllPins() }
-        }
-        scope.launch {
-            launchableRepository.launchableState
-                .filter { state -> state.isLoaded }
-                .map { state -> state.enumeratedKeys }
-                .distinctUntilChanged()
-                .collect { tokens -> reapplyEnumeratedPins(tokens = tokens) }
-        }
-    }
-
-    /** Re-applies pins once a Profile that was Locked lists its Apps again. */
-    private suspend fun reapplyEnumeratedPins(tokens: Set<ProfileToken>) {
-        if (tokens.isEmpty()) {
-            return
-        }
-        withItemLock { reapplyPinsForProfiles(tokens = tokens) }
-    }
-
-    private suspend fun reapplyPinsForProfiles(tokens: Set<ProfileToken>) {
-        val pins: Map<AppProfile, Set<String>> = pinSets(popupDao.getAllItems())
-            .filterKeys { pin -> pin.profile.toProfileToken() in tokens }
-        for ((pin: AppProfile, ids: Set<String>) in pins) {
-            shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = ids)
-        }
     }
 
     override fun hiddenShortcuts(ownerKey: String): Flow<Set<String>> = popupDao.observeHiddenShortcuts(ownerKey = ownerKey)
@@ -157,14 +128,14 @@ class IPopupRepositoryImpl(
             if (additions.isNotEmpty()) {
                 popupDao.appendItems(ownerKey = ownerKey, itemKeys = additions)
             }
-            reapplyPins(affectedPins = affectedPins)
+            shortcutPinCoordinator.reapplyPins(affectedProfiles = affectedPins)
         }
     }
 
     override suspend fun removeItem(ownerKey: String, itemKey: String) {
         withItemLock {
             popupDao.removeItems(ownerKey = ownerKey, itemKeys = listOf(itemKey))
-            reapplyPins(affectedPins = pinsOf(listOf(itemKey)))
+            shortcutPinCoordinator.reapplyPins(affectedProfiles = pinsOf(listOf(itemKey)))
         }
     }
 
@@ -189,18 +160,17 @@ class IPopupRepositoryImpl(
         popupDao.deleteHiddenForOwner(ownerKey)
         popupDao.deleteItemsForOwner(ownerKey)
         val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
+        shortcutPinCoordinator.reapplyPins(affectedProfiles = pinsOf(removedKeys))
         val freedIds: List<AppWidgetId> = if (effects == null) {
-            reapplyPins(affectedPins = pinsOf(removedKeys))
             removeOwnerWidgets(ownerKey).also { ownedIds ->
                 ownedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
             }
         } else {
             widgetAreaRepository.removeOwnerPlaces(ownerKey).also { ownedIds ->
-                // Releasing system Widget ids and pins cannot be undone, so they wait for the commit.
+                // Releasing system Widget ids cannot be undone, so it waits for the commit.
                 effects.afterCommit {
                     removeOwnerWidgets.release(appWidgetIds = ownedIds)
                     ownedIds.forEach { appWidgetId -> removedWidgets.tryEmit(appWidgetId) }
-                    withItemLock { reapplyPins(affectedPins = pinsOf(removedKeys)) }
                 }
             }
         }
@@ -214,14 +184,7 @@ class IPopupRepositoryImpl(
         withItemLock {
             val storedItemKeys: List<String> = itemKeys.distinct()
             popupDao.deleteItemsByKey(storedItemKeys)
-            val affectedPins: Set<AppProfile> = pinsOf(storedItemKeys)
-            val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
-            if (effects == null) {
-                reapplyPins(affectedPins = affectedPins)
-            } else {
-                // Pinning cannot be undone, so it waits for a caller's commit like the row deletion.
-                effects.afterCommit { withItemLock { reapplyPins(affectedPins = affectedPins) } }
-            }
+            shortcutPinCoordinator.reapplyPins(affectedProfiles = pinsOf(storedItemKeys))
         }
     }
 
@@ -254,40 +217,11 @@ class IPopupRepositoryImpl(
     } else {
         itemMutex.withLock { block() }
     }
-
-    private suspend fun reapplyPins(affectedPins: Set<AppProfile>) {
-        if (affectedPins.isEmpty()) {
-            return
-        }
-        val currentPinSets: Map<AppProfile, Set<String>> = pinSets(popupDao.getAllItems())
-        for (pin in affectedPins) {
-            shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = currentPinSets[pin].orEmpty())
-        }
-    }
-
-    private suspend fun reapplyAllPins() {
-        val state: LaunchableState = launchableRepository.launchableState.filter { current -> current.isLoaded }.first()
-        val livePins: Map<AppProfile, Set<String>> = pinSets(
-            popupDao.observeAllItems().first()
-        ).withoutKeptProfiles(keptKeys = state.keptKeys)
-        for ((pin: AppProfile, ids: Set<String>) in livePins) {
-            shortcutSource.pin(packageName = pin.packageName, profile = pin.profile, ids = ids)
-        }
-    }
-
-    /** A Locked Profile's pins are left as they are until the Profile is removed. */
-    private fun Map<AppProfile, Set<String>>.withoutKeptProfiles(keptKeys: Set<ProfileToken>): Map<AppProfile, Set<String>> =
-        filterKeys { pin -> pin.profile.toProfileToken() !in keptKeys }
 }
 
 private fun pinsOf(itemKeys: Iterable<String>): Set<AppProfile> = itemKeys
     .mapNotNull { itemKey -> ShortcutKey.parse(itemKey) }
     .mapTo(mutableSetOf()) { key -> AppProfile(packageName = key.packageName, profile = key.profile) }
-
-private fun pinSets(records: List<PopupItemRecord>): Map<AppProfile, Set<String>> = records
-    .mapNotNull { record -> ShortcutKey.parse(record.itemKey) }
-    .groupBy({ key -> AppProfile(packageName = key.packageName, profile = key.profile) }, { key -> key.id })
-    .mapValues { (_, ids) -> ids.toSet() }
 
 private fun resolveItems(records: List<PopupItemRecord>, state: LaunchableState, resolution: ShortcutResolution): ItemResolution {
     if (!state.isLoaded) {

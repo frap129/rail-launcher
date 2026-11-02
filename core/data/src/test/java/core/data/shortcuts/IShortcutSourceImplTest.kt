@@ -1,7 +1,6 @@
 package core.data.shortcuts
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
@@ -10,17 +9,11 @@ import android.os.Process
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
-import core.data.launchables.ILaunchableRepository
-import core.data.profiles.ProfileKind
 import core.data.testing.FIRST_SHORTCUT_ID
-import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
-import core.data.testing.createApp
-import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createPrivateApp
-import core.data.testing.createProfileInfo
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -43,11 +36,7 @@ class IShortcutSourceImplTest {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val shadowLauncherApps: ShadowLauncherApps = Shadow.extract(launcherApps)
     private val profile: UserHandle = Process.myUserHandle()
-    private val mockLaunchableRepository: ILaunchableRepository = mockk()
-    private val source: IShortcutSourceImpl = IShortcutSourceImpl(
-        context = context,
-        launchableRepository = mockLaunchableRepository
-    )
+    private val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
 
     @Test
     fun `resolve returns the shortcuts the package holds and reports the rest gone`() = runTest {
@@ -103,45 +92,6 @@ class IShortcutSourceImplTest {
     }
 
     @Test
-    fun `offers Shortcuts for private Apps while the Private Space is Unlocked`() = runTest {
-        shadowLauncherApps.setHasShortcutHostPermission(true)
-        val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val inputPrivateApp = createApp(name = "Secret", packageName = "com.example.secret", profileInfo = inputPrivateProfile)
-        val inputOtherApp = createApp(name = "Other", packageName = "com.example.other")
-        val sourceWithState: IShortcutSourceImpl = IShortcutSourceImpl(
-            context = context,
-            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputOtherApp, inputPrivateApp))
-        )
-
-        val actualApps: List<AppShortcuts> = sourceWithState.appsWithShortcuts().first()
-
-        assertEquals(
-            setOf(inputOtherApp.key, inputPrivateApp.key),
-            actualApps.mapTo(mutableSetOf()) { appShortcuts ->
-                appShortcuts.app.key
-            }
-        )
-    }
-
-    @Test
-    fun `offers Shortcuts for the package representative only`() = runTest {
-        shadowLauncherApps.setHasShortcutHostPermission(true)
-        val inputRepresentative: App = createApp(name = "Example", packageName = "com.example.app")
-        val inputOtherActivity: App = inputRepresentative.copy(
-            componentName = ComponentName("com.example.app", "com.example.app.SettingsActivity"),
-            isPackageRepresentative = false
-        )
-        val sourceWithState: IShortcutSourceImpl = IShortcutSourceImpl(
-            context = context,
-            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputRepresentative, inputOtherActivity))
-        )
-
-        val actualApps: List<AppShortcuts> = sourceWithState.appsWithShortcuts().first()
-
-        assertEquals(listOf(inputRepresentative.key), actualApps.map { appShortcuts -> appShortcuts.app.key })
-    }
-
-    @Test
     fun `logs private App shortcut pin and resolve failures without its package or key`() = runTest {
         val inputPrivateApp: App = createPrivateApp()
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
@@ -153,10 +103,7 @@ class IShortcutSourceImplTest {
             mockLauncherApps.getShortcuts(any(), any())
         } throws SecurityException("No permission to resolve shortcuts for ${inputPrivateApp.packageName}")
         shadowOf(context).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
-        val source: IShortcutSourceImpl = IShortcutSourceImpl(
-            context = context,
-            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPrivateApp))
-        )
+        val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
         val inputKey: ShortcutKey = ShortcutKey(
             packageName = inputPrivateApp.packageName,
             id = FIRST_SHORTCUT_ID,
@@ -186,10 +133,7 @@ class IShortcutSourceImplTest {
             mockLauncherApps.getActivityList(inputPrivateApp.packageName, inputPrivateApp.profile)
         } throws SecurityException("No permission to read ${inputPrivateApp.packageName}")
         shadowOf(context).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
-        val source: IShortcutSourceImpl = IShortcutSourceImpl(
-            context = context,
-            launchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPrivateApp))
-        )
+        val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
         val logRecorder: TimberLogRecorder = TimberLogRecorder()
 
         logRecorder.recordSuspending {
