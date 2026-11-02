@@ -57,14 +57,12 @@ fun createLaunchableState(
     folders: List<Launchable> = emptyList(),
     isLoaded: Boolean = true,
     keptKeys: Set<ProfileToken> = emptySet(),
-    enumeratedKeys: Set<ProfileToken> = emptySet(),
     retainedKeys: Set<String> = emptySet()
 ): LaunchableState = LaunchableState(
     groups = groups,
     launchables = groups.filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items } + folders,
     isLoaded = isLoaded,
     keptKeys = keptKeys,
-    enumeratedKeys = enumeratedKeys,
     retainedKeys = retainedKeys
 )
 
@@ -75,13 +73,11 @@ fun createLoadedLaunchableState(
     label: String = "A",
     isLoaded: Boolean = true,
     keptKeys: Set<ProfileToken> = emptySet(),
-    enumeratedKeys: Set<ProfileToken> = emptySet(),
     retainedKeys: Set<String> = emptySet()
 ): LaunchableState = createLaunchableState(
     groups = listOf(LaunchableGroup.InitialGroup(label = label, items = launchables)),
     folders = folders,
     isLoaded = isLoaded,
     keptKeys = keptKeys,
-    enumeratedKeys = enumeratedKeys,
     retainedKeys = retainedKeys
 )

@@ -7,6 +7,7 @@ import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepositoryImpl
 import core.data.prefs.LaunchableCustomization
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
@@ -23,7 +24,7 @@ import core.data.testing.createApp
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
-import core.data.testing.createPrivateSpaceLock
+import core.data.testing.createPrivateSpaceStatus
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcutSourceMock
@@ -54,6 +55,7 @@ private const val SETUP_ACTIVITY_CLASS: String = "SetupManagementLaunchActivity"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IAppRepositoryImplTest : InMemoryDatabaseTest() {
+    private lateinit var privateSpaceStatus: IPrivateSpaceStatus
     private val personalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
     private val workUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
     private val privateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
@@ -317,7 +319,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val actualApps: List<App> = loadApps(repository = repository)
 
         assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
-        assertEquals(setOf(personalUser), repository.enumeratedProfiles.value)
+        assertEquals(setOf(personalUser), privateSpaceStatus.listedProfiles.value)
     }
 
     @Test
@@ -337,7 +339,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val actualApps: List<App> = loadApps(repository = repository)
 
         assertEquals(listOf(PERSONAL_PACKAGE), actualApps.map { app -> app.packageName })
-        assertEquals(setOf(personalUser, privateUser), repository.enumeratedProfiles.value)
+        assertEquals(setOf(personalUser, privateUser), privateSpaceStatus.listedProfiles.value)
     }
 
     @Test
@@ -389,7 +391,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
         assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
-        assertFalse(privateUser in repository.enumeratedProfiles.value)
+        assertFalse(privateUser in privateSpaceStatus.listedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
         inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
@@ -399,12 +401,12 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             actualUnlockedPrivateApps.map { app -> app.componentName.className }
         )
         assertEquals(actualUnlockedPrivateApps.size, actualUnlockedPrivateApps.map { app -> app.key }.distinct().size)
-        assertTrue(privateUser in repository.enumeratedProfiles.value)
+        assertTrue(privateUser in privateSpaceStatus.listedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile)
         inputState.changes.emit(ProfileChange.ProfileUnavailable(user = privateUser))
         assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
-        assertFalse(privateUser in repository.enumeratedProfiles.value)
+        assertFalse(privateUser in privateSpaceStatus.listedProfiles.value)
 
         inputState.profiles.value = listOf(personalProfile, inputPrivateProfile.copy(isQuiet = false))
         inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
@@ -532,7 +534,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         inputState.changes.emit(ProfileChange.PackageAdded(user = privateUser, packageName = PRIVATE_PACKAGE))
         finishPendingWork()
 
-        assertFalse(privateUser in appRepository.enumeratedProfiles.value)
+        assertFalse(privateUser in privateSpaceStatus.listedProfiles.value)
         assertEquals(2, favoriteRecords().size)
     }
 
@@ -547,12 +549,17 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
     }
 
-    private fun TestScope.createRepository(state: ProfileSourceState): IAppRepositoryImpl = IAppRepositoryImpl(
-        context = RuntimeEnvironment.getApplication(),
-        profileSource = createProfileSourceMock(state = state),
-        scope = backgroundScope,
-        dispatcher = databaseDispatcher
-    )
+    private fun TestScope.createRepository(state: ProfileSourceState): IAppRepositoryImpl {
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = state)
+        privateSpaceStatus = createPrivateSpaceStatus(profileSource = mockProfileSource)
+        return IAppRepositoryImpl(
+            context = RuntimeEnvironment.getApplication(),
+            profileSource = mockProfileSource,
+            privateSpaceStatus = privateSpaceStatus,
+            scope = backgroundScope,
+            dispatcher = databaseDispatcher
+        )
+    }
 
     private fun TestScope.loadApps(repository: IAppRepository): List<App> {
         finishPendingWork()
@@ -576,7 +583,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                 standaloneShortcutDao = database.getStandaloneShortcutDao(),
                 shortcutSource = createShortcutSourceMock()
             ),
-            privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
+            privateSpaceStatus = privateSpaceStatus,
             scope = backgroundScope
         )
         return LaunchableRepositories(

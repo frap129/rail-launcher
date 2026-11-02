@@ -5,6 +5,8 @@ import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.launchables.LaunchableState
 import core.data.popups.PopupItemRecord
+import core.data.profiles.IPrivateSpaceStatus
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.ProfileToken
@@ -20,11 +22,13 @@ import core.data.testing.awaitPin
 import core.data.testing.createApp
 import core.data.testing.createAppProfile
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createFixedPrivateSpaceStatus
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
 import core.data.testing.createPrivateApp
+import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcutPinCoordinator
 import core.data.testing.createShortcutSourceMock
@@ -82,22 +86,23 @@ class IShortcutPinCoordinatorImplTest : InMemoryDatabaseTest() {
             profile = inputPrivateProfile.user
         )
         insertPopupShortcut(ownerKey = inputOwner.key, key = inputPrivateShortcut)
-        val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val inputStatus: MutableStateFlow<PrivateSpaceStatus> = MutableStateFlow(
+            createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true)
+        )
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
+            createLoadedLaunchableState(launchables = listOf(inputOwner))
         )
         val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
         createCoordinator(
             launchableState = launchableState,
+            privateSpaceStatus = createPrivateSpaceStatusMock(status = inputStatus),
             mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
         )
         finishPendingWork()
         assertEquals(emptyList<PinCall>(), pinCalls.value)
 
-        launchableState.value = createLoadedLaunchableState(
-            launchables = listOf(inputOwner, inputPrivateApp),
-            enumeratedKeys = inputKeptKeys
-        )
+        inputStatus.value = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
+        launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner, inputPrivateApp))
 
         pinCalls.awaitPin(
             PinCall(
@@ -297,12 +302,16 @@ class IShortcutPinCoordinatorImplTest : InMemoryDatabaseTest() {
         )
         insertPopupShortcut(ownerKey = inputOwner.key, key = inputPrivateShortcut)
         val inputKeptKeys: Set<ProfileToken> = setOf(inputPrivateProfile.user.toProfileToken())
+        val inputStatus: MutableStateFlow<PrivateSpaceStatus> = MutableStateFlow(
+            createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true)
+        )
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
             createLoadedLaunchableState(launchables = listOf(inputOwner), keptKeys = inputKeptKeys)
         )
         val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
         val coordinator: IShortcutPinCoordinator = createCoordinator(
             launchableState = launchableState,
+            privateSpaceStatus = createPrivateSpaceStatusMock(status = inputStatus),
             mockShortcutSource = createShortcutSourceMock(pinCalls = pinCalls)
         )
         createPopupRepository(
@@ -318,6 +327,7 @@ class IShortcutPinCoordinatorImplTest : InMemoryDatabaseTest() {
         assertEquals(emptyList<PinCall>(), pinCalls.value)
         assertEquals(1, database.getPopupDao().getAllItems().size)
 
+        inputStatus.value = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         launchableState.value = createLoadedLaunchableState(launchables = listOf(inputOwner))
 
         pinCalls.awaitPin(PinCall(packageName = PRIVATE_PACKAGE_NAME, profile = inputPrivateProfile.user, ids = emptySet()))
@@ -436,10 +446,12 @@ class IShortcutPinCoordinatorImplTest : InMemoryDatabaseTest() {
     private fun TestScope.createCoordinator(
         launchableState: MutableStateFlow<LaunchableState> =
             MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputOwner))),
+        privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
         mockShortcutSource: IShortcutSource = createShortcutSourceMock(),
         pinSources: List<IShortcutPinSource> = listOf(IPopupShortcutPinSourceImpl(popupDao = database.getPopupDao()))
     ): IShortcutPinCoordinator = createShortcutPinCoordinator(
         launchableRepository = createLaunchableRepositoryMock(launchableState),
+        privateSpaceStatus = privateSpaceStatus,
         scope = backgroundScope,
         shortcutSource = mockShortcutSource,
         pinSources = pinSources

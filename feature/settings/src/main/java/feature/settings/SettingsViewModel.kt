@@ -5,8 +5,7 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
-import core.data.profiles.IProfileSource
-import core.data.profiles.privateSpace
+import core.data.profiles.IPrivateSpaceStatus
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
@@ -32,7 +31,7 @@ data class SettingsUiState(
 class SettingsViewModel(
     private val prefsRepo: IPreferencesRepository,
     private val iconRepo: IIconRepository,
-    private val profileSource: IProfileSource
+    private val privateSpaceStatus: IPrivateSpaceStatus
 ) : ViewModel() {
     private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.settings) { iconPacks, settings ->
         iconPacks.find { it is IconPack.CustomIconPack && it.packageName == settings.iconPack } ?: IconPack.SystemIconPack
@@ -42,13 +41,13 @@ class SettingsViewModel(
         iconRepo.iconPacks,
         selectedIconPack,
         prefsRepo.settings,
-        profileSource.profiles
-    ) { iconPacks, selectedIconPack, settings, profiles ->
+        privateSpaceStatus.status
+    ) { iconPacks, selectedIconPack, settings, status ->
         SettingsUiState(
             iconPacks = iconPacks,
             selectedIconPack = selectedIconPack,
             hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
-            isPrivateSpaceAvailable = profiles.privateSpace != null
+            isPrivateSpaceAvailable = status.profile != null
         )
     }.stateIn(
         viewModelScope,
@@ -57,7 +56,7 @@ class SettingsViewModel(
             iconPacks = setOf(IconPack.SystemIconPack),
             selectedIconPack = IconPack.SystemIconPack,
             hidePrivateSpaceWhenLocked = false,
-            isPrivateSpaceAvailable = false
+            isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null
         )
     )
 

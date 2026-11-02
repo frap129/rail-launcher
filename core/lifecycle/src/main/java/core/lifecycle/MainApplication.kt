@@ -44,6 +44,8 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceLockImpl
+import core.data.profiles.IPrivateSpaceStatus
+import core.data.profiles.IPrivateSpaceStatusImpl
 import core.data.profiles.IProfileSource
 import core.data.profiles.IProfileSourceImpl
 import core.data.room.AppDatabase
@@ -217,12 +219,20 @@ class MainApplication :
     private val repoModule = module {
         single<IProfileSource> { IProfileSourceImpl(androidContext()) }
         single<IPrivateSpaceLock> { IPrivateSpaceLockImpl(profileSource = get(), scope = get(named(APP_SCOPE_QUALIFIER))) }
-        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IPrivateSpaceStatus> {
+            IPrivateSpaceStatusImpl(
+                profileSource = get(),
+                privateSpaceLock = get(),
+                preferencesRepository = get(),
+                scope = get(named(APP_SCOPE_QUALIFIER))
+            )
+        }
+        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
         single<IStandaloneShortcutSource> {
-            IStandaloneShortcutSourceImpl(standaloneShortcutDao = get(), shortcutSource = get())
+            IStandaloneShortcutSourceImpl(standaloneShortcutDao = get(), shortcutSource = get(), profileSource = get())
         }
         single<ILaunchableRepository> {
             ILaunchableRepositoryImpl(
@@ -233,7 +243,7 @@ class MainApplication :
                 folderDao = get(),
                 popupDao = get(),
                 standaloneShortcutSource = get(),
-                privateSpaceLock = get(),
+                privateSpaceStatus = get(),
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
         }
@@ -245,6 +255,7 @@ class MainApplication :
             IShortcutPinCoordinatorImpl(
                 shortcutSource = get(),
                 launchableRepository = get(),
+                privateSpaceStatus = get(),
                 pinSources = listOf(get<IPopupShortcutPinSource>(), get<IStandaloneShortcutPinSource>()),
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
@@ -293,7 +304,7 @@ class MainApplication :
         single<AppWidgetResults> { AppWidgetResults() }
         single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
         single<IWidgetLifecycleReconciler> { IWidgetLifecycleReconcilerImpl(get(), get()) }
-        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get(), get()) }
+        single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get(), get(), get()) }
         single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
         single<IRemoveOwnerWidgets> { IRemoveOwnerWidgetsImpl(get(), get()) }
@@ -377,7 +388,7 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(

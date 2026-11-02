@@ -23,6 +23,7 @@ import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -30,7 +31,6 @@ import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
-import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.IStandaloneShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -57,6 +57,7 @@ import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
+import core.data.testing.createPrivateSpaceStatus
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcut
@@ -78,6 +79,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
@@ -152,18 +154,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile,
             longLabel = "Example site"
         )
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut)))
-        )
-        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
-        val launchableRepository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = emptyList()),
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = createProfileSourceMock(profile = createProfileInfo(userId = PERSONAL_USER_ID)),
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 customizations = listOf(LaunchableCustomization(key = inputKey.format(), name = RENAMED_NAME))
-            ),
-            standaloneShortcutSource = createStandaloneShortcutSource(
-                standaloneShortcutDao = database.getStandaloneShortcutDao(),
-                shortcutSource = mockShortcutSource
             )
         )
         val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
@@ -185,16 +181,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `keeps an unresolved Standalone shortcut's Favorite and name customization`() = databaseTest {
         val inputProfile: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
         val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile)
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock()
-        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
         seedFavorite(key = inputKey.format(), position = 0)
         database.getLaunchableCustomizationDao().setName(key = inputKey.format(), name = RENAMED_NAME)
-        val launchableRepository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = emptyList()),
-            standaloneShortcutSource = createStandaloneShortcutSource(
-                standaloneShortcutDao = database.getStandaloneShortcutDao(),
-                shortcutSource = mockShortcutSource
-            )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            mockProfileSource = createProfileSourceMock(profile = createProfileInfo(userId = PERSONAL_USER_ID))
         )
         val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
             favoriteDao = database.getFavoriteDao(),
@@ -233,17 +224,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputPrivateProfile.user,
             longLabel = "Secret site"
         )
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut)))
-        )
-        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
-        val launchableRepository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = emptyList()),
-            mockProfileSource = createProfileSourceMock(state = inputProfileState),
-            standaloneShortcutSource = createStandaloneShortcutSource(
-                standaloneShortcutDao = database.getStandaloneShortcutDao(),
-                shortcutSource = mockShortcutSource
-            )
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = mockProfileSource
         )
         val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
         try {
@@ -251,16 +236,142 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             val actualLockedState: LaunchableState = launchableRepository.launchableState.first()
             assertNull(actualLockedState.launchableFor(inputKey.format()))
             assertTrue(inputPrivateProfile.user.toProfileToken() in actualLockedState.keptKeys)
+            assertTrue(actualLockedState.listedGroups.none { group -> group.items.any { item -> item.key == inputKey.format() } })
+            assertTrue(actualLockedState.pickerGroups.none { group -> group.items.any { item -> item.key == inputKey.format() } })
 
             inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = false))
             finishPendingWork()
 
             val actualUnlockedState: LaunchableState = launchableRepository.launchableState.first()
-            assertEquals(inputShortcut, actualUnlockedState.launchableFor(inputKey.format()))
+            val actualShortcut: Launchable =
+                actualUnlockedState.launchableFor(inputKey.format()) ?: throw AssertionError("Missing shortcut")
+            assertEquals(inputKey.format(), actualShortcut.key)
+            assertEquals("Secret site", actualShortcut.name)
             assertEquals(
-                listOf(inputShortcut),
+                listOf(actualShortcut),
                 actualUnlockedState.groups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().items
             )
+            assertTrue(
+                actualUnlockedState.listedGroups.filterIsInstance<LaunchableGroup.InitialGroup>()
+                    .none { group -> group.items.any { item -> item.key == inputKey.format() } }
+            )
+            assertEquals(
+                listOf(actualShortcut),
+                actualUnlockedState.pickerGroups.filterIsInstance<LaunchableGroup.PrivateSpace>().single().items
+            )
+            assertTrue(
+                actualUnlockedState.pickerGroups.filterIsInstance<LaunchableGroup.InitialGroup>()
+                    .none { group -> group.items.any { item -> item.key == inputKey.format() } }
+            )
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `keeps a work Standalone shortcut's Profile, badge and Paused state`() = databaseTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputPausedWorkProfile: ProfileInfo = inputWorkProfile.copy(isQuiet = true)
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputWorkProfile)).apply {
+            badgedLabel = { label, _ -> "Work $label" }
+        }
+        val inputKey: ShortcutKey = ShortcutKey(
+            packageName = APP_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputWorkProfile.user
+        )
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputWorkProfile.user,
+            longLabel = "Site"
+        )
+        val inputResolution: MutableStateFlow<ShortcutResolution> =
+            MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut)))
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = inputResolution,
+            mockProfileSource = mockProfileSource
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing shortcut")
+
+            assertEquals(inputWorkProfile, actualShortcut.profileInfo)
+            assertFalse(actualShortcut.isPaused)
+            assertEquals("Work Site", actualShortcut.accessibilityName)
+
+            inputProfileState.profiles.value = listOf(inputPausedWorkProfile)
+            inputResolution.value = ShortcutResolution()
+            finishPendingWork()
+            val actualPausedShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing paused shortcut")
+
+            assertEquals(inputPausedWorkProfile, actualPausedShortcut.profileInfo)
+            assertTrue(actualPausedShortcut.isPaused)
+            assertEquals("Work Site", actualPausedShortcut.accessibilityName)
+            assertEquals(
+                Icon.ProfileIcon(
+                    icon = Icon.ShortcutIcon(
+                        packageName = APP_PACKAGE_NAME,
+                        shortcutId = FIRST_SHORTCUT_ID,
+                        profile = inputWorkProfile.user
+                    ),
+                    profile = inputWorkProfile.user
+                ),
+                actualPausedShortcut.icon
+            )
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `lists a disabled Standalone shortcut with its disabled state`() = databaseTest {
+        val inputProfile: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
+        val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputProfile,
+            longLabel = "Disabled site",
+            isEnabled = false
+        )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = createProfileSourceMock(profile = createProfileInfo(userId = PERSONAL_USER_ID))
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing shortcut")
+
+            assertFalse(actualShortcut.isEnabled)
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `resolves a Restored shortcut with a missing Profile to nothing`() = databaseTest {
+        val inputMissingProfile: ProfileInfo = createProfileInfo(userId = MISSING_WORK_USER_ID, kind = ProfileKind.Work)
+        val inputKey: ShortcutKey = ShortcutKey(
+            packageName = APP_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputMissingProfile.user
+        )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(inputKey = inputKey)
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualState: LaunchableState = launchableRepository.launchableState.first()
+
+            assertNull(actualState.launchableFor(inputKey.format()))
+            assertFalse(inputKey.format() in actualState.retainedKeys)
+            assertEquals(listOf(inputKey.format()), actualState.staleKeys(listOf(inputKey.format())))
         } finally {
             collection.cancel()
         }
@@ -276,17 +387,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile,
             longLabel = "Example site"
         )
-        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
-            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut)))
-        )
-        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
         seedFavorite(key = inputApp.key, position = 0)
-        val launchableRepository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
-            standaloneShortcutSource = createStandaloneShortcutSource(
-                standaloneShortcutDao = database.getStandaloneShortcutDao(),
-                shortcutSource = mockShortcutSource
-            )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = createProfileSourceMock(profile = createProfileInfo(userId = PERSONAL_USER_ID)),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp))
         )
         val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
             favoriteDao = database.getFavoriteDao(),
@@ -872,12 +978,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `keeps the keys of a Locked Profile until it is removed`() = databaseTest {
         val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(profileSource = mockProfileSource)
+        privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(
-                inputAppState = MutableStateFlow(emptyList()),
-                inputEnumeratedProfiles = MutableStateFlow(setOf(inputPrivateProfile.user))
-            ),
-            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+            mockAppRepository = createAppRepositoryMock(inputAppState = MutableStateFlow(emptyList())),
+            mockProfileSource = mockProfileSource,
+            privateSpaceStatus = privateSpaceStatus
         )
         assertTrue(loadedState(repository).keptKeys.isEmpty())
 
@@ -903,11 +1010,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         database.getHeaderSettingsDao().upsert(HeaderSettings(timeTapTarget = inputTapTarget))
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
-            appState = inputAppState,
-            enumeratedState = inputEnumeratedState
+            appState = inputAppState
         )
         finishPendingWork()
         assertEquals(listOf(inputFavorite), favoriteRecords())
@@ -924,7 +1029,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
 
         inputAppState.value = listOf(inputPrivateApp)
-        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        repositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
 
         assertEquals(listOf(inputFavorite), favoriteRecords())
@@ -937,7 +1042,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(inputTapTarget, repositories.headerSettings.headerSettings.first().timeTapTarget)
         val actualState: LaunchableState = loadedState(repositories.launchables)
         assertTrue(actualState.keptKeys.isEmpty())
-        assertEquals(setOf(inputPrivateProfile.user.toProfileToken()), actualState.enumeratedKeys)
+        assertTrue(repositories.privateSpaceStatus.status.value.hasListedApps)
     }
 
     @Test
@@ -951,11 +1056,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
-            appState = inputAppState,
-            enumeratedState = inputEnumeratedState
+            appState = inputAppState
         )
         finishPendingWork()
         assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
@@ -965,7 +1068,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(setOf(inputGoneFavorite, inputFavorite), favoriteRecords().toSet())
 
         inputAppState.value = listOf(inputPrivateApp)
-        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        repositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
 
         assertEquals(listOf(inputFavorite), favoriteRecords())
@@ -980,17 +1083,15 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
-            appState = inputAppState,
-            enumeratedState = inputEnumeratedState
+            appState = inputAppState
         )
         finishPendingWork()
         assertEquals(listOf(inputFavorite), favoriteRecords())
 
         inputProfileState.profiles.value = listOf(inputPrivateProfile)
-        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        repositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
 
         assertTrue(favoriteRecords().isEmpty())
@@ -1005,11 +1106,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         seedFavorite(key = inputFavorite.key, position = inputFavorite.position)
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(emptyList())
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
-            appState = inputAppState,
-            enumeratedState = inputEnumeratedState
+            appState = inputAppState
         )
         finishPendingWork()
         assertEquals(listOf(inputFavorite), favoriteRecords())
@@ -1064,12 +1163,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         database.getPopupDao().insertItems(listOf(inputMember))
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPrivateApp))
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(setOf(inputPrivateProfile.user))
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
-            appState = inputAppState,
-            enumeratedState = inputEnumeratedState
+            appState = inputAppState
         )
+        repositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
         assertEquals(listOf(inputPrivateApp), repositories.favorites.favorites.first())
         assertEquals(listOf(inputPrivateApp.key), actualVisiblePopupItemKeys(repositories = repositories, folder = inputFolder))
@@ -1100,9 +1198,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val repositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
             appState = MutableStateFlow(emptyList()),
-            enumeratedState = MutableStateFlow(setOf(inputPrivateProfile.user)),
             preferencesRepository = createPreferencesRepositoryMock(settings = Settings(hidePrivateSpaceWhenLocked = true))
         )
+        repositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
         assertTrue(loadedState(repositories.launchables).groups.any { group -> group is LaunchableGroup.PrivateSpace })
 
@@ -1161,13 +1259,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profiles = listOf(inputPersonalProfile, inputWorkProfile, inputPrivateProfile)
         )
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPersonalApp, inputWorkApp))
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val inputPreferencesRepository: IPreferencesRepository = createPreferencesRepository()
         val mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
         val actualRepositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
             appState = inputAppState,
-            enumeratedState = inputEnumeratedState,
             preferencesRepository = inputPreferencesRepository,
             mockWidgetAreaRepository = mockWidgetAreaRepository
         )
@@ -1230,12 +1326,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profiles = listOf(inputPersonalProfile, inputPrivateProfile)
         )
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputPersonalApp))
-        val inputEnumeratedState: MutableStateFlow<Set<UserHandle>> = MutableStateFlow(emptySet())
         val inputPreferencesRepository: IPreferencesRepository = createPreferencesRepository()
         val actualRepositories: PrivateSpaceRepositories = createPrivateSpaceRepositories(
             profileState = inputProfileState,
             appState = inputAppState,
-            enumeratedState = inputEnumeratedState,
             preferencesRepository = inputPreferencesRepository
         )
         finishPendingWork()
@@ -1270,7 +1364,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         inputProfileState.profiles.value = listOf(inputPersonalProfile, inputPrivateProfile.copy(isQuiet = false))
         inputAppState.value = listOf(inputPersonalApp, inputPrivateApp)
-        inputEnumeratedState.value = setOf(inputPrivateProfile.user)
+        actualRepositories.privateSpaceStatus.setListedProfiles(setOf(inputPrivateProfile.user))
         finishPendingWork()
 
         assertEquals(
@@ -1286,7 +1380,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         inputProfileState.profiles.value = listOf(inputPersonalProfile)
         inputAppState.value = listOf(inputPersonalApp)
-        inputEnumeratedState.value = emptySet()
+        actualRepositories.privateSpaceStatus.setListedProfiles(emptySet())
         finishPendingWork()
 
         assertEquals(listOf(inputPersonalApp.key), actualFavoriteKeys())
@@ -1347,17 +1441,43 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         }
     }
 
+    private suspend fun TestScope.createStandaloneShortcutRepository(
+        inputKey: ShortcutKey,
+        inputResolution: StateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution()),
+        mockProfileSource: IProfileSource = createProfileSourceMock(),
+        mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
+        mockAppRepository: IAppRepository = createAppRepositoryMock(inputApps = emptyList())
+    ): ILaunchableRepository {
+        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
+        return createRepository(
+            mockAppRepository = mockAppRepository,
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockProfileSource = mockProfileSource,
+            standaloneShortcutSource = createStandaloneShortcutSource(
+                standaloneShortcutDao = database.getStandaloneShortcutDao(),
+                shortcutSource = createShortcutSourceMock(resolution = inputResolution),
+                profileSource = mockProfileSource
+            )
+        )
+    }
+
     private fun TestScope.createRepository(
         mockAppRepository: IAppRepository,
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
         mockProfileSource: IProfileSource = createProfileSourceMock(),
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
+        privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            privateSpaceLock = privateSpaceLock,
+            preferencesRepository = mockPreferencesRepository
+        ),
         folderDao: FolderDao = database.getFolderDao(),
         popupDao: PopupDao = database.getPopupDao(),
         standaloneShortcutSource: IStandaloneShortcutSource = createStandaloneShortcutSource(
             standaloneShortcutDao = database.getStandaloneShortcutDao(),
-            shortcutSource = createShortcutSourceMock()
+            shortcutSource = createShortcutSourceMock(),
+            profileSource = mockProfileSource
         ),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository = ILaunchableRepositoryImpl(
@@ -1368,27 +1488,33 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         folderDao = folderDao,
         popupDao = popupDao,
         standaloneShortcutSource = standaloneShortcutSource,
-        privateSpaceLock = privateSpaceLock,
+        privateSpaceStatus = privateSpaceStatus,
         scope = scope
     )
 
     private fun TestScope.createPrivateSpaceRepositories(
         profileState: ProfileSourceState,
         appState: MutableStateFlow<List<App>?>,
-        enumeratedState: MutableStateFlow<Set<UserHandle>>,
         preferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockWidgetAreaRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock()
     ): PrivateSpaceRepositories {
         val mockProfileSource: IProfileSource = createProfileSourceMock(state = profileState)
         val privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            privateSpaceLock = privateSpaceLock,
+            preferencesRepository = preferencesRepository
+        )
         val launchables: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputAppState = appState, inputEnumeratedProfiles = enumeratedState),
+            mockAppRepository = createAppRepositoryMock(inputAppState = appState),
             mockPreferencesRepository = preferencesRepository,
             mockProfileSource = mockProfileSource,
-            privateSpaceLock = privateSpaceLock
+            privateSpaceLock = privateSpaceLock,
+            privateSpaceStatus = privateSpaceStatus
         )
         return PrivateSpaceRepositories(
             privateSpaceLock = privateSpaceLock,
+            privateSpaceStatus = privateSpaceStatus,
             launchables = launchables,
             favorites = createFavoritesRepository(favoriteDao = database.getFavoriteDao(), launchableRepository = launchables),
             popups = createPopupRepository(
@@ -1414,6 +1540,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
 private data class PrivateSpaceRepositories(
     val privateSpaceLock: IPrivateSpaceLock,
+    val privateSpaceStatus: IPrivateSpaceStatus,
     val launchables: ILaunchableRepository,
     val favorites: IFavoritesRepositoryImpl,
     val popups: IPopupRepository,

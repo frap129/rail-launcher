@@ -2,6 +2,7 @@ package core.data.testing
 
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepositoryImpl
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.room.dao.PopupDao
 import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -19,8 +20,10 @@ fun createPopupRepository(
     shortcutSource: IShortcutSource,
     widgetAreaRepository: IWidgetAreaRepository,
     appWidgetHost: IAppWidgetHostSource,
+    privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
     shortcutPinCoordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(
         launchableRepository = launchableRepository,
+        privateSpaceStatus = privateSpaceStatus,
         scope = scope,
         shortcutSource = shortcutSource,
         pinSources = listOf(IPopupShortcutPinSourceImpl(popupDao = popupDao))

@@ -5,7 +5,6 @@ import android.os.UserHandle
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
@@ -19,9 +18,9 @@ import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
-import core.data.profiles.privateSpace
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -81,8 +80,8 @@ private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchabl
     return sortedBy { indexByKey[it.key] ?: Int.MAX_VALUE }
 }
 
-private fun resolvePausedPrompt(requested: App?, state: LaunchableState): App? = requested?.let { app ->
-    state.launchables.filterIsInstance<App>().firstOrNull { current -> current.key == app.key }?.takeIf { current -> current.isPaused }
+private fun resolvePausedPrompt(requested: Launchable?, state: LaunchableState): Launchable? = requested?.let { launchable ->
+    state.launchables.firstOrNull { current -> current.key == launchable.key }?.takeIf { current -> current.isPaused }
 }
 
 /** The names of the Folder members whose App has at least one visible notification. */
@@ -159,6 +158,7 @@ class LauncherViewModel(
     private val notificationSource: INotificationSource,
     private val homeEditState: HomeEditState,
     private val profileSource: IProfileSource,
+    private val privateSpaceStatus: IPrivateSpaceStatus,
     private val privateSpaceLock: IPrivateSpaceLock
 ) : ViewModel() {
 
@@ -295,11 +295,11 @@ class LauncherViewModel(
         initialValue = LauncherMenuState.Closed
     )
 
-    private val requestedPausedApp: MutableStateFlow<App?> = MutableStateFlow(null)
+    private val requestedPausedLaunchable: MutableStateFlow<Launchable?> = MutableStateFlow(null)
 
-    /** The paused App whose tap asked to turn work apps on, or null when no prompt is open. */
-    val pausedPrompt: StateFlow<App?> = combine(
-        requestedPausedApp,
+    /** The paused Launchable whose tap asked to turn work apps on, or null when no prompt is open. */
+    val pausedPrompt: StateFlow<Launchable?> = combine(
+        requestedPausedLaunchable,
         launchableState
     ) { requested, state ->
         resolvePausedPrompt(requested = requested, state = state)
@@ -311,14 +311,10 @@ class LauncherViewModel(
 
     /**
      * The system's Private Space settings screen, while the space is Unlocked and offers one.
-     * Follows Profile changes so the action appears and disappears without a reload.
+     * Follows the Private Space status so the action appears and disappears without a reload.
      */
-    val privateSpaceSettingsIntent: StateFlow<IntentSender?> = combine(
-        profileSource.profiles,
-        privateSpaceLock.isLockRequested
-    ) { profiles, isLockRequested ->
-        profiles.privateSpace?.let { profile -> !profile.isQuiet && !isLockRequested } ?: false
-    }
+    val privateSpaceSettingsIntent: StateFlow<IntentSender?> = privateSpaceStatus.status
+        .map { status -> status.isUnlocked }
         .distinctUntilChanged()
         .map { isUnlocked -> if (isUnlocked) profileSource.privateSpaceSettingsIntent() else null }
         .stateIn(
@@ -327,25 +323,24 @@ class LauncherViewModel(
             initialValue = null
         )
 
-    // Transitions the request when its App stops being paused, even while the prompt is unobserved.
+    // Transitions the request when its Launchable stops being paused, even while the prompt is unobserved.
     init {
         viewModelScope.launch {
             launchableState.collect { state ->
-                requestedPausedApp.update { requested -> resolvePausedPrompt(requested = requested, state = state) }
+                requestedPausedLaunchable.update { requested -> resolvePausedPrompt(requested = requested, state = state) }
             }
         }
     }
 
     /**
      * Handles a request to launch [launchable]. Returns false and opens the paused prompt
-     * instead when [launchable] is a paused App.
+     * instead when [launchable] belongs to a Paused Profile.
      */
     fun requestLaunch(launchable: Launchable): Boolean {
-        val app: App = launchable as? App ?: return true
-        if (!app.isPaused) {
+        if (!launchable.isPaused) {
             return true
         }
-        requestedPausedApp.value = resolvePausedPrompt(requested = app, state = launchableState.value)
+        requestedPausedLaunchable.value = resolvePausedPrompt(requested = launchable, state = launchableState.value)
         return false
     }
 
@@ -373,13 +368,13 @@ class LauncherViewModel(
         }
     }
 
-    private fun privateSpaceUser(): UserHandle? = profileSource.profiles.value.privateSpace?.user
+    private fun privateSpaceUser(): UserHandle? = privateSpaceStatus.currentStatus().profile?.user
 
-    /** Asks the system to leave quiet mode for the paused App's Profile. */
-    fun turnOnPausedApp() {
-        val app: App = requestedPausedApp.value ?: return
-        requestedPausedApp.value = null
-        requestQuietOff(user = app.profile)
+    /** Asks the system to leave quiet mode for the paused Launchable's Profile. */
+    fun turnOnPausedLaunchable() {
+        val user: UserHandle = requestedPausedLaunchable.value?.profile ?: return
+        requestedPausedLaunchable.value = null
+        requestQuietOff(user = user)
     }
 
     private fun requestQuietOff(user: UserHandle, onResult: (QuietRequestResult) -> Unit = {}) {
@@ -397,7 +392,7 @@ class LauncherViewModel(
     }
 
     fun dismissPausedPrompt() {
-        requestedPausedApp.value = null
+        requestedPausedLaunchable.value = null
     }
 
     fun onRailPreview(index: Int) = handleRailGroup(index, isScrolling = true)

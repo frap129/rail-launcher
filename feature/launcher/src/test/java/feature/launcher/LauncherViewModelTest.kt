@@ -17,10 +17,13 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IPrivateSpaceLock
+import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
@@ -43,9 +46,11 @@ import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateApp
 import core.data.testing.createPrivateSpaceLock
+import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
+import core.data.testing.createShortcut
 import core.data.testing.createTestNotificationSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
@@ -1005,6 +1010,31 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `tapping a paused work Shortcut opens the paused prompt and turns work apps on`() = runTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.work",
+            profile = inputWorkProfile.user,
+            longLabel = "Work shortcut",
+            profileInfo = inputWorkProfile
+        )
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputShortcut)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.pausedPrompt.test {
+            assertNull(awaitItem())
+            assertFalse(viewModel.requestLaunch(inputShortcut))
+            assertEquals(inputShortcut, awaitItem())
+        }
+        viewModel.turnOnPausedLaunchable()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockProfileSource.requestQuiet(user = inputWorkProfile.user, quiet = false) }
+    }
+
+    @Test
     fun `turning on a paused App asks its Profile to leave quiet mode`() = runTest {
         val inputPausedApp: App = createPausedWorkApp()
         val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputPausedApp)))
@@ -1014,7 +1044,7 @@ class LauncherViewModelTest {
 
         viewModel.requestLaunch(inputPausedApp)
         advanceUntilIdle()
-        viewModel.turnOnPausedApp()
+        viewModel.turnOnPausedLaunchable()
         advanceUntilIdle()
 
         coVerify(exactly = 1) { mockProfileSource.requestQuiet(user = inputPausedApp.profile, quiet = false) }
@@ -1160,7 +1190,10 @@ class LauncherViewModelTest {
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
         val viewModel: LauncherViewModel = createViewModel(
             mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
-            mockProfileSource = mockPrivateProfileSource
+            mockProfileSource = mockPrivateProfileSource,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true))
+            )
         )
 
         viewModel.uiState.test {
@@ -1189,7 +1222,10 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel(
             mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
             mockProfileSource = mockPrivateProfileSource,
-            privateSpaceLock = inputPrivateSpaceLock
+            privateSpaceLock = inputPrivateSpaceLock,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
         )
 
         viewModel.lockPrivateSpace()
@@ -1214,7 +1250,10 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel(
             mockLaunchableRepository = createLaunchableRepositoryMock(inputState),
             mockProfileSource = mockPrivateProfileSource,
-            privateSpaceLock = inputPrivateSpaceLock
+            privateSpaceLock = inputPrivateSpaceLock,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
         )
 
         viewModel.lockPrivateSpace()
@@ -1329,7 +1368,12 @@ class LauncherViewModelTest {
             privateSpaceSettingsIntent = expectedIntentSender
         }
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
-        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockProfileSource = mockPrivateProfileSource,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
+        )
 
         viewModel.privateSpaceSettingsIntent.test {
             assertEquals(expectedIntentSender, awaitIntentSender())
@@ -1343,11 +1387,16 @@ class LauncherViewModelTest {
             privateSpaceSettingsIntent = expectedIntentSender
         }
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
-        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+        val inputStatus: MutableStateFlow<PrivateSpaceStatus> =
+            MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockProfileSource = mockPrivateProfileSource,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(status = inputStatus)
+        )
 
         viewModel.privateSpaceSettingsIntent.test {
             assertEquals(expectedIntentSender, awaitIntentSender())
-            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(serial = 1L))
+            inputStatus.value = PrivateSpaceStatus(profile = inputPrivateProfile.copy(serial = 1L))
             advanceUntilIdle()
             expectNoEvents()
         }
@@ -1357,7 +1406,12 @@ class LauncherViewModelTest {
     @Test
     fun `offers no Private Space settings action without a system intent`() = runTest {
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
-        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockProfileSource = mockPrivateProfileSource,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
+        )
 
         viewModel.privateSpaceSettingsIntent.test {
             assertNull(awaitItem())
@@ -1371,11 +1425,16 @@ class LauncherViewModelTest {
             privateSpaceSettingsIntent = expectedIntentSender
         }
         val mockPrivateProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
-        val viewModel: LauncherViewModel = createViewModel(mockProfileSource = mockPrivateProfileSource)
+        val inputStatus: MutableStateFlow<PrivateSpaceStatus> =
+            MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockProfileSource = mockPrivateProfileSource,
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(status = inputStatus)
+        )
 
         viewModel.privateSpaceSettingsIntent.test {
             assertEquals(expectedIntentSender, awaitIntentSender())
-            inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+            inputStatus.value = PrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true)
             assertNull(awaitItem())
         }
     }
@@ -1582,7 +1641,8 @@ class LauncherViewModelTest {
         mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository,
         mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource,
         mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository,
-        privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
+        privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
+        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -1593,6 +1653,7 @@ class LauncherViewModelTest {
         notificationSource = createNotificationSource(mockPopupRepository = mockPopupRepository),
         homeEditState = inputHomeEditState,
         profileSource = mockProfileSource,
+        privateSpaceStatus = mockPrivateSpaceStatus,
         privateSpaceLock = privateSpaceLock
     )
 

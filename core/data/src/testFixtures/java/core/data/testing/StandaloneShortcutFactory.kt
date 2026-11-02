@@ -1,5 +1,6 @@
 package core.data.testing
 
+import core.data.profiles.IProfileSource
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.StandaloneShortcutDao
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -12,10 +13,12 @@ import core.data.shortcuts.IStandaloneShortcutSourceImpl
 /** The production Standalone shortcut source over [standaloneShortcutDao] and [shortcutSource]. */
 fun createStandaloneShortcutSource(
     standaloneShortcutDao: StandaloneShortcutDao,
-    shortcutSource: IShortcutSource
+    shortcutSource: IShortcutSource,
+    profileSource: IProfileSource = createProfileSourceMock()
 ): IStandaloneShortcutSource = IStandaloneShortcutSourceImpl(
     standaloneShortcutDao = standaloneShortcutDao,
-    shortcutSource = shortcutSource
+    shortcutSource = shortcutSource,
+    profileSource = profileSource
 )
 
 /** The production Standalone shortcut repository over [standaloneShortcutDao] and [favoriteDao]. */
