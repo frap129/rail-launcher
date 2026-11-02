@@ -20,8 +20,8 @@ interface IStandaloneShortcutRepository {
     suspend fun add(key: ShortcutKey, accept: suspend () -> Boolean): Boolean
 
     /**
-     * Removes [keys] from the Standalone shortcuts, the Favorites and the Header tap actions in
-     * one transaction, then reapplies pins for their Profiles.
+     * Removes [keys] from the Standalone shortcuts, the Favorites, the Header tap actions and the
+     * name customizations in one transaction, then reapplies pins for their Profiles.
      */
     suspend fun remove(keys: List<String>)
 

@@ -279,6 +279,7 @@ class MainApplication :
                 standaloneShortcutDao = get(),
                 favoriteDao = get(),
                 headerSettingsDao = get(),
+                preferencesRepository = get(),
                 shortcutPinCoordinator = get()
             )
         }

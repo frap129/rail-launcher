@@ -1,5 +1,6 @@
 package core.data.testing
 
+import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IProfileSource
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
@@ -27,6 +28,7 @@ fun createStandaloneShortcutRepository(
     standaloneShortcutDao: StandaloneShortcutDao,
     favoriteDao: FavoriteDao,
     headerSettingsDao: HeaderSettingsDao,
+    preferencesRepository: IPreferencesRepository,
     shortcutSource: IShortcutSource,
     shortcutPinCoordinator: IShortcutPinCoordinator
 ): IStandaloneShortcutRepository = IStandaloneShortcutRepositoryImpl(
@@ -34,5 +36,6 @@ fun createStandaloneShortcutRepository(
     standaloneShortcutDao = standaloneShortcutDao,
     favoriteDao = favoriteDao,
     headerSettingsDao = headerSettingsDao,
+    preferencesRepository = preferencesRepository,
     shortcutPinCoordinator = shortcutPinCoordinator
 )

@@ -33,6 +33,10 @@ import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.PopupDao
+import core.data.shortcuts.IShortcutSource
+import core.data.shortcuts.IStandaloneShortcutPinSourceImpl
+import core.data.shortcuts.IStandaloneShortcutRepository
+import core.data.shortcuts.IStandaloneShortcutRepositoryImpl
 import core.data.shortcuts.IStandaloneShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -63,6 +67,7 @@ import core.data.testing.createPrivateSpaceStatus
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createShortcut
+import core.data.testing.createShortcutPinCoordinator
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createStaleKeyCleanup
 import core.data.testing.createStandaloneShortcutSource
@@ -176,6 +181,68 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals("Example site", actualShortcut.defaultName)
             assertTrue(actualState.listedGroups.flatMap { group -> group.items }.contains(actualShortcut))
             assertTrue(actualState.pickerGroups.flatMap { group -> group.items }.contains(actualShortcut))
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `re-adding a removed renamed Standalone shortcut shows its resolved name`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile.user)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputProfile.user,
+            longLabel = "Resolved site"
+        )
+        val inputResolution: MutableStateFlow<ShortcutResolution> =
+            MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut)))
+        val mockShortcutSource = createShortcutSourceMock(resolution = inputResolution)
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepository()
+        database.getLaunchableCustomizationDao().setName(key = inputKey.format(), name = RENAMED_NAME)
+        database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
+        val mockProfileSource: IProfileSource = createProfileSourceMock(profile = inputProfile)
+        val standaloneShortcutSource: IStandaloneShortcutSource = createStandaloneShortcutSource(
+            standaloneShortcutDao = database.getStandaloneShortcutDao(),
+            shortcutSource = mockShortcutSource,
+            profileSource = mockProfileSource
+        )
+        val launchableRepository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockProfileSource = mockProfileSource,
+            standaloneShortcutSource = standaloneShortcutSource,
+            cleanupShortcutSource = mockShortcutSource
+        )
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            preferencesRepository = mockPreferencesRepository
+        )
+        val standaloneRepository: IStandaloneShortcutRepository = IStandaloneShortcutRepositoryImpl(
+            source = standaloneShortcutSource,
+            standaloneShortcutDao = database.getStandaloneShortcutDao(),
+            favoriteDao = database.getFavoriteDao(),
+            headerSettingsDao = database.getHeaderSettingsDao(),
+            preferencesRepository = mockPreferencesRepository,
+            shortcutPinCoordinator = createShortcutPinCoordinator(
+                launchableRepository = launchableRepository,
+                privateSpaceStatus = privateSpaceStatus,
+                scope = backgroundScope,
+                shortcutSource = mockShortcutSource,
+                pinSources = listOf(IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = database.getStandaloneShortcutDao()))
+            )
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            assertEquals(RENAMED_NAME, launchableRepository.launchableState.first().launchableFor(inputKey.format())?.name)
+
+            standaloneRepository.remove(keys = listOf(inputKey.format()))
+            finishPendingWork()
+            assertTrue(standaloneRepository.add(inputKey) { true })
+            finishPendingWork()
+
+            assertEquals("Resolved site", launchableRepository.launchableState.first().launchableFor(inputKey.format())?.name)
         } finally {
             collection.cancel()
         }
@@ -326,6 +393,36 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
                 ),
                 actualPausedShortcut.icon
             )
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `shows a never-resolved paused work Standalone shortcut under its publisher App's label`() = databaseTest {
+        val inputPausedWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        val inputOtherActivity: App = createApp(name = "Other activity", profileInfo = inputPausedWorkProfile)
+            .copy(isPackageRepresentative = false)
+        val inputPublisher: App = createApp(name = "Publisher", profileInfo = inputPausedWorkProfile)
+        val inputKey: ShortcutKey = ShortcutKey(
+            packageName = APP_PACKAGE_NAME,
+            id = FIRST_SHORTCUT_ID,
+            profile = inputPausedWorkProfile.user
+        )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            mockProfileSource = createProfileSourceMock(profile = inputPausedWorkProfile),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputOtherActivity, inputPublisher))
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing paused shortcut")
+
+            assertEquals("Publisher", actualShortcut.name)
+            assertEquals("Publisher", actualShortcut.defaultName)
+            assertTrue(actualShortcut.isPaused)
         } finally {
             collection.cancel()
         }
@@ -1519,6 +1616,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             shortcutSource = createShortcutSourceMock(),
             profileSource = mockProfileSource
         ),
+        cleanupShortcutSource: IShortcutSource = createShortcutSourceMock(),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository {
         val launchableRepository: ILaunchableRepository = ILaunchableRepositoryImpl(
@@ -1534,7 +1632,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         createStaleKeyCleanup(
             launchableRepository = launchableRepository,
-            shortcutSource = createShortcutSourceMock(),
+            shortcutSource = cleanupShortcutSource,
             rows = listOf(LaunchableNameCleanupRow(preferencesRepository = mockPreferencesRepository)),
             scope = backgroundScope
         )
