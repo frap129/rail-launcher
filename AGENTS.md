@@ -34,6 +34,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - ktlint `android_studio` style with experimental rules, max line 140, no wildcard imports (`.editorconfig`).
 - Logging via Timber, not `Log`.
 - Duplicated code or logic is never acceptable, however small. Before adding code, search for an existing implementation and reuse or extract it; this covers constants, strings, resources, helpers, state transitions and test setup. Fix every duplication a review finds unless a later ticket already covers it.
+- Always delete superseded code rather than preserving it; never add no-op code or guards unless explicitly required.
 
 ## Git / PRs
 - Conventional Commits with module scopes, e.g. `feat(core:data): ...`, `refactor(launcher): ...`.
