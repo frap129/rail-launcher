@@ -279,10 +279,6 @@ class LauncherViewModelTest {
                 awaitState<LauncherUiState.AppList.Browsing>()
                 runCurrent()
                 expectNoEvents()
-                viewModel.onLaunchableLaunched()
-                awaitState<LauncherUiState.Home>()
-                runCurrent()
-                expectNoEvents()
             }
         }
     }
@@ -494,20 +490,6 @@ class LauncherViewModelTest {
                 val actualSecondHome: LauncherUiState.Home = expectHome()
                 assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
                 assertEquals(0, actualSecondHome.lazyListState.firstVisibleItemIndex)
-            }
-        }
-    }
-
-    @Test
-    fun `resets to Home when a Launchable is launched from the App List`() {
-        runTest {
-            val viewModel: LauncherViewModel = createViewModel()
-            viewModel.uiState.test {
-                expectHome()
-                viewModel.onRailReleased(railIndex(inputListedGroups[1]))
-                expectAppList()
-                viewModel.onLaunchableLaunched()
-                expectHome()
             }
         }
     }
@@ -756,9 +738,7 @@ class LauncherViewModelTest {
                 advanceUntilIdle()
                 coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputItem) }
                 expectNoEvents()
-                val actualAfter: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
-                assertSame(actualBefore.lazyListState, actualAfter.lazyListState)
-                assertEquals(actualBefore.groups, actualAfter.groups)
+                assertAppListStateRetained(before = actualBefore, after = viewModel.uiState.value)
             }
         }
     }
@@ -808,8 +788,7 @@ class LauncherViewModelTest {
                 coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputItem) }
                 val actualAfter: LauncherUiState.AppList.Browsing = viewModel.uiState.value as LauncherUiState.AppList.Browsing
                 assertTrue(actualAfter.isEditingFavorites)
-                assertSame(actualBefore.lazyListState, actualAfter.lazyListState)
-                assertEquals(actualBefore.groups, actualAfter.groups)
+                assertAppListStateRetained(before = actualBefore, after = actualAfter)
                 mockFavoritesFixture.state.favorites.value = listOf(inputItem)
                 mockFavoritesFixture.state.isFavorite.value = true
                 viewModel.toggleFavorite(inputItem)
@@ -1761,6 +1740,12 @@ class LauncherViewModelTest {
     private fun TurbineTestContext<LauncherUiState>.expectHome(): LauncherUiState.Home = expectState()
 
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
+
+    private fun assertAppListStateRetained(before: LauncherUiState.AppList.Browsing, after: LauncherUiState) {
+        val actualAfter: LauncherUiState.AppList.Browsing = checkState(after)
+        assertSame(before.lazyListState, actualAfter.lazyListState)
+        assertEquals(before.groups, actualAfter.groups)
+    }
 
     private fun railIndex(group: LaunchableGroup): Int = inputGroups.indexOf(group)
 

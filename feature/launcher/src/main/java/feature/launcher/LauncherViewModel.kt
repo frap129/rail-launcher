@@ -182,6 +182,8 @@ class LauncherViewModel(
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 
+    private val isShowingAppList: Boolean get() = navigation.value.mode == LauncherMode.AppList
+
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
@@ -451,7 +453,7 @@ class LauncherViewModel(
     }
 
     private fun showHomeFromRail() {
-        if (navigation.value.mode == LauncherMode.AppList) {
+        if (isShowingAppList) {
             showHome(resetScroll = false)
         }
     }
@@ -463,7 +465,7 @@ class LauncherViewModel(
      * is never finished.
      */
     fun onBack() {
-        if (navigation.value.mode == LauncherMode.AppList) {
+        if (isShowingAppList) {
             showHome(resetScroll = false)
         } else {
             finishEditingFavorites()
@@ -475,14 +477,6 @@ class LauncherViewModel(
      * scrolled to the top.
      */
     fun onHomeIntent() {
-        showHome(resetScroll = true)
-    }
-
-    /**
-     * A Launchable was launched. Home is shown scrolled to the top for the
-     * next return.
-     */
-    fun onLaunchableLaunched() {
         showHome(resetScroll = true)
     }
 

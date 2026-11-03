@@ -165,7 +165,6 @@ fun LauncherScreen(
         }
         if (didLaunch) {
             widgetViewModel.onHomeIntent()
-            viewModel.onLaunchableLaunched()
         }
     }
     DisposableEffect(lifecycleOwner, widgetViewModel) {
