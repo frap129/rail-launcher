@@ -7,7 +7,6 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Process
 import android.os.UserHandle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -16,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -23,34 +23,30 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
-import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.toShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.theme.AppTheme
 import core.util.logTypeName
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import timber.log.Timber
-
-private const val ADD_IN_PROGRESS_KEY: String = "add_in_progress"
 
 /** Confirms a Pin request from another app before adding its Shortcut as a Standalone shortcut. */
 class PinShortcutActivity : ComponentActivity() {
-    private val standaloneShortcutRepository: IStandaloneShortcutRepository by inject()
+    internal val viewModel: PinShortcutViewModel by viewModel()
+    private val notifier: IPinShortcutNotifier by inject()
 
     private var pinShortcut: PinShortcut? = null
-    private val isAdding: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val dialogContent: MutableStateFlow<PinShortcutDialogContent?> = MutableStateFlow(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (savedInstanceState?.getBoolean(ADD_IN_PROGRESS_KEY) == true) {
+        if (savedInstanceState != null && viewModel.addState.value != PinShortcutAddState.Idle) {
             return finish()
         }
         val launcherApps: LauncherApps = getSystemService(LauncherApps::class.java)
@@ -75,15 +71,20 @@ class PinShortcutActivity : ComponentActivity() {
         )
         pinShortcut = PinShortcut(request = request, key = key)
         setContent {
-            val adding: Boolean by isAdding.collectAsState()
+            val addState: PinShortcutAddState by viewModel.addState.collectAsState()
             val content: PinShortcutDialogContent? by dialogContent.collectAsState()
+            LaunchedEffect(addState) {
+                if (addState.isFinished) {
+                    finish()
+                }
+            }
             content?.let { currentContent ->
                 AppTheme {
                     PinShortcutDialog(
                         shortcutLabel = currentContent.shortcutLabel,
                         sourceAppName = currentContent.sourceAppName,
                         shortcutIcon = currentContent.shortcutIcon,
-                        isAdding = adding,
+                        isAdding = addState.isAdding,
                         onAdd = ::addShortcut,
                         onCancel = ::cancel
                     )
@@ -98,11 +99,6 @@ class PinShortcutActivity : ComponentActivity() {
                 shortcutIcon = readIcon(launcherApps = launcherApps, shortcut = shortcut, profile = key.profile)
             )
         }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putBoolean(ADD_IN_PROGRESS_KEY, isAdding.value)
     }
 
     private fun readPinRequest(intent: Intent, launcherApps: LauncherApps): LauncherApps.PinItemRequest? = try {
@@ -120,7 +116,7 @@ class PinShortcutActivity : ComponentActivity() {
     }
 
     private fun finishWithAddError() {
-        Toast.makeText(this, R.string.couldnt_add_shortcut, Toast.LENGTH_SHORT).show()
+        notifier.showAddError()
         finish()
     }
 
@@ -148,34 +144,17 @@ class PinShortcutActivity : ComponentActivity() {
     }
 
     private fun cancel() {
-        if (!isAdding.value) {
+        if (!viewModel.addState.value.isAdding) {
             finish()
         }
     }
 
-    private fun addShortcut() {
-        if (isAdding.value) {
-            return
-        }
+    internal fun addShortcut() {
         val currentPinShortcut: PinShortcut = pinShortcut ?: return
-        isAdding.value = true
-        lifecycleScope.launch(Dispatchers.IO) {
-            val isAdded: Boolean = try {
-                standaloneShortcutRepository.add(key = currentPinShortcut.key, accept = { currentPinShortcut.request.accept() })
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                Timber.w("Could not add a Shortcut pin request: %s", exception.logTypeName())
-                false
-            }
-            withContext(Dispatchers.Main) {
-                if (!isAdded) {
-                    finishWithAddError()
-                } else {
-                    finish()
-                }
-            }
-        }
+        viewModel.add(
+            key = currentPinShortcut.key,
+            accept = { currentPinShortcut.request.accept() }
+        )
     }
 }
 

@@ -131,8 +131,11 @@ import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.IHeaderTapTargetResolver
 import core.ui.widgets.IHeaderTapTargetResolverImpl
 import core.util.screenHeightPx
+import feature.launcher.IPinShortcutNotifier
+import feature.launcher.IPinShortcutNotifierImpl
 import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
+import feature.launcher.PinShortcutViewModel
 import feature.launcher.PopupCardViewModel
 import feature.launcher.widgets.AppWidgetResults
 import feature.launcher.widgets.IWidgetAddController
@@ -283,6 +286,7 @@ class MainApplication :
                 shortcutPinCoordinator = get()
             )
         }
+        single<IPinShortcutNotifier> { IPinShortcutNotifierImpl(androidContext()) }
         single<IPopupRepository> {
             IPopupRepositoryImpl(
                 popupDao = get(),
@@ -406,6 +410,13 @@ class MainApplication :
      */
     private val viewModelModule = module {
         factory { ListOffsets.forScreenHeight(screenHeightPx(androidContext())) }
+        viewModel {
+            PinShortcutViewModel(
+                standaloneShortcutRepository = get(),
+                scope = get(named(APP_SCOPE_QUALIFIER)),
+                notifier = get()
+            )
+        }
         viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
