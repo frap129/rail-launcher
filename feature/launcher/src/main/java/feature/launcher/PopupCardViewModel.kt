@@ -38,9 +38,9 @@ import core.data.widgets.PlacedWidget
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
-import core.data.widgets.canGrowStack
 import core.data.widgets.canResizeStack
-import core.data.widgets.stackDefaultHeightDp
+import core.data.widgets.projectedHeightDp
+import core.data.widgets.providerInfoFor
 import core.data.widgets.stackIndicatorVisible
 import core.data.widgets.stackResizeBounds
 import core.ui.R as CoreUiR
@@ -175,7 +175,15 @@ class PopupCardViewModel(
         windowHeightDp,
         widgetSettingsRepository.widgetAreaSettings
     ) { place, windowHeight, settings ->
-        place?.toPopupWidgetState(windowHeightDp = windowHeight, indicatorVisible = settings.stackIndicatorVisible)
+        if (place == null) {
+            null
+        } else {
+            place.toPopupWidgetState(
+                windowHeightDp = windowHeight,
+                indicatorVisible = settings.stackIndicatorVisible,
+                canAddPage = widgetRepository.canGrowStack(pageCount = place.widgets.size)
+            )
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -304,9 +312,8 @@ class PopupCardViewModel(
 
     internal val menuState: StateFlow<PopupMenuState> = combine(
         popupState,
-        menuTarget,
-        widgetSettingsRepository.widgetAreaSettings
-    ) { cardState, target, settings ->
+        menuTarget
+    ) { cardState, target ->
         val open: PopupUiState.Open? = cardState as? PopupUiState.Open
         val resolvedTarget: Launchable? = when {
             open == null || target == null -> null
@@ -326,7 +333,6 @@ class PopupCardViewModel(
                     isItem = target?.itemKey != null,
                     widget = widget,
                     widgetPage = widgetPage,
-                    maxStackPages = settings.maxStackPages,
                     isWidgetMenu = isWidgetMenu
                 ),
                 widgetPage = widgetPage
@@ -545,8 +551,7 @@ class PopupCardViewModel(
         val owner: Launchable = open.owner
         val widget: PopupWidgetState? = open.widget
         viewModelScope.launch {
-            val maxStackPages: Int = widgetSettingsRepository.widgetAreaSettings.first().maxStackPages
-            if (widget != null && !canGrowStack(pageCount = widget.pages.size, maxStackPages = maxStackPages)) {
+            if (widget != null && !widget.canAddPage) {
                 widgetEvents.send(WidgetEvent.ShowMessage(message = CoreUiR.string.stack_full))
                 return@launch
             }
@@ -785,7 +790,6 @@ class PopupCardViewModel(
         isItem: Boolean,
         widget: PopupWidgetState?,
         widgetPage: PopupWidgetPage?,
-        maxStackPages: Int,
         isWidgetMenu: Boolean
     ): List<PopupMenuItem> = buildList {
         if (isItem) {
@@ -804,7 +808,7 @@ class PopupCardViewModel(
             if (widget == null) {
                 add(PopupMenuItem.AddWidget)
             } else {
-                if (canGrowStack(pageCount = widget.pages.size, maxStackPages = maxStackPages)) {
+                if (widget.canAddPage) {
                     add(PopupMenuItem.AddToStack)
                 }
                 widget.currentPageOrNull()?.let { page -> addWidgetActions(widget = widget, page = page) }
@@ -853,30 +857,36 @@ class PopupCardViewModel(
         if (appWidgets.isEmpty()) {
             return null
         }
-        val bounds: ResizeBounds = widgets.stackResizeBounds(providerInfo = ::providerInfoFor) ?: return null
+        val bounds: ResizeBounds = widgets.stackResizeBounds(
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
+        ) ?: return null
         return PopupWidgetLayout(ownerKey = ownerKey, appWidgets = appWidgets, bounds = bounds)
     }
 
-    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?, indicatorVisible: Boolean): PopupWidgetState? {
+    private fun WidgetPlace.toPopupWidgetState(windowHeightDp: Int?, indicatorVisible: Boolean, canAddPage: Boolean): PopupWidgetState? {
         val layout: PopupWidgetLayout = popupWidgetLayout() ?: return null
         val pages: List<PopupWidgetPage> = layout.appWidgets.map { widget -> widget.toPopupWidgetPage() }
+        val resolvedHeightDp: Int = projectedHeightDp(
+            place = this,
+            headerHeightDp = null,
+            homeHeightDp = windowHeightDp?.let(::popupWidgetMaxHeightDp) ?: Int.MAX_VALUE,
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
+        ) ?: layout.bounds.minDp
         return PopupWidgetState(
             placeId = id,
             ownerKey = layout.ownerKey,
             pages = pages,
             currentPage = currentPage.coerceIn(0, pages.lastIndex),
-            heightDp = layout.bounds.clamp(
-                heightDp = heightDp ?: widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: layout.bounds.minDp,
-                homeHeightDp = windowHeightDp?.let(::popupWidgetMaxHeightDp) ?: Int.MAX_VALUE
-            ),
+            heightDp = resolvedHeightDp,
             bounds = layout.bounds,
             isResizable = widgets.canResizeStack(bounds = layout.bounds),
-            indicatorVisible = widgets.stackIndicatorVisible(settingVisible = indicatorVisible)
+            indicatorVisible = widgets.stackIndicatorVisible(settingVisible = indicatorVisible),
+            canAddPage = canAddPage
         )
     }
 
     private fun PlacedWidget.AppWidget.toPopupWidgetPage(): PopupWidgetPage {
-        val info: WidgetProviderInfo? = providerInfoFor(this)
+        val info: WidgetProviderInfo? = appWidgetHost.providerInfoFor(this)
         return PopupWidgetPage(
             widgetId = id,
             appWidgetId = appWidgetId,
@@ -886,9 +896,6 @@ class PopupCardViewModel(
             isReconfigurable = appWidgetMenuCapabilities(widget = this, info = info).isReconfigurable
         )
     }
-
-    private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
-        appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
 
     private fun clearReopenKeys() {
         savedStateHandle.remove<String>(POPUP_REOPEN_OWNER_KEY)

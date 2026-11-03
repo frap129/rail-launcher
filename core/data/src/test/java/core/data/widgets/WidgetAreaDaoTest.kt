@@ -10,7 +10,7 @@ import org.junit.Test
 
 class WidgetAreaDaoTest : InMemoryDatabaseTest() {
     @Test
-    fun `removeWidget deletes the widget and its empty place`() = databaseTest {
+    fun `deleteWidgets then deleteEmptyPlaces drops the empty place`() = databaseTest {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
         val placeId: Long = dao.insertPlace(WidgetPlaceRecord(position = 0))
         val widgetId: Long = dao.insertWidget(
@@ -24,9 +24,9 @@ class WidgetAreaDaoTest : InMemoryDatabaseTest() {
             )
         )
 
-        val actualRemovedAppWidgetId: Int? = dao.removeWidget(widgetId)
+        dao.deleteWidgets(listOf(widgetId))
+        dao.deleteEmptyPlaces()
 
-        assertEquals(42, actualRemovedAppWidgetId)
         assertTrue(dao.observeWidgets().first().isEmpty())
         assertTrue(dao.observePlaces().first().isEmpty())
     }

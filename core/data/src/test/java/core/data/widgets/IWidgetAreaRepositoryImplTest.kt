@@ -6,12 +6,14 @@ import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.packageLevelKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -259,7 +261,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
             appWidgetHost = mockHost,
-            lifecycleReconciler = reconciler
+            lifecycleReconciler = reconciler,
+            settingsRepository = createWidgetSettingsRepositoryMock()
         )
         repository.places.test {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
@@ -609,7 +612,7 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val repository: IWidgetAreaRepositoryImpl = repository(dao)
         val actualUndo: ReplaceHeaderUndo = repository.replaceHeader(widgetId = 20L)!!
-        dao.deleteByAppWidgetIds(listOf(42))
+        dao.deleteWidgets(listOf(20L))
 
         repository.undoReplaceHeader(undo = actualUndo)
 
@@ -851,10 +854,124 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         assertTrue(dao.getAppWidgets().isEmpty())
     }
 
+    @Test
+    fun `canGrowStack reads the Stack cap and the stored pages`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(
+                appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 11L, placeId = 1L, pagePosition = 1, appWidgetId = 101)
+            )
+        )
+        val twoPageRepository: IWidgetAreaRepository = repository(
+            dao = dao,
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+        val threePageRepository: IWidgetAreaRepository = repository(
+            dao = dao,
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 3)
+        )
+
+        assertTrue(twoPageRepository.canGrowStack(placeId = 1L, additionalPages = 0))
+        assertFalse(twoPageRepository.canGrowStack(placeId = 1L))
+        assertTrue(threePageRepository.canGrowStack(placeId = 1L))
+    }
+
+    @Test
+    fun `addAppWidget rejects a page over the Stack cap`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(
+                appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 11L, placeId = 1L, pagePosition = 1, appWidgetId = 101)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(
+            dao = dao,
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+
+        val actualFailure: Throwable? = runCatching {
+            repository.addAppWidget(
+                request = AddAppWidget(
+                    appWidgetId = AppWidgetId(102),
+                    provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                    profileSerial = 0L,
+                    insertAt = InsertPosition.IntoStack(placeId = 1L),
+                    defaultHeightDp = 48
+                )
+            )
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is WidgetStackFullException)
+        assertEquals(listOf(10L, 11L), dao.observeWidgets().first().map { widget -> widget.id })
+    }
+
+    @Test
+    fun `addAppWidget with an owner key rejects a page over the Stack cap`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(popupPlace(id = 2L, ownerKey = "owner-key")),
+            widgets = listOf(
+                appWidget(id = 10L, placeId = 2L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 11L, placeId = 2L, pagePosition = 1, appWidgetId = 101)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(
+            dao = dao,
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+
+        val actualFailure: Throwable? = runCatching {
+            repository.addAppWidget(
+                request = AddAppWidget(
+                    appWidgetId = AppWidgetId(102),
+                    provider = WidgetProvider(packageName = "com.example", className = "Widget"),
+                    profileSerial = 0L,
+                    insertAt = InsertPosition.End,
+                    defaultHeightDp = 48,
+                    ownerKey = "owner-key"
+                )
+            )
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is WidgetStackFullException)
+        assertEquals(listOf(10L, 11L), dao.observeWidgets().first().map { widget -> widget.id })
+    }
+
+    @Test
+    fun `commitEdit rejects a place over the Stack cap`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0), place(id = 2L, position = 1)),
+            widgets = listOf(
+                appWidget(id = 10L, placeId = 1L, pagePosition = 0, appWidgetId = 100),
+                appWidget(id = 20L, placeId = 2L, pagePosition = 0, appWidgetId = 200),
+                appWidget(id = 30L, placeId = 2L, pagePosition = 1, appWidgetId = 300)
+            )
+        )
+        val repository: IWidgetAreaRepository = repository(
+            dao = dao,
+            widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
+        )
+
+        val actualFailure: Throwable? = runCatching {
+            repository.commitEdit(
+                edit = WidgetAreaEdit(places = listOf(PlaceDraft(placeId = 1L, widgetIds = listOf(10L, 20L, 30L))))
+            )
+        }.exceptionOrNull()
+
+        assertTrue(actualFailure is WidgetStackFullException)
+        assertEquals(listOf(1L, 2L, 2L), dao.observeWidgets().first().map { widget -> widget.placeId })
+    }
+
     private suspend fun repository(
         dao: WidgetAreaDao,
         availabilityProvider: (AppWidgetId) -> WidgetAvailability = { WidgetAvailability.Available },
-        providerChangesFlow: Flow<Unit> = emptyFlow()
+        providerChangesFlow: Flow<Unit> = emptyFlow(),
+        widgetAreaSettings: WidgetAreaSettings = WidgetAreaSettings.Default
     ): IWidgetAreaRepositoryImpl {
         val boundIds: Set<AppWidgetId> = dao.boundAppWidgetIds()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
@@ -867,7 +984,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
             appWidgetHost = mockHost,
-            lifecycleReconciler = reconciler
+            lifecycleReconciler = reconciler,
+            settingsRepository = createWidgetSettingsRepositoryMock(widgetAreaSettings = widgetAreaSettings)
         )
     }
 

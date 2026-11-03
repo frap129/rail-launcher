@@ -41,7 +41,11 @@ class IWidgetLifecycleReconcilerImpl(private val dao: WidgetAreaDao, private val
                 appWidgetId !in systemIds && appWidgetId !in protectedIds
             }
             if (dead.isNotEmpty()) {
-                dao.deleteByAppWidgetIds(dead.mapNotNull { widget -> widget.appWidgetId })
+                dao.inTransaction {
+                    val placeIds: List<Long> = dead.map { widget -> widget.placeId }.distinct()
+                    dao.deleteWidgetsByAppWidgetIds(dead.mapNotNull { widget -> widget.appWidgetId })
+                    placeIds.forEach { placeId -> applyPlaceLayout(dao = dao, host = host, placeId = placeId) }
+                }
                 dead.forEach { widget ->
                     widget.appWidgetId?.let { id -> removed.tryEmit(AppWidgetId(id)) }
                 }
@@ -58,9 +62,13 @@ class IWidgetLifecycleReconcilerImpl(private val dao: WidgetAreaDao, private val
             if (gone.isEmpty()) {
                 return
             }
+            dao.inTransaction {
+                gone.forEach { widget ->
+                    dao.deleteWidgets(listOf(widget.id))
+                    applyPlaceLayout(dao = dao, host = host, placeId = widget.placeId)
+                }
+            }
             gone.forEach { widget ->
-                dao.removeWidget(widgetId = widget.id)
-                clampDissolvedPlace(dao = dao, host = host, placeId = widget.placeId)
                 widget.appWidgetId?.let { id ->
                     host.deleteId(AppWidgetId(id))
                     removed.tryEmit(AppWidgetId(id))

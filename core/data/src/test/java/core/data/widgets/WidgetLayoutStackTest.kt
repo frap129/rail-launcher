@@ -9,22 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class WidgetStackRulesTest {
-    @Test
-    fun `a place can grow its stack while below the cap`() {
-        val inputSinglePage: WidgetPlace = popupStackPlace(placeId = 1L, widgetIds = listOf(1L), appWidgetIds = listOf(9))
-        val inputFullStack: WidgetPlace = popupStackPlace(placeId = 1L, widgetIds = listOf(1L, 2L), appWidgetIds = listOf(9, 10))
-
-        assertTrue(inputSinglePage.canGrowStack(maxStackPages = 4))
-        assertFalse(inputFullStack.canGrowStack(maxStackPages = 2))
-    }
-
-    @Test
-    fun `a merge can grow a stack by several pages`() {
-        assertTrue(canGrowStack(pageCount = 1, maxStackPages = 4, additionalPages = 2))
-        assertFalse(canGrowStack(pageCount = 3, maxStackPages = 4, additionalPages = 2))
-    }
-
+class WidgetLayoutStackTest {
     @Test
     fun `stack default height is the tallest page default`() {
         val inputWidgets: List<PlacedWidget> = listOf(

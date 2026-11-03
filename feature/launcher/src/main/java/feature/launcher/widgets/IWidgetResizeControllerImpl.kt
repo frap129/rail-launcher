@@ -7,9 +7,10 @@ import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.PlacedWidget
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetPlace
-import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.canResizeStack
 import core.data.widgets.placeOf
+import core.data.widgets.providerInfoFor
+import core.data.widgets.resolvedDefaultHeightDp
 import core.data.widgets.stackDefaultHeightDp
 import core.data.widgets.stackIndicatorVisible
 import core.data.widgets.stackResizeBounds
@@ -66,7 +67,7 @@ class IWidgetResizeControllerImpl(
             .firstOrNull { place -> place.id == placeId } ?: return false
         val bounds: ResizeBounds = place.widgets.stackResizeBounds(
             headerHeightDp = headerHeightDp,
-            providerInfo = ::providerInfoFor
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
         ) ?: return false
         if (!place.widgets.canResizeStack(bounds = bounds)) {
             return false
@@ -74,7 +75,10 @@ class IWidgetResizeControllerImpl(
         if (!homeEditState.tryEnter(HomeEditMode.Resizing(placeId = placeId))) {
             return false
         }
-        val defaultHeightDp: Int = place.widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: bounds.minDp
+        val defaultHeightDp: Int = place.widgets.resolvedDefaultHeightDp(
+            bounds = bounds,
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
+        )
         val indicatorVisible: Boolean = place.widgets.stackIndicatorVisible(
             settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
         )
@@ -178,7 +182,7 @@ class IWidgetResizeControllerImpl(
             ?: return
         val bounds: ResizeBounds = place.widgets.stackResizeBounds(
             headerHeightDp = headerHeightDp,
-            providerInfo = ::providerInfoFor
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
         ) ?: return
         val storedHeight: Int = place.heightDp ?: return
         val homeHeight: Int = homeHeight.value ?: Int.MAX_VALUE
@@ -194,7 +198,9 @@ class IWidgetResizeControllerImpl(
         val appWidgetIds: List<AppWidgetId> = place.widgets
             .filterIsInstance<PlacedWidget.AppWidget>()
             .map { widget -> AppWidgetId(widget.appWidgetId) }
-        val heightDp: Int = place.heightDp ?: place.widgets.stackDefaultHeightDp(providerInfo = ::providerInfoFor) ?: return null
+        val heightDp: Int = place.heightDp ?: place.widgets.stackDefaultHeightDp(
+            providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
+        ) ?: return null
         val widthDp: Int = widgetAreaWidthDp
         if (appWidgetIds.isEmpty() || widthDp <= 0) {
             return null
@@ -218,9 +224,6 @@ class IWidgetResizeControllerImpl(
             cancelResize()
         }
     }
-
-    private fun providerInfoFor(widget: PlacedWidget.AppWidget): WidgetProviderInfo? =
-        appWidgetHost.providerInfo(id = AppWidgetId(widget.appWidgetId))
 
     private fun ResizeState.withDraft(heightDp: Int): ResizeState {
         val homeHeightDp: Int = homeHeight.value ?: Int.MAX_VALUE

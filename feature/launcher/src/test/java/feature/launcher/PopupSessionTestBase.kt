@@ -112,8 +112,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
             mockRepository = mockWidgetRepository,
             mockAppWidgetHost = mockAppWidgetHost,
             homeEditState = homeEditState,
-            savedStateHandle = savedStateHandle,
-            mockSettingsRepository = mockWidgetSettingsRepository
+            savedStateHandle = savedStateHandle
         ),
         resizeController = IWidgetResizeControllerImpl(
             repository = mockWidgetRepository,

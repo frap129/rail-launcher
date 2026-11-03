@@ -1158,6 +1158,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     fun `owner menu hides Add to stack at the stack cap`() = runTest {
         val mockRepository: IWidgetAreaRepository =
             createWidgetAreaRepositoryMock(places = listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
+        coEvery { mockRepository.canGrowStack(pageCount = 2) } returns false
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
         )
@@ -1282,6 +1283,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     fun `startAddWidget at the stack cap reports that the stack is full`() = runTest {
         val mockRepository: IWidgetAreaRepository =
             createWidgetAreaRepositoryMock(places = listOf(popupStackPlace(placeId = 5L, ownerKey = inputApp.key)))
+        coEvery { mockRepository.canGrowStack(pageCount = 2) } returns false
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
         )

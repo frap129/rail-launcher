@@ -9,7 +9,6 @@ import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createWidgetAreaRepositoryMock
-import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.headerPlace
 import core.data.widgets.AddedAppWidget
 import core.data.widgets.AppWidgetId
@@ -18,10 +17,10 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.PlacedWidget
-import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
+import core.data.widgets.WidgetStackFullException
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -198,12 +197,8 @@ class IWidgetAddControllerImplTest {
             )
         )
         val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack))
-        val actualController: IWidgetAddController = createAddController(
-            mockRepository = mockRepository,
-            mockSettingsRepository = createWidgetSettingsRepositoryMock(
-                widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2)
-            )
-        )
+        coEvery { mockRepository.canGrowStack(placeId = 1L, additionalPages = 1) } returns false
+        val actualController: IWidgetAddController = createAddController(mockRepository = mockRepository)
 
         actualController.startFromMenu(target = AddWidgetTarget.Header(widgetId = 1L))
 
@@ -292,6 +287,33 @@ class IWidgetAddControllerImplTest {
         assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.allocatedIds)
         assertTrue(mockAppWidgetHostFixture.state.deletedIds.isEmpty())
         assertEquals(listOf(setOf(AppWidgetId(1)), emptySet<AppWidgetId>()), mockAddFlowPendingIdsState.updates)
+    }
+
+    @Test
+    fun `an over-cap write rejects the add and frees the allocated id`() = runTest {
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(places = listOf(headerPlace))
+        coEvery { mockRepository.addAppWidget(any()) } throws WidgetStackFullException(message = "stack full")
+        val mockAppWidgetHostFixture: AppWidgetHostFixture = createAppWidgetHostFixture(
+            providers = listOf(appWidgetProviderInfo()),
+            bindResults = listOf(true)
+        )
+        val actualController: IWidgetAddController = createAddController(
+            mockRepository = mockRepository,
+            mockAppWidgetHost = mockAppWidgetHostFixture.mockAppWidgetHost
+        )
+        val inputProvider: WidgetProviderInfo = appWidgetProviderInfo()
+        actualController.updateProviders(providers = listOf(inputProvider))
+        actualController.start(origin = AddWidgetOrigin(insertAt = InsertPosition.IntoStack(placeId = 1L)))
+
+        actualController.events.test {
+            actualController.pick(provider = inputProvider)
+
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.couldnt_add_widget), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals(AddWidgetFlowState.Idle, actualController.state.value)
+        assertEquals(listOf(AppWidgetId(1)), mockAppWidgetHostFixture.state.deletedIds)
     }
 
     @Test

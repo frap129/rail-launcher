@@ -3,11 +3,6 @@ package core.data.room.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Transaction
-import core.data.widgets.HeaderRemoval
-import core.data.widgets.PlaceDraft
-import core.data.widgets.WidgetAreaEdit
-import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.Flow
@@ -87,56 +82,14 @@ abstract class WidgetAreaDao : TransactionalDao {
     @Query("DELETE FROM widgets WHERE app_widget_id IN (:ids)")
     abstract suspend fun deleteWidgetsByAppWidgetIds(ids: List<Int>)
 
-    @Transaction
-    open suspend fun deleteByAppWidgetIds(ids: List<Int>) {
-        if (ids.isEmpty()) {
-            return
-        }
-        deleteWidgetsByAppWidgetIds(ids)
-        deleteEmptyPlaces()
-    }
-
     @Query("UPDATE widget_places SET position = position + 1 WHERE position >= :position AND owner_key IS NULL")
     abstract suspend fun shiftPositionsFrom(position: Int)
 
     @Query("SELECT COALESCE(MAX(position), -1) FROM widget_places WHERE owner_key IS NULL")
     abstract suspend fun getMaxPlacePosition(): Int
 
-    @Transaction
-    open suspend fun removeHeader(widgetId: Long? = null): HeaderRemoval? {
-        val header: WidgetRecord? = if (widgetId == null) {
-            getHeaders().firstOrNull()
-        } else {
-            getWidget(widgetId)?.takeIf { widget -> widget.kind == WidgetKind.HEADER }
-        }
-        if (header == null) {
-            return null
-        }
-        val place: WidgetPlaceRecord = getPlace(header.placeId) ?: return null
-        deleteWidgets(listOf(header.id))
-        normalizePlace(placeId = place.id)
-        return HeaderRemoval(position = place.position, placeId = place.id, pagePosition = header.pagePosition)
-    }
-
-    @Transaction
-    open suspend fun deleteDuplicateHeaders(ids: List<Long>) {
-        if (ids.isEmpty()) {
-            return
-        }
-        deleteWidgets(ids)
-        deleteEmptyPlaces()
-    }
-
     @Query("UPDATE widgets SET extends_under_rail = :extendsUnderRail WHERE id = :widgetId AND kind = 'APP_WIDGET'")
     abstract suspend fun setExtendsUnderRail(widgetId: Long, extendsUnderRail: Boolean)
-
-    @Transaction
-    open suspend fun removeWidget(widgetId: Long): Int? {
-        val widget: WidgetRecord = getWidget(widgetId) ?: return null
-        deleteWidgets(listOf(widgetId))
-        normalizePlace(placeId = widget.placeId)
-        return widget.appWidgetId
-    }
 
     @Query("SELECT app_widget_id FROM widgets WHERE place_id IN (:placeIds) AND app_widget_id IS NOT NULL")
     abstract suspend fun appWidgetIdsForPlaces(placeIds: List<Long>): List<Int>
@@ -158,58 +111,4 @@ abstract class WidgetAreaDao : TransactionalDao {
 
     @Query("UPDATE widgets SET place_id = :placeId, page_position = :position WHERE id = :widgetId")
     abstract suspend fun moveWidget(widgetId: Long, placeId: Long, position: Int)
-
-    @Transaction
-    open suspend fun commitEdit(edit: WidgetAreaEdit): List<Int> {
-        val removedWidgetIds: List<Long> = edit.removedWidgetIds.toList()
-        val freedIds: MutableList<Int> = appWidgetIdsForWidgets(removedWidgetIds).toMutableList()
-        if (removedWidgetIds.isNotEmpty()) {
-            deleteWidgets(removedWidgetIds)
-        }
-        val insertedPlaceIds: MutableSet<Long> = mutableSetOf()
-        edit.places.forEachIndexed { index, draft: PlaceDraft ->
-            val placeId: Long = draft.placeId ?: insertPlace(WidgetPlaceRecord(position = index)).also { inserted ->
-                insertedPlaceIds.add(inserted)
-            }
-            setPlacePosition(placeId = placeId, position = index)
-            draft.widgetIds.forEachIndexed { pagePosition, widgetId ->
-                moveWidget(widgetId = widgetId, placeId = placeId, position = pagePosition)
-            }
-        }
-        val retainedPlaceIds: Set<Long> = edit.places.mapNotNull { draft -> draft.placeId }.toSet() + insertedPlaceIds
-        val orphanPlaceIds: List<Long> = getWidgetAreaPlaceIds().filter { placeId -> placeId !in retainedPlaceIds }
-        if (orphanPlaceIds.isNotEmpty()) {
-            freedIds += appWidgetIdsForPlaces(orphanPlaceIds)
-            deletePlaces(orphanPlaceIds)
-        }
-        deleteEmptyPlaces()
-        getWidgetAreaPlaceIds().forEach { placeId -> normalizePlace(placeId = placeId) }
-        return freedIds
-    }
-
-    /** Dissolves a one-page place, clamps a stack's page and keeps a lone Header's height unset. */
-    @Transaction
-    open suspend fun normalizePlace(placeId: Long) {
-        val pages: List<WidgetRecord> = getWidgetsForPlace(placeId)
-        if (pages.isEmpty()) {
-            deleteEmptyPlaces()
-            return
-        }
-        if (pages.size == 1) {
-            setCurrentPage(placeId = placeId, page = 0)
-            val widget: WidgetRecord = pages.first()
-            if (widget.kind == WidgetKind.HEADER) {
-                setPlaceHeight(placeId = placeId, heightDp = null)
-            } else {
-                val minimum: Int? = widget.defaultHeightDp
-                val height: Int? = getPlace(placeId)?.heightDp
-                if (minimum != null && height != null) {
-                    setPlaceHeight(placeId = placeId, heightDp = maxOf(height, minimum))
-                }
-            }
-            return
-        }
-        val currentPage: Int = getPlace(placeId)?.currentPage ?: 0
-        setCurrentPage(placeId = placeId, page = currentPage.coerceIn(0, pages.lastIndex))
-    }
 }
