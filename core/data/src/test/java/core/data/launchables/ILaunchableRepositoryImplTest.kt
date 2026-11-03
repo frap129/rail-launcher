@@ -400,28 +400,55 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `shows a never-resolved paused work Standalone shortcut under its publisher App's label`() = databaseTest {
-        val inputPausedWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
-        val inputOtherActivity: App = createApp(name = "Other activity", profileInfo = inputPausedWorkProfile)
+        val inputPausedShortcut: PausedStandaloneShortcutInputs = createPausedStandaloneShortcutInputs()
+        val inputOtherActivity: App = createApp(name = "Other activity", profileInfo = inputPausedShortcut.profile)
             .copy(isPackageRepresentative = false)
-        val inputPublisher: App = createApp(name = "Publisher", profileInfo = inputPausedWorkProfile)
-        val inputKey: ShortcutKey = ShortcutKey(
-            packageName = APP_PACKAGE_NAME,
-            id = FIRST_SHORTCUT_ID,
-            profile = inputPausedWorkProfile.user
-        )
-        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
-            inputKey = inputKey,
-            mockProfileSource = createProfileSourceMock(profile = inputPausedWorkProfile),
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputOtherActivity, inputPublisher))
+        val inputPublisher: App = createApp(name = "Publisher", profileInfo = inputPausedShortcut.profile)
+        val launchableRepository: ILaunchableRepository = createPausedStandaloneShortcutRepository(
+            inputPausedShortcut = inputPausedShortcut,
+            inputApps = listOf(inputOtherActivity, inputPublisher)
         )
         val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
         try {
             finishPendingWork()
             val actualShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
-                .launchableFor(inputKey.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing paused shortcut")
+                .launchableFor(inputPausedShortcut.key.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing paused shortcut")
 
             assertEquals("Publisher", actualShortcut.name)
             assertEquals("Publisher", actualShortcut.defaultName)
+            assertTrue(actualShortcut.isPlaceholder)
+            assertTrue(actualShortcut.isPaused)
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `keeps a resolved paused Standalone shortcut's own blank-label fallback`() = databaseTest {
+        val inputPausedShortcut: PausedStandaloneShortcutInputs = createPausedStandaloneShortcutInputs()
+        val inputPublisher: App = createApp(name = "Publisher", profileInfo = inputPausedShortcut.profile)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputPausedShortcut.profile.user,
+            shortLabel = APP_PACKAGE_NAME,
+            longLabel = APP_PACKAGE_NAME
+        )
+        val launchableRepository: ILaunchableRepository = createPausedStandaloneShortcutRepository(
+            inputPausedShortcut = inputPausedShortcut,
+            inputApps = listOf(inputPublisher),
+            inputResolution = MutableStateFlow(
+                ShortcutResolution(shortcuts = mapOf(inputPausedShortcut.key to inputShortcut))
+            )
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: ShortcutLaunchable = launchableRepository.launchableState.first()
+                .launchableFor(inputPausedShortcut.key.format()) as? ShortcutLaunchable ?: throw AssertionError("Missing shortcut")
+
+            assertEquals(APP_PACKAGE_NAME, actualShortcut.name)
+            assertEquals(APP_PACKAGE_NAME, actualShortcut.defaultName)
+            assertFalse(actualShortcut.isPlaceholder)
             assertTrue(actualShortcut.isPaused)
         } finally {
             collection.cancel()
@@ -1578,6 +1605,25 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         }
     }
 
+    private fun createPausedStandaloneShortcutInputs(): PausedStandaloneShortcutInputs {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        return PausedStandaloneShortcutInputs(
+            profile = inputProfile,
+            key = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile.user)
+        )
+    }
+
+    private suspend fun TestScope.createPausedStandaloneShortcutRepository(
+        inputPausedShortcut: PausedStandaloneShortcutInputs,
+        inputApps: List<App>,
+        inputResolution: StateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution())
+    ): ILaunchableRepository = createStandaloneShortcutRepository(
+        inputKey = inputPausedShortcut.key,
+        inputResolution = inputResolution,
+        mockProfileSource = createProfileSourceMock(profile = inputPausedShortcut.profile),
+        mockAppRepository = createAppRepositoryMock(inputApps = inputApps)
+    )
+
     private suspend fun TestScope.createStandaloneShortcutRepository(
         inputKey: ShortcutKey,
         inputResolution: StateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution()),
@@ -1699,3 +1745,5 @@ private data class PrivateSpaceRepositories(
     val popups: IPopupRepository,
     val headerSettings: IWidgetSettingsRepository
 )
+
+private data class PausedStandaloneShortcutInputs(val profile: ProfileInfo, val key: ShortcutKey)

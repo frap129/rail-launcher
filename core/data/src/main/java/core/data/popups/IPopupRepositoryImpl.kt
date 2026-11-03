@@ -19,7 +19,6 @@ import core.data.widgets.IRemoveOwnerWidgets
 import core.data.widgets.IWidgetAreaRepository
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,8 +29,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
@@ -41,7 +38,6 @@ private data class ItemResolution(val itemsByOwner: Map<String, List<PopupItem>>
 
 private val UNLOADED_ITEMS: ItemResolution = ItemResolution(itemsByOwner = emptyMap())
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class IPopupRepositoryImpl(
     private val popupDao: PopupDao,
     private val launchableRepository: ILaunchableRepository,
@@ -63,21 +59,22 @@ class IPopupRepositoryImpl(
         .map<List<PopupItemRecord>, List<PopupItemRecord>?> { records -> records }
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = null)
 
-    private val itemResolution: StateFlow<ItemResolution> = itemRecords.filterNotNull()
+    private val itemKeys: Flow<Set<String>> = itemRecords.filterNotNull()
         .map { records -> records.mapTo(mutableSetOf()) { record -> record.itemKey } }
         .distinctUntilChanged()
-        .flatMapLatest { keys ->
-            combine(
-                itemRecords.filterNotNull(),
-                storedKeyClassifier.observe(flowOf(keys))
-            ) { records, states ->
-                if (states == null) {
-                    UNLOADED_ITEMS
-                } else {
-                    resolveItems(records = records, states = states)
-                }
-            }
+
+    private val itemResolution: StateFlow<ItemResolution> = combine(
+        itemRecords.filterNotNull(),
+        storedKeyClassifier.observe(itemKeys)
+    ) { records, states ->
+        // The classifier lags a key-set change, so wait for it to reach every stored key.
+        if (states == null || records.any { record -> record.itemKey !in states }) {
+            null
+        } else {
+            resolveItems(records = records, states = states)
         }
+    }
+        .filterNotNull()
         .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_ITEMS)
 

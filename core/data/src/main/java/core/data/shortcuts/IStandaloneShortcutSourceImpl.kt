@@ -85,7 +85,8 @@ class IStandaloneShortcutSourceImpl(
             shortcutId = id,
             profile = profile,
             shortLabel = packageName,
-            longLabel = packageName
+            longLabel = packageName,
+            isPlaceholder = true
         )
     }
 }

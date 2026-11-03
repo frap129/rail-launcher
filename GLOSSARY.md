@@ -108,6 +108,10 @@ _Avoid_: Disabled shortcut, removed shortcut
 A Shortcut another app asked Rail to add through a Pin request. Rail lists it in the App List and Favorites as its own Launchable instead of keeping it inside a Pop-up.
 _Avoid_: Pinned shortcut (when meaning a Standalone shortcut), home screen shortcut
 
+**Shortcut placeholder**:
+A Standalone shortcut whose Paused or Locked Profile cannot resolve it yet. Rail keeps its key and shows it under its Package representative's name until the Profile resumes.
+_Avoid_: Paused shortcut, empty shortcut
+
 **Pin request**:
 The system's confirm-pin-shortcut request another app sends to the default launcher, asking it to add a Shortcut.
 _Avoid_: Shortcut install, add-to-home request
