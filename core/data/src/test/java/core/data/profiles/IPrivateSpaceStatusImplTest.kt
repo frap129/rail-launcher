@@ -2,16 +2,17 @@ package core.data.profiles
 
 import core.data.prefs.Settings
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_SDK
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createPrivateSpaceStatus
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
+import core.data.testing.finishPendingWork
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,14 +46,68 @@ class IPrivateSpaceStatusImplTest {
         assertEquals(setOf(inputLockedPrivateProfile.user.toProfileToken()), privateSpaceStatus.status.value.keptKeys)
 
         inputSettings.emit(Settings(hidePrivateSpaceWhenLocked = false))
-        advanceUntilIdle()
-        runCurrent()
+        finishPendingWork()
         assertTrue(privateSpaceStatus.status.value.isContainerListed)
 
         inputSettings.emit(Settings(hidePrivateSpaceWhenLocked = true))
-        advanceUntilIdle()
-        runCurrent()
+        finishPendingWork()
         assertFalse(privateSpaceStatus.status.value.isContainerListed)
+    }
+
+    @Test
+    fun `reports each Private Space input change through currentStatus`() = runTest {
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputUnlockedPrivateProfile))
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val inputLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings(hidePrivateSpaceWhenLocked = false))
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = mockProfileSource,
+            privateSpaceLock = inputLock,
+            preferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings)
+        )
+        finishPendingWork()
+        val actualInitialStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertEquals(inputUnlockedPrivateProfile, actualInitialStatus.profile)
+        assertFalse(actualInitialStatus.isLocked)
+        assertFalse(actualInitialStatus.isHidden)
+        assertFalse(actualInitialStatus.hasListedApps)
+
+        inputProfileState.profiles.value = listOf(inputLockedPrivateProfile)
+        finishPendingWork()
+        val actualLockedStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertEquals(inputLockedPrivateProfile, actualLockedStatus.profile)
+        assertTrue(actualLockedStatus.isLocked)
+        assertFalse(actualLockedStatus.isHidden)
+        assertFalse(actualLockedStatus.hasListedApps)
+
+        inputProfileState.profiles.value = listOf(inputUnlockedPrivateProfile)
+        finishPendingWork()
+        val actualUnlockedStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertEquals(inputUnlockedPrivateProfile, actualUnlockedStatus.profile)
+        assertFalse(actualUnlockedStatus.isLocked)
+        assertFalse(actualUnlockedStatus.hasListedApps)
+
+        inputLock.requestLock()
+        finishPendingWork()
+        val actualLockRequestedStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertTrue(actualLockRequestedStatus.isLocked)
+        assertFalse(actualLockRequestedStatus.isHidden)
+
+        inputSettings.value = Settings(hidePrivateSpaceWhenLocked = true)
+        finishPendingWork()
+        val actualHiddenStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertTrue(actualHiddenStatus.isLocked)
+        assertTrue(actualHiddenStatus.isHidden)
+        assertFalse(actualHiddenStatus.isContainerListed)
+
+        inputLock.clearLockRequest()
+        privateSpaceStatus.setListedProfiles(setOf(inputUnlockedPrivateProfile.user))
+        finishPendingWork()
+        val actualListedStatus: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
+        assertEquals(inputUnlockedPrivateProfile, actualListedStatus.profile)
+        assertFalse(actualListedStatus.isLocked)
+        assertFalse(actualListedStatus.isHidden)
+        assertTrue(actualListedStatus.hasListedApps)
     }
 
     @Test

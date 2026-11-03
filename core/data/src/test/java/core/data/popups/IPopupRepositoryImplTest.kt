@@ -643,6 +643,75 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `does not resubscribe Shortcut resolution when a non-Shortcut item is added`() = databaseTest {
+        val inputPopupOwner: App = createApp()
+        val inputOtherItem: Launchable = createRailLaunchable(name = "Other")
+        val inputShortcutKey: ShortcutKey =
+            ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val inputShortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID)
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(PopupItemRecord(ownerKey = inputPopupOwner.key, itemKey = inputShortcutKey.format(), position = 0))
+        )
+        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
+            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputShortcutKey to inputShortcut)))
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(inputPopupOwner, inputOtherItem), label = "O"),
+            mockShortcutSource = mockShortcutSource
+        )
+        finishPendingWork()
+        assertEquals(
+            listOf(PopupItem.Shortcut(launchable = inputShortcut, isEnabled = true)),
+            repository.items(inputPopupOwner.key).first()
+        )
+        clearMocks(mockShortcutSource, answers = false)
+
+        repository.setItems(ownerKey = inputPopupOwner.key, add = listOf(inputOtherItem.key), remove = emptySet())
+        finishPendingWork()
+
+        verify(exactly = 0) { mockShortcutSource.resolve(any()) }
+    }
+
+    @Test
+    fun `resolves added and removed items together`() = databaseTest {
+        val inputPopupOwner: App = createApp()
+        val inputFirstItem: Launchable = createRailLaunchable(name = "First")
+        val inputRemovedItem: Launchable = createRailLaunchable(name = "Removed")
+        val inputAddedItem: Launchable = createRailLaunchable(name = "Added")
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputPopupOwner.key, itemKey = inputFirstItem.key, position = 0),
+                PopupItemRecord(ownerKey = inputPopupOwner.key, itemKey = inputRemovedItem.key, position = 1)
+            )
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(
+                launchables = listOf(inputPopupOwner, inputFirstItem, inputRemovedItem, inputAddedItem),
+                label = "O"
+            )
+        )
+        finishPendingWork()
+
+        repository.items(inputPopupOwner.key).test {
+            assertEquals(listOf(inputFirstItem, inputRemovedItem).asPopupItems(), awaitItem())
+
+            repository.setItems(
+                ownerKey = inputPopupOwner.key,
+                add = listOf(inputAddedItem.key),
+                remove = setOf(inputRemovedItem.key)
+            )
+            finishPendingWork()
+
+            assertEquals(listOf(inputFirstItem, inputAddedItem).asPopupItems(), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `removes a shortcut item when its shortcut is gone`() = databaseTest {
         val owner: App = createApp()
         val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)

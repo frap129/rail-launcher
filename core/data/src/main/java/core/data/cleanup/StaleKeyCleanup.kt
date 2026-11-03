@@ -4,11 +4,14 @@ import core.data.retryWithExponentialBackoff
 import core.data.runCleanup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -43,16 +46,26 @@ class IStaleKeyCleanupImpl(private val classifier: IStoredKeyClassifier, scope: 
                 if (currentRows.isEmpty()) {
                     flowOf(emptyList())
                 } else {
-                    combine(currentRows.map { row -> row.keys }) { keySets -> currentRows.zip(keySets) }
-                        .distinctUntilChanged()
-                        .flatMapLatest { rowKeys ->
-                            val allKeys: Set<String> = rowKeys.flatMapTo(mutableSetOf()) { (_, keys) -> keys }
-                            classifier.observe(flowOf(allKeys)).map { states ->
-                                rowKeys.map { (row, keys) ->
-                                    RowStaleKeys(row = row, staleKeys = states.staleKeysIn(row = row, keys = keys))
+                    flow {
+                        coroutineScope {
+                            val rowKeys: Flow<List<Pair<IStaleKeyRow, Set<String>>>> = shareLatestValue(
+                                upstream = combine(currentRows.map { row -> row.keys }) { keySets -> currentRows.zip(keySets) }
+                                    .distinctUntilChanged()
+                            )
+                            emitAll(
+                                combine(
+                                    rowKeys,
+                                    classifier.observe(
+                                        rowKeys.map { pairs -> pairs.flatMapTo(mutableSetOf()) { (_, keys) -> keys } }
+                                    )
+                                ) { currentRowKeys, states ->
+                                    currentRowKeys.map { (row, keys) ->
+                                        RowStaleKeys(row = row, staleKeys = states.staleKeysIn(row = row, keys = keys))
+                                    }
                                 }
-                            }
+                            )
                         }
+                    }
                 }
             }
                 .retryWithExponentialBackoff()

@@ -19,6 +19,8 @@ data class ShortcutLaunchable(
     val shortLabel: String,
     val longLabel: String,
     val isEnabled: Boolean = true,
+    /** Whether this is a placeholder for a stored Shortcut a Paused Profile cannot resolve yet. */
+    val isPlaceholder: Boolean = false,
     val profileInfo: ProfileInfo? = null,
     override val defaultName: String = longLabel.ifBlank { shortLabel },
     override val name: String = defaultName,

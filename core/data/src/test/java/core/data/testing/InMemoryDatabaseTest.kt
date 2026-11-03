@@ -6,6 +6,7 @@ import core.data.favorites.FavoriteRecord
 import core.data.prefs.LaunchableCustomization
 import core.data.room.AppDatabase
 import core.data.room.dao.WidgetAreaDao
+import core.data.testing.finishPendingWork as finishAllPendingWork
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
 import kotlinx.coroutines.flow.first
@@ -13,8 +14,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestResult
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -57,13 +56,9 @@ abstract class InMemoryDatabaseTest {
     protected fun RoomDatabase.Builder<AppDatabase>.configureForTest(): RoomDatabase.Builder<AppDatabase> =
         allowMainThreadQueries().setQueryCoroutineContext(databaseDispatcher)
 
-    /**
-     * Lets all pending work finish. Background-scope repository jobs only run through
-     * [runCurrent], while [advanceUntilIdle] drains foreground work scheduled for later.
-     */
+    /** Lets all pending work finish through the shared test scope helper. */
     protected fun TestScope.finishPendingWork() {
-        advanceUntilIdle()
-        runCurrent()
+        finishAllPendingWork()
     }
 
     @After

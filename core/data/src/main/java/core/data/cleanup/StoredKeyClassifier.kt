@@ -13,15 +13,12 @@ import core.data.shortcuts.ShortcutResolution
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 
 /** What Rail knows about one stored key. */
 sealed interface StoredKeyState {
@@ -54,12 +51,8 @@ class IStoredKeyClassifierImpl(private val launchableRepository: ILaunchableRepo
     // Resolves the Shortcut keys once and reclassifies with each Launchable change, so renames,
     // icon pack changes and Folder edits do not restart the platform query.
     override fun observe(keys: Flow<Set<String>>): Flow<Map<String, StoredKeyState>?> = flow {
-        val latestKeys: MutableStateFlow<Set<String>?> = MutableStateFlow(null)
         coroutineScope {
-            launch {
-                keys.collect { requestedKeys -> latestKeys.value = requestedKeys }
-            }
-            val requestedKeys: Flow<Set<String>> = latestKeys.filterNotNull()
+            val requestedKeys: Flow<Set<String>> = shareLatestValue(upstream = keys)
             emitAll(
                 requestedKeys
                     .map { currentKeys ->

@@ -212,12 +212,12 @@ class ILaunchableRepositoryImpl(
         )
     }
 
-    /** A never-resolved Paused Shortcut falls back to its Package representative's label instead of the package name. */
+    /** A Paused Shortcut placeholder falls back to its Package representative's label instead of the package name. */
     private fun ShortcutLaunchable.withRepresentedName(
         representedNames: Map<AppProfile, String>,
         profileInfo: ProfileInfo
     ): ShortcutLaunchable {
-        if (!profileInfo.isQuiet || shortLabel != packageName || longLabel != packageName) {
+        if (!profileInfo.isQuiet || !isPlaceholder) {
             return this
         }
         val representedName: String = representedNames[AppProfile(packageName = packageName, profile = profile)] ?: return this
