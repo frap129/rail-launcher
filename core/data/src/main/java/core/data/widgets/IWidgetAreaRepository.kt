@@ -31,7 +31,14 @@ data class AddAppWidget(
 data class AddedAppWidget(val widgetId: Long, val placeId: Long)
 
 /** One place in an Edit Widgets draft; a null [placeId] is a place created by splitting a stack. */
-data class PlaceDraft(val placeId: Long?, val widgetIds: List<Long>)
+data class PlaceDraft(val placeId: Long?, val widgetIds: List<Long>) {
+    init {
+        require(widgetIds.isNotEmpty()) { "A Place draft must hold at least one Widget" }
+    }
+
+    /** The id the draft addresses this place by: its stored id, or a stable negative id for a split place. */
+    val id: Long get() = placeId ?: -widgetIds.min()
+}
 
 /** The complete desired Widget Area layout committed atomically on Done. */
 data class WidgetAreaEdit(val places: List<PlaceDraft>, val removedWidgetIds: Set<Long> = emptySet())
@@ -87,7 +94,16 @@ interface IWidgetAreaRepository {
     /** Restores the Header at [position] or into [placeId] at [pagePosition] when that place still exists. */
     suspend fun restoreHeader(position: Int = 0, placeId: Long? = null, pagePosition: Int = 0)
 
-    /** Inserts a place holding [request] (or appends a page for [InsertPosition.IntoStack]) and returns the Widget's row id and place. */
+    /** Whether the Stack in [placeId] can take [additionalPages] more pages within the Stack cap. */
+    suspend fun canGrowStack(placeId: Long, additionalPages: Int = 1): Boolean
+
+    /** Whether a Stack currently holding [pageCount] pages can take [additionalPages] more within the Stack cap. */
+    suspend fun canGrowStack(pageCount: Int, additionalPages: Int = 1): Boolean
+
+    /**
+     * Inserts a place holding [request] (or appends a page for [InsertPosition.IntoStack]) and returns the Widget's row id and place.
+     * @throws WidgetStackFullException when the Stack cannot take another page.
+     */
     suspend fun addAppWidget(request: AddAppWidget): AddedAppWidget
 
     /** Removes the Widget, dissolving a stack to one page and deleting an empty place; returns its system id. */
@@ -102,6 +118,9 @@ interface IWidgetAreaRepository {
     /** Stores the stack's current page. */
     suspend fun setCurrentPage(placeId: Long, page: Int)
 
-    /** Applies one Edit Widgets draft atomically and returns the App Widget ids freed by removals. */
+    /**
+     * Applies one Edit Widgets draft atomically and returns the App Widget ids freed by removals.
+     * @throws WidgetStackFullException when a draft place exceeds the Stack cap.
+     */
     suspend fun commitEdit(edit: WidgetAreaEdit): List<AppWidgetId>
 }

@@ -70,6 +70,8 @@ fun createWidgetAreaRepositoryMock(
     coEvery { mockWidgetAreaRepository.removeOwnerPlaces(any()) } coAnswers { removeOwnerPlacesAnswer(firstArg()) }
     coEvery { mockWidgetAreaRepository.setPlaceHeight(any(), any()) } just Runs
     coEvery { mockWidgetAreaRepository.setCurrentPage(any(), any()) } just Runs
+    coEvery { mockWidgetAreaRepository.canGrowStack(any<Long>(), any()) } returns true
+    coEvery { mockWidgetAreaRepository.canGrowStack(any<Int>(), any()) } returns true
     coEvery { mockWidgetAreaRepository.commitEdit(any()) } returns emptyList()
     return mockWidgetAreaRepository
 }

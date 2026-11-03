@@ -31,7 +31,7 @@ internal fun WidgetEditDraft.toPlaces(source: List<WidgetPlace>): List<WidgetPla
                 base.copy(widgets = widgets, currentPage = 0)
             } else {
                 WidgetPlace(
-                    id = -draft.widgetIds.first(),
+                    id = draft.id,
                     heightDp = null,
                     currentPage = 0,
                     widgets = widgets

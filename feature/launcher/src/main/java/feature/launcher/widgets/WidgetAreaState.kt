@@ -25,7 +25,6 @@ data class WidgetAreaState(
     val hasWidgets: Boolean = places.isNotEmpty(),
     val isEditing: Boolean = false,
     val stackIndicatorVisible: Boolean = true,
-    val maxStackPages: Int = WidgetAreaSettings.DEFAULT_MAX_STACK_PAGES,
     val layout: WidgetAreaLayout = WidgetAreaLayout.Capped(fraction = WidgetAreaHeightLimit.DEFAULT.fraction),
     val topOffsetDp: Int = 0,
     val widgetSpacingDp: Int = WidgetSpacing.DEFAULT.dp,

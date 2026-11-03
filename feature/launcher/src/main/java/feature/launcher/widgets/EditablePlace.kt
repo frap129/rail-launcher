@@ -98,13 +98,12 @@ internal fun EditablePlaceItem(
     mergeState: EditMergeState,
     isDragging: Boolean,
     isExpanded: Boolean,
-    maxStackPages: Int,
     onMovePlace: (Int, Int) -> Unit,
     onRemovePlace: (Long) -> Unit,
     onToggleExpand: (Long) -> Unit,
     onMovePage: (Long, Int, Int) -> Unit,
     onRemovePage: (Long, Long) -> Unit,
-    onSplitPage: (Long, Long, Int) -> Unit,
+    onSplitPage: (Long, Long, Long?) -> Unit,
     onMergePlace: (Long, Long) -> Unit,
     handleModifier: Modifier,
     modifier: Modifier = Modifier,
@@ -135,15 +134,16 @@ internal fun EditablePlaceItem(
         onToggleExpand = { onToggleExpand(place.id) },
         onMovePage = { from, to -> onMovePage(place.id, from, to) },
         onRemovePage = { widgetId -> onRemovePage(place.id, widgetId) },
-        onSplitPage = { widgetId -> onSplitPage(place.id, widgetId, index + 1) },
+        onSplitPage = { widgetId -> onSplitPage(place.id, widgetId, places.getOrNull(index + 1)?.id) },
         onSplitAt = { widgetId, rootY ->
-            val targetIndex: Int = places.indexOfFirst { candidate ->
-                candidate.id != place.id &&
-                    mergeState.bounds[candidate.id]?.contains(Offset(0f, rootY)) == true
-            }.takeIf { target -> target >= 0 } ?: places.size
-            onSplitPage(place.id, widgetId, targetIndex)
+            val targetPlaceId: Long? = places
+                .firstOrNull { candidate ->
+                    candidate.id != place.id &&
+                        mergeState.bounds[candidate.id]?.contains(Offset(0f, rootY)) == true
+                }
+                ?.id
+            onSplitPage(place.id, widgetId, targetPlaceId)
         },
-        maxStackPages = maxStackPages,
         handleModifier = handleModifier,
         modifier = modifier.onGloballyPositioned { coordinates ->
             val topLeft: Offset = coordinates.localToRoot(Offset.Zero)
@@ -202,7 +202,6 @@ private fun EditablePlace(
     onRemovePage: (widgetId: Long) -> Unit,
     onSplitPage: (widgetId: Long) -> Unit,
     onSplitAt: (widgetId: Long, rootY: Float) -> Unit,
-    maxStackPages: Int,
     handleModifier: Modifier,
     onMergeDragStart: () -> Unit,
     onMergeDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
@@ -268,7 +267,6 @@ private fun EditablePlace(
         if (isExpanded && place.isStack) {
             ExpandedStack(
                 place = place,
-                maxStackPages = maxStackPages,
                 onMovePage = onMovePage,
                 onRemovePage = onRemovePage,
                 onSplitPage = onSplitPage,
@@ -355,7 +353,6 @@ private fun EditablePlace(
 @Composable
 private fun ExpandedStack(
     place: WidgetPlaceModel,
-    maxStackPages: Int,
     onMovePage: (fromIndex: Int, toIndex: Int) -> Unit,
     onRemovePage: (widgetId: Long) -> Unit,
     onSplitPage: (widgetId: Long) -> Unit,

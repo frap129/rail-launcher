@@ -71,6 +71,7 @@ import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetSpacing
+import core.data.widgets.WidgetStackFullException
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -931,10 +932,10 @@ class WidgetAreaViewModelTest {
             currentPage = 0,
             widgets = listOf(PlacedWidget.Header(id = 1L), appWidgetPlace(placeId = 2L, widgetId = 2L).widgets.single())
         )
-        val viewModel: WidgetAreaViewModel = createViewModel(
-            mockRepository = createWidgetAreaRepositoryMock(places = listOf(inputStack, appWidgetPlace(placeId = 3L, widgetId = 3L))),
-            mockSettingsRepository = createWidgetSettingsRepositoryMock(widgetAreaSettings = WidgetAreaSettings(maxStackPages = 2))
-        )
+        val mockRepository: IWidgetAreaRepository =
+            createWidgetAreaRepositoryMock(places = listOf(inputStack, appWidgetPlace(placeId = 3L, widgetId = 3L)))
+        coEvery { mockRepository.canGrowStack(pageCount = 2, additionalPages = 1) } returns false
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
 
         viewModel.editWidgets()
         advanceUntilIdle()
@@ -956,7 +957,7 @@ class WidgetAreaViewModelTest {
 
         viewModel.editWidgets()
         advanceUntilIdle()
-        viewModel.splitPage(placeId = 1L, widgetId = 2L, toIndex = 1)
+        viewModel.splitPage(placeId = 1L, widgetId = 2L, targetPlaceId = null)
 
         val actualDraft: WidgetEditDraft = viewModel.editState.value!!
         assertEquals(2, actualDraft.places.size)
@@ -1636,7 +1637,6 @@ class WidgetAreaViewModelTest {
         addFlowController = createAddController(
             mockRepository = mockRepository,
             mockAppWidgetHost = mockAppWidgetHost,
-            mockSettingsRepository = mockSettingsRepository,
             homeEditState = inputHomeEditState
         ),
         widgetLifecycleReconciler = mockWidgetLifecycleReconciler,
@@ -2200,6 +2200,26 @@ class WidgetAreaViewModelTest {
         coVerify(exactly = 1) { mockRepository.commitEdit(any()) }
         verify(exactly = 1) { mockHost.deleteId(AppWidgetId(9)) }
         assertNull(viewModel.editState.value)
+    }
+
+    @Test
+    fun `Done keeps the draft and reports a full stack when the commit is rejected`() = runTest {
+        val mockRepository: IWidgetAreaRepository = createWidgetAreaRepositoryMock(
+            places = listOf(headerPlace, appWidgetPlace(placeId = 2L, widgetId = 2L))
+        )
+        coEvery { mockRepository.commitEdit(any()) } throws WidgetStackFullException.forMaxPages(maxStackPages = 2)
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = mockRepository)
+        viewModel.editWidgets()
+        advanceUntilIdle()
+        viewModel.events.test {
+            viewModel.finishEditingWidgets()
+            advanceUntilIdle()
+
+            assertEquals(WidgetEvent.ShowMessage(message = CoreUiR.string.stack_full), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertTrue(viewModel.editState.value != null)
     }
 
     @Test

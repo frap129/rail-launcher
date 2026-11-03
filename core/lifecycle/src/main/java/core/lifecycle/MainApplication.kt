@@ -302,7 +302,7 @@ class MainApplication :
             IStaleKeyCleanupImpl(classifier = get(), scope = get(named(APP_SCOPE_QUALIFIER)))
         }
         single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
-        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get()) }
+        single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get()) }
         single { MediaArtworkStore() }
         single<IMediaSessionSource> {
@@ -340,7 +340,6 @@ class MainApplication :
             IWidgetAddControllerImpl(
                 repository = get(),
                 appWidgetHost = get(),
-                settingsRepository = get(),
                 homeEditState = get(),
                 savedStateHandle = savedStateHandle,
                 pendingIds = get()

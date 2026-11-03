@@ -8,12 +8,10 @@ import core.data.widgets.BindRequest
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
-import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.InsertPosition
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
-import core.data.widgets.canGrowStack
 import core.data.widgets.headerPlace
 import core.data.widgets.placeOf
 import core.ui.R as CoreUiR
@@ -34,7 +32,6 @@ private const val PENDING_PHASE_CONFIGURING: String = "configuring"
 class IWidgetAddControllerImpl(
     private val repository: IWidgetAreaRepository,
     private val appWidgetHost: IAppWidgetHostSource,
-    private val settingsRepository: IWidgetSettingsRepository,
     private val homeEditState: HomeEditState,
     private val savedStateHandle: SavedStateHandle,
     private val pendingIds: IAddFlowPendingIds
@@ -79,8 +76,7 @@ class IWidgetAddControllerImpl(
             return start(origin = AddWidgetOrigin(insertAt = InsertPosition.End))
         }
         val origin: AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.Below(placeId = place.id))
-        val maxStackPages: Int = settingsRepository.widgetAreaSettings.first().maxStackPages
-        if (place.canGrowStack(maxStackPages = maxStackPages)) {
+        if (repository.canGrowStack(placeId = place.id)) {
             addFlow.value = AddWidgetFlowState.ChoosingPlacement(origin = origin, canAddToStack = true)
             return false
         }

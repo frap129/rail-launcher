@@ -19,7 +19,9 @@ data class PopupWidgetState(
     val heightDp: Int,
     val bounds: ResizeBounds,
     val isResizable: Boolean,
-    val indicatorVisible: Boolean
+    val indicatorVisible: Boolean,
+    /** Whether the Stack can take another page within the Stack cap. */
+    val canAddPage: Boolean
 ) {
     /** True when the place pages sideways as a Widget Stack. */
     val isStack: Boolean get() = pages.size > 1
