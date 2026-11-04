@@ -46,7 +46,10 @@ import core.data.launchables.model.Launchable
 import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
+import core.ui.composables.scrollrail.RailScrubState
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.composables.scrollrail.railScrubInput
+import core.ui.composables.scrollrail.rememberRailScrubState
 import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
@@ -248,37 +251,43 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
 
 @Composable
 internal fun BoxScope.LauncherRail(
-    viewModel: LauncherViewModel,
+    railItems: List<GroupMark>,
     railBounds: RailBounds,
     isCardOpen: () -> Boolean,
     onRailTouched: () -> Unit,
+    onRailPreview: (Int) -> Unit,
+    onRailReleased: (Int) -> Unit,
     enabled: Boolean = true
 ) {
-    val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railGesture: RailGesture = remember { RailGesture() }
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
     LaunchedEffect(railItems.size, enabled) {
         railGesture.reset()
     }
+    val railScrubState: RailScrubState = rememberRailScrubState(
+        items = railItems,
+        onScroll = { index ->
+            if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+                onRailPreview(index)
+            }
+        },
+        onScrollEnded = { index ->
+            if (railGesture.onScrollEnded(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+                onRailReleased(index)
+            }
+        },
+        enabled = enabled
+    )
     ScrollRail(
+        state = railScrubState,
+        items = railItems,
         modifier = Modifier
             .align(Alignment.CenterEnd)
             .padding(0.dp, railTopPadding, 0.dp, 0.dp)
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
-            .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) },
-        items = railItems,
-        onScroll = { index ->
-            if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
-                viewModel.onRailPreview(index)
-            }
-        },
-        onScrollEnded = { index ->
-            if (railGesture.onScrollEnded(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
-                viewModel.onRailReleased(index)
-            }
-        },
-        enabled = enabled
+            .railScrubInput(state = railScrubState)
+            .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) }
     )
 }
 
