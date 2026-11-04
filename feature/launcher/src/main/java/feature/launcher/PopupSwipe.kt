@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import core.data.prefs.RailSide
 import core.ui.util.performSegmentTickHaptic
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,7 @@ private const val RELEASE_ANIMATION_MILLIS: Int = 150
 @Composable
 fun Modifier.popupSwipe(
     enabled: Boolean,
+    railSide: RailSide,
     railBounds: () -> Rect?,
     isSwipeBlocked: () -> Boolean = { false },
     onSwipeOpen: () -> Unit
@@ -75,7 +77,7 @@ fun Modifier.popupSwipe(
     }
     return this
         .onGloballyPositioned { coordinates -> rowPositionInRoot = coordinates.localToRoot(Offset.Zero) }
-        .pointerInput(enabled, isRtl, density) {
+        .pointerInput(enabled, isRtl, railSide, density) {
             if (!enabled) {
                 return@pointerInput
             }
@@ -114,12 +116,19 @@ fun Modifier.popupSwipe(
                         totalDx += delta.x
                         totalDy += delta.y
                         if (claim == SwipeClaim.Pending) {
-                            claim = SwipeToOpen.onDrag(dx = totalDx, dy = totalDy, isRtl = isRtl, slopPx = viewConfiguration.touchSlop)
+                            claim = SwipeToOpen.onDrag(
+                                dx = totalDx,
+                                dy = totalDy,
+                                isRtl = isRtl,
+                                railSide = railSide,
+                                slopPx = viewConfiguration.touchSlop
+                            )
                         }
                         if (claim == SwipeClaim.Claimed) {
                             change.consume()
-                            rowOffset = swipeOffset(dx = totalDx, isRtl = isRtl, density = density)
-                            val isPastThreshold: Boolean = directionalDx(dx = totalDx, isRtl = isRtl) >= thresholdPx
+                            rowOffset = swipeOffset(dx = totalDx, isRtl = isRtl, railSide = railSide, density = density)
+                            val isPastThreshold: Boolean =
+                                towardRailDx(dx = totalDx, isRtl = isRtl, railSide = railSide) >= thresholdPx
                             if (isPastThreshold != wasPastThreshold) {
                                 if (isPastThreshold) {
                                     hapticFeedback.performSegmentTickHaptic()
@@ -139,6 +148,7 @@ fun Modifier.popupSwipe(
                                 dx = totalDx,
                                 velocityX = velocityX,
                                 isRtl = isRtl,
+                                railSide = railSide,
                                 thresholdPx = thresholdPx,
                                 velocityThresholdPx = velocityThresholdPx
                             )
@@ -157,9 +167,12 @@ fun Modifier.popupSwipe(
         .graphicsLayer { translationX = rowOffset }
 }
 
-private fun swipeOffset(dx: Float, isRtl: Boolean, density: Float): Float {
-    val directionalOffset: Float = SwipeToOpen.offsetFor(dxPx = directionalDx(dx = dx, isRtl = isRtl), density = density)
-    return if (isRtl) -directionalOffset else directionalOffset
+private fun swipeOffset(dx: Float, isRtl: Boolean, railSide: RailSide, density: Float): Float {
+    val directionalOffset: Float = SwipeToOpen.offsetFor(
+        dxPx = towardRailDx(dx = dx, isRtl = isRtl, railSide = railSide),
+        density = density
+    )
+    return railDirectionOffset(distance = directionalOffset, isRtl = isRtl, railSide = railSide)
 }
 
 private fun isHorizontalDominant(dx: Float, dy: Float): Boolean = abs(dx) > abs(dy)

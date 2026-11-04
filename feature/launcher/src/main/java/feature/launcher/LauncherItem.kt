@@ -51,6 +51,7 @@ import compose.icons.fontawesomeicons.solid.Star
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.prefs.RailSide
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
 import core.ui.layout.UNAVAILABLE_ALPHA
@@ -71,7 +72,8 @@ data class LauncherItemActions(
     val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     val privateSpaceActions: PrivateSpaceActions,
-    val railBounds: () -> Rect?
+    val railBounds: () -> Rect?,
+    val railSide: RailSide
 )
 
 private class PopupAnchorHolder {
@@ -142,6 +144,7 @@ fun LauncherItem(
                 }
                 .popupSwipe(
                     enabled = canSwipePopup,
+                    railSide = itemActions.railSide,
                     railBounds = itemActions.railBounds,
                     isSwipeBlocked = { longPressGate.isFired },
                     onSwipeOpen = {

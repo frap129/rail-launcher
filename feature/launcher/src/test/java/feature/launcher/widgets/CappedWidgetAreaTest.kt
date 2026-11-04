@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
 import core.ui.layout.homeEdgePadding
 import core.ui.widgets.createHeaderModel
@@ -37,7 +38,7 @@ class CappedWidgetAreaTest {
             places = listOf(headerPlace(id = PLACE_ID, timeText = HEADER_TIME_TEXT))
         )
         composeRule.setContent {
-            CappedWidgetArea(ui = inputUi, maxHeight = MAX_HEIGHT)
+            CappedWidgetArea(ui = inputUi, maxHeight = MAX_HEIGHT, railSide = RailSide.DEFAULT)
         }
 
         val header = composeRule.onNodeWithContentDescription(HEADER_TIME_TEXT)
@@ -57,7 +58,7 @@ class CappedWidgetAreaTest {
             widgetAreaUi(listState = listState, places = listOf(headerPlace(id = 1L, timeText = "1:00")))
         )
         composeRule.setContent {
-            CappedWidgetArea(ui = ui, maxHeight = MAX_HEIGHT)
+            CappedWidgetArea(ui = ui, maxHeight = MAX_HEIGHT, railSide = RailSide.DEFAULT)
         }
 
         composeRule.runOnIdle {

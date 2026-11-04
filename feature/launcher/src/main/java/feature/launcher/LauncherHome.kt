@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,11 +30,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.prefs.RailSide
-import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
-import core.ui.layout.dragHandleEndPadding
+import core.ui.layout.homeContentPadding
 import core.ui.layout.homeEdgePadding
-import core.ui.layout.homeRailStartInset
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
 import core.ui.util.consumeTouches
@@ -91,7 +88,6 @@ fun LauncherHome(
         onResizeOutsideTap = onResizeOutsideTap
     )
     BoxWithConstraints(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        val listStartPadding: Dp = homeRailStartInset(railSide = railSide)
         val homeHeightDp: Int = maxHeight.value.roundToInt()
         LaunchedEffect(homeHeightDp) {
             if (homeHeightDp > 0) {
@@ -108,12 +104,13 @@ fun LauncherHome(
                     CappedWidgetArea(
                         ui = widgetArea,
                         maxHeight = cappedHeight,
+                        railSide = railSide,
                         modifier = Modifier.fillMaxWidth()
                     )
                     FavoritesBottomArea(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         home = home,
-                        listStartPadding = listStartPadding,
+                        railSide = railSide,
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         onFavoriteMoved = onFavoriteMoved,
@@ -157,7 +154,7 @@ fun LauncherHome(
                     state = home.lazyListState,
                     verticalArrangement = Arrangement.Top,
                     contentPadding = PaddingValues(
-                        start = listStartPadding,
+                        start = homeEdgePadding,
                         top = homeEdgePadding,
                         end = homeEdgePadding,
                         bottom = homeEdgePadding
@@ -169,10 +166,12 @@ fun LauncherHome(
                     widgetAreaItems(
                         ui = widgetArea,
                         reorderableState = reorderState,
-                        mergeState = mergeState
+                        mergeState = mergeState,
+                        railSide = railSide
                     )
                     favoriteItems(
                         home = home,
+                        railSide = railSide,
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         reorderableState = reorderState,
@@ -207,7 +206,7 @@ private fun Modifier.homeEmptyAreaLongPress(hapticFeedback: HapticFeedback, enab
 private fun FavoritesBottomArea(
     modifier: Modifier,
     home: LauncherUiState.Home,
-    listStartPadding: Dp,
+    railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
@@ -248,10 +247,11 @@ private fun FavoritesBottomArea(
                 .testTag(LAUNCHER_HOME_TEST_TAG),
             state = home.lazyListState,
             verticalArrangement = Arrangement.Top,
-            contentPadding = PaddingValues(start = listStartPadding, end = homeEdgePadding, bottom = homeEdgePadding)
+            contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
             favoriteItems(
                 home = home,
+                railSide = railSide,
                 itemActions = itemActions,
                 folderSummaries = folderSummaries,
                 reorderableState = reorderState,
@@ -278,6 +278,7 @@ private fun rememberHomeReorderState(
 
 private fun LazyListScope.favoriteItems(
     home: LauncherUiState.Home,
+    railSide: RailSide,
     itemActions: LauncherItemActions,
     reorderableState: ReorderableLazyListState,
     folderSummaries: Map<String, String>,
@@ -289,7 +290,9 @@ private fun LazyListScope.favoriteItems(
         item(key = FAVORITES_EMPTY_HINT_KEY) {
             OutlinedText(
                 text = stringResource(R.string.favorites_empty_hint),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .homeContentPadding(railSide = railSide),
                 style = MaterialTheme.typography.titleMedium
             )
         }
@@ -308,6 +311,13 @@ private fun LazyListScope.favoriteItems(
                         Modifier
                     }
                 ) {
+                    if (home.isEditingFavorites && railSide.isStart) {
+                        RailDragHandle(
+                            railSide = railSide,
+                            contentDescription = stringResource(R.string.reorder_favorite, favorite.name),
+                            modifier = Modifier.draggableHandle()
+                        )
+                    }
                     LauncherItem(
                         item = favorite,
                         isEditingFavorites = home.isEditingFavorites,
@@ -315,14 +325,21 @@ private fun LazyListScope.favoriteItems(
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
                         summary = folderSummaries[favorite.key],
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .then(
+                                if (home.isEditingFavorites) {
+                                    Modifier
+                                } else {
+                                    Modifier.homeContentPadding(railSide = railSide)
+                                }
+                            )
                     )
-                    if (home.isEditingFavorites) {
-                        DragHandle(
-                            modifier = Modifier
-                                .padding(end = dragHandleEndPadding)
-                                .draggableHandle(),
-                            contentDescription = stringResource(R.string.reorder_favorite, favorite.name)
+                    if (home.isEditingFavorites && !railSide.isStart) {
+                        RailDragHandle(
+                            railSide = railSide,
+                            contentDescription = stringResource(R.string.reorder_favorite, favorite.name),
+                            modifier = Modifier.draggableHandle()
                         )
                     }
                 }

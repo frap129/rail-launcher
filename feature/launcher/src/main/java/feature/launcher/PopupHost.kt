@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.launchables.model.Launchable
+import core.data.prefs.RailSide
 import core.ui.util.consumeTouches
 import feature.launcher.widgets.ResizeState
 import kotlin.math.roundToInt
@@ -46,7 +47,13 @@ private val emphasizedDecelerate: CubicBezierEasing = CubicBezierEasing(0.05f, 0
 
 /** Draws the outside-tap layer and the one open Pop-up above the launcher. */
 @Composable
-fun PopupHost(viewModel: PopupCardViewModel, onLaunch: (Launchable) -> Unit, onAddItems: () -> Unit, modifier: Modifier = Modifier) {
+fun PopupHost(
+    viewModel: PopupCardViewModel,
+    railSide: RailSide,
+    onLaunch: (Launchable) -> Unit,
+    onAddItems: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val density: Density = LocalDensity.current
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val popupState: PopupUiState by viewModel.popupState.collectAsState()
@@ -106,6 +113,7 @@ fun PopupHost(viewModel: PopupCardViewModel, onLaunch: (Launchable) -> Unit, onA
                 safeInsets = safeInsets,
                 contentHeightPx = cardSize.height,
                 density = density.density,
+                railSide = railSide,
                 isRtl = isRtl
             )
         }
