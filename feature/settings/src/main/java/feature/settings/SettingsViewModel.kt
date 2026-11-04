@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.profiles.IPrivateSpaceStatus
 import core.ui.model.data.POPUPS_SETTINGS_KEY
@@ -27,7 +28,8 @@ data class SettingsUiState(
     val selectedIconPack: IconPack,
     val hidePrivateSpaceWhenLocked: Boolean,
     val isPrivateSpaceAvailable: Boolean,
-    val scrubEdges: ScrubEdges
+    val scrubEdges: ScrubEdges,
+    val railSide: RailSide
 )
 
 class SettingsViewModel(
@@ -50,7 +52,8 @@ class SettingsViewModel(
             selectedIconPack = selectedIconPack,
             hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
             isPrivateSpaceAvailable = status.profile != null,
-            scrubEdges = settings.scrubEdges
+            scrubEdges = settings.scrubEdges,
+            railSide = settings.railSide
         )
     }.stateIn(
         viewModelScope,
@@ -60,7 +63,8 @@ class SettingsViewModel(
             selectedIconPack = IconPack.SystemIconPack,
             hidePrivateSpaceWhenLocked = false,
             isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null,
-            scrubEdges = ScrubEdges.DEFAULT
+            scrubEdges = ScrubEdges.DEFAULT,
+            railSide = RailSide.DEFAULT
         )
     )
 
@@ -71,4 +75,7 @@ class SettingsViewModel(
 
     /** Persists which screen edges scrub the Rail. */
     fun setScrubEdges(edges: ScrubEdges) = prefsRepo.setScrubEdges(edges)
+
+    /** Persists the screen side where the Rail is drawn. */
+    fun setRailSide(side: RailSide) = prefsRepo.setRailSide(side)
 }

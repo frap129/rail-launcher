@@ -3,6 +3,7 @@
     <string name="appearance">Appearance</string>
     <string name="appearance_summary">Customize Rail launchers appearance</string>
     <string name="rail">Rail</string>
+    <string name="show_rail_on_left">Show Rail on left</string>
     <string name="icon_pack">Icon Pack</string>
     <string name="scrub_edges">Scrub edges</string>
     <string name="scrub_edges_summary">The edge without the Rail gets an invisible strip that scrubs it too</string>

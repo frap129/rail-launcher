@@ -47,6 +47,7 @@ internal class RailMetrics(density: Float) {
     val markHeightPx: Float = markHeight.value * density
     val minPeakPx: Float = MIN_PEAK_DP * density
     val highlightSizePx: Float = highlightSize.value * density
+    val railWidthPx: Float = railWidth.value * density
 }
 
 private class RailPointerAnimation {

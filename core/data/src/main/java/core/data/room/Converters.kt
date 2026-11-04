@@ -9,6 +9,7 @@ import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
@@ -121,6 +122,12 @@ class Converters {
     @TypeConverter
     fun fromStringToScrubEdges(edges: String): ScrubEdges =
         ScrubEdges.entries.firstOrNull { entry -> entry.name == edges } ?: ScrubEdges.DEFAULT
+
+    @TypeConverter
+    fun fromRailSideToString(side: RailSide): String = side.name
+
+    @TypeConverter
+    fun fromStringToRailSide(side: String): RailSide = RailSide.entries.firstOrNull { entry -> entry.name == side } ?: RailSide.DEFAULT
 
     @TypeConverter
     fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)

@@ -63,6 +63,7 @@ import core.data.room.MIGRATION_11_12
 import core.data.room.MIGRATION_12_13
 import core.data.room.MIGRATION_13_14
 import core.data.room.MIGRATION_14_15
+import core.data.room.MIGRATION_15_16
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -186,7 +187,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()

@@ -168,6 +168,29 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(ScrubEdges.END, actualSettings.scrubEdges)
     }
 
+    @Test
+    fun `stores the Rail side without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+
+        repository.setRailSide(RailSide.START)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.railSide == RailSide.START }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, railSide = RailSide.START), actualSettings)
+    }
+
+    @Test
+    fun `exposes the stored Rail side`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(railSide = RailSide.START))
+        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertEquals(RailSide.START, actualSettings.railSide)
+    }
+
     private fun TestScope.createRepository(
         launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         settingsDao: SettingsDao = database.getSettingsDao()

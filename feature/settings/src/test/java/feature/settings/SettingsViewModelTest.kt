@@ -3,6 +3,7 @@ package feature.settings
 import app.cash.turbine.test
 import core.data.icons.model.Icon
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceStatus
@@ -107,6 +108,31 @@ class SettingsViewModelTest {
             viewModel.setScrubEdges(ScrubEdges.END)
 
             verify(exactly = 1) { mockPreferencesRepository.setScrubEdges(ScrubEdges.END) }
+        }
+    }
+
+    @Test
+    fun `exposes the stored Rail side`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(railSide = RailSide.START)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertEquals(RailSide.START, expectMostRecentItem().railSide)
+        }
+    }
+
+    @Test
+    fun `persists the Rail side`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setRailSide(RailSide.START)
+
+            verify(exactly = 1) { mockPreferencesRepository.setRailSide(RailSide.START) }
         }
     }
 

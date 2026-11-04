@@ -11,11 +11,14 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED, defaultValue = "0")
     val hidePrivateSpaceWhenLocked: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SCRUB_EDGES, defaultValue = "BOTH")
-    val scrubEdges: ScrubEdges = ScrubEdges.DEFAULT
+    val scrubEdges: ScrubEdges = ScrubEdges.DEFAULT,
+    @ColumnInfo(name = Settings.COLUMN_RAIL_SIDE, defaultValue = "END")
+    val railSide: RailSide = RailSide.DEFAULT
 ) {
     companion object {
         const val COLUMN_ICON_PACK: String = "icon_pack"
         const val COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED: String = "hide_private_space_when_locked"
         const val COLUMN_SCRUB_EDGES: String = "scrub_edges"
+        const val COLUMN_RAIL_SIDE: String = "rail_side"
     }
 }

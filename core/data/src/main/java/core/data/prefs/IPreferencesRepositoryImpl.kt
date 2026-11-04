@@ -58,4 +58,10 @@ class IPreferencesRepositoryImpl(
             settingsDao.update { settings -> settings.copy(scrubEdges = edges) }
         }
     }
+
+    override fun setRailSide(side: RailSide) {
+        scope.launch(Dispatchers.IO) {
+            settingsDao.update { settings -> settings.copy(railSide = side) }
+        }
+    }
 }

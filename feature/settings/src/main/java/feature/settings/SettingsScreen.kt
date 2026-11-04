@@ -119,6 +119,7 @@ import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.prefs.canSetBatteryVisibility
@@ -268,8 +269,10 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
                     iconPacks = uiState.iconPacks,
                     selectedIconPack = uiState.selectedIconPack,
+                    railSide = uiState.railSide,
                     scrubEdges = uiState.scrubEdges,
                     onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
+                    onRailSideSelected = viewModel::setRailSide,
                     onScrubEdgesSelected = viewModel::setScrubEdges
                 )
 
@@ -1546,8 +1549,10 @@ private fun displayMaxOffsetDp(context: Context): Int {
 fun SettingsAppearanceScreen(
     iconPacks: Set<IconPack>,
     selectedIconPack: IconPack,
+    railSide: RailSide,
     scrubEdges: ScrubEdges,
     onIconPackSelected: (IconPack) -> Unit,
+    onRailSideSelected: (RailSide) -> Unit,
     onScrubEdgesSelected: (ScrubEdges) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -1559,6 +1564,12 @@ fun SettingsAppearanceScreen(
             )
         }
         item { SettingsSectionTitle(R.string.rail) }
+        item {
+            RailSideRow(
+                railSide = railSide,
+                onRailSideSelected = onRailSideSelected
+            )
+        }
         item {
             ScrubEdgesRow(
                 scrubEdges = scrubEdges,
@@ -1619,6 +1630,16 @@ private fun IconPackRow(iconPacks: Set<IconPack>, selectedIconPack: IconPack, on
             }
         }
     }
+}
+
+@Composable
+private fun RailSideRow(railSide: RailSide, onRailSideSelected: (RailSide) -> Unit) {
+    val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
+    SettingsSwitchRow(
+        title = stringResource(R.string.show_rail_on_left),
+        checked = railSide.isOnLeft(isRtl = isRtl),
+        onCheckedChange = { showOnLeft -> onRailSideSelected(RailSide.forLeft(isOnLeft = showOnLeft, isRtl = isRtl)) }
+    )
 }
 
 @Composable

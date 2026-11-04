@@ -160,6 +160,10 @@ _Avoid_: Glyph, icon (when meaning a mark)
 The index of marks along the screen edge used to jump through the App List; touching it or any Scrub edge from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last.
 _Avoid_: Scroll bar, alphabet, wave
 
+**Rail side**:
+The screen side, relative to the layout direction, where the Rail is drawn: the layout start or the layout end. It defaults to the layout end.
+_Avoid_: Rail position, rail alignment
+
 **Scrub edges**:
 The screen edges, relative to the layout direction, whose touches scrub the Rail: the layout start, the layout end, or both.
 _Avoid_: Scroll edges, touch edges, Rail edges

@@ -30,10 +30,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import core.data.prefs.RailSide
 import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.dragHandleEndPadding
 import core.ui.layout.homeEdgePadding
+import core.ui.layout.homeRailStartInset
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
 import core.ui.util.consumeTouches
@@ -68,6 +70,7 @@ fun LauncherHome(
     modifier: Modifier = Modifier,
     home: LauncherUiState.Home,
     widgetArea: WidgetAreaUi,
+    railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
@@ -88,6 +91,7 @@ fun LauncherHome(
         onResizeOutsideTap = onResizeOutsideTap
     )
     BoxWithConstraints(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+        val listStartPadding: Dp = homeRailStartInset(railSide = railSide)
         val homeHeightDp: Int = maxHeight.value.roundToInt()
         LaunchedEffect(homeHeightDp) {
             if (homeHeightDp > 0) {
@@ -109,6 +113,7 @@ fun LauncherHome(
                     FavoritesBottomArea(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         home = home,
+                        listStartPadding = listStartPadding,
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         onFavoriteMoved = onFavoriteMoved,
@@ -152,7 +157,7 @@ fun LauncherHome(
                     state = home.lazyListState,
                     verticalArrangement = Arrangement.Top,
                     contentPadding = PaddingValues(
-                        start = homeEdgePadding,
+                        start = listStartPadding,
                         top = homeEdgePadding,
                         end = homeEdgePadding,
                         bottom = homeEdgePadding
@@ -202,6 +207,7 @@ private fun Modifier.homeEmptyAreaLongPress(hapticFeedback: HapticFeedback, enab
 private fun FavoritesBottomArea(
     modifier: Modifier,
     home: LauncherUiState.Home,
+    listStartPadding: Dp,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
@@ -242,7 +248,7 @@ private fun FavoritesBottomArea(
                 .testTag(LAUNCHER_HOME_TEST_TAG),
             state = home.lazyListState,
             verticalArrangement = Arrangement.Top,
-            contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
+            contentPadding = PaddingValues(start = listStartPadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
             favoriteItems(
                 home = home,

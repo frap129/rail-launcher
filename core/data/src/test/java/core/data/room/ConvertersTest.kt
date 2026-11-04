@@ -6,6 +6,7 @@ import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
@@ -107,5 +108,17 @@ class ConvertersTest {
     @Test
     fun `falls back to both edges for an unknown Scrub edges value`() {
         assertEquals(ScrubEdges.BOTH, converters.fromStringToScrubEdges("UNKNOWN"))
+    }
+
+    @Test
+    fun `round trips Rail sides by name`() {
+        RailSide.entries.forEach { side ->
+            assertEquals(side, converters.fromStringToRailSide(converters.fromRailSideToString(side)))
+        }
+    }
+
+    @Test
+    fun `falls back to the layout end for an unknown Rail side value`() {
+        assertEquals(RailSide.END, converters.fromStringToRailSide("UNKNOWN"))
     }
 }

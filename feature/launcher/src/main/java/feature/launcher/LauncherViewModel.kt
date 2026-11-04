@@ -17,6 +17,7 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
@@ -187,6 +188,15 @@ class LauncherViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = ScrubEdges.DEFAULT
+        )
+
+    /** The screen side where the Rail is drawn. */
+    val railSide: StateFlow<RailSide> = prefsRepo.settings
+        .map { settings -> settings.railSide }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = RailSide.DEFAULT
         )
 
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
