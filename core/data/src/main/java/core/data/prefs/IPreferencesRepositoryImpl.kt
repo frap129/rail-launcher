@@ -52,4 +52,10 @@ class IPreferencesRepositoryImpl(
             settingsDao.update { settings -> settings.copy(hidePrivateSpaceWhenLocked = hide) }
         }
     }
+
+    override fun setScrubEdges(edges: ScrubEdges) {
+        scope.launch(Dispatchers.IO) {
+            settingsDao.update { settings -> settings.copy(scrubEdges = edges) }
+        }
+    }
 }

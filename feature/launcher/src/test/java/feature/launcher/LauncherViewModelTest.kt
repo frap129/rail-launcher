@@ -16,6 +16,8 @@ import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ScrubEdges
+import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
@@ -188,6 +190,21 @@ class LauncherViewModelTest {
                     listOf(GroupMark.Label("★"), GroupMark.Label("A"), GroupMark.Label("B"), GroupMark.Label("⌂")),
                     expectMostRecentItem()
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `exposes the Scrub edges setting`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(
+                    settings = Settings(scrubEdges = ScrubEdges.START)
+                )
+            )
+
+            viewModel.scrubEdges.test {
+                assertEquals(ScrubEdges.START, expectMostRecentItem())
             }
         }
     }

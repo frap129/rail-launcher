@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
+import core.data.prefs.ScrubEdges
 import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
@@ -50,6 +53,7 @@ import core.ui.composables.scrollrail.RailScrubState
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.composables.scrollrail.railScrubInput
 import core.ui.composables.scrollrail.rememberRailScrubState
+import core.ui.layout.homeEdgePadding
 import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
@@ -74,6 +78,9 @@ private const val REVEAL_FADE_IN_MILLIS: Int = 200
 private const val REVEAL_FADE_IN_DELAY_MILLIS: Int = 75
 private const val REVEAL_FADE_OUT_MILLIS: Int = 1
 private const val REVEAL_FADE_OUT_DELAY_MILLIS: Int = 275
+
+/** The test tag on the Rail mirror strip. */
+internal const val RAIL_MIRROR_STRIP_TEST_TAG: String = "railMirrorStrip"
 
 @Composable
 internal fun LauncherContent(
@@ -253,6 +260,7 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
 internal fun BoxScope.LauncherRail(
     railItems: List<GroupMark>,
     railBounds: RailBounds,
+    scrubEdges: ScrubEdges,
     isCardOpen: () -> Boolean,
     onRailTouched: () -> Unit,
     onRailPreview: (Int) -> Unit,
@@ -261,7 +269,7 @@ internal fun BoxScope.LauncherRail(
 ) {
     val railGesture: RailGesture = remember { RailGesture() }
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
-    LaunchedEffect(railItems.size, enabled) {
+    LaunchedEffect(railItems.size, enabled, scrubEdges) {
         railGesture.reset()
     }
     val railScrubState: RailScrubState = rememberRailScrubState(
@@ -278,6 +286,11 @@ internal fun BoxScope.LauncherRail(
         },
         enabled = enabled
     )
+    val drawnRailInput: Modifier = if (scrubEdges.isEndIncluded) {
+        Modifier.railScrubInput(state = railScrubState)
+    } else {
+        Modifier
+    }
     ScrollRail(
         state = railScrubState,
         items = railItems,
@@ -286,9 +299,21 @@ internal fun BoxScope.LauncherRail(
             .padding(0.dp, railTopPadding, 0.dp, 0.dp)
             .width(railWidth)
             .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
-            .railScrubInput(state = railScrubState)
+            .then(drawnRailInput)
             .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) }
     )
+    if (scrubEdges.isStartIncluded) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(0.dp, railTopPadding, 0.dp, 0.dp)
+                .width(homeEdgePadding)
+                .height(railScrubState.railHeight)
+                .railScrubInput(state = railScrubState, mirrorWidth = railWidth)
+                .testTag(RAIL_MIRROR_STRIP_TEST_TAG)
+                .clearAndSetSemantics { hideFromAccessibility() }
+        )
+    }
 }
 
 @Composable

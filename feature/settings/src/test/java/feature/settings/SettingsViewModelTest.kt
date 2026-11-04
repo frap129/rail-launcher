@@ -3,6 +3,7 @@ package feature.settings
 import app.cash.turbine.test
 import core.data.icons.model.Icon
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.PrivateSpaceStatus
@@ -20,6 +21,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -80,6 +82,31 @@ class SettingsViewModelTest {
             viewModel.setHidePrivateSpaceWhenLocked(true)
 
             verify(exactly = 1) { mockPreferencesRepository.setHidePrivateSpaceWhenLocked(true) }
+        }
+    }
+
+    @Test
+    fun `exposes the stored Scrub edges`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(scrubEdges = ScrubEdges.START)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertEquals(ScrubEdges.START, expectMostRecentItem().scrubEdges)
+        }
+    }
+
+    @Test
+    fun `persists the Scrub edges`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setScrubEdges(ScrubEdges.END)
+
+            verify(exactly = 1) { mockPreferencesRepository.setScrubEdges(ScrubEdges.END) }
         }
     }
 

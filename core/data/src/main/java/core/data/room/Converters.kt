@@ -9,6 +9,7 @@ import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
@@ -113,6 +114,13 @@ class Converters {
     @TypeConverter
     fun fromStringToMediaPlayerPlacement(placement: String): MediaPlayerPlacement =
         MediaPlayerPlacement.entries.firstOrNull { entry -> entry.name == placement } ?: MediaPlayerPlacement.BELOW_WIDGET_AREA
+
+    @TypeConverter
+    fun fromScrubEdgesToString(edges: ScrubEdges): String = edges.name
+
+    @TypeConverter
+    fun fromStringToScrubEdges(edges: String): ScrubEdges =
+        ScrubEdges.entries.firstOrNull { entry -> entry.name == edges } ?: ScrubEdges.DEFAULT
 
     @TypeConverter
     fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)

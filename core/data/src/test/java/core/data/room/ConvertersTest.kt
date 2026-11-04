@@ -6,6 +6,7 @@ import core.data.prefs.DateFormatPreset
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
 import org.junit.Assert.assertEquals
@@ -94,5 +95,17 @@ class ConvertersTest {
     @Test
     fun `falls back to below the Widget Area for an unknown Media Player placement`() {
         assertEquals(MediaPlayerPlacement.BELOW_WIDGET_AREA, converters.fromStringToMediaPlayerPlacement("UNKNOWN"))
+    }
+
+    @Test
+    fun `round trips Scrub edges by name`() {
+        ScrubEdges.entries.forEach { edges ->
+            assertEquals(edges, converters.fromStringToScrubEdges(converters.fromScrubEdgesToString(edges)))
+        }
+    }
+
+    @Test
+    fun `falls back to both edges for an unknown Scrub edges value`() {
+        assertEquals(ScrubEdges.BOTH, converters.fromStringToScrubEdges("UNKNOWN"))
     }
 }
