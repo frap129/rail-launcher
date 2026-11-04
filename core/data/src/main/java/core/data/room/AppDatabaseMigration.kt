@@ -2,6 +2,7 @@ package core.data.room
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 
@@ -46,6 +47,15 @@ val MIGRATION_14_15: Migration = object : Migration(14, 15) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
             "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
+        )
+    }
+}
+
+/** Adds the Rail side setting, defaulting to the layout end, and keeps every other setting. */
+val MIGRATION_15_16: Migration = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_RAIL_SIDE} TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'"
         )
     }
 }

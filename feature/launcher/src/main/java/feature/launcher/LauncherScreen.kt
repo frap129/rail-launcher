@@ -45,6 +45,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
@@ -130,6 +131,7 @@ fun LauncherScreen(
     val profileSource: IProfileSource = koinInject()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
+    val railSide: RailSide by viewModel.railSide.collectAsState()
     val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
@@ -302,6 +304,7 @@ fun LauncherScreen(
             viewModel = viewModel,
             widgetViewModel = widgetViewModel,
             railBounds = railBounds,
+            railSide = railSide,
             onItemLaunch = launchItem,
             onItemOpenPopup = popupCardViewModel::open,
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
@@ -318,6 +321,7 @@ fun LauncherScreen(
         LauncherRail(
             railItems = railItems,
             railBounds = railBounds,
+            railSide = railSide,
             scrubEdges = scrubEdges,
             isCardOpen = popupCardViewModel::isOpen,
             onRailTouched = popupCardViewModel::close,

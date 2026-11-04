@@ -21,4 +21,7 @@ interface IPreferencesRepository {
 
     /** Sets which screen edges scrub the Rail. */
     fun setScrubEdges(edges: ScrubEdges)
+
+    /** Sets the screen side where the Rail is drawn. */
+    fun setRailSide(side: RailSide)
 }

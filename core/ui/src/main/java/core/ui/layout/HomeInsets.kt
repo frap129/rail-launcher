@@ -2,6 +2,7 @@ package core.ui.layout
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import core.data.prefs.RailSide
 
 /** The 48dp touch target size, used as an exact size or as a minimum height. */
 val minTouchTargetSize: Dp = 48.dp
@@ -9,8 +10,11 @@ val minTouchTargetSize: Dp = 48.dp
 /** The shared start, top and bottom inset for Home content. */
 val homeEdgePadding: Dp = 32.dp
 
-/** The end inset that keeps Home content clear of the Rail's touch column (64dp Rail plus the -16dp offset). */
+/** The inset that keeps Home content clear of the Rail's touch column (64dp Rail plus the 16dp offset). */
 val homeRailTouchInset: Dp = 80.dp
+
+/** The start inset that keeps Home content clear of the Rail's touch column when the Rail is drawn on the layout start. */
+fun homeRailStartInset(railSide: RailSide): Dp = if (railSide.isStart) homeRailTouchInset else homeEdgePadding
 
 /** The end inset inside [homeEdgePadding] that keeps inset Widgets clear of the Rail's touch column. */
 val homeContentEndInset: Dp = homeRailTouchInset - homeEdgePadding

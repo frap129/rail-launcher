@@ -16,6 +16,7 @@ import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
@@ -205,6 +206,21 @@ class LauncherViewModelTest {
 
             viewModel.scrubEdges.test {
                 assertEquals(ScrubEdges.START, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `exposes the Rail side setting`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(
+                    settings = Settings(railSide = RailSide.START)
+                )
+            )
+
+            viewModel.railSide.test {
+                assertEquals(RailSide.START, expectMostRecentItem())
             }
         }
     }

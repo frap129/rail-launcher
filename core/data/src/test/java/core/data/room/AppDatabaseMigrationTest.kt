@@ -3,6 +3,7 @@ package core.data.room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
@@ -21,6 +22,8 @@ private const val STANDALONE_SHORTCUTS_DATABASE_NAME: String = "standalone-short
 private const val STANDALONE_SHORTCUTS_DATABASE_VERSION: Int = 13
 private const val SCRUB_EDGES_DATABASE_NAME: String = "scrub-edges-migration-test"
 private const val SCRUB_EDGES_DATABASE_VERSION: Int = 14
+private const val RAIL_SIDE_DATABASE_NAME: String = "rail-side-migration-test"
+private const val RAIL_SIDE_DATABASE_VERSION: Int = 15
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
 private const val SETTINGS_TABLE: String = "settings"
@@ -117,6 +120,44 @@ class AppDatabaseMigrationTest {
             assertEquals(true, actualSwitch)
         }
     }
+
+    @Test
+    fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
+        withDatabase(
+            name = RAIL_SIDE_DATABASE_NAME,
+            version = RAIL_SIDE_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    hidePrivateSpaceWhenLocked = true,
+                    scrubEdges = ScrubEdges.START
+                )
+            }
+        ) { db ->
+            MIGRATION_15_16.migrate(db)
+
+            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualRailSide: String = db.railSide()
+            val actualScrubEdges: String = db.scrubEdges()
+            val actualIconPack: String? = db.iconPack()
+            val actualSwitch: Boolean = db.hidePrivateSpaceWhenLocked()
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED,
+                    Settings.COLUMN_SCRUB_EDGES,
+                    Settings.COLUMN_RAIL_SIDE
+                ),
+                actualColumns
+            )
+            assertEquals("END", actualRailSide)
+            assertEquals("START", actualScrubEdges)
+            assertEquals(TEST_ICON_PACK_PACKAGE, actualIconPack)
+            assertEquals(true, actualSwitch)
+        }
+    }
 }
 
 /** Opens [name] at [version] with [createTables], runs [testBody] against it and removes it again. */
@@ -148,17 +189,30 @@ private fun withDatabase(
     }
 }
 
-/** Creates a settings table and inserts one row, optionally with the Private Space switch column. */
-private fun SupportSQLiteDatabase.createSettingsRow(iconPack: String, hidePrivateSpaceWhenLocked: Boolean? = null) {
+/** Creates a settings table and inserts one row with the columns each database version had. */
+private fun SupportSQLiteDatabase.createSettingsRow(
+    iconPack: String,
+    hidePrivateSpaceWhenLocked: Boolean? = null,
+    scrubEdges: ScrubEdges? = null
+) {
     val hideColumnDefinition: String = if (hidePrivateSpaceWhenLocked == null) {
         ""
     } else {
         ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
     }
+    val scrubEdgesColumnDefinition: String = if (scrubEdges == null) {
+        ""
+    } else {
+        ", ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
+    }
     val hideColumn: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}"
+    val scrubEdgesColumn: String = if (scrubEdges == null) "" else ", ${Settings.COLUMN_SCRUB_EDGES}"
     val hideValue: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${if (hidePrivateSpaceWhenLocked) 1 else 0}"
-    execSQL("CREATE TABLE $SETTINGS_TABLE (id INTEGER NOT NULL, icon_pack TEXT$hideColumnDefinition, PRIMARY KEY(id))")
-    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$hideColumn) VALUES (0, '$iconPack'$hideValue)")
+    val scrubEdgesValue: String = if (scrubEdges == null) "" else ", '${scrubEdges.name}'"
+    val columns: String = "id INTEGER NOT NULL, icon_pack TEXT$hideColumnDefinition$scrubEdgesColumnDefinition"
+    val values: String = "0, '$iconPack'$hideValue$scrubEdgesValue"
+    execSQL("CREATE TABLE $SETTINGS_TABLE ($columns, PRIMARY KEY(id))")
+    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$hideColumn$scrubEdgesColumn) VALUES ($values)")
 }
 
 private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = query("PRAGMA table_info($table)").use { cursor ->
@@ -200,6 +254,11 @@ private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean =
 private fun SupportSQLiteDatabase.scrubEdges(): String = query("SELECT ${Settings.COLUMN_SCRUB_EDGES} FROM $SETTINGS_TABLE").use { cursor ->
     cursor.moveToFirst()
     cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SCRUB_EDGES))
+}
+
+private fun SupportSQLiteDatabase.railSide(): String = query("SELECT ${Settings.COLUMN_RAIL_SIDE} FROM $SETTINGS_TABLE").use { cursor ->
+    cursor.moveToFirst()
+    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_RAIL_SIDE))
 }
 
 private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM $SETTINGS_TABLE").use { cursor ->
