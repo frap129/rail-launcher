@@ -2,10 +2,11 @@ package feature.launcher
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntRect
+import core.data.prefs.RailSide
 import core.ui.layout.homeRailTouchInset
 import kotlin.math.roundToInt
 
-private const val START_INSET_DP: Float = 16f
+private const val NON_RAIL_INSET_DP: Float = 16f
 private const val MAX_WIDTH_DP: Float = 400f
 private const val VERTICAL_INSET_DP: Float = 16f
 
@@ -27,10 +28,13 @@ object PopupPlacement {
         safeInsets: PopupInsets,
         contentHeightPx: Int,
         density: Float,
+        railSide: RailSide,
         isRtl: Boolean
     ): PopupFrame {
-        val startInsetPx: Int = (START_INSET_DP * density).roundToInt()
-        val endInsetPx: Int = (homeRailTouchInset.value * density).roundToInt()
+        val startInsetDp: Float = if (railSide.isStart) homeRailTouchInset.value else NON_RAIL_INSET_DP
+        val endInsetDp: Float = if (railSide.isStart) NON_RAIL_INSET_DP else homeRailTouchInset.value
+        val startInsetPx: Int = (startInsetDp * density).roundToInt()
+        val endInsetPx: Int = (endInsetDp * density).roundToInt()
         val width: Int = (window.width - startInsetPx - endInsetPx)
             .coerceAtLeast(0)
             .coerceAtMost((MAX_WIDTH_DP * density).roundToInt())

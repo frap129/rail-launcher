@@ -2,6 +2,7 @@ package feature.launcher
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import core.data.prefs.RailSide
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -39,23 +40,30 @@ object SwipeToOpen {
      * Classifies a cumulative drag. Only a horizontal-dominant drag toward the
      * Rail side is claimable.
      */
-    fun onDrag(dx: Float, dy: Float, isRtl: Boolean, slopPx: Float): SwipeClaim {
-        val directionalDistance: Float = directionalDx(dx = dx, isRtl = isRtl)
+    fun onDrag(dx: Float, dy: Float, isRtl: Boolean, railSide: RailSide, slopPx: Float): SwipeClaim {
+        val towardRailDistance: Float = towardRailDx(dx = dx, isRtl = isRtl, railSide = railSide)
         if (abs(dx) <= slopPx) {
             return SwipeClaim.Pending
         }
-        if (directionalDistance <= 0f) {
+        if (towardRailDistance <= 0f) {
             return SwipeClaim.Rejected
         }
-        return if (directionalDistance > abs(dy)) SwipeClaim.Claimed else SwipeClaim.Rejected
+        return if (towardRailDistance > abs(dy)) SwipeClaim.Claimed else SwipeClaim.Rejected
     }
 
     /** Whether releasing a claimed drag opens the Pop-up. */
-    fun onRelease(dx: Float, velocityX: Float, isRtl: Boolean, thresholdPx: Float, velocityThresholdPx: Float): Boolean {
-        val directionalDistance: Float = directionalDx(dx = dx, isRtl = isRtl)
-        val directionalVelocity: Float = directionalDx(dx = velocityX, isRtl = isRtl)
-        return directionalDistance >= thresholdPx ||
-            (directionalDistance > 0f && directionalVelocity >= velocityThresholdPx)
+    fun onRelease(
+        dx: Float,
+        velocityX: Float,
+        isRtl: Boolean,
+        railSide: RailSide,
+        thresholdPx: Float,
+        velocityThresholdPx: Float
+    ): Boolean {
+        val towardRailDistance: Float = towardRailDx(dx = dx, isRtl = isRtl, railSide = railSide)
+        val towardRailVelocity: Float = towardRailDx(dx = velocityX, isRtl = isRtl, railSide = railSide)
+        return towardRailDistance >= thresholdPx ||
+            (towardRailDistance > 0f && towardRailVelocity >= velocityThresholdPx)
     }
 
     /** Whether a row gesture has entered the Rail's [railBounds], staying reached once it has. */
@@ -69,4 +77,9 @@ object SwipeToOpen {
     fun velocityThresholdPx(density: Float): Float = VELOCITY_THRESHOLD_DP_PER_SECOND * density
 }
 
-internal fun directionalDx(dx: Float, isRtl: Boolean): Float = if (isRtl) -dx else dx
+/** The drag distance toward the Rail on [railSide], after accounting for [isRtl]. */
+internal fun towardRailDx(dx: Float, isRtl: Boolean, railSide: RailSide): Float = if (railSide.isOnLeft(isRtl = isRtl)) -dx else dx
+
+/** The physical offset for a positive [distance] toward the Rail on [railSide]. */
+internal fun railDirectionOffset(distance: Float, isRtl: Boolean, railSide: RailSide): Float =
+    if (railSide.isOnLeft(isRtl = isRtl)) -distance else distance

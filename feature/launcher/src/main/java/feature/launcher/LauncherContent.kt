@@ -104,7 +104,7 @@ internal fun LauncherContent(
     val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions =
-        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, context, privateSpaceSettingsIntent) {
+        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, railSide, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
                 onItemLaunch = onItemLaunch,
                 onItemLongPress = viewModel::openItemMenu,
@@ -118,7 +118,8 @@ internal fun LauncherContent(
                         { context.openPrivateSpaceSettings(intentSender) }
                     }
                 ),
-                railBounds = { railBounds.current }
+                railBounds = { railBounds.current },
+                railSide = railSide
             )
         }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)

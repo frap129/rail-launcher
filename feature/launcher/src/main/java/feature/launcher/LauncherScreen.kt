@@ -314,6 +314,7 @@ fun LauncherScreen(
         )
         PopupHost(
             viewModel = popupCardViewModel,
+            railSide = railSide,
             onLaunch = launchItem,
             onAddItems = popupPicker::startFolderPicking,
             modifier = Modifier.fillMaxSize()

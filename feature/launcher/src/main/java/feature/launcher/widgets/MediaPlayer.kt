@@ -62,6 +62,7 @@ import core.data.media.MediaArtwork
 import core.data.media.MediaCommand
 import core.data.media.MediaSessionSnapshot
 import core.data.media.PlaybackStatus
+import core.data.prefs.RailSide
 import core.data.widgets.WidgetWidth
 import feature.launcher.R
 
@@ -90,12 +91,13 @@ internal const val MEDIA_PLAYER_KEY: String = "mediaPlayer"
 internal val mediaPlayerWidthMode: WidgetWidth = WidgetWidth.Inset
 
 /** Adds the Media Player at the Widget Area position chosen in Settings. */
-fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp) {
+fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, railSide: RailSide) {
     item(key = MEDIA_PLAYER_KEY) {
         MediaPlayerSlot(
             ui = ui,
             topSpacing = topSpacing,
             bottomSpacing = bottomSpacing,
+            railSide = railSide,
             modifier = Modifier.animateItem(placementSpec = tween(MEDIA_PLAYER_ANIMATION_MILLIS))
         )
     }
@@ -103,7 +105,7 @@ fun LazyListScope.mediaPlayerItem(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacin
 
 /** Keeps the last session composed while the Media Player animates away. */
 @Composable
-fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, modifier: Modifier = Modifier) {
+fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, railSide: RailSide, modifier: Modifier = Modifier) {
     val mediaPlayer: MediaPlayerUiState = ui.mediaPlayer
     var retained: MediaPlayerUiState.Visible? by remember { mutableStateOf(null) }
     if (mediaPlayer is MediaPlayerUiState.Visible) {
@@ -119,7 +121,7 @@ fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, modifie
     ) {
         val shown: MediaPlayerUiState.Visible? = mediaPlayer as? MediaPlayerUiState.Visible ?: retained
         if (shown != null) {
-            Column(modifier = Modifier.insetWidgetWidth(mediaPlayerWidthMode)) {
+            Column(modifier = Modifier.insetWidgetWidth(railSide = railSide, widthMode = mediaPlayerWidthMode)) {
                 Spacer(modifier = Modifier.height(topSpacing))
                 MediaPlayer(
                     state = shown,

@@ -54,11 +54,11 @@ import compose.icons.fontawesomeicons.solid.ChevronDown
 import compose.icons.fontawesomeicons.solid.ChevronUp
 import compose.icons.fontawesomeicons.solid.ExternalLinkAlt
 import compose.icons.fontawesomeicons.solid.MinusCircle
+import core.data.prefs.RailSide
 import core.ui.R as CoreUiR
-import core.ui.composables.DragHandle
 import core.ui.composables.OutlinedText
 import core.ui.layout.compactIconSize
-import core.ui.layout.dragHandleEndPadding
+import core.ui.layout.dragHandleStartPadding
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
@@ -66,6 +66,7 @@ import core.ui.widgets.AppWidgetModel
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.WidgetModel
 import feature.launcher.R
+import feature.launcher.RailDragHandle
 import sh.calvin.reorderable.ReorderableColumn
 
 private val editablePlaceShape = RoundedCornerShape(12.dp)
@@ -105,6 +106,7 @@ internal fun EditablePlaceItem(
     onRemovePage: (Long, Long) -> Unit,
     onSplitPage: (Long, Long, Long?) -> Unit,
     onMergePlace: (Long, Long) -> Unit,
+    railSide: RailSide,
     handleModifier: Modifier,
     modifier: Modifier = Modifier,
     content: @Composable (Modifier) -> Unit
@@ -144,6 +146,7 @@ internal fun EditablePlaceItem(
                 ?.id
             onSplitPage(place.id, widgetId, targetPlaceId)
         },
+        railSide = railSide,
         handleModifier = handleModifier,
         modifier = modifier.onGloballyPositioned { coordinates ->
             val topLeft: Offset = coordinates.localToRoot(Offset.Zero)
@@ -202,6 +205,7 @@ private fun EditablePlace(
     onRemovePage: (widgetId: Long) -> Unit,
     onSplitPage: (widgetId: Long) -> Unit,
     onSplitAt: (widgetId: Long, rootY: Float) -> Unit,
+    railSide: RailSide,
     handleModifier: Modifier,
     onMergeDragStart: () -> Unit,
     onMergeDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
@@ -271,6 +275,7 @@ private fun EditablePlace(
                 onRemovePage = onRemovePage,
                 onSplitPage = onSplitPage,
                 onSplitAt = onSplitAt,
+                railSide = railSide,
                 modifier = Modifier.padding(top = topBandHeight)
             )
         }
@@ -292,10 +297,15 @@ private fun EditablePlace(
                     }
                 }
         )
+        val headerStartPadding: Dp = if (railSide.isStart) {
+            dragHandleStartPadding(railSide = railSide) + minTouchTargetSize
+        } else {
+            editablePlacePadding
+        }
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = editablePlacePadding, top = editablePlacePadding),
+                .padding(start = headerStartPadding, top = editablePlacePadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -341,11 +351,19 @@ private fun EditablePlace(
         } else {
             0.dp
         }
-        DragHandle(
+        RailDragHandle(
+            railSide = railSide,
+            contentDescription = reorderLabel,
             modifier = handleModifier
-                .align(if (isTall) Alignment.TopEnd else Alignment.CenterEnd)
-                .padding(top = handleTopPadding, end = dragHandleEndPadding),
-            contentDescription = reorderLabel
+                .align(
+                    when {
+                        isTall && railSide.isStart -> Alignment.TopStart
+                        isTall -> Alignment.TopEnd
+                        railSide.isStart -> Alignment.CenterStart
+                        else -> Alignment.CenterEnd
+                    }
+                )
+                .padding(top = handleTopPadding)
         )
     }
 }
@@ -357,6 +375,7 @@ private fun ExpandedStack(
     onRemovePage: (widgetId: Long) -> Unit,
     onSplitPage: (widgetId: Long) -> Unit,
     onSplitAt: (widgetId: Long, rootY: Float) -> Unit,
+    railSide: RailSide,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -374,6 +393,7 @@ private fun ExpandedStack(
                         onRemove = { onRemovePage(widget.id) },
                         onSplit = { onSplitPage(widget.id) },
                         onSplitAt = onSplitAt,
+                        railSide = railSide,
                         handleModifier = Modifier.draggableHandle(
                             onDragStarted = { hapticFeedback.performLongPressHaptic() }
                         )
@@ -390,6 +410,7 @@ private fun ExpandedPageRow(
     onRemove: () -> Unit,
     onSplit: () -> Unit,
     onSplitAt: (widgetId: Long, rootY: Float) -> Unit,
+    railSide: RailSide,
     handleModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
@@ -401,6 +422,13 @@ private fun ExpandedPageRow(
     var dragY: Float? by remember { mutableStateOf(null) }
     val removeLabel: String = stringResource(R.string.remove_from_stack_named, label)
     val splitLabel: String = stringResource(R.string.split_page_named, label)
+    val stackPageHandle: @Composable () -> Unit = {
+        RailDragHandle(
+            railSide = railSide,
+            contentDescription = stringResource(R.string.reorder_stack_page, label),
+            modifier = handleModifier
+        )
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -408,6 +436,9 @@ private fun ExpandedPageRow(
             .background(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(8.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (railSide.isStart) {
+            stackPageHandle()
+        }
         Box(
             modifier = Modifier
                 .size(minTouchTargetSize)
@@ -457,9 +488,8 @@ private fun ExpandedPageRow(
                 modifier = Modifier.size(compactIconSize)
             )
         }
-        DragHandle(
-            modifier = handleModifier.padding(end = editablePlacePadding),
-            contentDescription = stringResource(R.string.reorder_stack_page, label)
-        )
+        if (!railSide.isStart) {
+            stackPageHandle()
+        }
     }
 }
