@@ -12,3 +12,8 @@ fun HapticFeedback.performLongPressHaptic() {
 fun HapticFeedback.performSegmentTickHaptic() {
     performHapticFeedback(HapticFeedbackType.SegmentTick)
 }
+
+/** Performs the Rail's standard scrub-tick haptic. */
+fun HapticFeedback.performRailTickHaptic() {
+    performHapticFeedback(HapticFeedbackType.TextHandleMove)
+}

@@ -49,6 +49,7 @@ import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
+import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -127,6 +128,7 @@ fun LauncherScreen(
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val profileSource: IProfileSource = koinInject()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
+    val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -312,10 +314,12 @@ fun LauncherScreen(
             modifier = Modifier.fillMaxSize()
         )
         LauncherRail(
-            viewModel = viewModel,
+            railItems = railItems,
             railBounds = railBounds,
             isCardOpen = popupCardViewModel::isOpen,
             onRailTouched = popupCardViewModel::close,
+            onRailPreview = viewModel::onRailPreview,
+            onRailReleased = viewModel::onRailReleased,
             enabled = !isEditingHome
         )
         LauncherDoneButton(viewModel, widgetViewModel, popupEditor)

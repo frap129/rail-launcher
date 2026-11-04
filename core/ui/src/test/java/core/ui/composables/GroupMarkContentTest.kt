@@ -1,5 +1,6 @@
 package core.ui.composables
 
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -11,7 +12,11 @@ import androidx.compose.ui.test.performTouchInput
 import core.data.launchables.model.LaunchableGroup
 import core.data.testing.TEST_SDK
 import core.ui.GroupMark
+import core.ui.composables.scrollrail.RailScrubState
+import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.composables.scrollrail.railScrubInput
+import core.ui.composables.scrollrail.rememberRailScrubState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,15 +41,21 @@ class GroupMarkContentTest {
     @Test
     fun `draws the shield on the Rail at rest and in the scrub bubble`() {
         composeRule.setContent {
-            ScrollRail(
-                items = listOf(GroupMark.PrivateSpaceShield),
+            val items: List<GroupMark> = listOf(GroupMark.PrivateSpaceShield)
+            val state: RailScrubState = rememberRailScrubState(
+                items = items,
                 onScroll = {},
                 onScrollEnded = {}
+            )
+            ScrollRail(
+                state = state,
+                items = items,
+                modifier = Modifier.railScrubInput(state = state)
             )
         }
 
         assertPrivateSpaceShield()
-        composeRule.onNodeWithTag("scrollRail").performTouchInput { down(center) }
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performTouchInput { down(center) }
         composeRule.onAllNodesWithContentDescription("Private Space").assertCountEquals(2)
     }
 
