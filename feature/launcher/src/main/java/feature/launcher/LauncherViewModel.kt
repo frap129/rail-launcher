@@ -17,6 +17,7 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ScrubEdges
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
@@ -177,6 +178,15 @@ class LauncherViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             initialValue = emptyList()
+        )
+
+    /** The screen edges that scrub the Rail. */
+    val scrubEdges: StateFlow<ScrubEdges> = prefsRepo.settings
+        .map { settings -> settings.scrubEdges }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = ScrubEdges.DEFAULT
         )
 
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.

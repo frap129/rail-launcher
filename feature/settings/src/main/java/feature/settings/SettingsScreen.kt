@@ -80,11 +80,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -117,6 +119,7 @@ import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
 import core.data.prefs.canSetBatteryVisibility
 import core.data.widgets.MediaPlayerPlacement
@@ -265,7 +268,9 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
                     iconPacks = uiState.iconPacks,
                     selectedIconPack = uiState.selectedIconPack,
-                    onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) }
+                    scrubEdges = uiState.scrubEdges,
+                    onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
+                    onScrubEdgesSelected = viewModel::setScrubEdges
                 )
 
                 SettingsScreen.Widgets -> SettingsWidgetsScreen(
@@ -1401,18 +1406,45 @@ private fun <T> SingleChoiceDialog(
 
 @Composable
 private fun SettingsAlignmentRow(alignment: HeaderAlignment, enabled: Boolean, onAlignmentSelected: (HeaderAlignment) -> Unit) {
+    SettingsSegmentedRow(
+        title = stringResource(R.string.alignment),
+        options = HeaderAlignment.entries,
+        selected = alignment,
+        onSelect = onAlignmentSelected,
+        label = { option -> stringResource(option.labelResource()) },
+        enabled = enabled
+    )
+}
+
+@Composable
+private fun <T> SettingsSegmentedRow(
+    title: String,
+    options: List<T>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    label: @Composable (T) -> String,
+    supportingText: String? = null,
+    enabled: Boolean = true
+) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(text = stringResource(R.string.alignment), style = MaterialTheme.typography.bodyLarge)
+        Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        if (supportingText != null) {
+            Text(
+                text = supportingText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            HeaderAlignment.entries.forEachIndexed { index, option ->
+            options.forEachIndexed { index, option ->
                 SegmentedButton(
-                    selected = alignment == option,
-                    onClick = { onAlignmentSelected(option) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = HeaderAlignment.entries.size),
+                    selected = selected == option,
+                    onClick = { onSelect(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                     enabled = enabled
                 ) {
-                    Text(stringResource(option.labelResource()))
+                    Text(label(option))
                 }
             }
         }
@@ -1511,7 +1543,33 @@ private fun displayMaxOffsetDp(context: Context): Int {
 }
 
 @Composable
-fun SettingsAppearanceScreen(iconPacks: Set<IconPack>, selectedIconPack: IconPack, onIconPackSelected: (IconPack) -> Unit) {
+fun SettingsAppearanceScreen(
+    iconPacks: Set<IconPack>,
+    selectedIconPack: IconPack,
+    scrubEdges: ScrubEdges,
+    onIconPackSelected: (IconPack) -> Unit,
+    onScrubEdgesSelected: (ScrubEdges) -> Unit
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            IconPackRow(
+                iconPacks = iconPacks,
+                selectedIconPack = selectedIconPack,
+                onIconPackSelected = onIconPackSelected
+            )
+        }
+        item { SettingsSectionTitle(R.string.rail) }
+        item {
+            ScrubEdgesRow(
+                scrubEdges = scrubEdges,
+                onScrubEdgesSelected = onScrubEdgesSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun IconPackRow(iconPacks: Set<IconPack>, selectedIconPack: IconPack, onIconPackSelected: (IconPack) -> Unit) {
     val theme = MaterialTheme.colorScheme
     val state = rememberMenuState(expanded = false)
     Menu(state = state) {
@@ -1561,4 +1619,24 @@ fun SettingsAppearanceScreen(iconPacks: Set<IconPack>, selectedIconPack: IconPac
             }
         }
     }
+}
+
+@Composable
+private fun ScrubEdgesRow(scrubEdges: ScrubEdges, onScrubEdgesSelected: (ScrubEdges) -> Unit) {
+    val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
+    SettingsSegmentedRow(
+        title = stringResource(R.string.scrub_edges),
+        options = ScrubEdges.entries,
+        selected = scrubEdges,
+        onSelect = onScrubEdgesSelected,
+        label = { option -> stringResource(option.labelResource(isRtl = isRtl)) },
+        supportingText = stringResource(R.string.scrub_edges_summary)
+    )
+}
+
+@StringRes
+private fun ScrubEdges.labelResource(isRtl: Boolean): Int = when (this) {
+    ScrubEdges.START -> if (isRtl) R.string.scrub_edges_right else R.string.scrub_edges_left
+    ScrubEdges.END -> if (isRtl) R.string.scrub_edges_left else R.string.scrub_edges_right
+    ScrubEdges.BOTH -> R.string.scrub_edges_both
 }

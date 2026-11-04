@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.os.UserHandle
 import android.os.UserManager
+import android.view.View
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -27,6 +28,10 @@ private const val APP_PACKAGE = "dev.maples.rail"
 private const val WAIT_TIMEOUT_MS = 5_000L
 private const val FLING_SPEED = 10_000
 private const val DRAG_SPEED = 1_000
+private const val RAIL_SWIPE_STEPS = 10
+private const val MIRROR_STRIP_EDGE_OFFSET_PX = 8
+private const val MIRROR_STRIP_START_FRACTION = 0.25f
+private const val MIRROR_STRIP_END_FRACTION = 0.75f
 private const val BACK_RETRY_TIMEOUT_MS = 1_000L
 private const val BACK_RETRIES = 3
 private const val SCROLL_ATTEMPTS = 6
@@ -124,6 +129,7 @@ class BaselineProfileGenerator {
 
                 // Interact with the ScrollRail
                 dragScrollRail()
+                dragMirrorStrip()
 
                 // Rail Settings > Widgets.
                 setHeightLimit(row = openWidgetsSettings(), enabled = true)
@@ -661,6 +667,18 @@ class BaselineProfileGenerator {
         val point = Point(device.displayWidth, device.displayHeight)
         scrollRail.longClick()
         scrollRail.drag(point, DRAG_SPEED)
+    }
+
+    /** Drags the invisible Rail mirror strip, which shares the drawn Rail's vertical bounds, along the layout start edge. */
+    private fun MacrobenchmarkScope.dragMirrorStrip() {
+        val railBounds = findOrThrow(By.res("scrollRail"), "ScrollRail not found on Home").visibleBounds
+        val startY: Int = (railBounds.top + railBounds.height() * MIRROR_STRIP_START_FRACTION).toInt()
+        val endY: Int = (railBounds.top + railBounds.height() * MIRROR_STRIP_END_FRACTION).toInt()
+        val isRtl: Boolean = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.layoutDirection ==
+            View.LAYOUT_DIRECTION_RTL
+        val stripX: Int = if (isRtl) device.displayWidth - MIRROR_STRIP_EDGE_OFFSET_PX else MIRROR_STRIP_EDGE_OFFSET_PX
+        device.swipe(stripX, startY, stripX, endY, RAIL_SWIPE_STEPS)
+        device.waitForIdle()
     }
 
     /** Creates or verifies a known Favorite and returns its Home label. */

@@ -145,6 +145,29 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, hidePrivateSpaceWhenLocked = true), actualSettings)
     }
 
+    @Test
+    fun `stores the Scrub edges without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+
+        repository.setScrubEdges(ScrubEdges.START)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.scrubEdges == ScrubEdges.START }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, scrubEdges = ScrubEdges.START), actualSettings)
+    }
+
+    @Test
+    fun `exposes the stored Scrub edges`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(scrubEdges = ScrubEdges.END))
+        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertEquals(ScrubEdges.END, actualSettings.scrubEdges)
+    }
+
     private fun TestScope.createRepository(
         launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         settingsDao: SettingsDao = database.getSettingsDao()

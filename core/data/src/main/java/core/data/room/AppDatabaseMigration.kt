@@ -2,6 +2,7 @@ package core.data.room
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 
 private const val FOLDERS_TABLE: String = "folders"
@@ -36,6 +37,15 @@ val MIGRATION_13_14: Migration = object : Migration(13, 14) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS $STANDALONE_SHORTCUTS_TABLE " +
                 "(key TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(key))"
+        )
+    }
+}
+
+/** Adds the Scrub edges setting, defaulting to both edges, and keeps every other setting. */
+val MIGRATION_14_15: Migration = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
         )
     }
 }

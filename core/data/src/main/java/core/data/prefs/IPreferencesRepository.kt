@@ -18,4 +18,7 @@ interface IPreferencesRepository {
 
     /** Sets whether Rail hides a Locked Private Space container. */
     fun setHidePrivateSpaceWhenLocked(hide: Boolean)
+
+    /** Sets which screen edges scrub the Rail. */
+    fun setScrubEdges(edges: ScrubEdges)
 }

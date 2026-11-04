@@ -45,6 +45,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.prefs.ScrubEdges
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
@@ -129,6 +130,7 @@ fun LauncherScreen(
     val profileSource: IProfileSource = koinInject()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
+    val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -316,6 +318,7 @@ fun LauncherScreen(
         LauncherRail(
             railItems = railItems,
             railBounds = railBounds,
+            scrubEdges = scrubEdges,
             isCardOpen = popupCardViewModel::isOpen,
             onRailTouched = popupCardViewModel::close,
             onRailPreview = viewModel::onRailPreview,

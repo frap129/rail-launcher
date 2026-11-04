@@ -157,8 +157,16 @@ What a group shows on the Rail and above its App List section: its text label or
 _Avoid_: Glyph, icon (when meaning a mark)
 
 **Rail**:
-The index of marks along the screen edge used to jump through the App List; touching it from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last.
+The index of marks along the screen edge used to jump through the App List; touching it or any Scrub edge from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last.
 _Avoid_: Scroll bar, alphabet, wave
+
+**Scrub edges**:
+The screen edges, relative to the layout direction, whose touches scrub the Rail: the layout start, the layout end, or both.
+_Avoid_: Scroll edges, touch edges, Rail edges
+
+**Rail mirror strip**:
+The invisible touch strip on a Scrub edge where the Rail is not drawn; touching it scrubs the drawn Rail as if the finger were at the same height and the same distance in from the Rail's own edge.
+_Avoid_: Ghost Rail, invisible Rail, edge strip
 
 **Widget**:
 A self-contained panel shown on Home, either built into Rail (the Header, the Media Player) or an App Widget.

@@ -19,6 +19,8 @@ private const val SETTINGS_DATABASE_NAME: String = "settings-migration-test"
 private const val SETTINGS_DATABASE_VERSION: Int = 12
 private const val STANDALONE_SHORTCUTS_DATABASE_NAME: String = "standalone-shortcuts-migration-test"
 private const val STANDALONE_SHORTCUTS_DATABASE_VERSION: Int = 13
+private const val SCRUB_EDGES_DATABASE_NAME: String = "scrub-edges-migration-test"
+private const val SCRUB_EDGES_DATABASE_VERSION: Int = 14
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
 private const val SETTINGS_TABLE: String = "settings"
@@ -56,8 +58,7 @@ class AppDatabaseMigrationTest {
             name = SETTINGS_DATABASE_NAME,
             version = SETTINGS_DATABASE_VERSION,
             createTables = { db ->
-                db.execSQL("CREATE TABLE settings (id INTEGER NOT NULL, icon_pack TEXT, PRIMARY KEY(id))")
-                db.execSQL("INSERT INTO settings (id, icon_pack) VALUES (0, '$TEST_ICON_PACK_PACKAGE')")
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE)
             }
         ) { db ->
             MIGRATION_12_13.migrate(db)
@@ -90,6 +91,32 @@ class AppDatabaseMigrationTest {
             assertEquals(listOf(FAVORITE_KEY), db.favoriteKeys())
         }
     }
+
+    @Test
+    fun `adds Scrub edges defaulting to both edges and keeps the settings row`() {
+        withDatabase(
+            name = SCRUB_EDGES_DATABASE_NAME,
+            version = SCRUB_EDGES_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, hidePrivateSpaceWhenLocked = true)
+            }
+        ) { db ->
+            MIGRATION_14_15.migrate(db)
+
+            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualScrubEdges: String = db.scrubEdges()
+            val actualIconPack: String? = db.iconPack()
+            val actualSwitch: Boolean = db.hidePrivateSpaceWhenLocked()
+
+            assertEquals(
+                listOf("id", "icon_pack", Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED, Settings.COLUMN_SCRUB_EDGES),
+                actualColumns
+            )
+            assertEquals("BOTH", actualScrubEdges)
+            assertEquals(TEST_ICON_PACK_PACKAGE, actualIconPack)
+            assertEquals(true, actualSwitch)
+        }
+    }
 }
 
 /** Opens [name] at [version] with [createTables], runs [testBody] against it and removes it again. */
@@ -119,6 +146,19 @@ private fun withDatabase(
         helper.close()
         context.deleteDatabase(name)
     }
+}
+
+/** Creates a settings table and inserts one row, optionally with the Private Space switch column. */
+private fun SupportSQLiteDatabase.createSettingsRow(iconPack: String, hidePrivateSpaceWhenLocked: Boolean? = null) {
+    val hideColumnDefinition: String = if (hidePrivateSpaceWhenLocked == null) {
+        ""
+    } else {
+        ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
+    }
+    val hideColumn: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}"
+    val hideValue: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${if (hidePrivateSpaceWhenLocked) 1 else 0}"
+    execSQL("CREATE TABLE $SETTINGS_TABLE (id INTEGER NOT NULL, icon_pack TEXT$hideColumnDefinition, PRIMARY KEY(id))")
+    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$hideColumn) VALUES (0, '$iconPack'$hideValue)")
 }
 
 private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = query("PRAGMA table_info($table)").use { cursor ->
@@ -156,6 +196,11 @@ private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean =
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED)) != 0
     }
+
+private fun SupportSQLiteDatabase.scrubEdges(): String = query("SELECT ${Settings.COLUMN_SCRUB_EDGES} FROM $SETTINGS_TABLE").use { cursor ->
+    cursor.moveToFirst()
+    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SCRUB_EDGES))
+}
 
 private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM $SETTINGS_TABLE").use { cursor ->
     cursor.moveToFirst()

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ScrubEdges
 import core.data.profiles.IPrivateSpaceStatus
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -25,7 +26,8 @@ data class SettingsUiState(
     val iconPacks: Set<IconPack>,
     val selectedIconPack: IconPack,
     val hidePrivateSpaceWhenLocked: Boolean,
-    val isPrivateSpaceAvailable: Boolean
+    val isPrivateSpaceAvailable: Boolean,
+    val scrubEdges: ScrubEdges
 )
 
 class SettingsViewModel(
@@ -47,7 +49,8 @@ class SettingsViewModel(
             iconPacks = iconPacks,
             selectedIconPack = selectedIconPack,
             hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
-            isPrivateSpaceAvailable = status.profile != null
+            isPrivateSpaceAvailable = status.profile != null,
+            scrubEdges = settings.scrubEdges
         )
     }.stateIn(
         viewModelScope,
@@ -56,7 +59,8 @@ class SettingsViewModel(
             iconPacks = setOf(IconPack.SystemIconPack),
             selectedIconPack = IconPack.SystemIconPack,
             hidePrivateSpaceWhenLocked = false,
-            isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null
+            isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null,
+            scrubEdges = ScrubEdges.DEFAULT
         )
     )
 
@@ -64,4 +68,7 @@ class SettingsViewModel(
 
     /** Persists whether Rail hides a Locked Private Space container. */
     fun setHidePrivateSpaceWhenLocked(hide: Boolean) = prefsRepo.setHidePrivateSpaceWhenLocked(hide)
+
+    /** Persists which screen edges scrub the Rail. */
+    fun setScrubEdges(edges: ScrubEdges) = prefsRepo.setScrubEdges(edges)
 }

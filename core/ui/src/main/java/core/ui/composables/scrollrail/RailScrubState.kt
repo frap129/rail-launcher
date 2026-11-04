@@ -92,7 +92,10 @@ class RailScrubState internal constructor(
 ) {
     internal val metrics: RailMetrics = RailMetrics(density = density)
     internal val isEnabled: Boolean = enabled
-    private val railHeightPx: Float = metrics.markHeightPx * markCount
+
+    /** The height of the drawn Rail's marks and touch column. */
+    val railHeight: Dp = (metrics.markHeight.value * markCount).dp
+    private val railHeightPx: Float = railHeight.value * density
     private val pointerAnimation: RailPointerAnimation = RailPointerAnimation()
 
     /** The mark under the pointer during a scrub, or -1 when no scrub is active. */

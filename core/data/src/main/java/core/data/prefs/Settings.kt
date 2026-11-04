@@ -9,10 +9,13 @@ data class Settings(
     @PrimaryKey val id: Int = 0,
     @ColumnInfo(name = Settings.COLUMN_ICON_PACK) val iconPack: String? = null,
     @ColumnInfo(name = Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED, defaultValue = "0")
-    val hidePrivateSpaceWhenLocked: Boolean = false
+    val hidePrivateSpaceWhenLocked: Boolean = false,
+    @ColumnInfo(name = Settings.COLUMN_SCRUB_EDGES, defaultValue = "BOTH")
+    val scrubEdges: ScrubEdges = ScrubEdges.DEFAULT
 ) {
     companion object {
         const val COLUMN_ICON_PACK: String = "icon_pack"
         const val COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED: String = "hide_private_space_when_locked"
+        const val COLUMN_SCRUB_EDGES: String = "scrub_edges"
     }
 }
