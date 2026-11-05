@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.prefs.RailSide
 import core.ui.composables.OutlinedText
+import core.ui.layout.DragHandlePlacement
+import core.ui.layout.dragHandlePlacement
 import core.ui.layout.homeContentPadding
 import core.ui.layout.homeEdgePadding
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
@@ -298,6 +300,7 @@ private fun LazyListScope.favoriteItems(
         }
     } else {
         items(home.favorites, key = { favorite -> favoriteKey(favorite.key) }) { favorite ->
+            val dragHandlePlacement: DragHandlePlacement = railSide.dragHandlePlacement()
             ReorderableItem(
                 state = reorderableState,
                 key = favoriteKey(favorite.key),
@@ -311,8 +314,9 @@ private fun LazyListScope.favoriteItems(
                         Modifier
                     }
                 ) {
-                    if (home.isEditingFavorites && railSide.isStart) {
+                    if (home.isEditingFavorites && dragHandlePlacement.isBeforeContent) {
                         RailDragHandle(
+                            placement = dragHandlePlacement,
                             railSide = railSide,
                             contentDescription = stringResource(R.string.reorder_favorite, favorite.name),
                             modifier = Modifier.draggableHandle()
@@ -335,8 +339,9 @@ private fun LazyListScope.favoriteItems(
                                 }
                             )
                     )
-                    if (home.isEditingFavorites && !railSide.isStart) {
+                    if (home.isEditingFavorites && !dragHandlePlacement.isBeforeContent) {
                         RailDragHandle(
+                            placement = dragHandlePlacement,
                             railSide = railSide,
                             contentDescription = stringResource(R.string.reorder_favorite, favorite.name),
                             modifier = Modifier.draggableHandle()

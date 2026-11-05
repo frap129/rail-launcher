@@ -14,9 +14,7 @@ private data class ExpectedHomeInsets(
     val startInset: Dp,
     val endInset: Dp,
     val contentStartInset: Dp,
-    val contentEndInset: Dp,
-    val dragHandleStartPadding: Dp,
-    val dragHandleEndPadding: Dp
+    val contentEndInset: Dp
 )
 
 class HomeInsetsTest {
@@ -28,9 +26,7 @@ class HomeInsetsTest {
                 startInset = 32.dp,
                 endInset = 80.dp,
                 contentStartInset = 0.dp,
-                contentEndInset = 48.dp,
-                dragHandleStartPadding = 0.dp,
-                dragHandleEndPadding = 64.dp
+                contentEndInset = 48.dp
             )
         )
     }
@@ -43,9 +39,7 @@ class HomeInsetsTest {
                 startInset = 80.dp,
                 endInset = 32.dp,
                 contentStartInset = 48.dp,
-                contentEndInset = 0.dp,
-                dragHandleStartPadding = 64.dp,
-                dragHandleEndPadding = 0.dp
+                contentEndInset = 0.dp
             )
         )
     }
@@ -55,8 +49,6 @@ class HomeInsetsTest {
         assertEquals(expected.endInset, homeRailEndInset(railSide = expected.railSide))
         assertEquals(expected.contentStartInset, homeContentStartInset(railSide = expected.railSide))
         assertEquals(expected.contentEndInset, homeContentEndInset(railSide = expected.railSide))
-        assertEquals(expected.dragHandleStartPadding, dragHandleStartPadding(railSide = expected.railSide))
-        assertEquals(expected.dragHandleEndPadding, dragHandleEndPadding(railSide = expected.railSide))
         assertEquals(
             EXPECTED_WIDGET_CONTENT_WIDTH,
             insetWidgetContentWidth(screenWidth = WIDGET_SCREEN_WIDTH, railSide = expected.railSide)
