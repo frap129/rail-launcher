@@ -735,6 +735,20 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `exposes the Home edit mode while editing Favorites`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.homeEditMode.test {
+                assertEquals(HomeEditMode.None, expectMostRecentItem())
+                viewModel.editFavorites()
+                assertEquals(HomeEditMode.Favorites, awaitItem())
+                viewModel.finishEditingFavorites()
+                assertEquals(HomeEditMode.None, awaitItem())
+            }
+        }
+    }
+
+    @Test
     fun `returns to Home still editing Favorites when Back is pressed in the App List`() {
         runTest {
             val inputSecondItem: Launchable = listedItem(1)
