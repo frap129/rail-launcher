@@ -3,10 +3,16 @@ package feature.launcher
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -22,6 +28,7 @@ import core.data.testing.TEST_SDK
 import core.ui.GroupMark
 import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
+import core.ui.layout.HomeEditMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -106,18 +113,25 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `scrubbing the drawn Rail does nothing while disabled`() {
+    fun `scrubbing the drawn Rail does nothing while editing Widgets`() {
+        var actualCloseCount: Int = 0
+        var actualHapticTickCount: Int = 0
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
         val actualReleaseIndices: MutableList<Int> = mutableListOf()
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            enabled = false,
+            homeEditMode = { HomeEditMode.Widgets },
+            isCardOpen = { true },
+            onRailTouched = { actualCloseCount++ },
             onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            onRailReleased = { index -> actualReleaseIndices += index },
+            onHapticTick = { actualHapticTickCount++ }
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
 
+        assertEquals(0, actualCloseCount)
+        assertEquals(0, actualHapticTickCount)
         assertEquals(emptyList<Int>(), actualPreviewIndices)
         assertEquals(emptyList<Int>(), actualReleaseIndices)
     }
@@ -182,35 +196,96 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `scrubbing the mirror strip does nothing while disabled`() {
+    fun `scrubbing the mirror strip does nothing while editing Widgets`() {
+        var actualCloseCount: Int = 0
+        var actualHapticTickCount: Int = 0
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
         val actualReleaseIndices: MutableList<Int> = mutableListOf()
         setRailContent(
             scrubEdges = ScrubEdges.START,
-            enabled = false,
+            homeEditMode = { HomeEditMode.Widgets },
+            isCardOpen = { true },
+            onRailTouched = { actualCloseCount++ },
             onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            onRailReleased = { index -> actualReleaseIndices += index },
+            onHapticTick = { actualHapticTickCount++ }
         )
 
         dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
 
+        assertEquals(0, actualCloseCount)
+        assertEquals(0, actualHapticTickCount)
         assertEquals(emptyList<Int>(), actualPreviewIndices)
         assertEquals(emptyList<Int>(), actualReleaseIndices)
     }
 
+    @Test
+    fun `scrubbing both edges previews and releases while editing Favorites`() {
+        val actualPreviewIndices: MutableList<Int> = mutableListOf()
+        val actualReleaseIndices: MutableList<Int> = mutableListOf()
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            homeEditMode = { HomeEditMode.Favorites },
+            onRailPreview = { index -> actualPreviewIndices += index },
+            onRailReleased = { index -> actualReleaseIndices += index }
+        )
+
+        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
+        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(2, 2), actualReleaseIndices)
+    }
+
+    @Test
+    fun `scrubbing both edges works again when editing Widgets ends`() {
+        var inputHomeEditMode: HomeEditMode by mutableStateOf(HomeEditMode.Widgets)
+        val actualPreviewIndices: MutableList<Int> = mutableListOf()
+        val actualReleaseIndices: MutableList<Int> = mutableListOf()
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            homeEditMode = { inputHomeEditMode },
+            onRailPreview = { index -> actualPreviewIndices += index },
+            onRailReleased = { index -> actualReleaseIndices += index }
+        )
+
+        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
+        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        assertEquals(emptyList<Int>(), actualPreviewIndices)
+        assertEquals(emptyList<Int>(), actualReleaseIndices)
+
+        composeRule.runOnIdle { inputHomeEditMode = HomeEditMode.None }
+        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
+        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(2, 2), actualReleaseIndices)
+    }
+
     private fun setRailContent(
         scrubEdges: ScrubEdges,
-        enabled: Boolean = true,
+        homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
         isCardOpen: () -> Boolean = { false },
         onRailTouched: () -> Unit = {},
         onRailPreview: (Int) -> Unit,
-        onRailReleased: (Int) -> Unit
+        onRailReleased: (Int) -> Unit,
+        onHapticTick: () -> Unit = {}
     ): RailBounds {
         val railBounds: RailBounds = RailBounds()
         composeRule.setContent {
-            CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
+            val hapticFeedback: HapticFeedback = remember(onHapticTick) {
+                object : HapticFeedback {
+                    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                        onHapticTick()
+                    }
+                }
+            }
+            CompositionLocalProvider(
+                LocalLayoutDirection provides layoutDirection,
+                LocalHapticFeedback provides hapticFeedback
+            ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LauncherRail(
                         railItems = MARKS,
@@ -221,7 +296,7 @@ class LauncherRailTest {
                         onRailTouched = onRailTouched,
                         onRailPreview = onRailPreview,
                         onRailReleased = onRailReleased,
-                        enabled = enabled
+                        homeEditMode = homeEditMode()
                     )
                 }
             }

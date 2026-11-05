@@ -53,6 +53,7 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.ui.GroupMark
 import core.ui.R as CoreUiR
+import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.HOME_INTENT_REQUEST_KEY
@@ -133,6 +134,7 @@ fun LauncherScreen(
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railSide: RailSide by viewModel.railSide.collectAsState()
     val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
+    val homeEditMode: HomeEditMode by viewModel.homeEditMode.collectAsState()
     val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
     }
@@ -292,7 +294,6 @@ fun LauncherScreen(
     val isResizing: Boolean = resizeState != null
     val isEditingWidgets: Boolean = editDraft != null
     val isMovingWidgetArea: Boolean = moveState != null
-    val isEditingHome: Boolean = isResizing || isEditingWidgets || isMovingWidgetArea
     BackHandler {
         if (!popupCardViewModel.onBack() && !widgetViewModel.onBack()) {
             viewModel.onBack()
@@ -310,7 +311,7 @@ fun LauncherScreen(
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
-            isMovingWidgetArea = isMovingWidgetArea
+            homeEditMode = homeEditMode
         )
         PopupHost(
             viewModel = popupCardViewModel,
@@ -328,7 +329,7 @@ fun LauncherScreen(
             onRailTouched = popupCardViewModel::close,
             onRailPreview = viewModel::onRailPreview,
             onRailReleased = viewModel::onRailReleased,
-            enabled = !isEditingHome
+            homeEditMode = homeEditMode
         )
         LauncherDoneButton(viewModel, widgetViewModel, popupEditor)
         LauncherMenu(viewModel, popupEditor, popupFolderActions)
