@@ -20,11 +20,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import core.data.prefs.RailSide
 import core.ui.GroupMark
 import core.ui.util.performRailTickHaptic
 import kotlinx.coroutines.CoroutineScope
@@ -178,23 +182,46 @@ fun rememberRailScrubState(
 }
 
 /**
- * Feeds pointer positions into [state]. When [mirrorWidth] is set, the pointer
- * is mirrored horizontally within that width so a strip on the opposite edge
- * scrubs the Rail as if the finger were the same distance in from the Rail's
- * own edge. Leave [mirrorWidth] null to feed positions as-is.
+ * Feeds the drawn Rail's pointer positions into [state].
  */
-fun Modifier.railScrubInput(state: RailScrubState, mirrorWidth: Dp? = null): Modifier = pointerInput(state, mirrorWidth) {
-    if (!state.isEnabled) {
-        return@pointerInput
+fun Modifier.railScrubInput(state: RailScrubState): Modifier = pointerInput(state) {
+    collectRailPointers(state = state) { position, _ -> position }
+}
+
+/**
+ * Feeds pointer positions from the Rail's mirror strip into [state], mapping
+ * them into the drawn Rail's touch column on [railSide]. A strip touch keeps
+ * its height and its distance in from the mirror strip's screen edge.
+ */
+@Composable
+fun Modifier.railMirrorScrubInput(state: RailScrubState, railSide: RailSide): Modifier {
+    val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val isRailOnLeft: Boolean = railSide.isOnLeft(isRtl = isRtl)
+    return pointerInput(state, isRailOnLeft) {
+        collectRailPointers(state = state) { position, nodeWidthPx ->
+            Offset(
+                x = if (isRailOnLeft) nodeWidthPx - position.x else railWidth.toPx() - position.x,
+                y = position.y
+            )
+        }
     }
-    val mirrorWidthPx: Float? = mirrorWidth?.toPx()
+}
+
+private suspend fun PointerInputScope.collectRailPointers(
+    state: RailScrubState,
+    mapPointer: (position: Offset, nodeWidthPx: Float) -> Offset
+) {
+    if (!state.isEnabled) {
+        return
+    }
+    val nodeWidthPx: Float = size.width.toFloat()
     awaitPointerEventScope {
         while (true) {
             val event: PointerEvent = awaitPointerEvent()
             val position: Offset = event.changes.first().position
             state.handlePointerEvent(
                 eventType = event.type,
-                pointer = mirrorWidthPx?.let { width -> Offset(x = width - position.x, y = position.y) } ?: position
+                pointer = mapPointer(position, nodeWidthPx)
             )
         }
     }
