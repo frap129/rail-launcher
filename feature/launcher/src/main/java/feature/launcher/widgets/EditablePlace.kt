@@ -57,8 +57,10 @@ import compose.icons.fontawesomeicons.solid.MinusCircle
 import core.data.prefs.RailSide
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
+import core.ui.layout.DragHandlePlacement
 import core.ui.layout.compactIconSize
-import core.ui.layout.dragHandleStartPadding
+import core.ui.layout.dragHandleInset
+import core.ui.layout.dragHandlePlacement
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
@@ -238,6 +240,7 @@ private fun EditablePlace(
     val density: Density = LocalDensity.current
     val placeHeightDp: Dp = with(density) { placeHeightPx.toDp() }
     val isTall: Boolean = placeHeightDp > topBandHeight
+    val dragHandlePlacement: DragHandlePlacement = railSide.dragHandlePlacement()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -297,8 +300,8 @@ private fun EditablePlace(
                     }
                 }
         )
-        val headerStartPadding: Dp = if (railSide.isStart) {
-            dragHandleStartPadding(railSide = railSide) + minTouchTargetSize
+        val headerStartPadding: Dp = if (dragHandlePlacement.isBeforeContent) {
+            railSide.dragHandleInset() + minTouchTargetSize
         } else {
             editablePlacePadding
         }
@@ -355,14 +358,7 @@ private fun EditablePlace(
             railSide = railSide,
             contentDescription = reorderLabel,
             modifier = handleModifier
-                .align(
-                    when {
-                        isTall && railSide.isStart -> Alignment.TopStart
-                        isTall -> Alignment.TopEnd
-                        railSide.isStart -> Alignment.CenterStart
-                        else -> Alignment.CenterEnd
-                    }
-                )
+                .align(if (isTall) dragHandlePlacement.topAlignment else dragHandlePlacement.centerAlignment)
                 .padding(top = handleTopPadding)
         )
     }
@@ -422,6 +418,7 @@ private fun ExpandedPageRow(
     var dragY: Float? by remember { mutableStateOf(null) }
     val removeLabel: String = stringResource(R.string.remove_from_stack_named, label)
     val splitLabel: String = stringResource(R.string.split_page_named, label)
+    val dragHandlePlacement: DragHandlePlacement = railSide.dragHandlePlacement()
     val stackPageHandle: @Composable () -> Unit = {
         RailDragHandle(
             railSide = railSide,
@@ -436,7 +433,7 @@ private fun ExpandedPageRow(
             .background(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(8.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (railSide.isStart) {
+        if (dragHandlePlacement.isBeforeContent) {
             stackPageHandle()
         }
         Box(
@@ -488,7 +485,7 @@ private fun ExpandedPageRow(
                 modifier = Modifier.size(compactIconSize)
             )
         }
-        if (!railSide.isStart) {
+        if (!dragHandlePlacement.isBeforeContent) {
             stackPageHandle()
         }
     }

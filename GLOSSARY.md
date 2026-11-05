@@ -216,6 +216,10 @@ _Avoid_: Slot, row
 The in-memory order, stack membership and removals edited during Edit Widgets, committed atomically on Done.
 _Avoid_: Edit state, pending layout
 
+**Drag handle placement**:
+Where a drag handle sits relative to the content it reorders: before it on the layout start or after it on the layout end, aligned to that same side and clear of the Rail's touch column.
+_Avoid_: Handle position, handle side
+
 **Resize mode**:
 The Home edit mode that changes one Widget Area place's height.
 _Avoid_: Resize screen, resize drag
