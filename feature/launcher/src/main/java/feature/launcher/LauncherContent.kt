@@ -37,14 +37,12 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
@@ -54,6 +52,7 @@ import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.RailScrubState
 import core.ui.composables.scrollrail.ScrollRail
+import core.ui.composables.scrollrail.railMirrorScrubInput
 import core.ui.composables.scrollrail.railScrubInput
 import core.ui.composables.scrollrail.railWidth
 import core.ui.composables.scrollrail.rememberRailScrubState
@@ -294,15 +293,13 @@ internal fun BoxScope.LauncherRail(
         },
         enabled = enabled
     )
-    val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val isRailOnLeft: Boolean = railSide.isOnLeft(isRtl = isRtl)
     val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
         Modifier.railScrubInput(state = railScrubState)
     } else {
         Modifier
     }
     val railAlignment: Alignment = if (railSide.isStart) Alignment.CenterStart else Alignment.CenterEnd
-    val railHorizontalOffset: Dp = if (isRailOnLeft) railHorizontalInset else -railHorizontalInset
+    val railHorizontalOffset: Dp = if (railSide.isStart) railHorizontalInset else -railHorizontalInset
     ScrollRail(
         state = railScrubState,
         items = railItems,
@@ -317,14 +314,13 @@ internal fun BoxScope.LauncherRail(
     )
     val mirrorSide: RailSide = railSide.opposite()
     if (scrubEdges.includes(mirrorSide)) {
-        val mirrorWidth: Dp = if (isRailOnLeft) homeEdgePadding else railWidth
         Box(
             modifier = Modifier
                 .align(if (mirrorSide.isStart) Alignment.CenterStart else Alignment.CenterEnd)
                 .padding(0.dp, railTopPadding, 0.dp, 0.dp)
                 .width(homeEdgePadding)
                 .height(railScrubState.railHeight)
-                .railScrubInput(state = railScrubState, mirrorWidth = mirrorWidth)
+                .railMirrorScrubInput(state = railScrubState, railSide = railSide)
                 .testTag(RAIL_MIRROR_STRIP_TEST_TAG)
                 .clearAndSetSemantics { hideFromAccessibility() }
         )

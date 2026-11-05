@@ -39,15 +39,18 @@ val railWidth: Dp = 64.dp
 /** The test tag on the drawn Rail. */
 const val SCROLL_RAIL_TEST_TAG: String = "scrollRail"
 
+/** The test tag on the Rail's scrub bubble. */
+const val SCROLL_RAIL_BUBBLE_TEST_TAG: String = "scrollRailBubble"
+
 /**
  * A column of marks along the screen edge that the user can scrub through.
  * It animates bending horizontally as the user drags on it to ensure that
  * it remains visible while being touched.
  *
- * Pointer positions are supplied to [state] by [railScrubInput]; this
- * composable only draws the marks. A single animated pointer position drives
- * the bend of every mark, and an animated strength bends the Rail in and out
- * when a scrub starts and ends.
+ * Pointer positions are supplied to [state] by [railScrubInput] or
+ * [railMirrorScrubInput]; this composable only draws the marks. A single
+ * animated pointer position drives the bend of every mark, and an animated
+ * strength bends the Rail in and out when a scrub starts and ends.
  *
  * @param state the scrub state that selects and bends the marks
  * @param items the marks shown on the Rail, top to bottom
@@ -55,23 +58,29 @@ const val SCROLL_RAIL_TEST_TAG: String = "scrollRail"
  */
 @Composable
 fun ScrollRail(state: RailScrubState, items: List<GroupMark>, modifier: Modifier = Modifier, railSide: RailSide = RailSide.DEFAULT) {
-    val isOnLeft: Boolean = railSide.isOnLeft(isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl)
+    val placement: RailPlacement = RailPlacement(
+        isOnLeft = railSide.isOnLeft(isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl),
+        isAtLayoutStart = railSide.isStart
+    )
     Row(
-        horizontalArrangement = if (railSide.isStart) Arrangement.Start else Arrangement.End,
+        horizontalArrangement = if (placement.isAtLayoutStart) Arrangement.Start else Arrangement.End,
         modifier = modifier.testTag(SCROLL_RAIL_TEST_TAG)
     ) {
-        if (isOnLeft) {
-            RailMarks(state = state, items = items, isOnLeft = isOnLeft, isAtLayoutStart = railSide.isStart)
-            RailBubble(state = state, items = items, isOnLeft = isOnLeft)
+        if (placement.isAtLayoutStart) {
+            RailMarks(state = state, items = items, placement = placement)
+            RailBubble(state = state, items = items, placement = placement)
         } else {
-            RailBubble(state = state, items = items, isOnLeft = isOnLeft)
-            RailMarks(state = state, items = items, isOnLeft = isOnLeft, isAtLayoutStart = railSide.isStart)
+            RailBubble(state = state, items = items, placement = placement)
+            RailMarks(state = state, items = items, placement = placement)
         }
     }
 }
 
+/** Where the Rail sits: [isOnLeft] is physical for pointer maths, [isAtLayoutStart] is layout-relative for drawing. */
+private data class RailPlacement(val isOnLeft: Boolean, val isAtLayoutStart: Boolean)
+
 @Composable
-private fun RailBubble(state: RailScrubState, items: List<GroupMark>, isOnLeft: Boolean) {
+private fun RailBubble(state: RailScrubState, items: List<GroupMark>, placement: RailPlacement) {
     if (state.selectedMarkIndex < 0) {
         return
     }
@@ -83,11 +92,18 @@ private fun RailBubble(state: RailScrubState, items: List<GroupMark>, isOnLeft: 
             .size(metrics.highlightSize)
             .offset {
                 val bubble: Offset = state.bubblePosition
+                val xOffset: Float = getXOffset(
+                    index = state.selectedMarkIndex,
+                    metrics = metrics,
+                    pointer = Offset(bubble.x, bubble.y - state.railOffset),
+                    placement = placement
+                )
                 IntOffset(
-                    getXOffset(state.selectedMarkIndex, metrics, Offset(bubble.x, bubble.y - state.railOffset), isOnLeft).toInt(),
+                    xOffset.toInt(),
                     bubble.y.toInt() - (metrics.highlightSizePx * 0.5f).toInt()
                 )
             }
+            .testTag(SCROLL_RAIL_BUBBLE_TEST_TAG)
             .background(color = theme.primaryContainer, shape = CircleShape),
         contentAlignment = Alignment.Center,
         fontSize = 28.sp,
@@ -100,11 +116,11 @@ private fun RailBubble(state: RailScrubState, items: List<GroupMark>, isOnLeft: 
 }
 
 @Composable
-private fun RailMarks(state: RailScrubState, items: List<GroupMark>, isOnLeft: Boolean, isAtLayoutStart: Boolean) {
+private fun RailMarks(state: RailScrubState, items: List<GroupMark>, placement: RailPlacement) {
     val metrics: RailMetrics = state.metrics
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = if (isAtLayoutStart) Alignment.Start else Alignment.End,
+        horizontalAlignment = if (placement.isAtLayoutStart) Alignment.Start else Alignment.End,
         modifier = Modifier.offset {
             IntOffset(0, (state.railOffset * state.bendStrength).toInt())
         }
@@ -122,25 +138,28 @@ private fun RailMarks(state: RailScrubState, items: List<GroupMark>, isOnLeft: B
                     .offset {
                         val bend: Offset = state.bendPosition
                         val strength: Float = state.bendStrength
-                        IntOffset(
-                            (getXOffset(index, metrics, Offset(bend.x, bend.y - state.railOffset), isOnLeft) * strength).roundToInt(),
-                            0
+                        val xOffset: Float = getXOffset(
+                            index = index,
+                            metrics = metrics,
+                            pointer = Offset(bend.x, bend.y - state.railOffset),
+                            placement = placement
                         )
+                        IntOffset((xOffset * strength).roundToInt(), 0)
                     }
             )
         }
     }
 }
 
-private fun getXOffset(index: Int, metrics: RailMetrics, pointer: Offset, isOnLeft: Boolean): Float {
-    val mirroredPointerX: Float = if (isOnLeft) metrics.railWidthPx - pointer.x else pointer.x
-    val offset: Float = -gaussianCurve(
+private fun getXOffset(index: Int, metrics: RailMetrics, pointer: Offset, placement: RailPlacement): Float {
+    val pointerFromInnerEdge: Float = if (placement.isOnLeft) metrics.railWidthPx - pointer.x else pointer.x
+    val inwardOffset: Float = -gaussianCurve(
         index * metrics.markHeightPx,
         pointer.y,
-        metrics.minPeakPx + abs(mirroredPointerX * SLOPE_SCALE),
-        metrics.minPeakPx - mirroredPointerX
+        metrics.minPeakPx + abs(pointerFromInnerEdge * SLOPE_SCALE),
+        metrics.minPeakPx - pointerFromInnerEdge
     )
-    return if (isOnLeft) -offset else offset
+    return if (placement.isAtLayoutStart) -inwardOffset else inwardOffset
 }
 
 private fun gaussianCurve(pos: Float, peakPos: Float, slope: Float, peak: Float): Float =

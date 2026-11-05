@@ -20,8 +20,10 @@ import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.testing.TEST_SDK
 import core.ui.GroupMark
+import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,21 +44,28 @@ class LauncherRailTest {
             onRailReleased = {}
         )
 
-        assertRailOnSide(railBounds = railBounds, isStart = false)
-        assertMirrorStripOnSide(isStart = true)
+        assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = false)
+        assertMirrorStripOnSide(isOnLeft = true)
     }
 
     @Test
-    fun `keeps the Rail at the layout end in a right-to-left layout`() {
-        val railBounds: RailBounds = setRailContent(
-            scrubEdges = ScrubEdges.BOTH,
-            layoutDirection = LayoutDirection.Rtl,
-            onRailPreview = {},
-            onRailReleased = {}
-        )
+    fun `draws and scrubs the Rail on the layout end in a right-to-left layout for the default Rail side`() {
+        assertBothEdgesScrub(railSide = RailSide.DEFAULT, layoutDirection = LayoutDirection.Rtl, isRailOnLeft = true)
+    }
 
-        assertRailOnSide(railBounds = railBounds, isStart = true)
-        assertMirrorStripOnSide(isStart = false)
+    @Test
+    fun `draws and scrubs the Rail on the layout start in a right-to-left layout for the Start Rail side`() {
+        assertBothEdgesScrub(railSide = RailSide.START, layoutDirection = LayoutDirection.Rtl, isRailOnLeft = false)
+    }
+
+    @Test
+    fun `scrub bubble sits inside on the inner side in a right-to-left layout for the default Rail side`() {
+        assertScrubBubbleOnInnerSide(railSide = RailSide.DEFAULT, layoutDirection = LayoutDirection.Rtl, isRailOnLeft = true)
+    }
+
+    @Test
+    fun `scrub bubble sits inside on the inner side in a right-to-left layout for the Start Rail side`() {
+        assertScrubBubbleOnInnerSide(railSide = RailSide.START, layoutDirection = LayoutDirection.Rtl, isRailOnLeft = false)
     }
 
     @Test
@@ -69,7 +78,7 @@ class LauncherRailTest {
             onRailReleased = {}
         )
 
-        assertRailOnSide(railBounds = railBounds, isStart = true)
+        assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = true)
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
 
         assertEquals(listOf(0, 1, 2), actualPreviewIndices)
@@ -77,21 +86,7 @@ class LauncherRailTest {
 
     @Test
     fun `Start Rail side scrubs from the drawn Rail and the mirror strip on the end edge`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
-            scrubEdges = ScrubEdges.BOTH,
-            railSide = RailSide.START,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
-        )
-        assertMirrorStripOnSide(isStart = false)
-
-        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
-
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertBothEdgesScrub(railSide = RailSide.START, layoutDirection = LayoutDirection.Ltr, isRailOnLeft = true)
     }
 
     @Test
@@ -129,19 +124,7 @@ class LauncherRailTest {
 
     @Test
     fun `Both scrub edges preview and release from the drawn Rail and the mirror strip`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
-            scrubEdges = ScrubEdges.BOTH,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
-        )
-
-        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
-
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertBothEdgesScrub(railSide = RailSide.DEFAULT, layoutDirection = LayoutDirection.Ltr, isRailOnLeft = false)
     }
 
     @Test
@@ -246,24 +229,74 @@ class LauncherRailTest {
         return railBounds
     }
 
-    private fun assertRailOnSide(railBounds: RailBounds, isStart: Boolean) {
-        composeRule.waitForIdle()
-        val actualBounds: Rect = requireNotNull(railBounds.current)
-        val actualRootWidth: Float = with(composeRule.density) {
-            val rootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
-            (rootBounds.right - rootBounds.left).toPx()
-        }
-        assertEquals(isStart, actualBounds.center.x < actualRootWidth / 2f)
+    private fun assertBothEdgesScrub(railSide: RailSide, layoutDirection: LayoutDirection, isRailOnLeft: Boolean) {
+        val actualPreviewIndices: MutableList<Int> = mutableListOf()
+        val actualReleaseIndices: MutableList<Int> = mutableListOf()
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            railSide = railSide,
+            layoutDirection = layoutDirection,
+            onRailPreview = { index -> actualPreviewIndices += index },
+            onRailReleased = { index -> actualReleaseIndices += index }
+        )
+
+        assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = isRailOnLeft)
+        assertMirrorStripOnSide(isOnLeft = !isRailOnLeft)
+
+        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
+        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(2, 2), actualReleaseIndices)
     }
 
-    private fun assertMirrorStripOnSide(isStart: Boolean) {
+    private fun assertScrubBubbleOnInnerSide(railSide: RailSide, layoutDirection: LayoutDirection, isRailOnLeft: Boolean) {
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            railSide = railSide,
+            layoutDirection = layoutDirection,
+            onRailPreview = {},
+            onRailReleased = {}
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performTouchInput { down(center) }
+        composeRule.waitForIdle()
+
+        val actualRailBounds: Rect = requireNotNull(railBounds.current)
+        val actualBubbleBounds: DpRect = composeRule.onNodeWithTag(SCROLL_RAIL_BUBBLE_TEST_TAG).getUnclippedBoundsInRoot()
+        val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        with(composeRule.density) {
+            val actualBubbleCenterX: Float = (actualBubbleBounds.left.toPx() + actualBubbleBounds.right.toPx()) / 2f
+            val isBubbleOnRight: Boolean = actualBubbleCenterX > actualRailBounds.center.x
+            assertEquals(isRailOnLeft, isBubbleOnRight)
+            assertTrue(
+                "Bubble must be inside the screen",
+                actualBubbleBounds.left.toPx() >= actualRootBounds.left.toPx() &&
+                    actualBubbleBounds.right.toPx() <= actualRootBounds.right.toPx()
+            )
+        }
+    }
+
+    private fun assertRailInsideScreenOnSide(railBounds: RailBounds, isOnLeft: Boolean) {
+        composeRule.waitForIdle()
+        val actualBounds: Rect = requireNotNull(railBounds.current)
+        val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        with(composeRule.density) {
+            val actualRootLeftPx: Float = actualRootBounds.left.toPx()
+            val actualRootRightPx: Float = actualRootBounds.right.toPx()
+            assertEquals(isOnLeft, actualBounds.center.x < (actualRootLeftPx + actualRootRightPx) / 2f)
+            assertTrue("Rail must be inside the screen", actualBounds.left >= actualRootLeftPx && actualBounds.right <= actualRootRightPx)
+        }
+    }
+
+    private fun assertMirrorStripOnSide(isOnLeft: Boolean) {
         composeRule.waitForIdle()
         val actualMirrorBounds: DpRect = composeRule.onNodeWithTag(RAIL_MIRROR_STRIP_TEST_TAG).getUnclippedBoundsInRoot()
         val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
-        val actualMirrorCenterX: Float = (actualMirrorBounds.left.value + actualMirrorBounds.right.value) / 2f
-        val actualRootCenterX: Float = (actualRootBounds.left.value + actualRootBounds.right.value) / 2f
-        assertEquals(isStart, actualMirrorCenterX < actualRootCenterX)
+        assertEquals(isOnLeft, actualMirrorBounds.centerX() < actualRootBounds.centerX())
     }
+
+    private fun DpRect.centerX(): Float = (left.value + right.value) / 2f
 
     private fun dragScrubEdge(tag: String) {
         composeRule.onNodeWithTag(tag).performTouchInput {
