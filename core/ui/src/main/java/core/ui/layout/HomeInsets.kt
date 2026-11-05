@@ -37,23 +37,6 @@ fun homeContentPaddingValues(railSide: RailSide): PaddingValues = PaddingValues(
 /** Pads Home content inside [homeEdgePadding] clear of the Rail's touch column on [railSide]. */
 fun Modifier.homeContentPadding(railSide: RailSide): Modifier = padding(homeContentPaddingValues(railSide = railSide))
 
-/** The gap between the Rail's touch column and a drag handle. */
-val dragHandleRailGap: Dp = 16.dp
-
-/** The start inset that places a [minTouchTargetSize] drag handle inside content padded by [homeEdgePadding] clear of the Rail. */
-fun dragHandleStartPadding(railSide: RailSide): Dp =
-    if (railSide.isStart) homeContentStartInset(railSide = railSide) + dragHandleRailGap else 0.dp
-
-/** The end inset that places a [minTouchTargetSize] drag handle inside content padded by [homeEdgePadding] clear of the Rail. */
-fun dragHandleEndPadding(railSide: RailSide): Dp =
-    if (railSide.isStart) 0.dp else homeContentEndInset(railSide = railSide) + dragHandleRailGap
-
-/** Pads a [minTouchTargetSize] drag handle clear of the Rail's touch column on [railSide]. */
-fun Modifier.dragHandlePadding(railSide: RailSide): Modifier = padding(
-    start = dragHandleStartPadding(railSide = railSide),
-    end = dragHandleEndPadding(railSide = railSide)
-)
-
 /** The content width an inset Widget occupies on a screen [screenWidth] wide. */
 fun insetWidgetContentWidth(screenWidth: Dp, railSide: RailSide): Dp =
     screenWidth - homeRailStartInset(railSide = railSide) - homeRailEndInset(railSide = railSide)
