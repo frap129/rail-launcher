@@ -62,6 +62,7 @@ import core.ui.layout.compactIconSize
 import core.ui.layout.dragHandleInset
 import core.ui.layout.dragHandlePlacement
 import core.ui.layout.minTouchTargetSize
+import core.ui.layout.stackPageHandleInset
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
 import core.ui.widgets.AppWidgetModel
@@ -423,7 +424,8 @@ private fun ExpandedPageRow(
         RailDragHandle(
             railSide = railSide,
             contentDescription = stringResource(R.string.reorder_stack_page, label),
-            modifier = handleModifier
+            modifier = handleModifier,
+            inset = railSide.stackPageHandleInset(gap = editablePlacePadding)
         )
     }
     Row(

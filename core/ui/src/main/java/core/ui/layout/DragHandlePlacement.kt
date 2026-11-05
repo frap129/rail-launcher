@@ -25,6 +25,12 @@ fun RailSide.dragHandlePlacement(): DragHandlePlacement = if (isStart) DragHandl
 /** The inset between a drag handle and its content edge that keeps it clear of the Rail's touch column on [this] side. */
 fun RailSide.dragHandleInset(): Dp = railContentInset() + dragHandleRailGap
 
+/**
+ * The inset between a Stack page drag handle and its row edge: [gap], plus the clearance for a
+ * Start Rail. An End Rail keeps the handle at [gap], as before the Rail could be drawn on either side.
+ */
+fun RailSide.stackPageHandleInset(gap: Dp): Dp = homeContentStartInset(railSide = this) + gap
+
 /** The padding that insets a drag handle by [inset] on [this] Rail side. */
 fun RailSide.dragHandlePadding(inset: Dp = dragHandleInset()): PaddingValues = if (dragHandlePlacement().isBeforeContent) {
     PaddingValues(start = inset)

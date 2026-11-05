@@ -34,8 +34,11 @@ fun homeContentPaddingValues(railSide: RailSide): PaddingValues = PaddingValues(
     end = homeContentEndInset(railSide = railSide)
 )
 
-/** Pads Home content inside [homeEdgePadding] clear of the Rail's touch column on [railSide]. */
-fun Modifier.homeContentPadding(railSide: RailSide): Modifier = padding(homeContentPaddingValues(railSide = railSide))
+/** The padding that keeps Favorites content clear of a Start Rail, leaving an End Rail at [homeEdgePadding]. */
+fun favoritesContentPaddingValues(railSide: RailSide): PaddingValues = PaddingValues(start = homeContentStartInset(railSide = railSide))
+
+/** Pads Favorites content clear of a Start Rail, leaving an End Rail at [homeEdgePadding]. */
+fun Modifier.favoritesContentPadding(railSide: RailSide): Modifier = padding(favoritesContentPaddingValues(railSide = railSide))
 
 /** The content width an inset Widget occupies on a screen [screenWidth] wide. */
 fun insetWidgetContentWidth(screenWidth: Dp, railSide: RailSide): Dp =
