@@ -424,7 +424,9 @@ private fun ExpandedPageRow(
             placement = dragHandlePlacement,
             railSide = railSide,
             contentDescription = stringResource(R.string.reorder_stack_page, label),
-            modifier = handleModifier
+            modifier = handleModifier,
+            gap = editablePlacePadding,
+            clearsEndRail = false
         )
     }
     Row(

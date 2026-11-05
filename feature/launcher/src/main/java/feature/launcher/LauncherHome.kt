@@ -33,7 +33,7 @@ import core.data.prefs.RailSide
 import core.ui.composables.OutlinedText
 import core.ui.layout.DragHandlePlacement
 import core.ui.layout.dragHandlePlacement
-import core.ui.layout.homeContentPadding
+import core.ui.layout.favoritesContentPadding
 import core.ui.layout.homeEdgePadding
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
@@ -294,7 +294,7 @@ private fun LazyListScope.favoriteItems(
                 text = stringResource(R.string.favorites_empty_hint),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .homeContentPadding(railSide = railSide),
+                    .favoritesContentPadding(railSide = railSide),
                 style = MaterialTheme.typography.titleMedium
             )
         }
@@ -335,7 +335,7 @@ private fun LazyListScope.favoriteItems(
                                 if (home.isEditingFavorites) {
                                     Modifier
                                 } else {
-                                    Modifier.homeContentPadding(railSide = railSide)
+                                    Modifier.favoritesContentPadding(railSide = railSide)
                                 }
                             )
                     )
