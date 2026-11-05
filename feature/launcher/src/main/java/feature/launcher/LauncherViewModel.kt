@@ -210,6 +210,9 @@ class LauncherViewModel(
     /** The edited Favorites order; exposed for the ViewModel's behavioural tests. */
     internal val editingFavoriteKeys: List<String>? get() = editedFavoriteKeys.value
 
+    /** The active Home edit mode; any mode disables the Rail's Scrub edges. */
+    val homeEditMode: StateFlow<HomeEditMode> = homeEditState.mode
+
     /** Whether the Favorites are being edited, shared with the Done button. */
     val isEditingFavorites: StateFlow<Boolean> = homeEditState.mode
         .map { mode -> mode == HomeEditMode.Favorites }

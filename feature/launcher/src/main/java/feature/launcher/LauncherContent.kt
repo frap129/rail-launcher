@@ -56,6 +56,7 @@ import core.ui.composables.scrollrail.railMirrorScrubInput
 import core.ui.composables.scrollrail.railScrubInput
 import core.ui.composables.scrollrail.railWidth
 import core.ui.composables.scrollrail.rememberRailScrubState
+import core.ui.layout.HomeEditMode
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailStartInset
 import core.ui.popups.IPopupEditor
@@ -96,7 +97,7 @@ internal fun LauncherContent(
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
-    isMovingWidgetArea: Boolean
+    homeEditMode: HomeEditMode
 ) {
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
@@ -123,7 +124,7 @@ internal fun LauncherContent(
         }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
-    val isEditingHome: Boolean = home?.isEditingFavorites == true || isResizing || isEditingWidgets || isMovingWidgetArea
+    val isEditingHome: Boolean = homeEditMode != HomeEditMode.None
     val homeAlpha: State<Float> = animateFloatAsState(
         targetValue = if (isHomeVisible) 1f else 0f,
         animationSpec = if (isHomeVisible) {
@@ -272,11 +273,12 @@ internal fun BoxScope.LauncherRail(
     onRailTouched: () -> Unit,
     onRailPreview: (Int) -> Unit,
     onRailReleased: (Int) -> Unit,
-    enabled: Boolean = true
+    homeEditMode: HomeEditMode = HomeEditMode.None
 ) {
     val railGesture: RailGesture = remember { RailGesture() }
+    val isEnabled: Boolean = homeEditMode == HomeEditMode.None
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
-    LaunchedEffect(railItems.size, enabled, railSide, scrubEdges) {
+    LaunchedEffect(railItems.size, isEnabled, railSide, scrubEdges) {
         railGesture.reset()
     }
     val railScrubState: RailScrubState = rememberRailScrubState(
@@ -291,7 +293,7 @@ internal fun BoxScope.LauncherRail(
                 onRailReleased(index)
             }
         },
-        enabled = enabled
+        enabled = isEnabled
     )
     val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
         Modifier.railScrubInput(state = railScrubState)
