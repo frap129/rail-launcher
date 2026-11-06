@@ -1,5 +1,6 @@
 package core.data.prefs
 
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.room.dao.LaunchableCustomizationDao
@@ -29,7 +30,19 @@ class IPreferencesRepositoryImpl(
 
     override fun resetItemName(item: Launchable) {
         scope.launch(Dispatchers.IO) {
-            launchableCustomizationDao.delete(key = item.key)
+            launchableCustomizationDao.resetName(key = item.key)
+        }
+    }
+
+    override fun setCustomIcon(item: Launchable, icon: CustomIcon) {
+        scope.launch(Dispatchers.IO) {
+            launchableCustomizationDao.setIcon(key = item.key, icon = icon)
+        }
+    }
+
+    override fun resetCustomIcon(item: Launchable) {
+        scope.launch(Dispatchers.IO) {
+            launchableCustomizationDao.resetIcon(key = item.key)
         }
     }
 

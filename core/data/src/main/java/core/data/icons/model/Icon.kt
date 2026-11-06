@@ -18,6 +18,9 @@ sealed class Icon {
     /** A Rail-drawn Folder icon in one of three accent shades. */
     data class FolderIcon(val shade: Int) : Icon()
 
+    /** A drawable from an icon pack, stored by name so a pack update can keep it. */
+    data class PackDrawableIcon(val packPackageName: String, val drawableName: String) : Icon()
+
     /** [icon] carrying the system badge of a non-personal [profile]. */
     data class ProfileIcon(val icon: Icon, val profile: UserHandle) : Icon()
 

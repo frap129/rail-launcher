@@ -244,7 +244,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
+                            contentDescription = stringResource(CoreUiR.string.back)
                         )
                     }
                 }

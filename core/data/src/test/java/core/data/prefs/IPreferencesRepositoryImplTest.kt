@@ -1,5 +1,6 @@
 package core.data.prefs
 
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
@@ -12,6 +13,7 @@ import core.data.testing.TEST_RAIL_ICON_RES_ID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
@@ -20,6 +22,7 @@ private const val SECOND_RENAMED_ITEM_NAME: String = "Second Renamed Item"
 private const val ORIGINAL_ITEM_NAME: String = "Original"
 private const val LAUNCHABLE_DEEPLINK: String = "rail-launcher://test"
 private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomization(key = "other", name = "Other")
+private val CUSTOM_ICON: CustomIcon = CustomIcon.PackDrawable(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = "calendar")
 
 class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
@@ -54,7 +57,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IPreferencesRepository = createRepository()
         val inputItem: Launchable = createLaunchable()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        val actualCustomization: LaunchableCustomization = awaitNewCustomization(key = inputItem.key)
+        val actualCustomization: LaunchableCustomization = awaitCustomization(key = inputItem.key)
         assertEquals(LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME), actualCustomization)
     }
 
@@ -81,7 +84,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val inputItem: Launchable = createLaunchable()
         val repository: IPreferencesRepository = createRepository()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
-        awaitNewCustomization(key = inputItem.key)
+        awaitCustomization(key = inputItem.key)
         repository.setItemName(item = inputItem, name = SECOND_RENAMED_ITEM_NAME)
         awaitRenamedCustomization(key = inputItem.key, previousName = RENAMED_ITEM_NAME)
         val actualCustomization: LaunchableCustomization = repository.launchableCustomizations.first().single()
@@ -102,6 +105,88 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             stored.none { customization -> customization.key == inputItem.key }
         }
         assertEquals(listOf(OTHER_CUSTOMIZATION), actualCustomizations)
+    }
+
+    @Test
+    fun `stores a Custom icon without a name`() = databaseTest {
+        val repository: IPreferencesRepository = createRepository()
+        val inputItem: Launchable = createLaunchable()
+
+        repository.setCustomIcon(item = inputItem, icon = CUSTOM_ICON)
+
+        val actualCustomization: LaunchableCustomization = awaitCustomization(key = inputItem.key)
+        assertEquals(LaunchableCustomization(key = inputItem.key, icon = CUSTOM_ICON), actualCustomization)
+    }
+
+    @Test
+    fun `setting a Custom icon keeps the stored name`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setCustomIcon(item = inputItem, icon = CUSTOM_ICON)
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> customization.icon == CUSTOM_ICON }
+        assertEquals(RENAMED_ITEM_NAME, actualCustomization.name)
+    }
+
+    @Test
+    fun `resetting the name keeps the Custom icon`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetItemName(item = inputItem)
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> customization.name == null }
+        assertEquals(CUSTOM_ICON, actualCustomization.icon)
+    }
+
+    @Test
+    fun `resetting the Custom icon keeps the stored name`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetCustomIcon(item = inputItem)
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> customization.icon == null }
+        assertEquals(RENAMED_ITEM_NAME, actualCustomization.name)
+    }
+
+    @Test
+    fun `resetting the last customization removes its row`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetCustomIcon(item = inputItem)
+
+        assertTrue(customizations { stored -> stored.none { customization -> customization.key == inputItem.key } }.isEmpty())
+    }
+
+    @Test
+    fun `a blank name keeps a row that has a Custom icon`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setItemName(item = inputItem, name = "   ")
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> customization.name == null }
+        assertEquals(CUSTOM_ICON, actualCustomization.icon)
     }
 
     @Test
@@ -200,9 +285,12 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         scope = backgroundScope
     )
 
-    private suspend fun awaitNewCustomization(key: String): LaunchableCustomization =
-        customizations { stored -> stored.any { customization -> customization.key == key } }
-            .single { customization -> customization.key == key }
+    private suspend fun awaitCustomization(
+        key: String,
+        predicate: (LaunchableCustomization) -> Boolean = { true }
+    ): LaunchableCustomization = customizations { stored ->
+        stored.any { customization -> customization.key == key && predicate(customization) }
+    }.single { customization -> customization.key == key }
 
     private suspend fun awaitRenamedCustomization(key: String, previousName: String): LaunchableCustomization = customizations { stored ->
         stored.any { customization -> customization.key == key && customization.name != previousName }

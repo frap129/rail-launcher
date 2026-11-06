@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.badgedFor
@@ -20,11 +21,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class IIconRepositoryImpl(
     private val context: Context,
     private val iconPackDao: CustomIconPackDao,
     private val iconDao: PackIconDao,
+    private val iconPackSource: IIconPackSource,
     private val profileSource: IProfileSource,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -104,6 +107,31 @@ class IIconRepositoryImpl(
     override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {
         val baseIcon: Icon = iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
         return baseIcon.badgedFor(profile = profile)
+    }
+
+    override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo): Icon? = withContext(dispatcher) {
+        when (customIcon) {
+            is CustomIcon.PackDrawable -> {
+                val isAvailable: Boolean = iconPackSource.hasDrawable(
+                    packPackageName = customIcon.packPackageName,
+                    drawableName = customIcon.drawableName
+                )
+                if (!isAvailable) {
+                    null
+                } else {
+                    Icon.PackDrawableIcon(
+                        packPackageName = customIcon.packPackageName,
+                        drawableName = customIcon.drawableName
+                    ).badgedFor(profile = profile)
+                }
+            }
+        }
+    }
+
+    override suspend fun getPackIcons(packPackageName: String): List<Icon.PackDrawableIcon> = withContext(dispatcher) {
+        iconPackSource.drawableNames(packPackageName = packPackageName).map { drawableName ->
+            Icon.PackDrawableIcon(packPackageName = packPackageName, drawableName = drawableName)
+        }
     }
 
     private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {

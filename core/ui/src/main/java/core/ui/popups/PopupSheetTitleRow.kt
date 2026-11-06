@@ -15,15 +15,20 @@ import core.ui.composables.sheetVerticalPadding
 /** A trailing text action for [PopupSheetTitleRow]. */
 data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
 
-/** The title row with an optional trailing text action, shared by the Pop-up editor and pickers. */
+/** The title row with optional leading and trailing text actions, shared by the Pop-up editor and pickers. */
 @Composable
-fun PopupSheetTitleRow(title: String, action: PopupSheetTitleAction? = null) {
+fun PopupSheetTitleRow(title: String, navigationAction: PopupSheetTitleAction? = null, action: PopupSheetTitleAction? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
+        if (navigationAction != null) {
+            TextButton(onClick = navigationAction.onClick) {
+                Text(navigationAction.label)
+            }
+        }
         Text(
             text = title,
             modifier = Modifier.weight(1f),

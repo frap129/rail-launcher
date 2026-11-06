@@ -62,10 +62,12 @@ import core.ui.model.data.OneShotRequest
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.popups.FolderDeleteHost
+import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.ui.popups.IPopupPicker
 import core.ui.popups.IPopupSession
+import core.ui.popups.IconPickerHost
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
@@ -108,7 +110,6 @@ private val snackbarBottomPadding: Dp = 80.dp
 fun LauncherScreen(
     navController: NavController,
     backStackEntry: NavBackStackEntry,
-    viewModel: LauncherViewModel = koinViewModel(),
     widgetViewModel: WidgetAreaViewModel = koinViewModel()
 ) {
     // One session per Pop-up host; the card ViewModel keeps the collaborators it was created with.
@@ -116,7 +117,9 @@ fun LauncherScreen(
     val popupCardViewModel: PopupCardViewModel = koinViewModel { parametersOf(popupSession) }
     val popupEditor: IPopupEditor = popupCardViewModel.collaborators.editor
     val popupPicker: IPopupPicker = popupCardViewModel.collaborators.picker
+    val popupIconPicker: IIconPicker = popupCardViewModel.collaborators.iconPicker
     val popupFolderActions: IPopupFolderActions = popupCardViewModel.collaborators.folder
+    val viewModel: LauncherViewModel = koinViewModel { parametersOf(popupIconPicker) }
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -339,6 +342,7 @@ fun LauncherScreen(
             folderActions = popupFolderActions
         )
         PopupEditorHost(editor = popupEditor, picker = popupPicker)
+        IconPickerHost(iconPicker = popupIconPicker)
         FolderDeleteHost(folderActions = popupFolderActions)
         AddToFolderHost(folderActions = popupFolderActions)
         LauncherWidgetMenu(widgetViewModel)

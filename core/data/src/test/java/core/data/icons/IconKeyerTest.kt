@@ -62,6 +62,34 @@ class IconKeyerTest {
     }
 
     @Test
+    fun `equal pack drawable icons produce equal cache keys`() {
+        assertEqualKeys(
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar")
+        )
+    }
+
+    @Test
+    fun `pack drawable icons with different packs or drawables produce different cache keys`() {
+        assertDifferentKeys(
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
+            Icon.PackDrawableIcon(SECOND_ICON_PACK_PACKAGE, "calendar")
+        )
+        assertDifferentKeys(
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "mail")
+        )
+    }
+
+    @Test
+    fun `a pack drawable icon and a pack icon produce different cache keys`() {
+        assertDifferentKeys(
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
+            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+        )
+    }
+
+    @Test
     fun `equal shortcut icons produce equal cache keys`() {
         assertEqualKeys(
             Icon.ShortcutIcon(SHORTCUT_PACKAGE, SHORTCUT_ID, profile),

@@ -33,6 +33,8 @@ import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
 import core.data.folders.IFolderRepositoryImpl
+import core.data.icons.IIconPackSource
+import core.data.icons.IIconPackSourceImpl
 import core.data.icons.IIconRepository
 import core.data.icons.IIconRepositoryImpl
 import core.data.icons.IconFetcher
@@ -64,6 +66,7 @@ import core.data.room.MIGRATION_12_13
 import core.data.room.MIGRATION_13_14
 import core.data.room.MIGRATION_14_15
 import core.data.room.MIGRATION_15_16
+import core.data.room.MIGRATION_16_17
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -118,6 +121,8 @@ import core.lifecycle.widgets.IAppWidgetViewCacheImpl
 import core.lifecycle.widgets.RailAppWidgetHost
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
+import core.ui.popups.IIconPicker
+import core.ui.popups.IIconPickerImpl
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupCollaboratorsImpl
 import core.ui.popups.IPopupEditor
@@ -187,7 +192,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()
@@ -243,7 +248,10 @@ class MainApplication :
             )
         }
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
-        single<IIconRepository> { IIconRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IIconPackSource> { IIconPackSourceImpl(context = androidContext()) }
+        single<IIconRepository> {
+            IIconRepositoryImpl(androidContext(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
         single<IStoredKeyClassifier> {
@@ -361,6 +369,7 @@ class MainApplication :
                 session = session,
                 editor = get { parametersOf(session) },
                 picker = get { parametersOf(session) },
+                iconPicker = get { parametersOf(session) },
                 folder = get { parametersOf(session) }
             )
         }
@@ -380,6 +389,16 @@ class MainApplication :
                 launchableRepository = get(),
                 shortcutPickerSource = get(),
                 popupRepository = get(),
+                homeEditState = get(),
+                session = session
+            )
+        }
+        factory<IIconPicker> { (session: IPopupSession) ->
+            IIconPickerImpl(
+                parentScope = get(named(APP_SCOPE_QUALIFIER)),
+                launchableRepository = get(),
+                iconRepository = get(),
+                preferencesRepository = get(),
                 homeEditState = get(),
                 session = session
             )
@@ -418,7 +437,23 @@ class MainApplication :
                 notifier = get()
             )
         }
-        viewModel { LauncherViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { (iconPicker: IIconPicker) ->
+            LauncherViewModel(
+                listOffsets = get(),
+                launcherItemRepo = get(),
+                prefsRepo = get(),
+                favoritesRepo = get(),
+                folderRepo = get(),
+                popupRepo = get(),
+                notificationSource = get(),
+                homeEditState = get(),
+                profileSource = get(),
+                privateSpaceStatus = get(),
+                privateSpaceLock = get(),
+                standaloneShortcutRepository = get(),
+                iconPicker = iconPicker
+            )
+        }
         viewModel { (session: IPopupSession) ->
             val savedStateHandle: SavedStateHandle = get()
             PopupCardViewModel(

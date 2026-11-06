@@ -1,6 +1,9 @@
 package core.data.icons
 
 import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -16,9 +19,12 @@ import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
+import io.mockk.every
+import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -34,6 +40,10 @@ import org.robolectric.annotation.Config
 private const val TEST_ICON_RES_ID: Int = android.R.drawable.ic_menu_help
 private const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 private const val PRIVATE_ACTIVITY_NAME: String = "com.example.private.MainActivity"
+private const val MISSING_ICON_PACK_PACKAGE: String = "com.example.missing-icon-pack"
+private const val MISSING_DRAWABLE_NAME: String = "missing"
+private const val PACK_DRAWABLE_NAME: String = "calendar"
+private const val PACK_DRAWABLE_RES_ID: Int = 42
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -60,6 +70,51 @@ class IconFetcherTest {
         val actualImage: Image = (actualResult as ImageFetchResult).image
         assertNotNull(actualImage)
         assertTrue(actualImage.shareable)
+    }
+
+    @Test
+    fun `fetch loads a pack drawable by name`(): Unit = runTest {
+        val expectedDrawable: Drawable = ColorDrawable(Color.GREEN)
+        val mockContext: Context = mockk()
+        val mockPackageManager: PackageManager = mockk()
+        val mockResources: Resources = mockk()
+        every { mockContext.packageManager } returns mockPackageManager
+        every { mockPackageManager.getResourcesForApplication(TEST_ICON_PACK_PACKAGE) } returns mockResources
+        every { mockResources.getIdentifier(PACK_DRAWABLE_NAME, "drawable", TEST_ICON_PACK_PACKAGE) } returns PACK_DRAWABLE_RES_ID
+        every { mockResources.getDrawable(PACK_DRAWABLE_RES_ID, null) } returns expectedDrawable
+        val inputIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = PACK_DRAWABLE_NAME
+        )
+        val actualFetcher: Fetcher = IconFetcher.Factory(profileSource = mockProfileSource)
+            .create(inputIcon, Options(mockContext), inputImageLoader)
+
+        val actualResult: FetchResult? = actualFetcher.fetch()
+
+        assertTrue(actualResult is ImageFetchResult)
+        val actualImage: Image = (actualResult as ImageFetchResult).image
+        assertEquals(expectedDrawable, (actualImage as DrawableImage).drawable)
+    }
+
+    @Test
+    fun `fetch fails when the pack drawable is gone`(): Unit = runTest {
+        val mockContext: Context = mockk()
+        val mockPackageManager: PackageManager = mockk()
+        every { mockContext.packageManager } returns mockPackageManager
+        every {
+            mockPackageManager.getResourcesForApplication(MISSING_ICON_PACK_PACKAGE)
+        } throws PackageManager.NameNotFoundException(MISSING_ICON_PACK_PACKAGE)
+        val inputIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = MISSING_ICON_PACK_PACKAGE,
+            drawableName = MISSING_DRAWABLE_NAME
+        )
+        val actualFetcher: Fetcher = IconFetcher.Factory(profileSource = mockProfileSource)
+            .create(inputIcon, Options(mockContext), inputImageLoader)
+
+        val actualException: Throwable? = runCatching { actualFetcher.fetch() }.exceptionOrNull()
+
+        assertTrue(actualException is IllegalStateException)
+        assertFalse(actualException?.message.orEmpty().contains(MISSING_ICON_PACK_PACKAGE))
     }
 
     @Test

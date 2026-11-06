@@ -47,7 +47,6 @@ import core.ui.composables.SheetTitle
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
-import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +81,12 @@ internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, ed
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
         SheetTitle(
             launchable = item,
-            onNameClick = { viewModel.openItemRename(item) }
+            onNameClick = { viewModel.openItemRename(item) },
+            onIconClick = if (item is App) {
+                { viewModel.openItemIconPicker(item) }
+            } else {
+                null
+            }
         )
     }
 
@@ -197,7 +201,7 @@ private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, fo
 }
 
 @Composable
-internal fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel = koinViewModel()) {
+internal fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel) {
     var nameEdit: String by remember { mutableStateOf(item.name) }
 
     Column(

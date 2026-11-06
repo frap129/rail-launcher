@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
 import android.os.UserHandle
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.profiles.ProfileChange
@@ -18,10 +19,13 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.RuntimeEnvironment
@@ -39,6 +43,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputWorkUser: UserHandle = createUserHandle(userId = WORK_USER_ID)
     private val inputPrivateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
+    private val mockIconPackSource: IIconPackSource = mockk()
 
     @Test
     fun `leaves a personal Profile's icon unbadged`() = databaseTest {
@@ -104,6 +109,64 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         )
 
         assertEquals(Icon.ProfileIcon(icon = inputBaseIcon, profile = inputPrivateUser), actualIcon)
+    }
+
+    @Test
+    fun `lists a pack's drawables in the order its source gives them`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState()
+        val inputNames: List<String> = listOf("calendar", "mail", "phone")
+        every { mockIconPackSource.drawableNames(ICON_PACK_PACKAGE_NAME) } returns inputNames
+        val repository: IIconRepositoryImpl = createRepository(state = inputState)
+
+        val actualIcons: List<Icon.PackDrawableIcon> = repository.getPackIcons(packPackageName = ICON_PACK_PACKAGE_NAME)
+
+        assertEquals(
+            inputNames.map { name -> Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = name) },
+            actualIcons
+        )
+    }
+
+    @Test
+    fun `resolves a pack drawable Custom icon and badges it for every non-personal Profile`() = databaseTest {
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            drawableName = "calendar"
+        )
+        every { mockIconPackSource.hasDrawable(ICON_PACK_PACKAGE_NAME, "calendar") } returns true
+        val inputProfiles: List<ProfileInfo> = listOf(
+            createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work),
+            createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        )
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState(profiles = inputProfiles))
+
+        inputProfiles.forEach { inputProfile ->
+            val actualIcon: Icon? = repository.getCustomIcon(customIcon = inputCustomIcon, profile = inputProfile)
+
+            assertEquals(
+                Icon.ProfileIcon(
+                    icon = Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "calendar"),
+                    profile = inputProfile.user
+                ),
+                actualIcon
+            )
+        }
+    }
+
+    @Test
+    fun `returns no Custom icon when its pack dropped the drawable`() = databaseTest {
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            drawableName = "calendar"
+        )
+        every { mockIconPackSource.hasDrawable(ICON_PACK_PACKAGE_NAME, "calendar") } returns false
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+
+        val actualIcon: Icon? = repository.getCustomIcon(
+            customIcon = inputCustomIcon,
+            profile = createProfileInfo(userId = PERSONAL_USER_ID)
+        )
+
+        assertNull(actualIcon)
     }
 
     @Test
@@ -185,6 +248,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         context = RuntimeEnvironment.getApplication(),
         iconPackDao = database.getCachedIconPackDao(),
         iconDao = database.getPackIconDao(),
+        iconPackSource = mockIconPackSource,
         profileSource = createProfileSourceMock(state = state),
         scope = backgroundScope,
         dispatcher = databaseDispatcher

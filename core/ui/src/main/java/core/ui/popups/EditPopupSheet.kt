@@ -3,7 +3,6 @@ package core.ui.popups
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,15 +12,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +44,6 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.ui.R
 import core.ui.composables.DragHandle
-import core.ui.composables.SheetDragHandle
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
 import core.ui.layout.UNAVAILABLE_ALPHA
@@ -75,7 +69,6 @@ private const val SOURCE_SEPARATOR: String = " · "
 private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
 
 /** The full-height sheet for editing what the owner's Pop-up shows. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditPopupSheet(
     state: PopupEditState.Editing,
@@ -86,7 +79,6 @@ fun EditPopupSheet(
     onAddApps: () -> Unit,
     onAddShortcuts: () -> Unit
 ) {
-    val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val listState = rememberLazyListState()
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val isFolder: Boolean = state.owner is Folder
@@ -111,93 +103,87 @@ fun EditPopupSheet(
         displayedItems = displayedItems.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
         hapticFeedback.performSegmentTickHaptic()
     }
-    ModalBottomSheet(
-        onDismissRequest = onFinishEdit,
-        sheetState = sheetState,
-        dragHandle = { SheetDragHandle() }
-    ) {
-        Column(modifier = Modifier.fillMaxHeight()) {
-            PopupSheetTitleRow(
-                title = if (isFolder) {
-                    stringResource(R.string.edit_folder_title, state.owner.name)
-                } else {
-                    stringResource(R.string.edit_popup_title, state.owner.name)
-                },
-                action = PopupSheetTitleAction(
-                    label = stringResource(R.string.done),
-                    onClick = onFinishEdit
-                )
+    PopupFullHeightSheet(onDismissRequest = onFinishEdit) {
+        PopupSheetTitleRow(
+            title = if (isFolder) {
+                stringResource(R.string.edit_folder_title, state.owner.name)
+            } else {
+                stringResource(R.string.edit_popup_title, state.owner.name)
+            },
+            action = PopupSheetTitleAction(
+                label = stringResource(R.string.done),
+                onClick = onFinishEdit
             )
-            LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
-                if (!isFolder) {
-                    item(key = "edit_popup_shortcuts_title") {
-                        SectionTitle(textResId = R.string.shortcuts)
-                    }
-                    when (val shortcuts: ShortcutsResult = state.shortcuts) {
-                        is ShortcutsResult.Available -> if (shortcuts.shortcuts.isEmpty()) {
-                            item(key = "edit_popup_shortcuts_empty") {
-                                PopupEmptyState(messageResId = R.string.no_own_shortcuts)
-                            }
-                        } else {
-                            items(items = shortcuts.shortcuts, key = { shortcut -> shortcut.key }) { shortcut ->
-                                EditShortcutRow(
-                                    shortcut = shortcut,
-                                    isShown = shortcut.shortcutId !in state.hiddenIds,
-                                    onShownChange = { isShown -> onShortcutHiddenChange(shortcut.shortcutId, !isShown) }
-                                )
-                            }
+        )
+        LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
+            if (!isFolder) {
+                item(key = "edit_popup_shortcuts_title") {
+                    SectionTitle(textResId = R.string.shortcuts)
+                }
+                when (val shortcuts: ShortcutsResult = state.shortcuts) {
+                    is ShortcutsResult.Available -> if (shortcuts.shortcuts.isEmpty()) {
+                        item(key = "edit_popup_shortcuts_empty") {
+                            PopupEmptyState(messageResId = R.string.no_own_shortcuts)
                         }
+                    } else {
+                        items(items = shortcuts.shortcuts, key = { shortcut -> shortcut.key }) { shortcut ->
+                            EditShortcutRow(
+                                shortcut = shortcut,
+                                isShown = shortcut.shortcutId !in state.hiddenIds,
+                                onShownChange = { isShown -> onShortcutHiddenChange(shortcut.shortcutId, !isShown) }
+                            )
+                        }
+                    }
 
-                        ShortcutsResult.Unavailable -> item(key = "edit_popup_shortcuts_unavailable") {
-                            PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
-                        }
+                    ShortcutsResult.Unavailable -> item(key = "edit_popup_shortcuts_unavailable") {
+                        PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+                    }
 
-                        ShortcutsResult.ProfilePaused -> item(key = "edit_popup_shortcuts_paused") {
-                            PopupEmptyState(messageResId = R.string.work_apps_paused)
-                        }
+                    ShortcutsResult.ProfilePaused -> item(key = "edit_popup_shortcuts_paused") {
+                        PopupEmptyState(messageResId = R.string.work_apps_paused)
                     }
                 }
-                item(key = "edit_popup_items_title") {
-                    SectionTitle(textResId = R.string.items)
+            }
+            item(key = "edit_popup_items_title") {
+                SectionTitle(textResId = R.string.items)
+            }
+            if (displayedItems.isEmpty()) {
+                item(key = "edit_popup_items_empty") {
+                    PopupEmptyState(messageResId = R.string.add_items_hint)
                 }
-                if (displayedItems.isEmpty()) {
-                    item(key = "edit_popup_items_empty") {
-                        PopupEmptyState(messageResId = R.string.add_items_hint)
-                    }
+            }
+            items(items = displayedItems, key = { item -> popupItemKey(item.launchable.key) }) { item ->
+                ReorderableItem(state = reorderState, key = popupItemKey(item.launchable.key)) { _ ->
+                    EditItemRow(
+                        item = item,
+                        sourceName = state.shortcutSourceNames[item.launchable.key],
+                        dragHandle = {
+                            DragHandle(
+                                modifier = Modifier.draggableHandle(
+                                    onDragStarted = {
+                                        draggedItemKey = item.launchable.key
+                                    },
+                                    onDragStopped = {
+                                        onItemOrderChange(
+                                            displayedItems.map { candidate ->
+                                                candidate.launchable.key
+                                            }
+                                        )
+                                        draggedItemKey = null
+                                    }
+                                ),
+                                contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
+                            )
+                        },
+                        onRemove = { onRemoveItem(item.launchable) }
+                    )
                 }
-                items(items = displayedItems, key = { item -> popupItemKey(item.launchable.key) }) { item ->
-                    ReorderableItem(state = reorderState, key = popupItemKey(item.launchable.key)) { _ ->
-                        EditItemRow(
-                            item = item,
-                            sourceName = state.shortcutSourceNames[item.launchable.key],
-                            dragHandle = {
-                                DragHandle(
-                                    modifier = Modifier.draggableHandle(
-                                        onDragStarted = {
-                                            draggedItemKey = item.launchable.key
-                                        },
-                                        onDragStopped = {
-                                            onItemOrderChange(
-                                                displayedItems.map { candidate ->
-                                                    candidate.launchable.key
-                                                }
-                                            )
-                                            draggedItemKey = null
-                                        }
-                                    ),
-                                    contentDescription = stringResource(R.string.reorder_item, item.launchable.name)
-                                )
-                            },
-                            onRemove = { onRemoveItem(item.launchable) }
-                        )
-                    }
-                }
-                item(key = "edit_popup_add_apps") {
-                    AddButton(labelResId = R.string.add_apps, onClick = onAddApps)
-                }
-                item(key = "edit_popup_add_shortcuts") {
-                    AddButton(labelResId = R.string.add_shortcuts, onClick = onAddShortcuts)
-                }
+            }
+            item(key = "edit_popup_add_apps") {
+                AddButton(labelResId = R.string.add_apps, onClick = onAddApps)
+            }
+            item(key = "edit_popup_add_shortcuts") {
+                AddButton(labelResId = R.string.add_shortcuts, onClick = onAddShortcuts)
             }
         }
     }

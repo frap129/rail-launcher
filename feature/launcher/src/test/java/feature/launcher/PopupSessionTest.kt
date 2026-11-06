@@ -8,6 +8,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
 import core.ui.popups.AddToFolderState
 import core.ui.popups.FolderDialogState
+import core.ui.popups.IconPickerState
 import core.ui.popups.PopupEditState
 import core.ui.popups.PopupPickerState
 import core.ui.popups.ShortcutPickerState
@@ -122,6 +123,25 @@ class PopupSessionTest : PopupSessionTestBase() {
 
         assertEquals(ShortcutPickerState.Closed, session.picker.shortcutPickerState.value)
         assertTrue(session.editor.editState.value is PopupEditState.Editing)
+    }
+
+    @Test
+    fun `Back closes the Icon picker ahead of the card menu`() = runTest {
+        val session: PopupTestSession = createSession()
+        backgroundScope.launch { session.iconPicker.iconPickerState.collect() }
+        backgroundScope.launch { session.card.popupState.collect() }
+        backgroundScope.launch { session.card.menuState.collect() }
+        session.card.open(inputApp, TEST_INPUT_ANCHOR)
+        runCurrent()
+        session.iconPicker.startPicking(inputApp)
+        runCurrent()
+        session.card.openMenu()
+        runCurrent()
+
+        assertTrue(session.card.onBack())
+
+        assertEquals(IconPickerState.Closed, session.iconPicker.iconPickerState.value)
+        assertTrue(session.card.isMenuOpen())
     }
 
     @Test

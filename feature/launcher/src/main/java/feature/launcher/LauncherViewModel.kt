@@ -28,6 +28,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.popups.IIconPicker
 import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
@@ -164,7 +165,8 @@ class LauncherViewModel(
     private val profileSource: IProfileSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
     private val privateSpaceLock: IPrivateSpaceLock,
-    private val standaloneShortcutRepository: IStandaloneShortcutRepository
+    private val standaloneShortcutRepository: IStandaloneShortcutRepository,
+    private val iconPicker: IIconPicker
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -525,6 +527,12 @@ class LauncherViewModel(
 
     fun openItemRename(launchable: Launchable) {
         requestedMenuState.value = MenuRequest.Rename
+    }
+
+    /** Closes the item menu and opens [launchable]'s Icon picker. */
+    fun openItemIconPicker(launchable: Launchable) {
+        closeItemMenu()
+        iconPicker.startPicking(launchable)
     }
 
     fun closeItemMenu() {

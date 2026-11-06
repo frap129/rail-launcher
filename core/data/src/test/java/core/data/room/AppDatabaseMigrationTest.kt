@@ -24,6 +24,9 @@ private const val SCRUB_EDGES_DATABASE_NAME: String = "scrub-edges-migration-tes
 private const val SCRUB_EDGES_DATABASE_VERSION: Int = 14
 private const val RAIL_SIDE_DATABASE_NAME: String = "rail-side-migration-test"
 private const val RAIL_SIDE_DATABASE_VERSION: Int = 15
+private const val LAUNCHABLE_CUSTOMIZATIONS_DATABASE_NAME: String = "launchable-customizations-migration-test"
+private const val LAUNCHABLE_CUSTOMIZATIONS_DATABASE_VERSION: Int = 16
+private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
 private const val SETTINGS_TABLE: String = "settings"
@@ -118,6 +121,24 @@ class AppDatabaseMigrationTest {
             assertEquals("BOTH", actualScrubEdges)
             assertEquals(TEST_ICON_PACK_PACKAGE, actualIconPack)
             assertEquals(true, actualSwitch)
+        }
+    }
+
+    @Test
+    fun `adds the nullable Custom icon and keeps every Launchable customization`() {
+        withDatabase(
+            name = LAUNCHABLE_CUSTOMIZATIONS_DATABASE_NAME,
+            version = LAUNCHABLE_CUSTOMIZATIONS_DATABASE_VERSION,
+            createTables = { db ->
+                db.execSQL("CREATE TABLE $LAUNCHABLE_CUSTOMIZATIONS_TABLE (key TEXT NOT NULL, name TEXT, PRIMARY KEY(key))")
+                db.execSQL("INSERT INTO $LAUNCHABLE_CUSTOMIZATIONS_TABLE (key, name) VALUES ('$FAVORITE_KEY', 'Renamed')")
+            }
+        ) { db ->
+            MIGRATION_16_17.migrate(db)
+
+            assertEquals(listOf("key", "name", "icon"), db.columnNames(table = LAUNCHABLE_CUSTOMIZATIONS_TABLE))
+            assertEquals("Renamed", db.launchableCustomizationName())
+            assertEquals(null, db.launchableCustomizationIcon())
         }
     }
 
@@ -265,3 +286,15 @@ private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack 
     cursor.moveToFirst()
     cursor.getString(cursor.getColumnIndexOrThrow("icon_pack"))
 }
+
+private fun SupportSQLiteDatabase.launchableCustomizationName(): String? =
+    query("SELECT name FROM $LAUNCHABLE_CUSTOMIZATIONS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow("name"))
+    }
+
+private fun SupportSQLiteDatabase.launchableCustomizationIcon(): String? =
+    query("SELECT icon FROM $LAUNCHABLE_CUSTOMIZATIONS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow("icon"))
+    }
