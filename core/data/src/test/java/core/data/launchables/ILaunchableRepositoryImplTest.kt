@@ -11,6 +11,7 @@ import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
 import core.data.icons.IIconRepository
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -778,6 +779,126 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
                 profile = inputApp.profileInfo
             )
         }
+    }
+
+    @Test
+    fun `resolves a Custom icon ahead of the global icon pack`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = "calendar"
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = "calendar"
+        )
+        val expectedGlobalIcon: Icon = Icon.PackIcon(
+            componentName = inputComponentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = expectedGlobalIcon,
+            customIcon = expectedCustomIcon
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputApp.key, icon = inputCustomIcon)),
+                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
+            ),
+            mockIconRepository = mockIconRepository
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(expectedCustomIcon, actualApp.icon)
+        coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, inputApp.profileInfo) }
+    }
+
+    @Test
+    fun `falls back to the global icon pack when the Custom icon's drawable is gone and keeps it stored`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = "calendar"
+        )
+        val expectedGlobalIcon: Icon = Icon.PackIcon(
+            componentName = inputComponentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = expectedGlobalIcon,
+            customIcon = null
+        )
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputApp.key, icon = inputCustomIcon)
+        database.getSettingsDao().upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao),
+            mockIconRepository = mockIconRepository
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(expectedGlobalIcon, actualApp.icon)
+        assertEquals(inputCustomIcon, customizations().single().icon)
+    }
+
+    @Test
+    fun `falls back to the default icon when the Custom icon's drawable and the global pack are gone`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = "calendar"
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = Icon.ActivityIcon(inputComponentName),
+            customIcon = null
+        )
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputApp.key, icon = inputCustomIcon)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao),
+            mockIconRepository = mockIconRepository
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(inputApp.defaultIcon, actualApp.icon)
+        assertEquals(inputCustomIcon, customizations().single().icon)
+    }
+
+    @Test
+    fun `keeps the Profile badge on a Custom icon`() = databaseTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = "calendar"
+        )
+        val expectedCustomIcon: Icon = Icon.ProfileIcon(
+            icon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = "calendar"),
+            profile = inputWorkProfile.user
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = inputApp.defaultIcon,
+            customIcon = expectedCustomIcon
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputApp.key, icon = inputCustomIcon))
+            ),
+            mockIconRepository = mockIconRepository
+        )
+
+        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+
+        assertEquals(expectedCustomIcon, actualApp.icon)
     }
 
     @Test

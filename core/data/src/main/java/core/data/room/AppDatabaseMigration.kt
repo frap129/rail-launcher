@@ -59,3 +59,12 @@ val MIGRATION_15_16: Migration = object : Migration(15, 16) {
         )
     }
 }
+
+private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
+
+/** Adds the nullable Custom icon to every stored Launchable customization. */
+val MIGRATION_16_17: Migration = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE $LAUNCHABLE_CUSTOMIZATIONS_TABLE ADD COLUMN icon TEXT")
+    }
+}

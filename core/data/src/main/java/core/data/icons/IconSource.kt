@@ -7,6 +7,7 @@ import android.content.pm.ShortcutInfo
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.core.content.ContextCompat
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
@@ -60,6 +61,18 @@ private class PackIconSource(private val componentName: ComponentName, private v
         context.packageManager.getResourcesForApplication(packPackageName).getDrawable(resId, null)
 }
 
+private class PackDrawableIconSource(private val packPackageName: String, private val drawableName: String) : IconSource {
+    override val cacheKey: String =
+        "${CustomIcon.PackDrawable.ENCODING_PREFIX}$packPackageName" +
+            "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}$drawableName"
+
+    override fun loadDrawable(context: Context): Drawable? = runCatching {
+        val resources = context.packageManager.getResourcesForApplication(packPackageName)
+        val resId: Int = resources.getIdentifier(drawableName, "drawable", packPackageName)
+        if (resId == 0) null else resources.getDrawable(resId, null)
+    }.getOrNull()
+}
+
 private class FolderIconSource(private val shade: Int) : IconSource {
     override val cacheKey: String = "folder:$shade"
 
@@ -109,6 +122,7 @@ internal fun Icon.toSource(profileSource: IProfileSource? = null, profile: UserH
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName = packageName, profile = profile, profileSource = profileSource)
     is Icon.FolderIcon -> FolderIconSource(shade)
     is Icon.PackIcon -> PackIconSource(componentName, packPackageName, resId)
+    is Icon.PackDrawableIcon -> PackDrawableIconSource(packPackageName = packPackageName, drawableName = drawableName)
     is Icon.ProfileIcon -> ProfileIconSource(icon = icon, profile = this.profile, profileSource = profileSource)
     is Icon.RailIcon -> RailIconSource(resId)
     is Icon.ShortcutIcon -> ShortcutIconSource(packageName = packageName, shortcutId = shortcutId, profile = this.profile)

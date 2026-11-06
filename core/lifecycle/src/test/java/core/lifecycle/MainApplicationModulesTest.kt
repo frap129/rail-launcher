@@ -2,6 +2,7 @@ package core.lifecycle
 
 import core.data.cleanup.IStaleKeyCleanup
 import core.data.cleanup.IStoredKeyClassifier
+import core.data.icons.IIconPackSource
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
@@ -34,6 +35,7 @@ class MainApplicationModulesTest {
         val koin = GlobalContext.get()
 
         assertNotNull(koin.get<IPreferencesRepository>())
+        assertNotNull(koin.get<IIconPackSource>())
         assertNotNull(koin.get<IPrivateSpaceStatus>())
         assertNotNull(koin.get<ILaunchableRepository>())
         assertNotNull(koin.get<IShortcutPickerSource>())

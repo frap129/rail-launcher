@@ -2,6 +2,7 @@ package core.data.room
 
 import android.content.ComponentName
 import androidx.room.TypeConverter
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
@@ -128,6 +129,34 @@ class Converters {
 
     @TypeConverter
     fun fromStringToRailSide(side: String): RailSide = RailSide.entries.firstOrNull { entry -> entry.name == side } ?: RailSide.DEFAULT
+
+    @TypeConverter
+    fun fromCustomIconToString(icon: CustomIcon?): String? = when (icon) {
+        null -> null
+
+        is CustomIcon.PackDrawable ->
+            "${CustomIcon.PackDrawable.ENCODING_PREFIX}${icon.packPackageName}" +
+                "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}${icon.drawableName}"
+    }
+
+    @TypeConverter
+    fun fromStringToCustomIcon(value: String?): CustomIcon? {
+        val prefix: String = CustomIcon.PackDrawable.ENCODING_PREFIX
+        if (value == null || !value.startsWith(prefix)) {
+            return null
+        }
+        val separatorIndex: Int = value.indexOf(
+            char = CustomIcon.PackDrawable.ENCODING_SEPARATOR[0],
+            startIndex = prefix.length
+        )
+        if (separatorIndex <= prefix.length) {
+            return null
+        }
+        return CustomIcon.PackDrawable(
+            packPackageName = value.substring(prefix.length, separatorIndex),
+            drawableName = value.substring(separatorIndex + CustomIcon.PackDrawable.ENCODING_SEPARATOR.length)
+        )
+    }
 
     @TypeConverter
     fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)

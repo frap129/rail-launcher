@@ -28,6 +28,7 @@ import core.data.widgets.IRemoveAppWidget
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.ui.layout.HomeEditState
+import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
@@ -58,6 +59,7 @@ class PopupTestSession(
     val card: PopupCardViewModel,
     val editor: IPopupEditor,
     val picker: IPopupPicker,
+    val iconPicker: IIconPicker,
     val folder: IPopupFolderActions
 )
 
@@ -144,6 +146,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
             card = card,
             editor = collaborators.editor,
             picker = collaborators.picker,
+            iconPicker = collaborators.iconPicker,
             folder = collaborators.folder
         )
     }

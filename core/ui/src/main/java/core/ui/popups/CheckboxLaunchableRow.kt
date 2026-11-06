@@ -22,8 +22,8 @@ import core.data.launchables.model.Launchable
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
 
-private val checkboxRowIconSize: Dp = 32.dp
-private val checkboxRowIconGap: Dp = 12.dp
+internal val pickerRowIconSize: Dp = 32.dp
+internal val pickerRowIconGap: Dp = 12.dp
 
 /** A tappable Launchable row with a trailing checkbox. */
 @Composable
@@ -41,11 +41,11 @@ fun CheckboxLaunchableRow(launchable: Launchable, isChecked: Boolean, onCheckedC
             .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
     ) {
         AsyncImage(
-            modifier = Modifier.size(checkboxRowIconSize),
+            modifier = Modifier.size(pickerRowIconSize),
             model = launchable.icon,
             contentDescription = launchable.accessibilityName
         )
-        Spacer(Modifier.width(checkboxRowIconGap))
+        Spacer(Modifier.width(pickerRowIconGap))
         Text(
             text = launchable.name,
             modifier = Modifier.weight(1f),

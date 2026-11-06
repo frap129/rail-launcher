@@ -17,10 +17,10 @@ val launchableIconPadding: Dp = 10.dp
 
 /** A Launchable's icon at the launcher's standard list size. */
 @Composable
-fun LaunchableIcon(launchable: Launchable) {
+fun LaunchableIcon(launchable: Launchable, modifier: Modifier = Modifier, contentDescription: String? = launchable.accessibilityName) {
     AsyncImage(
-        modifier = Modifier.size(launchableIconSize).padding(launchableIconPadding),
+        modifier = modifier.size(launchableIconSize).padding(launchableIconPadding),
         model = launchable.icon,
-        contentDescription = launchable.accessibilityName
+        contentDescription = contentDescription
     )
 }

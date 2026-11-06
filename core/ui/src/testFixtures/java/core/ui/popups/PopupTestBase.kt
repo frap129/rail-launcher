@@ -4,7 +4,9 @@ import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
+import core.data.icons.model.IconPack
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -26,6 +28,7 @@ import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createNotificationProfile
@@ -100,7 +103,12 @@ abstract class PopupTestBase {
     private val shortcutsWithApps: MutableStateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
     private val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState()
     private val folders: MutableStateFlow<List<Folder>> = MutableStateFlow(listOf(inputFolder, inputSecondFolder))
+    protected val iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
     protected val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
+    protected val mockIconRepository: IIconRepository = createIconRepositoryMock(
+        inputIcon = inputApp.defaultIcon,
+        iconPacks = iconPacks
+    )
     protected val mockShortcutSource: IShortcutSource = createShortcutSourceMock(shortcutsResult = shortcutResult)
     protected val mockShortcutPickerSource: IShortcutPickerSource = createShortcutPickerSourceMock(appsWithShortcuts = shortcutsWithApps)
     protected val mockPopupRepository: IPopupRepository = createPopupRepositoryMock(state = mockPopupRepositoryState)
@@ -114,6 +122,10 @@ abstract class PopupTestBase {
 
     protected fun setFolders(inputFolders: List<Folder>) {
         folders.value = inputFolders
+    }
+
+    protected fun setIconPacks(packs: Set<IconPack>) {
+        iconPacks.value = packs
     }
 
     protected fun setShortcutResult(result: ShortcutsResult) {
@@ -172,6 +184,19 @@ abstract class PopupTestBase {
         session = session
     )
 
+    protected fun TestScope.createIconPicker(
+        session: IPopupSession = IPopupSessionImpl(),
+        homeEditState: HomeEditState = inputHomeEditState,
+        mockIconRepository: IIconRepository = this@PopupTestBase.mockIconRepository
+    ): IIconPicker = IIconPickerImpl(
+        parentScope = backgroundScope,
+        launchableRepository = mockLaunchableRepository,
+        iconRepository = mockIconRepository,
+        preferencesRepository = mockPreferencesRepository,
+        homeEditState = homeEditState,
+        session = session
+    )
+
     protected fun TestScope.createFolder(
         session: IPopupSession = IPopupSessionImpl(),
         homeEditState: HomeEditState = inputHomeEditState,
@@ -193,6 +218,7 @@ abstract class PopupTestBase {
         session = session,
         editor = createEditor(session = session, homeEditState = homeEditState),
         picker = createPicker(session = session, homeEditState = homeEditState),
+        iconPicker = createIconPicker(session = session, homeEditState = homeEditState),
         folder = createFolder(session = session, homeEditState = homeEditState)
     )
 }

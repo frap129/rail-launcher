@@ -9,8 +9,20 @@ Anything the user can open from the launcher (an installed app, a launcher short
 _Avoid_: App (when meaning any launchable), item, entry
 
 **Launchable customization**:
-The overrides the user stores for a Launchable key, such as its custom name.
+The overrides the user stores for a Launchable key, such as its custom name or Custom icon.
 _Avoid_: Name customization (when meaning the whole stored row), app customization
+
+**Custom icon**:
+A user-chosen icon for a Launchable that replaces its normal icon, stored as an icon-pack drawable name rather than a resource id so pack updates keep it.
+_Avoid_: Themed icon, custom image
+
+**Icon picker**:
+The bottom sheet that lists Original and every installed Icon pack and applies a Custom icon or resets it.
+_Avoid_: Icon chooser, theme picker
+
+**Icon pack**:
+An installed app that publishes themed icons through a launcher icon-pack intent; Rail may use one globally or read its drawables as Custom icons.
+_Avoid_: Theme, icon theme
 
 **App key**:
 The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.

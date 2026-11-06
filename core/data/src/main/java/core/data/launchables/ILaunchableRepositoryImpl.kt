@@ -16,12 +16,14 @@ import core.data.icons.model.badgedFor
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.LaunchableIcons
 import core.data.launchables.model.LaunchableNames
 import core.data.launchables.model.RailLaunchable
 import core.data.launchables.model.toPickerGroups
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.prefs.toLaunchableIcons
 import core.data.prefs.toLaunchableNames
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
@@ -137,9 +139,10 @@ class ILaunchableRepositoryImpl(
         val apps: List<App> = appState.appsOrNull.orEmpty()
         val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
+        val icons: LaunchableIcons = customizations.toLaunchableIcons()
         val packageRepresentativeNames: Map<AppProfile, String> = apps.packageRepresentativeNames()
         val listedLaunchables: List<Launchable> = apps
-            .map { app -> app.resolve(names = names, settings = settings) } +
+            .map { app -> app.resolve(names = names, icons = icons, settings = settings) } +
             appListSources.standaloneShortcuts.launchables.mapNotNull { shortcut ->
                 profilesByUser[shortcut.profile]?.let { profile ->
                     shortcut.resolve(names = names, profileInfo = profile, representedNames = packageRepresentativeNames)
@@ -151,7 +154,7 @@ class ILaunchableRepositoryImpl(
                     launchable.isPrivateIn(privateSpace = appState.privateSpaceStatus.profile)
             }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
-            items = builtinGroup.items.map { item -> item.resolve(names = names, settings = settings) }
+            items = builtinGroup.items.map { item -> item.resolve(names = names, icons = icons, settings = settings) }
         )
         val folders: List<Folder> = appListSources.folderAppList.records.resolveFolders(names = names)
         val appListLaunchables: List<Launchable> = resolvedLaunchables
@@ -179,18 +182,26 @@ class ILaunchableRepositoryImpl(
         )
     }
 
-    private suspend fun Launchable.resolve(names: LaunchableNames, settings: Settings): Launchable {
+    private suspend fun Launchable.resolve(names: LaunchableNames, icons: LaunchableIcons, settings: Settings): Launchable {
         val name: String = resolveName(names)
-        val iconPack: String? = settings.iconPack
-        val icon: Icon = if (this is App && iconPack != null) {
-            iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profileInfo)
-        } else {
-            defaultIcon
-        }
+        val icon: Icon = if (this is App) resolveIcon(icons = icons, settings = settings) else defaultIcon
         return if (this is App) {
             copy(name = name, icon = icon, badgedLabel = badgedLabel(name = name))
         } else {
             withCustomization(LaunchableAppearance(name = name, icon = icon))
+        }
+    }
+
+    private suspend fun App.resolveIcon(icons: LaunchableIcons, settings: Settings): Icon {
+        val customIcon: Icon? = icons[key]?.let { icon -> iconRepository.getCustomIcon(customIcon = icon, profile = profileInfo) }
+        if (customIcon != null) {
+            return customIcon
+        }
+        val iconPack: String? = settings.iconPack
+        return if (iconPack != null) {
+            iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profileInfo)
+        } else {
+            defaultIcon
         }
     }
 

@@ -6,6 +6,8 @@ interface IPopupCollaborators {
 
     val picker: IPopupPicker
 
+    val iconPicker: IIconPicker
+
     val folder: IPopupFolderActions
 
     /** Attaches the host's card to the session. */
@@ -20,10 +22,11 @@ class IPopupCollaboratorsImpl(
     private val session: IPopupSession,
     override val editor: IPopupEditor,
     override val picker: IPopupPicker,
+    override val iconPicker: IIconPicker,
     override val folder: IPopupFolderActions
 ) : IPopupCollaborators {
     init {
-        session.attach(editor = editor, picker = picker, folder = folder)
+        session.attach(editor = editor, picker = picker, iconPicker = iconPicker, folder = folder)
     }
 
     override fun attachCard(card: IPopupCard) {

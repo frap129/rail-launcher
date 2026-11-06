@@ -38,7 +38,13 @@ interface IPopupSession {
     val shortcutReloads: Flow<Int>
 
     /** Connects the host's collaborators. Call once per host after creating them. */
-    fun attach(card: IPopupCard? = null, editor: IPopupEditor? = null, picker: IPopupPicker? = null, folder: IPopupFolderActions? = null)
+    fun attach(
+        card: IPopupCard? = null,
+        editor: IPopupEditor? = null,
+        picker: IPopupPicker? = null,
+        iconPicker: IIconPicker? = null,
+        folder: IPopupFolderActions? = null
+    )
 
     /** Clears the pickers an opening card would cover. */
     fun onCardOpened()
@@ -73,25 +79,35 @@ class IPopupSessionImpl : IPopupSession {
     private var card: IPopupCard? = null
     private var editor: IPopupEditor? = null
     private var picker: IPopupPicker? = null
+    private var iconPicker: IIconPicker? = null
     private var folder: IPopupFolderActions? = null
     private val reloads: MutableStateFlow<Int> = MutableStateFlow(0)
 
     override val shortcutReloads: Flow<Int> = reloads
 
-    override fun attach(card: IPopupCard?, editor: IPopupEditor?, picker: IPopupPicker?, folder: IPopupFolderActions?) {
+    override fun attach(
+        card: IPopupCard?,
+        editor: IPopupEditor?,
+        picker: IPopupPicker?,
+        iconPicker: IIconPicker?,
+        folder: IPopupFolderActions?
+    ) {
         card?.let { this.card = it }
         editor?.let { this.editor = it }
         picker?.let { this.picker = it }
+        iconPicker?.let { this.iconPicker = it }
         folder?.let { this.folder = it }
     }
 
     override fun onCardOpened() {
         picker?.onCardOpened()
+        iconPicker?.onCardOpened()
     }
 
     override fun onCardClosed() {
         folder?.onCardClosed()
         picker?.onCardClosed()
+        iconPicker?.onCardClosed()
         editor?.onCardClosed()
     }
 
@@ -99,10 +115,12 @@ class IPopupSessionImpl : IPopupSession {
         card?.closeMenu()
         folder?.onEditStarted()
         picker?.onEditStarted()
+        iconPicker?.onEditStarted()
     }
 
     override fun onEditFinished() {
         picker?.onEditFinished()
+        iconPicker?.onEditFinished()
     }
 
     override fun onOwnerDeleted(ownerKey: String) {
@@ -128,6 +146,9 @@ class IPopupSessionImpl : IPopupSession {
             return true
         }
         if (folder?.backBeforeItemMenu() == true) {
+            return true
+        }
+        if (iconPicker?.backBeforeItemMenu() == true) {
             return true
         }
         if (picker?.backBeforeItemMenu() == true) {
@@ -158,10 +179,12 @@ class IPopupSessionImpl : IPopupSession {
     override fun release() {
         editor?.release()
         picker?.release()
+        iconPicker?.release()
         folder?.release()
         card = null
         editor = null
         picker = null
+        iconPicker = null
         folder = null
     }
 }

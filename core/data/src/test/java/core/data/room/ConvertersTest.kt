@@ -1,5 +1,6 @@
 package core.data.room
 
+import core.data.icons.model.CustomIcon
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
@@ -120,5 +121,28 @@ class ConvertersTest {
     @Test
     fun `falls back to the layout end for an unknown Rail side value`() {
         assertEquals(RailSide.END, converters.fromStringToRailSide("UNKNOWN"))
+    }
+
+    @Test
+    fun `round trips a pack drawable Custom icon`() {
+        val inputIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = "com.example.iconpack",
+            drawableName = "calendar"
+        )
+
+        assertEquals(inputIcon, converters.fromStringToCustomIcon(converters.fromCustomIconToString(inputIcon)))
+    }
+
+    @Test
+    fun `encodes no Custom icon as null`() {
+        assertNull(converters.fromCustomIconToString(null))
+        assertNull(converters.fromStringToCustomIcon(null))
+    }
+
+    @Test
+    fun `decodes an unknown Custom icon encoding as null`() {
+        assertNull(converters.fromStringToCustomIcon("picture:/tmp/icon.png"))
+        assertNull(converters.fromStringToCustomIcon("pack-drawable:"))
+        assertNull(converters.fromStringToCustomIcon("pack-drawable:com.example.iconpack"))
     }
 }
