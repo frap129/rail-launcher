@@ -12,8 +12,8 @@ interface IPreferencesRepository {
     /** Removes [item]'s stored customization so it uses its default name again. */
     fun resetItemName(item: Launchable)
 
-    /** Removes the stored name customizations for [keys]. */
-    suspend fun removeLaunchableNames(keys: List<String>)
+    /** Removes the stored customizations for [keys]. */
+    suspend fun removeLaunchableCustomizations(keys: List<String>)
     fun setIconPack(iconPack: IconPack)
 
     /** Sets whether Rail hides a Locked Private Space container. */

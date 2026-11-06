@@ -5,7 +5,7 @@ import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.cleanup.HeaderTapTargetCleanupRow
-import core.data.cleanup.LaunchableNameCleanupRow
+import core.data.cleanup.LaunchableCustomizationCleanupRow
 import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
@@ -1679,7 +1679,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         createStaleKeyCleanup(
             launchableRepository = launchableRepository,
             shortcutSource = cleanupShortcutSource,
-            rows = listOf(LaunchableNameCleanupRow(preferencesRepository = mockPreferencesRepository)),
+            rows = listOf(LaunchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)),
             scope = backgroundScope
         )
         return launchableRepository

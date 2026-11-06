@@ -16,14 +16,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
-/** The name customizations stored for Launchable keys. */
-class LaunchableNameCleanupRow(private val preferencesRepository: IPreferencesRepository) : IStaleKeyRow {
+/** The customizations stored for Launchable keys. */
+class LaunchableCustomizationCleanupRow(private val preferencesRepository: IPreferencesRepository) : IStaleKeyRow {
     override val keys: Flow<Set<String>> = preferencesRepository.launchableCustomizations.map { customizations ->
         customizations.mapTo(mutableSetOf()) { customization -> customization.key }
     }
 
     override suspend fun delete(keys: Set<String>) {
-        preferencesRepository.removeLaunchableNames(keys = keys.toList())
+        preferencesRepository.removeLaunchableCustomizations(keys = keys.toList())
     }
 }
 
