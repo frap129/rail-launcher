@@ -32,17 +32,17 @@ import org.junit.Test
 
 class StaleKeyRowsTest {
     @Test
-    fun `maps and deletes Launchable names`() = runTest {
+    fun `maps and deletes Launchable customizations`() = runTest {
         val mockPreferencesRepository: IPreferencesRepository = mockk(relaxed = true)
         every { mockPreferencesRepository.launchableCustomizations } returns MutableStateFlow(
             listOf(LaunchableCustomization(key = "first"), LaunchableCustomization(key = "second"))
         )
-        val row = LaunchableNameCleanupRow(preferencesRepository = mockPreferencesRepository)
+        val row = LaunchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)
 
         assertEquals(setOf("first", "second"), row.keys.first())
         row.delete(setOf("second"))
 
-        coVerify(exactly = 1) { mockPreferencesRepository.removeLaunchableNames(keys = listOf("second")) }
+        coVerify(exactly = 1) { mockPreferencesRepository.removeLaunchableCustomizations(keys = listOf("second")) }
     }
 
     @Test

@@ -48,7 +48,7 @@ class IStandaloneShortcutRepositoryImpl(
                 standaloneShortcutDao.delete(keys = keys)
                 favoriteDao.remove(keys = keys)
                 headerSettingsDao.updateIfChanged { settings -> settings.withoutTapTargets(keys = keys.toSet()) }
-                preferencesRepository.removeLaunchableNames(keys = keys)
+                preferencesRepository.removeLaunchableCustomizations(keys = keys)
             }
         }
     }

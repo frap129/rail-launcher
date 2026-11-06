@@ -2,14 +2,11 @@ package core.data.icons
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.graphics.drawable.AdaptiveIconDrawable
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import androidx.core.content.ContextCompat
 import core.data.R
@@ -29,11 +26,7 @@ internal class FolderIconDrawable(context: Context, shade: Int) : Drawable() {
 
     override fun onBoundsChange(bounds: Rect) {
         super.onBoundsChange(bounds)
-        val adaptiveIcon: AdaptiveIconDrawable = AdaptiveIconDrawable(
-            ColorDrawable(Color.TRANSPARENT),
-            ColorDrawable(Color.TRANSPARENT)
-        ).apply { this.bounds = bounds }
-        mask.set(adaptiveIcon.iconMask)
+        mask.setSystemIconMask(bounds = bounds)
         val glyphSize: Int = (minOf(bounds.width(), bounds.height()) * FOLDER_GLYPH_RATIO).toInt()
         val left: Int = bounds.left + (bounds.width() - glyphSize) / 2
         val top: Int = bounds.top + (bounds.height() - glyphSize) / 2

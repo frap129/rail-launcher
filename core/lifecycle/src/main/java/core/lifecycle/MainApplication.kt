@@ -25,7 +25,7 @@ import core.data.cleanup.IStaleKeyCleanup
 import core.data.cleanup.IStaleKeyCleanupImpl
 import core.data.cleanup.IStoredKeyClassifier
 import core.data.cleanup.IStoredKeyClassifierImpl
-import core.data.cleanup.LaunchableNameCleanupRow
+import core.data.cleanup.LaunchableCustomizationCleanupRow
 import core.data.cleanup.PopupItemCleanupRow
 import core.data.cleanup.PopupOwnerCleanupRow
 import core.data.cleanup.StandaloneShortcutCleanupRow
@@ -514,7 +514,7 @@ class MainApplication :
 
     private fun startStaleKeyCleanup() {
         val cleanup: IStaleKeyCleanup = get()
-        cleanup.register(LaunchableNameCleanupRow(preferencesRepository = get()))
+        cleanup.register(LaunchableCustomizationCleanupRow(preferencesRepository = get()))
         cleanup.register(FavoriteCleanupRow(favoriteDao = get()))
         cleanup.register(
             PopupOwnerCleanupRow(

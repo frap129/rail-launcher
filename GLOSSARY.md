@@ -8,6 +8,10 @@ Rail is an Android home-screen launcher built around a vertical, letter-indexed 
 Anything the user can open from the launcher (an installed app, a launcher shortcut, a Rail deeplink, or a Folder).
 _Avoid_: App (when meaning any launchable), item, entry
 
+**Launchable customization**:
+The overrides the user stores for a Launchable key, such as its custom name.
+_Avoid_: Name customization (when meaning the whole stored row), app customization
+
 **App key**:
 The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.
 _Avoid_: Component key, activity key, package key
@@ -41,7 +45,7 @@ The hidden Profile Android 15+ provides for Apps the user keeps private, unlocke
 _Avoid_: Private profile, vault, space
 
 **Locked**:
-A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, name customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins, Standalone shortcuts and the Places of their Pop-ups for when it is Unlocked.
+A Private Space in quiet mode: Rail shows only its Private Space container row, unless it is Hidden, and no private Apps anywhere, while keeping their Favorites, Launchable customizations, Header tap actions, Added items, Folder members, hidden Shortcuts, Shortcut pins, Standalone shortcuts and the Places of their Pop-ups for when it is Unlocked.
 _Avoid_: Off, closed, disabled
 
 **Lock requested**:
@@ -61,7 +65,7 @@ A key read from a database that Android cloud backup or device transfer restored
 _Avoid_: Backup key, old key
 
 **Stale-key cleanup**:
-The one job in `core:data` that classifies the keys stored by Launchable names, Favorites, Pop-up owners and items, Header tap actions and Standalone shortcuts, then removes the rows whose key's Launchable, Shortcut or Profile is gone. Each stored row kind only supplies its keys and how to delete them.
+The one job in `core:data` that classifies the keys stored by Launchable customizations, Favorites, Pop-up owners and items, Header tap actions and Standalone shortcuts, then removes the rows whose key's Launchable, Shortcut or Profile is gone. Each stored row kind only supplies its keys and how to delete them.
 _Avoid_: Cleanup paths, stale purge, key sweep
 
 **private App**:

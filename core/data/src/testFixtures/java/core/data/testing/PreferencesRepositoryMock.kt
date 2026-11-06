@@ -25,6 +25,6 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setHidePrivateSpaceWhenLocked(any()) } just Runs
     every { mockPreferencesRepository.setScrubEdges(any()) } just Runs
     every { mockPreferencesRepository.setRailSide(any()) } just Runs
-    coEvery { mockPreferencesRepository.removeLaunchableNames(any()) } just Runs
+    coEvery { mockPreferencesRepository.removeLaunchableCustomizations(any()) } just Runs
     return mockPreferencesRepository
 }

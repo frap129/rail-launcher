@@ -33,7 +33,7 @@ class IPreferencesRepositoryImpl(
         }
     }
 
-    override suspend fun removeLaunchableNames(keys: List<String>) {
+    override suspend fun removeLaunchableCustomizations(keys: List<String>) {
         if (keys.isEmpty()) {
             return
         }
