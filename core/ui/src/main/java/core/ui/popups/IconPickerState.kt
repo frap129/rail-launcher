@@ -9,8 +9,8 @@ import core.data.launchables.model.Launchable
 sealed interface IconPickerState {
     data object Closed : IconPickerState
 
-    /** The picker listing Original and the installed icon packs. */
-    data class Listing(val owner: Launchable, val iconPacks: List<IconPack.CustomIconPack>) : IconPickerState
+    /** The picker listing the Suggested icons, Original and the installed icon packs. */
+    data class Listing(val owner: Launchable, val iconPacks: List<IconPack.CustomIconPack>, val suggestions: List<Icon>) : IconPickerState
 
     /**
      * One pack's icons; [categories] is null while they load. [results] holds the flat matches for

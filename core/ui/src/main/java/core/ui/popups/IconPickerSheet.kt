@@ -3,6 +3,7 @@ package core.ui.popups
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -54,6 +56,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
         is IconPickerState.Listing -> IconPickerListingSheet(
             state = pickerState,
             onOriginal = iconPicker::resetIcon,
+            onIcon = iconPicker::selectIcon,
             onPack = iconPicker::openPack,
             onDismiss = iconPicker::cancelPicking
         )
@@ -72,12 +75,18 @@ fun IconPickerHost(iconPicker: IIconPicker) {
 private fun IconPickerListingSheet(
     state: IconPickerState.Listing,
     onOriginal: () -> Unit,
+    onIcon: (Icon.PackDrawableIcon) -> Unit,
     onPack: (IconPack.CustomIconPack) -> Unit,
     onDismiss: () -> Unit
 ) {
     PopupFullHeightSheet(onDismissRequest = onDismiss) {
         PopupSheetTitleRow(title = stringResource(R.string.change_icon))
         LazyColumn(modifier = Modifier.weight(1f)) {
+            if (state.suggestions.isNotEmpty()) {
+                item(key = "suggested-icons") {
+                    SuggestedIconsRow(suggestions = state.suggestions, onOriginal = onOriginal, onIcon = onIcon)
+                }
+            }
             item(key = "original-icon") {
                 PickerRow(
                     icon = state.owner.defaultIcon,
@@ -141,7 +150,7 @@ private fun IconPickerPackSheet(
             ) {
                 if (isSearching) {
                     gridItems(items = state.results, key = { icon -> icon.drawableName }) { icon ->
-                        PackIcon(icon = icon, onClick = { onIcon(icon) })
+                        PickerIcon(icon = icon, contentDescription = icon.drawableName, onClick = { onIcon(icon) })
                     }
                 } else {
                     categories.forEachIndexed { index, category ->
@@ -159,10 +168,34 @@ private fun IconPickerPackSheet(
                             }
                         }
                         gridItems(items = category.icons, key = { icon -> icon.drawableName }) { icon ->
-                            PackIcon(icon = icon, onClick = { onIcon(icon) })
+                            PickerIcon(icon = icon, contentDescription = icon.drawableName, onClick = { onIcon(icon) })
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestedIconsRow(suggestions: List<Icon>, onOriginal: () -> Unit, onIcon: (Icon.PackDrawableIcon) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.suggested),
+            modifier = Modifier.padding(horizontal = sheetHorizontalPadding, vertical = packSearchVerticalPadding),
+            style = MaterialTheme.typography.titleSmall
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = sheetHorizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(packGridSpacing)
+        ) {
+            listItems(items = suggestions) { icon ->
+                val packIcon: Icon.PackDrawableIcon? = icon as? Icon.PackDrawableIcon
+                PickerIcon(
+                    icon = icon,
+                    contentDescription = packIcon?.drawableName ?: stringResource(R.string.original_icon),
+                    onClick = { if (packIcon == null) onOriginal() else onIcon(packIcon) }
+                )
             }
         }
     }
@@ -188,7 +221,7 @@ private fun PickerRow(icon: Icon, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PackIcon(icon: Icon.PackDrawableIcon, onClick: () -> Unit) {
+private fun PickerIcon(icon: Icon, contentDescription: String, onClick: () -> Unit) {
     AsyncImage(
         modifier = Modifier
             .size(packIconSize)
@@ -196,6 +229,6 @@ private fun PackIcon(icon: Icon.PackDrawableIcon, onClick: () -> Unit) {
             .clickable(role = Role.Button, onClick = onClick)
             .padding(packIconPadding),
         model = icon,
-        contentDescription = icon.drawableName
+        contentDescription = contentDescription
     )
 }

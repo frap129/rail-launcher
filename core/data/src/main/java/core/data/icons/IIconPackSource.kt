@@ -9,4 +9,7 @@ interface IIconPackSource {
 
     /** Whether [packPackageName] still provides [drawableName]. */
     fun hasDrawable(packPackageName: String, drawableName: String): Boolean
+
+    /** The drawable name [resId] resolves to in [packPackageName], or null when the pack no longer provides it. */
+    fun resolveDrawableName(packPackageName: String, resId: Int): String?
 }

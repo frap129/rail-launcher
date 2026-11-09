@@ -20,3 +20,7 @@ sealed class IconPack(open val name: String, open val icon: Icon) {
         }
     }
 }
+
+/** The installed Icon packs in the order the Icon picker lists them. */
+fun Iterable<IconPack>.sortedCustomIconPacks(): List<IconPack.CustomIconPack> = filterIsInstance<IconPack.CustomIconPack>()
+    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { pack -> pack.name })

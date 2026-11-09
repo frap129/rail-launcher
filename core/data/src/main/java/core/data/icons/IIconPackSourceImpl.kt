@@ -3,6 +3,7 @@ package core.data.icons
 import android.content.Context
 import core.util.DrawableCategory
 import core.util.getDrawableCategoriesFromPack
+import core.util.getDrawableName
 import core.util.hasDrawable
 
 class IIconPackSourceImpl(private val context: Context) : IIconPackSource {
@@ -10,4 +11,6 @@ class IIconPackSourceImpl(private val context: Context) : IIconPackSource {
         getDrawableCategoriesFromPack(context, packPackageName)
 
     override fun hasDrawable(packPackageName: String, drawableName: String): Boolean = hasDrawable(context, drawableName, packPackageName)
+
+    override fun resolveDrawableName(packPackageName: String, resId: Int): String? = getDrawableName(context, resId, packPackageName)
 }

@@ -173,6 +173,14 @@ fun getDrawableId(context: Context, drawableName: String, packPackageName: Strin
 fun hasDrawable(context: Context, drawableName: String, packPackageName: String): Boolean =
     runCatching { getDrawableId(context, drawableName, packPackageName) != 0 }.getOrDefault(false)
 
+/** The drawable name [resId] resolves to in [packPackageName], or null when the pack no longer provides it. */
+fun getDrawableName(context: Context, resId: Int, packPackageName: String): String? = runCatching {
+    context.packageManager.getResourcesForApplication(packPackageName).getResourceEntryName(resId)
+}.getOrNull()
+
+/** Whether this drawable name contains [term], reading underscores as spaces and ignoring case. */
+fun String.drawableNameContains(term: String): Boolean = replace('_', ' ').contains(term, ignoreCase = true)
+
 fun getXml(context: Context, xmlName: String, packPackageName: String): XmlPullParser? {
     val res: Resources
     try {

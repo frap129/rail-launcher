@@ -16,6 +16,9 @@ interface PackIconDao {
     @Query("SELECT * FROM icons WHERE " + Icon.PackIcon.COLUMN_PACK_PACKAGE_NAME + " = :packPackageName")
     suspend fun getAllFromPack(packPackageName: String): List<Icon.PackIcon>
 
+    @Query("SELECT * FROM icons WHERE " + Icon.PackIcon.COLUMN_COMPONENT_NAME + " = :componentName")
+    suspend fun getAllForComponent(componentName: ComponentName): List<Icon.PackIcon>
+
     @Query(
         "SELECT * FROM icons WHERE " + Icon.PackIcon.COLUMN_PACK_PACKAGE_NAME + " = :packPackageName AND " +
             Icon.PackIcon.COLUMN_COMPONENT_NAME + " = :componentName"

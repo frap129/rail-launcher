@@ -13,6 +13,7 @@ import io.mockk.mockk
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -131,6 +132,22 @@ class IIconPackSourceImplTest {
 
         assertEquals(true, source.hasDrawable(TEST_ICON_PACK_PACKAGE, "calendar"))
         assertEquals(false, source.hasDrawable(TEST_ICON_PACK_PACKAGE, "missing"))
+    }
+
+    @Test
+    fun `resolves a stored resource id to its drawable name`() {
+        every { mockResources.getResourceEntryName(DRAWABLE_RES_ID) } returns "calendar"
+        every { mockResources.getResourceEntryName(0) } throws Resources.NotFoundException()
+
+        assertEquals("calendar", source.resolveDrawableName(TEST_ICON_PACK_PACKAGE, DRAWABLE_RES_ID))
+        assertNull(source.resolveDrawableName(TEST_ICON_PACK_PACKAGE, 0))
+    }
+
+    @Test
+    fun `returns no drawable name for a missing pack`() {
+        every { mockPackageManager.getResourcesForApplication("com.example.missing") } throws PackageManager.NameNotFoundException()
+
+        assertNull(source.resolveDrawableName("com.example.missing", DRAWABLE_RES_ID))
     }
 
     private fun drawableListParser(vararg elements: DrawableElement): XmlResourceParser {

@@ -17,8 +17,12 @@ A user-chosen icon for a Launchable that replaces its normal icon, stored as an 
 _Avoid_: Themed icon, custom image
 
 **Icon picker**:
-The bottom sheet that lists Original and every installed Icon pack and applies a Custom icon or resets it.
+The bottom sheet that lists the Suggested icons, Original and every installed Icon pack and applies a Custom icon or resets it.
 _Avoid_: Icon chooser, theme picker
+
+**Suggested icons**:
+The locally computed icons the Icon picker lists above Original: for an App, its original icon plus one icon from each installed Icon pack that maps it; for a Shortcut or Folder, the pack icons whose drawable names contain a word from its label, capped at 12.
+_Avoid_: Recommended icons, AI suggestions
 
 **Icon pack**:
 An installed app that publishes themed icons through a launcher icon-pack intent; Rail may use one globally or read its drawables as Custom icons.
