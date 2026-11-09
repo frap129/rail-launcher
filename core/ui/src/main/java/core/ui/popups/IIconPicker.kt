@@ -16,6 +16,9 @@ interface IIconPicker {
     /** Opens [iconPack]'s icons inside the open picker. */
     fun openPack(iconPack: IconPack.CustomIconPack)
 
+    /** Filters the open pack's icons by [query]. */
+    fun setQuery(query: String)
+
     /** Applies [icon] as the owner's Custom icon and closes the picker. */
     fun selectIcon(icon: Icon.PackDrawableIcon)
 

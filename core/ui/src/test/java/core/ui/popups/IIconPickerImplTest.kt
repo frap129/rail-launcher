@@ -5,6 +5,7 @@ import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.IconPackCategory
 import core.data.testing.TEST_SDK
 import core.data.testing.createIconRepositoryMock
 import io.mockk.coVerify
@@ -12,6 +13,7 @@ import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -24,7 +26,9 @@ import org.robolectric.annotation.Config
 
 private const val ICON_PACK_NAME: String = "Example pack"
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
-private const val DRAWABLE_NAME: String = "calendar"
+private const val CALENDAR_DRAWABLE_NAME: String = "calendar"
+private const val GOOGLE_MAPS_DRAWABLE_NAME: String = "google_maps"
+private const val GOOGLE_MAIL_DRAWABLE_NAME: String = "google_mail"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -37,7 +41,19 @@ class IIconPickerImplTest : PopupTestBase() {
     )
     private val inputIcon: Icon.PackDrawableIcon = Icon.PackDrawableIcon(
         packPackageName = ICON_PACK_PACKAGE_NAME,
-        drawableName = DRAWABLE_NAME
+        drawableName = CALENDAR_DRAWABLE_NAME
+    )
+    private val inputGoogleMapsIcon: Icon.PackDrawableIcon = Icon.PackDrawableIcon(
+        packPackageName = ICON_PACK_PACKAGE_NAME,
+        drawableName = GOOGLE_MAPS_DRAWABLE_NAME
+    )
+    private val inputGoogleMailIcon: Icon.PackDrawableIcon = Icon.PackDrawableIcon(
+        packPackageName = ICON_PACK_PACKAGE_NAME,
+        drawableName = GOOGLE_MAIL_DRAWABLE_NAME
+    )
+    private val inputCategories: List<IconPackCategory> = listOf(
+        IconPackCategory(name = "Calendar", icons = listOf(inputIcon, inputGoogleMapsIcon)),
+        IconPackCategory(name = "Communication", icons = listOf(inputGoogleMailIcon))
     )
 
     @Test
@@ -71,15 +87,9 @@ class IIconPickerImplTest : PopupTestBase() {
     }
 
     @Test
-    fun `opens a pack and holds its icons in memory`() = runTest {
-        setLaunchableGroups(groups = inputGroups)
-        setIconPacks(packs = setOf(IconPack.SystemIconPack, inputPack))
-        val mockIconRepository: IIconRepository = createIconRepositoryMock(
-            inputIcon = inputApp.defaultIcon,
-            iconPacks = iconPacks,
-            packIcons = listOf(inputIcon)
-        )
-        val picker: IIconPicker = createIconPicker(mockIconRepository = mockIconRepository)
+    fun `opens a pack and holds its categories in pack order`() = runTest {
+        val mockIconRepository: IIconRepository = createPackIconRepository()
+        val picker: IIconPicker = createPackPicker(mockIconRepository = mockIconRepository)
 
         picker.iconPickerState.test {
             picker.startPicking(inputApp)
@@ -87,9 +97,60 @@ class IIconPickerImplTest : PopupTestBase() {
             runCurrent()
             val actualState: IconPickerState.Pack = expectMostRecentItem() as IconPickerState.Pack
             assertEquals(inputPack, actualState.iconPack)
-            assertEquals(listOf(inputIcon), actualState.icons)
+            assertEquals(inputCategories, actualState.categories)
+            assertEquals("", actualState.query)
+            assertTrue(actualState.results.isEmpty())
         }
-        coVerify(exactly = 1) { mockIconRepository.getPackIcons(ICON_PACK_PACKAGE_NAME) }
+        coVerify(exactly = 1) { mockIconRepository.getPackCategories(ICON_PACK_PACKAGE_NAME) }
+    }
+
+    @Test
+    fun `filters a pack by drawable name ignoring case and underscores`() = runTest {
+        val picker: IIconPicker = createPackPicker()
+
+        picker.iconPickerState.test {
+            picker.startPicking(inputApp)
+            picker.openPack(inputPack)
+            runCurrent()
+            picker.setQuery("GOOGLE Maps")
+            runCurrent()
+            val actualState: IconPickerState.Pack = expectMostRecentItem() as IconPickerState.Pack
+            assertEquals("GOOGLE Maps", actualState.query)
+            assertEquals(listOf(inputGoogleMapsIcon), actualState.results)
+        }
+    }
+
+    @Test
+    fun `flattens matching icons from every category into one result list`() = runTest {
+        val picker: IIconPicker = createPackPicker()
+
+        picker.iconPickerState.test {
+            picker.startPicking(inputApp)
+            picker.openPack(inputPack)
+            runCurrent()
+            picker.setQuery("google")
+            runCurrent()
+            val actualState: IconPickerState.Pack = expectMostRecentItem() as IconPickerState.Pack
+            assertEquals(listOf(inputGoogleMapsIcon, inputGoogleMailIcon), actualState.results)
+        }
+    }
+
+    @Test
+    fun `clearing the query restores the grouped view`() = runTest {
+        val picker: IIconPicker = createPackPicker()
+
+        picker.iconPickerState.test {
+            picker.startPicking(inputApp)
+            picker.openPack(inputPack)
+            picker.setQuery("google maps")
+            runCurrent()
+            picker.setQuery("")
+            runCurrent()
+            val actualState: IconPickerState.Pack = expectMostRecentItem() as IconPickerState.Pack
+            assertEquals("", actualState.query)
+            assertTrue(actualState.results.isEmpty())
+            assertEquals(inputCategories, actualState.categories)
+        }
     }
 
     @Test
@@ -106,7 +167,7 @@ class IIconPickerImplTest : PopupTestBase() {
         verify(exactly = 1) {
             mockPreferencesRepository.setCustomIcon(
                 inputApp,
-                CustomIcon.PackDrawable(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = DRAWABLE_NAME)
+                CustomIcon.PackDrawable(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = CALENDAR_DRAWABLE_NAME)
             )
         }
         assertEquals(IconPickerState.Closed, picker.iconPickerState.value)
@@ -142,5 +203,17 @@ class IIconPickerImplTest : PopupTestBase() {
         assertTrue(picker.backBeforeItemMenu())
         assertEquals(IconPickerState.Closed, picker.iconPickerState.value)
         assertFalse(picker.backBeforeItemMenu())
+    }
+
+    private fun createPackIconRepository(): IIconRepository = createIconRepositoryMock(
+        inputIcon = inputApp.defaultIcon,
+        iconPacks = iconPacks,
+        packCategories = inputCategories
+    )
+
+    private fun TestScope.createPackPicker(mockIconRepository: IIconRepository = createPackIconRepository()): IIconPicker {
+        setLaunchableGroups(groups = inputGroups)
+        setIconPacks(packs = setOf(IconPack.SystemIconPack, inputPack))
+        return createIconPicker(mockIconRepository = mockIconRepository)
     }
 }

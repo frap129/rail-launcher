@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.IconPackCategory
 import core.ui.R
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
@@ -38,6 +41,8 @@ import core.ui.composables.sheetVerticalPadding
 private val packIconSize = 64.dp
 private val packIconPadding = 8.dp
 private val packGridSpacing = 8.dp
+private val packSearchVerticalPadding = 4.dp
+private val packCategoryTopPadding = 16.dp
 
 /** Hosts the Icon picker; renders nothing while it is closed. */
 @Composable
@@ -55,6 +60,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
 
         is IconPickerState.Pack -> IconPickerPackSheet(
             state = pickerState,
+            onQuery = iconPicker::setQuery,
             onIcon = iconPicker::selectIcon,
             onBack = { iconPicker.backBeforeItemMenu() },
             onDismiss = { iconPicker.backBeforeItemMenu() }
@@ -95,6 +101,7 @@ private fun IconPickerListingSheet(
 @Composable
 private fun IconPickerPackSheet(
     state: IconPickerState.Pack,
+    onQuery: (String) -> Unit,
     onIcon: (Icon.PackDrawableIcon) -> Unit,
     onBack: () -> Unit,
     onDismiss: () -> Unit
@@ -104,8 +111,18 @@ private fun IconPickerPackSheet(
             title = state.iconPack.name,
             navigationAction = PopupSheetTitleAction(label = stringResource(R.string.back), onClick = onBack)
         )
-        val icons: List<Icon.PackDrawableIcon>? = state.icons
-        if (icons == null) {
+        OutlinedTextField(
+            value = state.query,
+            onValueChange = onQuery,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = sheetHorizontalPadding, vertical = packSearchVerticalPadding),
+            placeholder = { Text(text = stringResource(R.string.search_icons)) },
+            singleLine = true
+        )
+        val categories: List<IconPackCategory>? = state.categories
+        val isSearching: Boolean = state.isFiltering
+        if (categories == null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,8 +139,29 @@ private fun IconPickerPackSheet(
                 verticalArrangement = Arrangement.spacedBy(packGridSpacing),
                 horizontalArrangement = Arrangement.spacedBy(packGridSpacing)
             ) {
-                gridItems(items = icons, key = { icon -> icon.drawableName }) { icon ->
-                    PackIcon(icon = icon, onClick = { onIcon(icon) })
+                if (isSearching) {
+                    gridItems(items = state.results, key = { icon -> icon.drawableName }) { icon ->
+                        PackIcon(icon = icon, onClick = { onIcon(icon) })
+                    }
+                } else {
+                    categories.forEachIndexed { index, category ->
+                        val categoryName: String? = category.name
+                        if (categoryName != null) {
+                            item(
+                                key = "category:$index",
+                                span = { GridItemSpan(maxLineSpan) }
+                            ) {
+                                Text(
+                                    text = categoryName,
+                                    modifier = Modifier.padding(top = packCategoryTopPadding),
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                            }
+                        }
+                        gridItems(items = category.icons, key = { icon -> icon.drawableName }) { icon ->
+                            PackIcon(icon = icon, onClick = { onIcon(icon) })
+                        }
+                    }
                 }
             }
         }
