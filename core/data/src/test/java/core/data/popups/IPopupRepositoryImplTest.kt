@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
 import core.data.folders.Folder
+import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -25,6 +26,8 @@ import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TimberLogRecorder
 import core.data.testing.createApp
 import core.data.testing.createAppProfile
@@ -609,6 +612,36 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             repository = repository,
             ownerKey = owner.key,
             expected = listOf(PopupItem.Shortcut(launchable = shortcut, isEnabled = false))
+        )
+    }
+
+    @Test
+    fun `returns a stored Shortcut item with the icon resolved for its Launchable`() = databaseTest {
+        val owner: App = createApp()
+        val shortcutKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile)
+        val shortcut: ShortcutLaunchable = createShortcut(id = FIRST_SHORTCUT_ID)
+        val expectedIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val resolvedShortcut: ShortcutLaunchable = shortcut.copy(icon = expectedIcon)
+        val popupDao: PopupDao = database.getPopupDao()
+        popupDao.insertItems(listOf(PopupItemRecord(ownerKey = owner.key, itemKey = shortcutKey.format(), position = 0)))
+        val mockShortcutSource: IShortcutSource = createShortcutSourceMock(
+            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(shortcutKey to shortcut)))
+        )
+        val repository: IPopupRepositoryImpl = createRepository(
+            popupDao = popupDao,
+            mockLaunchableRepository = createLaunchableRepositoryMock(
+                state = MutableStateFlow(createLoadedLaunchableState(launchables = listOf(owner, resolvedShortcut)))
+            ),
+            mockShortcutSource = mockShortcutSource
+        )
+
+        assertItems(
+            repository = repository,
+            ownerKey = owner.key,
+            expected = listOf(PopupItem.Shortcut(launchable = resolvedShortcut, isEnabled = true))
         )
     }
 

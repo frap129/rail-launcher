@@ -12,6 +12,7 @@ import core.data.popups.PopupItem
 import core.data.popups.ShortcutTarget
 import core.data.popups.addedItems
 import core.data.popups.findLaunchable
+import core.data.popups.resolveLaunchables
 import core.data.popups.targetFor
 import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutPickerSource
@@ -108,13 +109,22 @@ class IPopupPickerImpl(
                 flowOf(ShortcutPickerState.Closed)
             } else {
                 shortcutPickerSource.appsWithShortcuts().map { apps ->
+                    val resolvedApps: List<AppShortcuts> = apps.map { appShortcuts ->
+                        appShortcuts.copy(
+                            result = appShortcuts.result.resolveLaunchables(launchables = pickerRequest.launchableState.launchables)
+                        )
+                    }
                     ShortcutPickerState.Picking(
-                        groups = shortcutPickerGroups(groups = pickerRequest.launchableState.pickerGroups, apps = apps, owner = request),
+                        groups = shortcutPickerGroups(
+                            groups = pickerRequest.launchableState.pickerGroups,
+                            apps = resolvedApps,
+                            owner = request
+                        ),
                         selectedKeys = pickerRequest.items.items
                             .filterIsInstance<PopupItem.Shortcut>()
                             .mapTo(mutableSetOf()) { item -> item.launchable.key },
-                        shortcutsUnavailable = apps.isNotEmpty() &&
-                            apps.all { appShortcuts ->
+                        shortcutsUnavailable = resolvedApps.isNotEmpty() &&
+                            resolvedApps.all { appShortcuts ->
                                 appShortcuts.result is ShortcutsResult.Unavailable
                             }
                     )

@@ -1,6 +1,7 @@
 package core.data.cleanup
 
 import app.cash.turbine.test
+import core.data.icons.model.Icon
 import core.data.launchables.LaunchableState
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
@@ -10,6 +11,8 @@ import core.data.shortcuts.ShortcutResolution
 import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createLaunchableRepositoryMock
@@ -127,6 +130,25 @@ class IStoredKeyClassifierImplTest {
         assertEquals(StoredKeyState.Stale, actualStates[inputGoneKey.format()])
         assertEquals(StoredKeyState.Stale, actualStates[inputMissingAppKey.format()])
         assertEquals(StoredKeyState.Stale, actualStates["com.example.gone"])
+    }
+
+    @Test
+    fun `classifies a stored Shortcut with the Launchable its Custom icon resolved to`() = runTest {
+        val inputShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile)
+        val inputShortcut = createShortcut(packageName = APP_PACKAGE_NAME, profile = inputProfile)
+        val inputResolvedShortcut = inputShortcut.copy(
+            icon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        )
+        val classifier: IStoredKeyClassifier = createClassifier(
+            state = MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputResolvedShortcut))),
+            resolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputShortcutKey to inputShortcut)))
+        )
+
+        val actualStates: Map<String, StoredKeyState> = requireNotNull(
+            classifier.observe(flowOf(setOf(inputShortcutKey.format()))).first()
+        )
+
+        assertEquals(StoredKeyState.Present(launchable = inputResolvedShortcut), actualStates[inputShortcutKey.format()])
     }
 
     @Test

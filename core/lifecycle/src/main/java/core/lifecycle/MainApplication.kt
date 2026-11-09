@@ -311,7 +311,7 @@ class MainApplication :
         single<IStaleKeyCleanup> {
             IStaleKeyCleanupImpl(classifier = get(), scope = get(named(APP_SCOPE_QUALIFIER)))
         }
-        single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get()) }
+        single<IFolderRepository> { IFolderRepositoryImpl(get(), get(), get(), get(), get(), get()) }
         single<IWidgetAreaRepository> { IWidgetAreaRepositoryImpl(get(), get(), get(), get()) }
         single<IWidgetSettingsRepository> { IWidgetSettingsRepositoryImpl(get(), get(), get(), get()) }
         single { MediaArtworkStore() }

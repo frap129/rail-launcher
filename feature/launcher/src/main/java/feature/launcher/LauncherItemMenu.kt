@@ -82,7 +82,7 @@ internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, ed
         SheetTitle(
             launchable = item,
             onNameClick = { viewModel.openItemRename(item) },
-            onIconClick = if (item is App) {
+            onIconClick = if (item.supportsCustomIcon) {
                 { viewModel.openItemIconPicker(item) }
             } else {
                 null

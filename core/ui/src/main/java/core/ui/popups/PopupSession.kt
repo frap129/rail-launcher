@@ -1,5 +1,6 @@
 package core.ui.popups
 
+import core.data.launchables.model.Launchable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -54,6 +55,9 @@ interface IPopupSession {
 
     /** Closes what an edit sheet, picker or Folder dialog would cover. */
     fun onSheetOpened()
+
+    /** Opens the Icon picker for [owner] through the host's attached picker. */
+    fun startIconPicker(owner: Launchable)
 
     /** Dismisses the pickers when the editor closes. */
     fun onEditFinished()
@@ -116,6 +120,10 @@ class IPopupSessionImpl : IPopupSession {
         folder?.onEditStarted()
         picker?.onEditStarted()
         iconPicker?.onEditStarted()
+    }
+
+    override fun startIconPicker(owner: Launchable) {
+        iconPicker?.startPicking(owner = owner)
     }
 
     override fun onEditFinished() {

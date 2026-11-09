@@ -6,13 +6,13 @@ import core.data.cleanup.FavoriteCleanupRow
 import core.data.cleanup.HeaderTapTargetCleanupRow
 import core.data.cleanup.StandaloneShortcutCleanupRow
 import core.data.favorites.FavoriteRecord
+import core.data.icons.model.CustomIcon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.popups.IPopupRepository
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
-import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
 import core.data.room.dao.StandaloneShortcutDao
@@ -24,6 +24,8 @@ import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PinCall
 import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.awaitPin
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
@@ -269,9 +271,13 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `removing a renamed Standalone shortcut deletes its name customization`() = databaseTest {
+    fun `removing a customized Standalone shortcut deletes its customizations`() = databaseTest {
         database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
         database.getLaunchableCustomizationDao().setName(key = inputKey.format(), name = "Renamed shortcut")
+        database.getLaunchableCustomizationDao().setIcon(
+            key = inputKey.format(),
+            icon = CustomIcon.PackDrawable(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        )
         val repositories: StandaloneShortcutRepositories = createRepositories(
             mockShortcutSource = createShortcutSourceMock()
         )
@@ -448,11 +454,7 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
         launchableState: MutableStateFlow<LaunchableState> =
             MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputOwner))),
         standaloneShortcutDao: StandaloneShortcutDao = database.getStandaloneShortcutDao(),
-        preferencesRepository: IPreferencesRepository = IPreferencesRepositoryImpl(
-            launchableCustomizationDao = database.getLaunchableCustomizationDao(),
-            settingsDao = database.getSettingsDao(),
-            scope = backgroundScope
-        )
+        preferencesRepository: IPreferencesRepository = createPreferencesRepository()
     ): StandaloneShortcutRepositories {
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(state = launchableState)
         val coordinator: IShortcutPinCoordinator = createShortcutPinCoordinator(

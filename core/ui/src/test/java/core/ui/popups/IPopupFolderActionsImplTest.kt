@@ -44,6 +44,20 @@ class IPopupFolderActionsImplTest : PopupTestBase() {
     }
 
     @Test
+    fun `Change icon opens the Icon picker for the Folder`() = runTest {
+        val session: IPopupSession = IPopupSessionImpl()
+        val collaborators: IPopupCollaborators = createCollaborators(session = session)
+
+        collaborators.iconPicker.iconPickerState.test {
+            collaborators.folder.requestIconChange(inputFolder)
+            runCurrent()
+            val actualState: IconPickerState.Listing = expectMostRecentItem() as IconPickerState.Listing
+
+            assertEquals(inputFolder, actualState.owner)
+        }
+    }
+
+    @Test
     fun `renames the Folder through the preferences repository`() = runTest {
         val folderActions: IPopupFolderActions = createFolder()
         folderActions.requestRename(inputFolder)

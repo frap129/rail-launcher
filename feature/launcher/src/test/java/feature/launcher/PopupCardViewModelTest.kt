@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.notifications.INotificationSource
@@ -20,6 +21,8 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.data.testing.AppWidgetHostState
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
@@ -433,6 +436,26 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
             assertEquals(listOf(inputShortcut), actualState.content.shortcuts)
             assertEquals(PopupEmptyReason.None, actualState.content.emptyReason)
+        }
+    }
+
+    @Test
+    fun `shows an App Shortcut row with the icon resolved for its Launchable`() = runTest {
+        val expectedIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val inputResolvedShortcut: ShortcutLaunchable = inputShortcut.copy(icon = expectedIcon)
+        setLaunchableGroups(
+            groups = inputGroups + LaunchableGroup.InitialGroup(label = "S", items = listOf(inputResolvedShortcut))
+        )
+        setShortcutResult(ShortcutsResult.Available(shortcuts = listOf(inputShortcut)))
+        val viewModel: PopupCardViewModel = createCard()
+
+        viewModel.popupState.test {
+            viewModel.open(inputApp, TEST_INPUT_ANCHOR)
+            val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+            assertEquals(listOf(inputResolvedShortcut), actualState.content.shortcuts)
         }
     }
 

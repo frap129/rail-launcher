@@ -1,27 +1,30 @@
 package core.data.folders
 
 import android.content.Context
+import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
+import core.data.launchables.model.LaunchableIcons
 import core.data.launchables.model.LaunchableNames
-import core.data.prefs.LaunchableCustomization
-import core.data.prefs.toLaunchableNames
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
+import core.data.launchables.model.resolveCustomIcon
 import timber.log.Timber
 
 private const val FOLDER_KEY_PREFIX: String = "rail-folder:"
 private const val FOLDER_SHADE_COUNT: Long = 3L
 
 /** A Launchable that only opens a Pop-up listing the Launchables the user put in it. */
-data class Folder(val folderId: Long, override val name: String = DEFAULT_NAME) : Launchable() {
+data class Folder(
+    val folderId: Long,
+    override val name: String = DEFAULT_NAME,
+    override val defaultIcon: Icon = Icon.FolderIcon(shade = folderShade(folderId)),
+    override val icon: Icon = defaultIcon
+) : Launchable() {
     override val key: String = "$FOLDER_KEY_PREFIX$folderId"
     override val defaultName: String = DEFAULT_NAME
-    override val defaultIcon: Icon = Icon.FolderIcon(shade = folderShade(folderId))
-    override val icon: Icon get() = defaultIcon
+    override val supportsCustomIcon: Boolean = true
 
-    override fun withCustomization(appearance: LaunchableAppearance): Folder = copy(name = appearance.name)
+    override fun withCustomization(appearance: LaunchableAppearance): Folder = copy(name = appearance.name, icon = appearance.icon)
 
     override fun launch(context: Context) {
         Timber.w("Folder $key cannot be launched; open its Pop-up instead")
@@ -34,17 +37,18 @@ data class Folder(val folderId: Long, override val name: String = DEFAULT_NAME) 
 
 private fun folderShade(folderId: Long): Int = (folderId % FOLDER_SHADE_COUNT).toInt()
 
-/** Resolves the stored Folder records with their name customizations. */
-internal fun Flow<List<FolderRecord>>.resolveFolders(customizations: Flow<List<LaunchableCustomization>>): Flow<List<Folder>> =
-    combine(this, customizations) { records, customizations ->
-        records.resolveFolders(names = customizations.toLaunchableNames())
-    }
+/** Resolves stored Folder records with the names and Custom icons customized for their keys. */
+internal suspend fun List<FolderRecord>.resolveFolders(
+    names: LaunchableNames,
+    icons: LaunchableIcons,
+    iconRepository: IIconRepository
+): List<Folder> = map { record -> record.toFolder(names = names, icons = icons, iconRepository = iconRepository) }
 
-/** Resolves stored Folder records with the names customized for their keys. */
-internal fun List<FolderRecord>.resolveFolders(names: LaunchableNames): List<Folder> = map { record -> record.toFolder(names = names) }
-
-/** Resolves a Folder record's stored name, falling back to the default. */
-private fun FolderRecord.toFolder(names: LaunchableNames): Folder {
+/** Resolves a Folder record's Custom icon, falling back to its tile, and its stored name. */
+private suspend fun FolderRecord.toFolder(names: LaunchableNames, icons: LaunchableIcons, iconRepository: IIconRepository): Folder {
     val folder: Folder = Folder(folderId = id)
-    return folder.copy(name = folder.resolveName(names))
+    val customIcon: Icon? = icons.resolveCustomIcon(key = folder.key, iconRepository = iconRepository)
+    return folder.withCustomization(
+        LaunchableAppearance(name = folder.resolveName(names), icon = customIcon ?: folder.defaultIcon)
+    )
 }

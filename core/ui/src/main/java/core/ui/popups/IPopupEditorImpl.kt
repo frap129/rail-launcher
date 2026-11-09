@@ -14,6 +14,7 @@ import core.data.popups.collectShortcuts
 import core.data.popups.findLaunchable
 import core.data.popups.hiddenShortcutIds
 import core.data.popups.removeAddedItem
+import core.data.popups.resolveLaunchables
 import core.data.popups.targetFor
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutLaunchable
@@ -77,7 +78,7 @@ class IPopupEditorImpl(
         } else {
             PopupEditState.Editing(
                 owner = owner,
-                shortcuts = shortcutResult,
+                shortcuts = shortcutResult.resolveLaunchables(launchables = launchableState.launchables),
                 hiddenIds = hidden.ids,
                 items = items.items,
                 shortcutSourceNames = shortcutSourceNames(items = items.items, launchables = launchableState.launchables)

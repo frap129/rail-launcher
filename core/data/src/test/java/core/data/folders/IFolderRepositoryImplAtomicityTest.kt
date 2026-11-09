@@ -1,6 +1,8 @@
 package core.data.folders
 
 import core.data.favorites.FavoriteRecord
+import core.data.icons.IIconRepository
+import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -18,6 +20,7 @@ import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createFailOnceMock
 import core.data.testing.createFavoritesRepository
+import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
@@ -368,13 +371,15 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         launchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(otherOwnerLaunchable)),
         favoriteDao: FavoriteDao = database.getFavoriteDao(),
         customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
-        mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
+        mockPopupRepository: IPopupRepository = createPopupRepositoryMock(),
+        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.FolderIcon(shade = 0))
     ): IFolderRepository = IFolderRepositoryImpl(
         folderDao = folderDao,
         favoritesRepository = createFavoritesRepository(favoriteDao, launchableRepository),
         popupRepository = mockPopupRepository,
         preferencesRepository = createPreferencesRepositoryMock(),
-        launchableCustomizationDao = customizationDao
+        launchableCustomizationDao = customizationDao,
+        iconRepository = mockIconRepository
     )
 
     private fun TestScope.createDatabasePopupRepository(

@@ -22,6 +22,9 @@ interface IPopupFolderActions {
     /** Shows the name dialog for [folder]. */
     fun requestRename(folder: Folder)
 
+    /** Opens the Icon picker for [folder]. */
+    fun requestIconChange(folder: Folder)
+
     /** Closes the Folder dialog without changing the Folder. */
     fun dismissFolderDialog()
 

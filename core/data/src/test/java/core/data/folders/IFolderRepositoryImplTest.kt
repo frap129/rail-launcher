@@ -1,7 +1,11 @@
 package core.data.folders
 
+import app.cash.turbine.test
 import core.data.favorites.IFavoritesRepository
+import core.data.icons.IIconRepository
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
+import core.data.icons.model.IconPack
 import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
@@ -9,8 +13,12 @@ import core.data.prefs.LaunchableCustomization
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createCustomIconPack
 import core.data.testing.createFavoritesRepositoryMock
+import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createPopupRepository
@@ -21,6 +29,7 @@ import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,12 +97,16 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `delete cascades through its Pop-up, Favorites and customization`() = databaseTest {
+    fun `delete cascades through its Pop-up, Favorites and customizations`() = databaseTest {
         val inputFolder: Folder = Folder(folderId = 3L)
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = inputFolder.folderId))
         val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         customizationDao.setName(key = inputFolder.key, name = FOLDER_NAME)
+        customizationDao.setIcon(
+            key = inputFolder.key,
+            icon = CustomIcon.PackDrawable(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        )
         val mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock()
         val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
         val repository: IFolderRepository = createRepository(
@@ -111,6 +124,47 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         coVerify(exactly = 1) { mockFavoritesRepository.remove(inputFolder) }
         assertTrue(customizations().isEmpty())
         assertEquals(Icon.FolderIcon(shade = 0), inputFolder.icon)
+    }
+
+    @Test
+    fun `resolves a Folder's Custom icon and falls back when its pack disappears`() = databaseTest {
+        val folderId: Long = database.getFolderDao().insert(FolderRecord())
+        val inputFolder: Folder = Folder(folderId = folderId)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        customizationDao.setIcon(key = inputFolder.key, icon = inputCustomIcon)
+        val inputIconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(
+            setOf(IconPack.SystemIconPack, createCustomIconPack())
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = inputFolder.defaultIcon,
+            customIcon = expectedCustomIcon,
+            iconPacks = inputIconPacks
+        )
+        val repository: IFolderRepository = createRepository(
+            customizationDao = customizationDao,
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = customizationDao),
+            mockIconRepository = mockIconRepository
+        )
+
+        repository.folders.test {
+            val actualCustomFolder: Folder = awaitItem().single()
+            assertEquals(expectedCustomIcon, actualCustomFolder.icon)
+            assertEquals(Icon.FolderIcon(shade = 1), actualCustomFolder.defaultIcon)
+            coEvery { mockIconRepository.getCustomIcon(any(), any()) } returns null
+            inputIconPacks.value = setOf(IconPack.SystemIconPack)
+
+            val actualFallbackFolder: Folder = awaitItem().single()
+            assertEquals(Icon.FolderIcon(shade = 1), actualFallbackFolder.icon)
+            assertEquals(Icon.FolderIcon(shade = 1), actualFallbackFolder.defaultIcon)
+        }
     }
 
     @Test
@@ -136,7 +190,8 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
             favoritesRepository = createFavoritesRepositoryMock(),
             popupRepository = mockPopupRepository,
             preferencesRepository = createPreferencesRepositoryMock(),
-            launchableCustomizationDao = database.getLaunchableCustomizationDao()
+            launchableCustomizationDao = database.getLaunchableCustomizationDao(),
+            iconRepository = createIconRepositoryMock(inputIcon = Icon.FolderIcon(shade = 0))
         )
 
         val actualFreedIds: List<AppWidgetId> = repository.delete(inputFolder)
@@ -151,12 +206,14 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockFavoritesRepository: IFavoritesRepository = createFavoritesRepositoryMock(),
-        mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
+        mockPopupRepository: IPopupRepository = createPopupRepositoryMock(),
+        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.FolderIcon(shade = 0))
     ): IFolderRepository = IFolderRepositoryImpl(
         folderDao = folderDao,
         favoritesRepository = mockFavoritesRepository,
         popupRepository = mockPopupRepository,
         preferencesRepository = mockPreferencesRepository,
-        launchableCustomizationDao = customizationDao
+        launchableCustomizationDao = customizationDao,
+        iconRepository = mockIconRepository
     )
 }

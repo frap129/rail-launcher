@@ -13,8 +13,8 @@ interface IIconRepository {
 
     suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon
 
-    /** The pack drawable [customIcon] resolves to, badged for [profile], or null when it is gone. */
-    suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo): Icon?
+    /** The pack drawable [customIcon] resolves to, badged for [profile] when it is not null, or null when it is gone. */
+    suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo? = null): Icon?
 
     /** The categories [packPackageName] lists, in pack order; a pack without headings has one untitled category. */
     suspend fun getPackCategories(packPackageName: String): List<IconPackCategory>

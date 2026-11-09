@@ -34,6 +34,8 @@ data class ShortcutLaunchable(
 
     override val isDisabled: Boolean get() = !isEnabled
 
+    override val supportsCustomIcon: Boolean = true
+
     override val accessibilityName: String
         get() = accessibilityLabel(
             name = name,
