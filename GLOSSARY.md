@@ -13,11 +13,11 @@ The overrides the user stores for a Launchable key, such as its custom name or C
 _Avoid_: Name customization (when meaning the whole stored row), app customization
 
 **Custom icon**:
-A user-chosen icon for a Launchable that replaces its normal icon, stored as an icon-pack drawable name rather than a resource id so pack updates keep it.
+A user-chosen icon for a Launchable that replaces its normal icon: either an icon-pack drawable name, stored by name so pack updates keep it, or a copy of a gallery image stored in Rail's private icons directory.
 _Avoid_: Themed icon, custom image
 
 **Icon picker**:
-The bottom sheet that lists the Suggested icons, Original and every installed Icon pack and applies a Custom icon or resets it.
+The bottom sheet that lists the Suggested icons, Original, Gallery and every installed Icon pack and applies a Custom icon or resets it.
 _Avoid_: Icon chooser, theme picker
 
 **Suggested icons**:

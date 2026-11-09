@@ -134,6 +134,13 @@ class ConvertersTest {
     }
 
     @Test
+    fun `round trips an image Custom icon`() {
+        val inputIcon: CustomIcon = CustomIcon.Image(fileName = "3f2b1c9e-7a4d-4b8e-9c1f-2d3e4f5a6b7c.png")
+
+        assertEquals(inputIcon, converters.fromStringToCustomIcon(converters.fromCustomIconToString(inputIcon)))
+    }
+
+    @Test
     fun `encodes no Custom icon as null`() {
         assertNull(converters.fromCustomIconToString(null))
         assertNull(converters.fromStringToCustomIcon(null))
@@ -144,5 +151,6 @@ class ConvertersTest {
         assertNull(converters.fromStringToCustomIcon("picture:/tmp/icon.png"))
         assertNull(converters.fromStringToCustomIcon("pack-drawable:"))
         assertNull(converters.fromStringToCustomIcon("pack-drawable:com.example.iconpack"))
+        assertNull(converters.fromStringToCustomIcon("image:"))
     }
 }

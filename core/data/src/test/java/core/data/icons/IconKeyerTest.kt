@@ -70,6 +70,24 @@ class IconKeyerTest {
     }
 
     @Test
+    fun `equal image icons produce equal cache keys`() {
+        assertEqualKeys(Icon.ImageIcon("gallery-icon.png"), Icon.ImageIcon("gallery-icon.png"))
+    }
+
+    @Test
+    fun `image icons with different files produce different cache keys`() {
+        assertDifferentKeys(Icon.ImageIcon("gallery-icon.png"), Icon.ImageIcon("other-icon.png"))
+    }
+
+    @Test
+    fun `an image icon and a pack drawable icon produce different cache keys`() {
+        assertDifferentKeys(
+            Icon.ImageIcon("calendar"),
+            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar")
+        )
+    }
+
+    @Test
     fun `pack drawable icons with different packs or drawables produce different cache keys`() {
         assertDifferentKeys(
             Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),

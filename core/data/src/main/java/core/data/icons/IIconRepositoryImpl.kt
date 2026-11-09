@@ -47,6 +47,7 @@ class IIconRepositoryImpl(
     private val iconPackDao: CustomIconPackDao,
     private val iconDao: PackIconDao,
     private val iconPackSource: IIconPackSource,
+    private val imageStore: IIconImageStore,
     private val profileSource: IProfileSource,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -129,23 +130,21 @@ class IIconRepositoryImpl(
     }
 
     override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo?): Icon? = withContext(dispatcher) {
-        when (customIcon) {
-            is CustomIcon.PackDrawable -> {
-                val isAvailable: Boolean = iconPackSource.hasDrawable(
+        val icon: Icon? = when (customIcon) {
+            is CustomIcon.Image -> Icon.ImageIcon(fileName = customIcon.fileName)
+                .takeIf { imageStore.hasImage(fileName = customIcon.fileName) }
+
+            is CustomIcon.PackDrawable -> Icon.PackDrawableIcon(
+                packPackageName = customIcon.packPackageName,
+                drawableName = customIcon.drawableName
+            ).takeIf {
+                iconPackSource.hasDrawable(
                     packPackageName = customIcon.packPackageName,
                     drawableName = customIcon.drawableName
                 )
-                if (!isAvailable) {
-                    null
-                } else {
-                    val icon: Icon = Icon.PackDrawableIcon(
-                        packPackageName = customIcon.packPackageName,
-                        drawableName = customIcon.drawableName
-                    )
-                    if (profile == null) icon else icon.badgedFor(profile = profile)
-                }
             }
         }
+        if (icon == null || profile == null) icon else icon.badgedFor(profile = profile)
     }
 
     override suspend fun getPackCategories(packPackageName: String): List<IconPackCategory> = withContext(dispatcher) {

@@ -134,17 +134,30 @@ class Converters {
     fun fromCustomIconToString(icon: CustomIcon?): String? = when (icon) {
         null -> null
 
+        is CustomIcon.Image -> "${CustomIcon.Image.ENCODING_PREFIX}${icon.fileName}"
+
         is CustomIcon.PackDrawable ->
             "${CustomIcon.PackDrawable.ENCODING_PREFIX}${icon.packPackageName}" +
                 "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}${icon.drawableName}"
     }
 
     @TypeConverter
-    fun fromStringToCustomIcon(value: String?): CustomIcon? {
+    fun fromStringToCustomIcon(value: String?): CustomIcon? = when {
+        value == null -> null
+
+        value.startsWith(CustomIcon.Image.ENCODING_PREFIX) ->
+            value
+                .removePrefix(CustomIcon.Image.ENCODING_PREFIX)
+                .takeIf { fileName -> fileName.isNotEmpty() }
+                ?.let { fileName -> CustomIcon.Image(fileName = fileName) }
+
+        value.startsWith(CustomIcon.PackDrawable.ENCODING_PREFIX) -> fromStringToPackDrawable(value = value)
+
+        else -> null
+    }
+
+    private fun fromStringToPackDrawable(value: String): CustomIcon.PackDrawable? {
         val prefix: String = CustomIcon.PackDrawable.ENCODING_PREFIX
-        if (value == null || !value.startsWith(prefix)) {
-            return null
-        }
         val separatorIndex: Int = value.indexOf(
             char = CustomIcon.PackDrawable.ENCODING_SEPARATOR[0],
             startIndex = prefix.length

@@ -14,6 +14,7 @@ android {
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:util"))
+    implementation(libs.compose.activity)
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))

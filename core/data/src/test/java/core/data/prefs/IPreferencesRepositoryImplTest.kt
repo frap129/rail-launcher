@@ -1,10 +1,13 @@
 package core.data.prefs
 
+import android.graphics.Bitmap
+import core.data.icons.IIconImageStore
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
+import core.data.room.TransactionEffects
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
@@ -13,7 +16,9 @@ import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.createCustomIconPack
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -178,6 +183,106 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `replacing an image Custom icon deletes its file`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val inputFileName: String = "old-image.png"
+        val inputImageStore: IIconImageStore = createImageStoreWithFile(fileName = inputFileName)
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CustomIcon.Image(fileName = inputFileName))
+        val repository: IPreferencesRepository = createPreferencesRepository(
+            launchableCustomizationDao = launchableCustomizationDao,
+            iconImageStore = inputImageStore
+        )
+
+        repository.setCustomIcon(item = inputItem, icon = CUSTOM_ICON)
+
+        awaitCustomization(key = inputItem.key) { customization -> customization.icon == CUSTOM_ICON }
+        finishPendingWork()
+        assertFalse(inputImageStore.hasImage(fileName = inputFileName))
+    }
+
+    @Test
+    fun `replacing one image Custom icon with another deletes the old file`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val inputOldFileName: String = "old-image.png"
+        val inputNewFileName: String = "new-image.png"
+        val inputImageStore: IIconImageStore = createImageStoreWithFile(fileName = inputOldFileName)
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CustomIcon.Image(fileName = inputOldFileName))
+        val repository: IPreferencesRepository = createPreferencesRepository(
+            launchableCustomizationDao = launchableCustomizationDao,
+            iconImageStore = inputImageStore
+        )
+
+        repository.setCustomIcon(item = inputItem, icon = CustomIcon.Image(fileName = inputNewFileName))
+
+        awaitCustomization(key = inputItem.key) { customization ->
+            customization.icon == CustomIcon.Image(fileName = inputNewFileName)
+        }
+        finishPendingWork()
+        assertFalse(inputImageStore.hasImage(fileName = inputOldFileName))
+    }
+
+    @Test
+    fun `resetting an image Custom icon deletes its file and row`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val inputFileName: String = "old-image.png"
+        val inputImageStore: IIconImageStore = createImageStoreWithFile(fileName = inputFileName)
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CustomIcon.Image(fileName = inputFileName))
+        val repository: IPreferencesRepository = createPreferencesRepository(
+            launchableCustomizationDao = launchableCustomizationDao,
+            iconImageStore = inputImageStore
+        )
+
+        repository.resetCustomIcon(item = inputItem)
+
+        assertTrue(customizations { stored -> stored.none { customization -> customization.key == inputItem.key } }.isEmpty())
+        finishPendingWork()
+        assertFalse(inputImageStore.hasImage(fileName = inputFileName))
+    }
+
+    @Test
+    fun `removing customizations deletes their image files`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val inputFileName: String = "stale-image.png"
+        val inputImageStore: IIconImageStore = createImageStoreWithFile(fileName = inputFileName)
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CustomIcon.Image(fileName = inputFileName))
+        val repository: IPreferencesRepository = createPreferencesRepository(
+            launchableCustomizationDao = launchableCustomizationDao,
+            iconImageStore = inputImageStore
+        )
+
+        repository.removeLaunchableCustomizations(keys = listOf(inputItem.key))
+
+        assertTrue(customizations().isEmpty())
+        assertFalse(inputImageStore.hasImage(fileName = inputFileName))
+    }
+
+    @Test
+    fun `defers image deletion until the surrounding transaction commits`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val inputFileName: String = "stale-image.png"
+        val inputImageStore: IIconImageStore = createImageStoreWithFile(fileName = inputFileName)
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CustomIcon.Image(fileName = inputFileName))
+        val repository: IPreferencesRepository = createPreferencesRepository(
+            launchableCustomizationDao = launchableCustomizationDao,
+            iconImageStore = inputImageStore
+        )
+        val effects: TransactionEffects = TransactionEffects()
+
+        withContext(effects) {
+            repository.removeLaunchableCustomizations(keys = listOf(inputItem.key))
+        }
+
+        assertTrue(inputImageStore.hasImage(fileName = inputFileName))
+        effects.run()
+        assertFalse(inputImageStore.hasImage(fileName = inputFileName))
+    }
+
+    @Test
     fun `a blank name keeps a row that has a Custom icon`() = databaseTest {
         val inputItem: Launchable = createLaunchable()
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
@@ -298,4 +403,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = LAUNCHABLE_DEEPLINK
     )
+
+    private fun createImageStoreWithFile(fileName: String): IIconImageStore = createIconImageStore().apply {
+        assertTrue(write(fileName = fileName, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
+    }
 }

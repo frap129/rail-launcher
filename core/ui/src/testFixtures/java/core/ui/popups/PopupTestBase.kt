@@ -4,6 +4,7 @@ import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.icons.IIconImageImporter
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
@@ -28,6 +29,7 @@ import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createIconImageImporterMock
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -187,11 +189,13 @@ abstract class PopupTestBase {
     protected fun TestScope.createIconPicker(
         session: IPopupSession = IPopupSessionImpl(),
         homeEditState: HomeEditState = inputHomeEditState,
-        mockIconRepository: IIconRepository = this@PopupTestBase.mockIconRepository
+        mockIconRepository: IIconRepository = this@PopupTestBase.mockIconRepository,
+        mockImageImporter: IIconImageImporter = createIconImageImporterMock()
     ): IIconPicker = IIconPickerImpl(
         parentScope = backgroundScope,
         launchableRepository = mockLaunchableRepository,
         iconRepository = mockIconRepository,
+        imageImporter = mockImageImporter,
         preferencesRepository = mockPreferencesRepository,
         homeEditState = homeEditState,
         session = session

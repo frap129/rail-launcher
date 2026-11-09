@@ -1,21 +1,31 @@
 package core.ui.popups
 
+import android.net.Uri
 import app.cash.turbine.test
+import core.data.icons.IIconImageImporter
 import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
 import core.data.testing.TEST_SDK
+import core.data.testing.createIconImageImporterMock
 import core.data.testing.createIconRepositoryMock
+import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -31,6 +41,8 @@ private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val CALENDAR_DRAWABLE_NAME: String = "calendar"
 private const val GOOGLE_MAPS_DRAWABLE_NAME: String = "google_maps"
 private const val GOOGLE_MAIL_DRAWABLE_NAME: String = "google_mail"
+private const val GALLERY_FILE_NAME: String = "gallery-icon.png"
+private const val GALLERY_URI: String = "content://media/picker/0/gallery-image"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -198,6 +210,64 @@ class IIconPickerImplTest : PopupTestBase() {
             )
         }
         assertEquals(IconPickerState.Closed, picker.iconPickerState.value)
+    }
+
+    @Test
+    fun `applies a gallery image and closes the picker`() = runTest {
+        setLaunchableGroups(groups = inputGroups)
+        val mockImageImporter = createIconImageImporterMock(fileName = GALLERY_FILE_NAME)
+        val picker: IIconPicker = createIconPicker(mockImageImporter = mockImageImporter)
+        backgroundScope.launch { picker.iconPickerState.collect { } }
+        picker.startPicking(inputApp)
+        runCurrent()
+
+        picker.selectGalleryImage(uri = Uri.parse(GALLERY_URI))
+
+        runCurrent()
+        verify(exactly = 1) {
+            mockPreferencesRepository.setCustomIcon(inputApp, CustomIcon.Image(fileName = GALLERY_FILE_NAME))
+        }
+        assertEquals(IconPickerState.Closed, picker.iconPickerState.value)
+    }
+
+    @Test
+    fun `discards a gallery image when the picker closes before the import finishes`() = runTest {
+        setLaunchableGroups(groups = inputGroups)
+        val inputFileName: CompletableDeferred<String?> = CompletableDeferred()
+        val mockImageImporter: IIconImageImporter = mockk()
+        coEvery { mockImageImporter.importImage(any()) } coAnswers { inputFileName.await() }
+        every { mockImageImporter.deleteImage(any()) } just Runs
+        val picker: IIconPicker = createIconPicker(mockImageImporter = mockImageImporter)
+        backgroundScope.launch { picker.iconPickerState.collect { } }
+        picker.startPicking(inputApp)
+        runCurrent()
+
+        picker.selectGalleryImage(uri = Uri.parse(GALLERY_URI))
+        picker.cancelPicking()
+        inputFileName.complete(GALLERY_FILE_NAME)
+        advanceUntilIdle()
+
+        verify(exactly = 1) { mockImageImporter.deleteImage(fileName = GALLERY_FILE_NAME) }
+        verify(exactly = 0) { mockPreferencesRepository.setCustomIcon(any(), any()) }
+        assertEquals(IconPickerState.Closed, picker.iconPickerState.value)
+    }
+
+    @Test
+    fun `shows an error and applies nothing when a gallery image fails`() = runTest {
+        setLaunchableGroups(groups = inputGroups)
+        val mockImageImporter = createIconImageImporterMock(fileName = null)
+        val picker: IIconPicker = createIconPicker(mockImageImporter = mockImageImporter)
+        backgroundScope.launch { picker.iconPickerState.collect { } }
+        picker.startPicking(inputApp)
+        runCurrent()
+
+        picker.selectGalleryImage(uri = Uri.parse(GALLERY_URI))
+
+        runCurrent()
+        verify(exactly = 0) { mockPreferencesRepository.setCustomIcon(any(), any()) }
+        val actualState: IconPickerState.Listing = picker.iconPickerState.value as IconPickerState.Listing
+        assertFalse(actualState.isImportingImage)
+        assertTrue(actualState.imageImportFailed)
     }
 
     @Test

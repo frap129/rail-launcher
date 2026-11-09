@@ -22,7 +22,9 @@ Personal Profile keys use user 0 and restore intact.
 ## Decision
 
 Keep all Rail state in `AppDatabase` and include the whole database in Android
-cloud backup and device transfer. `app/src/main/res/xml/backup_rules.xml` and
+cloud backup and device transfer. Gallery Custom icons are PNGs in Rail's
+private `icons` directory, which the default file rules include without naming
+it. `app/src/main/res/xml/backup_rules.xml` and
 `app/src/main/res/xml/data_extraction_rules.xml` contain no database exclude;
 the default rules include every file in the database directory, including the
 SQLite `-wal` and `-shm` sidecars.
@@ -55,6 +57,8 @@ Restored keys follow the existing resolution and stale-key cleanup:
 - Android cloud backup and device transfer now include private-profile
   Favorites, settings, Folders, Pop-ups and their keys, deliberately overriding
   the privacy rule of ADR 0003.
+- Gallery Custom icons travel with their Launchable customizations: the PNG in
+  Rail's private `icons` directory and the row that names it are backed up.
 - Restoring on the same device preserves personal, work and private data.
 - Restoring on a device with different Profile ids drops keys that no longer
   match, while personal data survives and current work and private data

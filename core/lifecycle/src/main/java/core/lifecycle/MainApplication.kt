@@ -33,6 +33,10 @@ import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
 import core.data.folders.IFolderRepositoryImpl
+import core.data.icons.IIconImageImporter
+import core.data.icons.IIconImageImporterImpl
+import core.data.icons.IIconImageStore
+import core.data.icons.IIconImageStoreImpl
 import core.data.icons.IIconPackSource
 import core.data.icons.IIconPackSourceImpl
 import core.data.icons.IIconRepository
@@ -249,10 +253,14 @@ class MainApplication :
         }
         single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IIconPackSource> { IIconPackSourceImpl(context = androidContext()) }
+        single<IIconImageStore> { IIconImageStoreImpl(context = androidContext()) }
+        single<IIconImageImporter> { IIconImageImporterImpl(context = androidContext(), imageStore = get()) }
         single<IIconRepository> {
-            IIconRepositoryImpl(androidContext(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+            IIconRepositoryImpl(androidContext(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
-        single<IPreferencesRepository> { IPreferencesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<IPreferencesRepository> {
+            IPreferencesRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
         single<IStoredKeyClassifier> {
             IStoredKeyClassifierImpl(launchableRepository = get(), shortcutSource = get())
@@ -398,6 +406,7 @@ class MainApplication :
                 parentScope = get(named(APP_SCOPE_QUALIFIER)),
                 launchableRepository = get(),
                 iconRepository = get(),
+                imageImporter = get(),
                 preferencesRepository = get(),
                 homeEditState = get(),
                 session = session
