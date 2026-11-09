@@ -27,38 +27,86 @@ import java.nio.charset.StandardCharsets
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
 import org.xmlpull.v1.XmlPullParserFactory
+import timber.log.Timber
 
 private const val APP_FILTER_XML: String = "appfilter"
 private const val DRAWABLE_XML: String = "drawable"
 private const val DRAWABLE_ATTRIBUTE: String = "drawable"
 private const val DRAWABLE_TYPE: String = "drawable"
+private const val CATEGORY_TAG: String = "category"
+private const val ITEM_TAG: String = "item"
+private const val NAME_ATTRIBUTE: String = "name"
+
+/** One heading of an Icon pack's drawable list; [name] is null when the pack lists none. */
+data class DrawableCategory(val name: String?, val drawableNames: List<String>)
 
 /**
- * The drawable names [packPackageName] offers, in file order and without duplicates. Reads
- * drawable.xml from resources first and assets second; a pack without one falls back to the
- * drawable names in appfilter.xml. Names that do not resolve to a drawable are dropped.
+ * The drawable categories [packPackageName] offers, in file order and without duplicates. Reads
+ * drawable.xml from resources first and assets second; a pack without one falls back to the unique
+ * drawable names in appfilter.xml as one untitled category. Names that do not resolve to a drawable
+ * are dropped, as are categories left empty.
  */
-fun getDrawableNamesFromPack(context: Context, packPackageName: String): List<String> {
-    val listedNames: List<String> = getXml(context, DRAWABLE_XML, packPackageName)
-        ?.readAttributeValues(attribute = DRAWABLE_ATTRIBUTE)
+fun getDrawableCategoriesFromPack(context: Context, packPackageName: String): List<DrawableCategory> {
+    val listedCategories: List<DrawableCategory> = getXml(context, DRAWABLE_XML, packPackageName)
+        ?.readDrawableCategories()
         .orEmpty()
-    val names: List<String> = listedNames.ifEmpty {
-        getXml(context, APP_FILTER_XML, packPackageName)
+    val categories: List<DrawableCategory> = if (listedCategories.any { category -> category.drawableNames.isNotEmpty() }) {
+        listedCategories
+    } else {
+        val appFilterNames: List<String> = getXml(context, APP_FILTER_XML, packPackageName)
             ?.readAttributeValues(attribute = DRAWABLE_ATTRIBUTE)
             .orEmpty()
+        listOf(DrawableCategory(name = null, drawableNames = appFilterNames))
     }
-    return names.distinct().filter { drawableName -> hasDrawable(context, drawableName, packPackageName) }
+    val seenNames: MutableSet<String> = mutableSetOf()
+    return categories.mapNotNull { category ->
+        val resolvedNames: List<String> = category.drawableNames.distinct().filter { drawableName ->
+            seenNames.add(drawableName) && hasDrawable(context, drawableName, packPackageName)
+        }
+        category.copy(drawableNames = resolvedNames).takeIf { resolved -> resolved.drawableNames.isNotEmpty() }
+    }
 }
 
-private fun XmlPullParser.readAttributeValues(attribute: String): List<String> = runCatching {
-    buildList {
-        while (next() != XmlPullParser.END_DOCUMENT) {
-            if (eventType == XmlPullParser.START_TAG) {
-                getAttributeValue(null, attribute)?.let { value -> add(value) }
+private fun XmlPullParser.readDrawableCategories(): List<DrawableCategory> {
+    val categories: MutableList<MutableDrawableCategory> = mutableListOf()
+    var currentCategory: MutableDrawableCategory? = null
+    forEachStartTag { parser ->
+        when (parser.name) {
+            CATEGORY_TAG -> {
+                val category: MutableDrawableCategory = MutableDrawableCategory(name = parser.getAttributeValue(null, NAME_ATTRIBUTE))
+                currentCategory = category
+                categories.add(category)
+            }
+
+            ITEM_TAG -> parser.getAttributeValue(null, DRAWABLE_ATTRIBUTE)?.let { drawableName ->
+                val category: MutableDrawableCategory = currentCategory ?: MutableDrawableCategory(name = null).also { created ->
+                    currentCategory = created
+                    categories.add(created)
+                }
+                category.drawableNames.add(drawableName)
             }
         }
     }
-}.getOrDefault(emptyList())
+    return categories.map { category -> DrawableCategory(name = category.name, drawableNames = category.drawableNames.distinct()) }
+}
+
+private fun XmlPullParser.forEachStartTag(onStartTag: (XmlPullParser) -> Unit) {
+    runCatching {
+        while (next() != XmlPullParser.END_DOCUMENT) {
+            if (eventType == XmlPullParser.START_TAG) {
+                onStartTag(this)
+            }
+        }
+    }.onFailure { error -> Timber.w(error, "Failed to read an icon pack's XML") }
+}
+
+private class MutableDrawableCategory(val name: String?, val drawableNames: MutableList<String> = mutableListOf())
+
+private fun XmlPullParser.readAttributeValues(attribute: String): List<String> {
+    val values: MutableList<String> = mutableListOf()
+    forEachStartTag { parser -> parser.getAttributeValue(null, attribute)?.let { value -> values.add(value) } }
+    return values
+}
 
 fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<ComponentName, String, Int>> {
     val icons: MutableSet<Triple<ComponentName, String, Int>> = mutableSetOf()

@@ -4,6 +4,7 @@ import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.IconPackCategory
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.findLaunchable
@@ -20,9 +21,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-private data class IconPickerRequest(val ownerKey: String, val packPackageName: String? = null)
+private data class IconPickerRequest(val ownerKey: String, val packPackageName: String? = null, val query: String = "")
 
-private data class PackContents(val packPackageName: String, val icons: List<Icon.PackDrawableIcon>)
+private data class PackContents(val packPackageName: String, val categories: List<IconPackCategory>)
 
 /** Owns the Icon picker and the Custom icon writes it commits. */
 class IIconPickerImpl(
@@ -60,9 +61,14 @@ class IIconPickerImpl(
             if (pack == null) {
                 IconPickerState.Listing(owner = owner, iconPacks = packs)
             } else {
+                val categories: List<IconPackCategory>? = contents
+                    ?.takeIf { current -> current.packPackageName == pack.packageName }
+                    ?.categories
                 IconPickerState.Pack(
                     iconPack = pack,
-                    icons = contents?.takeIf { current -> current.packPackageName == pack.packageName }?.icons
+                    categories = categories,
+                    query = currentRequest.query,
+                    results = categories?.let { current -> filterPackIcons(categories = current, query = currentRequest.query) }.orEmpty()
                 )
             }
         }
@@ -97,14 +103,22 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == iconPack.packageName) {
             return
         }
-        request.value = currentRequest.copy(packPackageName = iconPack.packageName)
+        request.value = currentRequest.copy(packPackageName = iconPack.packageName, query = "")
         packContents.value = null
         scope.launchLogged(message = "Failed to load an icon pack") {
-            val icons: List<Icon.PackDrawableIcon> = iconRepository.getPackIcons(packPackageName = iconPack.packageName)
+            val categories: List<IconPackCategory> = iconRepository.getPackCategories(packPackageName = iconPack.packageName)
             if (request.value?.packPackageName == iconPack.packageName) {
-                packContents.value = PackContents(packPackageName = iconPack.packageName, icons = icons)
+                packContents.value = PackContents(packPackageName = iconPack.packageName, categories = categories)
             }
         }
+    }
+
+    override fun setQuery(query: String) {
+        val currentRequest: IconPickerRequest = request.value ?: return
+        if (currentRequest.packPackageName == null) {
+            return
+        }
+        request.value = currentRequest.copy(query = query)
     }
 
     override fun selectIcon(icon: Icon.PackDrawableIcon) {
@@ -147,7 +161,7 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == null) {
             close()
         } else {
-            request.value = currentRequest.copy(packPackageName = null)
+            request.value = currentRequest.copy(packPackageName = null, query = "")
             packContents.value = null
         }
         return true
@@ -169,4 +183,14 @@ class IIconPickerImpl(
     override fun release() {
         collaboratorScope.release()
     }
+}
+
+private fun filterPackIcons(categories: List<IconPackCategory>, query: String): List<Icon.PackDrawableIcon> {
+    val normalizedQuery: String = normalizeIconPickerQuery(query)
+    if (normalizedQuery.isEmpty()) {
+        return emptyList()
+    }
+    return categories
+        .flatMap { category -> category.icons }
+        .filter { icon -> icon.drawableName.replace('_', ' ').contains(normalizedQuery, ignoreCase = true) }
 }

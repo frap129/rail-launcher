@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.IconPackCategory
 import core.data.icons.model.badgedFor
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
@@ -128,9 +129,14 @@ class IIconRepositoryImpl(
         }
     }
 
-    override suspend fun getPackIcons(packPackageName: String): List<Icon.PackDrawableIcon> = withContext(dispatcher) {
-        iconPackSource.drawableNames(packPackageName = packPackageName).map { drawableName ->
-            Icon.PackDrawableIcon(packPackageName = packPackageName, drawableName = drawableName)
+    override suspend fun getPackCategories(packPackageName: String): List<IconPackCategory> = withContext(dispatcher) {
+        iconPackSource.drawableCategories(packPackageName = packPackageName).map { category ->
+            IconPackCategory(
+                name = category.name,
+                icons = category.drawableNames.map { drawableName ->
+                    Icon.PackDrawableIcon(packPackageName = packPackageName, drawableName = drawableName)
+                }
+            )
         }
     }
 

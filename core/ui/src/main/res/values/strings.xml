@@ -99,4 +99,5 @@
     <string name="change_icon">Change icon</string>
     <string name="original_icon">Original</string>
     <string name="no_icon_packs">No icon packs installed</string>
+    <string name="search_icons">Search icons</string>
 </resources>

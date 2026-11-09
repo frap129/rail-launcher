@@ -24,6 +24,10 @@ _Avoid_: Icon chooser, theme picker
 An installed app that publishes themed icons through a launcher icon-pack intent; Rail may use one globally or read its drawables as Custom icons.
 _Avoid_: Theme, icon theme
 
+**Icon pack category**:
+A heading in an Icon pack's drawable list that groups the icons under it in the Icon picker; a pack without headings shows one untitled category.
+_Avoid_: Group, section
+
 **App key**:
 The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.
 _Avoid_: Component key, activity key, package key

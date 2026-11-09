@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.content.res.XmlResourceParser
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
+import core.util.DrawableCategory
 import io.mockk.every
 import io.mockk.mockk
 import java.io.ByteArrayInputStream
@@ -37,22 +38,34 @@ class IIconPackSourceImplTest {
     }
 
     @Test
-    fun `reads the drawable list from resources and drops names that do not resolve`() {
+    fun `reads the drawable list grouped by its categories and drops names that do not resolve`() {
         every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_XML_RES_ID
         every {
             mockPackageManager.getXml(TEST_ICON_PACK_PACKAGE, DRAWABLE_XML_RES_ID, null)
-        } returns drawableListParser("calendar", "missing", "mail")
+        } returns drawableListParser(
+            DrawableElement.Category(name = "Calendar"),
+            DrawableElement.Item(drawableName = "calendar"),
+            DrawableElement.Item(drawableName = "missing"),
+            DrawableElement.Category(name = "Communication"),
+            DrawableElement.Item(drawableName = "mail")
+        )
         every { mockResources.getIdentifier("calendar", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
         every { mockResources.getIdentifier("missing", "drawable", TEST_ICON_PACK_PACKAGE) } returns 0
         every { mockResources.getIdentifier("mail", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
 
-        val actualNames: List<String> = source.drawableNames(packPackageName = TEST_ICON_PACK_PACKAGE)
+        val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
 
-        assertEquals(listOf("calendar", "mail"), actualNames)
+        assertEquals(
+            listOf(
+                DrawableCategory(name = "Calendar", drawableNames = listOf("calendar")),
+                DrawableCategory(name = "Communication", drawableNames = listOf("mail"))
+            ),
+            actualCategories
+        )
     }
 
     @Test
-    fun `reads the drawable list from assets when resources have none`() {
+    fun `reads an untitled category from assets when the drawable list has no headings`() {
         every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
         every { mockAssets.open("drawable.xml") } returns stream(
             """
@@ -63,13 +76,13 @@ class IIconPackSourceImplTest {
         )
         every { mockResources.getIdentifier("phone", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
 
-        val actualNames: List<String> = source.drawableNames(packPackageName = TEST_ICON_PACK_PACKAGE)
+        val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
 
-        assertEquals(listOf("phone"), actualNames)
+        assertEquals(listOf(DrawableCategory(name = null, drawableNames = listOf("phone"))), actualCategories)
     }
 
     @Test
-    fun `falls back to the unique appfilter drawable names when there is no drawable list`() {
+    fun `falls back to one untitled category of the unique appfilter drawable names when there is no drawable list`() {
         every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
         every { mockAssets.open("drawable.xml") } throws FileNotFoundException()
         every { mockResources.getIdentifier("appfilter", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
@@ -85,9 +98,30 @@ class IIconPackSourceImplTest {
         every { mockResources.getIdentifier("calendar", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
         every { mockResources.getIdentifier("missing", "drawable", TEST_ICON_PACK_PACKAGE) } returns 0
 
-        val actualNames: List<String> = source.drawableNames(packPackageName = TEST_ICON_PACK_PACKAGE)
+        val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
 
-        assertEquals(listOf("calendar"), actualNames)
+        assertEquals(listOf(DrawableCategory(name = null, drawableNames = listOf("calendar"))), actualCategories)
+    }
+
+    @Test
+    fun `falls back to appfilter when the drawable list names no drawables`() {
+        every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_XML_RES_ID
+        every {
+            mockPackageManager.getXml(TEST_ICON_PACK_PACKAGE, DRAWABLE_XML_RES_ID, null)
+        } returns drawableListParser(DrawableElement.Category(name = "Calendar"))
+        every { mockResources.getIdentifier("appfilter", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
+        every { mockAssets.open("appfilter.xml") } returns stream(
+            """
+            <resources>
+                <item component="ComponentInfo{com.example.app/com.example.app.MainActivity}" drawable="calendar"/>
+            </resources>
+            """.trimIndent()
+        )
+        every { mockResources.getIdentifier("calendar", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
+
+        val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
+
+        assertEquals(listOf(DrawableCategory(name = null, drawableNames = listOf("calendar"))), actualCategories)
     }
 
     @Test
@@ -99,14 +133,32 @@ class IIconPackSourceImplTest {
         assertEquals(false, source.hasDrawable(TEST_ICON_PACK_PACKAGE, "missing"))
     }
 
-    private fun drawableListParser(vararg drawableNames: String): XmlResourceParser {
+    private fun drawableListParser(vararg elements: DrawableElement): XmlResourceParser {
         val parser: XmlResourceParser = mockk()
-        val startEvents: List<Int> = List(drawableNames.size) { XmlPullParser.START_TAG }
+        val startEvents: List<Int> = List(elements.size) { XmlPullParser.START_TAG }
         every { parser.next() } returnsMany startEvents + XmlPullParser.END_DOCUMENT
         every { parser.eventType } returnsMany startEvents
-        every { parser.getAttributeValue(null, "drawable") } returnsMany drawableNames.toList()
+        every { parser.name } returnsMany elements.map { element -> element.tag }
+        every { parser.getAttributeValue(null, "drawable") } returnsMany elements.mapNotNull { element ->
+            (element as? DrawableElement.Item)?.drawableName
+        }
+        every { parser.getAttributeValue(null, "name") } returnsMany elements.filterIsInstance<DrawableElement.Category>().map { element ->
+            element.name
+        }
         return parser
     }
 
     private fun stream(xml: String): ByteArrayInputStream = ByteArrayInputStream(xml.toByteArray())
+
+    private sealed interface DrawableElement {
+        val tag: String
+
+        data class Category(val name: String?) : DrawableElement {
+            override val tag: String = "category"
+        }
+
+        data class Item(val drawableName: String) : DrawableElement {
+            override val tag: String = "item"
+        }
+    }
 }

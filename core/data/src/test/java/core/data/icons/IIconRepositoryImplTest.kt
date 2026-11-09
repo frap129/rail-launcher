@@ -8,6 +8,7 @@ import android.os.UserHandle
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.icons.model.IconPackCategory
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -19,6 +20,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
+import core.util.DrawableCategory
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -112,17 +114,31 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `lists a pack's drawables in the order its source gives them`() = databaseTest {
+    fun `maps a pack's drawable categories to icons in the order its source gives them`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState()
-        val inputNames: List<String> = listOf("calendar", "mail", "phone")
-        every { mockIconPackSource.drawableNames(ICON_PACK_PACKAGE_NAME) } returns inputNames
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = "Calendar", drawableNames = listOf("calendar", "mail")),
+            DrawableCategory(name = null, drawableNames = listOf("phone"))
+        )
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
 
-        val actualIcons: List<Icon.PackDrawableIcon> = repository.getPackIcons(packPackageName = ICON_PACK_PACKAGE_NAME)
+        val actualCategories: List<IconPackCategory> = repository.getPackCategories(packPackageName = ICON_PACK_PACKAGE_NAME)
 
         assertEquals(
-            inputNames.map { name -> Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = name) },
-            actualIcons
+            listOf(
+                IconPackCategory(
+                    name = "Calendar",
+                    icons = listOf(
+                        Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "calendar"),
+                        Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "mail")
+                    )
+                ),
+                IconPackCategory(
+                    name = null,
+                    icons = listOf(Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "phone"))
+                )
+            ),
+            actualCategories
         )
     }
 
