@@ -43,10 +43,12 @@ import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
 import core.ui.popups.FolderDeleteHost
 import core.ui.popups.FolderNameDialog
+import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.ui.popups.IPopupPicker
 import core.ui.popups.IPopupSession
+import core.ui.popups.IconPickerHost
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.widgets.NotificationAccessDialog
@@ -67,6 +69,7 @@ fun SettingsPopupsScreen() {
     val viewModel: PopupSettingsViewModel = koinViewModel { parametersOf(popupSession) }
     val popupEditor: IPopupEditor = viewModel.collaborators.editor
     val popupPicker: IPopupPicker = viewModel.collaborators.picker
+    val popupIconPicker: IIconPicker = viewModel.collaborators.iconPicker
     val popupFolderActions: IPopupFolderActions = viewModel.collaborators.folder
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
@@ -106,6 +109,10 @@ fun SettingsPopupsScreen() {
             row = selectedFolder,
             onDismiss = viewModel::closeActions,
             onRenameClick = { popupFolderActions.requestRename(selectedFolder.folder) },
+            onIconChange = {
+                viewModel.closeActions()
+                popupFolderActions.requestIconChange(selectedFolder.folder)
+            },
             onEditContents = {
                 viewModel.closeActions()
                 popupEditor.startEdit(selectedFolder.folder)
@@ -126,6 +133,7 @@ fun SettingsPopupsScreen() {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
     PopupEditorHost(editor = popupEditor, picker = popupPicker)
+    IconPickerHost(iconPicker = popupIconPicker)
 }
 
 @Composable
@@ -224,6 +232,7 @@ private fun FolderActionsSheet(
     row: PopupSettingsFolder,
     onDismiss: () -> Unit,
     onRenameClick: () -> Unit,
+    onIconChange: () -> Unit,
     onEditContents: () -> Unit,
     onOnHomeChange: (Boolean) -> Unit,
     onDeleteClick: () -> Unit
@@ -237,6 +246,7 @@ private fun FolderActionsSheet(
         Column {
             SheetTitle(launchable = row.folder)
             SettingsActionRow(title = stringResource(R.string.name), value = row.folder.name, onClick = onRenameClick)
+            SettingsActionRow(title = stringResource(CoreUiR.string.change_icon), value = "", onClick = onIconChange)
             SettingsActionRow(title = stringResource(R.string.edit_contents), value = "", onClick = onEditContents)
             SettingsSwitchRow(title = stringResource(R.string.on_home), checked = row.isOnHome, onCheckedChange = onOnHomeChange)
             SettingsDestructiveRow(title = stringResource(CoreUiR.string.delete_folder), onClick = onDeleteClick)

@@ -22,7 +22,6 @@ import core.data.popups.PopupItemRecord
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
-import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
@@ -54,6 +53,7 @@ import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.SECOND_POSITION
 import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
@@ -244,6 +244,82 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             finishPendingWork()
 
             assertEquals("Resolved site", launchableRepository.launchableState.first().launchableFor(inputKey.format())?.name)
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `resolves a Shortcut's Custom icon`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile.user)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputProfile.user,
+            longLabel = "Example site"
+        )
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = inputShortcut.defaultIcon,
+            customIcon = expectedCustomIcon
+        )
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = createProfileSourceMock(profile = inputProfile),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputKey.format(), icon = inputCustomIcon))
+            ),
+            mockIconRepository = mockIconRepository
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: Launchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) ?: throw AssertionError("Missing shortcut")
+
+            assertEquals(expectedCustomIcon, actualShortcut.icon)
+            coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, inputProfile) }
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `icon packs never replace Shortcut icons`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile.user)
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = APP_PACKAGE_NAME,
+            profile = inputProfile.user,
+            longLabel = "Example site"
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
+            mockProfileSource = createProfileSourceMock(profile = inputProfile),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
+            ),
+            mockIconRepository = mockIconRepository
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualShortcut: Launchable = launchableRepository.launchableState.first()
+                .launchableFor(inputKey.format()) ?: throw AssertionError("Missing shortcut")
+
+            assertEquals(inputShortcut.defaultIcon, actualShortcut.icon)
+            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
+            coVerify(exactly = 0) { mockIconRepository.getCustomIcon(any(), any()) }
         } finally {
             collection.cancel()
         }
@@ -786,11 +862,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
             packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = "calendar"
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
         )
         val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
             packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = "calendar"
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
         )
         val expectedGlobalIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
@@ -821,7 +897,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
             packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = "calendar"
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
         )
         val expectedGlobalIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
@@ -852,7 +928,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
             packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = "calendar"
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
         )
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
             inputIcon = Icon.ActivityIcon(inputComponentName),
@@ -878,10 +954,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
             packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = "calendar"
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
         )
         val expectedCustomIcon: Icon = Icon.ProfileIcon(
-            icon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = "calendar"),
+            icon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME),
             profile = inputWorkProfile.user
         )
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
@@ -1083,6 +1159,38 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             .launchables.filterIsInstance<Folder>().single()
 
         assertEquals(Icon.FolderIcon(shade = 1), actualFolder.icon)
+    }
+
+    @Test
+    fun `resolves a Folder's Custom icon ahead of its tile`() = databaseTest {
+        val folderDao: FolderDao = database.getFolderDao()
+        folderDao.insert(FolderRecord(id = 1L))
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = Icon.FolderIcon(shade = 1),
+            customIcon = expectedCustomIcon
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = Folder(folderId = 1L).key, icon = inputCustomIcon))
+            ),
+            mockIconRepository = mockIconRepository,
+            folderDao = folderDao
+        )
+
+        val actualFolder: Folder = loadedState(repository).launchables.filterIsInstance<Folder>().single()
+
+        assertEquals(expectedCustomIcon, actualFolder.icon)
+        assertEquals(Icon.FolderIcon(shade = 1), actualFolder.defaultIcon)
+        coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, profile = null) }
     }
 
     @Test
@@ -1680,14 +1788,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(HeaderTapSetting.SystemDefault, database.getHeaderSettingsDao().getRow()?.timeTapTarget)
     }
 
-    private fun TestScope.createPreferencesRepository(
-        launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
-    ): IPreferencesRepository = IPreferencesRepositoryImpl(
-        launchableCustomizationDao = launchableCustomizationDao,
-        settingsDao = database.getSettingsDao(),
-        scope = backgroundScope
-    )
-
     /** Seeds the rows a restored database holds for [apps] and returns the Folder that owns their Pop-up. */
     private suspend fun seedRestoredRows(apps: List<App>, headerSettings: HeaderSettings): Folder {
         apps.forEachIndexed { position, app -> seedFavorite(key = app.key, position = position) }
@@ -1750,12 +1850,14 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         inputResolution: StateFlow<ShortcutResolution> = MutableStateFlow(ShortcutResolution()),
         mockProfileSource: IProfileSource = createProfileSourceMock(),
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockAppRepository: IAppRepository = createAppRepositoryMock(inputApps = emptyList())
+        mockAppRepository: IAppRepository = createAppRepositoryMock(inputApps = emptyList()),
+        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
     ): ILaunchableRepository {
         database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
         return createRepository(
             mockAppRepository = mockAppRepository,
             mockPreferencesRepository = mockPreferencesRepository,
+            mockIconRepository = mockIconRepository,
             mockProfileSource = mockProfileSource,
             standaloneShortcutSource = createStandaloneShortcutSource(
                 standaloneShortcutDao = database.getStandaloneShortcutDao(),

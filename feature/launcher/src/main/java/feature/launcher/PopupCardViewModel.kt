@@ -23,6 +23,7 @@ import core.data.popups.findLaunchable
 import core.data.popups.hiddenShortcutIds
 import core.data.popups.ownerScoped
 import core.data.popups.removeAddedItem
+import core.data.popups.resolveLaunchables
 import core.data.popups.targetFor
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutsResult
@@ -235,6 +236,7 @@ class PopupCardViewModel(
             val content: PopupContent = resolveCardContent(
                 owner = owner,
                 target = target,
+                launchables = launchableState.launchables,
                 shortcuts = inputs.shortcuts,
                 hidden = inputs.hidden,
                 items = inputs.items,
@@ -280,6 +282,7 @@ class PopupCardViewModel(
                 content = resolveCardContent(
                     owner = owner,
                     target = request.target,
+                    launchables = launchableState.launchables,
                     shortcuts = shortcutResult,
                     hidden = hidden,
                     items = extras.items,
@@ -739,13 +742,14 @@ class PopupCardViewModel(
     private fun resolveCardContent(
         owner: Launchable,
         target: ShortcutTarget,
+        launchables: List<Launchable>,
         shortcuts: ShortcutsResult?,
         hidden: HiddenShortcutIds,
         items: OwnerItems,
         notifications: OwnerNotifications
     ): PopupContent = PopupContentResolver.resolve(
         owner = owner,
-        shortcuts = shortcuts ?: EMPTY_SHORTCUTS,
+        shortcuts = (shortcuts ?: EMPTY_SHORTCUTS).resolveLaunchables(launchables = launchables),
         hiddenShortcutIds = if (hidden.ownerKey == target.ownerKey) hidden.ids else emptySet(),
         items = if (items.ownerKey == target.ownerKey) items.items else emptyList(),
         notifications = if (notifications.ownerKey == target.ownerKey) notifications.notifications else emptyList()

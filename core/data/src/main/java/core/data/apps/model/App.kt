@@ -29,6 +29,7 @@ data class App(
     override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind
     override val isPaused: Boolean = profileInfo.isQuiet
+    override val supportsCustomIcon: Boolean = true
     val packageName: String = componentName.packageName
 
     /** The App's stored identity: its activity component and Profile. */

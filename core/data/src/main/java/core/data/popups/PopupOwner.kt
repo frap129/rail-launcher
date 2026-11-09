@@ -5,6 +5,7 @@ import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.IShortcutSource
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CancellationException
@@ -47,6 +48,17 @@ fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
 
 /** The Launchable with [key], or null when it is not available. */
 fun List<Launchable>.findLaunchable(key: String): Launchable? = firstOrNull { launchable -> launchable.key == key }
+
+/** The Shortcuts with each Launchable's resolved icon, falling back to the raw Shortcut when it is not listed. */
+fun ShortcutsResult.resolveLaunchables(launchables: List<Launchable>): ShortcutsResult = when (this) {
+    is ShortcutsResult.Available -> copy(
+        shortcuts = shortcuts.map { shortcut ->
+            launchables.findLaunchable(key = shortcut.key) as? ShortcutLaunchable ?: shortcut
+        }
+    )
+
+    ShortcutsResult.Unavailable, ShortcutsResult.ProfilePaused -> this
+}
 
 fun hiddenShortcutIds(
     scope: CoroutineScope,

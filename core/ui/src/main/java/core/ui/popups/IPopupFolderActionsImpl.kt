@@ -96,6 +96,10 @@ class IPopupFolderActionsImpl(
         folderDialog.value = FolderDialogState.Renaming(folder)
     }
 
+    override fun requestIconChange(folder: Folder) {
+        session.startIconPicker(owner = folder)
+    }
+
     override fun dismissFolderDialog() {
         folderDialog.value = FolderDialogState.Closed
     }

@@ -110,7 +110,7 @@ class IIconRepositoryImpl(
         return baseIcon.badgedFor(profile = profile)
     }
 
-    override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo): Icon? = withContext(dispatcher) {
+    override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo?): Icon? = withContext(dispatcher) {
         when (customIcon) {
             is CustomIcon.PackDrawable -> {
                 val isAvailable: Boolean = iconPackSource.hasDrawable(
@@ -120,10 +120,11 @@ class IIconRepositoryImpl(
                 if (!isAvailable) {
                     null
                 } else {
-                    Icon.PackDrawableIcon(
+                    val icon: Icon = Icon.PackDrawableIcon(
                         packPackageName = customIcon.packPackageName,
                         drawableName = customIcon.drawableName
-                    ).badgedFor(profile = profile)
+                    )
+                    if (profile == null) icon else icon.badgedFor(profile = profile)
                 }
             }
         }

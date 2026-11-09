@@ -94,17 +94,18 @@ class IStoredKeyClassifierImpl(private val launchableRepository: ILaunchableRepo
         if (key in state.retainedKeys) {
             return StoredKeyState.Unresolved
         }
+        val launchable: Launchable? = state.launchableFor(key)
         val shortcutKey: ShortcutKey? = ShortcutKey.parse(key)
         if (shortcutKey != null) {
             val shortcut: ShortcutLaunchable? = resolution.shortcuts[shortcutKey]
             return when {
+                launchable != null -> StoredKeyState.Present(launchable = launchable)
                 shortcut != null -> StoredKeyState.Present(launchable = shortcut)
                 shortcutKey in resolution.goneKeys -> StoredKeyState.Stale
                 shortcutKey.toAppProfile() in installedApps -> StoredKeyState.Unresolved
                 else -> StoredKeyState.Stale
             }
         }
-        val launchable: Launchable? = state.launchableFor(key)
         return if (launchable == null) StoredKeyState.Stale else StoredKeyState.Present(launchable = launchable)
     }
 }

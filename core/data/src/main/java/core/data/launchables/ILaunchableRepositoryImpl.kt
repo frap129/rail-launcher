@@ -19,6 +19,7 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.LaunchableIcons
 import core.data.launchables.model.LaunchableNames
 import core.data.launchables.model.RailLaunchable
+import core.data.launchables.model.resolveCustomIcon
 import core.data.launchables.model.toPickerGroups
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
@@ -145,7 +146,12 @@ class ILaunchableRepositoryImpl(
             .map { app -> app.resolve(names = names, icons = icons, settings = settings) } +
             appListSources.standaloneShortcuts.launchables.mapNotNull { shortcut ->
                 profilesByUser[shortcut.profile]?.let { profile ->
-                    shortcut.resolve(names = names, profileInfo = profile, representedNames = packageRepresentativeNames)
+                    shortcut.resolve(
+                        names = names,
+                        icons = icons,
+                        profileInfo = profile,
+                        representedNames = packageRepresentativeNames
+                    )
                 }
             }
         val resolvedLaunchables: List<Launchable> = listedLaunchables
@@ -156,7 +162,11 @@ class ILaunchableRepositoryImpl(
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
             items = builtinGroup.items.map { item -> item.resolve(names = names, icons = icons, settings = settings) }
         )
-        val folders: List<Folder> = appListSources.folderAppList.records.resolveFolders(names = names)
+        val folders: List<Folder> = appListSources.folderAppList.records.resolveFolders(
+            names = names,
+            icons = icons,
+            iconRepository = iconRepository
+        )
         val appListLaunchables: List<Launchable> = resolvedLaunchables
             .filterNot { launchable -> launchable.key in appListSources.folderAppList.memberKeys } + folders
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
@@ -193,7 +203,7 @@ class ILaunchableRepositoryImpl(
     }
 
     private suspend fun App.resolveIcon(icons: LaunchableIcons, settings: Settings): Icon {
-        val customIcon: Icon? = icons[key]?.let { icon -> iconRepository.getCustomIcon(customIcon = icon, profile = profileInfo) }
+        val customIcon: Icon? = icons.resolveCustomIcon(key = key, iconRepository = iconRepository, profile = profileInfo)
         if (customIcon != null) {
             return customIcon
         }
@@ -205,8 +215,9 @@ class ILaunchableRepositoryImpl(
         }
     }
 
-    private fun ShortcutLaunchable.resolve(
+    private suspend fun ShortcutLaunchable.resolve(
         names: LaunchableNames,
+        icons: LaunchableIcons,
         profileInfo: ProfileInfo,
         representedNames: Map<AppProfile, String>
     ): ShortcutLaunchable {
@@ -214,11 +225,12 @@ class ILaunchableRepositoryImpl(
         val name: String = labelledShortcut.resolveName(names)
         val badgedIcon: Icon = Icon.ShortcutIcon(packageName = packageName, shortcutId = shortcutId, profile = profile)
             .badgedFor(profile = profileInfo)
+        val customIcon: Icon? = icons.resolveCustomIcon(key = key, iconRepository = iconRepository, profile = profileInfo)
         return labelledShortcut.copy(
             profileInfo = profileInfo,
             defaultIcon = badgedIcon,
             name = name,
-            icon = badgedIcon,
+            icon = customIcon ?: badgedIcon,
             badgedLabel = resolveBadgedLabel(name = name, profileInfo = profileInfo)
         )
     }

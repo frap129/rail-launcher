@@ -8,21 +8,24 @@ import core.data.launchables.model.RailLaunchable
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
+import core.data.testing.createCustomIconPack
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private const val CUSTOM_ICON_PACK_NAME: String = "Custom Pack"
 private const val RENAMED_ITEM_NAME: String = "Renamed Item"
 private const val SECOND_RENAMED_ITEM_NAME: String = "Second Renamed Item"
 private const val ORIGINAL_ITEM_NAME: String = "Original"
 private const val LAUNCHABLE_DEEPLINK: String = "rail-launcher://test"
 private val OTHER_CUSTOMIZATION: LaunchableCustomization = LaunchableCustomization(key = "other", name = "Other")
-private val CUSTOM_ICON: CustomIcon = CustomIcon.PackDrawable(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = "calendar")
+private val CUSTOM_ICON: CustomIcon = CustomIcon.PackDrawable(
+    packPackageName = TEST_ICON_PACK_PACKAGE,
+    drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+)
 
 class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
@@ -34,7 +37,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = "first", name = "First")
         launchableCustomizationDao.setName(key = "second", name = "Second")
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
         val actualCustomizations: List<LaunchableCustomization> = repository.launchableCustomizations.first()
         assertEquals(
             expectedCustomizations.sortedBy(LaunchableCustomization::key),
@@ -47,14 +50,14 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(expectedSettings)
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
         val actualSettings: Settings = repository.settings.first()
         assertEquals(expectedSettings, actualSettings)
     }
 
     @Test
     fun `stores a renamed launchable through the DAO`() = databaseTest {
-        val repository: IPreferencesRepository = createRepository()
+        val repository: IPreferencesRepository = createPreferencesRepository()
         val inputItem: Launchable = createLaunchable()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
         val actualCustomization: LaunchableCustomization = awaitCustomization(key = inputItem.key)
@@ -67,7 +70,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = ORIGINAL_ITEM_NAME)
         launchableCustomizationDao.setName(key = OTHER_CUSTOMIZATION.key, name = requireNotNull(OTHER_CUSTOMIZATION.name))
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
         val expectedCustomizations: Set<LaunchableCustomization> = setOf(
             LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME),
             OTHER_CUSTOMIZATION
@@ -82,7 +85,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `applies repeated renames to the same launchable`() = databaseTest {
         val inputItem: Launchable = createLaunchable()
-        val repository: IPreferencesRepository = createRepository()
+        val repository: IPreferencesRepository = createPreferencesRepository()
         repository.setItemName(item = inputItem, name = RENAMED_ITEM_NAME)
         awaitCustomization(key = inputItem.key)
         repository.setItemName(item = inputItem, name = SECOND_RENAMED_ITEM_NAME)
@@ -97,7 +100,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
         launchableCustomizationDao.setName(key = OTHER_CUSTOMIZATION.key, name = requireNotNull(OTHER_CUSTOMIZATION.name))
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.setItemName(item = inputItem, name = "   ")
 
@@ -109,7 +112,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `stores a Custom icon without a name`() = databaseTest {
-        val repository: IPreferencesRepository = createRepository()
+        val repository: IPreferencesRepository = createPreferencesRepository()
         val inputItem: Launchable = createLaunchable()
 
         repository.setCustomIcon(item = inputItem, icon = CUSTOM_ICON)
@@ -123,7 +126,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val inputItem: Launchable = createLaunchable()
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.setCustomIcon(item = inputItem, icon = CUSTOM_ICON)
 
@@ -138,7 +141,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
         launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.resetItemName(item = inputItem)
 
@@ -153,7 +156,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
         launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.resetCustomIcon(item = inputItem)
 
@@ -167,7 +170,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val inputItem: Launchable = createLaunchable()
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.resetCustomIcon(item = inputItem)
 
@@ -180,7 +183,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
         launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
-        val repository: IPreferencesRepository = createRepository(launchableCustomizationDao = launchableCustomizationDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
 
         repository.setItemName(item = inputItem, name = "   ")
 
@@ -192,8 +195,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `stores the selected custom icon pack through the DAO`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
-        val inputIconPack: IconPack = createCustomIconPack()
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        val inputIconPack: IconPack.CustomIconPack = createCustomIconPack()
         repository.setIconPack(iconPack = inputIconPack)
         val actualSettings: Settings = awaitSettings(settingsDao)
         assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE), actualSettings)
@@ -201,7 +204,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `exposes the selected icon pack after it is stored`() = databaseTest {
-        val repository: IPreferencesRepository = createRepository()
+        val repository: IPreferencesRepository = createPreferencesRepository()
         repository.setIconPack(iconPack = createCustomIconPack())
         awaitSettings(database.getSettingsDao())
         val actualSettings: Settings = repository.settings.first()
@@ -212,7 +215,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `clears the stored icon pack when the system pack is selected`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
         repository.setIconPack(iconPack = IconPack.SystemIconPack)
         val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.iconPack != TEST_ICON_PACK_PACKAGE }
         assertEquals(Settings(iconPack = null), actualSettings)
@@ -222,7 +225,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `stores the Private Space switch without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
 
         repository.setHidePrivateSpaceWhenLocked(true)
 
@@ -234,7 +237,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `stores the Scrub edges without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
 
         repository.setScrubEdges(ScrubEdges.START)
 
@@ -246,7 +249,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `exposes the stored Scrub edges`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(scrubEdges = ScrubEdges.END))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
 
         val actualSettings: Settings = repository.settings.first()
 
@@ -257,7 +260,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `stores the Rail side without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
 
         repository.setRailSide(RailSide.START)
 
@@ -269,21 +272,12 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     fun `exposes the stored Rail side`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(railSide = RailSide.START))
-        val repository: IPreferencesRepository = createRepository(settingsDao = settingsDao)
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
 
         val actualSettings: Settings = repository.settings.first()
 
         assertEquals(RailSide.START, actualSettings.railSide)
     }
-
-    private fun TestScope.createRepository(
-        launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
-        settingsDao: SettingsDao = database.getSettingsDao()
-    ): IPreferencesRepository = IPreferencesRepositoryImpl(
-        launchableCustomizationDao = launchableCustomizationDao,
-        settingsDao = settingsDao,
-        scope = backgroundScope
-    )
 
     private suspend fun awaitCustomization(
         key: String,
@@ -303,11 +297,5 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         defaultName = "Original Item",
         defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = LAUNCHABLE_DEEPLINK
-    )
-
-    private fun createCustomIconPack(): IconPack = IconPack.CustomIconPack(
-        name = CUSTOM_ICON_PACK_NAME,
-        packageName = TEST_ICON_PACK_PACKAGE,
-        icon = Icon.ApplicationIcon(TEST_ICON_PACK_PACKAGE)
     )
 }

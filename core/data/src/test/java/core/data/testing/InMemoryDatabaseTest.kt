@@ -3,8 +3,12 @@ package core.data.testing
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
+import core.data.prefs.IPreferencesRepository
+import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
 import core.data.room.AppDatabase
+import core.data.room.dao.LaunchableCustomizationDao
+import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.finishPendingWork as finishAllPendingWork
 import core.data.widgets.WidgetPlaceRecord
@@ -60,6 +64,16 @@ abstract class InMemoryDatabaseTest {
     protected fun TestScope.finishPendingWork() {
         finishAllPendingWork()
     }
+
+    /** A real [IPreferencesRepository] over the test database, writing on this test scope. */
+    fun TestScope.createPreferencesRepository(
+        launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
+        settingsDao: SettingsDao = database.getSettingsDao()
+    ): IPreferencesRepository = IPreferencesRepositoryImpl(
+        launchableCustomizationDao = launchableCustomizationDao,
+        settingsDao = settingsDao,
+        scope = this
+    )
 
     @After
     fun closeDatabase() {

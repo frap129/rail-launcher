@@ -1,8 +1,11 @@
 package core.data.folders
 
 import core.data.favorites.IFavoritesRepository
+import core.data.icons.IIconRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.toLaunchableIcons
+import core.data.prefs.toLaunchableNames
 import core.data.room.TransactionEffects
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
@@ -11,6 +14,7 @@ import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 
 /**
@@ -37,10 +41,21 @@ class IFolderRepositoryImpl(
     private val favoritesRepository: IFavoritesRepository,
     private val popupRepository: IPopupRepository,
     private val preferencesRepository: IPreferencesRepository,
-    private val launchableCustomizationDao: LaunchableCustomizationDao
+    private val launchableCustomizationDao: LaunchableCustomizationDao,
+    private val iconRepository: IIconRepository
 ) : IFolderRepository {
-    override val folders: Flow<List<Folder>> = folderDao.observeAll()
-        .resolveFolders(customizations = preferencesRepository.launchableCustomizations)
+    // Icon pack changes re-resolve every Folder Custom icon.
+    override val folders: Flow<List<Folder>> = combine(
+        folderDao.observeAll(),
+        preferencesRepository.launchableCustomizations,
+        iconRepository.iconPacks
+    ) { records, customizations, _ ->
+        records.resolveFolders(
+            names = customizations.toLaunchableNames(),
+            icons = customizations.toLaunchableIcons(),
+            iconRepository = iconRepository
+        )
+    }
 
     override suspend fun create(name: String?, initialItems: List<String>, addToFavorites: Boolean): Folder {
         val resolvedName: String? = name?.takeUnless { value -> value.isBlank() || value == Folder.DEFAULT_NAME }
