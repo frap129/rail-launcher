@@ -11,6 +11,8 @@ import core.data.testing.createIconRepositoryMock
 import io.mockk.coVerify
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -154,6 +156,31 @@ class IIconPickerImplTest : PopupTestBase() {
     }
 
     @Test
+    fun `streams Suggested icons into the open picker and applies them`() = runTest {
+        val inputSuggestions: MutableStateFlow<List<Icon>> = MutableStateFlow(emptyList())
+        val mockIconRepository: IIconRepository = createPackIconRepository(suggestedIcons = inputSuggestions)
+        val picker: IIconPicker = createPackPicker(mockIconRepository = mockIconRepository)
+
+        picker.iconPickerState.test {
+            assertEquals(IconPickerState.Closed, awaitItem())
+            picker.startPicking(inputApp)
+            val actualInitial: IconPickerState.Listing = awaitItem() as IconPickerState.Listing
+            assertTrue(actualInitial.suggestions.isEmpty())
+            inputSuggestions.value = listOf(inputApp.defaultIcon, inputIcon)
+            val actualSuggested: IconPickerState.Listing = awaitItem() as IconPickerState.Listing
+            assertEquals(listOf(inputApp.defaultIcon, inputIcon), actualSuggested.suggestions)
+            picker.selectIcon(inputIcon)
+            verify(exactly = 1) {
+                mockPreferencesRepository.setCustomIcon(
+                    inputApp,
+                    CustomIcon.PackDrawable(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = CALENDAR_DRAWABLE_NAME)
+                )
+            }
+            assertEquals(IconPickerState.Closed, awaitItem())
+        }
+    }
+
+    @Test
     fun `applies a pack icon and closes the picker`() = runTest {
         setLaunchableGroups(groups = inputGroups)
         setIconPacks(packs = setOf(IconPack.SystemIconPack, inputPack))
@@ -205,11 +232,13 @@ class IIconPickerImplTest : PopupTestBase() {
         assertFalse(picker.backBeforeItemMenu())
     }
 
-    private fun createPackIconRepository(): IIconRepository = createIconRepositoryMock(
-        inputIcon = inputApp.defaultIcon,
-        iconPacks = iconPacks,
-        packCategories = inputCategories
-    )
+    private fun createPackIconRepository(suggestedIcons: StateFlow<List<Icon>> = MutableStateFlow(emptyList())): IIconRepository =
+        createIconRepositoryMock(
+            inputIcon = inputApp.defaultIcon,
+            iconPacks = iconPacks,
+            packCategories = inputCategories,
+            suggestedIcons = suggestedIcons
+        )
 
     private fun TestScope.createPackPicker(mockIconRepository: IIconRepository = createPackIconRepository()): IIconPicker {
         setLaunchableGroups(groups = inputGroups)

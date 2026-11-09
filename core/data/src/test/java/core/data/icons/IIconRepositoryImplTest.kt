@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
 import android.os.UserHandle
+import app.cash.turbine.test
+import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
@@ -12,11 +15,13 @@ import core.data.icons.model.IconPackCategory
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
@@ -25,6 +30,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -35,9 +41,14 @@ import org.robolectric.Shadows.shadowOf
 
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_LABEL: String = "Example icon pack"
+private const val OTHER_ICON_PACK_PACKAGE_NAME: String = "com.example.othericonpack"
+private const val OTHER_ICON_PACK_LABEL: String = "Second icon pack"
+private const val UNMAPPED_ICON_PACK_PACKAGE_NAME: String = "com.example.unmappediconpack"
+private const val UNMAPPED_ICON_PACK_LABEL: String = "Third icon pack"
 private const val APP_PACKAGE_NAME: String = "com.example.app"
 private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 private const val PACK_ICON_RES_ID: Int = 42
+private const val OTHER_PACK_ICON_RES_ID: Int = 43
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IIconRepositoryImplTest : InMemoryDatabaseTest() {
@@ -140,6 +151,146 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             ),
             actualCategories
         )
+    }
+
+    @Test
+    fun `suggests an App's original icon then every installed pack that maps it`() = databaseTest {
+        addIconPackActivity(packageName = UNMAPPED_ICON_PACK_PACKAGE_NAME, label = UNMAPPED_ICON_PACK_LABEL)
+        addIconPackActivity(packageName = OTHER_ICON_PACK_PACKAGE_NAME, label = OTHER_ICON_PACK_LABEL)
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
+        every { mockIconPackSource.resolveDrawableName(ICON_PACK_PACKAGE_NAME, PACK_ICON_RES_ID) } returns "calendar"
+        every { mockIconPackSource.resolveDrawableName(OTHER_ICON_PACK_PACKAGE_NAME, OTHER_PACK_ICON_RES_ID) } returns "mail"
+        val inputApp: App =
+            createApp(name = "Example", packageName = APP_PACKAGE_NAME, profileInfo = createProfileInfo(userId = PERSONAL_USER_ID))
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+        database.getPackIconDao().insert(
+            Icon.PackIcon(componentName = inputComponentName, packPackageName = ICON_PACK_PACKAGE_NAME, resId = PACK_ICON_RES_ID)
+        )
+        database.getPackIconDao().insert(
+            Icon.PackIcon(
+                componentName = inputComponentName,
+                packPackageName = OTHER_ICON_PACK_PACKAGE_NAME,
+                resId = OTHER_PACK_ICON_RES_ID
+            )
+        )
+
+        repository.getSuggestedIcons(launchable = inputApp).test {
+            runCurrent()
+
+            assertEquals(listOf(inputApp.defaultIcon), awaitItem())
+            assertEquals(
+                listOf(
+                    inputApp.defaultIcon,
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "calendar")
+                ),
+                awaitItem()
+            )
+            assertEquals(
+                listOf(
+                    inputApp.defaultIcon,
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "calendar"),
+                    Icon.PackDrawableIcon(packPackageName = OTHER_ICON_PACK_PACKAGE_NAME, drawableName = "mail")
+                ),
+                awaitItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `suggests pack icons whose names contain a Folder label word`() = databaseTest {
+        addIconPackActivity()
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = null, drawableNames = listOf("music_note", "video_player", "calculator"))
+        )
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Music Player")
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+
+        repository.getSuggestedIcons(launchable = inputFolder).test {
+            runCurrent()
+
+            assertEquals(
+                listOf(
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "music_note"),
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "video_player")
+                ),
+                expectMostRecentItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `suggests pack icons whose names contain a Shortcut label word`() = databaseTest {
+        addIconPackActivity()
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = null, drawableNames = listOf("music_note", "calculator"))
+        )
+        val inputShortcut: ShortcutLaunchable = ShortcutLaunchable(
+            packageName = APP_PACKAGE_NAME,
+            shortcutId = "shortcut-id",
+            profile = inputPersonalUser,
+            shortLabel = "Music",
+            longLabel = "Music"
+        )
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+
+        repository.getSuggestedIcons(launchable = inputShortcut).test {
+            runCurrent()
+
+            assertEquals(
+                listOf(Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "music_note")),
+                expectMostRecentItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `ignores label words shorter than three characters`() = databaseTest {
+        addIconPackActivity()
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = null, drawableNames = listOf("tv_channel"))
+        )
+        val inputFolder: Folder = Folder(folderId = 1L, name = "TV")
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+
+        repository.getSuggestedIcons(launchable = inputFolder).test {
+            runCurrent()
+
+            assertTrue(awaitItem().isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `caps label suggestions at 12`() = databaseTest {
+        addIconPackActivity()
+        val inputDrawableNames: List<String> = (1..13).map { index -> "music_$index" }
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = null, drawableNames = inputDrawableNames)
+        )
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Music")
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+
+        repository.getSuggestedIcons(launchable = inputFolder).test {
+            runCurrent()
+
+            val actualSuggestions: List<Icon> = expectMostRecentItem()
+            assertEquals(12, actualSuggestions.size)
+            assertEquals(
+                inputDrawableNames.take(12).map { drawableName ->
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = drawableName)
+                },
+                actualSuggestions
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -275,11 +426,11 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Suppress("DEPRECATION")
-    private fun addIconPackActivity() {
+    private fun addIconPackActivity(packageName: String = ICON_PACK_PACKAGE_NAME, label: String = ICON_PACK_LABEL) {
         val inputActivityInfo: ActivityInfo = ActivityInfo().apply {
-            packageName = ICON_PACK_PACKAGE_NAME
-            name = "$ICON_PACK_PACKAGE_NAME.IconPack"
-            nonLocalizedLabel = ICON_PACK_LABEL
+            this.packageName = packageName
+            name = "$packageName.IconPack"
+            nonLocalizedLabel = label
         }
         val inputResolveInfo: ResolveInfo = ResolveInfo().apply {
             activityInfo = inputActivityInfo

@@ -4,25 +4,43 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
 import core.data.icons.model.badgedFor
+import core.data.icons.model.sortedCustomIconPacks
+import core.data.launchables.model.Launchable
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
+import core.data.shortcuts.ShortcutLaunchable
+import core.util.drawableNameContains
 import core.util.getIconsFromPack
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
+
+private const val MIN_LABEL_WORD_LENGTH: Int = 3
+private const val MAX_LABEL_SUGGESTIONS: Int = 12
+private val LABEL_WORD_SEPARATOR: Regex = Regex("[^\\p{L}\\p{N}]+")
 
 class IIconRepositoryImpl(
     private val context: Context,
@@ -141,6 +159,60 @@ class IIconRepositoryImpl(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun getSuggestedIcons(launchable: Launchable): Flow<List<Icon>> = iconPacks
+        .map { packs -> packs.sortedCustomIconPacks() }
+        .flatMapLatest { packs -> suggestIcons(launchable = launchable, packs = packs) }
+        .flowOn(dispatcher)
+
+    private fun suggestIcons(launchable: Launchable, packs: List<IconPack.CustomIconPack>): Flow<List<Icon>> = when (launchable) {
+        is App -> suggestAppIcons(app = launchable, packs = packs)
+        is Folder, is ShortcutLaunchable -> suggestLabelIcons(label = launchable.name, packs = packs)
+        else -> flowOf(emptyList())
+    }
+
+    private fun suggestAppIcons(app: App, packs: List<IconPack.CustomIconPack>): Flow<List<Icon>> = flow {
+        val suggestions: MutableList<Icon> = mutableListOf(app.defaultIcon)
+        emit(suggestions.toList())
+        val iconsByPack: Map<String, Icon.PackIcon> = iconDao.getAllForComponent(componentName = app.componentName)
+            .associateBy { icon -> icon.packPackageName }
+        packs.forEach { pack ->
+            val packIcon: Icon.PackIcon = iconsByPack[pack.packageName] ?: return@forEach
+            val drawableName: String = iconPackSource.resolveDrawableName(packPackageName = pack.packageName, resId = packIcon.resId)
+                ?: run {
+                    Timber.w("Icon pack %s no longer provides %s", pack.packageName, app.componentName)
+                    return@forEach
+                }
+            suggestions.add(Icon.PackDrawableIcon(packPackageName = pack.packageName, drawableName = drawableName))
+            emit(suggestions.toList())
+        }
+    }
+
+    private fun suggestLabelIcons(label: String, packs: List<IconPack.CustomIconPack>): Flow<List<Icon>> = flow {
+        val words: List<String> = extractLabelWords(label = label)
+        val suggestions: MutableList<Icon> = mutableListOf()
+        emit(suggestions.toList())
+        if (words.isEmpty()) {
+            return@flow
+        }
+        for (pack in packs) {
+            val matchingNames: List<String> = iconPackSource.drawableCategories(packPackageName = pack.packageName)
+                .flatMap { category -> category.drawableNames }
+                .distinct()
+                .filter { drawableName -> words.any { word -> drawableName.drawableNameContains(term = word) } }
+            for (drawableName in matchingNames) {
+                if (suggestions.size >= MAX_LABEL_SUGGESTIONS) {
+                    break
+                }
+                suggestions.add(Icon.PackDrawableIcon(packPackageName = pack.packageName, drawableName = drawableName))
+            }
+            emit(suggestions.toList())
+            if (suggestions.size >= MAX_LABEL_SUGGESTIONS) {
+                break
+            }
+        }
+    }
+
     private suspend fun getIconPacksFromCache(): Set<IconPack> = mutableSetOf<IconPack>(IconPack.SystemIconPack).apply {
         iconPackDao.getAll().forEach { pack ->
             add(
@@ -165,3 +237,6 @@ class IIconRepositoryImpl(
             add(IconPack.SystemIconPack)
         }
 }
+
+private fun extractLabelWords(label: String): List<String> =
+    label.lowercase().split(LABEL_WORD_SEPARATOR).filter { word -> word.length >= MIN_LABEL_WORD_LENGTH }

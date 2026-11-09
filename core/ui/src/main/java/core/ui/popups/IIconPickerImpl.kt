@@ -5,6 +5,7 @@ import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
+import core.data.icons.model.sortedCustomIconPacks
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.findLaunchable
@@ -12,11 +13,14 @@ import core.data.prefs.IPreferencesRepository
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import core.util.drawableNameContains
 import core.util.launchLogged
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -39,27 +43,28 @@ class IIconPickerImpl(
 
     private val request: MutableStateFlow<IconPickerRequest?> = MutableStateFlow(null)
     private val packContents: MutableStateFlow<PackContents?> = MutableStateFlow(null)
+    private val suggestions: MutableStateFlow<List<Icon>> = MutableStateFlow(emptyList())
+    private var suggestionsJob: Job? = null
 
     override val iconPickerState: StateFlow<IconPickerState> = combine(
         request,
         launchableRepository.launchableState,
         iconRepository.iconPacks,
-        packContents
-    ) { currentRequest, launchableState, iconPacks, contents ->
+        packContents,
+        suggestions
+    ) { currentRequest, launchableState, iconPacks, contents, currentSuggestions ->
         val owner: Launchable? = currentRequest?.ownerKey?.let { ownerKey ->
             launchableState.launchables.findLaunchable(key = ownerKey)
         }
         if (currentRequest == null || owner == null) {
             IconPickerState.Closed
         } else {
-            val packs: List<IconPack.CustomIconPack> = iconPacks
-                .filterIsInstance<IconPack.CustomIconPack>()
-                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { pack -> pack.name })
+            val packs: List<IconPack.CustomIconPack> = iconPacks.sortedCustomIconPacks()
             val pack: IconPack.CustomIconPack? = currentRequest.packPackageName?.let { packageName ->
                 packs.firstOrNull { candidate -> candidate.packageName == packageName }
             }
             if (pack == null) {
-                IconPickerState.Listing(owner = owner, iconPacks = packs)
+                IconPickerState.Listing(owner = owner, iconPacks = packs, suggestions = currentSuggestions)
             } else {
                 val categories: List<IconPackCategory>? = contents
                     ?.takeIf { current -> current.packPackageName == pack.packageName }
@@ -95,7 +100,10 @@ class IIconPickerImpl(
         }
         session.onSheetOpened()
         packContents.value = null
+        suggestionsJob?.cancel()
+        suggestions.value = emptyList()
         request.value = IconPickerRequest(ownerKey = owner.key)
+        loadSuggestions(owner = owner)
     }
 
     override fun openPack(iconPack: IconPack.CustomIconPack) {
@@ -175,8 +183,19 @@ class IIconPickerImpl(
         }
     }
 
+    private fun loadSuggestions(owner: Launchable) {
+        suggestionsJob = scope.launchLogged(message = "Failed to load icon suggestions") {
+            iconRepository.getSuggestedIcons(launchable = owner).collect { suggestedIcons ->
+                suggestions.value = suggestedIcons
+            }
+        }
+    }
+
     private fun close() {
+        suggestionsJob?.cancel()
+        suggestionsJob = null
         request.value = null
+        suggestions.value = emptyList()
         packContents.value = null
     }
 
@@ -192,5 +211,5 @@ private fun filterPackIcons(categories: List<IconPackCategory>, query: String): 
     }
     return categories
         .flatMap { category -> category.icons }
-        .filter { icon -> icon.drawableName.replace('_', ' ').contains(normalizedQuery, ignoreCase = true) }
+        .filter { icon -> icon.drawableName.drawableNameContains(term = normalizedQuery) }
 }
