@@ -21,6 +21,9 @@ sealed class Icon {
     /** A drawable from an icon pack, stored by name so a pack update can keep it. */
     data class PackDrawableIcon(val packPackageName: String, val drawableName: String) : Icon()
 
+    /** A gallery image file in Rail's private icons directory, drawn clipped to the system icon mask. */
+    data class ImageIcon(val fileName: String) : Icon()
+
     /** [icon] carrying the system badge of a non-personal [profile]. */
     data class ProfileIcon(val icon: Icon, val profile: UserHandle) : Icon()
 

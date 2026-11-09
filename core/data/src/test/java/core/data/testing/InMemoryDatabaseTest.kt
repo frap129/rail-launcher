@@ -3,6 +3,8 @@ package core.data.testing
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
+import core.data.icons.IIconImageStore
+import core.data.icons.IIconImageStoreImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
@@ -65,14 +67,20 @@ abstract class InMemoryDatabaseTest {
         finishAllPendingWork()
     }
 
+    /** A real [IIconImageStore] over the test app's private files directory. */
+    fun createIconImageStore(): IIconImageStore = IIconImageStoreImpl(context = RuntimeEnvironment.getApplication())
+
     /** A real [IPreferencesRepository] over the test database, writing on this test scope. */
     fun TestScope.createPreferencesRepository(
         launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
-        settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao: SettingsDao = database.getSettingsDao(),
+        iconImageStore: IIconImageStore = createIconImageStore()
     ): IPreferencesRepository = IPreferencesRepositoryImpl(
         launchableCustomizationDao = launchableCustomizationDao,
         settingsDao = settingsDao,
-        scope = this
+        imageStore = iconImageStore,
+        scope = this,
+        dispatcher = databaseDispatcher
     )
 
     @After

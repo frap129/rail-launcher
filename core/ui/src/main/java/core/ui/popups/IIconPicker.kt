@@ -1,5 +1,6 @@
 package core.ui.popups
 
+import android.net.Uri
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
@@ -21,6 +22,9 @@ interface IIconPicker {
 
     /** Applies [icon] as the owner's Custom icon and closes the picker. */
     fun selectIcon(icon: Icon.PackDrawableIcon)
+
+    /** Imports [uri] as the owner's Custom icon, closing the picker on success or showing an error on failure. */
+    fun selectGalleryImage(uri: Uri)
 
     /** Removes the owner's Custom icon and closes the picker. */
     fun resetIcon()

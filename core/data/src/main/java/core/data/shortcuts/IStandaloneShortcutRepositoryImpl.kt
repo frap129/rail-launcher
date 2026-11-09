@@ -3,6 +3,7 @@ package core.data.shortcuts
 import core.data.apps.model.AppProfile
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.withoutTapTargets
+import core.data.room.TransactionEffects
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.StandaloneShortcutDao
@@ -44,12 +45,16 @@ class IStandaloneShortcutRepositoryImpl(
             return
         }
         reapplyPinsAround(keys = keys) {
+            val effects: TransactionEffects = TransactionEffects()
             standaloneShortcutDao.inTransaction {
-                standaloneShortcutDao.delete(keys = keys)
-                favoriteDao.remove(keys = keys)
-                headerSettingsDao.updateIfChanged { settings -> settings.withoutTapTargets(keys = keys.toSet()) }
-                preferencesRepository.removeLaunchableCustomizations(keys = keys)
+                withContext(effects) {
+                    standaloneShortcutDao.delete(keys = keys)
+                    favoriteDao.remove(keys = keys)
+                    headerSettingsDao.updateIfChanged { settings -> settings.withoutTapTargets(keys = keys.toSet()) }
+                    preferencesRepository.removeLaunchableCustomizations(keys = keys)
+                }
             }
+            effects.run()
         }
     }
 

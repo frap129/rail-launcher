@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
@@ -320,6 +321,41 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `resolves an image Custom icon and badges it for every non-personal Profile`() = databaseTest {
+        val inputFileName: String = "gallery-icon.png"
+        createIconImageStore().write(fileName = inputFileName, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
+        val inputProfiles: List<ProfileInfo> = listOf(
+            createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work),
+            createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        )
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState(profiles = inputProfiles))
+
+        inputProfiles.forEach { inputProfile ->
+            val actualIcon: Icon? = repository.getCustomIcon(
+                customIcon = CustomIcon.Image(fileName = inputFileName),
+                profile = inputProfile
+            )
+
+            assertEquals(
+                Icon.ProfileIcon(icon = Icon.ImageIcon(fileName = inputFileName), profile = inputProfile.user),
+                actualIcon
+            )
+        }
+    }
+
+    @Test
+    fun `returns no Custom icon when its image file is gone`() = databaseTest {
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+
+        val actualIcon: Icon? = repository.getCustomIcon(
+            customIcon = CustomIcon.Image(fileName = "missing.png"),
+            profile = createProfileInfo(userId = PERSONAL_USER_ID)
+        )
+
+        assertNull(actualIcon)
+    }
+
+    @Test
     fun `returns no Custom icon when its pack dropped the drawable`() = databaseTest {
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
             packPackageName = ICON_PACK_PACKAGE_NAME,
@@ -416,6 +452,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         iconPackDao = database.getCachedIconPackDao(),
         iconDao = database.getPackIconDao(),
         iconPackSource = mockIconPackSource,
+        imageStore = createIconImageStore(),
         profileSource = createProfileSourceMock(state = state),
         scope = backgroundScope,
         dispatcher = databaseDispatcher

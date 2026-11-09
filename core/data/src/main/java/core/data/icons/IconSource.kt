@@ -4,6 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.core.content.ContextCompat
@@ -12,6 +15,7 @@ import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
+import java.io.File
 
 internal sealed interface IconSource {
     val cacheKey: String
@@ -73,6 +77,16 @@ private class PackDrawableIconSource(private val packPackageName: String, privat
     }.getOrNull()
 }
 
+private class ImageIconSource(private val fileName: String) : IconSource {
+    override val cacheKey: String = "${CustomIcon.Image.ENCODING_PREFIX}$fileName"
+
+    override fun loadDrawable(context: Context): Drawable? {
+        val file: File = iconImageFile(context = context, fileName = fileName)?.takeIf { candidate -> candidate.isFile } ?: return null
+        val bitmap: Bitmap? = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inScaled = false })
+        return bitmap?.let { decoded -> SystemMaskedDrawable(BitmapDrawable(context.resources, decoded)) }
+    }
+}
+
 private class FolderIconSource(private val shade: Int) : IconSource {
     override val cacheKey: String = "folder:$shade"
 
@@ -121,6 +135,7 @@ internal fun Icon.toSource(profileSource: IProfileSource? = null, profile: UserH
     is Icon.ActivityIcon -> ActivityIconSource(componentName = componentName, profile = profile, profileSource = profileSource)
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName = packageName, profile = profile, profileSource = profileSource)
     is Icon.FolderIcon -> FolderIconSource(shade)
+    is Icon.ImageIcon -> ImageIconSource(fileName)
     is Icon.PackIcon -> PackIconSource(componentName, packPackageName, resId)
     is Icon.PackDrawableIcon -> PackDrawableIconSource(packPackageName = packPackageName, drawableName = drawableName)
     is Icon.ProfileIcon -> ProfileIconSource(icon = icon, profile = this.profile, profileSource = profileSource)

@@ -1,5 +1,10 @@
 package core.ui.popups
 
+import android.net.Uri
+import androidx.activity.compose.ManagedActivityResultLauncher
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon as MaterialIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -29,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -45,17 +52,25 @@ private val packIconPadding = 8.dp
 private val packGridSpacing = 8.dp
 private val packSearchVerticalPadding = 4.dp
 private val packCategoryTopPadding = 16.dp
+private val galleryProgressSize = 24.dp
 
 /** Hosts the Icon picker; renders nothing while it is closed. */
 @Composable
 fun IconPickerHost(iconPicker: IIconPicker) {
     val state: IconPickerState by iconPicker.iconPickerState.collectAsState()
+    val galleryLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?> =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { selectedUri -> iconPicker.selectGalleryImage(uri = selectedUri) }
+        }
     when (val pickerState: IconPickerState = state) {
         IconPickerState.Closed -> Unit
 
         is IconPickerState.Listing -> IconPickerListingSheet(
             state = pickerState,
             onOriginal = iconPicker::resetIcon,
+            onGallery = {
+                galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
             onIcon = iconPicker::selectIcon,
             onPack = iconPicker::openPack,
             onDismiss = iconPicker::cancelPicking
@@ -75,6 +90,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
 private fun IconPickerListingSheet(
     state: IconPickerState.Listing,
     onOriginal: () -> Unit,
+    onGallery: () -> Unit,
     onIcon: (Icon.PackDrawableIcon) -> Unit,
     onPack: (IconPack.CustomIconPack) -> Unit,
     onDismiss: () -> Unit
@@ -93,6 +109,19 @@ private fun IconPickerListingSheet(
                     label = stringResource(R.string.original_icon),
                     onClick = onOriginal
                 )
+            }
+            item(key = "gallery-icon") {
+                GalleryRow(isImporting = state.isImportingImage, onClick = onGallery)
+            }
+            if (state.imageImportFailed) {
+                item(key = "gallery-icon-failed") {
+                    Text(
+                        text = stringResource(R.string.couldnt_use_image),
+                        modifier = Modifier.padding(horizontal = sheetHorizontalPadding),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
             if (state.iconPacks.isEmpty()) {
                 item(key = "no-icon-packs") {
@@ -198,6 +227,32 @@ private fun SuggestedIconsRow(suggestions: List<Icon>, onOriginal: () -> Unit, o
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun GalleryRow(isImporting: Boolean, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isImporting, role = Role.Button, onClick = onClick)
+            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
+    ) {
+        Box(modifier = Modifier.size(pickerRowIconSize), contentAlignment = Alignment.Center) {
+            if (isImporting) {
+                CircularProgressIndicator(modifier = Modifier.size(galleryProgressSize))
+            } else {
+                MaterialIcon(
+                    painter = painterResource(R.drawable.gallery_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(pickerRowIconSize),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        Spacer(Modifier.width(pickerRowIconGap))
+        Text(text = stringResource(R.string.gallery), style = MaterialTheme.typography.bodyLarge)
     }
 }
 

@@ -1,20 +1,30 @@
 package core.data.prefs
 
+import core.data.icons.IIconImageStore
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.IconPack
 import core.data.launchables.model.Launchable
+import core.data.room.DatabaseTransaction
+import core.data.room.TransactionEffects
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
+import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class IPreferencesRepositoryImpl(
     private val launchableCustomizationDao: LaunchableCustomizationDao,
     private val settingsDao: SettingsDao,
-    private val scope: CoroutineScope
+    private val imageStore: IIconImageStore,
+    private val scope: CoroutineScope,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IPreferencesRepository {
+    private val iconWriteMutex: Mutex = Mutex()
     override val launchableCustomizations: Flow<List<LaunchableCustomization>> = launchableCustomizationDao.observeAll()
     override val settings: Flow<Settings> = settingsDao.observe()
 
@@ -35,14 +45,22 @@ class IPreferencesRepositoryImpl(
     }
 
     override fun setCustomIcon(item: Launchable, icon: CustomIcon) {
-        scope.launch(Dispatchers.IO) {
-            launchableCustomizationDao.setIcon(key = item.key, icon = icon)
+        scope.launch(dispatcher) {
+            withIconWriteLock {
+                val previousIcon: CustomIcon? = launchableCustomizationDao.get(key = item.key)?.icon
+                launchableCustomizationDao.setIcon(key = item.key, icon = icon)
+                deleteReplacedImage(previousIcon = previousIcon, icon = icon)
+            }
         }
     }
 
     override fun resetCustomIcon(item: Launchable) {
-        scope.launch(Dispatchers.IO) {
-            launchableCustomizationDao.resetIcon(key = item.key)
+        scope.launch(dispatcher) {
+            withIconWriteLock {
+                val previousIcon: CustomIcon? = launchableCustomizationDao.get(key = item.key)?.icon
+                launchableCustomizationDao.resetIcon(key = item.key)
+                deleteReplacedImage(previousIcon = previousIcon, icon = null)
+            }
         }
     }
 
@@ -50,7 +68,47 @@ class IPreferencesRepositoryImpl(
         if (keys.isEmpty()) {
             return
         }
-        launchableCustomizationDao.delete(keys = keys)
+        withIconWriteLock {
+            val imageFiles: List<String> = launchableCustomizationDao.get(keys = keys).mapNotNull { customization ->
+                (customization.icon as? CustomIcon.Image)?.fileName
+            }
+            launchableCustomizationDao.delete(keys = keys)
+            deleteImageFilesAfterCommit(imageFiles = imageFiles)
+        }
+    }
+
+    /** Deletes the file of [previousIcon] when it is an image the [icon] write replaced. */
+    private fun deleteReplacedImage(previousIcon: CustomIcon?, icon: CustomIcon?) {
+        val previousImage: CustomIcon.Image = previousIcon as? CustomIcon.Image ?: return
+        if (previousImage == icon) {
+            return
+        }
+        imageStore.delete(fileName = previousImage.fileName)
+    }
+
+    /** Queues [imageFiles] for deletion after the surrounding transaction commits, or deletes them now. */
+    private suspend fun deleteImageFilesAfterCommit(imageFiles: List<String>) {
+        val effects: TransactionEffects? = coroutineContext[TransactionEffects.Key]
+        if (effects == null) {
+            deleteImageFiles(imageFiles = imageFiles)
+        } else {
+            effects.afterCommit { deleteImageFiles(imageFiles = imageFiles) }
+        }
+    }
+
+    private fun deleteImageFiles(imageFiles: List<String>) {
+        imageFiles.forEach { fileName -> imageStore.delete(fileName = fileName) }
+    }
+
+    /**
+     * Serializes icon writes outside a database transaction. Inside one the database already
+     * serializes writes, and taking the lock there could invert locks against a writer waiting
+     * for the write connection.
+     */
+    private suspend inline fun <T> withIconWriteLock(block: suspend () -> T): T = if (coroutineContext[DatabaseTransaction.Key] != null) {
+        block()
+    } else {
+        iconWriteMutex.withLock { block() }
     }
 
     override fun setIconPack(iconPack: IconPack) {

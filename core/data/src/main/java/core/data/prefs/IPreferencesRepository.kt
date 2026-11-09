@@ -13,10 +13,10 @@ interface IPreferencesRepository {
     /** Removes [item]'s stored name so it uses its default name again. */
     fun resetItemName(item: Launchable)
 
-    /** Stores [icon] as [item]'s Custom icon, keeping its stored name. */
+    /** Stores [icon] as [item]'s Custom icon, keeping its stored name and deleting the image it replaces. */
     fun setCustomIcon(item: Launchable, icon: CustomIcon)
 
-    /** Removes [item]'s Custom icon so it uses its normal icon again. */
+    /** Removes [item]'s Custom icon so it uses its normal icon again, deleting its image. */
     fun resetCustomIcon(item: Launchable)
 
     /** Removes the stored customizations for [keys]. */

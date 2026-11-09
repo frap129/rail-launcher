@@ -1,5 +1,7 @@
 package core.ui.popups
 
+import android.net.Uri
+import core.data.icons.IIconImageImporter
 import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
@@ -15,6 +17,7 @@ import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.drawableNameContains
 import core.util.launchLogged
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,8 +27,15 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import timber.log.Timber
 
-private data class IconPickerRequest(val ownerKey: String, val packPackageName: String? = null, val query: String = "")
+private data class IconPickerRequest(
+    val ownerKey: String,
+    val packPackageName: String? = null,
+    val query: String = "",
+    val isImportingImage: Boolean = false,
+    val imageImportFailed: Boolean = false
+)
 
 private data class PackContents(val packPackageName: String, val categories: List<IconPackCategory>)
 
@@ -34,6 +44,7 @@ class IIconPickerImpl(
     parentScope: CoroutineScope,
     private val launchableRepository: ILaunchableRepository,
     private val iconRepository: IIconRepository,
+    private val imageImporter: IIconImageImporter,
     private val preferencesRepository: IPreferencesRepository,
     private val homeEditState: HomeEditState,
     private val session: IPopupSession
@@ -64,7 +75,13 @@ class IIconPickerImpl(
                 packs.firstOrNull { candidate -> candidate.packageName == packageName }
             }
             if (pack == null) {
-                IconPickerState.Listing(owner = owner, iconPacks = packs, suggestions = currentSuggestions)
+                IconPickerState.Listing(
+                    owner = owner,
+                    iconPacks = packs,
+                    suggestions = currentSuggestions,
+                    isImportingImage = currentRequest.isImportingImage,
+                    imageImportFailed = currentRequest.imageImportFailed
+                )
             } else {
                 val categories: List<IconPackCategory>? = contents
                     ?.takeIf { current -> current.packPackageName == pack.packageName }
@@ -111,7 +128,7 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == iconPack.packageName) {
             return
         }
-        request.value = currentRequest.copy(packPackageName = iconPack.packageName, query = "")
+        request.value = currentRequest.copy(packPackageName = iconPack.packageName, query = "", imageImportFailed = false)
         packContents.value = null
         scope.launchLogged(message = "Failed to load an icon pack") {
             val categories: List<IconPackCategory> = iconRepository.getPackCategories(packPackageName = iconPack.packageName)
@@ -136,6 +153,37 @@ class IIconPickerImpl(
             icon = CustomIcon.PackDrawable(packPackageName = icon.packPackageName, drawableName = icon.drawableName)
         )
         close()
+    }
+
+    override fun selectGalleryImage(uri: Uri) {
+        val owner: Launchable = currentOwner() ?: return
+        val currentRequest: IconPickerRequest = request.value ?: return
+        if (currentRequest.isImportingImage) {
+            return
+        }
+        val startedRequest: IconPickerRequest = currentRequest.copy(isImportingImage = true, imageImportFailed = false)
+        request.value = startedRequest
+        scope.launchLogged(message = "Failed to import a gallery image") {
+            val fileName: String? = try {
+                imageImporter.importImage(uri = uri)
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                Timber.e(exception, "Failed to import a gallery image")
+                null
+            }
+            val activeRequest: IconPickerRequest? = request.value
+            if (activeRequest !== startedRequest) {
+                fileName?.let { unusedFileName -> imageImporter.deleteImage(fileName = unusedFileName) }
+                return@launchLogged
+            }
+            if (fileName == null) {
+                request.value = startedRequest.copy(isImportingImage = false, imageImportFailed = true)
+            } else {
+                preferencesRepository.setCustomIcon(item = owner, icon = CustomIcon.Image(fileName = fileName))
+                close()
+            }
+        }
     }
 
     override fun resetIcon() {
@@ -169,7 +217,7 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == null) {
             close()
         } else {
-            request.value = currentRequest.copy(packPackageName = null, query = "")
+            request.value = currentRequest.copy(packPackageName = null, query = "", imageImportFailed = false)
             packContents.value = null
         }
         return true

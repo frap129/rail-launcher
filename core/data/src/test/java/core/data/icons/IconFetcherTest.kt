@@ -4,6 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -19,6 +21,7 @@ import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.TEST_GALLERY_ICON_SIZE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import core.data.testing.createProfileSourceMock
@@ -44,6 +47,7 @@ private const val MISSING_ICON_PACK_PACKAGE: String = "com.example.missing-icon-
 private const val MISSING_DRAWABLE_NAME: String = "missing"
 private const val PACK_DRAWABLE_NAME: String = "calendar"
 private const val PACK_DRAWABLE_RES_ID: Int = 42
+private const val GALLERY_FILE_NAME: String = "gallery-icon.png"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -115,6 +119,41 @@ class IconFetcherTest {
 
         assertTrue(actualException is IllegalStateException)
         assertFalse(actualException?.message.orEmpty().contains(MISSING_ICON_PACK_PACKAGE))
+    }
+
+    @Test
+    fun `fetch loads an image icon clipped to the system mask`(): Unit = runTest {
+        val inputStore: IIconImageStore = IIconImageStoreImpl(context = RuntimeEnvironment.getApplication())
+        inputStore.write(
+            fileName = GALLERY_FILE_NAME,
+            bitmap = Bitmap.createBitmap(TEST_GALLERY_ICON_SIZE, TEST_GALLERY_ICON_SIZE, Bitmap.Config.ARGB_8888).apply {
+                eraseColor(Color.RED)
+            }
+        )
+        val inputIcon: Icon = Icon.ImageIcon(fileName = GALLERY_FILE_NAME)
+        val actualFetcher: Fetcher = IconFetcher.Factory(profileSource = mockProfileSource)
+            .create(inputIcon, inputOptions, inputImageLoader)
+
+        val actualResult: FetchResult? = actualFetcher.fetch()
+
+        assertTrue(actualResult is ImageFetchResult)
+        val actualDrawable: Drawable = ((actualResult as ImageFetchResult).image as DrawableImage).drawable
+        actualDrawable.setBounds(0, 0, TEST_GALLERY_ICON_SIZE, TEST_GALLERY_ICON_SIZE)
+        val actualBitmap: Bitmap = Bitmap.createBitmap(TEST_GALLERY_ICON_SIZE, TEST_GALLERY_ICON_SIZE, Bitmap.Config.ARGB_8888)
+        actualDrawable.draw(Canvas(actualBitmap))
+        assertEquals(Color.RED, actualBitmap.getPixel(TEST_GALLERY_ICON_SIZE / 2, TEST_GALLERY_ICON_SIZE / 2))
+    }
+
+    @Test
+    fun `fetch fails when the image file is gone`(): Unit = runTest {
+        val inputIcon: Icon = Icon.ImageIcon(fileName = "missing.png")
+        val actualFetcher: Fetcher = IconFetcher.Factory(profileSource = mockProfileSource)
+            .create(inputIcon, inputOptions, inputImageLoader)
+
+        val actualException: Throwable? = runCatching { actualFetcher.fetch() }.exceptionOrNull()
+
+        assertTrue(actualException.toString(), actualException is IllegalStateException)
+        assertFalse(actualException?.message.orEmpty().contains("missing.png"))
     }
 
     @Test

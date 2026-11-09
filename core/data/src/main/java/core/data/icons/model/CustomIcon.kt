@@ -10,4 +10,12 @@ sealed interface CustomIcon {
             const val ENCODING_SEPARATOR: String = ":"
         }
     }
+
+    /** A gallery image stored as a PNG named [fileName] in Rail's private icons directory. */
+    data class Image(val fileName: String) : CustomIcon {
+        companion object {
+            /** The stored and cache-key prefix shared by every image form. */
+            const val ENCODING_PREFIX: String = "image:"
+        }
+    }
 }

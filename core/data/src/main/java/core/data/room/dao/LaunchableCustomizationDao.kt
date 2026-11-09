@@ -12,6 +12,12 @@ abstract class LaunchableCustomizationDao {
     @Query("SELECT * FROM launchable_customizations")
     abstract fun observeAll(): Flow<List<LaunchableCustomization>>
 
+    @Query("SELECT * FROM launchable_customizations WHERE key = :key")
+    abstract suspend fun get(key: String): LaunchableCustomization?
+
+    @Query("SELECT * FROM launchable_customizations WHERE key IN (:keys)")
+    abstract suspend fun get(keys: List<String>): List<LaunchableCustomization>
+
     @Query(
         "INSERT INTO launchable_customizations (key, name) VALUES (:key, :name) " +
             "ON CONFLICT(key) DO UPDATE SET name = :name"
