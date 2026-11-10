@@ -30,6 +30,7 @@ import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createIconImageImporterMock
+import core.data.testing.createIconPackFlow
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -42,6 +43,7 @@ import core.data.testing.createShortcutSourceMock
 import core.data.widgets.AppWidgetId
 import core.ui.layout.HomeEditState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
@@ -105,7 +107,7 @@ abstract class PopupTestBase {
     private val shortcutsWithApps: MutableStateFlow<List<AppShortcuts>> = MutableStateFlow(emptyList())
     private val mockPopupRepositoryState: PopupRepositoryState = PopupRepositoryState()
     private val folders: MutableStateFlow<List<Folder>> = MutableStateFlow(listOf(inputFolder, inputSecondFolder))
-    protected val iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
+    protected val iconPacks: MutableSharedFlow<Set<IconPack>> = createIconPackFlow()
     protected val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
     protected val mockIconRepository: IIconRepository = createIconRepositoryMock(
         inputIcon = inputApp.defaultIcon,
@@ -127,7 +129,7 @@ abstract class PopupTestBase {
     }
 
     protected fun setIconPacks(packs: Set<IconPack>) {
-        iconPacks.value = packs
+        iconPacks.tryEmit(packs)
     }
 
     protected fun setShortcutResult(result: ShortcutsResult) {

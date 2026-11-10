@@ -8,10 +8,13 @@ import core.data.icons.model.IconPackCategory
 import core.data.launchables.model.Launchable
 import core.data.profiles.ProfileInfo
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.StateFlow
 
 interface IIconRepository {
-    val iconPacks: StateFlow<Set<IconPack>>
+    /**
+     * The installed Icon packs, emitting after every re-read even when the set is unchanged, so
+     * Launchable resolution and the Icon picker react to pack updates.
+     */
+    val iconPacks: Flow<Set<IconPack>>
 
     suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon
 

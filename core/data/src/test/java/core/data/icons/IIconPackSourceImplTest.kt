@@ -1,10 +1,12 @@
 package core.data.icons
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.content.res.XmlResourceParser
+import core.data.icons.model.Icon
 import core.data.testing.MISSING_ICON_PACK_PACKAGE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
@@ -122,6 +124,34 @@ class IIconPackSourceImplTest {
         val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
 
         assertEquals(listOf(DrawableCategory(name = null, drawableNames = listOf("calendar"))), actualCategories)
+    }
+
+    @Test
+    fun `maps App icons from appfilter and drops drawables that no longer resolve`() {
+        every { mockResources.getIdentifier("appfilter", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
+        every { mockAssets.open("appfilter.xml") } returns stream(
+            """
+            <resources>
+                <item component="ComponentInfo{com.example.app/com.example.app.MainActivity}" drawable="calendar"/>
+                <item component="ComponentInfo{com.example.other/com.example.other.MainActivity}" drawable="missing"/>
+            </resources>
+            """.trimIndent()
+        )
+        every { mockResources.getIdentifier("calendar", "drawable", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_RES_ID
+        every { mockResources.getIdentifier("missing", "drawable", TEST_ICON_PACK_PACKAGE) } returns 0
+
+        val actualIcons: Set<Icon.PackIcon> = source.appIcons(packPackageName = TEST_ICON_PACK_PACKAGE)
+
+        assertEquals(
+            setOf(
+                Icon.PackIcon(
+                    componentName = ComponentName("com.example.app", "com.example.app.MainActivity"),
+                    packPackageName = TEST_ICON_PACK_PACKAGE,
+                    resId = DRAWABLE_RES_ID
+                )
+            ),
+            actualIcons
+        )
     }
 
     @Test

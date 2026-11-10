@@ -6,9 +6,12 @@ import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
 import core.data.icons.IIconImageStore
 import core.data.icons.IIconImageStoreImpl
+import core.data.icons.IIconPackSource
+import core.data.icons.IIconRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
 import core.data.prefs.LaunchableCustomization
+import core.data.profiles.IProfileSource
 import core.data.room.AppDatabase
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
@@ -16,6 +19,8 @@ import core.data.room.dao.WidgetAreaDao
 import core.data.testing.finishPendingWork as finishAllPendingWork
 import core.data.widgets.WidgetPlaceRecord
 import core.data.widgets.WidgetRecord
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
@@ -90,6 +95,23 @@ abstract class InMemoryDatabaseTest {
         imageStore = iconImageStore,
         scope = this,
         dispatcher = databaseDispatcher
+    )
+
+    /** A real [IIconRepositoryImpl] over the test database, reading packs through [iconPackSource]. */
+    fun TestScope.createIconRepository(
+        iconPackSource: IIconPackSource,
+        profileSource: IProfileSource = createProfileSourceMock(),
+        scope: CoroutineScope = backgroundScope,
+        dispatcher: CoroutineDispatcher = databaseDispatcher
+    ): IIconRepositoryImpl = IIconRepositoryImpl(
+        context = RuntimeEnvironment.getApplication(),
+        iconPackDao = database.getCachedIconPackDao(),
+        iconDao = database.getPackIconDao(),
+        iconPackSource = iconPackSource,
+        imageStore = createIconImageStore(),
+        profileSource = profileSource,
+        scope = scope,
+        dispatcher = dispatcher
     )
 
     @After
