@@ -19,6 +19,7 @@ import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
@@ -195,8 +196,15 @@ class LauncherViewModel(
             initialValue = emptyList()
         )
 
+    // Kept current so gesture callbacks can read saved settings without a UI collector.
+    private val currentSettings: StateFlow<Settings> = prefsRepo.settings.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = Settings()
+    )
+
     /** The screen edges that scrub the Rail. */
-    val scrubEdges: StateFlow<ScrubEdges> = prefsRepo.settings
+    val scrubEdges: StateFlow<ScrubEdges> = currentSettings
         .map { settings -> settings.scrubEdges }
         .stateIn(
             scope = viewModelScope,
@@ -205,7 +213,7 @@ class LauncherViewModel(
         )
 
     /** The screen side where the Rail is drawn. */
-    val railSide: StateFlow<RailSide> = prefsRepo.settings
+    val railSide: StateFlow<RailSide> = currentSettings
         .map { settings -> settings.railSide }
         .stateIn(
             scope = viewModelScope,
@@ -441,10 +449,10 @@ class LauncherViewModel(
         requestedPausedLaunchable.value = null
     }
 
-    /** Opens Search unless a Home edit mode blocks it. */
-    fun openSearch() {
+    /** Opens Search unless a Home edit mode blocks it; returns whether Search opened. */
+    fun openSearch(): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
-            return
+            return false
         }
         navigation.update { current ->
             if (current.mode == LauncherMode.Search) {
@@ -458,6 +466,7 @@ class LauncherViewModel(
                 )
             }
         }
+        return true
     }
 
     /** Updates the Search query; the results follow synchronously from the Launchable State. */
@@ -572,13 +581,27 @@ class LauncherViewModel(
         }
     }
 
+    /** Opens Search on a swipe up on Home, when the swipe-up entry is on. */
+    fun onHomeSwipeUp() {
+        if (currentSettings.value.openSearchOnSwipeUp) {
+            openSearch()
+        }
+    }
+
     /**
-     * The launcher was re-selected through the HOME category. Home is shown
-     * scrolled to the top.
+     * The launcher was re-selected through the HOME category. A Home press on Home opens Search
+     * when its entry is on; any other press shows Home scrolled to the top.
      */
-    fun onHomeIntent() {
+    fun onHomeIntent(wasResumed: Boolean) {
+        if (isHomePressOnHome(wasResumed = wasResumed) && openSearch()) {
+            return
+        }
         showHome(resetScroll = true)
     }
+
+    private fun isHomePressOnHome(wasResumed: Boolean): Boolean = wasResumed &&
+        navigation.value.mode == LauncherMode.Home &&
+        currentSettings.value.openSearchOnHomePress
 
     private fun showHome(resetScroll: Boolean) {
         navigation.update { current ->

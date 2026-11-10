@@ -478,16 +478,16 @@ class BaselineProfileGenerator {
             )
         ) { "Time tap action not found" }
         findOrThrow(By.text(appString("time_tap_action")), "Time tap action not found").click()
-        check(device.wait(Until.hasObject(By.text(appString("tap_action_search"))), WAIT_TIMEOUT_MS)) {
+        check(device.wait(Until.hasObject(By.text(appString("search"))), WAIT_TIMEOUT_MS)) {
             "Header tap action picker did not open"
         }
         val privateAppName: String = privateAppNames.first()
         findOrThrow(By.clazz("android.widget.EditText"), "Header tap action search not found").setText(privateAppName)
         findOrThrow(By.text(privateAppName), "Private App $privateAppName missing from the Header tap action picker")
         device.pressBack()
-        if (!device.wait(Until.gone(By.text(appString("tap_action_search"))), BACK_RETRY_TIMEOUT_MS)) {
+        if (!device.wait(Until.gone(By.text(appString("search"))), BACK_RETRY_TIMEOUT_MS)) {
             device.pressBack()
-            check(device.wait(Until.gone(By.text(appString("tap_action_search"))), WAIT_TIMEOUT_MS)) {
+            check(device.wait(Until.gone(By.text(appString("search"))), WAIT_TIMEOUT_MS)) {
                 "Header tap action picker did not close"
             }
         }

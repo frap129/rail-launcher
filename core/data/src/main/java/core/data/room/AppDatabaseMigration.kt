@@ -68,3 +68,18 @@ val MIGRATION_16_17: Migration = object : Migration(16, 17) {
         db.execSQL("ALTER TABLE $LAUNCHABLE_CUSTOMIZATIONS_TABLE ADD COLUMN icon TEXT")
     }
 }
+
+/**
+ * Adds the two Search entry switches, defaulting to a swipe up opening Search and a Home press
+ * not, and keeps every other setting.
+ */
+val MIGRATION_17_18: Migration = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}

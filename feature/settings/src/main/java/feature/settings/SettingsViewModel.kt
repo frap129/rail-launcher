@@ -20,7 +20,8 @@ enum class SettingsScreen(val key: String) {
     Main("main"),
     Appearance("appearance"),
     Widgets("widgets"),
-    Popups(POPUPS_SETTINGS_KEY)
+    Popups(POPUPS_SETTINGS_KEY),
+    Search("search")
 }
 
 data class SettingsUiState(
@@ -29,7 +30,9 @@ data class SettingsUiState(
     val hidePrivateSpaceWhenLocked: Boolean,
     val isPrivateSpaceAvailable: Boolean,
     val scrubEdges: ScrubEdges,
-    val railSide: RailSide
+    val railSide: RailSide,
+    val openSearchOnSwipeUp: Boolean,
+    val openSearchOnHomePress: Boolean
 )
 
 class SettingsViewModel(
@@ -53,7 +56,9 @@ class SettingsViewModel(
             hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
             isPrivateSpaceAvailable = status.profile != null,
             scrubEdges = settings.scrubEdges,
-            railSide = settings.railSide
+            railSide = settings.railSide,
+            openSearchOnSwipeUp = settings.openSearchOnSwipeUp,
+            openSearchOnHomePress = settings.openSearchOnHomePress
         )
     }.stateIn(
         viewModelScope,
@@ -64,7 +69,9 @@ class SettingsViewModel(
             hidePrivateSpaceWhenLocked = false,
             isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null,
             scrubEdges = ScrubEdges.DEFAULT,
-            railSide = RailSide.DEFAULT
+            railSide = RailSide.DEFAULT,
+            openSearchOnSwipeUp = true,
+            openSearchOnHomePress = false
         )
     )
 
@@ -81,4 +88,10 @@ class SettingsViewModel(
 
     /** Persists the screen side where the Rail is drawn. */
     fun setRailSide(side: RailSide) = prefsRepo.setRailSide(side)
+
+    /** Persists whether swiping up on Home opens Search. */
+    fun setOpenSearchOnSwipeUp(enabled: Boolean) = prefsRepo.setOpenSearchOnSwipeUp(enabled)
+
+    /** Persists whether pressing Home on Home opens Search. */
+    fun setOpenSearchOnHomePress(enabled: Boolean) = prefsRepo.setOpenSearchOnHomePress(enabled)
 }

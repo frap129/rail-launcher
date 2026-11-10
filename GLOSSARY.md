@@ -184,6 +184,14 @@ _Avoid_: Drawer, all-apps, launcher list
 The launcher state for typing a query, which shows the matching Launchables as Search results.
 _Avoid_: Search mode, finder
 
+**Home press**:
+A HOME intent that arrives while Rail is already resumed and showing Home. The Home-press entry in Rail Settings opens Search on such a press instead of staying on Home.
+_Avoid_: Home tap, re-selection
+
+**Swipe up**:
+An upward drag on Home. The swipe-up entry in Rail Settings opens Search on it.
+_Avoid_: Upward swipe, flick
+
 **Search result**:
 One row of the Launchables Search finds for its query.
 _Avoid_: Match, hit

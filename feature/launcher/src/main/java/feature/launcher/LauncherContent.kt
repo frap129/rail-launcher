@@ -182,6 +182,7 @@ internal fun LauncherContent(
                 folderSummaries = folderSummaries,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
+                onSwipeUp = viewModel::onHomeSwipeUp,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
                 isPopupSwipeEnabled = !isEditingHome,
@@ -231,7 +232,7 @@ internal fun LauncherContent(
                         folderSummaries = folderSummaries,
                         topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
                         bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp,
-                        onSearchOpen = viewModel::openSearch
+                        onSearchOpen = { viewModel.openSearch() }
                     )
                 }
 

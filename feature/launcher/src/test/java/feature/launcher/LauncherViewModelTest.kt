@@ -306,7 +306,7 @@ class LauncherViewModelTest {
                 awaitState<LauncherUiState.AppList.Browsing>()
                 runCurrent()
                 expectNoEvents()
-                viewModel.onHomeIntent()
+                viewModel.onHomeIntent(wasResumed = true)
                 awaitState<LauncherUiState.Home>()
                 runCurrent()
                 expectNoEvents()
@@ -509,7 +509,7 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailReleased(railIndex(inputListedGroups[1]))
                 expectAppList()
-                viewModel.onHomeIntent()
+                viewModel.onHomeIntent(wasResumed = true)
                 expectHome()
             }
         }
@@ -521,7 +521,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 val actualFirstHome: LauncherUiState.Home = expectHome()
-                viewModel.onHomeIntent()
+                viewModel.onHomeIntent(wasResumed = true)
                 val actualSecondHome: LauncherUiState.Home = expectHome()
                 assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
                 assertEquals(0, actualSecondHome.lazyListState.firstVisibleItemIndex)
@@ -1770,7 +1770,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("al")
             assertEquals(listOf(inputItem), expectSearch().results)
 
-            viewModel.onHomeIntent()
+            viewModel.onHomeIntent(wasResumed = true)
 
             expectHome()
             viewModel.openSearch()
@@ -1919,6 +1919,125 @@ class LauncherViewModelTest {
             assertEquals(listOf(inputMember), expectSearch().results)
         }
     }
+
+    @Test
+    fun `Home opens Search when the Home-press entry is on`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onHomeIntent(wasResumed = true)
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("", actualSearch.query)
+        }
+    }
+
+    @Test
+    fun `Home does not open Search when the Home-press entry is off`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = false))
+
+        viewModel.uiState.test {
+            val actualFirstHome: LauncherUiState.Home = expectHome()
+
+            viewModel.onHomeIntent(wasResumed = true)
+
+            val actualSecondHome: LauncherUiState.Home = expectHome()
+            assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
+            runCurrent()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Home intent from another app does not open Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+
+        viewModel.uiState.test {
+            val actualFirstHome: LauncherUiState.Home = expectHome()
+
+            viewModel.onHomeIntent(wasResumed = false)
+
+            val actualSecondHome: LauncherUiState.Home = expectHome()
+            assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
+            runCurrent()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Home closes an open Search when the Home-press entry is on`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.onHomeIntent(wasResumed = true)
+
+            expectHome()
+        }
+    }
+
+    @Test
+    fun `Swipe up opens Search when its entry is on`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnSwipeUp = true))
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onHomeSwipeUp()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("", actualSearch.query)
+        }
+    }
+
+    @Test
+    fun `Swipe up does not open Search when its entry is off`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnSwipeUp = false))
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onHomeSwipeUp()
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Swipe up during a Home edit mode does not open Search`() = runTest {
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        inputHomeEditState.tryEnter(HomeEditMode.Widgets)
+        val viewModel: LauncherViewModel = createViewModelWithSettings(
+            settings = Settings(openSearchOnSwipeUp = true),
+            inputHomeEditState = inputHomeEditState
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onHomeSwipeUp()
+            runCurrent()
+
+            assertFalse(viewModel.isSearchOpen())
+            expectNoEvents()
+        }
+    }
+
+    // Creates the ViewModel and lets its eager settings subscription read the saved entries.
+    private fun TestScope.createViewModelWithSettings(
+        settings: Settings,
+        inputHomeEditState: HomeEditState = HomeEditState()
+    ): LauncherViewModel = createViewModel(
+        mockPreferencesRepository = createPreferencesRepositoryMock(settings = settings),
+        inputHomeEditState = inputHomeEditState
+    ).also { advanceUntilIdle() }
 
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,

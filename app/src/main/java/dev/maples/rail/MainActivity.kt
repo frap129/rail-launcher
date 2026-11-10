@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import core.lifecycle.HomePressState
 import core.lifecycle.HomeSignals
 import core.lifecycle.TemplateActivity
 import core.ui.App
@@ -49,6 +50,8 @@ class MainActivity : TemplateActivity() {
     private val wallpaperManager: WallpaperManager by lazy {
         WallpaperManager.getInstance(applicationContext)
     }
+
+    private val homePressState: HomePressState = HomePressState()
 
     private var isWallpaperBacked: Boolean = launcherDestination.isWallpaperBacked
 
@@ -100,11 +103,31 @@ class MainActivity : TemplateActivity() {
         super.onDestroy()
     }
 
+    override fun onPause() {
+        super.onPause()
+        homePressState.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        homePressState.onResume()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        homePressState.onStop()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        homePressState.onWindowFocusChanged(hasFocus = hasFocus)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
-            homeSignals.signal()
+            homeSignals.signal(wasResumed = homePressState.wasResumedAtHomeIntent())
         }
     }
 

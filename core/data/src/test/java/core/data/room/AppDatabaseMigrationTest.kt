@@ -3,6 +3,7 @@ package core.data.room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.Settings
 import core.data.testing.TEST_ICON_PACK_PACKAGE
@@ -26,6 +27,8 @@ private const val RAIL_SIDE_DATABASE_NAME: String = "rail-side-migration-test"
 private const val RAIL_SIDE_DATABASE_VERSION: Int = 15
 private const val LAUNCHABLE_CUSTOMIZATIONS_DATABASE_NAME: String = "launchable-customizations-migration-test"
 private const val LAUNCHABLE_CUSTOMIZATIONS_DATABASE_VERSION: Int = 16
+private const val SEARCH_ENTRIES_DATABASE_NAME: String = "search-entries-migration-test"
+private const val SEARCH_ENTRIES_DATABASE_VERSION: Int = 17
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
@@ -143,6 +146,47 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Search entries defaulting swipe up on and Home press off and keeps the settings row`() {
+        withDatabase(
+            name = SEARCH_ENTRIES_DATABASE_NAME,
+            version = SEARCH_ENTRIES_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    hidePrivateSpaceWhenLocked = true,
+                    scrubEdges = ScrubEdges.START,
+                    railSide = RailSide.START
+                )
+            }
+        ) { db ->
+            MIGRATION_17_18.migrate(db)
+
+            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualSwipeUp: Boolean = db.openSearchOnSwipeUp()
+            val actualHomePress: Boolean = db.openSearchOnHomePress()
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED,
+                    Settings.COLUMN_SCRUB_EDGES,
+                    Settings.COLUMN_RAIL_SIDE,
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS
+                ),
+                actualColumns
+            )
+            assertEquals(true, actualSwipeUp)
+            assertEquals(false, actualHomePress)
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(true, db.hidePrivateSpaceWhenLocked())
+            assertEquals("START", db.scrubEdges())
+            assertEquals("START", db.railSide())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -214,26 +258,33 @@ private fun withDatabase(
 private fun SupportSQLiteDatabase.createSettingsRow(
     iconPack: String,
     hidePrivateSpaceWhenLocked: Boolean? = null,
-    scrubEdges: ScrubEdges? = null
+    scrubEdges: ScrubEdges? = null,
+    railSide: RailSide? = null
 ) {
-    val hideColumnDefinition: String = if (hidePrivateSpaceWhenLocked == null) {
-        ""
-    } else {
+    val hideDefinition: String? = hidePrivateSpaceWhenLocked?.let {
         ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
     }
-    val scrubEdgesColumnDefinition: String = if (scrubEdges == null) {
-        ""
-    } else {
+    val scrubEdgesDefinition: String? = scrubEdges?.let {
         ", ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
     }
-    val hideColumn: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}"
-    val scrubEdgesColumn: String = if (scrubEdges == null) "" else ", ${Settings.COLUMN_SCRUB_EDGES}"
-    val hideValue: String = if (hidePrivateSpaceWhenLocked == null) "" else ", ${if (hidePrivateSpaceWhenLocked) 1 else 0}"
-    val scrubEdgesValue: String = if (scrubEdges == null) "" else ", '${scrubEdges.name}'"
-    val columns: String = "id INTEGER NOT NULL, icon_pack TEXT$hideColumnDefinition$scrubEdgesColumnDefinition"
-    val values: String = "0, '$iconPack'$hideValue$scrubEdgesValue"
+    val railSideDefinition: String? = railSide?.let {
+        ", ${Settings.COLUMN_RAIL_SIDE} TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'"
+    }
+    val definitions: String = listOfNotNull(hideDefinition, scrubEdgesDefinition, railSideDefinition).joinToString(separator = "")
+    val optionalColumns: List<String> = listOfNotNull(
+        hidePrivateSpaceWhenLocked?.let { ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}" },
+        scrubEdges?.let { ", ${Settings.COLUMN_SCRUB_EDGES}" },
+        railSide?.let { ", ${Settings.COLUMN_RAIL_SIDE}" }
+    )
+    val optionalValues: List<String> = listOfNotNull(
+        hidePrivateSpaceWhenLocked?.let { ", ${if (it) 1 else 0}" },
+        scrubEdges?.let { ", '${it.name}'" },
+        railSide?.let { ", '${it.name}'" }
+    )
+    val columns: String = "id INTEGER NOT NULL, icon_pack TEXT$definitions"
+    val values: String = "0, '$iconPack'${optionalValues.joinToString(separator = "")}"
     execSQL("CREATE TABLE $SETTINGS_TABLE ($columns, PRIMARY KEY(id))")
-    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$hideColumn$scrubEdgesColumn) VALUES ($values)")
+    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack${optionalColumns.joinToString(separator = "")}) VALUES ($values)")
 }
 
 private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = query("PRAGMA table_info($table)").use { cursor ->
@@ -281,6 +332,18 @@ private fun SupportSQLiteDatabase.railSide(): String = query("SELECT ${Settings.
     cursor.moveToFirst()
     cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_RAIL_SIDE))
 }
+
+private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean =
+    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP)) != 0
+    }
+
+private fun SupportSQLiteDatabase.openSearchOnHomePress(): Boolean =
+    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS)) != 0
+    }
 
 private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM $SETTINGS_TABLE").use { cursor ->
     cursor.moveToFirst()
