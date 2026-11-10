@@ -4,6 +4,14 @@ import java.text.Normalizer
 import java.util.Locale
 
 private val COMBINING_MARKS_REGEX: Regex = Regex("\\p{M}+")
+private val WORD_SEPARATOR_REGEX: Regex = Regex("[^\\p{L}\\p{N}]+")
+
+/**
+ * This text split into words at punctuation and symbols, keeping letters and digits in words.
+ * The text is not folded; fold it with [normalizedForSearch] first when matching ignores case
+ * and accents.
+ */
+fun String.wordsForSearch(): List<String> = WORD_SEPARATOR_REGEX.split(this).filter { word -> word.isNotEmpty() }
 
 /**
  * The single search fold: this text decomposed with Unicode NFD, stripped of all Unicode marks

@@ -38,6 +38,7 @@ import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
+import core.data.testing.createBuiltinGroup
 import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createIntentSender
@@ -46,6 +47,7 @@ import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
+import core.data.testing.createPausedWorkApp
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateApp
@@ -103,7 +105,7 @@ class LauncherViewModelTest {
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
     private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-    private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
+    private val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
     private val inputListedGroups: List<LaunchableGroup.Listed> = listOf(
         LaunchableGroup.InitialGroup(label = "A", items = listOf(createRailLaunchable("Alpha"))),
         LaunchableGroup.InitialGroup(label = "B", items = listOf(createRailLaunchable("Beta"))),
@@ -1676,6 +1678,248 @@ class LauncherViewModelTest {
         assertEquals(mapOf(fixture.folder.key to listOf("WhatsApp")), fixture.viewModel.folderSummaries.value)
     }
 
+    @Test
+    fun `opens Search from the App List`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+
+            viewModel.openSearch()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("", actualSearch.query)
+            assertTrue(actualSearch.results.isEmpty())
+        }
+    }
+
+    @Test
+    fun `updates the Search results for the current query`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            expectSearch()
+
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.setSearchQuery("be")
+            assertEquals(listOf(listedItem(1)), expectSearch().results)
+        }
+    }
+
+    @Test
+    fun `Go opens the Top result and resets Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            val actualTopResult: Launchable? = viewModel.onSearchGo()
+            assertEquals(inputItem, actualTopResult)
+            assertTrue(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+
+            viewModel.onLaunched()
+
+            expectAppList()
+            viewModel.openSearch()
+            assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `Back clears the query before closing Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.onBack()
+
+            val actualCleared: LauncherUiState.Search = expectSearch()
+            assertEquals("", actualCleared.query)
+            assertTrue(actualCleared.results.isEmpty())
+
+            viewModel.onBack()
+
+            expectAppList()
+        }
+    }
+
+    @Test
+    fun `Home closes Search and resets the query`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.onHomeIntent()
+
+            expectHome()
+            viewModel.openSearch()
+            assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `a launch closes and resets Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+
+            viewModel.onLaunched()
+
+            expectAppList()
+            viewModel.openSearch()
+            assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `does not open Search while editing Favorites`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.editFavorites()
+            assertTrue(expectHome().isEditingFavorites)
+
+            viewModel.openSearch()
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `entering Edit Favorites from Search closes Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.editFavorites()
+
+            assertTrue(expectHome().isEditingFavorites)
+            viewModel.finishEditingFavorites()
+            advanceUntilIdle()
+            viewModel.openSearch()
+            assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `Go on a paused result opens the paused prompt instead of launching`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputPausedApp))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("gmail")
+            assertEquals(listOf(inputPausedApp), expectSearch().results)
+
+            val actualTopResult: Launchable? = viewModel.onSearchGo()
+            assertEquals(inputPausedApp, actualTopResult)
+            assertFalse(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
+            assertEquals("gmail", actualRemainingSearch.query)
+        }
+    }
+
+    @Test
+    fun `Go on a disabled Shortcut result never launches it`() = runTest {
+        val inputDisabledShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site", isEnabled = false)
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups, folders = listOf(inputDisabledShortcut))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("shortcut")
+            assertEquals(listOf(inputDisabledShortcut), expectSearch().results)
+
+            val actualTopResult: Launchable? = viewModel.onSearchGo()
+            assertEquals(inputDisabledShortcut, actualTopResult)
+            assertTrue(requireNotNull(actualTopResult).isDisabled)
+            assertFalse(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
+            assertEquals("shortcut", actualRemainingSearch.query)
+        }
+    }
+
+    @Test
+    fun `Search hides a private App while its Private Space is Locked`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(privateSpace = LaunchableGroup.PrivateSpace.Locked)
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups, folders = listOf(inputPrivateApp))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.openSearch()
+        viewModel.setSearchQuery("secret")
+
+        viewModel.uiState.test {
+            assertTrue(expectSearch().results.isEmpty())
+        }
+    }
+
+    @Test
+    fun `Search shows a private App while its Private Space is Unlocked`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups)
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.openSearch()
+        viewModel.setSearchQuery("secret")
+
+        viewModel.uiState.test {
+            assertEquals(listOf(inputPrivateApp), expectSearch().results)
+        }
+    }
+
+    @Test
+    fun `Search finds an App held in a Folder`() = runTest {
+        val inputMember: App = createApp(name = "Tetris", packageName = "com.example.tetris")
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups, folders = listOf(inputMember))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.openSearch()
+        viewModel.setSearchQuery("tetris")
+
+        viewModel.uiState.test {
+            assertEquals(listOf(inputMember), expectSearch().results)
+        }
+    }
+
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
         mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.mockFavoritesFixture.mockFavoritesRepository,
@@ -1700,13 +1944,6 @@ class LauncherViewModelTest {
         privateSpaceStatus = mockPrivateSpaceStatus,
         privateSpaceLock = privateSpaceLock,
         standaloneShortcutRepository = mockStandaloneShortcutRepository
-    )
-
-    private fun createPausedWorkApp(): App = createApp(
-        name = "Gmail",
-        packageName = "com.example.gmail",
-        profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
-        badgedLabel = "Work Gmail"
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
@@ -1787,6 +2024,8 @@ class LauncherViewModelTest {
     private fun TurbineTestContext<LauncherUiState>.expectHome(): LauncherUiState.Home = expectState()
 
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
+
+    private fun TurbineTestContext<LauncherUiState>.expectSearch(): LauncherUiState.Search = expectState()
 
     private fun assertAppListStateRetained(before: LauncherUiState.AppList.Browsing, after: LauncherUiState) {
         val actualAfter: LauncherUiState.AppList.Browsing = checkState(after)

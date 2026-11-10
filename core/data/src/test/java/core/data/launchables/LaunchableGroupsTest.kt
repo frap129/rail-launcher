@@ -10,6 +10,7 @@ import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.createBuiltinGroup
 import core.data.testing.createFixedPrivateSpaceStatus
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
@@ -26,7 +27,7 @@ import org.robolectric.annotation.Config
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class LaunchableGroupsTest {
     private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-    private val inputBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createLaunchable("Rail Settings")))
+    private val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
 
     @Test
     fun `places the Star above A`() {
