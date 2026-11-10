@@ -19,7 +19,7 @@ import core.data.profiles.ProfileInfo
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.data.shortcuts.ShortcutLaunchable
-import core.util.drawableNameContains
+import core.util.drawableNameHasWord
 import core.util.getIconsFromPack
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -196,7 +196,7 @@ class IIconRepositoryImpl(
             val matchingNames: List<String> = iconPackSource.drawableCategories(packPackageName = pack.packageName)
                 .flatMap { category -> category.drawableNames }
                 .distinct()
-                .filter { drawableName -> words.any { word -> drawableName.drawableNameContains(term = word) } }
+                .filter { drawableName -> words.any { word -> drawableName.drawableNameHasWord(term = word) } }
             for (drawableName in matchingNames) {
                 if (suggestions.size >= MAX_LABEL_SUGGESTIONS) {
                     break

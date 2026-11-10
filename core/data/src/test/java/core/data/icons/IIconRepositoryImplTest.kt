@@ -12,6 +12,7 @@ import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
+import core.data.launchables.model.Launchable
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -200,98 +201,56 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `suggests pack icons whose names contain a Folder label word`() = databaseTest {
-        addIconPackActivity()
-        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
-            DrawableCategory(name = null, drawableNames = listOf("music_note", "video_player", "calculator"))
+    fun `matches each word of a multi-word Folder label`() = databaseTest {
+        assertLabelSuggestions(
+            launchable = Folder(folderId = 1L, name = "Music Player"),
+            drawableNames = listOf("music_note", "video_player", "calculator"),
+            expectedDrawableNames = listOf("music_note", "video_player")
         )
-        val inputFolder: Folder = Folder(folderId = 1L, name = "Music Player")
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
-        finishPendingWork()
-
-        repository.getSuggestedIcons(launchable = inputFolder).test {
-            runCurrent()
-
-            assertEquals(
-                listOf(
-                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "music_note"),
-                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "video_player")
-                ),
-                expectMostRecentItem()
-            )
-            cancelAndIgnoreRemainingEvents()
-        }
     }
 
     @Test
-    fun `suggests pack icons whose names contain a Shortcut label word`() = databaseTest {
-        addIconPackActivity()
-        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
-            DrawableCategory(name = null, drawableNames = listOf("music_note", "calculator"))
+    fun `matches a Folder label word as a whole drawable-name word`() = databaseTest {
+        assertLabelSuggestions(
+            launchable = Folder(folderId = 1L, name = "Car"),
+            drawableNames = listOf("car", "car_rental", "card", "scarlet"),
+            expectedDrawableNames = listOf("car", "car_rental")
         )
+    }
+
+    @Test
+    fun `matches a Shortcut label word as a whole drawable-name word`() = databaseTest {
         val inputShortcut: ShortcutLaunchable = ShortcutLaunchable(
             packageName = APP_PACKAGE_NAME,
             shortcutId = "shortcut-id",
             profile = inputPersonalUser,
-            shortLabel = "Music",
-            longLabel = "Music"
+            shortLabel = "Car",
+            longLabel = "Car"
         )
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
-        finishPendingWork()
 
-        repository.getSuggestedIcons(launchable = inputShortcut).test {
-            runCurrent()
-
-            assertEquals(
-                listOf(Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "music_note")),
-                expectMostRecentItem()
-            )
-            cancelAndIgnoreRemainingEvents()
-        }
+        assertLabelSuggestions(
+            launchable = inputShortcut,
+            drawableNames = listOf("car", "car_rental", "card", "scarlet"),
+            expectedDrawableNames = listOf("car", "car_rental")
+        )
     }
 
     @Test
     fun `ignores label words shorter than three characters`() = databaseTest {
-        addIconPackActivity()
-        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
-            DrawableCategory(name = null, drawableNames = listOf("tv_channel"))
+        assertLabelSuggestions(
+            launchable = Folder(folderId = 1L, name = "TV"),
+            drawableNames = listOf("tv_channel"),
+            expectedDrawableNames = emptyList()
         )
-        val inputFolder: Folder = Folder(folderId = 1L, name = "TV")
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
-        finishPendingWork()
-
-        repository.getSuggestedIcons(launchable = inputFolder).test {
-            runCurrent()
-
-            assertTrue(awaitItem().isEmpty())
-            cancelAndIgnoreRemainingEvents()
-        }
     }
 
     @Test
     fun `caps label suggestions at 12`() = databaseTest {
-        addIconPackActivity()
-        val inputDrawableNames: List<String> = (1..13).map { index -> "music_$index" }
-        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
-            DrawableCategory(name = null, drawableNames = inputDrawableNames)
+        assertLabelSuggestions(
+            launchable = Folder(folderId = 1L, name = "Music"),
+            drawableNames = (1..13).map { index -> "music_$index" },
+            expectedDrawableNames = (1..12).map { index -> "music_$index" }
         )
-        val inputFolder: Folder = Folder(folderId = 1L, name = "Music")
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
-        finishPendingWork()
-
-        repository.getSuggestedIcons(launchable = inputFolder).test {
-            runCurrent()
-
-            val actualSuggestions: List<Icon> = expectMostRecentItem()
-            assertEquals(12, actualSuggestions.size)
-            assertEquals(
-                inputDrawableNames.take(12).map { drawableName ->
-                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = drawableName)
-                },
-                actualSuggestions
-            )
-            cancelAndIgnoreRemainingEvents()
-        }
     }
 
     @Test
@@ -457,6 +416,31 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         scope = backgroundScope,
         dispatcher = databaseDispatcher
     )
+
+    private suspend fun TestScope.assertLabelSuggestions(
+        launchable: Launchable,
+        drawableNames: List<String>,
+        expectedDrawableNames: List<String>
+    ) {
+        addIconPackActivity()
+        every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
+            DrawableCategory(name = null, drawableNames = drawableNames)
+        )
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+        finishPendingWork()
+
+        repository.getSuggestedIcons(launchable = launchable).test {
+            runCurrent()
+
+            assertEquals(
+                expectedDrawableNames.map { drawableName ->
+                    Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = drawableName)
+                },
+                expectMostRecentItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     private fun IIconRepositoryImpl.hasIconPack(): Boolean = iconPacks.value.any { pack ->
         pack is IconPack.CustomIconPack && pack.packageName == ICON_PACK_PACKAGE_NAME
