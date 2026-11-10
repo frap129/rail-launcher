@@ -128,6 +128,7 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
+import core.ui.composables.DestructiveConfirmationDialog
 import core.ui.composables.NotificationAccessRow
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -273,7 +274,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     scrubEdges = uiState.scrubEdges,
                     onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                     onRailSideSelected = viewModel::setRailSide,
-                    onScrubEdgesSelected = viewModel::setScrubEdges
+                    onScrubEdgesSelected = viewModel::setScrubEdges,
+                    onResetCustomIcons = viewModel::resetCustomIcons
                 )
 
                 SettingsScreen.Widgets -> SettingsWidgetsScreen(
@@ -1553,14 +1555,22 @@ fun SettingsAppearanceScreen(
     scrubEdges: ScrubEdges,
     onIconPackSelected: (IconPack) -> Unit,
     onRailSideSelected: (RailSide) -> Unit,
-    onScrubEdgesSelected: (ScrubEdges) -> Unit
+    onScrubEdgesSelected: (ScrubEdges) -> Unit,
+    onResetCustomIcons: () -> Unit
 ) {
+    var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             IconPackRow(
                 iconPacks = iconPacks,
                 selectedIconPack = selectedIconPack,
                 onIconPackSelected = onIconPackSelected
+            )
+        }
+        item {
+            SettingsDestructiveRow(
+                title = stringResource(R.string.reset_custom_icons),
+                onClick = { showResetCustomIconsConfirmation = true }
             )
         }
         item { SettingsSectionTitle(R.string.rail) }
@@ -1576,6 +1586,18 @@ fun SettingsAppearanceScreen(
                 onScrubEdgesSelected = onScrubEdgesSelected
             )
         }
+    }
+    if (showResetCustomIconsConfirmation) {
+        DestructiveConfirmationDialog(
+            title = stringResource(R.string.reset_custom_icons_title),
+            body = stringResource(R.string.reset_custom_icons_body),
+            confirmLabel = stringResource(R.string.reset_custom_icons),
+            onConfirm = {
+                onResetCustomIcons()
+                showResetCustomIconsConfirmation = false
+            },
+            onDismiss = { showResetCustomIconsConfirmation = false }
+        )
     }
 }
 

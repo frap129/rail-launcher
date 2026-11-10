@@ -5,6 +5,9 @@
     <string name="rail">Rail</string>
     <string name="show_rail_on_left">Show Rail on left</string>
     <string name="icon_pack">Icon Pack</string>
+    <string name="reset_custom_icons">Reset custom icons</string>
+    <string name="reset_custom_icons_title">Reset custom icons?</string>
+    <string name="reset_custom_icons_body">Apps, Shortcuts and Folders stop using their custom icons. Custom names are kept.</string>
     <string name="scrub_edges">Scrub edges</string>
     <string name="scrub_edges_summary">The edge without the Rail gets an invisible strip that scrubs it too</string>
     <string name="scrub_edges_left">Left</string>

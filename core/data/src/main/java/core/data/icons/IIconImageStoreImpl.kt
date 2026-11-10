@@ -30,6 +30,10 @@ class IIconImageStoreImpl(context: Context) : IIconImageStore {
         resolveImageFile(fileName = fileName)?.delete()
     }
 
+    override fun deleteAll() {
+        directory.listFiles()?.forEach { file -> file.delete() }
+    }
+
     private fun resolveImageFile(fileName: String): File? = iconImageFile(directory = directory, fileName = fileName)
 }
 
