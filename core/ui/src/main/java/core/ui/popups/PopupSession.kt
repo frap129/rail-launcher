@@ -53,6 +53,9 @@ interface IPopupSession {
     /** Dismisses the editor, pickers and Folder sheets a closing card would cover. */
     fun onCardClosed()
 
+    /** Dismisses what leaving the app closes, keeping a gallery pick still waiting for its result. */
+    fun onHostStopped()
+
     /** Closes what an edit sheet, picker or Folder dialog would cover. */
     fun onSheetOpened()
 
@@ -109,9 +112,17 @@ class IPopupSessionImpl : IPopupSession {
     }
 
     override fun onCardClosed() {
+        closeCardLayers { iconPicker?.onCardClosed() }
+    }
+
+    override fun onHostStopped() {
+        closeCardLayers { iconPicker?.onHostStopped() }
+    }
+
+    private fun closeCardLayers(closeIconPicker: () -> Unit) {
         folder?.onCardClosed()
         picker?.onCardClosed()
-        iconPicker?.onCardClosed()
+        closeIconPicker()
         editor?.onCardClosed()
     }
 

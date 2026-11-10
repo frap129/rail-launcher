@@ -217,12 +217,13 @@ abstract class PopupTestBase {
 
     protected fun TestScope.createCollaborators(
         session: IPopupSession = IPopupSessionImpl(),
-        homeEditState: HomeEditState = inputHomeEditState
+        homeEditState: HomeEditState = inputHomeEditState,
+        mockImageImporter: IIconImageImporter = createIconImageImporterMock()
     ): IPopupCollaborators = IPopupCollaboratorsImpl(
         session = session,
         editor = createEditor(session = session, homeEditState = homeEditState),
         picker = createPicker(session = session, homeEditState = homeEditState),
-        iconPicker = createIconPicker(session = session, homeEditState = homeEditState),
+        iconPicker = createIconPicker(session = session, homeEditState = homeEditState, mockImageImporter = mockImageImporter),
         folder = createFolder(session = session, homeEditState = homeEditState)
     )
 }

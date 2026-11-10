@@ -60,7 +60,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
     val state: IconPickerState by iconPicker.iconPickerState.collectAsState()
     val galleryLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?> =
         rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            uri?.let { selectedUri -> iconPicker.selectGalleryImage(uri = selectedUri) }
+            iconPicker.selectGalleryImage(uri = uri)
         }
     when (val pickerState: IconPickerState = state) {
         IconPickerState.Closed -> Unit
@@ -69,6 +69,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
             state = pickerState,
             onOriginal = iconPicker::resetIcon,
             onGallery = {
+                iconPicker.startGalleryPick()
                 galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onIcon = iconPicker::selectIcon,
