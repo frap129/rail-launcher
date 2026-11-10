@@ -21,20 +21,21 @@ import kotlinx.coroutines.withContext
  * A Folder spans the Folder table, its added items and hidden Shortcuts, its Pop-up Place, its name
  * customization and the Favorites, so a failure must not leave a partial Folder.
  *
- * [delete] runs the Folder row, its Pop-up rows, its Pop-up Place and its name customization in one
- * Room transaction. The Favorites row cannot join it: the Favorites repository waits for its resolved
- * Flow to see a write, and that Flow cannot update until the transaction commits, so the wait can
- * run to its timeout. It is removed after commit, with the Favorites repository's stale purge as the
- * fallback. Releasing system App Widget ids and Shortcut pins also waits for the commit, so a
- * rollback cannot leave rows pointing at ids that are already gone.
+ * [delete] runs the Folder row, its Pop-up rows, its Pop-up Place and its Launchable customization in
+ * one Room transaction. The Favorites row cannot join it: the Favorites repository waits for its
+ * resolved Flow to see a write, and that Flow cannot update until the transaction commits, so the
+ * wait can run to its timeout. It is removed after commit, with the Favorites repository's stale
+ * purge as the fallback. Releasing system App Widget ids and Shortcut pins also waits for the
+ * commit, so a rollback cannot leave rows pointing at ids that are already gone.
  *
  * [create] writes in order and undoes what it wrote when a later write fails. A transaction would
  * make the Folder visible together with its rows, so the Pop-up and Favorites purges would get no
  * head start before the launchable resolution reacts. Ordering narrows that race without removing
  * it; the purges remain the fallback.
  *
- * The name customization is written through its DAO: on delete it joins the transaction, and on
- * create it is the last write, removed if an earlier write fails.
+ * Customizations are removed through the preferences repository, so their image files are deleted
+ * only after the transaction commits. On create the name is the last write, through its DAO,
+ * removed if an earlier write fails.
  */
 class IFolderRepositoryImpl(
     private val folderDao: FolderDao,
@@ -86,7 +87,7 @@ class IFolderRepositoryImpl(
         val freedIds: List<AppWidgetId> = folderDao.inTransaction {
             withContext(effects) {
                 val deletedIds: List<AppWidgetId> = deleteFolderRows(folder = folder, tolerateFailures = false)
-                launchableCustomizationDao.delete(key = folder.key)
+                removeCustomization(folder)
                 deletedIds
             }
         }
@@ -98,12 +99,17 @@ class IFolderRepositoryImpl(
     /** Undoes a failed [create]; a failure in one step does not skip the remaining steps. */
     private suspend fun discardFolder(folder: Folder) {
         deleteFolderRows(folder = folder, tolerateFailures = true)
-        runCleanup(message = "Failed to delete the name of a failed create") { launchableCustomizationDao.delete(key = folder.key) }
+        runCleanup(message = "Failed to delete the customization of a failed create") { removeCustomization(folder) }
         removeFavorite(folder)
         // The Folder row is what the caller sees, so try its delete once more after the purgeable rows.
         deleteStep(tolerateFailures = true, message = "Failed to delete the Folder of a failed create") {
             folderDao.delete(id = folder.folderId)
         }
+    }
+
+    /** Removes the Folder's Launchable customization, deleting its image after the transaction commits. */
+    private suspend fun removeCustomization(folder: Folder) {
+        preferencesRepository.removeLaunchableCustomizations(keys = listOf(folder.key))
     }
 
     /** Deletes the Folder's Pop-up rows and then the Folder row, keeping the Widget release deferred. */

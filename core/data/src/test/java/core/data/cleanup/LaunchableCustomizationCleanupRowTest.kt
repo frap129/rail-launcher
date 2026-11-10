@@ -1,6 +1,5 @@
 package core.data.cleanup
 
-import android.graphics.Bitmap
 import core.data.icons.IIconImageStore
 import core.data.icons.model.CustomIcon
 import core.data.prefs.IPreferencesRepository
@@ -15,8 +14,7 @@ private const val STALE_IMAGE_FILE_NAME: String = "stale-image.png"
 class LaunchableCustomizationCleanupRowTest : InMemoryDatabaseTest() {
     @Test
     fun `deletes a stale customization row and its image file`() = databaseTest {
-        val inputImageStore: IIconImageStore = createIconImageStore()
-        assertTrue(inputImageStore.write(fileName = STALE_IMAGE_FILE_NAME, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
+        val inputImageStore: IIconImageStore = createImageStoreWithFiles(STALE_IMAGE_FILE_NAME)
         database.getLaunchableCustomizationDao().setIcon(key = STALE_KEY, icon = CustomIcon.Image(fileName = STALE_IMAGE_FILE_NAME))
         val repository: IPreferencesRepository = createPreferencesRepository(iconImageStore = inputImageStore)
         val row: IStaleKeyRow = LaunchableCustomizationCleanupRow(preferencesRepository = repository)

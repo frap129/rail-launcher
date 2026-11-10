@@ -1,5 +1,6 @@
 package core.data.testing
 
+import android.graphics.Bitmap
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
@@ -22,6 +23,7 @@ import kotlinx.coroutines.test.TestResult
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -69,6 +71,13 @@ abstract class InMemoryDatabaseTest {
 
     /** A real [IIconImageStore] over the test app's private files directory. */
     fun createIconImageStore(): IIconImageStore = IIconImageStoreImpl(context = RuntimeEnvironment.getApplication())
+
+    /** A real [IIconImageStore] holding an image for each of [fileNames]. */
+    fun createImageStoreWithFiles(vararg fileNames: String): IIconImageStore = createIconImageStore().apply {
+        fileNames.forEach { fileName ->
+            assertTrue(write(fileName = fileName, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
+        }
+    }
 
     /** A real [IPreferencesRepository] over the test database, writing on this test scope. */
     fun TestScope.createPreferencesRepository(

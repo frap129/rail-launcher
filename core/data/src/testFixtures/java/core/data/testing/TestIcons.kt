@@ -15,6 +15,9 @@ const val TEST_CUSTOM_ICON_DRAWABLE_NAME: String = "calendar"
 /** The side length of the square gallery icon tests import. */
 const val TEST_GALLERY_ICON_SIZE: Int = 192
 
+/** The file name tests give an imported gallery icon. */
+const val TEST_GALLERY_ICON_FILE_NAME: String = "gallery-icon.png"
+
 /** An installed Icon pack for tests. */
 fun createCustomIconPack(name: String = "Custom Pack", packageName: String = TEST_ICON_PACK_PACKAGE): IconPack.CustomIconPack =
     IconPack.CustomIconPack(

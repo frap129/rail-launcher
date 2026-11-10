@@ -1,6 +1,5 @@
 package core.data.prefs
 
-import android.graphics.Bitmap
 import core.data.icons.IIconImageStore
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
@@ -432,10 +431,4 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = LAUNCHABLE_DEEPLINK
     )
-
-    private fun createImageStoreWithFiles(vararg fileNames: String): IIconImageStore = createIconImageStore().apply {
-        fileNames.forEach { fileName ->
-            assertTrue(write(fileName = fileName, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
-        }
-    }
 }
