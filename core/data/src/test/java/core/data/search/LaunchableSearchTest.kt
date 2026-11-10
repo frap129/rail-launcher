@@ -23,6 +23,15 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class LaunchableSearchTest {
+    private val inputRvnc: Launchable = createRailLaunchable("RVNC")
+    private val inputRvncState: LaunchableState = createLoadedLaunchableState(listOf(inputRvnc))
+    private val inputMaps: Launchable = createRailLaunchable("Maps")
+    private val inputMapsState: LaunchableState = createLoadedLaunchableState(listOf(inputMaps))
+    private val inputCalendar: Launchable = createRailLaunchable("Calendar")
+    private val inputCalendarState: LaunchableState = createLoadedLaunchableState(listOf(inputCalendar))
+    private val inputRenamedCalendar: App = createApp(name = "Calendar", packageName = "com.example.calendar", customName = "Planner")
+    private val inputRenamedCalendarState: LaunchableState = createLoadedLaunchableState(listOf(inputRenamedCalendar))
+
     @Test
     fun `folds accents and case in the query and the name`() {
         val inputCafe: Launchable = createRailLaunchable("Café")
@@ -168,6 +177,162 @@ class LaunchableSearchTest {
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(createRailLaunchable("Alpha")))
 
         val actualResults: List<Launchable> = inputState.searchLaunchables(query = "zulu")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `matches the initials of consecutive words`() {
+        val inputGoogleMaps: Launchable = createRailLaunchable("Google Maps")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogleMaps))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gm")
+
+        assertEquals(listOf(inputGoogleMaps), actualResults)
+    }
+
+    @Test
+    fun `does not match initials taken from non-consecutive words`() {
+        val inputGoogleMapsApp: Launchable = createRailLaunchable("Google Maps App")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogleMapsApp))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "ga")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `does not match initials when the query is longer than the words`() {
+        val inputGoogle: Launchable = createRailLaunchable("Google")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogle))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gm")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `does not find a renamed Folder by its placeholder default name`() {
+        val inputFolder: Launchable = Folder(folderId = 1L, name = "Games")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputFolder))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "folder")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `matches inside a word from three characters`() {
+        val actualResults: List<Launchable> = inputRvncState.searchLaunchables(query = "vnc")
+
+        assertEquals(listOf(inputRvnc), actualResults)
+    }
+
+    @Test
+    fun `does not match inside a word below three characters`() {
+        val actualResults: List<Launchable> = inputRvncState.searchLaunchables(query = "vn")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `ranks exact, name start, word start, initials and in-word matches in order`() {
+        val inputExact: Launchable = createRailLaunchable("Gma")
+        val inputNameStart: Launchable = createRailLaunchable("Gmail")
+        val inputWordStart: Launchable = createRailLaunchable("Big Gmat")
+        val inputInitials: Launchable = createRailLaunchable("Google Maps App")
+        val inputInWord: Launchable = createRailLaunchable("Sigma")
+        val inputState: LaunchableState = createLoadedLaunchableState(
+            listOf(inputInWord, inputInitials, inputWordStart, inputNameStart, inputExact)
+        )
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gma")
+
+        val expectedResults: List<Launchable> = listOf(inputExact, inputNameStart, inputWordStart, inputInitials, inputInWord)
+        assertEquals(expectedResults, actualResults)
+    }
+
+    @Test
+    fun `matches one typo from five characters`() {
+        val actualResults: List<Launchable> = inputMapsState.searchLaunchables(query = "mapzs")
+
+        assertEquals(listOf(inputMaps), actualResults)
+    }
+
+    @Test
+    fun `matches an adjacent transposition from five characters`() {
+        val inputGmail: Launchable = createRailLaunchable("Gmail")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGmail))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gmial")
+
+        assertEquals(listOf(inputGmail), actualResults)
+    }
+
+    @Test
+    fun `does not match a typo below five characters`() {
+        val actualResults: List<Launchable> = inputMapsState.searchLaunchables(query = "mapz")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `allows two typos from eight characters`() {
+        val actualResults: List<Launchable> = inputCalendarState.searchLaunchables(query = "calenxxr")
+
+        assertEquals(listOf(inputCalendar), actualResults)
+    }
+
+    @Test
+    fun `does not allow two typos below eight characters`() {
+        val actualResults: List<Launchable> = inputCalendarState.searchLaunchables(query = "calenxa")
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `ranks an in-word match above a typo`() {
+        val inputInWord: Launchable = createRailLaunchable("Hydroid")
+        val inputTypo: Launchable = createRailLaunchable("Droie")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputTypo, inputInWord))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "droid")
+
+        assertEquals(listOf(inputInWord, inputTypo), actualResults)
+    }
+
+    @Test
+    fun `finds a renamed App by its default name`() {
+        val actualResults: List<Launchable> = inputRenamedCalendarState.searchLaunchables(query = "calendar")
+
+        assertEquals(listOf(inputRenamedCalendar), actualResults)
+    }
+
+    @Test
+    fun `finds a renamed App by its custom name`() {
+        val actualResults: List<Launchable> = inputRenamedCalendarState.searchLaunchables(query = "planner")
+
+        assertEquals(listOf(inputRenamedCalendar), actualResults)
+    }
+
+    @Test
+    fun `keeps the stronger match between a custom and a default name`() {
+        val inputRenamed: App = createApp(name = "Maps", packageName = "com.example.maps", customName = "My Maps")
+        val inputRival: Launchable = createRailLaunchable("Maps Pro")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputRival, inputRenamed))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "maps")
+
+        assertEquals(listOf(inputRenamed, inputRival), actualResults)
+    }
+
+    @Test
+    fun `does not use word starts, initials or in-word matching for a single character`() {
+        val inputInitials: Launchable = createRailLaunchable("Google Maps")
+        val inputInWord: Launchable = createRailLaunchable("Palm")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputInitials, inputInWord))
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "m")
 
         assertTrue(actualResults.isEmpty())
     }

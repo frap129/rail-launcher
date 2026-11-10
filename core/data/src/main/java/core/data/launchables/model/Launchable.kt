@@ -11,6 +11,12 @@ abstract class Launchable {
     abstract val name: String
     abstract val icon: Icon
 
+    /**
+     * Whether [defaultName] is the name this Launchable had before customization, so Search
+     * matches it alongside [name]. A Folder only has a placeholder default name.
+     */
+    open val hasOriginalName: Boolean get() = true
+
     /** The Profile this Launchable belongs to, or null when it belongs to none. */
     open val profile: UserHandle? get() = null
 
