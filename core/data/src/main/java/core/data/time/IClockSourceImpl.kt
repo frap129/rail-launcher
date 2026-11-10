@@ -69,8 +69,10 @@ class IClockSourceImpl(private val context: Context) : IClockSource {
         }
     }
 
+    override fun now(): Instant = Instant.now()
+
     private fun readClock(): ClockReading = ClockReading(
-        instant = Instant.now(),
+        instant = now(),
         zoneId = ZoneId.systemDefault(),
         locale = Locale.getDefault(),
         isSystem24Hour = DateFormat.is24HourFormat(context)

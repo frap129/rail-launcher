@@ -8,6 +8,7 @@ import core.data.prefs.withoutTapTargets
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
 import core.data.room.dao.PopupDao
+import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.StandaloneShortcutDao
 import core.data.runCleanup
 import core.data.shortcuts.IStandaloneShortcutRepository
@@ -87,6 +88,17 @@ class HeaderTapTargetCleanupRow(private val headerSettingsDao: HeaderSettingsDao
 
     override fun isStale(state: StoredKeyState): Boolean =
         state is StoredKeyState.Stale || (state is StoredKeyState.Present && state.launchable is Folder)
+}
+
+/** The Search history stored for Launchable keys. */
+class SearchHistoryCleanupRow(private val searchHistoryDao: SearchHistoryDao) : IStaleKeyRow {
+    override val keys: Flow<Set<String>> = searchHistoryDao.observeAll().map { records ->
+        records.mapTo(mutableSetOf()) { record -> record.key }
+    }
+
+    override suspend fun delete(keys: Set<String>) {
+        searchHistoryDao.remove(keys = keys.toList())
+    }
 }
 
 /** The Standalone shortcuts stored for Shortcut keys. */

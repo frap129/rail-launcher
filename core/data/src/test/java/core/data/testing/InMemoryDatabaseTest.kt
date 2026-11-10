@@ -1,7 +1,6 @@
 package core.data.testing
 
 import android.graphics.Bitmap
-import androidx.room.Room
 import androidx.room.RoomDatabase
 import core.data.favorites.FavoriteRecord
 import core.data.icons.IIconImageStore
@@ -54,9 +53,11 @@ abstract class InMemoryDatabaseTest {
 
     @Before
     fun createDatabase() {
-        val builder: RoomDatabase.Builder<AppDatabase> =
-            Room.inMemoryDatabaseBuilder(RuntimeEnvironment.getApplication(), AppDatabase::class.java)
-        database = configureDatabaseBuilder(builder).configureForTest().build()
+        database = createInMemoryDatabase(
+            context = RuntimeEnvironment.getApplication(),
+            queryContext = databaseDispatcher,
+            configure = { builder -> configureDatabaseBuilder(builder) }
+        )
     }
 
     /**
@@ -64,10 +65,6 @@ abstract class InMemoryDatabaseTest {
      * so a database this base builds always runs its queries on the test scheduler.
      */
     protected open fun configureDatabaseBuilder(builder: RoomDatabase.Builder<AppDatabase>): RoomDatabase.Builder<AppDatabase> = builder
-
-    /** Gives a database the main-thread access and test-controlled execution [databaseTest] expects. */
-    protected fun RoomDatabase.Builder<AppDatabase>.configureForTest(): RoomDatabase.Builder<AppDatabase> =
-        allowMainThreadQueries().setQueryCoroutineContext(databaseDispatcher)
 
     /** Lets all pending work finish through the shared test scope helper. */
     protected fun TestScope.finishPendingWork() {

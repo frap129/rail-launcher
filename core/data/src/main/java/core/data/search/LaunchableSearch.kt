@@ -134,7 +134,7 @@ private fun LaunchableState.hasUnlockedPrivateSpace(): Boolean =
 private fun LaunchableState.isSearchable(launchable: Launchable): Boolean = !launchable.isPrivateApp || hasUnlockedPrivateSpace()
 
 // App List order, then the Launchables kept out of it, such as Apps held in a Folder.
-private fun LaunchableState.searchCandidates(): List<Launchable> {
+internal fun LaunchableState.searchCandidates(): List<Launchable> {
     val listedLaunchables: List<Launchable> = listedGroups.flatMap { group -> group.items }
     val listedKeys: Set<String> = listedLaunchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
     return (listedLaunchables + launchables.filterNot { launchable -> launchable.key in listedKeys })
@@ -148,11 +148,12 @@ private fun LaunchableState.searchCandidates(): List<Launchable> {
  * matches inside a word and finally typo-tolerant matches. A single-character query only uses
  * the first two tiers; a query matches inside a word from [IN_WORD_MIN_QUERY_LENGTH] characters
  * and within [SINGLE_TYPO_EDITS] edit from [TYPO_MIN_QUERY_LENGTH] (an adjacent transposition
- * counts as one edit) or [DOUBLE_TYPO_EDITS] edits from [DOUBLE_TYPO_MIN_QUERY_LENGTH]. Equal
+ * counts as one edit) or [DOUBLE_TYPO_EDITS] edits from [DOUBLE_TYPO_MIN_QUERY_LENGTH]. Within a
+ * tier, Launchables with more launches recorded from Search in [launchCounts] rank first; equal
  * matches keep the App List order. Private Apps are only searchable while their Private Space is
  * Unlocked.
  */
-fun LaunchableState.searchLaunchables(query: String): List<Launchable> {
+fun LaunchableState.searchLaunchables(query: String, launchCounts: Map<String, Int> = emptyMap()): List<Launchable> {
     val normalizedQuery: String = query.normalizedForSearch().trim()
     if (normalizedQuery.isEmpty()) {
         return emptyList()
@@ -162,6 +163,9 @@ fun LaunchableState.searchLaunchables(query: String): List<Launchable> {
         .mapNotNull { candidate ->
             candidate.matchTier(query = normalizedQuery)?.let { tier -> tier to candidate.launchable }
         }
-        .sortedBy { (tier, _) -> tier.ordinal }
+        .sortedWith(
+            compareBy<Pair<SearchMatchTier, Launchable>> { (tier, _) -> tier.ordinal }
+                .thenByDescending { (_, launchable) -> launchCounts[launchable.key] ?: 0 }
+        )
         .map { (_, launchable) -> launchable }
 }

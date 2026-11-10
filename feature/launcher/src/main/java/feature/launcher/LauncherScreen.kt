@@ -186,7 +186,7 @@ fun LauncherScreen(
             true
         }
         if (didLaunch) {
-            viewModel.onLaunched()
+            viewModel.onLaunched(launchable)
             widgetViewModel.onHomeIntent()
         }
     }

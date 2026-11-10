@@ -106,6 +106,28 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `carries each App's first install time`() = databaseTest {
+        val inputFirstInstallTime: Long = 1_791_720_000_000L
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile)).apply {
+            setActivities(
+                user = personalUser,
+                activities = arrayOf(
+                    profileActivity(
+                        packageName = PERSONAL_PACKAGE,
+                        user = personalUser,
+                        firstInstallTime = inputFirstInstallTime
+                    )
+                )
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApp: App = loadApps(repository = repository).single()
+
+        assertEquals(inputFirstInstallTime, actualApp.firstInstallTime)
+    }
+
+    @Test
     fun `marks Apps unavailable when their Profile pauses and available again when it resumes`() = databaseTest {
         val inputState: ProfileSourceState = baseState()
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
@@ -649,12 +671,14 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         user: UserHandle,
         label: String = packageName,
         badgedLabel: String = label,
-        activityClass: String = "$packageName.MainActivity"
+        activityClass: String = "$packageName.MainActivity",
+        firstInstallTime: Long = 0
     ): ProfileActivity = ProfileActivity(
         componentName = ComponentName(packageName, activityClass),
         user = user,
         label = label,
-        badgedLabel = badgedLabel
+        badgedLabel = badgedLabel,
+        firstInstallTime = firstInstallTime
     )
 }
 

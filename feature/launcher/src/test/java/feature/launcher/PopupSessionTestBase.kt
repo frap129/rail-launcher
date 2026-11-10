@@ -14,6 +14,7 @@ import core.data.testing.AppWidgetHostFixture
 import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostFixture
+import core.data.testing.createClockReading
 import core.data.testing.createClockSourceMock
 import core.data.testing.createIconImageImporterMock
 import core.data.testing.createNotificationRecord
@@ -23,7 +24,6 @@ import core.data.testing.createTestNotificationSource
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetLifecycleReconcilerMock
 import core.data.testing.createWidgetSettingsRepositoryMock
-import core.data.time.ClockReading
 import core.data.time.IClockSource
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IRemoveAppWidget
@@ -41,8 +41,6 @@ import core.ui.popups.PopupTestBase
 import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.createAddController
 import java.time.Instant
-import java.time.ZoneId
-import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -91,7 +89,7 @@ abstract class PopupSessionTestBase : PopupTestBase() {
     protected val mockRemoveAppWidget: IRemoveAppWidget = createRemoveAppWidgetMock()
     protected val mockWidgetSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
     protected val notificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
-    protected val mockClockSource: IClockSource = createClockSourceMock(reading = clockReading(instant = TEST_NOW))
+    protected val mockClockSource: IClockSource = createClockSourceMock(reading = createClockReading(instant = TEST_NOW))
 
     protected fun TestScope.createCard(
         session: IPopupSession = IPopupSessionImpl(),
@@ -195,11 +193,4 @@ abstract class PopupSessionTestBase : PopupTestBase() {
             relay = notificationRelay,
             isAccessGranted = accessCheck
         )
-
-    protected fun clockReading(instant: Instant): ClockReading = ClockReading(
-        instant = instant,
-        zoneId = ZoneId.of("UTC"),
-        locale = Locale.US,
-        isSystem24Hour = true
-    )
 }

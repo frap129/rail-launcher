@@ -24,7 +24,9 @@ data class App(
      * Whether this App is its package's representative in its Profile: the alphabetically first
      * launcher activity, which owns the package's Shortcuts and notifications.
      */
-    val isPackageRepresentative: Boolean
+    val isPackageRepresentative: Boolean,
+    /** When the App's package was first installed, in epoch milliseconds, or 0 when unknown. */
+    val firstInstallTime: Long
 ) : Launchable() {
     override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind

@@ -22,4 +22,5 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
     testFixturesImplementation(project(":core:util"))
+    testFixturesImplementation(libs.androidx.room.runtime)
 }

@@ -291,8 +291,10 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 SettingsScreen.Search -> SettingsSearchScreen(
                     openSearchOnSwipeUp = uiState.openSearchOnSwipeUp,
                     openSearchOnHomePress = uiState.openSearchOnHomePress,
+                    searchSuggestions = uiState.searchSuggestions,
                     onOpenSearchOnSwipeUpChange = viewModel::setOpenSearchOnSwipeUp,
-                    onOpenSearchOnHomePressChange = viewModel::setOpenSearchOnHomePress
+                    onOpenSearchOnHomePressChange = viewModel::setOpenSearchOnHomePress,
+                    onSearchSuggestionsChange = viewModel::setSearchSuggestions
                 )
             }
         }

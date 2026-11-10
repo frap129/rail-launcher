@@ -151,6 +151,7 @@ class IAppRepositoryImpl(
         profileInfo = profile,
         componentName = componentName,
         badgedLabel = badgedLabel,
-        isPackageRepresentative = isPackageRepresentative
+        isPackageRepresentative = isPackageRepresentative,
+        firstInstallTime = firstInstallTime
     )
 }

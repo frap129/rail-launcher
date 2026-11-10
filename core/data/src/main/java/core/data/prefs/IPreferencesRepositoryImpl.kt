@@ -156,4 +156,10 @@ class IPreferencesRepositoryImpl(
             settingsDao.update { settings -> settings.copy(openSearchOnHomePress = enabled) }
         }
     }
+
+    override fun setSearchSuggestions(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchSuggestions = enabled) }
+        }
+    }
 }

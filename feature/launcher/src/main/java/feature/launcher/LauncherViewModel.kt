@@ -24,9 +24,13 @@ import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
+import core.data.search.ISearchHistoryRepository
+import core.data.search.SearchHistoryRecord
 import core.data.search.searchLaunchables
+import core.data.search.searchSuggestions
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -68,8 +72,9 @@ sealed class LauncherUiState {
         data class Scrolling(val group: LaunchableGroup.Listed, override val isEditingFavorites: Boolean) : AppList()
     }
 
-    /** The Search state: the current query and its results, strongest match first. */
-    data class Search(val query: String, val results: List<Launchable>) : LauncherUiState()
+    /** The Search state: the current query, its rows, the Top result and whether the rows are Search suggestions. */
+    data class Search(val query: String, val results: List<Launchable>, val topResult: Launchable?, val isShowingSuggestions: Boolean) :
+        LauncherUiState()
 }
 
 private enum class LauncherMode {
@@ -80,7 +85,7 @@ private enum class LauncherMode {
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: Launchable) : LauncherMenuState()
+    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
 
@@ -105,6 +110,9 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
 
 private data class SearchState(val origin: LauncherMode, val query: String = "")
 
+/** The Search history and clock a Search projection reads, with the setting that shows Search suggestions. */
+private data class SearchData(val history: List<SearchHistoryRecord>, val nowEpochMs: Long, val settings: Settings)
+
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,
     val isScrolling: Boolean = false,
@@ -126,16 +134,30 @@ private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favorites: List<Launchable>,
-    isEditingFavorites: Boolean
+    isEditingFavorites: Boolean,
+    searchData: SearchData
 ): LauncherUiState {
     if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     navigation.search?.let { search ->
+        val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
+        val results: List<Launchable> = when {
+            isShowingSuggestions -> state.searchSuggestions(history = searchData.history, nowEpochMs = searchData.nowEpochMs)
+
+            search.query.isEmpty() -> emptyList()
+
+            else -> {
+                val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
+                state.searchLaunchables(query = search.query, launchCounts = launchCounts)
+            }
+        }
         return LauncherUiState.Search(
             query = search.query,
-            results = state.searchLaunchables(query = search.query)
+            results = results,
+            topResult = if (isShowingSuggestions) null else results.firstOrNull(),
+            isShowingSuggestions = isShowingSuggestions
         )
     }
     if (navigation.mode == LauncherMode.Home) {
@@ -167,6 +189,8 @@ private enum class MenuRequest {
     Rename
 }
 
+private data class MenuItemRequest(val launchable: Launchable, val isSearchSuggestion: Boolean)
+
 class LauncherViewModel(
     listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
@@ -179,7 +203,9 @@ class LauncherViewModel(
     private val profileSource: IProfileSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
     private val privateSpaceLock: IPrivateSpaceLock,
-    private val standaloneShortcutRepository: IStandaloneShortcutRepository
+    private val standaloneShortcutRepository: IStandaloneShortcutRepository,
+    private val searchHistoryRepository: ISearchHistoryRepository,
+    private val clockSource: IClockSource
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -202,6 +228,15 @@ class LauncherViewModel(
         started = SharingStarted.Eagerly,
         initialValue = Settings()
     )
+
+    // Search reads its history from state and re-derives suggestions as the clock ticks, never on a keystroke.
+    private val searchData: Flow<SearchData> = combine(
+        searchHistoryRepository.history,
+        clockSource.readings,
+        currentSettings
+    ) { history, reading, settings ->
+        SearchData(history = history, nowEpochMs = reading.instant.toEpochMilli(), settings = settings)
+    }
 
     /** The screen edges that scrub the Rail. */
     val scrubEdges: StateFlow<ScrubEdges> = currentSettings
@@ -264,13 +299,15 @@ class LauncherViewModel(
         navigation,
         launchableState,
         favorites,
-        isEditingFavorites
-    ) { navigation, state, favorites, isEditingFavorites ->
+        isEditingFavorites,
+        searchData
+    ) { navigation, state, favorites, isEditingFavorites, searchData ->
         toUiState(
             navigation = navigation,
             state = state,
             favorites = favorites,
-            isEditingFavorites = isEditingFavorites
+            isEditingFavorites = isEditingFavorites,
+            searchData = searchData
         )
     }.stateIn(
         scope = viewModelScope,
@@ -323,21 +360,28 @@ class LauncherViewModel(
         )
 
     private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
-    private val menuItem: MutableStateFlow<Launchable?> = MutableStateFlow(null)
+    private val requestedMenuItem: MutableStateFlow<MenuItemRequest?> = MutableStateFlow(null)
 
     val menuState: StateFlow<LauncherMenuState> = combine(
-        menuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
-            allItems.find { it.key == requestedItem?.key }
+        requestedMenuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
+            requestedItem?.let { request ->
+                allItems.find { item -> item.key == request.launchable.key }?.let { item -> request.copy(launchable = item) }
+            }
         },
         requestedMenuState
-    ) { item, requestedState ->
-        if (item == null) {
+    ) { requestedItem, requestedState ->
+        if (requestedItem == null) {
             LauncherMenuState.Closed
         } else {
             when (requestedState) {
                 MenuRequest.Closed -> LauncherMenuState.Closed
-                MenuRequest.Menu -> LauncherMenuState.Menu(item)
-                MenuRequest.Rename -> LauncherMenuState.Rename(item)
+
+                MenuRequest.Menu -> LauncherMenuState.Menu(
+                    item = requestedItem.launchable,
+                    isSearchSuggestion = requestedItem.isSearchSuggestion
+                )
+
+                MenuRequest.Rename -> LauncherMenuState.Rename(requestedItem.launchable)
             }
         }
     }.stateIn(
@@ -502,12 +546,25 @@ class LauncherViewModel(
     /** Whether Search is the shown launcher state. */
     fun isSearchOpen(): Boolean = isShowingSearch
 
-    /** The Top result that the IME Go action opens, or null when Search is closed or shows none. */
-    fun onSearchGo(): Launchable? = (uiState.value as? LauncherUiState.Search)?.results?.firstOrNull()
+    /** The Top result that the IME Go action opens, or null while Search suggestions are shown or no result matches. */
+    fun onSearchGo(): Launchable? = (uiState.value as? LauncherUiState.Search)?.topResult
 
-    /** A Launchable was launched, so Search closes and resets. */
-    fun onLaunched() {
+    /** A Launchable was launched, so Search records it and then closes and resets. */
+    fun onLaunched(launchable: Launchable) {
+        if (isShowingSearch) {
+            viewModelScope.launchLogged(message = "Failed to record a Search launch") {
+                searchHistoryRepository.recordLaunch(key = launchable.key)
+            }
+        }
         closeSearch()
+    }
+
+    /** Removes [launchable] from Search suggestions; its launches keep counting toward ranking. */
+    fun removeSearchSuggestion(launchable: Launchable) {
+        closeItemMenu()
+        viewModelScope.launchLogged(message = "Failed to remove a Search suggestion") {
+            searchHistoryRepository.removeFromSuggestions(key = launchable.key)
+        }
     }
 
     private fun closeSearch() {
@@ -643,7 +700,10 @@ class LauncherViewModel(
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
-        menuItem.value = launchable
+        val search: LauncherUiState.Search? = uiState.value as? LauncherUiState.Search
+        val isSearchSuggestion: Boolean = search?.isShowingSuggestions == true &&
+            search.results.any { result -> result.key == launchable.key }
+        requestedMenuItem.value = MenuItemRequest(launchable = launchable, isSearchSuggestion = isSearchSuggestion)
         requestedMenuState.value = MenuRequest.Menu
     }
 
@@ -653,7 +713,7 @@ class LauncherViewModel(
 
     fun closeItemMenu() {
         requestedMenuState.value = MenuRequest.Closed
-        menuItem.value = null
+        requestedMenuItem.value = null
     }
 
     fun setItemName(launchable: Launchable, name: String) {

@@ -43,7 +43,8 @@ private class SearchAnchors {
 /**
  * The Search screen: a focused query field whose Go action opens the Top result, and the results
  * in match order. Rows are the App List's Launchable rows, so their menu, Pop-up, Profile badge
- * and Custom icon stay the same as the App List.
+ * and Custom icon stay the same as the App List. Before typing, the rows are Search suggestions
+ * and no Top result is marked.
  */
 @Composable
 internal fun LauncherSearch(
@@ -101,13 +102,14 @@ internal fun LauncherSearch(
         LauncherSearchResults(
             modifier = Modifier.weight(1f),
             results = search.results,
-            itemActions = searchItemActions
+            itemActions = searchItemActions,
+            showTopResult = search.topResult != null
         )
     }
 }
 
 @Composable
-private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>, itemActions: LauncherItemActions) {
+private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>, itemActions: LauncherItemActions, showTopResult: Boolean) {
     val listState: LazyListState = rememberLazyListState()
     LaunchedEffect(results) {
         if (results.isNotEmpty()) {
@@ -120,7 +122,7 @@ private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>,
         contentPadding = PaddingValues(bottom = resultsBottomPadding)
     ) {
         itemsIndexed(items = results, key = { _, launchable -> launchable.key }) { index, launchable ->
-            if (index == 0) {
+            if (showTopResult && index == 0) {
                 Text(
                     text = stringResource(R.string.top_result),
                     modifier = Modifier.padding(start = topResultPadding, top = topResultPadding),

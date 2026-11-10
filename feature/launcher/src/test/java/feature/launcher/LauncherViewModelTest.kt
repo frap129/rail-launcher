@@ -26,6 +26,10 @@ import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
+import core.data.room.AppDatabase
+import core.data.search.ISearchHistoryRepository
+import core.data.search.ISearchHistoryRepositoryImpl
+import core.data.search.SearchHistoryRecord
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FavoritesRepositoryFixture
@@ -39,8 +43,11 @@ import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createBuiltinGroup
+import core.data.testing.createClockReading
+import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
+import core.data.testing.createInMemoryDatabase
 import core.data.testing.createIntentSender
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -59,6 +66,7 @@ import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcut
 import core.data.testing.createStandaloneShortcutRepositoryMock
 import core.data.testing.createTestNotificationSource
+import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -66,22 +74,27 @@ import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.verify
+import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -94,13 +107,46 @@ private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
 private const val FAVORITE_FOLDER_ID: Long = 42L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
+private const val TEST_NOW_EPOCH_MS: Long = 1_791_720_000_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
 class LauncherViewModelTest {
+    private companion object {
+        private val searchHistoryDispatcher: TestDispatcher = UnconfinedTestDispatcher()
+        private val searchHistoryDatabase: Lazy<AppDatabase> = lazy {
+            createInMemoryDatabase(
+                context = RuntimeEnvironment.getApplication(),
+                queryContext = searchHistoryDispatcher
+            )
+        }
+        private val searchHistoryRepository: Lazy<ISearchHistoryRepository> = lazy {
+            ISearchHistoryRepositoryImpl(
+                searchHistoryDao = searchHistoryDatabase.value.getSearchHistoryDao(),
+                clockSource = createClockSourceMock(reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
+                dispatcher = searchHistoryDispatcher
+            )
+        }
+
+        @JvmStatic
+        @AfterClass
+        fun closeSearchHistory() {
+            if (searchHistoryDatabase.isInitialized()) {
+                searchHistoryDatabase.value.close()
+            }
+        }
+    }
+
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
+
+    private val mockClockSource: IClockSource = createClockSourceMock(
+        reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
+    )
+
+    private val mockSearchHistoryRepository: ISearchHistoryRepository
+        get() = searchHistoryRepository.value
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
@@ -120,6 +166,11 @@ class LauncherViewModelTest {
     private val mockFolderRepository: IFolderRepository = createFolderRepositoryMock(inputFolders)
     private val mockPopupRepository: IPopupRepository = createPopupRepositoryMock()
     private val notificationRelay: INotificationListenerRelayImpl = INotificationListenerRelayImpl()
+
+    @Before
+    fun clearSearchHistory() {
+        searchHistoryDatabase.value.clearAllTables()
+    }
 
     @Test
     fun `shows Loading until the Launchables are loaded`() {
@@ -535,7 +586,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(inputItem)
-                assertEquals(LauncherMenuState.Menu(item = inputItem), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
             }
         }
     }
@@ -614,7 +665,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(inputItem, RENAMED_NAME)
-                assertEquals(LauncherMenuState.Menu(item = inputItem), expectMostRecentItem())
+                assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
             }
         }
     }
@@ -703,7 +754,7 @@ class LauncherViewModelTest {
                 expectAppList()
                 viewModel.menuState.test {
                     viewModel.openItemMenu(inputItem)
-                    assertEquals(LauncherMenuState.Menu(item = inputItem), expectMostRecentItem())
+                    assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
                 }
             }
         }
@@ -1122,7 +1173,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             viewModel.openItemMenu(inputPausedApp)
-            assertEquals(LauncherMenuState.Menu(item = inputPausedApp), expectMostRecentItem())
+            assertEquals(LauncherMenuState.Menu(item = inputPausedApp, isSearchSuggestion = false), expectMostRecentItem())
         }
     }
 
@@ -1833,13 +1884,15 @@ class LauncherViewModelTest {
             expectAppList()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals(listOf(inputItem), actualSearch.results)
+            assertEquals(inputItem, actualSearch.topResult)
 
             val actualTopResult: Launchable? = viewModel.onSearchGo()
             assertEquals(inputItem, actualTopResult)
             assertTrue(viewModel.requestLaunch(requireNotNull(actualTopResult)))
 
-            viewModel.onLaunched()
+            viewModel.onLaunched(requireNotNull(actualTopResult))
 
             expectAppList()
             viewModel.openSearch()
@@ -1900,11 +1953,142 @@ class LauncherViewModelTest {
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
 
-            viewModel.onLaunched()
+            viewModel.onLaunched(inputItem)
 
             expectAppList()
             viewModel.openSearch()
             assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `a Search launch records it in Search history`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+
+            viewModel.onLaunched(inputItem)
+
+            expectAppList()
+        }
+        advanceUntilIdle()
+
+        val actualRecord: SearchHistoryRecord? = mockSearchHistoryRepository.history.first().singleOrNull { record ->
+            record.key == inputItem.key
+        }
+        assertEquals(1, actualRecord?.launchCount)
+        assertEquals(TEST_NOW_EPOCH_MS, actualRecord?.lastLaunchedAt)
+        assertFalse(actualRecord?.isRemoved ?: true)
+    }
+
+    @Test
+    fun `a launch outside Search does not record Search history`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+        }
+        viewModel.onLaunched(inputItem)
+        advanceUntilIdle()
+
+        assertTrue(mockSearchHistoryRepository.history.first().isEmpty())
+    }
+
+    @Test
+    fun `Go does nothing while Search suggestions are shown`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture()
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals(listOf<Launchable>(fixture.app), actualSearch.results)
+            assertNull(actualSearch.topResult)
+            assertNull(fixture.viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `removing a Search suggestion from its menu hides it and keeps its launch count`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture()
+        mockSearchHistoryRepository.recordLaunch(key = fixture.app.key)
+        advanceUntilIdle()
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+            assertEquals(listOf<Launchable>(fixture.app), expectSearch().results)
+        }
+
+        fixture.viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            fixture.viewModel.openItemMenu(fixture.app)
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertTrue(actualMenu.isSearchSuggestion)
+
+            fixture.viewModel.removeSearchSuggestion(fixture.app)
+
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+        }
+        advanceUntilIdle()
+
+        val actualRecord: SearchHistoryRecord = mockSearchHistoryRepository.history.first().single()
+        assertTrue(actualRecord.isRemoved)
+        assertEquals(1, actualRecord.launchCount)
+        fixture.viewModel.uiState.test {
+            assertTrue(expectSearch().results.isEmpty())
+        }
+    }
+
+    @Test
+    fun `a typed Search result's menu is not a Search suggestion`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(listOf(inputItem), expectSearch().results)
+        }
+
+        viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            viewModel.openItemMenu(inputItem)
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertFalse(actualMenu.isSearchSuggestion)
+        }
+    }
+
+    @Test
+    fun `shows Search suggestions before typing when they are on`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture()
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertTrue(actualSearch.isShowingSuggestions)
+            assertEquals(listOf<Launchable>(fixture.app), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `hides Search suggestions when the setting is off`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture(settings = Settings(searchSuggestions = false))
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertFalse(actualSearch.isShowingSuggestions)
+            assertTrue(actualSearch.results.isEmpty())
         }
     }
 
@@ -2150,6 +2334,21 @@ class LauncherViewModelTest {
         inputHomeEditState = inputHomeEditState
     ).also { advanceUntilIdle() }
 
+    private fun TestScope.createSuggestionFixture(settings: Settings = Settings()): SuggestionFixture {
+        val inputRecentApp: App = createApp(
+            name = "Recent",
+            packageName = "com.example.recent",
+            firstInstallTime = TEST_NOW_EPOCH_MS - 60_000L
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(
+                state = MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputRecentApp)))
+            ),
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = settings)
+        )
+        return SuggestionFixture(app = inputRecentApp, viewModel = viewModel)
+    }
+
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
         mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.mockFavoritesFixture.mockFavoritesRepository,
@@ -2160,7 +2359,9 @@ class LauncherViewModelTest {
         mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository,
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
-        mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock()
+        mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
+        mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
+        mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -2173,7 +2374,9 @@ class LauncherViewModelTest {
         profileSource = mockProfileSource,
         privateSpaceStatus = mockPrivateSpaceStatus,
         privateSpaceLock = privateSpaceLock,
-        standaloneShortcutRepository = mockStandaloneShortcutRepository
+        standaloneShortcutRepository = mockStandaloneShortcutRepository,
+        searchHistoryRepository = mockSearchHistoryRepository,
+        clockSource = mockClockSource
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
@@ -2269,3 +2472,5 @@ class LauncherViewModelTest {
 }
 
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)
+
+private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)

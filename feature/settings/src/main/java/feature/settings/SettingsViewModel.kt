@@ -32,7 +32,8 @@ data class SettingsUiState(
     val scrubEdges: ScrubEdges,
     val railSide: RailSide,
     val openSearchOnSwipeUp: Boolean,
-    val openSearchOnHomePress: Boolean
+    val openSearchOnHomePress: Boolean,
+    val searchSuggestions: Boolean
 )
 
 class SettingsViewModel(
@@ -58,7 +59,8 @@ class SettingsViewModel(
             scrubEdges = settings.scrubEdges,
             railSide = settings.railSide,
             openSearchOnSwipeUp = settings.openSearchOnSwipeUp,
-            openSearchOnHomePress = settings.openSearchOnHomePress
+            openSearchOnHomePress = settings.openSearchOnHomePress,
+            searchSuggestions = settings.searchSuggestions
         )
     }.stateIn(
         viewModelScope,
@@ -71,7 +73,8 @@ class SettingsViewModel(
             scrubEdges = ScrubEdges.DEFAULT,
             railSide = RailSide.DEFAULT,
             openSearchOnSwipeUp = true,
-            openSearchOnHomePress = false
+            openSearchOnHomePress = false,
+            searchSuggestions = true
         )
     )
 
@@ -94,4 +97,7 @@ class SettingsViewModel(
 
     /** Persists whether pressing Home on Home opens Search. */
     fun setOpenSearchOnHomePress(enabled: Boolean) = prefsRepo.setOpenSearchOnHomePress(enabled)
+
+    /** Persists whether Search shows Search suggestions before typing. */
+    fun setSearchSuggestions(enabled: Boolean) = prefsRepo.setSearchSuggestions(enabled)
 }

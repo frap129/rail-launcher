@@ -83,3 +83,22 @@ val MIGRATION_17_18: Migration = object : Migration(17, 18) {
         )
     }
 }
+
+private const val SEARCH_HISTORY_TABLE: String = "search_history"
+
+/**
+ * Adds the Search suggestions switch, defaulting to on, and the table that stores Search history,
+ * keeping every other setting.
+ */
+val MIGRATION_18_19: Migration = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS $SEARCH_HISTORY_TABLE " +
+                "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, last_launched_at INTEGER NOT NULL, " +
+                "removed INTEGER NOT NULL, PRIMARY KEY(key))"
+        )
+    }
+}
