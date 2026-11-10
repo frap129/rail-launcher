@@ -8,6 +8,7 @@ import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
 import core.data.icons.model.sortedCustomIconPacks
+import core.data.icons.model.toCustomIcon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.model.Launchable
 import core.data.popups.findLaunchable
@@ -157,10 +158,7 @@ class IIconPickerImpl(
 
     override fun selectIcon(icon: Icon.PackDrawableIcon) {
         val owner: Launchable = currentOwner() ?: return
-        preferencesRepository.setCustomIcon(
-            item = owner,
-            icon = CustomIcon.PackDrawable(packPackageName = icon.packPackageName, drawableName = icon.drawableName)
-        )
+        preferencesRepository.setCustomIcon(item = owner, icon = icon.toCustomIcon())
         close()
     }
 
