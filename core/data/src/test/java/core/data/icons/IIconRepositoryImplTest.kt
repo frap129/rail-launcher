@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
-import android.graphics.Bitmap
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
@@ -21,6 +20,7 @@ import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createProfileInfo
@@ -322,8 +322,8 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `resolves an image Custom icon and badges it for every non-personal Profile`() = databaseTest {
-        val inputFileName: String = "gallery-icon.png"
-        createIconImageStore().write(fileName = inputFileName, bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
+        val inputFileName: String = TEST_GALLERY_ICON_FILE_NAME
+        createImageStoreWithFiles(inputFileName)
         val inputProfiles: List<ProfileInfo> = listOf(
             createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work),
             createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)

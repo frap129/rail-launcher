@@ -1,7 +1,9 @@
 package core.data.folders
 
 import core.data.favorites.FavoriteRecord
+import core.data.icons.IIconImageStore
 import core.data.icons.IIconRepository
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
@@ -9,6 +11,7 @@ import core.data.launchables.model.Launchable
 import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.popups.PopupItemRecord
+import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
@@ -16,6 +19,7 @@ import core.data.room.dao.LaunchableCustomizationDao
 import core.data.shortcuts.IShortcutSource
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createFailOnceMock
@@ -48,11 +52,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val ITEM_PACKAGE_NAME: String = "com.example.app"
 private const val OTHER_OWNER_KEY: String = "com.other_owner"
+private const val CREATED_FOLDER_ID: Long = 1L
 private const val FOLDER_ID: Long = 3L
 private const val APP_WIDGET_ID: Int = 42
 private val otherOwnerLaunchable: Launchable = createRailLaunchable(name = "Other", deeplink = OTHER_OWNER_KEY)
@@ -82,7 +88,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
             launchables = listOf(inputItem, otherOwnerLaunchable),
-            folders = listOf(Folder(folderId = 1L))
+            folders = listOf(Folder(folderId = CREATED_FOLDER_ID))
         )
         val mockFavoriteDao: FavoriteDao = failingFavoriteAdd()
         val repository: IFolderRepository = createFolderRepository(
@@ -102,16 +108,28 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `create removes the Folder when the name write fails`() = databaseTest {
+    fun `create removes the Folder, its Custom icon and image when the name write fails`() = databaseTest {
+        val inputImageStore: IIconImageStore = createImageStoreWithFiles(TEST_GALLERY_ICON_FILE_NAME)
         val mockCustomizationDao: LaunchableCustomizationDao = spyk(database.getLaunchableCustomizationDao())
+        mockCustomizationDao.setIcon(
+            key = Folder(folderId = CREATED_FOLDER_ID).key,
+            icon = CustomIcon.Image(fileName = TEST_GALLERY_ICON_FILE_NAME)
+        )
         coEvery { mockCustomizationDao.setName(any(), any()) } throws IllegalStateException("Name write failed")
-        val repository: IFolderRepository = createFolderRepository(customizationDao = mockCustomizationDao)
+        val repository: IFolderRepository = createFolderRepository(
+            customizationDao = mockCustomizationDao,
+            preferencesRepository = createPreferencesRepository(
+                launchableCustomizationDao = mockCustomizationDao,
+                iconImageStore = inputImageStore
+            )
+        )
 
         val actualFailure: Throwable? = runCatching { repository.create(name = "Games") }.exceptionOrNull()
 
         assertTrue(actualFailure is IllegalStateException)
         assertTrue(database.getFolderDao().observeAll().first().isEmpty())
-        coVerify { mockCustomizationDao.delete(key = Folder(folderId = 1L).key) }
+        assertTrue(customizations().isEmpty())
+        assertFalse(inputImageStore.hasImage(fileName = TEST_GALLERY_ICON_FILE_NAME))
     }
 
     @Test
@@ -133,7 +151,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     @Test
     fun `create stores the Folder, its items and its Favorite together`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
-        val expectedFolder: Folder = Folder(folderId = 1L, name = "Games")
+        val expectedFolder: Folder = Folder(folderId = CREATED_FOLDER_ID, name = "Games")
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(
             launchables = listOf(inputItem, otherOwnerLaunchable),
             folders = listOf(expectedFolder)
@@ -238,6 +256,34 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `delete keeps a Folder's Custom icon and image when the transaction fails`() = databaseTest {
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        val inputImageStore: IIconImageStore = createImageStoreWithFiles(TEST_GALLERY_ICON_FILE_NAME)
+        database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
+        database.getLaunchableCustomizationDao().setIcon(
+            key = inputFolder.key,
+            icon = CustomIcon.Image(fileName = TEST_GALLERY_ICON_FILE_NAME)
+        )
+        val realPreferencesRepository: IPreferencesRepository = createPreferencesRepository(iconImageStore = inputImageStore)
+        val mockPreferencesRepository: IPreferencesRepository = object : IPreferencesRepository by realPreferencesRepository {
+            override suspend fun removeLaunchableCustomizations(keys: List<String>) {
+                realPreferencesRepository.removeLaunchableCustomizations(keys = keys)
+                throw IllegalStateException("Transaction failed")
+            }
+        }
+        val repository: IFolderRepository = createFolderRepository(preferencesRepository = mockPreferencesRepository)
+
+        val actualFailure: Throwable? = runCatching { repository.delete(inputFolder) }.exceptionOrNull()
+
+        assertTrue(actualFailure is IllegalStateException)
+        assertEquals(
+            listOf(LaunchableCustomization(key = inputFolder.key, icon = CustomIcon.Image(fileName = TEST_GALLERY_ICON_FILE_NAME))),
+            customizations()
+        )
+        assertTrue(inputImageStore.hasImage(fileName = TEST_GALLERY_ICON_FILE_NAME))
+    }
+
+    @Test
     fun `delete releases no Widget ids when the transaction fails after the owner delete`() = databaseTest {
         val inputItem: Launchable = createApp(name = "App", packageName = ITEM_PACKAGE_NAME)
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
@@ -289,6 +335,7 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         )
         val repository: IFolderRepository = createFolderRepository(
             launchableRepository = mockLaunchableRepository,
+            preferencesRepository = createPreferencesRepository(),
             mockPopupRepository = createDatabasePopupRepository(
                 launchableRepository = mockLaunchableRepository,
                 mockWidgetAreaRepository = createWidgetAreaRepository()
@@ -371,13 +418,14 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         launchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchables = listOf(otherOwnerLaunchable)),
         favoriteDao: FavoriteDao = database.getFavoriteDao(),
         customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
+        preferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockPopupRepository: IPopupRepository = createPopupRepositoryMock(),
         mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.FolderIcon(shade = 0))
     ): IFolderRepository = IFolderRepositoryImpl(
         folderDao = folderDao,
         favoritesRepository = createFavoritesRepository(favoriteDao, launchableRepository),
         popupRepository = mockPopupRepository,
-        preferencesRepository = createPreferencesRepositoryMock(),
+        preferencesRepository = preferencesRepository,
         launchableCustomizationDao = customizationDao,
         iconRepository = mockIconRepository
     )
