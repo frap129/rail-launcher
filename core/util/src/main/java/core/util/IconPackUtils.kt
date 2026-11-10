@@ -22,6 +22,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.graphics.drawable.Drawable
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import org.xmlpull.v1.XmlPullParser
@@ -40,6 +41,54 @@ private const val NAME_ATTRIBUTE: String = "name"
 /** One heading of an Icon pack's drawable list; [name] is null when the pack lists none. */
 data class DrawableCategory(val name: String?, val drawableNames: List<String>)
 
+/** An installed Icon pack's resources, resolved once and read together with its package name. */
+class IconPackResources internal constructor(private val resources: Resources, private val packPackageName: String) {
+    /** The id [drawableName] resolves to, or 0 when these resources do not provide it. */
+    @SuppressLint("DiscouragedApi")
+    fun getDrawableId(drawableName: String): Int = resources.getIdentifier(drawableName, DRAWABLE_TYPE, packPackageName)
+
+    /** Whether these resources provide [drawableName]. */
+    fun hasDrawable(drawableName: String): Boolean = getDrawableId(drawableName = drawableName) != 0
+
+    /** The drawable [drawableName] names, or null when these resources do not provide it. */
+    fun getDrawable(drawableName: String): Drawable? =
+        getDrawableId(drawableName = drawableName).takeIf { resId -> resId != 0 }?.let { resId -> getDrawable(resId = resId) }
+
+    /** The drawable [resId] names. */
+    fun getDrawable(resId: Int): Drawable? = resources.getDrawable(resId, null)
+
+    /** The drawable name [resId] resolves to, or null when these resources no longer provide it. */
+    fun getDrawableName(resId: Int): String? = runCatching { resources.getResourceEntryName(resId) }.getOrNull()
+
+    /** The XML [xmlName] names, from resources first and assets second. */
+    fun getXml(xmlName: String): XmlPullParser? = try {
+        @SuppressLint("DiscouragedApi")
+        val resourceId: Int = resources.getIdentifier(xmlName, "xml", packPackageName)
+        if (0 != resourceId) {
+            resources.getXml(resourceId)
+        } else {
+            val factory = XmlPullParserFactory.newInstance()
+            val parser = factory.newPullParser()
+            parser.setInput(resources.assets.open("$xmlName.xml"), StandardCharsets.UTF_8.name())
+            parser
+        }
+    } catch (_: IOException) {
+        null
+    } catch (_: XmlPullParserException) {
+        null
+    }
+}
+
+/** The resources of [packPackageName], or null when the pack is not installed. */
+fun resolveIconPack(context: Context, packPackageName: String): IconPackResources? = try {
+    IconPackResources(
+        resources = context.packageManager.getResourcesForApplication(packPackageName),
+        packPackageName = packPackageName
+    )
+} catch (_: PackageManager.NameNotFoundException) {
+    null
+}
+
 /**
  * The drawable categories [packPackageName] offers, in file order and without duplicates. Reads
  * drawable.xml from resources first and assets second; a pack without one falls back to the unique
@@ -47,13 +96,14 @@ data class DrawableCategory(val name: String?, val drawableNames: List<String>)
  * are dropped, as are categories left empty.
  */
 fun getDrawableCategoriesFromPack(context: Context, packPackageName: String): List<DrawableCategory> {
-    val listedCategories: List<DrawableCategory> = getXml(context, DRAWABLE_XML, packPackageName)
+    val pack: IconPackResources = resolveIconPack(context = context, packPackageName = packPackageName) ?: return emptyList()
+    val listedCategories: List<DrawableCategory> = pack.getXml(DRAWABLE_XML)
         ?.readDrawableCategories()
         .orEmpty()
     val categories: List<DrawableCategory> = if (listedCategories.any { category -> category.drawableNames.isNotEmpty() }) {
         listedCategories
     } else {
-        val appFilterNames: List<String> = getXml(context, APP_FILTER_XML, packPackageName)
+        val appFilterNames: List<String> = pack.getXml(APP_FILTER_XML)
             ?.readAttributeValues(attribute = DRAWABLE_ATTRIBUTE)
             .orEmpty()
         listOf(DrawableCategory(name = null, drawableNames = appFilterNames))
@@ -61,7 +111,7 @@ fun getDrawableCategoriesFromPack(context: Context, packPackageName: String): Li
     val seenNames: MutableSet<String> = mutableSetOf()
     return categories.mapNotNull { category ->
         val resolvedNames: List<String> = category.drawableNames.distinct().filter { drawableName ->
-            seenNames.add(drawableName) && hasDrawable(context, drawableName, packPackageName)
+            seenNames.add(drawableName) && pack.hasDrawable(drawableName = drawableName)
         }
         category.copy(drawableNames = resolvedNames).takeIf { resolved -> resolved.drawableNames.isNotEmpty() }
     }
@@ -110,12 +160,13 @@ private fun XmlPullParser.readAttributeValues(attribute: String): List<String> {
 
 fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<ComponentName, String, Int>> {
     val icons: MutableSet<Triple<ComponentName, String, Int>> = mutableSetOf()
-    getXml(context, APP_FILTER_XML, packPackageName)?.let { parseXml ->
+    val pack: IconPackResources = resolveIconPack(context = context, packPackageName = packPackageName) ?: return icons
+    pack.getXml(APP_FILTER_XML)?.let { parseXml ->
         val compStart = "ComponentInfo{"
         val compStartLength = compStart.length
         val compEnd = "}"
         val compEndLength = compEnd.length
-        try {
+        runCatching {
             while (parseXml.next() != XmlPullParser.END_DOCUMENT) {
                 if (parseXml.eventType != XmlPullParser.START_TAG) continue
                 val name = parseXml.name
@@ -137,7 +188,7 @@ fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<Comp
                                         Triple(
                                             parsed,
                                             packPackageName,
-                                            getDrawableId(context, drawableName, packPackageName)
+                                            pack.getDrawableId(drawableName = drawableName)
                                         )
                                     )
                                 }
@@ -150,54 +201,20 @@ fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<Comp
                     }
                 }
             }
-        } catch (e: PackageManager.NameNotFoundException) {
-            e.printStackTrace()
-        } catch (e: XmlPullParserException) {
-            e.printStackTrace()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        } catch (e: IllegalStateException) {
-            e.printStackTrace()
-        }
+        }.onFailure { error -> Timber.w(error, "Failed to read an Icon pack's appfilter") }
     }
     return icons
 }
 
 operator fun XmlPullParser.get(key: String): String? = this.getAttributeValue(null, key)
 
-@SuppressLint("DiscouragedApi")
-fun getDrawableId(context: Context, drawableName: String, packPackageName: String): Int =
-    context.packageManager.getResourcesForApplication(packPackageName).getIdentifier(drawableName, DRAWABLE_TYPE, packPackageName)
-
 /** Whether [packPackageName] provides [drawableName], tolerating a missing pack. */
 fun hasDrawable(context: Context, drawableName: String, packPackageName: String): Boolean =
-    runCatching { getDrawableId(context, drawableName, packPackageName) != 0 }.getOrDefault(false)
+    resolveIconPack(context = context, packPackageName = packPackageName)?.hasDrawable(drawableName = drawableName) ?: false
 
 /** The drawable name [resId] resolves to in [packPackageName], or null when the pack no longer provides it. */
-fun getDrawableName(context: Context, resId: Int, packPackageName: String): String? = runCatching {
-    context.packageManager.getResourcesForApplication(packPackageName).getResourceEntryName(resId)
-}.getOrNull()
+fun getDrawableName(context: Context, resId: Int, packPackageName: String): String? =
+    resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawableName(resId = resId)
 
 /** Whether this drawable name contains [term], reading underscores as spaces and ignoring case. */
 fun String.drawableNameContains(term: String): Boolean = replace('_', ' ').contains(term, ignoreCase = true)
-
-fun getXml(context: Context, xmlName: String, packPackageName: String): XmlPullParser? {
-    val res: Resources
-    try {
-        res = context.packageManager.getResourcesForApplication(packPackageName)
-        @SuppressLint("DiscouragedApi")
-        val resourceId = res.getIdentifier(xmlName, "xml", packPackageName)
-        return if (0 != resourceId) {
-            context.packageManager.getXml(packPackageName, resourceId, null)
-        } else {
-            val factory = XmlPullParserFactory.newInstance()
-            val parser = factory.newPullParser()
-            parser.setInput(res.assets.open("$xmlName.xml"), StandardCharsets.UTF_8.name())
-            parser
-        }
-    } catch (_: PackageManager.NameNotFoundException) {
-    } catch (_: IOException) {
-    } catch (_: XmlPullParserException) {
-    }
-    return null
-}

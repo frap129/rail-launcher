@@ -15,6 +15,7 @@ import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
+import core.util.resolveIconPack
 import java.io.File
 
 internal sealed interface IconSource {
@@ -62,7 +63,7 @@ private class PackIconSource(private val componentName: ComponentName, private v
     override val cacheKey: String = "pack:$packPackageName:${componentName.flattenToString()}:$resId"
 
     override fun loadDrawable(context: Context): Drawable? =
-        context.packageManager.getResourcesForApplication(packPackageName).getDrawable(resId, null)
+        resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawable(resId = resId)
 }
 
 private class PackDrawableIconSource(private val packPackageName: String, private val drawableName: String) : IconSource {
@@ -71,9 +72,7 @@ private class PackDrawableIconSource(private val packPackageName: String, privat
             "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}$drawableName"
 
     override fun loadDrawable(context: Context): Drawable? = runCatching {
-        val resources = context.packageManager.getResourcesForApplication(packPackageName)
-        val resId: Int = resources.getIdentifier(drawableName, "drawable", packPackageName)
-        if (resId == 0) null else resources.getDrawable(resId, null)
+        resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawable(drawableName = drawableName)
     }.getOrNull()
 }
 
