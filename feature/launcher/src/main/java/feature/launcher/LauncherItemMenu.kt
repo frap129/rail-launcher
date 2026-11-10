@@ -44,13 +44,15 @@ import core.ui.composables.LaunchableIcon
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.ui.popups.IIconPicker
+import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LauncherMenu(viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
+internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
     val menuState: LauncherMenuState by viewModel.menuState.collectAsState()
     if (menuState is LauncherMenuState.Closed) {
         return
@@ -63,8 +65,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, editor: IPopupEditor, fo
             is LauncherMenuState.Menu -> LauncherItemMenu(
                 item = currentMenuState.item,
                 viewModel = viewModel,
-                editor = editor,
-                folderActions = folderActions
+                collaborators = collaborators
             )
 
             is LauncherMenuState.Rename -> LauncherItemEditName(item = currentMenuState.item, viewModel = viewModel)
@@ -75,15 +76,21 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, editor: IPopupEditor, fo
 }
 
 @Composable
-internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
+internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
     val context: Context = LocalContext.current
+    val editor: IPopupEditor = collaborators.editor
+    val folderActions: IPopupFolderActions = collaborators.folder
+    val iconPicker: IIconPicker = collaborators.iconPicker
 
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.headlineMedium) {
         SheetTitle(
             launchable = item,
             onNameClick = { viewModel.openItemRename(item) },
             onIconClick = if (item.supportsCustomIcon) {
-                { viewModel.openItemIconPicker(item) }
+                {
+                    viewModel.closeItemMenu()
+                    iconPicker.startPicking(item)
+                }
             } else {
                 null
             }
