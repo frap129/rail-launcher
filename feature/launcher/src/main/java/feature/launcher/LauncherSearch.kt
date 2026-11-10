@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
@@ -28,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calculator
+import compose.icons.fontawesomeicons.solid.Globe
+import compose.icons.fontawesomeicons.solid.Search
+import compose.icons.fontawesomeicons.solid.Store
 import compose.icons.fontawesomeicons.solid.TimesCircle
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
@@ -55,7 +59,8 @@ internal fun LauncherSearch(
     itemActions: LauncherItemActions,
     onQueryChange: (String) -> Unit,
     onSearchGo: () -> SearchResult?,
-    onCopyCalculatorRow: (String) -> Unit
+    onCopyCalculatorRow: (String) -> Unit,
+    onOpenSearchRow: (SearchResult.ExternalRow) -> Unit
 ) {
     val focusRequester: FocusRequester = remember { FocusRequester() }
     val searchAnchors: SearchAnchors = remember { SearchAnchors() }
@@ -75,6 +80,8 @@ internal fun LauncherSearch(
             )
 
             is SearchResult.CalculatorRow -> onCopyCalculatorRow(result.value)
+
+            is SearchResult.ExternalRow -> onOpenSearchRow(result)
         }
     }
     RequestKeyboardFocus(focusRequester = focusRequester)
@@ -159,7 +166,37 @@ private fun LauncherSearchResults(
                     label = stringResource(R.string.calculator_row, result.expression, result.value),
                     onClick = { onResultTap(result) }
                 )
+
+                is SearchResult.ExternalRow -> {
+                    val action: SearchRowAction = result.searchRowAction()
+                    LauncherActionRow(
+                        imageVector = action.imageVector,
+                        label = action.label,
+                        onClick = { onResultTap(result) }
+                    )
+                }
             }
         }
     }
+}
+
+/** The leading icon and label of a Search result row that opens outside Rail. */
+private data class SearchRowAction(val imageVector: ImageVector, val label: String)
+
+@Composable
+private fun SearchResult.ExternalRow.searchRowAction(): SearchRowAction = when (this) {
+    is SearchResult.TypedUrlRow -> SearchRowAction(
+        imageVector = FontAwesomeIcons.Solid.Globe,
+        label = stringResource(R.string.search_open_url, url)
+    )
+
+    is SearchResult.WebSearchRow -> SearchRowAction(
+        imageVector = FontAwesomeIcons.Solid.Search,
+        label = stringResource(R.string.search_web_action)
+    )
+
+    is SearchResult.PlayStoreRow -> SearchRowAction(
+        imageVector = FontAwesomeIcons.Solid.Store,
+        label = stringResource(R.string.search_play_store_action)
+    )
 }

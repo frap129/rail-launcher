@@ -5,12 +5,14 @@ import core.data.icons.model.Icon
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileKind
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createIconRepositoryMock
@@ -208,6 +210,70 @@ class SettingsViewModelTest {
             viewModel.setOpenSearchOnHomePress(true)
 
             verify(exactly = 1) { mockPreferencesRepository.setOpenSearchOnHomePress(true) }
+        }
+    }
+
+    @Test
+    fun `exposes the stored Search rows and engine`() = runTest {
+        val inputSettings: Settings = Settings(
+            searchCalculatorRow = false,
+            searchWebRow = false,
+            searchPlayStoreRow = false,
+            searchEngine = SearchEngine.Kagi,
+            searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+        )
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
+        )
+
+        viewModel.uiState.test {
+            val actualState: SettingsUiState = expectMostRecentItem()
+            assertFalse(actualState.searchCalculatorRow)
+            assertFalse(actualState.searchWebRow)
+            assertFalse(actualState.searchPlayStoreRow)
+            assertEquals(SearchEngine.Kagi, actualState.searchEngine)
+            assertEquals(TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE, actualState.searchEngineTemplate)
+        }
+    }
+
+    @Test
+    fun `persists the Search rows`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setSearchCalculatorRow(false)
+            viewModel.setSearchWebRow(false)
+            viewModel.setSearchPlayStoreRow(false)
+
+            verify(exactly = 1) { mockPreferencesRepository.setSearchCalculatorRow(false) }
+            verify(exactly = 1) { mockPreferencesRepository.setSearchWebRow(false) }
+            verify(exactly = 1) { mockPreferencesRepository.setSearchPlayStoreRow(false) }
+        }
+    }
+
+    @Test
+    fun `persists the Search engine`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setSearchEngine(SearchEngine.Brave)
+
+            verify(exactly = 1) { mockPreferencesRepository.setSearchEngine(SearchEngine.Brave) }
+        }
+    }
+
+    @Test
+    fun `persists the custom Search engine template`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val inputTemplate: String = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+
+            viewModel.setCustomSearchEngineTemplate(inputTemplate)
+
+            verify(exactly = 1) { mockPreferencesRepository.setCustomSearchEngineTemplate(inputTemplate) }
         }
     }
 

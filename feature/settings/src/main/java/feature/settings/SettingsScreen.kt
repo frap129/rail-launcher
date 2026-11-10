@@ -288,14 +288,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 
                 SettingsScreen.Popups -> SettingsPopupsScreen()
 
-                SettingsScreen.Search -> SettingsSearchScreen(
-                    openSearchOnSwipeUp = uiState.openSearchOnSwipeUp,
-                    openSearchOnHomePress = uiState.openSearchOnHomePress,
-                    searchSuggestions = uiState.searchSuggestions,
-                    onOpenSearchOnSwipeUpChange = viewModel::setOpenSearchOnSwipeUp,
-                    onOpenSearchOnHomePressChange = viewModel::setOpenSearchOnHomePress,
-                    onSearchSuggestionsChange = viewModel::setSearchSuggestions
-                )
+                SettingsScreen.Search -> SettingsSearchScreen()
             }
         }
     }
@@ -1385,49 +1378,6 @@ private fun Context.findActivity(): Activity? {
         current = current.baseContext
     }
     return current as? Activity
-}
-
-private data class SingleChoiceOption<T>(val value: T, val label: String, val enabled: Boolean = true)
-
-@Composable
-private fun <T> SingleChoiceDialog(
-    title: String,
-    options: List<SingleChoiceOption<T>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column {
-                options.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = option.value == selected,
-                                enabled = option.enabled,
-                                role = Role.RadioButton,
-                                onClick = { onSelect(option.value) }
-                            )
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = option.value == selected, onClick = null, enabled = option.enabled)
-                        Text(text = option.label, modifier = Modifier.padding(start = 16.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(CoreUiR.string.cancel))
-            }
-        }
-    )
 }
 
 @Composable

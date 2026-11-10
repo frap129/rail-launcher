@@ -4,6 +4,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 
 private const val FOLDERS_TABLE: String = "folders"
@@ -100,5 +101,28 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
                 "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, last_launched_at INTEGER NOT NULL, " +
                 "removed INTEGER NOT NULL, PRIMARY KEY(key))"
         )
+    }
+}
+
+/**
+ * Adds the Calculator, web and Play Store row switches, all defaulting to on, and the Search
+ * engine choice, defaulting to Google with no custom template, keeping every other setting.
+ */
+val MIGRATION_19_20: Migration = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_ROW} INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 1"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +
+                "DEFAULT '${SearchEngine.Google.name}'"
+        )
+        db.execSQL("ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} TEXT")
     }
 }

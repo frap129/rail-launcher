@@ -31,6 +31,11 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setOpenSearchOnSwipeUp(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnHomePress(any()) } just Runs
     every { mockPreferencesRepository.setSearchSuggestions(any()) } just Runs
+    every { mockPreferencesRepository.setSearchCalculatorRow(any()) } just Runs
+    every { mockPreferencesRepository.setSearchWebRow(any()) } just Runs
+    every { mockPreferencesRepository.setSearchPlayStoreRow(any()) } just Runs
+    every { mockPreferencesRepository.setSearchEngine(any()) } just Runs
+    every { mockPreferencesRepository.setCustomSearchEngineTemplate(any()) } just Runs
     coEvery { mockPreferencesRepository.removeLaunchableCustomizations(any()) } just Runs
     return mockPreferencesRepository
 }
