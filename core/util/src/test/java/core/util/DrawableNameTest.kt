@@ -11,4 +11,13 @@ class DrawableNameTest {
         assertTrue("Google_Maps".drawableNameContains("google maps"))
         assertFalse("calculator".drawableNameContains("music"))
     }
+
+    @Test
+    fun `matches a whole drawable name word ignoring case`() {
+        assertTrue("car".drawableNameHasWord("car"))
+        assertTrue("car_rental".drawableNameHasWord("car"))
+        assertTrue("Car_Rental".drawableNameHasWord("car"))
+        assertFalse("card".drawableNameHasWord("car"))
+        assertFalse("scarlet".drawableNameHasWord("car"))
+    }
 }

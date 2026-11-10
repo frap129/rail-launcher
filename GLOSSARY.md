@@ -25,7 +25,7 @@ A Gallery choice the Icon picker is still waiting for. While one is pending, the
 _Avoid_: Open gallery, gallery import (until the image is actually imported)
 
 **Suggested icons**:
-The locally computed icons the Icon picker lists above Original: for an App, its original icon plus one icon from each installed Icon pack that maps it; for a Shortcut or Folder, the pack icons whose drawable names contain a word from its label, capped at 12.
+The locally computed icons the Icon picker lists above Original: for an App, its original icon plus one icon from each installed Icon pack that maps it; for a Shortcut or Folder, the pack icons whose drawable names have one of its label's words of three or more characters as a whole word, with underscores read as word breaks, capped at 12.
 _Avoid_: Recommended icons, AI suggestions
 
 **Icon pack**:
