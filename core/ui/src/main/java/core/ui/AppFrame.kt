@@ -12,13 +12,14 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import core.ui.model.data.Destination
-import core.ui.model.data.HomeIntent
-import core.ui.model.data.HomeIntentRequest
+import core.ui.model.data.LauncherSignal
+import core.ui.model.data.LauncherSignalRequest
 import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -26,6 +27,14 @@ import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.core.annotation.KoinExperimentalAPI
 
 private const val DARK_SURFACE_LUMINANCE_THRESHOLD: Float = 0.5f
+
+/** Returns to [startDestination], navigating to it when nothing was above it. */
+private fun showStartDestination(navController: NavController, startDestination: String) {
+    val startOnBackStack: Boolean = navController.popBackStack(startDestination, inclusive = false)
+    if (!startOnBackStack) {
+        navController.navigate(startDestination)
+    }
+}
 
 /*
  * This is the root composable for this application. It creates a NavHost
@@ -38,8 +47,8 @@ private const val DARK_SURFACE_LUMINANCE_THRESHOLD: Float = 0.5f
 fun App(
     destinations: List<Destination>,
     startDestination: String,
-    homeSignals: Flow<HomeIntent>,
-    onDestinationChanged: (isWallpaperBacked: Boolean, isSurfaceDark: Boolean) -> Unit
+    launcherSignals: Flow<LauncherSignal>,
+    onDestinationChanged: (route: String?, isWallpaperBacked: Boolean, isSurfaceDark: Boolean) -> Unit
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -49,24 +58,29 @@ fun App(
         ?.isWallpaperBacked ?: false
     val currentOnDestinationChanged by rememberUpdatedState(onDestinationChanged)
 
-    LaunchedEffect(homeSignals) {
-        homeSignals.collect { homeIntent ->
+    LaunchedEffect(launcherSignals) {
+        launcherSignals.collect { signal ->
             val wasShowingStart: Boolean = latestBackStackEntry?.destination?.route == startDestination
-            val homeOnBackStack: Boolean = navController.popBackStack(startDestination, inclusive = false)
-            if (!homeOnBackStack) {
-                navController.navigate(startDestination)
+            if (signal !is LauncherSignal.TypedCharacter) {
+                showStartDestination(navController = navController, startDestination = startDestination)
             }
-            HomeIntentRequest(
+            val signalForLauncher: LauncherSignal = if (signal is LauncherSignal.Home) {
+                signal.copy(wasResumed = signal.wasResumed && wasShowingStart)
+            } else {
+                signal
+            }
+            LauncherSignalRequest(
                 savedStateHandle = navController.getBackStackEntry(startDestination).savedStateHandle
-            ).request(wasResumed = homeIntent.wasResumed && wasShowingStart)
+            ).request(signal = signalForLauncher)
         }
     }
 
     AppTheme {
         val isSurfaceDark: Boolean = MaterialTheme.colorScheme.surface.luminance() < DARK_SURFACE_LUMINANCE_THRESHOLD
+        val currentRoute: String? = currentBackStackEntry?.destination?.route
         LaunchedEffect(currentBackStackEntry, isSurfaceDark) {
             if (currentBackStackEntry != null) {
-                currentOnDestinationChanged(isWallpaperBacked, isSurfaceDark)
+                currentOnDestinationChanged(currentRoute, isWallpaperBacked, isSurfaceDark)
             }
         }
 

@@ -126,6 +126,7 @@ import core.lifecycle.widgets.IAppWidgetViewCacheImpl
 import core.lifecycle.widgets.RailAppWidgetHost
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
+import core.ui.model.data.LauncherTypingState
 import core.ui.popups.IIconPicker
 import core.ui.popups.IIconPickerImpl
 import core.ui.popups.IPopupCollaborators
@@ -219,6 +220,7 @@ class MainApplication :
     private val appModule = module {
         single<MainApplication> { this@MainApplication }
         single<CoroutineScope>(named(APP_SCOPE_QUALIFIER)) { appScope }
+        single { LauncherTypingState() }
     }
 
     /**

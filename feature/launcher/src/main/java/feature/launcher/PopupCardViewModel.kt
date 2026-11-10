@@ -147,6 +147,15 @@ class PopupCardViewModel(
     private val pageSettler: WidgetPageSettler = WidgetPageSettler(scope = viewModelScope, repository = widgetRepository)
     private var hasPendingAdd: Boolean = false
 
+    /** Whether a Pop-up card is open. */
+    val isCardOpen: StateFlow<Boolean> = openRequest
+        .map { request -> request != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = false
+        )
+
     /** Events the Pop-up asks the Activity to run. */
     val events: Flow<WidgetEvent> = widgetEvents.flow
 

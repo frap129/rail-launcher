@@ -31,7 +31,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="rail-launcher" />
+                <data android:scheme="rail-launcher" android:host="search" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="rail-launcher" android:host="settings" />
             </intent-filter>
         </activity>
 

@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.TaskStackBuilder
 import androidx.lifecycle.lifecycleScope
 import core.data.profiles.IProfileSource
+import core.ui.model.data.LAUNCHER_SCHEME
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -23,7 +24,7 @@ open class TemplateActivity : ComponentActivity() {
 
         // Resend intent updates as pending intents to fix navigation
         val data: Uri? = intent.data
-        if (data?.scheme == "rail-launcher") {
+        if (data?.scheme == LAUNCHER_SCHEME) {
             val pending: PendingIntent? = TaskStackBuilder.create(this).run {
                 addNextIntentWithParentStack(intent)
                 getPendingIntent(
