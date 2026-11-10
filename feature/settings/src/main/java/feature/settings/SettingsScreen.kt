@@ -110,6 +110,7 @@ import compose.icons.fontawesomeicons.solid.Clock
 import compose.icons.fontawesomeicons.solid.Folder
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
+import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.calendar.CalendarInfo
@@ -232,6 +233,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
                         SettingsScreen.Popups -> stringResource(R.string.popups_and_folders)
+                        SettingsScreen.Search -> stringResource(R.string.search)
                     }
 
                     Text(
@@ -264,6 +266,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
                     toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
                     toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
+                    toSearch = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Search.key}") },
                     onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
                 )
 
@@ -284,6 +287,13 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 )
 
                 SettingsScreen.Popups -> SettingsPopupsScreen()
+
+                SettingsScreen.Search -> SettingsSearchScreen(
+                    openSearchOnSwipeUp = uiState.openSearchOnSwipeUp,
+                    openSearchOnHomePress = uiState.openSearchOnHomePress,
+                    onOpenSearchOnSwipeUpChange = viewModel::setOpenSearchOnSwipeUp,
+                    onOpenSearchOnHomePressChange = viewModel::setOpenSearchOnHomePress
+                )
             }
         }
     }
@@ -296,6 +306,7 @@ fun SettingsMainScreen(
     toAppearance: () -> Unit,
     toWidgets: () -> Unit,
     toPopups: () -> Unit,
+    toSearch: () -> Unit,
     onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit
 ) {
     LazyColumn {
@@ -321,6 +332,14 @@ fun SettingsMainScreen(
                 summary = R.string.popups_and_folders_summary,
                 icon = FontAwesomeIcons.Solid.Folder,
                 onClick = toPopups
+            )
+        }
+        item {
+            SettingsNavigationRow(
+                title = R.string.search,
+                summary = R.string.search_summary,
+                icon = FontAwesomeIcons.Solid.Search,
+                onClick = toSearch
             )
         }
         if (isPrivateSpaceAvailable) {
@@ -889,7 +908,7 @@ private fun TapActionPickerSheet(
                 value = state.query,
                 onValueChange = viewModel::setTapActionQuery,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                label = { Text(stringResource(R.string.tap_action_search)) },
+                label = { Text(stringResource(R.string.search)) },
                 singleLine = true
             )
             LazyColumn(modifier = Modifier.weight(1f)) {

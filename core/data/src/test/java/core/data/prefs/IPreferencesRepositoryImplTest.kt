@@ -415,6 +415,52 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores the Search swipe-up entry without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setOpenSearchOnSwipeUp(false)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> !stored.openSearchOnSwipeUp }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, openSearchOnSwipeUp = false), actualSettings)
+    }
+
+    @Test
+    fun `exposes the stored Search swipe-up entry`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(openSearchOnSwipeUp = false))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertFalse(actualSettings.openSearchOnSwipeUp)
+    }
+
+    @Test
+    fun `stores the Search Home-press entry without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setOpenSearchOnHomePress(true)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.openSearchOnHomePress }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, openSearchOnHomePress = true), actualSettings)
+    }
+
+    @Test
+    fun `exposes the stored Search Home-press entry`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(openSearchOnHomePress = true))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertTrue(actualSettings.openSearchOnHomePress)
+    }
+
+    @Test
     fun `runs every launched write on the injected dispatcher`() = databaseTest {
         val mockDispatcher: CountingDispatcher = CountingDispatcher(delegate = databaseDispatcher)
         val repository: IPreferencesRepository = createPreferencesRepository(dispatcher = mockDispatcher)
@@ -429,7 +475,9 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setIconPack(iconPack = createCustomIconPack()) },
             { repository.setHidePrivateSpaceWhenLocked(hide = true) },
             { repository.setScrubEdges(edges = ScrubEdges.START) },
-            { repository.setRailSide(side = RailSide.START) }
+            { repository.setRailSide(side = RailSide.START) },
+            { repository.setOpenSearchOnSwipeUp(enabled = false) },
+            { repository.setOpenSearchOnHomePress(enabled = true) }
         )
 
         inputWrites.forEach { write -> write() }
@@ -442,7 +490,9 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 iconPack = TEST_ICON_PACK_PACKAGE,
                 hidePrivateSpaceWhenLocked = true,
                 scrubEdges = ScrubEdges.START,
-                railSide = RailSide.START
+                railSide = RailSide.START,
+                openSearchOnSwipeUp = false,
+                openSearchOnHomePress = true
             ),
             repository.settings.first()
         )

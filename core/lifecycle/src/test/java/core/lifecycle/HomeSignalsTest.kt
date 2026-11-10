@@ -1,6 +1,7 @@
 package core.lifecycle
 
 import app.cash.turbine.test
+import core.ui.model.data.HomeIntent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -10,9 +11,9 @@ class HomeSignalsTest {
     @Test
     fun `signal sent before a collector attaches is delivered once it attaches`() = runTest {
         val homeSignals: HomeSignals = HomeSignals()
-        homeSignals.signal()
+        homeSignals.signal(wasResumed = true)
         homeSignals.events.test {
-            assertEquals(Unit, awaitItem())
+            assertEquals(HomeIntent(wasResumed = true), awaitItem())
             expectNoEvents()
         }
     }
@@ -20,7 +21,7 @@ class HomeSignalsTest {
     @Test
     fun `consumed signal is not re-delivered to a later collector`() = runTest {
         val homeSignals: HomeSignals = HomeSignals()
-        homeSignals.signal()
+        homeSignals.signal(wasResumed = true)
         homeSignals.events.first()
         homeSignals.events.test {
             expectNoEvents()
@@ -28,11 +29,12 @@ class HomeSignalsTest {
     }
 
     @Test
-    fun `signals sent while no collector is attached conflate into one delivery`() = runTest {
+    fun `signals sent while no collector is attached conflate into the latest press`() = runTest {
         val homeSignals: HomeSignals = HomeSignals()
-        repeat(3) { homeSignals.signal() }
+        homeSignals.signal(wasResumed = true)
+        homeSignals.signal(wasResumed = false)
         homeSignals.events.test {
-            assertEquals(Unit, awaitItem())
+            assertEquals(HomeIntent(wasResumed = false), awaitItem())
             expectNoEvents()
         }
     }
@@ -41,8 +43,8 @@ class HomeSignalsTest {
     fun `signal sent to an attached collector is delivered`() = runTest {
         val homeSignals: HomeSignals = HomeSignals()
         homeSignals.events.test {
-            homeSignals.signal()
-            assertEquals(Unit, awaitItem())
+            homeSignals.signal(wasResumed = false)
+            assertEquals(HomeIntent(wasResumed = false), awaitItem())
         }
     }
 
@@ -50,10 +52,10 @@ class HomeSignalsTest {
     fun `each signal is delivered after the previous one is consumed`() = runTest {
         val homeSignals: HomeSignals = HomeSignals()
         homeSignals.events.test {
-            homeSignals.signal()
-            assertEquals(Unit, awaitItem())
-            homeSignals.signal()
-            assertEquals(Unit, awaitItem())
+            homeSignals.signal(wasResumed = true)
+            assertEquals(HomeIntent(wasResumed = true), awaitItem())
+            homeSignals.signal(wasResumed = false)
+            assertEquals(HomeIntent(wasResumed = false), awaitItem())
         }
     }
 }

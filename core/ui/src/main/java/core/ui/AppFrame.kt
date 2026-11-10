@@ -11,13 +11,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import core.ui.model.data.Destination
-import core.ui.model.data.HOME_INTENT_REQUEST_KEY
-import core.ui.model.data.OneShotRequest
+import core.ui.model.data.HomeIntent
+import core.ui.model.data.HomeIntentRequest
 import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -37,26 +38,27 @@ private const val DARK_SURFACE_LUMINANCE_THRESHOLD: Float = 0.5f
 fun App(
     destinations: List<Destination>,
     startDestination: String,
-    homeSignals: Flow<Unit>,
+    homeSignals: Flow<HomeIntent>,
     onDestinationChanged: (isWallpaperBacked: Boolean, isSurfaceDark: Boolean) -> Unit
 ) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val latestBackStackEntry: NavBackStackEntry? by rememberUpdatedState(currentBackStackEntry)
     val isWallpaperBacked: Boolean = currentBackStackEntry?.destination?.route
         ?.let { route -> destinations.find { destination -> destination.route == route } }
         ?.isWallpaperBacked ?: false
     val currentOnDestinationChanged by rememberUpdatedState(onDestinationChanged)
 
     LaunchedEffect(homeSignals) {
-        homeSignals.collect {
+        homeSignals.collect { homeIntent ->
+            val wasShowingStart: Boolean = latestBackStackEntry?.destination?.route == startDestination
             val homeOnBackStack: Boolean = navController.popBackStack(startDestination, inclusive = false)
             if (!homeOnBackStack) {
                 navController.navigate(startDestination)
             }
-            OneShotRequest(
-                savedStateHandle = navController.getBackStackEntry(startDestination).savedStateHandle,
-                key = HOME_INTENT_REQUEST_KEY
-            ).request()
+            HomeIntentRequest(
+                savedStateHandle = navController.getBackStackEntry(startDestination).savedStateHandle
+            ).request(wasResumed = homeIntent.wasResumed && wasShowingStart)
         }
     }
 

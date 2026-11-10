@@ -34,4 +34,10 @@ interface IPreferencesRepository {
 
     /** Sets the screen side where the Rail is drawn. */
     fun setRailSide(side: RailSide)
+
+    /** Sets whether swiping up on Home opens Search. */
+    fun setOpenSearchOnSwipeUp(enabled: Boolean)
+
+    /** Sets whether pressing Home on Home opens Search. */
+    fun setOpenSearchOnHomePress(enabled: Boolean)
 }

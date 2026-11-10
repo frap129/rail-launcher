@@ -74,6 +74,7 @@ fun LauncherHome(
     folderSummaries: Map<String, String>,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
+    onSwipeUp: () -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     isPopupSwipeEnabled: Boolean,
@@ -89,7 +90,15 @@ fun LauncherHome(
         isEditingWidgets = isEditingWidgets,
         onResizeOutsideTap = onResizeOutsideTap
     )
-    BoxWithConstraints(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .swipeUpToSearch(
+                canScrollForward = { home.lazyListState.canScrollForward },
+                onSwipeUp = onSwipeUp
+            )
+    ) {
         val homeHeightDp: Int = maxHeight.value.roundToInt()
         LaunchedEffect(homeHeightDp) {
             if (homeHeightDp > 0) {

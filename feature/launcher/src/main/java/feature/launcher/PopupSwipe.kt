@@ -17,10 +17,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -28,7 +26,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.prefs.RailSide
 import core.ui.util.performSegmentTickHaptic
-import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -83,10 +80,6 @@ fun Modifier.popupSwipe(
             }
             awaitEachGesture {
                 val down: PointerInputChange = awaitFirstDown(requireUnconsumed = false)
-                val velocityTracker: VelocityTracker = VelocityTracker()
-                velocityTracker.addPosition(down.uptimeMillis, down.position)
-                var totalDx: Float = 0f
-                var totalDy: Float = 0f
                 var claim: SwipeClaim = SwipeClaim.Pending
                 var wasPastThreshold: Boolean = false
                 var hasReachedRail: Boolean = SwipeToOpen.hasReachedRail(
@@ -94,74 +87,70 @@ fun Modifier.popupSwipe(
                     fingerInRoot = rowPositionInRoot + down.position,
                     railBounds = currentRailBounds()
                 )
-                var isCanceled: Boolean = false
-                var isFinished: Boolean = false
                 releaseJob?.cancel()
-                while (!isFinished && !isCanceled) {
-                    val event: PointerEvent = awaitPointerEvent()
-                    val change: PointerInputChange =
-                        event.changes.firstOrNull { pointerChange -> pointerChange.id == down.id } ?: break
-                    if (currentIsSwipeBlocked() || change.isConsumed) {
-                        isCanceled = true
-                        break
-                    }
-                    hasReachedRail = SwipeToOpen.hasReachedRail(
-                        wasReached = hasReachedRail,
-                        fingerInRoot = rowPositionInRoot + change.position,
-                        railBounds = currentRailBounds()
-                    )
-                    velocityTracker.addPosition(change.uptimeMillis, change.position)
-                    if (change.pressed) {
-                        val delta: Offset = change.position - change.previousPosition
-                        totalDx += delta.x
-                        totalDy += delta.y
-                        if (claim == SwipeClaim.Pending) {
-                            claim = SwipeToOpen.onDrag(
-                                dx = totalDx,
-                                dy = totalDy,
-                                isRtl = isRtl,
-                                railSide = railSide,
-                                slopPx = viewConfiguration.touchSlop
-                            )
-                        }
-                        if (claim == SwipeClaim.Claimed) {
-                            change.consume()
-                            rowOffset = swipeOffset(dx = totalDx, isRtl = isRtl, railSide = railSide, density = density)
-                            val isPastThreshold: Boolean =
-                                towardRailDx(dx = totalDx, isRtl = isRtl, railSide = railSide) >= thresholdPx
-                            if (isPastThreshold != wasPastThreshold) {
-                                if (isPastThreshold) {
-                                    hapticFeedback.performSegmentTickHaptic()
+                trackDrag(
+                    down = down,
+                    isBlocked = { currentIsSwipeBlocked() },
+                    onEvent = { change, totalDx, totalDy ->
+                        hasReachedRail = SwipeToOpen.hasReachedRail(
+                            wasReached = hasReachedRail,
+                            fingerInRoot = rowPositionInRoot + change.position,
+                            railBounds = currentRailBounds()
+                        )
+                        if (change.pressed) {
+                            if (claim == SwipeClaim.Pending) {
+                                claim = SwipeToOpen.onDrag(
+                                    dx = totalDx,
+                                    dy = totalDy,
+                                    isRtl = isRtl,
+                                    railSide = railSide,
+                                    slopPx = viewConfiguration.touchSlop
+                                )
+                            }
+                            if (claim == SwipeClaim.Claimed) {
+                                change.consume()
+                                rowOffset = swipeOffset(dx = totalDx, isRtl = isRtl, railSide = railSide, density = density)
+                                val isPastThreshold: Boolean =
+                                    towardRailDx(dx = totalDx, isRtl = isRtl, railSide = railSide) >= thresholdPx
+                                if (isPastThreshold != wasPastThreshold) {
+                                    if (isPastThreshold) {
+                                        hapticFeedback.performSegmentTickHaptic()
+                                    }
+                                    wasPastThreshold = isPastThreshold
                                 }
-                                wasPastThreshold = isPastThreshold
                             }
                         }
-                    } else {
-                        isFinished = true
-                        val isOppositeHorizontal: Boolean = claim == SwipeClaim.Rejected && isHorizontalDominant(totalDx, totalDy)
-                        if (isOppositeHorizontal) {
-                            change.consume()
-                        }
-                        if (claim == SwipeClaim.Claimed) {
-                            val velocityX: Float = velocityTracker.calculateVelocity().x
-                            val shouldOpen: Boolean = SwipeToOpen.onRelease(
-                                dx = totalDx,
-                                velocityX = velocityX,
-                                isRtl = isRtl,
-                                railSide = railSide,
-                                thresholdPx = thresholdPx,
-                                velocityThresholdPx = velocityThresholdPx
-                            )
-                            releaseJob = animateToRest()
-                            if (shouldOpen && !hasReachedRail) {
-                                currentOnSwipeOpen()
+                    },
+                    onEnd = { end ->
+                        when (end) {
+                            DragEnd.Canceled -> releaseJob = animateToRest()
+
+                            DragEnd.Lost -> Unit
+
+                            is DragEnd.Released -> {
+                                val isOppositeHorizontal: Boolean =
+                                    claim == SwipeClaim.Rejected && isHorizontalDominant(dx = end.totalDx, dy = end.totalDy)
+                                if (isOppositeHorizontal) {
+                                    end.change.consume()
+                                }
+                                if (claim == SwipeClaim.Claimed) {
+                                    val shouldOpen: Boolean = SwipeToOpen.onRelease(
+                                        dx = end.totalDx,
+                                        velocityX = end.velocityX,
+                                        isRtl = isRtl,
+                                        railSide = railSide,
+                                        thresholdPx = thresholdPx,
+                                        velocityThresholdPx = velocityThresholdPx
+                                    )
+                                    releaseJob = animateToRest()
+                                    if (shouldOpen && !hasReachedRail) {
+                                        currentOnSwipeOpen()
+                                    }
+                                }
                             }
                         }
                     }
-                }
-                if (isCanceled) {
-                    releaseJob = animateToRest()
-                }
+                )
             }
         }
         .graphicsLayer { translationX = rowOffset }
@@ -174,5 +163,3 @@ private fun swipeOffset(dx: Float, isRtl: Boolean, railSide: RailSide, density: 
     )
     return railDirectionOffset(distance = directionalOffset, isRtl = isRtl, railSide = railSide)
 }
-
-private fun isHorizontalDominant(dx: Float, dy: Float): Boolean = abs(dx) > abs(dy)

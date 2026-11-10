@@ -58,7 +58,7 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
-import core.ui.model.data.HOME_INTENT_REQUEST_KEY
+import core.ui.model.data.HomeIntentRequest
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
@@ -141,8 +141,8 @@ fun LauncherScreen(
     val railSide: RailSide by viewModel.railSide.collectAsState()
     val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
     val homeEditMode: HomeEditMode by viewModel.homeEditMode.collectAsState()
-    val homeIntentRequest: OneShotRequest = remember(backStackEntry) {
-        OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_INTENT_REQUEST_KEY)
+    val homeIntentRequest: HomeIntentRequest = remember(backStackEntry) {
+        HomeIntentRequest(savedStateHandle = backStackEntry.savedStateHandle)
     }
     val addWidgetRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_ADD_WIDGET_REQUEST_KEY)
@@ -266,12 +266,12 @@ fun LauncherScreen(
         )
     }
     LaunchedEffect(homeIntentRequest) {
-        homeIntentRequest.collectRequests {
+        homeIntentRequest.collectRequests { wasResumed ->
             popupCardViewModel.onHomeIntent()
             val wasEditingHome: Boolean =
                 widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
             if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
-                viewModel.onHomeIntent()
+                viewModel.onHomeIntent(wasResumed = wasResumed)
             }
         }
     }

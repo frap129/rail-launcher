@@ -137,6 +137,56 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Search swipe-up entry`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(openSearchOnSwipeUp = false)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertFalse(expectMostRecentItem().openSearchOnSwipeUp)
+        }
+    }
+
+    @Test
+    fun `persists the Search swipe-up entry`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setOpenSearchOnSwipeUp(false)
+
+            verify(exactly = 1) { mockPreferencesRepository.setOpenSearchOnSwipeUp(false) }
+        }
+    }
+
+    @Test
+    fun `exposes the stored Search Home-press entry`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(openSearchOnHomePress = true)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertTrue(expectMostRecentItem().openSearchOnHomePress)
+        }
+    }
+
+    @Test
+    fun `persists the Search Home-press entry`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setOpenSearchOnHomePress(true)
+
+            verify(exactly = 1) { mockPreferencesRepository.setOpenSearchOnHomePress(true) }
+        }
+    }
+
+    @Test
     fun `resets every Custom icon`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()

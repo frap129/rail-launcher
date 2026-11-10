@@ -144,4 +144,16 @@ class IPreferencesRepositoryImpl(
             settingsDao.update { settings -> settings.copy(railSide = side) }
         }
     }
+
+    override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }
+        }
+    }
+
+    override fun setOpenSearchOnHomePress(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(openSearchOnHomePress = enabled) }
+        }
+    }
 }

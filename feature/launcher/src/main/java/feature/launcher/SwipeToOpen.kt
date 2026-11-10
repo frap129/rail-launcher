@@ -20,10 +20,13 @@ enum class SwipeClaim {
     Rejected
 }
 
-/** The pure thresholds, offsets and Rail bounds behind the Pop-up row swipe. */
+/** The pure thresholds, offsets and gestures behind the Pop-up row swipe and the swipe up to Search. */
 object SwipeToOpen {
     const val OPEN_THRESHOLD_DP: Float = 48f
     const val MAX_OFFSET_DP: Float = 72f
+
+    /** How far up Home must be dragged to open Search. */
+    const val SWIPE_UP_OPEN_THRESHOLD_DP: Float = 72f
 
     /** The offset the row content shows while [dxPx] toward the Rail has been dragged. */
     fun offsetFor(dxPx: Float, density: Float): Float {
@@ -70,8 +73,25 @@ object SwipeToOpen {
     fun hasReachedRail(wasReached: Boolean, fingerInRoot: Offset, railBounds: Rect?): Boolean =
         wasReached || (railBounds?.contains(fingerInRoot) == true)
 
+    /**
+     * Whether releasing a vertical drag of [dy] pixels at [velocityY] pixels per second opens
+     * Search. A Favorites list that can still scroll forward consumes the drag instead.
+     */
+    fun onSwipeUpRelease(dx: Float, dy: Float, velocityY: Float, density: Float, canScrollForward: Boolean): Boolean {
+        if (canScrollForward) {
+            return false
+        }
+        val distanceUp: Float = -dy
+        return distanceUp > 0f &&
+            isVerticalDominant(dx = dx, dy = dy) &&
+            (distanceUp >= swipeUpThresholdPx(density = density) || -velocityY >= velocityThresholdPx(density = density))
+    }
+
     /** The release distance threshold in pixels. */
     fun thresholdPx(density: Float): Float = OPEN_THRESHOLD_DP * density
+
+    /** The swipe-up distance threshold in pixels. */
+    fun swipeUpThresholdPx(density: Float): Float = SWIPE_UP_OPEN_THRESHOLD_DP * density
 
     /** The release velocity threshold in pixels per second. */
     fun velocityThresholdPx(density: Float): Float = VELOCITY_THRESHOLD_DP_PER_SECOND * density
