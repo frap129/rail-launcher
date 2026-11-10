@@ -11,6 +11,7 @@ import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.createCustomIconPack
@@ -461,6 +462,56 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores the Search row switches without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setSearchCalculatorRow(false)
+        repository.setSearchWebRow(false)
+        repository.setSearchPlayStoreRow(false)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored ->
+            !stored.searchCalculatorRow && !stored.searchWebRow && !stored.searchPlayStoreRow
+        }
+        assertEquals(
+            Settings(
+                iconPack = TEST_ICON_PACK_PACKAGE,
+                searchCalculatorRow = false,
+                searchWebRow = false,
+                searchPlayStoreRow = false
+            ),
+            actualSettings
+        )
+    }
+
+    @Test
+    fun `stores the Search engine without clearing the custom template`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setSearchEngine(SearchEngine.Kagi)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.searchEngine == SearchEngine.Kagi }
+        assertEquals(Settings(searchEngine = SearchEngine.Kagi, searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE), actualSettings)
+    }
+
+    @Test
+    fun `stores a custom Search engine template and selects it`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setCustomSearchEngineTemplate(TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.searchEngine == SearchEngine.Custom }
+        assertEquals(
+            Settings(searchEngine = SearchEngine.Custom, searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE),
+            actualSettings
+        )
+    }
+
+    @Test
     fun `runs every launched write on the injected dispatcher`() = databaseTest {
         val mockDispatcher: CountingDispatcher = CountingDispatcher(delegate = databaseDispatcher)
         val repository: IPreferencesRepository = createPreferencesRepository(dispatcher = mockDispatcher)
@@ -477,7 +528,12 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setScrubEdges(edges = ScrubEdges.START) },
             { repository.setRailSide(side = RailSide.START) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
-            { repository.setOpenSearchOnHomePress(enabled = true) }
+            { repository.setOpenSearchOnHomePress(enabled = true) },
+            { repository.setSearchCalculatorRow(enabled = false) },
+            { repository.setSearchWebRow(enabled = false) },
+            { repository.setSearchPlayStoreRow(enabled = false) },
+            { repository.setSearchEngine(engine = SearchEngine.Kagi) },
+            { repository.setCustomSearchEngineTemplate(template = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE) }
         )
 
         inputWrites.forEach { write -> write() }
@@ -492,7 +548,12 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 scrubEdges = ScrubEdges.START,
                 railSide = RailSide.START,
                 openSearchOnSwipeUp = false,
-                openSearchOnHomePress = true
+                openSearchOnHomePress = true,
+                searchCalculatorRow = false,
+                searchWebRow = false,
+                searchPlayStoreRow = false,
+                searchEngine = SearchEngine.Custom,
+                searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
             ),
             repository.settings.first()
         )

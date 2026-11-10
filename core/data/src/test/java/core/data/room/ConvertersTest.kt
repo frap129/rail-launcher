@@ -8,6 +8,7 @@ import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
 import org.junit.Assert.assertEquals
@@ -120,5 +121,17 @@ class ConvertersTest {
     @Test
     fun `falls back to the layout end for an unknown Rail side value`() {
         assertEquals(RailSide.END, converters.fromStringToRailSide("UNKNOWN"))
+    }
+
+    @Test
+    fun `round trips Search engines by name`() {
+        SearchEngine.entries.forEach { engine ->
+            assertEquals(engine, converters.fromStringToSearchEngine(converters.fromSearchEngineToString(engine)))
+        }
+    }
+
+    @Test
+    fun `falls back to Google for an unknown Search engine value`() {
+        assertEquals(SearchEngine.Google, converters.fromStringToSearchEngine("UNKNOWN"))
     }
 }

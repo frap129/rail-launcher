@@ -7,6 +7,7 @@ import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.profiles.IPrivateSpaceStatus
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -33,7 +34,12 @@ data class SettingsUiState(
     val railSide: RailSide,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
-    val searchSuggestions: Boolean
+    val searchSuggestions: Boolean,
+    val searchCalculatorRow: Boolean,
+    val searchWebRow: Boolean,
+    val searchPlayStoreRow: Boolean,
+    val searchEngine: SearchEngine,
+    val searchEngineTemplate: String?
 )
 
 class SettingsViewModel(
@@ -60,7 +66,12 @@ class SettingsViewModel(
             railSide = settings.railSide,
             openSearchOnSwipeUp = settings.openSearchOnSwipeUp,
             openSearchOnHomePress = settings.openSearchOnHomePress,
-            searchSuggestions = settings.searchSuggestions
+            searchSuggestions = settings.searchSuggestions,
+            searchCalculatorRow = settings.searchCalculatorRow,
+            searchWebRow = settings.searchWebRow,
+            searchPlayStoreRow = settings.searchPlayStoreRow,
+            searchEngine = settings.searchEngine,
+            searchEngineTemplate = settings.searchEngineTemplate
         )
     }.stateIn(
         viewModelScope,
@@ -74,7 +85,12 @@ class SettingsViewModel(
             railSide = RailSide.DEFAULT,
             openSearchOnSwipeUp = true,
             openSearchOnHomePress = false,
-            searchSuggestions = true
+            searchSuggestions = true,
+            searchCalculatorRow = true,
+            searchWebRow = true,
+            searchPlayStoreRow = true,
+            searchEngine = SearchEngine.Google,
+            searchEngineTemplate = null
         )
     )
 
@@ -100,4 +116,19 @@ class SettingsViewModel(
 
     /** Persists whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean) = prefsRepo.setSearchSuggestions(enabled)
+
+    /** Persists whether Search shows the Calculator row. */
+    fun setSearchCalculatorRow(enabled: Boolean) = prefsRepo.setSearchCalculatorRow(enabled)
+
+    /** Persists whether Search shows the typed-URL and Web search rows. */
+    fun setSearchWebRow(enabled: Boolean) = prefsRepo.setSearchWebRow(enabled)
+
+    /** Persists whether Search shows the Play Store row. */
+    fun setSearchPlayStoreRow(enabled: Boolean) = prefsRepo.setSearchPlayStoreRow(enabled)
+
+    /** Persists the Search engine the Web search row uses. */
+    fun setSearchEngine(engine: SearchEngine) = prefsRepo.setSearchEngine(engine)
+
+    /** Persists the custom Search engine template and makes it the Search engine. */
+    fun setCustomSearchEngineTemplate(template: String) = prefsRepo.setCustomSearchEngineTemplate(template)
 }

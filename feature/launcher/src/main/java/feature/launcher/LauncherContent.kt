@@ -48,6 +48,7 @@ import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.search.SearchResult
 import core.ui.GroupMark
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
@@ -97,6 +98,7 @@ internal fun LauncherContent(
     onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
+    onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     homeEditMode: HomeEditMode
@@ -264,7 +266,8 @@ internal fun LauncherContent(
                         itemActions = itemActions,
                         onQueryChange = viewModel::setSearchQuery,
                         onSearchGo = viewModel::onSearchGo,
-                        onCopyCalculatorRow = onCopyCalculatorRow
+                        onCopyCalculatorRow = onCopyCalculatorRow,
+                        onOpenSearchRow = onOpenSearchRow
                     )
                 }
             }

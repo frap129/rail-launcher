@@ -74,6 +74,7 @@ import core.data.room.MIGRATION_15_16
 import core.data.room.MIGRATION_16_17
 import core.data.room.MIGRATION_17_18
 import core.data.room.MIGRATION_18_19
+import core.data.room.MIGRATION_19_20
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -213,7 +214,8 @@ class MainApplication :
                 MIGRATION_15_16,
                 MIGRATION_16_17,
                 MIGRATION_17_18,
-                MIGRATION_18_19
+                MIGRATION_18_19,
+                MIGRATION_19_20
             )
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)

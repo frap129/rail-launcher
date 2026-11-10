@@ -114,6 +114,10 @@ private const val FAVORITE_FOLDER_ID: Long = 42L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
 private const val TEST_NOW_EPOCH_MS: Long = 1_791_720_000_000L
 
+// The matching tests assert only the rows they are about; the row tests pass Settings with the
+// web and Play Store rows on, and the Home-press test asserts them with the production defaults.
+private val inputSearchRowsOff: Settings = Settings(searchWebRow = false, searchPlayStoreRow = false)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -153,7 +157,7 @@ class LauncherViewModelTest {
     private val mockSearchHistoryRepository: ISearchHistoryRepository
         get() = searchHistoryRepository.value
 
-    private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+    private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(settings = inputSearchRowsOff)
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
     private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
     private val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
@@ -1953,6 +1957,102 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `Go returns the typed-URL row when no Launchable matches`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("example.com")
+
+            val expectedResult: SearchResult = SearchResult.TypedUrlRow(url = "https://example.com")
+            assertEquals(expectedResult, expectSearch().topResult)
+            assertEquals(expectedResult, viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `Go returns the web search row when nothing else matches`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("rail launcher")
+
+            val expectedResult: SearchResult = SearchResult.WebSearchRow(url = "https://www.google.com/search?q=rail%20launcher")
+            assertEquals(expectedResult, expectSearch().topResult)
+            assertEquals(expectedResult, viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `Go returns the lone Play Store row`() = runTest {
+        val inputSettings: Settings = Settings(searchCalculatorRow = false, searchWebRow = false)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("12*7")
+
+            val expectedResult: SearchResult = SearchResult.PlayStoreRow(
+                marketUrl = "market://search?q=12%2A7",
+                webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
+            )
+            assertEquals(expectedResult, expectSearch().topResult)
+            assertEquals(expectedResult, viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `the Search row settings remove their rows`() = runTest {
+        val inputSettings: Settings = Settings(searchCalculatorRow = false, searchWebRow = false, searchPlayStoreRow = false)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("example.com")
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertTrue(actualSearch.results.isEmpty())
+            assertNull(actualSearch.topResult)
+        }
+    }
+
+    @Test
+    fun `opening an external Search row closes and resets Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("example.com")
+            assertEquals(
+                SearchResult.TypedUrlRow(url = "https://example.com"),
+                expectSearch().topResult
+            )
+
+            viewModel.closeSearch()
+
+            expectHome()
+            viewModel.openSearch()
+            assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
     fun `Back clears the query before closing Search`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 
@@ -2420,7 +2520,14 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(launchableResults(inputItem), expectSearch().results)
+            val expectedRows: List<SearchResult> = launchableResults(inputItem) + listOf(
+                SearchResult.WebSearchRow(url = "https://www.google.com/search?q=al"),
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=al",
+                    webUrl = "https://play.google.com/store/search?q=al&c=apps"
+                )
+            )
+            assertEquals(expectedRows, expectSearch().results)
 
             viewModel.onHomeIntent(wasResumed = true)
 

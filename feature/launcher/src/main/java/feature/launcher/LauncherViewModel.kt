@@ -158,7 +158,7 @@ private fun toUiState(
     navigation.search?.let { search ->
         val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
         // Typed results wait for the first Shortcut emission, so no row is inserted above one already
-        // shown; the Calculator row is gated too.
+        // shown; the Calculator, web and Play Store rows are gated too.
         val results: List<SearchResult> = when {
             isShowingSuggestions -> state.searchSuggestions(
                 history = searchData.history,
@@ -173,7 +173,8 @@ private fun toUiState(
                     query = search.query,
                     launchCounts = launchCounts,
                     shortcuts = searchData.shortcuts,
-                    locale = Locale.getDefault()
+                    locale = Locale.getDefault(),
+                    settings = searchData.settings
                 )
             }
         }
@@ -615,7 +616,8 @@ class LauncherViewModel(
         }
     }
 
-    private fun closeSearch() {
+    /** Closes Search, returning to the state it was opened from and resetting the query. */
+    fun closeSearch() {
         navigation.update { current ->
             val search: SearchState = current.search ?: return@update current
             current.copy(

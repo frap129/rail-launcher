@@ -162,4 +162,34 @@ class IPreferencesRepositoryImpl(
             settingsDao.update { settings -> settings.copy(searchSuggestions = enabled) }
         }
     }
+
+    override fun setSearchCalculatorRow(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchCalculatorRow = enabled) }
+        }
+    }
+
+    override fun setSearchWebRow(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchWebRow = enabled) }
+        }
+    }
+
+    override fun setSearchPlayStoreRow(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchPlayStoreRow = enabled) }
+        }
+    }
+
+    override fun setSearchEngine(engine: SearchEngine) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchEngine = engine) }
+        }
+    }
+
+    override fun setCustomSearchEngineTemplate(template: String) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchEngine = SearchEngine.Custom, searchEngineTemplate = template) }
+        }
+    }
 }

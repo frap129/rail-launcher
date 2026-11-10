@@ -51,6 +51,7 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.profiles.IProfileSource
+import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
@@ -78,6 +79,7 @@ import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.NotificationAccessDialog
+import core.util.attemptLaunch
 import core.util.openApplicationDetailsSettings
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.AddWidgetOrigin
@@ -163,7 +165,16 @@ fun LauncherScreen(
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
+    val couldntOpenSearchRowMessage: String = stringResource(R.string.couldnt_open_search_row)
     val calculatorCopiedMessage: String = stringResource(R.string.calculator_copied)
+    val openSearchRow: (SearchResult.ExternalRow) -> Unit = { row ->
+        keyboardController?.hide()
+        if (openSearchResultRow(context = context, row = row)) {
+            viewModel.closeSearch()
+        } else {
+            coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenSearchRowMessage)
+        }
+    }
     val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
         if (launchable is Folder) {
             return@launchItem
@@ -348,6 +359,7 @@ fun LauncherScreen(
                     coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = calculatorCopiedMessage)
                 }
             },
+            onOpenSearchRow = openSearchRow,
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode
@@ -476,18 +488,13 @@ fun LauncherScreen(
     }
 }
 
-private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFailure: () -> Unit): Boolean =
-    runCatching { shortcut.launch(context) }.fold(
-        onSuccess = { true },
-        onFailure = { exception ->
-            if (exception is ActivityNotFoundException || exception is SecurityException || exception is IllegalStateException) {
-                onFailure()
-                false
-            } else {
-                throw exception
-            }
-        }
-    )
+private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFailure: () -> Unit): Boolean {
+    val didLaunch: Boolean = attemptLaunch { shortcut.launch(context) }
+    if (!didLaunch) {
+        onFailure()
+    }
+    return didLaunch
+}
 
 private class WidgetEventCallbacks(
     val onBindResult: (Boolean) -> Unit,

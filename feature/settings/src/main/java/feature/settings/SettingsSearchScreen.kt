@@ -1,45 +1,96 @@
 package feature.settings
 
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import core.data.prefs.SearchEngine
+import core.ui.R as CoreUiR
 import core.ui.model.data.SEARCH_ENTRY_URI
+import core.util.SEARCH_TEMPLATE_PLACEHOLDER
+import core.util.isValidSearchTemplate
+import org.koin.androidx.compose.koinViewModel
 
-/** The Search section: the two independent ways to open Search from Home and its suggestions. */
+/** The Search section: how Search opens, its rows, Search suggestions and the Search engine. */
 @Composable
-fun SettingsSearchScreen(
-    openSearchOnSwipeUp: Boolean,
-    openSearchOnHomePress: Boolean,
-    searchSuggestions: Boolean,
-    onOpenSearchOnSwipeUpChange: (Boolean) -> Unit,
-    onOpenSearchOnHomePressChange: (Boolean) -> Unit,
-    onSearchSuggestionsChange: (Boolean) -> Unit
-) {
+fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
+    val uiState: SettingsUiState by viewModel.uiState.collectAsState()
+    var isChoosingEngine: Boolean by remember { mutableStateOf(false) }
+    var isEditingCustomEngine: Boolean by remember { mutableStateOf(false) }
     LazyColumn {
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.search_swipe_up),
-                checked = openSearchOnSwipeUp,
+                checked = uiState.openSearchOnSwipeUp,
                 supportingText = stringResource(R.string.search_swipe_up_summary),
-                onCheckedChange = onOpenSearchOnSwipeUpChange
+                onCheckedChange = viewModel::setOpenSearchOnSwipeUp
             )
         }
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.search_home_press),
-                checked = openSearchOnHomePress,
+                checked = uiState.openSearchOnHomePress,
                 supportingText = stringResource(R.string.search_home_press_summary),
-                onCheckedChange = onOpenSearchOnHomePressChange
+                onCheckedChange = viewModel::setOpenSearchOnHomePress
             )
         }
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.search_suggestions),
-                checked = searchSuggestions,
+                checked = uiState.searchSuggestions,
                 supportingText = stringResource(R.string.search_suggestions_summary),
-                onCheckedChange = onSearchSuggestionsChange
+                onCheckedChange = viewModel::setSearchSuggestions
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_calculator_row),
+                checked = uiState.searchCalculatorRow,
+                supportingText = stringResource(R.string.search_calculator_row_summary),
+                onCheckedChange = viewModel::setSearchCalculatorRow
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_web_row),
+                checked = uiState.searchWebRow,
+                supportingText = stringResource(R.string.search_web_row_summary),
+                onCheckedChange = viewModel::setSearchWebRow
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_play_store_row),
+                checked = uiState.searchPlayStoreRow,
+                supportingText = stringResource(R.string.search_play_store_row_summary),
+                onCheckedChange = viewModel::setSearchPlayStoreRow
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.search_engine),
+                value = stringResource(uiState.searchEngine.labelResource()),
+                onClick = { isChoosingEngine = true }
+            )
+        }
+        item {
+            SettingsActionRow(
+                title = stringResource(R.string.search_custom_engine),
+                value = uiState.searchEngineTemplate ?: stringResource(R.string.search_custom_engine_not_set),
+                onClick = { isEditingCustomEngine = true }
             )
         }
         item {
@@ -51,4 +102,77 @@ fun SettingsSearchScreen(
             )
         }
     }
+    if (isChoosingEngine) {
+        SingleChoiceDialog(
+            title = stringResource(R.string.search_engine),
+            options = SearchEngine.entries
+                .filter { engine -> engine != SearchEngine.Custom }
+                .map { engine -> SingleChoiceOption(value = engine, label = stringResource(engine.labelResource())) },
+            selected = uiState.searchEngine,
+            onSelect = { engine ->
+                viewModel.setSearchEngine(engine)
+                isChoosingEngine = false
+            },
+            onDismiss = { isChoosingEngine = false }
+        )
+    }
+    if (isEditingCustomEngine) {
+        SearchEngineTemplateDialog(
+            initialTemplate = uiState.searchEngineTemplate,
+            onSave = { template ->
+                viewModel.setCustomSearchEngineTemplate(template)
+                isEditingCustomEngine = false
+            },
+            onDismiss = { isEditingCustomEngine = false }
+        )
+    }
+}
+
+@Composable
+private fun SearchEngineTemplateDialog(initialTemplate: String?, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var template: String by remember(initialTemplate) { mutableStateOf(initialTemplate.orEmpty()) }
+    val isValid: Boolean = isValidSearchTemplate(template = template)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.search_custom_engine)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.search_custom_engine_help, SEARCH_TEMPLATE_PLACEHOLDER))
+                OutlinedTextField(
+                    value = template,
+                    onValueChange = { changedTemplate -> template = changedTemplate },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    isError = template.isNotEmpty() && !isValid,
+                    supportingText = if (template.isNotEmpty() && !isValid) {
+                        { Text(stringResource(R.string.search_custom_engine_invalid, SEARCH_TEMPLATE_PLACEHOLDER)) }
+                    } else {
+                        null
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = isValid, onClick = { onSave(template) }) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(CoreUiR.string.cancel))
+            }
+        }
+    )
+}
+
+@StringRes
+private fun SearchEngine.labelResource(): Int = when (this) {
+    SearchEngine.Google -> R.string.search_engine_google
+    SearchEngine.DuckDuckGo -> R.string.search_engine_duckduckgo
+    SearchEngine.Brave -> R.string.search_engine_brave
+    SearchEngine.Kagi -> R.string.search_engine_kagi
+    SearchEngine.Startpage -> R.string.search_engine_startpage
+    SearchEngine.Bing -> R.string.search_engine_bing
+    SearchEngine.Perplexity -> R.string.search_engine_perplexity
+    SearchEngine.Custom -> R.string.search_engine_custom
 }

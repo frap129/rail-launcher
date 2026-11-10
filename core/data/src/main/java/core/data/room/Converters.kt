@@ -12,6 +12,7 @@ import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.TimeFormat
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetAreaHeightLimit
@@ -129,6 +130,13 @@ class Converters {
 
     @TypeConverter
     fun fromStringToRailSide(side: String): RailSide = RailSide.entries.firstOrNull { entry -> entry.name == side } ?: RailSide.DEFAULT
+
+    @TypeConverter
+    fun fromSearchEngineToString(engine: SearchEngine): String = engine.name
+
+    @TypeConverter
+    fun fromStringToSearchEngine(engine: String): SearchEngine =
+        SearchEngine.entries.firstOrNull { entry -> entry.name == engine } ?: SearchEngine.Google
 
     @TypeConverter
     fun fromCustomIconToString(icon: CustomIcon?): String? = icon?.format()

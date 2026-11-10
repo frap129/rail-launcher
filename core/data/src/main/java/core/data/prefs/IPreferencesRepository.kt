@@ -43,4 +43,19 @@ interface IPreferencesRepository {
 
     /** Sets whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean)
+
+    /** Sets whether Search shows the Calculator row. */
+    fun setSearchCalculatorRow(enabled: Boolean)
+
+    /** Sets whether Search shows the typed-URL and Web search rows. */
+    fun setSearchWebRow(enabled: Boolean)
+
+    /** Sets whether Search shows the Play Store row. */
+    fun setSearchPlayStoreRow(enabled: Boolean)
+
+    /** Sets the Search engine the Web search row uses. */
+    fun setSearchEngine(engine: SearchEngine)
+
+    /** Stores [template] and makes it the custom Search engine the Web search row uses. */
+    fun setCustomSearchEngineTemplate(template: String)
 }

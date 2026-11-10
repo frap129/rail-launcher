@@ -212,6 +212,26 @@ _Avoid_: Match, hit
 The Search result that shows an arithmetic expression and its result, with `%` as modulo, and copies the result to the clipboard when tapped or opened with Go. It always follows the Launchable and Shortcut results and is the Top result only when none match.
 _Avoid_: Calculator result, calculator widget
 
+**Search engine**:
+The web engine the Web search row uses: Google, DuckDuckGo, Brave, Kagi, Startpage, Bing or Perplexity, or a custom `http` or `https` URL template containing `%s` where the encoded query goes.
+_Avoid_: Search provider, web engine
+
+**Typed URL**:
+A query that looks like a web address, which Search offers to open directly in the default browser instead of searching for it.
+_Avoid_: Entered URL, guessed URL
+
+**Typed URL row**:
+The Search result that opens a Typed URL in the default browser. It follows the Calculator row and precedes the Web search and Play Store rows.
+_Avoid_: URL result, link row
+
+**Web search row**:
+The Search result that opens the query as a web search with the Search engine. It follows the Typed URL row and precedes the Play Store row.
+_Avoid_: Web result, search row
+
+**Play Store row**:
+The Search result that opens a Play Store search for the query, falling back to the Play Store web address when no Play Store app accepts it. It always follows the Web search row.
+_Avoid_: Store row, app store row
+
 **Publisher name**:
 The name of the App that publishes a Shortcut, shown under that Shortcut in Search so Shortcuts with the same name are distinguishable.
 _Avoid_: Owner name, app label

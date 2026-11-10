@@ -5,10 +5,12 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -31,6 +33,8 @@ private const val SEARCH_ENTRIES_DATABASE_NAME: String = "search-entries-migrati
 private const val SEARCH_ENTRIES_DATABASE_VERSION: Int = 17
 private const val SEARCH_SUGGESTIONS_DATABASE_NAME: String = "search-suggestions-migration-test"
 private const val SEARCH_SUGGESTIONS_DATABASE_VERSION: Int = 18
+private const val SEARCH_ROWS_DATABASE_NAME: String = "search-rows-migration-test"
+private const val SEARCH_ROWS_DATABASE_VERSION: Int = 19
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
@@ -235,6 +239,58 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Search rows and engine defaulting on and Google and keeps the settings row`() {
+        withDatabase(
+            name = SEARCH_ROWS_DATABASE_NAME,
+            version = SEARCH_ROWS_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    hidePrivateSpaceWhenLocked = true,
+                    scrubEdges = ScrubEdges.START,
+                    railSide = RailSide.START,
+                    openSearchOnSwipeUp = false,
+                    openSearchOnHomePress = true,
+                    searchSuggestions = false
+                )
+            }
+        ) { db ->
+            MIGRATION_19_20.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED,
+                    Settings.COLUMN_SCRUB_EDGES,
+                    Settings.COLUMN_RAIL_SIDE,
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS,
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_SEARCH_CALCULATOR_ROW,
+                    Settings.COLUMN_SEARCH_WEB_ROW,
+                    Settings.COLUMN_SEARCH_PLAY_STORE_ROW,
+                    Settings.COLUMN_SEARCH_ENGINE,
+                    Settings.COLUMN_SEARCH_ENGINE_TEMPLATE
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(true, db.searchCalculatorRow())
+            assertEquals(true, db.searchWebRow())
+            assertEquals(true, db.searchPlayStoreRow())
+            assertEquals(SearchEngine.Google.name, db.searchEngine())
+            assertNull(db.searchEngineTemplate())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(true, db.openSearchOnHomePress())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(true, db.hidePrivateSpaceWhenLocked())
+            assertEquals("START", db.scrubEdges())
+            assertEquals("START", db.railSide())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -309,7 +365,8 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     scrubEdges: ScrubEdges? = null,
     railSide: RailSide? = null,
     openSearchOnSwipeUp: Boolean? = null,
-    openSearchOnHomePress: Boolean? = null
+    openSearchOnHomePress: Boolean? = null,
+    searchSuggestions: Boolean? = null
 ) {
     val hideDefinition: String? = hidePrivateSpaceWhenLocked?.let {
         ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
@@ -326,26 +383,32 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     val openSearchOnHomePressDefinition: String? = openSearchOnHomePress?.let {
         ", ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
     }
+    val searchSuggestionsDefinition: String? = searchSuggestions?.let {
+        ", ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
+    }
     val definitions: String = listOfNotNull(
         hideDefinition,
         scrubEdgesDefinition,
         railSideDefinition,
         openSearchOnSwipeUpDefinition,
-        openSearchOnHomePressDefinition
+        openSearchOnHomePressDefinition,
+        searchSuggestionsDefinition
     ).joinToString(separator = "")
     val optionalColumns: List<String> = listOfNotNull(
         hidePrivateSpaceWhenLocked?.let { ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}" },
         scrubEdges?.let { ", ${Settings.COLUMN_SCRUB_EDGES}" },
         railSide?.let { ", ${Settings.COLUMN_RAIL_SIDE}" },
         openSearchOnSwipeUp?.let { ", ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP}" },
-        openSearchOnHomePress?.let { ", ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS}" }
+        openSearchOnHomePress?.let { ", ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS}" },
+        searchSuggestions?.let { ", ${Settings.COLUMN_SEARCH_SUGGESTIONS}" }
     )
     val optionalValues: List<String> = listOfNotNull(
         hidePrivateSpaceWhenLocked?.let { ", ${if (it) 1 else 0}" },
         scrubEdges?.let { ", '${it.name}'" },
         railSide?.let { ", '${it.name}'" },
         openSearchOnSwipeUp?.let { ", ${if (it) 1 else 0}" },
-        openSearchOnHomePress?.let { ", ${if (it) 1 else 0}" }
+        openSearchOnHomePress?.let { ", ${if (it) 1 else 0}" },
+        searchSuggestions?.let { ", ${if (it) 1 else 0}" }
     )
     val columns: String = "id INTEGER NOT NULL, icon_pack TEXT$definitions"
     val values: String = "0, '$iconPack'${optionalValues.joinToString(separator = "")}"
@@ -415,6 +478,36 @@ private fun SupportSQLiteDatabase.searchSuggestions(): Boolean =
     query("SELECT ${Settings.COLUMN_SEARCH_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_SUGGESTIONS)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchCalculatorRow(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CALCULATOR_ROW)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchWebRow(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_WEB_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_ROW)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchPlayStoreRow(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_PLAY_STORE_ROW)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchEngine(): String =
+    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE))
+    }
+
+private fun SupportSQLiteDatabase.searchEngineTemplate(): String? =
+    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE_TEMPLATE))
     }
 
 private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM $SETTINGS_TABLE").use { cursor ->

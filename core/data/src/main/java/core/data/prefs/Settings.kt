@@ -19,7 +19,17 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS, defaultValue = "0")
     val openSearchOnHomePress: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_SUGGESTIONS, defaultValue = "1")
-    val searchSuggestions: Boolean = true
+    val searchSuggestions: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_CALCULATOR_ROW, defaultValue = "1")
+    val searchCalculatorRow: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_WEB_ROW, defaultValue = "1")
+    val searchWebRow: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_PLAY_STORE_ROW, defaultValue = "1")
+    val searchPlayStoreRow: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "GOOGLE")
+    val searchEngine: SearchEngine = SearchEngine.Google,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE_TEMPLATE)
+    val searchEngineTemplate: String? = null
 ) {
     companion object {
         const val COLUMN_ICON_PACK: String = "icon_pack"
@@ -29,5 +39,10 @@ data class Settings(
         const val COLUMN_OPEN_SEARCH_ON_SWIPE_UP: String = "open_search_on_swipe_up"
         const val COLUMN_OPEN_SEARCH_ON_HOME_PRESS: String = "open_search_on_home_press"
         const val COLUMN_SEARCH_SUGGESTIONS: String = "search_suggestions"
+        const val COLUMN_SEARCH_CALCULATOR_ROW: String = "search_calculator_row"
+        const val COLUMN_SEARCH_WEB_ROW: String = "search_web_row"
+        const val COLUMN_SEARCH_PLAY_STORE_ROW: String = "search_play_store_row"
+        const val COLUMN_SEARCH_ENGINE: String = "search_engine"
+        const val COLUMN_SEARCH_ENGINE_TEMPLATE: String = "search_engine_template"
     }
 }
