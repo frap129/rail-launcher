@@ -6,3 +6,7 @@ plugins {
 android {
     namespace = "core.util"
 }
+
+dependencies {
+    implementation(libs.evalex)
+}

@@ -11,6 +11,7 @@ compose-unstyled = "1.49.9"
 core-ktx = "1.19.1"
 dokka = "1.9.20"
 espresso-core = "3.7.0"
+evalex = "3.8.0"
 fontAwesome = "1.1.1"
 junit = "4.13.2"
 koin = "4.2.2"
@@ -57,6 +58,7 @@ compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-unstyled-core = { module = "com.composables:core", version.ref = "compose-unstyled" }
+evalex = { module = "com.ezylang:EvalEx", version.ref = "evalex" }
 icons-fontawesome = { module = "br.com.devsrsouza.compose.icons:font-awesome", version.ref = "fontAwesome" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin" }

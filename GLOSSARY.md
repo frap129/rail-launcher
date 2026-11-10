@@ -181,7 +181,7 @@ The launcher state showing every Launchable grouped alphabetically, then the Pri
 _Avoid_: Drawer, all-apps, launcher list
 
 **Search**:
-The launcher state for typing a query, which shows the matching Launchables and Shortcuts as Search results.
+The launcher state for typing a query, which shows the matching Launchables and Shortcuts as Search results, followed by every other Search result such as the Calculator row.
 _Avoid_: Search mode, finder
 
 **Search entry**:
@@ -205,8 +205,12 @@ An upward drag on Home. The swipe-up entry in Rail Settings opens Search on it.
 _Avoid_: Upward swipe, flick
 
 **Search result**:
-One row of the Launchables and Shortcuts Search finds for its query.
+One row of Search results: a Launchable or Shortcut match, or a row Search adds such as the Calculator row.
 _Avoid_: Match, hit
+
+**Calculator row**:
+The Search result that shows an arithmetic expression and its result, with `%` as modulo, and copies the result to the clipboard when tapped or opened with Go. It always follows the Launchable and Shortcut results and is the Top result only when none match.
+_Avoid_: Calculator result, calculator widget
 
 **Publisher name**:
 The name of the App that publishes a Shortcut, shown under that Shortcut in Search so Shortcuts with the same name are distinguishable.
@@ -217,7 +221,7 @@ The source Search reads the Shortcuts of every Package representative from, with
 _Avoid_: Shortcut picker, shortcut provider
 
 **Top result**:
-The first Search result, which the IME Go action opens.
+The first Search result, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
 _Avoid_: First result, primary result
 
 **Search suggestions**:

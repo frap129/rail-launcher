@@ -27,8 +27,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Calculator
 import compose.icons.fontawesomeicons.solid.TimesCircle
-import core.data.launchables.model.Launchable
+import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestKeyboardFocus
 
@@ -42,10 +43,10 @@ private class SearchAnchors {
 }
 
 /**
- * The Search screen: a focused query field whose Go action opens the Top result, and the results
- * in match order. Rows are the App List's Launchable rows, so their menu, Pop-up, Profile badge
- * and Custom icon stay the same as the App List. Before typing, the rows are Search suggestions
- * and no Top result is marked.
+ * The Search screen: a focused query field whose Go action opens the Top result or copies a
+ * Calculator row, and the results in match order. Launchable and Shortcut rows are the App
+ * List's rows, so their menu, Pop-up, Profile badge and Custom icon stay the same as the App
+ * List. Before typing, the rows are Search suggestions and no Top result is marked.
  */
 @Composable
 internal fun LauncherSearch(
@@ -53,7 +54,8 @@ internal fun LauncherSearch(
     search: LauncherUiState.Search,
     itemActions: LauncherItemActions,
     onQueryChange: (String) -> Unit,
-    onSearchGo: () -> Launchable?
+    onSearchGo: () -> SearchResult?,
+    onCopyCalculatorRow: (String) -> Unit
 ) {
     val focusRequester: FocusRequester = remember { FocusRequester() }
     val searchAnchors: SearchAnchors = remember { SearchAnchors() }
@@ -65,10 +67,14 @@ internal fun LauncherSearch(
             }
         )
     }
-    val onGo: () -> Unit = {
-        val topResult: Launchable? = onSearchGo()
-        if (topResult != null) {
-            searchItemActions.onItemTap(topResult, searchAnchors.byKey[topResult.key])
+    val onResultTap: (SearchResult) -> Unit = { result ->
+        when (result) {
+            is SearchResult.LaunchableResult -> searchItemActions.onItemTap(
+                result.launchable,
+                searchAnchors.byKey[result.launchable.key]
+            )
+
+            is SearchResult.CalculatorRow -> onCopyCalculatorRow(result.value)
         }
     }
     RequestKeyboardFocus(focusRequester = focusRequester)
@@ -98,19 +104,26 @@ internal fun LauncherSearch(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { onGo() })
+            keyboardActions = KeyboardActions(onGo = { onSearchGo()?.let(onResultTap) })
         )
         LauncherSearchResults(
             modifier = Modifier.weight(1f),
             results = search.results,
             itemActions = searchItemActions,
-            showTopResult = search.topResult != null
+            showTopResult = search.topResult != null,
+            onResultTap = onResultTap
         )
     }
 }
 
 @Composable
-private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>, itemActions: LauncherItemActions, showTopResult: Boolean) {
+private fun LauncherSearchResults(
+    modifier: Modifier,
+    results: List<SearchResult>,
+    itemActions: LauncherItemActions,
+    showTopResult: Boolean,
+    onResultTap: (SearchResult) -> Unit
+) {
     val listState: LazyListState = rememberLazyListState()
     LaunchedEffect(results) {
         if (results.isNotEmpty()) {
@@ -122,7 +135,7 @@ private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>,
         state = listState,
         contentPadding = PaddingValues(bottom = resultsBottomPadding)
     ) {
-        itemsIndexed(items = results, key = { _, launchable -> launchable.key }) { index, launchable ->
+        itemsIndexed(items = results, key = { _, result -> result.key }) { index, result ->
             if (showTopResult && index == 0) {
                 Text(
                     text = stringResource(R.string.top_result),
@@ -131,14 +144,22 @@ private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>,
                     style = MaterialTheme.typography.labelMedium
                 )
             }
-            LauncherItem(
-                item = launchable,
-                isEditingFavorites = false,
-                isFavorite = false,
-                isPopupSwipeEnabled = true,
-                itemActions = itemActions,
-                secondaryText = (launchable as? ShortcutLaunchable)?.publisherName
-            )
+            when (result) {
+                is SearchResult.LaunchableResult -> LauncherItem(
+                    item = result.launchable,
+                    isEditingFavorites = false,
+                    isFavorite = false,
+                    isPopupSwipeEnabled = true,
+                    itemActions = itemActions,
+                    secondaryText = (result.launchable as? ShortcutLaunchable)?.publisherName
+                )
+
+                is SearchResult.CalculatorRow -> LauncherActionRow(
+                    imageVector = FontAwesomeIcons.Solid.Calculator,
+                    label = stringResource(R.string.calculator_row, result.expression, result.value),
+                    onClick = { onResultTap(result) }
+                )
+            }
         }
     }
 }
