@@ -18,6 +18,7 @@ import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_ICON_PACK_PACKAGE
 import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
 import core.data.testing.WORK_USER_ID
 import core.data.testing.addIconPackActivity
@@ -41,7 +42,6 @@ import org.junit.Test
 
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_LABEL: String = "Example icon pack"
-private const val OTHER_ICON_PACK_PACKAGE_NAME: String = "com.example.othericonpack"
 private const val OTHER_ICON_PACK_LABEL: String = "Second icon pack"
 private const val UNMAPPED_ICON_PACK_PACKAGE_NAME: String = "com.example.unmappediconpack"
 private const val UNMAPPED_ICON_PACK_LABEL: String = "Third icon pack"
@@ -160,10 +160,10 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `suggests an App's original icon then every installed pack that maps it`() = databaseTest {
         addIconPackActivity(packageName = UNMAPPED_ICON_PACK_PACKAGE_NAME, label = UNMAPPED_ICON_PACK_LABEL)
-        addIconPackActivity(packageName = OTHER_ICON_PACK_PACKAGE_NAME, label = OTHER_ICON_PACK_LABEL)
+        addIconPackActivity(packageName = SECOND_ICON_PACK_PACKAGE, label = OTHER_ICON_PACK_LABEL)
         addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
         every { mockIconPackSource.resolveDrawableName(ICON_PACK_PACKAGE_NAME, PACK_ICON_RES_ID) } returns "calendar"
-        every { mockIconPackSource.resolveDrawableName(OTHER_ICON_PACK_PACKAGE_NAME, OTHER_PACK_ICON_RES_ID) } returns "mail"
+        every { mockIconPackSource.resolveDrawableName(SECOND_ICON_PACK_PACKAGE, OTHER_PACK_ICON_RES_ID) } returns "mail"
         val inputApp: App =
             createApp(name = "Example", packageName = APP_PACKAGE_NAME, profileInfo = createProfileInfo(userId = PERSONAL_USER_ID))
         val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
@@ -174,7 +174,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         database.getPackIconDao().insert(
             Icon.PackIcon(
                 componentName = inputComponentName,
-                packPackageName = OTHER_ICON_PACK_PACKAGE_NAME,
+                packPackageName = SECOND_ICON_PACK_PACKAGE,
                 resId = OTHER_PACK_ICON_RES_ID
             )
         )
@@ -194,7 +194,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
                 listOf(
                     inputApp.defaultIcon,
                     Icon.PackDrawableIcon(packPackageName = ICON_PACK_PACKAGE_NAME, drawableName = "calendar"),
-                    Icon.PackDrawableIcon(packPackageName = OTHER_ICON_PACK_PACKAGE_NAME, drawableName = "mail")
+                    Icon.PackDrawableIcon(packPackageName = SECOND_ICON_PACK_PACKAGE, drawableName = "mail")
                 ),
                 awaitItem()
             )

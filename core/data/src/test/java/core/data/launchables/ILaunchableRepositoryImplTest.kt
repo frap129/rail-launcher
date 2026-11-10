@@ -53,6 +53,7 @@ import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_ICON_PACK_PACKAGE
 import core.data.testing.SECOND_POSITION
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
@@ -118,6 +119,7 @@ private const val RENAMED_NAME: String = "Renamed"
 private const val CURRENT_NAME: String = "Current"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 private const val FOLDER_ID: Long = 1L
+private const val PLAIN_APP_PACKAGE_NAME: String = "com.example.plain"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
@@ -862,37 +864,35 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `resolves a Custom icon ahead of the global icon pack`() = databaseTest {
-        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedGlobalIcon: Icon = Icon.PackIcon(
-            componentName = inputComponentName,
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            resId = ICON_PACK_RES_ID
-        )
-        val mockIconRepository: IIconRepository = createIconRepositoryMock(
-            inputIcon = expectedGlobalIcon,
-            customIcon = expectedCustomIcon
-        )
-        val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
-            mockPreferencesRepository = createPreferencesRepositoryMock(
-                customizations = listOf(LaunchableCustomization(key = inputApp.key, icon = inputCustomIcon)),
-                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
-            ),
-            mockIconRepository = mockIconRepository
-        )
+        val fixture: CustomIconFixture = createCustomIconFixture()
 
-        val actualApp: App = loadedState(repository).launchables.filterIsInstance<App>().single()
+        val actualState: LaunchableState = loadedState(fixture.repository)
+        val actualCustomApp: App = actualState.app(key = fixture.customApp.key)
+        val actualPlainApp: App = actualState.app(key = fixture.plainApp.key)
 
-        assertEquals(expectedCustomIcon, actualApp.icon)
-        coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, inputApp.profileInfo) }
+        assertEquals(fixture.expectedCustomIcon, actualCustomApp.icon)
+        assertEquals(fixture.expectedFirstPackPlainIcon, actualPlainApp.icon)
+    }
+
+    @Test
+    fun `keeps a Custom icon when the global icon pack changes`() = databaseTest {
+        val fixture: CustomIconFixture = createCustomIconFixture()
+        val collection: Job = backgroundScope.launch { fixture.repository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualBeforeChange: LaunchableState = fixture.repository.launchableState.first()
+
+            fixture.settings.value = Settings(iconPack = SECOND_ICON_PACK_PACKAGE)
+            finishPendingWork()
+
+            val actualAfterChange: LaunchableState = fixture.repository.launchableState.first()
+            assertEquals(fixture.expectedCustomIcon, actualBeforeChange.app(key = fixture.customApp.key).icon)
+            assertEquals(fixture.expectedFirstPackPlainIcon, actualBeforeChange.app(key = fixture.plainApp.key).icon)
+            assertEquals(fixture.expectedCustomIcon, actualAfterChange.app(key = fixture.customApp.key).icon)
+            assertEquals(fixture.expectedSecondPackPlainIcon, actualAfterChange.app(key = fixture.plainApp.key).icon)
+        } finally {
+            collection.cancel()
+        }
     }
 
     @Test
@@ -1937,6 +1937,63 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         }
     }
 
+    private fun TestScope.createCustomIconFixture(): CustomIconFixture {
+        val inputCustomApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputPlainApp: App = createApp(packageName = PLAIN_APP_PACKAGE_NAME)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedFirstPackCustomIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputCustomApp.componentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val expectedFirstPackPlainIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputPlainApp.componentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val expectedSecondPackPlainIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputPlainApp.componentName,
+            packPackageName = SECOND_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconPackSource: IIconPackSource = mockk()
+        every {
+            mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        } returns true
+        every { mockIconPackSource.appIcons(TEST_ICON_PACK_PACKAGE) } returns setOf(
+            expectedFirstPackCustomIcon,
+            expectedFirstPackPlainIcon
+        )
+        every { mockIconPackSource.appIcons(SECOND_ICON_PACK_PACKAGE) } returns setOf(expectedSecondPackPlainIcon)
+        addIconPackActivity(packageName = TEST_ICON_PACK_PACKAGE, label = TEST_ICON_PACK_PACKAGE)
+        addIconPackActivity(packageName = SECOND_ICON_PACK_PACKAGE, label = SECOND_ICON_PACK_PACKAGE)
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputCustomApp, inputPlainApp)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputCustomApp.key, icon = inputCustomIcon)),
+                settingsFlow = inputSettings
+            ),
+            mockIconRepository = createIconRepository(iconPackSource = mockIconPackSource)
+        )
+        return CustomIconFixture(
+            customApp = inputCustomApp,
+            plainApp = inputPlainApp,
+            expectedCustomIcon = expectedCustomIcon,
+            expectedFirstPackPlainIcon = expectedFirstPackPlainIcon,
+            expectedSecondPackPlainIcon = expectedSecondPackPlainIcon,
+            settings = inputSettings,
+            repository = repository
+        )
+    }
+
     private fun createPausedStandaloneShortcutInputs(): PausedStandaloneShortcutInputs {
         val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
         return PausedStandaloneShortcutInputs(
@@ -2069,7 +2126,20 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     private fun LaunchableState.singleAppName(): String = launchables.filterIsInstance<App>().single().name
+
+    /** The loaded App with [key], failing the test when it is missing. */
+    private fun LaunchableState.app(key: String): App = launchables.filterIsInstance<App>().single { app -> app.key == key }
 }
+
+private data class CustomIconFixture(
+    val customApp: App,
+    val plainApp: App,
+    val expectedCustomIcon: Icon,
+    val expectedFirstPackPlainIcon: Icon,
+    val expectedSecondPackPlainIcon: Icon,
+    val settings: MutableStateFlow<Settings>,
+    val repository: ILaunchableRepository
+)
 
 private data class PrivateSpaceRepositories(
     val privateSpaceLock: IPrivateSpaceLock,

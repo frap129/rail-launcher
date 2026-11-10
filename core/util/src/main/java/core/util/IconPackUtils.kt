@@ -215,10 +215,11 @@ fun getDrawableName(context: Context, resId: Int, packPackageName: String): Stri
     resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawableName(resId = resId)
 
 /** Whether this drawable name contains [term], reading underscores as spaces and ignoring case. */
-fun String.drawableNameContains(term: String): Boolean = normalizedDrawableName().contains(term, ignoreCase = true)
+fun String.drawableNameContains(term: String): Boolean = toNormalizedDrawableName().contains(term, ignoreCase = true)
 
 /** Whether this drawable name has [term] as a whole word, reading underscores as word breaks and ignoring case. */
 fun String.drawableNameHasWord(term: String): Boolean =
-    normalizedDrawableName().split(' ').any { token -> token.equals(term, ignoreCase = true) }
+    toNormalizedDrawableName().split(' ').any { token -> token.equals(term, ignoreCase = true) }
 
-private fun String.normalizedDrawableName(): String = replace('_', ' ')
+/** This drawable name with its underscores read as spaces. */
+fun String.toNormalizedDrawableName(): String = replace('_', ' ')

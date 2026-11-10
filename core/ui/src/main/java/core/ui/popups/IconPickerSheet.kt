@@ -1,6 +1,7 @@
 package core.ui.popups
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -46,6 +47,7 @@ import core.data.icons.model.IconPackCategory
 import core.ui.R
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
+import core.util.toNormalizedDrawableName
 
 private val packIconSize = 64.dp
 private val packIconPadding = 8.dp
@@ -82,7 +84,7 @@ fun IconPickerHost(iconPicker: IIconPicker) {
             onQuery = iconPicker::setQuery,
             onIcon = iconPicker::selectIcon,
             onBack = { iconPicker.backBeforeItemMenu() },
-            onDismiss = { iconPicker.backBeforeItemMenu() }
+            onDismiss = iconPicker::cancelPicking
         )
     }
 }
@@ -146,6 +148,7 @@ private fun IconPickerPackSheet(
     onDismiss: () -> Unit
 ) {
     PopupFullHeightSheet(onDismissRequest = onDismiss) {
+        BackHandler(onBack = onBack)
         PopupSheetTitleRow(
             title = state.iconPack.name,
             navigationAction = PopupSheetTitleAction(label = stringResource(R.string.back), onClick = onBack)
@@ -180,7 +183,7 @@ private fun IconPickerPackSheet(
             ) {
                 if (isSearching) {
                     gridItems(items = state.results, key = { icon -> icon.drawableName }) { icon ->
-                        PickerIcon(icon = icon, contentDescription = icon.drawableName, onClick = { onIcon(icon) })
+                        PickerIcon(icon = icon, contentDescription = describePickerIcon(icon), onClick = { onIcon(icon) })
                     }
                 } else {
                     categories.forEachIndexed { index, category ->
@@ -198,7 +201,7 @@ private fun IconPickerPackSheet(
                             }
                         }
                         gridItems(items = category.icons, key = { icon -> icon.drawableName }) { icon ->
-                            PickerIcon(icon = icon, contentDescription = icon.drawableName, onClick = { onIcon(icon) })
+                            PickerIcon(icon = icon, contentDescription = describePickerIcon(icon), onClick = { onIcon(icon) })
                         }
                     }
                 }
@@ -223,7 +226,7 @@ private fun SuggestedIconsRow(suggestions: List<Icon>, onOriginal: () -> Unit, o
                 val packIcon: Icon.PackDrawableIcon? = icon as? Icon.PackDrawableIcon
                 PickerIcon(
                     icon = icon,
-                    contentDescription = packIcon?.drawableName ?: stringResource(R.string.original_icon),
+                    contentDescription = describePickerIcon(icon),
                     onClick = { if (packIcon == null) onOriginal() else onIcon(packIcon) }
                 )
             }
@@ -275,6 +278,11 @@ private fun PickerRow(icon: Icon, label: String, onClick: () -> Unit) {
         Text(text = label, style = MaterialTheme.typography.bodyLarge)
     }
 }
+
+/** [icon]'s accessible name, reading a drawable name without underscores and naming the original icon. */
+@Composable
+private fun describePickerIcon(icon: Icon): String =
+    (icon as? Icon.PackDrawableIcon)?.drawableName?.toNormalizedDrawableName() ?: stringResource(R.string.original_icon)
 
 @Composable
 private fun PickerIcon(icon: Icon, contentDescription: String, onClick: () -> Unit) {

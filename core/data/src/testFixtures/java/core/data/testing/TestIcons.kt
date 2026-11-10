@@ -9,6 +9,9 @@ const val MISSING_ICON_PACK_PACKAGE: String = "com.example.missing-icon-pack"
 /** The custom icon pack package name tests point at. */
 const val TEST_ICON_PACK_PACKAGE: String = "com.example.iconpack"
 
+/** The package name tests give a second installed Icon pack. */
+const val SECOND_ICON_PACK_PACKAGE: String = "com.example.othericonpack"
+
 /** The Rail icon resource id tests use for a Rail Launchable. */
 const val TEST_RAIL_ICON_RES_ID: Int = 0
 

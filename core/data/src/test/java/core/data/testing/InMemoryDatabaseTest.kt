@@ -88,13 +88,14 @@ abstract class InMemoryDatabaseTest {
     fun TestScope.createPreferencesRepository(
         launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao(),
         settingsDao: SettingsDao = database.getSettingsDao(),
-        iconImageStore: IIconImageStore = createIconImageStore()
+        iconImageStore: IIconImageStore = createIconImageStore(),
+        dispatcher: CoroutineDispatcher = databaseDispatcher
     ): IPreferencesRepository = IPreferencesRepositoryImpl(
         launchableCustomizationDao = launchableCustomizationDao,
         settingsDao = settingsDao,
         imageStore = iconImageStore,
         scope = this,
-        dispatcher = databaseDispatcher
+        dispatcher = dispatcher
     )
 
     /** A real [IIconRepositoryImpl] over the test database, reading packs through [iconPackSource]. */
