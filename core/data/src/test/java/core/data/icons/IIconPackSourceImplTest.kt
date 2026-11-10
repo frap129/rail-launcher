@@ -5,11 +5,13 @@ import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.content.res.XmlResourceParser
+import core.data.testing.MISSING_ICON_PACK_PACKAGE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import core.util.DrawableCategory
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import org.junit.Assert.assertEquals
@@ -41,9 +43,7 @@ class IIconPackSourceImplTest {
     @Test
     fun `reads the drawable list grouped by its categories and drops names that do not resolve`() {
         every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_XML_RES_ID
-        every {
-            mockPackageManager.getXml(TEST_ICON_PACK_PACKAGE, DRAWABLE_XML_RES_ID, null)
-        } returns drawableListParser(
+        every { mockResources.getXml(DRAWABLE_XML_RES_ID) } returns drawableListParser(
             DrawableElement.Category(name = "Calendar"),
             DrawableElement.Item(drawableName = "calendar"),
             DrawableElement.Item(drawableName = "missing"),
@@ -63,6 +63,7 @@ class IIconPackSourceImplTest {
             ),
             actualCategories
         )
+        verify(exactly = 1) { mockPackageManager.getResourcesForApplication(TEST_ICON_PACK_PACKAGE) }
     }
 
     @Test
@@ -107,9 +108,7 @@ class IIconPackSourceImplTest {
     @Test
     fun `falls back to appfilter when the drawable list names no drawables`() {
         every { mockResources.getIdentifier("drawable", "xml", TEST_ICON_PACK_PACKAGE) } returns DRAWABLE_XML_RES_ID
-        every {
-            mockPackageManager.getXml(TEST_ICON_PACK_PACKAGE, DRAWABLE_XML_RES_ID, null)
-        } returns drawableListParser(DrawableElement.Category(name = "Calendar"))
+        every { mockResources.getXml(DRAWABLE_XML_RES_ID) } returns drawableListParser(DrawableElement.Category(name = "Calendar"))
         every { mockResources.getIdentifier("appfilter", "xml", TEST_ICON_PACK_PACKAGE) } returns 0
         every { mockAssets.open("appfilter.xml") } returns stream(
             """
@@ -123,6 +122,17 @@ class IIconPackSourceImplTest {
         val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = TEST_ICON_PACK_PACKAGE)
 
         assertEquals(listOf(DrawableCategory(name = null, drawableNames = listOf("calendar"))), actualCategories)
+    }
+
+    @Test
+    fun `returns no categories for a missing pack`() {
+        every {
+            mockPackageManager.getResourcesForApplication(MISSING_ICON_PACK_PACKAGE)
+        } throws PackageManager.NameNotFoundException()
+
+        val actualCategories: List<DrawableCategory> = source.drawableCategories(packPackageName = MISSING_ICON_PACK_PACKAGE)
+
+        assertEquals(emptyList<DrawableCategory>(), actualCategories)
     }
 
     @Test
@@ -145,9 +155,9 @@ class IIconPackSourceImplTest {
 
     @Test
     fun `returns no drawable name for a missing pack`() {
-        every { mockPackageManager.getResourcesForApplication("com.example.missing") } throws PackageManager.NameNotFoundException()
+        every { mockPackageManager.getResourcesForApplication(MISSING_ICON_PACK_PACKAGE) } throws PackageManager.NameNotFoundException()
 
-        assertNull(source.resolveDrawableName("com.example.missing", DRAWABLE_RES_ID))
+        assertNull(source.resolveDrawableName(MISSING_ICON_PACK_PACKAGE, DRAWABLE_RES_ID))
     }
 
     private fun drawableListParser(vararg elements: DrawableElement): XmlResourceParser {

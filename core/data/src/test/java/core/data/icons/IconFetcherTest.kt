@@ -19,6 +19,7 @@ import coil3.fetch.ImageFetchResult
 import coil3.request.Options
 import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
+import core.data.testing.MISSING_ICON_PACK_PACKAGE
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_GALLERY_ICON_SIZE
@@ -43,7 +44,6 @@ import org.robolectric.annotation.Config
 private const val TEST_ICON_RES_ID: Int = android.R.drawable.ic_menu_help
 private const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 private const val PRIVATE_ACTIVITY_NAME: String = "com.example.private.MainActivity"
-private const val MISSING_ICON_PACK_PACKAGE: String = "com.example.missing-icon-pack"
 private const val MISSING_DRAWABLE_NAME: String = "missing"
 private const val PACK_DRAWABLE_NAME: String = "calendar"
 private const val PACK_DRAWABLE_RES_ID: Int = 42

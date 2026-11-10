@@ -3,6 +3,9 @@ package core.data.testing
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 
+/** The package name tests give an uninstalled Icon pack. */
+const val MISSING_ICON_PACK_PACKAGE: String = "com.example.missing-icon-pack"
+
 /** The custom icon pack package name tests point at. */
 const val TEST_ICON_PACK_PACKAGE: String = "com.example.iconpack"
 
