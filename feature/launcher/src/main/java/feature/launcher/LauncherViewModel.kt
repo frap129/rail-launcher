@@ -25,8 +25,10 @@ import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
 import core.data.search.ISearchHistoryRepository
+import core.data.search.IShortcutSearchSource
 import core.data.search.SearchHistoryRecord
-import core.data.search.searchLaunchables
+import core.data.search.SearchShortcut
+import core.data.search.searchResults
 import core.data.search.searchSuggestions
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
@@ -85,7 +87,7 @@ private enum class LauncherMode {
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean) : LauncherMenuState()
+    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean, val isStandaloneShortcut: Boolean) : LauncherMenuState()
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
 
@@ -110,8 +112,17 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
 
 private data class SearchState(val origin: LauncherMode, val query: String = "")
 
-/** The Search history and clock a Search projection reads, with the setting that shows Search suggestions. */
-private data class SearchData(val history: List<SearchHistoryRecord>, val nowEpochMs: Long, val settings: Settings)
+/** The Shortcuts Search may match, and whether their source has emitted them yet. */
+private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
+
+/** The Search history, clock and Shortcuts a Search projection reads, with the setting that shows Search suggestions. */
+private data class SearchData(
+    val history: List<SearchHistoryRecord>,
+    val nowEpochMs: Long,
+    val settings: Settings,
+    val shortcuts: List<SearchShortcut>,
+    val areShortcutsLoaded: Boolean
+)
 
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,
@@ -143,14 +154,15 @@ private fun toUiState(
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     navigation.search?.let { search ->
         val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
+        // Typed results wait for the first Shortcut emission, so no row is inserted above one already shown.
         val results: List<Launchable> = when {
             isShowingSuggestions -> state.searchSuggestions(history = searchData.history, nowEpochMs = searchData.nowEpochMs)
 
-            search.query.isEmpty() -> emptyList()
+            search.query.isEmpty() || !searchData.areShortcutsLoaded -> emptyList()
 
             else -> {
                 val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
-                state.searchLaunchables(query = search.query, launchCounts = launchCounts)
+                state.searchResults(query = search.query, launchCounts = launchCounts, shortcuts = searchData.shortcuts)
             }
         }
         return LauncherUiState.Search(
@@ -205,7 +217,8 @@ class LauncherViewModel(
     private val privateSpaceLock: IPrivateSpaceLock,
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
-    private val clockSource: IClockSource
+    private val clockSource: IClockSource,
+    private val shortcutSearchSource: IShortcutSearchSource
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -229,15 +242,6 @@ class LauncherViewModel(
         initialValue = Settings()
     )
 
-    // Search reads its history from state and re-derives suggestions as the clock ticks, never on a keystroke.
-    private val searchData: Flow<SearchData> = combine(
-        searchHistoryRepository.history,
-        clockSource.readings,
-        currentSettings
-    ) { history, reading, settings ->
-        SearchData(history = history, nowEpochMs = reading.instant.toEpochMilli(), settings = settings)
-    }
-
     /** The screen edges that scrub the Rail. */
     val scrubEdges: StateFlow<ScrubEdges> = currentSettings
         .map { settings -> settings.scrubEdges }
@@ -258,6 +262,31 @@ class LauncherViewModel(
 
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
+
+    // Shortcuts load with the launcher and stay warm across Search sessions, so a keystroke only re-reads state.
+    private val shortcutSearchState: StateFlow<ShortcutSearchState> = shortcutSearchSource.shortcuts
+        .map { shortcuts -> ShortcutSearchState(shortcuts = shortcuts, isLoaded = true) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ShortcutSearchState()
+        )
+
+    // Search reads its history and Shortcuts from state and re-derives suggestions as the clock ticks, never on a keystroke.
+    private val searchData: Flow<SearchData> = combine(
+        searchHistoryRepository.history,
+        clockSource.readings,
+        currentSettings,
+        shortcutSearchState
+    ) { history, reading, settings, shortcutState ->
+        SearchData(
+            history = history,
+            nowEpochMs = reading.instant.toEpochMilli(),
+            settings = settings,
+            shortcuts = shortcutState.shortcuts,
+            areShortcutsLoaded = shortcutState.isLoaded
+        )
+    }
 
     private val isShowingAppList: Boolean get() = navigation.value.mode == LauncherMode.AppList
     private val isShowingSearch: Boolean get() = navigation.value.mode == LauncherMode.Search
@@ -362,27 +391,34 @@ class LauncherViewModel(
     private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
     private val requestedMenuItem: MutableStateFlow<MenuItemRequest?> = MutableStateFlow(null)
 
+    private val resolvedMenuItem: Flow<LauncherMenuState.Menu?> = combine(
+        requestedMenuItem,
+        launcherItemRepo.launchables,
+        shortcutSearchState
+    ) { requestedItem, allItems, shortcutState ->
+        requestedItem?.let { request ->
+            val launchable: Launchable? = allItems.find { item -> item.key == request.launchable.key }
+            val resolvedItem: Launchable = launchable
+                ?: shortcutState.shortcuts
+                    .find { searchShortcut -> searchShortcut.shortcut.key == request.launchable.key }
+                    ?.shortcut
+                ?: return@combine null
+            LauncherMenuState.Menu(
+                item = resolvedItem,
+                isSearchSuggestion = request.isSearchSuggestion,
+                isStandaloneShortcut = launchable is ShortcutLaunchable
+            )
+        }
+    }
+
     val menuState: StateFlow<LauncherMenuState> = combine(
-        requestedMenuItem.combine(launcherItemRepo.launchables) { requestedItem, allItems ->
-            requestedItem?.let { request ->
-                allItems.find { item -> item.key == request.launchable.key }?.let { item -> request.copy(launchable = item) }
-            }
-        },
+        resolvedMenuItem,
         requestedMenuState
-    ) { requestedItem, requestedState ->
-        if (requestedItem == null) {
-            LauncherMenuState.Closed
-        } else {
-            when (requestedState) {
-                MenuRequest.Closed -> LauncherMenuState.Closed
-
-                MenuRequest.Menu -> LauncherMenuState.Menu(
-                    item = requestedItem.launchable,
-                    isSearchSuggestion = requestedItem.isSearchSuggestion
-                )
-
-                MenuRequest.Rename -> LauncherMenuState.Rename(requestedItem.launchable)
-            }
+    ) { menu, requestedState ->
+        when (requestedState) {
+            MenuRequest.Closed -> LauncherMenuState.Closed
+            MenuRequest.Menu -> menu ?: LauncherMenuState.Closed
+            MenuRequest.Rename -> menu?.let { currentMenu -> LauncherMenuState.Rename(currentMenu.item) } ?: LauncherMenuState.Closed
         }
     }.stateIn(
         scope = viewModelScope,

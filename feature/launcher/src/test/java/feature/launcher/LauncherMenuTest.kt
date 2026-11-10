@@ -48,6 +48,8 @@ class LauncherMenuTest {
         get() = RuntimeEnvironment.getApplication().getString(CoreUiR.string.change_icon)
     private val removeSuggestionLabel: String
         get() = RuntimeEnvironment.getApplication().getString(R.string.remove_from_suggestions)
+    private val removeShortcutLabel: String
+        get() = RuntimeEnvironment.getApplication().getString(R.string.remove_shortcut)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -94,6 +96,20 @@ class LauncherMenuTest {
         composeRule.onNodeWithText(removeSuggestionLabel).assertDoesNotExist()
     }
 
+    @Test
+    fun `hides the remove shortcut action for a Shortcut Search result`() {
+        setMenuContent(item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME), isStandaloneShortcut = false)
+
+        composeRule.onNodeWithText(removeShortcutLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun `shows the remove shortcut action for a Standalone shortcut`() {
+        setMenuContent(item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME), isStandaloneShortcut = true)
+
+        composeRule.onNodeWithText(removeShortcutLabel).assertExists()
+    }
+
     private fun assertHeaderIconStartsPicking(item: Launchable) {
         setMenuContent(item = item)
 
@@ -105,9 +121,13 @@ class LauncherMenuTest {
         verify(exactly = 1) { mockIconPicker.startPicking(item) }
     }
 
-    private fun setMenuContent(item: Launchable, isSearchSuggestion: Boolean = false) {
+    private fun setMenuContent(item: Launchable, isSearchSuggestion: Boolean = false, isStandaloneShortcut: Boolean = false) {
         every { mockViewModel.menuState } returns MutableStateFlow(
-            LauncherMenuState.Menu(item = item, isSearchSuggestion = isSearchSuggestion)
+            LauncherMenuState.Menu(
+                item = item,
+                isSearchSuggestion = isSearchSuggestion,
+                isStandaloneShortcut = isStandaloneShortcut
+            )
         )
         every { mockCollaborators.iconPicker } returns mockIconPicker
         composeRule.setContent {

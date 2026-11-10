@@ -135,6 +135,22 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `reports every owner's hidden shortcuts`() = databaseTest {
+        val repository: IPopupRepositoryImpl = createRepository(popupDao = database.getPopupDao())
+
+        repository.setShortcutHidden(inputOwner.key, FIRST_SHORTCUT_ID, hidden = true)
+        repository.setShortcutHidden(inputOtherOwner.key, SECOND_SHORTCUT_ID, hidden = true)
+
+        val actualHiddenShortcuts: Map<String, Set<String>> = repository.hiddenShortcutsByOwner.first()
+
+        val expectedHiddenShortcuts: Map<String, Set<String>> = mapOf(
+            inputOwner.key to setOf(FIRST_SHORTCUT_ID),
+            inputOtherOwner.key to setOf(SECOND_SHORTCUT_ID)
+        )
+        assertEquals(expectedHiddenShortcuts, actualHiddenShortcuts)
+    }
+
+    @Test
     fun `removes stale owners only after the Launchables load`() = databaseTest {
         val popupDao: PopupDao = database.getPopupDao()
         popupDao.insertHiddenShortcut(ownerKey = inputOwner.key, shortcutId = FIRST_SHORTCUT_ID)

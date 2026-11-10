@@ -26,7 +26,9 @@ data class ShortcutLaunchable(
     override val name: String = defaultName,
     override val defaultIcon: Icon = Icon.ShortcutIcon(packageName = packageName, shortcutId = shortcutId, profile = profile),
     override val icon: Icon = defaultIcon,
-    val badgedLabel: String = defaultName
+    val badgedLabel: String = defaultName,
+    /** The name of the App that publishes this Shortcut when it is a Search result, or null elsewhere. */
+    val publisherName: String? = null
 ) : Launchable() {
     override val key: String = ShortcutKey(packageName = packageName, id = shortcutId, profile = profile).format()
 

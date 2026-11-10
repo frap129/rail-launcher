@@ -58,7 +58,7 @@
     <string name="finish_editing_home">Finish editing Home before adding a widget</string>
     <string name="open_popup">Open Pop-up</string>
     <string name="couldnt_open_shortcut">Couldn\'t open shortcut</string>
-    <string name="folder_summary_description">%1$s, %2$s</string>
+    <string name="launcher_item_description">%1$s, %2$s</string>
     <string name="popup_empty_hint">Long-press this Pop-up and tap Edit Pop-up to add apps, shortcuts or a widget</string>
     <string name="close_popup">Close Pop-up</string>
     <string name="popup_announcement">%1$s Pop-up</string>

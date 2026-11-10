@@ -336,7 +336,7 @@ private fun LazyListScope.favoriteItems(
                         isFavorite = true,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
-                        summary = folderSummaries[favorite.key],
+                        secondaryText = folderSummaries[favorite.key],
                         modifier = Modifier
                             .weight(1f)
                             .then(

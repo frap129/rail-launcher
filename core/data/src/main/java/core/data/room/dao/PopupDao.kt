@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import core.data.popups.PopupHiddenShortcut
 import core.data.popups.PopupItemRecord
 import core.data.popups.PopupSettingsRecord
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,9 @@ private const val ALL_ITEMS_QUERY: String = "SELECT * FROM popup_items"
 interface PopupDao {
     @Query("SELECT shortcut_id FROM popup_hidden_shortcuts WHERE owner_key = :ownerKey")
     fun observeHiddenShortcuts(ownerKey: String): Flow<List<String>>
+
+    @Query("SELECT * FROM popup_hidden_shortcuts")
+    fun observeAllHiddenShortcuts(): Flow<List<PopupHiddenShortcut>>
 
     @Query("SELECT DISTINCT owner_key FROM popup_hidden_shortcuts")
     fun observeAllOwnerKeys(): Flow<List<String>>

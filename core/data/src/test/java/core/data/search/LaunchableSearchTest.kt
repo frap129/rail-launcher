@@ -5,6 +5,7 @@ import core.data.folders.Folder
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createBuiltinGroup
@@ -13,6 +14,7 @@ import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createPrivateApp
 import core.data.testing.createRailLaunchable
+import core.data.testing.createShortcut
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,7 +39,7 @@ class LaunchableSearchTest {
         val inputCafe: Launchable = createRailLaunchable("Café")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputCafe))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "CAFE")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "CAFE")
 
         assertEquals(listOf(inputCafe), actualResults)
     }
@@ -49,7 +51,7 @@ class LaunchableSearchTest {
         val inputWordStart: Launchable = createRailLaunchable("Google Maps")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputWordStart, inputNameStart, inputExact))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "maps")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "maps")
 
         assertEquals(listOf(inputExact, inputNameStart, inputWordStart), actualResults)
     }
@@ -59,7 +61,7 @@ class LaunchableSearchTest {
         val inputApp: Launchable = createRailLaunchable("F-Droid")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputApp))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "droid")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "droid")
 
         assertEquals(listOf(inputApp), actualResults)
     }
@@ -69,7 +71,7 @@ class LaunchableSearchTest {
         val inputDroid: Launchable = createRailLaunchable("F-Droid")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputDroid))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "d")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "d")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -80,7 +82,7 @@ class LaunchableSearchTest {
         val inputNameStart: Launchable = createRailLaunchable("Drive")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputNameStart, inputExact))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "d")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "d")
 
         assertEquals(listOf(inputExact, inputNameStart), actualResults)
     }
@@ -90,7 +92,7 @@ class LaunchableSearchTest {
         val inputApp: Launchable = createRailLaunchable("99")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputApp))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "99")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "99")
 
         assertEquals(listOf(inputApp), actualResults)
     }
@@ -103,7 +105,7 @@ class LaunchableSearchTest {
             groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputAlpine, inputAlpha)))
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(
+        val actualResults: List<Launchable> = inputState.searchResults(
             query = "al",
             launchCounts = mapOf(inputAlpine.key to 1, inputAlpha.key to 3)
         )
@@ -119,7 +121,7 @@ class LaunchableSearchTest {
             groups = listOf(LaunchableGroup.InitialGroup(label = "M", items = listOf(inputNameStart, inputExact)))
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(
+        val actualResults: List<Launchable> = inputState.searchResults(
             query = "maps",
             launchCounts = mapOf(inputNameStart.key to 10)
         )
@@ -135,7 +137,7 @@ class LaunchableSearchTest {
             groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputAlpine, inputAlpha)))
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "al")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "al")
 
         assertEquals(listOf(inputAlpine, inputAlpha), actualResults)
     }
@@ -149,7 +151,7 @@ class LaunchableSearchTest {
             extraLaunchables = listOf(inputMember)
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "tetris")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "tetris")
 
         assertEquals(listOf(inputMember), actualResults)
     }
@@ -159,7 +161,7 @@ class LaunchableSearchTest {
         val inputPausedApp: App = createPausedWorkApp()
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputPausedApp))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gmail")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "gmail")
 
         assertEquals(listOf(inputPausedApp), actualResults)
     }
@@ -175,7 +177,7 @@ class LaunchableSearchTest {
             extraLaunchables = listOf(inputPrivateApp)
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "secret")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "secret")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -190,7 +192,7 @@ class LaunchableSearchTest {
             )
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "secret")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "secret")
 
         assertEquals(listOf(inputPrivateApp), actualResults)
     }
@@ -199,7 +201,7 @@ class LaunchableSearchTest {
     fun `returns nothing for a blank query`() {
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(createRailLaunchable("Alpha")))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "  ")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "  ")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -208,7 +210,7 @@ class LaunchableSearchTest {
     fun `returns nothing for a query no Launchable matches`() {
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(createRailLaunchable("Alpha")))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "zulu")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "zulu")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -218,7 +220,7 @@ class LaunchableSearchTest {
         val inputGoogleMaps: Launchable = createRailLaunchable("Google Maps")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogleMaps))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gm")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "gm")
 
         assertEquals(listOf(inputGoogleMaps), actualResults)
     }
@@ -228,7 +230,7 @@ class LaunchableSearchTest {
         val inputGoogleMapsApp: Launchable = createRailLaunchable("Google Maps App")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogleMapsApp))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "ga")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "ga")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -238,7 +240,7 @@ class LaunchableSearchTest {
         val inputGoogle: Launchable = createRailLaunchable("Google")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGoogle))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gm")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "gm")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -248,21 +250,21 @@ class LaunchableSearchTest {
         val inputFolder: Launchable = Folder(folderId = 1L, name = "Games")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputFolder))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "folder")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "folder")
 
         assertTrue(actualResults.isEmpty())
     }
 
     @Test
     fun `matches inside a word from three characters`() {
-        val actualResults: List<Launchable> = inputRvncState.searchLaunchables(query = "vnc")
+        val actualResults: List<Launchable> = inputRvncState.searchResults(query = "vnc")
 
         assertEquals(listOf(inputRvnc), actualResults)
     }
 
     @Test
     fun `does not match inside a word below three characters`() {
-        val actualResults: List<Launchable> = inputRvncState.searchLaunchables(query = "vn")
+        val actualResults: List<Launchable> = inputRvncState.searchResults(query = "vn")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -278,7 +280,7 @@ class LaunchableSearchTest {
             listOf(inputInWord, inputInitials, inputWordStart, inputNameStart, inputExact)
         )
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gma")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "gma")
 
         val expectedResults: List<Launchable> = listOf(inputExact, inputNameStart, inputWordStart, inputInitials, inputInWord)
         assertEquals(expectedResults, actualResults)
@@ -286,7 +288,7 @@ class LaunchableSearchTest {
 
     @Test
     fun `matches one typo from five characters`() {
-        val actualResults: List<Launchable> = inputMapsState.searchLaunchables(query = "mapzs")
+        val actualResults: List<Launchable> = inputMapsState.searchResults(query = "mapzs")
 
         assertEquals(listOf(inputMaps), actualResults)
     }
@@ -296,28 +298,28 @@ class LaunchableSearchTest {
         val inputGmail: Launchable = createRailLaunchable("Gmail")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputGmail))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "gmial")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "gmial")
 
         assertEquals(listOf(inputGmail), actualResults)
     }
 
     @Test
     fun `does not match a typo below five characters`() {
-        val actualResults: List<Launchable> = inputMapsState.searchLaunchables(query = "mapz")
+        val actualResults: List<Launchable> = inputMapsState.searchResults(query = "mapz")
 
         assertTrue(actualResults.isEmpty())
     }
 
     @Test
     fun `allows two typos from eight characters`() {
-        val actualResults: List<Launchable> = inputCalendarState.searchLaunchables(query = "calenxxr")
+        val actualResults: List<Launchable> = inputCalendarState.searchResults(query = "calenxxr")
 
         assertEquals(listOf(inputCalendar), actualResults)
     }
 
     @Test
     fun `does not allow two typos below eight characters`() {
-        val actualResults: List<Launchable> = inputCalendarState.searchLaunchables(query = "calenxa")
+        val actualResults: List<Launchable> = inputCalendarState.searchResults(query = "calenxa")
 
         assertTrue(actualResults.isEmpty())
     }
@@ -328,21 +330,21 @@ class LaunchableSearchTest {
         val inputTypo: Launchable = createRailLaunchable("Droie")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputTypo, inputInWord))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "droid")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "droid")
 
         assertEquals(listOf(inputInWord, inputTypo), actualResults)
     }
 
     @Test
     fun `finds a renamed App by its default name`() {
-        val actualResults: List<Launchable> = inputRenamedCalendarState.searchLaunchables(query = "calendar")
+        val actualResults: List<Launchable> = inputRenamedCalendarState.searchResults(query = "calendar")
 
         assertEquals(listOf(inputRenamedCalendar), actualResults)
     }
 
     @Test
     fun `finds a renamed App by its custom name`() {
-        val actualResults: List<Launchable> = inputRenamedCalendarState.searchLaunchables(query = "planner")
+        val actualResults: List<Launchable> = inputRenamedCalendarState.searchResults(query = "planner")
 
         assertEquals(listOf(inputRenamedCalendar), actualResults)
     }
@@ -353,7 +355,7 @@ class LaunchableSearchTest {
         val inputRival: Launchable = createRailLaunchable("Maps Pro")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputRival, inputRenamed))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "maps")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "maps")
 
         assertEquals(listOf(inputRenamed, inputRival), actualResults)
     }
@@ -364,10 +366,144 @@ class LaunchableSearchTest {
         val inputInWord: Launchable = createRailLaunchable("Palm")
         val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputInitials, inputInWord))
 
-        val actualResults: List<Launchable> = inputState.searchLaunchables(query = "m")
+        val actualResults: List<Launchable> = inputState.searchResults(query = "m")
 
         assertTrue(actualResults.isEmpty())
     }
+
+    @Test
+    fun `matches a Shortcut from two characters`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.messages", longLabel = "New message")
+
+        val actualResults: List<Launchable> = searchWithShortcuts(query = "ne", shortcuts = listOf(inputShortcut))
+
+        assertEquals(listOf(inputShortcut.copy(publisherName = "Messages")), actualResults)
+    }
+
+    @Test
+    fun `does not match a Shortcut for a single character`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.messages", longLabel = "New message")
+
+        val actualResults: List<Launchable> = searchWithShortcuts(query = "n", shortcuts = listOf(inputShortcut))
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `leaves out a Hidden Shortcut`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.messages", longLabel = "New message")
+
+        val actualResults: List<Launchable> = searchWithShortcuts(
+            query = "new",
+            shortcuts = listOf(inputShortcut),
+            hiddenShortcutIds = setOf(inputShortcut.shortcutId)
+        )
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `leaves out a disabled Shortcut`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            longLabel = "New message",
+            isEnabled = false
+        )
+
+        val actualResults: List<Launchable> = searchWithShortcuts(query = "new", shortcuts = listOf(inputShortcut))
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `ranks a Shortcut below a Launchable of the same tier`() {
+        val inputLaunchable: Launchable = createRailLaunchable("Maps")
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.maps", longLabel = "Maps")
+
+        val actualResults: List<Launchable> = searchWithShortcuts(
+            query = "maps",
+            shortcuts = listOf(inputShortcut),
+            publisherName = "Maps App",
+            launchables = listOf(inputLaunchable),
+            launchCounts = mapOf(inputShortcut.key to 10)
+        )
+
+        val expectedResults: List<Launchable> = listOf(inputLaunchable, inputShortcut.copy(publisherName = "Maps App"))
+        assertEquals(expectedResults, actualResults)
+    }
+
+    @Test
+    fun `matches a paused Shortcut`() {
+        val inputPausedPublisher: App = createPausedWorkApp()
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPausedPublisher.packageName,
+            profile = inputPausedPublisher.profile,
+            longLabel = "Compose",
+            profileInfo = inputPausedPublisher.profileInfo
+        )
+
+        val actualResults: List<Launchable> = searchWithShortcuts(
+            query = "compose",
+            shortcuts = listOf(inputShortcut),
+            publisherName = inputPausedPublisher.name
+        )
+
+        assertEquals(listOf(inputShortcut.copy(publisherName = inputPausedPublisher.name)), actualResults)
+        assertTrue(actualResults.single().isPaused)
+    }
+
+    @Test
+    fun `leaves a private Shortcut out while its Private Space is Locked`() {
+        val inputPrivatePublisher: App = createPrivateApp()
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPrivatePublisher.packageName,
+            profile = inputPrivatePublisher.profile,
+            longLabel = "Secret action",
+            profileInfo = inputPrivatePublisher.profileInfo
+        )
+        val inputState: LaunchableState = createSearchState(groups = listOf(LaunchableGroup.PrivateSpace.Locked))
+
+        val actualResults: List<Launchable> = inputState.searchResults(
+            query = "secret",
+            shortcuts = listOf(
+                SearchShortcut(shortcut = inputShortcut, publisherName = inputPrivatePublisher.name, isHidden = false)
+            )
+        )
+
+        assertTrue(actualResults.isEmpty())
+    }
+
+    @Test
+    fun `lists a Shortcut published as a Standalone shortcut only once`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.messages", longLabel = "New message")
+
+        val actualResults: List<Launchable> = searchWithShortcuts(
+            query = "new",
+            shortcuts = listOf(inputShortcut),
+            launchables = listOf(inputShortcut)
+        )
+
+        assertEquals(listOf(inputShortcut), actualResults)
+    }
+
+    private fun searchWithShortcuts(
+        query: String,
+        shortcuts: List<ShortcutLaunchable>,
+        publisherName: String = "Messages",
+        hiddenShortcutIds: Set<String> = emptySet(),
+        launchables: List<Launchable> = listOf(createRailLaunchable("Alpha")),
+        launchCounts: Map<String, Int> = emptyMap()
+    ): List<Launchable> = createLoadedLaunchableState(launchables = launchables).searchResults(
+        query = query,
+        launchCounts = launchCounts,
+        shortcuts = shortcuts.map { shortcut ->
+            SearchShortcut(
+                shortcut = shortcut,
+                publisherName = publisherName,
+                isHidden = shortcut.shortcutId in hiddenShortcutIds
+            )
+        }
+    )
 
     private fun createSearchState(groups: List<LaunchableGroup.Listed>, extraLaunchables: List<Launchable> = emptyList()): LaunchableState =
         createLaunchableState(

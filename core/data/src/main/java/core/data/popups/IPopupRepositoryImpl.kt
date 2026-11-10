@@ -82,6 +82,14 @@ class IPopupRepositoryImpl(
         .map { shortcutIds -> shortcutIds.toSet() }
         .distinctUntilChanged()
 
+    override val hiddenShortcutsByOwner: Flow<Map<String, Set<String>>> = popupDao.observeAllHiddenShortcuts()
+        .map { hiddenShortcuts ->
+            hiddenShortcuts
+                .groupBy({ shortcut -> shortcut.ownerKey }, { shortcut -> shortcut.shortcutId })
+                .mapValues { (_, shortcutIds) -> shortcutIds.toSet() }
+        }
+        .distinctUntilChanged()
+
     override suspend fun setShortcutHidden(ownerKey: String, shortcutId: String, hidden: Boolean) {
         popupDao.setShortcutHidden(ownerKey = ownerKey, shortcutId = shortcutId, hidden = hidden)
     }

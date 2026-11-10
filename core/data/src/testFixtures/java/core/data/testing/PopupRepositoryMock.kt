@@ -35,6 +35,7 @@ fun createPopupRepositoryMock(state: PopupRepositoryState): IPopupRepository {
         val ownerKey: String = firstArg()
         state.hiddenIdsByOwner.map { hiddenIds -> hiddenIds[ownerKey] ?: emptySet() }
     }
+    every { mockPopupRepository.hiddenShortcutsByOwner } returns state.hiddenIdsByOwner
     coEvery { mockPopupRepository.setShortcutHidden(any(), any(), any()) } just Runs
     every { mockPopupRepository.items(any()) } answers {
         val ownerKey: String = firstArg()

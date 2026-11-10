@@ -42,6 +42,12 @@ interface IShortcutSource {
     suspend fun pin(packageName: String, profile: UserHandle, ids: Set<String>)
 }
 
+/** This result's published Shortcuts in display order, or an empty list when they are unavailable. */
+fun ShortcutsResult.shortcutsOrEmpty(): List<ShortcutLaunchable> = when (this) {
+    is ShortcutsResult.Available -> shortcuts
+    ShortcutsResult.Unavailable, ShortcutsResult.ProfilePaused -> emptyList()
+}
+
 /** What one [IShortcutSource.resolve] call could establish about the requested Shortcuts. */
 data class ShortcutResolution(
     /** Every requested Shortcut the platform returned, including disabled ones. */
