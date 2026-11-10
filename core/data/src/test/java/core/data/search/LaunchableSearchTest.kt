@@ -96,6 +96,38 @@ class LaunchableSearchTest {
     }
 
     @Test
+    fun `ranks a more used Launchable above an equally strong match`() {
+        val inputAlpine: Launchable = createRailLaunchable("Alpine")
+        val inputAlpha: Launchable = createRailLaunchable("Alpha")
+        val inputState = createSearchState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputAlpine, inputAlpha)))
+        )
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(
+            query = "al",
+            launchCounts = mapOf(inputAlpine.key to 1, inputAlpha.key to 3)
+        )
+
+        assertEquals(listOf(inputAlpha, inputAlpine), actualResults)
+    }
+
+    @Test
+    fun `does not let usage beat a stronger match tier`() {
+        val inputExact: Launchable = createRailLaunchable("Maps")
+        val inputNameStart: Launchable = createRailLaunchable("Maps Pro")
+        val inputState = createSearchState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "M", items = listOf(inputNameStart, inputExact)))
+        )
+
+        val actualResults: List<Launchable> = inputState.searchLaunchables(
+            query = "maps",
+            launchCounts = mapOf(inputNameStart.key to 10)
+        )
+
+        assertEquals(listOf(inputExact, inputNameStart), actualResults)
+    }
+
+    @Test
     fun `breaks ties in App List order`() {
         val inputAlpine: Launchable = createRailLaunchable("Alpine")
         val inputAlpha: Launchable = createRailLaunchable("Alpha")

@@ -212,6 +212,13 @@ _Avoid_: Match, hit
 The first Search result, which the IME Go action opens.
 _Avoid_: First result, primary result
 
+**Search suggestions**:
+The rows Search shows before typing: recently installed Apps, the last Launchable opened from Search within 15 minutes, and the Launchables opened most often from Search. They can be turned off in Rail Settings and removed one at a time.
+_Avoid_: Recents, predictions, quick access
+
+**Search history**:
+The launches Rail records from Search, each with its launch count, last-launched time and whether the user removed it from Search suggestions.
+_Avoid_: Usage log, search log
 **Group mark**:
 What a group shows on the Rail and above its App List section: its text label or, for Private Space, a shield.
 _Avoid_: Glyph, icon (when meaning a mark)

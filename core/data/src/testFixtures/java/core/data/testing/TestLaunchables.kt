@@ -42,14 +42,16 @@ fun createApp(
     packageName: String = TEST_APP_PACKAGE_NAME,
     profileInfo: ProfileInfo = createProfileInfo(userId = TEST_APP_USER_ID),
     badgedLabel: String = name,
-    customName: String = name
+    customName: String = name,
+    firstInstallTime: Long = 0L
 ): App = App(
     defaultName = name,
     profileInfo = profileInfo,
     componentName = ComponentName(packageName, "$packageName.MainActivity"),
     badgedLabel = badgedLabel,
     name = customName,
-    isPackageRepresentative = true
+    isPackageRepresentative = true,
+    firstInstallTime = firstInstallTime
 )
 
 /** The stored key format used before Apps were keyed by launcher activity: package name and Profile. */

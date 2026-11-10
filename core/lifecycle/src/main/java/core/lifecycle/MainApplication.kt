@@ -28,6 +28,7 @@ import core.data.cleanup.IStoredKeyClassifierImpl
 import core.data.cleanup.LaunchableCustomizationCleanupRow
 import core.data.cleanup.PopupItemCleanupRow
 import core.data.cleanup.PopupOwnerCleanupRow
+import core.data.cleanup.SearchHistoryCleanupRow
 import core.data.cleanup.StandaloneShortcutCleanupRow
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
@@ -72,6 +73,7 @@ import core.data.room.MIGRATION_14_15
 import core.data.room.MIGRATION_15_16
 import core.data.room.MIGRATION_16_17
 import core.data.room.MIGRATION_17_18
+import core.data.room.MIGRATION_18_19
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -82,10 +84,13 @@ import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
 import core.data.room.dao.PendingAppWidgetDao
 import core.data.room.dao.PopupDao
+import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.StandaloneShortcutDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.search.ISearchHistoryRepository
+import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPickerSource
@@ -205,7 +210,8 @@ class MainApplication :
                 MIGRATION_14_15,
                 MIGRATION_15_16,
                 MIGRATION_16_17,
-                MIGRATION_17_18
+                MIGRATION_17_18,
+                MIGRATION_18_19
             )
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
@@ -243,6 +249,7 @@ class MainApplication :
         single<PopupDao> { database.getPopupDao() }
         single<FolderDao> { database.getFolderDao() }
         single<StandaloneShortcutDao> { database.getStandaloneShortcutDao() }
+        single<SearchHistoryDao> { database.getSearchHistoryDao() }
     }
 
     /**
@@ -293,6 +300,7 @@ class MainApplication :
             )
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ISearchHistoryRepository> { ISearchHistoryRepositoryImpl(searchHistoryDao = get(), clockSource = get()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
@@ -470,7 +478,9 @@ class MainApplication :
                 profileSource = get(),
                 privateSpaceStatus = get(),
                 privateSpaceLock = get(),
-                standaloneShortcutRepository = get()
+                standaloneShortcutRepository = get(),
+                searchHistoryRepository = get(),
+                clockSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->
@@ -579,6 +589,7 @@ class MainApplication :
         )
         cleanup.register(PopupItemCleanupRow(popupDao = get(), popupRepository = get()))
         cleanup.register(HeaderTapTargetCleanupRow(headerSettingsDao = get()))
+        cleanup.register(SearchHistoryCleanupRow(searchHistoryDao = get()))
         cleanup.register(
             StandaloneShortcutCleanupRow(
                 standaloneShortcutDao = get(),

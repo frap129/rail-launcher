@@ -38,6 +38,7 @@ import core.data.testing.WidgetAreaRepositoryFixture
 import core.data.testing.appWidgetPlace
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createClockReading
 import core.data.testing.createClockSourceMock
 import core.data.testing.createIconImageImporterMock
 import core.data.testing.createNotificationHandle
@@ -171,7 +172,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     @Test
     fun `advances notification ages with the clock`() = runTest {
-        val inputClockReadings: MutableStateFlow<ClockReading> = MutableStateFlow(clockReading(instant = TEST_NOW))
+        val inputClockReadings: MutableStateFlow<ClockReading> = MutableStateFlow(createClockReading(instant = TEST_NOW))
         val mockClockSource: IClockSource = createClockSourceMock(inputClockReadings)
         val viewModel: PopupCardViewModel = openNotificationCard(
             viewModel = createCard(mockClockSource = mockClockSource),
@@ -180,7 +181,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         assertEquals(TEST_NOW.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)
 
         val inputLater: Instant = TEST_NOW.plusSeconds(360L)
-        inputClockReadings.value = clockReading(instant = inputLater)
+        inputClockReadings.value = createClockReading(instant = inputLater)
         runCurrent()
 
         assertEquals(inputLater.toEpochMilli(), (viewModel.popupState.value as PopupUiState.Open).nowMillis)

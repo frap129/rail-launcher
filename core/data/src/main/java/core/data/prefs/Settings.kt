@@ -17,7 +17,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP, defaultValue = "1")
     val openSearchOnSwipeUp: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS, defaultValue = "0")
-    val openSearchOnHomePress: Boolean = false
+    val openSearchOnHomePress: Boolean = false,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_SUGGESTIONS, defaultValue = "1")
+    val searchSuggestions: Boolean = true
 ) {
     companion object {
         const val COLUMN_ICON_PACK: String = "icon_pack"
@@ -26,5 +28,6 @@ data class Settings(
         const val COLUMN_RAIL_SIDE: String = "rail_side"
         const val COLUMN_OPEN_SEARCH_ON_SWIPE_UP: String = "open_search_on_swipe_up"
         const val COLUMN_OPEN_SEARCH_ON_HOME_PRESS: String = "open_search_on_home_press"
+        const val COLUMN_SEARCH_SUGGESTIONS: String = "search_suggestions"
     }
 }

@@ -40,4 +40,7 @@ interface IPreferencesRepository {
 
     /** Sets whether pressing Home on Home opens Search. */
     fun setOpenSearchOnHomePress(enabled: Boolean)
+
+    /** Sets whether Search shows Search suggestions before typing. */
+    fun setSearchSuggestions(enabled: Boolean)
 }

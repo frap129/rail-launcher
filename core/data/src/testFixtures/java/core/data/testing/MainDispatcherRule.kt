@@ -12,7 +12,7 @@ import org.junit.runner.Description
 /** Replaces [Dispatchers.Main], which `viewModelScope` runs on, with a test dispatcher. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule : TestWatcher() {
-    private val dispatcher: TestDispatcher = UnconfinedTestDispatcher()
+    val dispatcher: TestDispatcher = UnconfinedTestDispatcher()
 
     override fun starting(description: Description) {
         Dispatchers.setMain(dispatcher)

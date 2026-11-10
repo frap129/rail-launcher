@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import core.data.room.AppDatabase
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.configureForTest
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import kotlinx.coroutines.flow.first
@@ -33,7 +34,7 @@ class WidgetAreaSeedCallbackTest : InMemoryDatabaseTest() {
         }
 
         val actualDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
-            .configureForTest()
+            .configureForTest(queryContext = databaseDispatcher)
             .addCallback(WidgetAreaSeedCallback())
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()

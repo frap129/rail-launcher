@@ -34,6 +34,7 @@ import compose.icons.fontawesomeicons.solid.FolderPlus
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
+import compose.icons.fontawesomeicons.solid.TimesCircle
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
@@ -64,6 +65,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
         when (val currentMenuState: LauncherMenuState = menuState) {
             is LauncherMenuState.Menu -> LauncherItemMenu(
                 item = currentMenuState.item,
+                isSearchSuggestion = currentMenuState.isSearchSuggestion,
                 viewModel = viewModel,
                 collaborators = collaborators
             )
@@ -76,7 +78,12 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
 }
 
 @Composable
-internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
+internal fun LauncherItemMenu(
+    item: Launchable,
+    isSearchSuggestion: Boolean,
+    viewModel: LauncherViewModel,
+    collaborators: IPopupCollaborators
+) {
     val context: Context = LocalContext.current
     val editor: IPopupEditor = collaborators.editor
     val folderActions: IPopupFolderActions = collaborators.folder
@@ -103,6 +110,13 @@ internal fun LauncherItemMenu(item: Launchable, viewModel: LauncherViewModel, co
             label = stringResource(R.string.edit_favorites),
             onClick = { viewModel.editFavorites() }
         )
+        if (isSearchSuggestion) {
+            SheetMenuAction(
+                imageVector = FontAwesomeIcons.Solid.TimesCircle,
+                label = stringResource(R.string.remove_from_suggestions),
+                onClick = { viewModel.removeSearchSuggestion(item) }
+            )
+        }
         when (item) {
             is App -> AppMenuActions(
                 item = item,

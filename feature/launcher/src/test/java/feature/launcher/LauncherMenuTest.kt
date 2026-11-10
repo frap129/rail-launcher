@@ -46,6 +46,8 @@ class LauncherMenuTest {
     private val mockCollaborators: IPopupCollaborators = mockk(relaxed = true)
     private val changeIconDescription: String
         get() = RuntimeEnvironment.getApplication().getString(CoreUiR.string.change_icon)
+    private val removeSuggestionLabel: String
+        get() = RuntimeEnvironment.getApplication().getString(R.string.remove_from_suggestions)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -75,6 +77,23 @@ class LauncherMenuTest {
         verify(exactly = 0) { mockIconPicker.startPicking(any()) }
     }
 
+    @Test
+    fun `removes a Search suggestion from its item menu`() {
+        val item: App = createApp(name = APP_NAME)
+        setMenuContent(item = item, isSearchSuggestion = true)
+
+        composeRule.onNodeWithText(removeSuggestionLabel).performClick()
+
+        verify(exactly = 1) { mockViewModel.removeSearchSuggestion(item) }
+    }
+
+    @Test
+    fun `hides the remove suggestion action for a normal row`() {
+        setMenuContent(item = createApp(name = APP_NAME), isSearchSuggestion = false)
+
+        composeRule.onNodeWithText(removeSuggestionLabel).assertDoesNotExist()
+    }
+
     private fun assertHeaderIconStartsPicking(item: Launchable) {
         setMenuContent(item = item)
 
@@ -86,8 +105,10 @@ class LauncherMenuTest {
         verify(exactly = 1) { mockIconPicker.startPicking(item) }
     }
 
-    private fun setMenuContent(item: Launchable) {
-        every { mockViewModel.menuState } returns MutableStateFlow(LauncherMenuState.Menu(item))
+    private fun setMenuContent(item: Launchable, isSearchSuggestion: Boolean = false) {
+        every { mockViewModel.menuState } returns MutableStateFlow(
+            LauncherMenuState.Menu(item = item, isSearchSuggestion = isSearchSuggestion)
+        )
         every { mockCollaborators.iconPicker } returns mockIconPicker
         composeRule.setContent {
             LauncherMenu(viewModel = mockViewModel, collaborators = mockCollaborators)

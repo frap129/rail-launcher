@@ -38,7 +38,14 @@ fun ProfileInfo.isListable(): Boolean = !isPrivate || !isQuiet
 val List<ProfileInfo>.privateSpace: ProfileInfo? get() = firstOrNull { profile -> profile.isPrivate }
 
 /** A launchable activity resolved for one Profile. */
-data class ProfileActivity(val componentName: ComponentName, val user: UserHandle, val label: String, val badgedLabel: String)
+data class ProfileActivity(
+    val componentName: ComponentName,
+    val user: UserHandle,
+    val label: String,
+    val badgedLabel: String,
+    /** When the activity's package was first installed, in epoch milliseconds, or 0 when unknown. */
+    val firstInstallTime: Long
+)
 
 /** A package or Profile change Rail must react to. */
 sealed interface ProfileChange {

@@ -162,6 +162,31 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Search suggestions switch`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(searchSuggestions = false)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertFalse(expectMostRecentItem().searchSuggestions)
+        }
+    }
+
+    @Test
+    fun `persists the Search suggestions switch`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setSearchSuggestions(false)
+
+            verify(exactly = 1) { mockPreferencesRepository.setSearchSuggestions(false) }
+        }
+    }
+
+    @Test
     fun `exposes the stored Search Home-press entry`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

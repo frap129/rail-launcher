@@ -244,7 +244,8 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
                 componentName = activity.componentName,
                 user = activity.user,
                 label = label,
-                badgedLabel = badgedLabel(label = label, user = activity.user)
+                badgedLabel = badgedLabel(label = label, user = activity.user),
+                firstInstallTime = activity.firstInstallTime
             )
         }
     }

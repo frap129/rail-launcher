@@ -106,6 +106,8 @@
     <string name="search_home_press_summary">Open Search instead of staying on Home</string>
     <string name="search_entry">Search entry</string>
     <string name="search_entry_summary">Other apps can open Search with %1$s</string>
+    <string name="search_suggestions">Search suggestions</string>
+    <string name="search_suggestions_summary">Show recently installed, last opened and frequently opened Launchables before you type</string>
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
     <string name="notifications">Notifications</string>

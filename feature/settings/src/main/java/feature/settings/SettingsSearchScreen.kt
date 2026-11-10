@@ -7,13 +7,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import core.ui.model.data.SEARCH_ENTRY_URI
 
-/** The Search section: the two independent ways to open Search from Home. */
+/** The Search section: the two independent ways to open Search from Home and its suggestions. */
 @Composable
 fun SettingsSearchScreen(
     openSearchOnSwipeUp: Boolean,
     openSearchOnHomePress: Boolean,
+    searchSuggestions: Boolean,
     onOpenSearchOnSwipeUpChange: (Boolean) -> Unit,
-    onOpenSearchOnHomePressChange: (Boolean) -> Unit
+    onOpenSearchOnHomePressChange: (Boolean) -> Unit,
+    onSearchSuggestionsChange: (Boolean) -> Unit
 ) {
     LazyColumn {
         item {
@@ -30,6 +32,14 @@ fun SettingsSearchScreen(
                 checked = openSearchOnHomePress,
                 supportingText = stringResource(R.string.search_home_press_summary),
                 onCheckedChange = onOpenSearchOnHomePressChange
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_suggestions),
+                checked = searchSuggestions,
+                supportingText = stringResource(R.string.search_suggestions_summary),
+                onCheckedChange = onSearchSuggestionsChange
             )
         }
         item {
