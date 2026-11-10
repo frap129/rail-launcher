@@ -10,8 +10,8 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import androidx.core.content.ContextCompat
-import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
+import core.data.icons.model.toCustomIcon
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.SHORTCUT_RESOLVE_FLAGS
 import core.data.shortcuts.ShortcutKey
@@ -66,21 +66,19 @@ private class PackIconSource(private val componentName: ComponentName, private v
         resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawable(resId = resId)
 }
 
-private class PackDrawableIconSource(private val packPackageName: String, private val drawableName: String) : IconSource {
-    override val cacheKey: String =
-        "${CustomIcon.PackDrawable.ENCODING_PREFIX}$packPackageName" +
-            "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}$drawableName"
+private class PackDrawableIconSource(private val icon: Icon.PackDrawableIcon) : IconSource {
+    override val cacheKey: String = icon.toCustomIcon().format()
 
     override fun loadDrawable(context: Context): Drawable? = runCatching {
-        resolveIconPack(context = context, packPackageName = packPackageName)?.getDrawable(drawableName = drawableName)
+        resolveIconPack(context = context, packPackageName = icon.packPackageName)?.getDrawable(drawableName = icon.drawableName)
     }.getOrNull()
 }
 
-private class ImageIconSource(private val fileName: String) : IconSource {
-    override val cacheKey: String = "${CustomIcon.Image.ENCODING_PREFIX}$fileName"
+private class ImageIconSource(private val icon: Icon.ImageIcon) : IconSource {
+    override val cacheKey: String = icon.toCustomIcon().format()
 
     override fun loadDrawable(context: Context): Drawable? {
-        val file: File = iconImageFile(context = context, fileName = fileName)?.takeIf { candidate -> candidate.isFile } ?: return null
+        val file: File = iconImageFile(context = context, fileName = icon.fileName)?.takeIf { candidate -> candidate.isFile } ?: return null
         val bitmap: Bitmap? = BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inScaled = false })
         return bitmap?.let { decoded -> SystemMaskedDrawable(BitmapDrawable(context.resources, decoded)) }
     }
@@ -134,9 +132,9 @@ internal fun Icon.toSource(profileSource: IProfileSource? = null, profile: UserH
     is Icon.ActivityIcon -> ActivityIconSource(componentName = componentName, profile = profile, profileSource = profileSource)
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName = packageName, profile = profile, profileSource = profileSource)
     is Icon.FolderIcon -> FolderIconSource(shade)
-    is Icon.ImageIcon -> ImageIconSource(fileName)
+    is Icon.ImageIcon -> ImageIconSource(icon = this)
     is Icon.PackIcon -> PackIconSource(componentName, packPackageName, resId)
-    is Icon.PackDrawableIcon -> PackDrawableIconSource(packPackageName = packPackageName, drawableName = drawableName)
+    is Icon.PackDrawableIcon -> PackDrawableIconSource(icon = this)
     is Icon.ProfileIcon -> ProfileIconSource(icon = icon, profile = this.profile, profileSource = profileSource)
     is Icon.RailIcon -> RailIconSource(resId)
     is Icon.ShortcutIcon -> ShortcutIconSource(packageName = packageName, shortcutId = shortcutId, profile = this.profile)

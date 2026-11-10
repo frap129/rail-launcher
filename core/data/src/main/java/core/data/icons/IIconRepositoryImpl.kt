@@ -130,21 +130,19 @@ class IIconRepositoryImpl(
     }
 
     override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo?): Icon? = withContext(dispatcher) {
-        val icon: Icon? = when (customIcon) {
-            is CustomIcon.Image -> Icon.ImageIcon(fileName = customIcon.fileName)
-                .takeIf { imageStore.hasImage(fileName = customIcon.fileName) }
+        val isAvailable: Boolean = when (customIcon) {
+            is CustomIcon.Image -> imageStore.hasImage(fileName = customIcon.fileName)
 
-            is CustomIcon.PackDrawable -> Icon.PackDrawableIcon(
+            is CustomIcon.PackDrawable -> iconPackSource.hasDrawable(
                 packPackageName = customIcon.packPackageName,
                 drawableName = customIcon.drawableName
-            ).takeIf {
-                iconPackSource.hasDrawable(
-                    packPackageName = customIcon.packPackageName,
-                    drawableName = customIcon.drawableName
-                )
-            }
+            )
         }
-        if (icon == null || profile == null) icon else icon.badgedFor(profile = profile)
+        if (!isAvailable) {
+            return@withContext null
+        }
+        val icon: Icon = customIcon.toIcon()
+        if (profile == null) icon else icon.badgedFor(profile = profile)
     }
 
     override suspend fun getPackCategories(packPackageName: String): List<IconPackCategory> = withContext(dispatcher) {

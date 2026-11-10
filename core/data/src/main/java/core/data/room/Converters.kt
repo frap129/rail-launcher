@@ -131,45 +131,10 @@ class Converters {
     fun fromStringToRailSide(side: String): RailSide = RailSide.entries.firstOrNull { entry -> entry.name == side } ?: RailSide.DEFAULT
 
     @TypeConverter
-    fun fromCustomIconToString(icon: CustomIcon?): String? = when (icon) {
-        null -> null
-
-        is CustomIcon.Image -> "${CustomIcon.Image.ENCODING_PREFIX}${icon.fileName}"
-
-        is CustomIcon.PackDrawable ->
-            "${CustomIcon.PackDrawable.ENCODING_PREFIX}${icon.packPackageName}" +
-                "${CustomIcon.PackDrawable.ENCODING_SEPARATOR}${icon.drawableName}"
-    }
+    fun fromCustomIconToString(icon: CustomIcon?): String? = icon?.format()
 
     @TypeConverter
-    fun fromStringToCustomIcon(value: String?): CustomIcon? = when {
-        value == null -> null
-
-        value.startsWith(CustomIcon.Image.ENCODING_PREFIX) ->
-            value
-                .removePrefix(CustomIcon.Image.ENCODING_PREFIX)
-                .takeIf { fileName -> fileName.isNotEmpty() }
-                ?.let { fileName -> CustomIcon.Image(fileName = fileName) }
-
-        value.startsWith(CustomIcon.PackDrawable.ENCODING_PREFIX) -> fromStringToPackDrawable(value = value)
-
-        else -> null
-    }
-
-    private fun fromStringToPackDrawable(value: String): CustomIcon.PackDrawable? {
-        val prefix: String = CustomIcon.PackDrawable.ENCODING_PREFIX
-        val separatorIndex: Int = value.indexOf(
-            char = CustomIcon.PackDrawable.ENCODING_SEPARATOR[0],
-            startIndex = prefix.length
-        )
-        if (separatorIndex <= prefix.length) {
-            return null
-        }
-        return CustomIcon.PackDrawable(
-            packPackageName = value.substring(prefix.length, separatorIndex),
-            drawableName = value.substring(separatorIndex + CustomIcon.PackDrawable.ENCODING_SEPARATOR.length)
-        )
-    }
+    fun fromStringToCustomIcon(value: String?): CustomIcon? = CustomIcon.parse(value = value)
 
     @TypeConverter
     fun fromCalendarIdSetToString(ids: Set<String>): String = ids.joinToString(separator = CALENDAR_ID_SEPARATOR)

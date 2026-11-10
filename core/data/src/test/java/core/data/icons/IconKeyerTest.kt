@@ -4,6 +4,10 @@ import android.content.ComponentName
 import android.os.UserHandle
 import coil3.request.Options
 import core.data.icons.model.Icon
+import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
+import core.data.testing.TEST_ICON_PACK_PACKAGE
+import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createUserHandle
@@ -15,13 +19,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-private const val RAIL_ICON_RES_ID: Int = 1
 private const val SECOND_RAIL_ICON_RES_ID: Int = 2
 private const val APPLICATION_PACKAGE: String = "com.example.app"
 private const val SECOND_APPLICATION_PACKAGE: String = "com.example.other"
 private const val ACTIVITY_CLASS: String = "com.example.app.MainActivity"
 private const val SECOND_ACTIVITY_CLASS: String = "com.example.app.OtherActivity"
-private const val ICON_PACK_PACKAGE: String = "com.example.iconpack"
 private const val SECOND_ICON_PACK_PACKAGE: String = "com.example.othericonpack"
 private const val PACK_ICON_RES_ID: Int = 10
 private const val SECOND_PACK_ICON_RES_ID: Int = 11
@@ -40,7 +42,7 @@ class IconKeyerTest {
 
     @Test
     fun `equal rail icons produce equal cache keys`() {
-        assertEqualKeys(Icon.RailIcon(RAIL_ICON_RES_ID), Icon.RailIcon(RAIL_ICON_RES_ID))
+        assertEqualKeys(Icon.RailIcon(TEST_RAIL_ICON_RES_ID), Icon.RailIcon(TEST_RAIL_ICON_RES_ID))
     }
 
     @Test
@@ -56,54 +58,63 @@ class IconKeyerTest {
     @Test
     fun `equal icon pack icons produce equal cache keys`() {
         assertEqualKeys(
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
         )
     }
 
     @Test
     fun `equal pack drawable icons produce equal cache keys`() {
         assertEqualKeys(
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar")
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
         )
     }
 
     @Test
     fun `equal image icons produce equal cache keys`() {
-        assertEqualKeys(Icon.ImageIcon("gallery-icon.png"), Icon.ImageIcon("gallery-icon.png"))
+        assertEqualKeys(Icon.ImageIcon(TEST_GALLERY_ICON_FILE_NAME), Icon.ImageIcon(TEST_GALLERY_ICON_FILE_NAME))
     }
 
     @Test
     fun `image icons with different files produce different cache keys`() {
-        assertDifferentKeys(Icon.ImageIcon("gallery-icon.png"), Icon.ImageIcon("other-icon.png"))
+        assertDifferentKeys(Icon.ImageIcon(TEST_GALLERY_ICON_FILE_NAME), Icon.ImageIcon("other-icon.png"))
     }
 
     @Test
     fun `an image icon and a pack drawable icon produce different cache keys`() {
         assertDifferentKeys(
-            Icon.ImageIcon("calendar"),
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar")
+            Icon.ImageIcon(TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
         )
+    }
+
+    @Test
+    fun `custom icon cache keys are their stored forms`() {
+        assertEquals(
+            "pack-drawable:com.example.iconpack:calendar",
+            keyer.key(Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME), options)
+        )
+        assertEquals("image:gallery-icon.png", keyer.key(Icon.ImageIcon(TEST_GALLERY_ICON_FILE_NAME), options))
     }
 
     @Test
     fun `pack drawable icons with different packs or drawables produce different cache keys`() {
         assertDifferentKeys(
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
-            Icon.PackDrawableIcon(SECOND_ICON_PACK_PACKAGE, "calendar")
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            Icon.PackDrawableIcon(SECOND_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
         )
         assertDifferentKeys(
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "mail")
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, "mail")
         )
     }
 
     @Test
     fun `a pack drawable icon and a pack icon produce different cache keys`() {
         assertDifferentKeys(
-            Icon.PackDrawableIcon(ICON_PACK_PACKAGE, "calendar"),
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
+            Icon.PackDrawableIcon(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
         )
     }
 
@@ -151,7 +162,7 @@ class IconKeyerTest {
 
     @Test
     fun `different rail icons produce different cache keys`() {
-        assertDifferentKeys(Icon.RailIcon(RAIL_ICON_RES_ID), Icon.RailIcon(SECOND_RAIL_ICON_RES_ID))
+        assertDifferentKeys(Icon.RailIcon(TEST_RAIL_ICON_RES_ID), Icon.RailIcon(SECOND_RAIL_ICON_RES_ID))
     }
 
     @Test
@@ -170,7 +181,7 @@ class IconKeyerTest {
     @Test
     fun `icon pack icons with different packs produce different cache keys`() {
         assertDifferentKeys(
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
             Icon.PackIcon(componentName, SECOND_ICON_PACK_PACKAGE, PACK_ICON_RES_ID)
         )
     }
@@ -178,8 +189,8 @@ class IconKeyerTest {
     @Test
     fun `icon pack icons with different resources produce different cache keys`() {
         assertDifferentKeys(
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
-            Icon.PackIcon(componentName, ICON_PACK_PACKAGE, SECOND_PACK_ICON_RES_ID)
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, PACK_ICON_RES_ID),
+            Icon.PackIcon(componentName, TEST_ICON_PACK_PACKAGE, SECOND_PACK_ICON_RES_ID)
         )
     }
 
