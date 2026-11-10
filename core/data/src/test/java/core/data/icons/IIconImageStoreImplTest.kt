@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import core.data.testing.TEST_SDK
 import java.io.File
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -28,5 +29,14 @@ class IIconImageStoreImplTest {
         assertFalse(actualWritten)
         assertFalse(inputStore.hasImage(fileName = ESCAPING_FILE_NAME))
         assertFalse(File(inputContext.filesDir, "escape.png").exists())
+    }
+
+    @Test
+    fun `deletes every stored image`() {
+        assertTrue(inputStore.write(fileName = "first.png", bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
+        assertTrue(inputStore.write(fileName = "second.png", bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)))
+        inputStore.deleteAll()
+        assertFalse(inputStore.hasImage(fileName = "first.png"))
+        assertFalse(inputStore.hasImage(fileName = "second.png"))
     }
 }

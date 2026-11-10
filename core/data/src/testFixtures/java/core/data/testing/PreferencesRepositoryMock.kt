@@ -23,6 +23,7 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setItemName(any(), any()) } just Runs
     every { mockPreferencesRepository.setCustomIcon(any(), any()) } just Runs
     every { mockPreferencesRepository.resetCustomIcon(any()) } just Runs
+    every { mockPreferencesRepository.resetCustomIcons() } just Runs
     every { mockPreferencesRepository.setIconPack(any()) } just Runs
     every { mockPreferencesRepository.setHidePrivateSpaceWhenLocked(any()) } just Runs
     every { mockPreferencesRepository.setScrubEdges(any()) } just Runs

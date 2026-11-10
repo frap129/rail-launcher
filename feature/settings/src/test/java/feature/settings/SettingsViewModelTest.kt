@@ -136,6 +136,16 @@ class SettingsViewModelTest {
         }
     }
 
+    @Test
+    fun `resets every Custom icon`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            viewModel.resetCustomIcons()
+            verify(exactly = 1) { mockPreferencesRepository.resetCustomIcons() }
+        }
+    }
+
     private fun TestScope.createViewModel(
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock()

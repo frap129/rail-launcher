@@ -70,6 +70,9 @@ class SettingsViewModel(
 
     fun setIconPack(iconPack: IconPack) = prefsRepo.setIconPack(iconPack)
 
+    /** Clears every Custom icon while keeping custom names. */
+    fun resetCustomIcons() = prefsRepo.resetCustomIcons()
+
     /** Persists whether Rail hides a Locked Private Space container. */
     fun setHidePrivateSpaceWhenLocked(hide: Boolean) = prefsRepo.setHidePrivateSpaceWhenLocked(hide)
 

@@ -64,6 +64,15 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun resetCustomIcons() {
+        scope.launch(dispatcher) {
+            withIconWriteLock {
+                launchableCustomizationDao.resetIcons()
+                imageStore.deleteAll()
+            }
+        }
+    }
+
     override suspend fun removeLaunchableCustomizations(keys: List<String>) {
         if (keys.isEmpty()) {
             return

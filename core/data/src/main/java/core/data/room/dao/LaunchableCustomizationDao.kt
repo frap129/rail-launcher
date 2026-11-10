@@ -51,6 +51,18 @@ abstract class LaunchableCustomizationDao {
         deleteIfEmpty(key = key)
     }
 
+    @Query("UPDATE launchable_customizations SET icon = NULL")
+    protected abstract suspend fun clearIcons()
+
+    @Query("DELETE FROM launchable_customizations WHERE name IS NULL")
+    protected abstract suspend fun deleteRowsWithoutName()
+
+    @Transaction
+    open suspend fun resetIcons() {
+        clearIcons()
+        deleteRowsWithoutName()
+    }
+
     @Query("DELETE FROM launchable_customizations WHERE key = :key")
     abstract suspend fun delete(key: String)
 

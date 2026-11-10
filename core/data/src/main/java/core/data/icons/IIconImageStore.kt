@@ -12,4 +12,7 @@ interface IIconImageStore {
 
     /** Deletes the image named [fileName]. */
     fun delete(fileName: String)
+
+    /** Deletes every stored image. */
+    fun deleteAll()
 }

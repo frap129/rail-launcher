@@ -19,6 +19,9 @@ interface IPreferencesRepository {
     /** Removes [item]'s Custom icon so it uses its normal icon again, deleting its image. */
     fun resetCustomIcon(item: Launchable)
 
+    /** Removes every Custom icon, keeping custom names, and deletes every stored image. */
+    fun resetCustomIcons()
+
     /** Removes the stored customizations for [keys]. */
     suspend fun removeLaunchableCustomizations(keys: List<String>)
     fun setIconPack(iconPack: IconPack)
