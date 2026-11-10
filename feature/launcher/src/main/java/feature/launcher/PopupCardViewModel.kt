@@ -437,21 +437,27 @@ class PopupCardViewModel(
     }
 
     override fun close() {
+        closeCard()
+        session.onCardClosed()
+    }
+
+    /** Closes the card on leaving the app, unless an add flow has to reopen it afterwards. */
+    fun onStopped() {
+        if (addFlowController.state.value != AddWidgetFlowState.Idle) {
+            return
+        }
+        closeCard()
+        session.onHostStopped()
+    }
+
+    private fun closeCard() {
         finishResize()
         menuTarget.value = null
-        session.onCardClosed()
         notificationExpansion.value = emptyMap()
         sentNotifications.value = emptySet()
         openRequest.value = null
         if (addFlowController.state.value == AddWidgetFlowState.Idle) {
             clearReopenKeys()
-        }
-    }
-
-    /** Closes the card on leaving the app, unless an add flow has to reopen it afterwards. */
-    fun onStopped() {
-        if (addFlowController.state.value == AddWidgetFlowState.Idle) {
-            close()
         }
     }
 

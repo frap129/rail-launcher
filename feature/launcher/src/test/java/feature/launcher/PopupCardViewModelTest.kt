@@ -3,9 +3,12 @@ package feature.launcher
 import android.app.Notification
 import android.app.RemoteInput
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.icons.IIconImageImporter
+import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -22,6 +25,8 @@ import core.data.shortcuts.ShortcutsResult
 import core.data.testing.AppWidgetHostState
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
+import core.data.testing.TEST_GALLERY_URI
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_NOTIFICATION_ACTION_ACTION
 import core.data.testing.TEST_NOTIFICATION_KEY
@@ -34,6 +39,7 @@ import core.data.testing.appWidgetPlace
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createClockSourceMock
+import core.data.testing.createIconImageImporterMock
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
 import core.data.testing.createPlatformNotificationAction
@@ -59,6 +65,7 @@ import core.data.widgets.WidgetProvider
 import core.data.widgets.WidgetProviderInfo
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
+import core.ui.popups.IconPickerState
 import core.ui.popups.PopupEditState
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.WidgetEvent
@@ -1091,6 +1098,45 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         viewModel.onStopped()
 
         assertEquals(PopupUiState.Closed, viewModel.popupState.value)
+    }
+
+    @Test
+    fun `leaving the app keeps the Icon picker open during a gallery pick and applies its result`() = runTest {
+        val mockImageImporter: IIconImageImporter = createIconImageImporterMock(fileName = TEST_GALLERY_ICON_FILE_NAME)
+        val session: PopupTestSession = createPendingGalleryPickSession(mockImageImporter = mockImageImporter)
+
+        session.card.onStopped()
+        runCurrent()
+
+        assertTrue(session.iconPicker.iconPickerState.value is IconPickerState.Listing)
+        session.iconPicker.selectGalleryImage(uri = Uri.parse(TEST_GALLERY_URI))
+        runCurrent()
+
+        verify(exactly = 1) {
+            mockPreferencesRepository.setCustomIcon(inputApp, CustomIcon.Image(fileName = TEST_GALLERY_ICON_FILE_NAME))
+        }
+        assertEquals(IconPickerState.Closed, session.iconPicker.iconPickerState.value)
+    }
+
+    @Test
+    fun `HOME closes the Icon picker during a pending gallery pick`() = runTest {
+        val session: PopupTestSession = createPendingGalleryPickSession()
+
+        session.card.onHomeIntent()
+        runCurrent()
+
+        assertEquals(IconPickerState.Closed, session.iconPicker.iconPickerState.value)
+    }
+
+    private fun TestScope.createPendingGalleryPickSession(
+        mockImageImporter: IIconImageImporter = createIconImageImporterMock()
+    ): PopupTestSession {
+        val session: PopupTestSession = createSession(mockImageImporter = mockImageImporter)
+        openPopup(card = session.card, owner = inputApp, flows = listOf(session.card.popupState, session.iconPicker.iconPickerState))
+        session.iconPicker.startPicking(inputApp)
+        runCurrent()
+        session.iconPicker.startGalleryPick()
+        return session
     }
 
     @Test

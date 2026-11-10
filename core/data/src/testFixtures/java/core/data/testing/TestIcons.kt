@@ -18,6 +18,9 @@ const val TEST_GALLERY_ICON_SIZE: Int = 192
 /** The file name tests give an imported gallery icon. */
 const val TEST_GALLERY_ICON_FILE_NAME: String = "gallery-icon.png"
 
+/** The content URI tests give the Photo Picker's result. */
+const val TEST_GALLERY_URI: String = "content://media/picker/0/gallery-image"
+
 /** An installed Icon pack for tests. */
 fun createCustomIconPack(name: String = "Custom Pack", packageName: String = TEST_ICON_PACK_PACKAGE): IconPack.CustomIconPack =
     IconPack.CustomIconPack(

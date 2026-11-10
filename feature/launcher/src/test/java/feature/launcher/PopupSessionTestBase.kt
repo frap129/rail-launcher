@@ -3,6 +3,7 @@ package feature.launcher
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.SavedStateHandle
 import core.data.apps.model.App
+import core.data.icons.IIconImageImporter
 import core.data.launchables.model.Launchable
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationSource
@@ -14,6 +15,7 @@ import core.data.testing.TEST_NOTIFICATION_OTHER_KEY
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createClockSourceMock
+import core.data.testing.createIconImageImporterMock
 import core.data.testing.createNotificationRecord
 import core.data.testing.createOtherNotificationProfile
 import core.data.testing.createRemoveAppWidgetMock
@@ -131,9 +133,13 @@ abstract class PopupSessionTestBase : PopupTestBase() {
         collaborators = collaborators
     )
 
-    protected fun TestScope.createSession(): PopupTestSession {
+    protected fun TestScope.createSession(mockImageImporter: IIconImageImporter = createIconImageImporterMock()): PopupTestSession {
         val session: IPopupSession = IPopupSessionImpl()
-        val collaborators: IPopupCollaborators = createCollaborators(session = session, homeEditState = inputHomeEditState)
+        val collaborators: IPopupCollaborators = createCollaborators(
+            session = session,
+            homeEditState = inputHomeEditState,
+            mockImageImporter = mockImageImporter
+        )
         val card: PopupCardViewModel = createCard(
             session = session,
             homeEditState = inputHomeEditState,

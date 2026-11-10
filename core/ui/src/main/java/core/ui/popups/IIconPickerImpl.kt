@@ -56,6 +56,7 @@ class IIconPickerImpl(
     private val packContents: MutableStateFlow<PackContents?> = MutableStateFlow(null)
     private val suggestions: MutableStateFlow<List<Icon>> = MutableStateFlow(emptyList())
     private var suggestionsJob: Job? = null
+    private var isGalleryPickPending: Boolean = false
 
     override val iconPickerState: StateFlow<IconPickerState> = combine(
         request,
@@ -119,8 +120,16 @@ class IIconPickerImpl(
         packContents.value = null
         suggestionsJob?.cancel()
         suggestions.value = emptyList()
+        isGalleryPickPending = false
         request.value = IconPickerRequest(ownerKey = owner.key)
         loadSuggestions(owner = owner)
+    }
+
+    override fun startGalleryPick() {
+        if (request.value == null) {
+            return
+        }
+        isGalleryPickPending = true
     }
 
     override fun openPack(iconPack: IconPack.CustomIconPack) {
@@ -128,7 +137,7 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == iconPack.packageName) {
             return
         }
-        request.value = currentRequest.copy(packPackageName = iconPack.packageName, query = "", imageImportFailed = false)
+        request.value = currentRequest.withPack(packPackageName = iconPack.packageName)
         packContents.value = null
         scope.launchLogged(message = "Failed to load an icon pack") {
             val categories: List<IconPackCategory> = iconRepository.getPackCategories(packPackageName = iconPack.packageName)
@@ -155,10 +164,14 @@ class IIconPickerImpl(
         close()
     }
 
-    override fun selectGalleryImage(uri: Uri) {
-        val owner: Launchable = currentOwner() ?: return
+    override fun selectGalleryImage(uri: Uri?) {
         val currentRequest: IconPickerRequest = request.value ?: return
         if (currentRequest.isImportingImage) {
+            return
+        }
+        val owner: Launchable = currentOwner() ?: return
+        isGalleryPickPending = false
+        if (uri == null) {
             return
         }
         val startedRequest: IconPickerRequest = currentRequest.copy(isImportingImage = true, imageImportFailed = false)
@@ -200,6 +213,13 @@ class IIconPickerImpl(
         close()
     }
 
+    override fun onHostStopped() {
+        if (isGalleryPickPending) {
+            return
+        }
+        close()
+    }
+
     override fun onCardOpened() {
         close()
     }
@@ -217,7 +237,7 @@ class IIconPickerImpl(
         if (currentRequest.packPackageName == null) {
             close()
         } else {
-            request.value = currentRequest.copy(packPackageName = null, query = "", imageImportFailed = false)
+            request.value = currentRequest.withPack(packPackageName = null)
             packContents.value = null
         }
         return true
@@ -242,6 +262,7 @@ class IIconPickerImpl(
     private fun close() {
         suggestionsJob?.cancel()
         suggestionsJob = null
+        isGalleryPickPending = false
         request.value = null
         suggestions.value = emptyList()
         packContents.value = null
@@ -251,6 +272,9 @@ class IIconPickerImpl(
         collaboratorScope.release()
     }
 }
+
+private fun IconPickerRequest.withPack(packPackageName: String?): IconPickerRequest =
+    copy(packPackageName = packPackageName, query = "", isImportingImage = false, imageImportFailed = false)
 
 private fun filterPackIcons(categories: List<IconPackCategory>, query: String): List<Icon.PackDrawableIcon> {
     val normalizedQuery: String = normalizeIconPickerQuery(query)

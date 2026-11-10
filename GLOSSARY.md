@@ -20,6 +20,10 @@ _Avoid_: Themed icon, custom image
 The bottom sheet that lists the Suggested icons, Original, Gallery and every installed Icon pack and applies a Custom icon or resets it.
 _Avoid_: Icon chooser, theme picker
 
+**Pending gallery pick**:
+A Gallery choice the Icon picker is still waiting for. While one is pending, the picker stays open when the host stops, so the Photo Picker result still applies to its owner.
+_Avoid_: Open gallery, gallery import (until the image is actually imported)
+
 **Suggested icons**:
 The locally computed icons the Icon picker lists above Original: for an App, its original icon plus one icon from each installed Icon pack that maps it; for a Shortcut or Folder, the pack icons whose drawable names contain a word from its label, capped at 12.
 _Avoid_: Recommended icons, AI suggestions

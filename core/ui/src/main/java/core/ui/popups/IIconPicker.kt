@@ -14,6 +14,9 @@ interface IIconPicker {
     /** Opens the picker for [owner]. */
     fun startPicking(owner: Launchable)
 
+    /** Marks the gallery pick as pending before the host opens the system photo picker. */
+    fun startGalleryPick()
+
     /** Opens [iconPack]'s icons inside the open picker. */
     fun openPack(iconPack: IconPack.CustomIconPack)
 
@@ -23,8 +26,11 @@ interface IIconPicker {
     /** Applies [icon] as the owner's Custom icon and closes the picker. */
     fun selectIcon(icon: Icon.PackDrawableIcon)
 
-    /** Imports [uri] as the owner's Custom icon, closing the picker on success or showing an error on failure. */
-    fun selectGalleryImage(uri: Uri)
+    /**
+     * Imports [uri] as the owner's Custom icon, closing the picker on success or showing an error on
+     * failure; a null [uri] only clears the pending pick.
+     */
+    fun selectGalleryImage(uri: Uri?)
 
     /** Removes the owner's Custom icon and closes the picker. */
     fun resetIcon()
@@ -34,6 +40,9 @@ interface IIconPicker {
 
     /** Closes the picker when the Pop-up closes. */
     fun onCardClosed()
+
+    /** Closes the picker when the host stops, unless a gallery pick is still waiting for its result. */
+    fun onHostStopped()
 
     /** Closes the picker when the card opens over it. */
     fun onCardOpened()
