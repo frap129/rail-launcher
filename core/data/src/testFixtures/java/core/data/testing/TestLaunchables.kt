@@ -36,17 +36,19 @@ fun createPausedWorkApp(): App = createApp(
     badgedLabel = "Work Gmail"
 )
 
-/** An installed App with a predictable activity and key for tests. */
+/** An installed App with a predictable activity and key for tests, optionally renamed to [customName]. */
 fun createApp(
     name: String = TEST_APP_NAME,
     packageName: String = TEST_APP_PACKAGE_NAME,
     profileInfo: ProfileInfo = createProfileInfo(userId = TEST_APP_USER_ID),
-    badgedLabel: String = name
+    badgedLabel: String = name,
+    customName: String = name
 ): App = App(
     defaultName = name,
     profileInfo = profileInfo,
     componentName = ComponentName(packageName, "$packageName.MainActivity"),
     badgedLabel = badgedLabel,
+    name = customName,
     isPackageRepresentative = true
 )
 

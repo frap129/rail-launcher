@@ -22,6 +22,7 @@ data class Folder(
 ) : Launchable() {
     override val key: String = "$FOLDER_KEY_PREFIX$folderId"
     override val defaultName: String = DEFAULT_NAME
+    override val hasOriginalName: Boolean = false
     override val supportsCustomIcon: Boolean = true
 
     override fun withCustomization(appearance: LaunchableAppearance): Folder = copy(name = appearance.name, icon = appearance.icon)
