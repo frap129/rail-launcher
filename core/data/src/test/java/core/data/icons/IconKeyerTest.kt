@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.os.UserHandle
 import coil3.request.Options
 import core.data.icons.model.Icon
+import core.data.testing.SECOND_ICON_PACK_PACKAGE
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
 import core.data.testing.TEST_ICON_PACK_PACKAGE
@@ -24,7 +25,6 @@ private const val APPLICATION_PACKAGE: String = "com.example.app"
 private const val SECOND_APPLICATION_PACKAGE: String = "com.example.other"
 private const val ACTIVITY_CLASS: String = "com.example.app.MainActivity"
 private const val SECOND_ACTIVITY_CLASS: String = "com.example.app.OtherActivity"
-private const val SECOND_ICON_PACK_PACKAGE: String = "com.example.othericonpack"
 private const val PACK_ICON_RES_ID: Int = 10
 private const val SECOND_PACK_ICON_RES_ID: Int = 11
 private const val SHARED_IDENTITY: Int = 42

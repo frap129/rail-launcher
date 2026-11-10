@@ -33,13 +33,13 @@ class IPreferencesRepositoryImpl(
             resetItemName(item)
             return
         }
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             launchableCustomizationDao.setName(key = item.key, name = name)
         }
     }
 
     override fun resetItemName(item: Launchable) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             launchableCustomizationDao.resetName(key = item.key)
         }
     }
@@ -121,26 +121,26 @@ class IPreferencesRepositoryImpl(
     }
 
     override fun setIconPack(iconPack: IconPack) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             val packageName: String? = (iconPack as? IconPack.CustomIconPack)?.packageName
             settingsDao.update { settings -> settings.copy(iconPack = packageName) }
         }
     }
 
     override fun setHidePrivateSpaceWhenLocked(hide: Boolean) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(hidePrivateSpaceWhenLocked = hide) }
         }
     }
 
     override fun setScrubEdges(edges: ScrubEdges) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(scrubEdges = edges) }
         }
     }
 
     override fun setRailSide(side: RailSide) {
-        scope.launch(Dispatchers.IO) {
+        scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(railSide = side) }
         }
     }

@@ -14,6 +14,8 @@ import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.createCustomIconPack
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -412,6 +414,40 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(RailSide.START, actualSettings.railSide)
     }
 
+    @Test
+    fun `runs every launched write on the injected dispatcher`() = databaseTest {
+        val mockDispatcher: CountingDispatcher = CountingDispatcher(delegate = databaseDispatcher)
+        val repository: IPreferencesRepository = createPreferencesRepository(dispatcher = mockDispatcher)
+        val inputLaunchable: Launchable = createLaunchable()
+        // removeLaunchableCustomizations runs in its caller's context so the caller's transaction owns the write.
+        val inputWrites: List<() -> Unit> = listOf(
+            { repository.setItemName(item = inputLaunchable, name = RENAMED_ITEM_NAME) },
+            { repository.resetItemName(item = inputLaunchable) },
+            { repository.setCustomIcon(item = inputLaunchable, icon = CUSTOM_ICON) },
+            { repository.resetCustomIcon(item = inputLaunchable) },
+            { repository.resetCustomIcons() },
+            { repository.setIconPack(iconPack = createCustomIconPack()) },
+            { repository.setHidePrivateSpaceWhenLocked(hide = true) },
+            { repository.setScrubEdges(edges = ScrubEdges.START) },
+            { repository.setRailSide(side = RailSide.START) }
+        )
+
+        inputWrites.forEach { write -> write() }
+
+        assertEquals(inputWrites.size, mockDispatcher.dispatchCount)
+        finishPendingWork()
+        assertEquals(emptyList<LaunchableCustomization>(), customizations())
+        assertEquals(
+            Settings(
+                iconPack = TEST_ICON_PACK_PACKAGE,
+                hidePrivateSpaceWhenLocked = true,
+                scrubEdges = ScrubEdges.START,
+                railSide = RailSide.START
+            ),
+            repository.settings.first()
+        )
+    }
+
     private suspend fun awaitCustomization(
         key: String,
         predicate: (LaunchableCustomization) -> Boolean = { true }
@@ -431,4 +467,14 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = LAUNCHABLE_DEEPLINK
     )
+}
+
+private class CountingDispatcher(private val delegate: CoroutineDispatcher) : CoroutineDispatcher() {
+    var dispatchCount: Int = 0
+        private set
+
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        dispatchCount++
+        delegate.dispatch(context = context, block = block)
+    }
 }

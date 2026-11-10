@@ -4,6 +4,7 @@ import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
 import core.data.launchables.model.Launchable
+import core.util.toNormalizedDrawableName
 
 /** Whether the Icon picker is showing and, when it is, what it lists. */
 sealed interface IconPickerState {
@@ -31,7 +32,7 @@ sealed interface IconPickerState {
 }
 
 /** The query with underscores read as spaces and surrounding spaces trimmed; empty when it filters nothing. */
-internal fun normalizeIconPickerQuery(query: String): String = query.replace('_', ' ').trim()
+internal fun normalizeIconPickerQuery(query: String): String = query.toNormalizedDrawableName().trim()
 
 /** Whether the pack's query filters its icons. */
 internal val IconPickerState.Pack.isFiltering: Boolean
