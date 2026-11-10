@@ -60,11 +60,9 @@ import core.data.testing.createTestNotificationSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
-import core.ui.popups.IIconPicker
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
-import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -548,21 +546,6 @@ class LauncherViewModelTest {
                 viewModel.openItemMenu(inputItem)
                 viewModel.openItemRename(inputItem)
                 assertEquals(LauncherMenuState.Rename(item = inputItem), expectMostRecentItem())
-            }
-        }
-    }
-
-    @Test
-    fun `opens the Icon picker for the Launchable whose header icon was tapped`() {
-        runTest {
-            val mockIconPicker: IIconPicker = mockk(relaxed = true)
-            val viewModel: LauncherViewModel = createViewModel(mockIconPicker = mockIconPicker)
-            viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
-                assertTrue(expectMostRecentItem() is LauncherMenuState.Menu)
-                viewModel.openItemIconPicker(inputItem)
-                verify(exactly = 1) { mockIconPicker.startPicking(inputItem) }
-                assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
         }
     }
@@ -1703,8 +1686,7 @@ class LauncherViewModelTest {
         mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository,
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
-        mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
-        mockIconPicker: IIconPicker = mockk(relaxed = true)
+        mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -1717,8 +1699,7 @@ class LauncherViewModelTest {
         profileSource = mockProfileSource,
         privateSpaceStatus = mockPrivateSpaceStatus,
         privateSpaceLock = privateSpaceLock,
-        standaloneShortcutRepository = mockStandaloneShortcutRepository,
-        iconPicker = mockIconPicker
+        standaloneShortcutRepository = mockStandaloneShortcutRepository
     )
 
     private fun createPausedWorkApp(): App = createApp(

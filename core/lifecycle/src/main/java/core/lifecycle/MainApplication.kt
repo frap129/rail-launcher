@@ -446,7 +446,7 @@ class MainApplication :
                 notifier = get()
             )
         }
-        viewModel { (iconPicker: IIconPicker) ->
+        viewModel {
             LauncherViewModel(
                 listOffsets = get(),
                 launcherItemRepo = get(),
@@ -459,8 +459,7 @@ class MainApplication :
                 profileSource = get(),
                 privateSpaceStatus = get(),
                 privateSpaceLock = get(),
-                standaloneShortcutRepository = get(),
-                iconPicker = iconPicker
+                standaloneShortcutRepository = get()
             )
         }
         viewModel { (session: IPopupSession) ->

@@ -119,7 +119,7 @@ fun LauncherScreen(
     val popupPicker: IPopupPicker = popupCardViewModel.collaborators.picker
     val popupIconPicker: IIconPicker = popupCardViewModel.collaborators.iconPicker
     val popupFolderActions: IPopupFolderActions = popupCardViewModel.collaborators.folder
-    val viewModel: LauncherViewModel = koinViewModel { parametersOf(popupIconPicker) }
+    val viewModel: LauncherViewModel = koinViewModel()
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -335,7 +335,7 @@ fun LauncherScreen(
             homeEditMode = homeEditMode
         )
         LauncherDoneButton(viewModel, widgetViewModel, popupEditor)
-        LauncherMenu(viewModel, popupEditor, popupFolderActions)
+        LauncherMenu(viewModel, popupCardViewModel.collaborators)
         PopupMenuSheet(
             card = popupCardViewModel,
             editor = popupEditor,
