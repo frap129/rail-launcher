@@ -449,8 +449,11 @@ class LauncherViewModel(
         requestedPausedLaunchable.value = null
     }
 
-    /** Opens Search unless a Home edit mode blocks it; returns whether Search opened. */
-    fun openSearch(): Boolean {
+    /**
+     * Opens Search with [startingQuery] unless a Home edit mode blocks it; returns whether Search
+     * opened.
+     */
+    fun openSearch(startingQuery: String = ""): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return false
         }
@@ -462,11 +465,31 @@ class LauncherViewModel(
                     mode = LauncherMode.Search,
                     isScrolling = false,
                     selected = null,
-                    search = SearchState(origin = current.mode)
+                    search = SearchState(origin = current.mode, query = startingQuery)
                 )
             }
         }
         return true
+    }
+
+    /**
+     * Whether a Typed character can open Search or append to an open Search query. Home accepts
+     * one outside its edit modes and while no Pop-up is open, and Search always accepts one.
+     */
+    fun canAcceptTypedCharacter(isPopupOpen: Boolean): Boolean = navigation.value.mode == LauncherMode.Search ||
+        (navigation.value.mode == LauncherMode.Home && homeEditState.mode.value == HomeEditMode.None && !isPopupOpen)
+
+    /** Appends a Typed character to an open Search query, or opens Search from Home with it. */
+    fun onTypedCharacter(character: String, isPopupOpen: Boolean): Boolean {
+        if (!canAcceptTypedCharacter(isPopupOpen = isPopupOpen)) {
+            return false
+        }
+        val search: SearchState? = navigation.value.search
+        if (search != null) {
+            setSearchQuery(query = search.query + character)
+            return true
+        }
+        return openSearch(startingQuery = character)
     }
 
     /** Updates the Search query; the results follow synchronously from the Launchable State. */

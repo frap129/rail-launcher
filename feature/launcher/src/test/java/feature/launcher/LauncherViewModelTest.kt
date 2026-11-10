@@ -1713,6 +1713,117 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `opens Search with a starting query`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch(startingQuery = "al")
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("al", actualSearch.query)
+            assertEquals(listOf(inputItem), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `typing on Home opens Search with the typed character`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("a", actualSearch.query)
+            assertEquals(listOf(inputItem), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `typing on the App List does not open Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `rapid typed characters append to the query in order`() = runTest {
+        val inputCalendar: App = createApp(name = "Calendar", packageName = "com.example.calendar")
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputCalendar))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onTypedCharacter(character = "c", isPopupOpen = false)
+            assertEquals("c", expectSearch().query)
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+            assertEquals("ca", expectSearch().query)
+            viewModel.onTypedCharacter(character = "l", isPopupOpen = false)
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals("cal", actualSearch.query)
+            assertEquals(listOf(inputCalendar), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `typing a space appends to an open Search query`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+            assertEquals("a", expectSearch().query)
+
+            viewModel.onTypedCharacter(character = " ", isPopupOpen = false)
+
+            assertEquals("a ", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `typing while a Pop-up is open does not open Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = true)
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `typing during a Home edit mode does not open Search`() = runTest {
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        inputHomeEditState.tryEnter(HomeEditMode.Widgets)
+        val viewModel: LauncherViewModel = createViewModel(inputHomeEditState = inputHomeEditState)
+
+        viewModel.uiState.test {
+            expectHome()
+
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+            runCurrent()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `Go opens the Top result and resets Search`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 

@@ -184,6 +184,18 @@ _Avoid_: Drawer, all-apps, launcher list
 The launcher state for typing a query, which shows the matching Launchables as Search results.
 _Avoid_: Search mode, finder
 
+**Search entry**:
+The exported `rail-launcher://search` intent other apps call to open Search.
+_Avoid_: Search link, exported entry, search deeplink
+
+**Typed character**:
+A printable character typed with a hardware keyboard while the launcher is shown, which opens Search with that character as the query.
+_Avoid_: Key press, keystroke
+
+**Launcher signal**:
+A one-shot request the launcher activity hands to the launcher UI: a HOME intent, the Search entry or a Typed character.
+_Avoid_: Home event, intent event
+
 **Home press**:
 A HOME intent that arrives while Rail is already resumed and showing Home. The Home-press entry in Rail Settings opens Search on such a press instead of staying on Home.
 _Avoid_: Home tap, re-selection

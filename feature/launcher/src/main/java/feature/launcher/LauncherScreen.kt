@@ -58,8 +58,10 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
-import core.ui.model.data.HomeIntentRequest
 import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.LauncherSignal
+import core.ui.model.data.LauncherSignalRequest
+import core.ui.model.data.LauncherTypingState
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
@@ -136,13 +138,16 @@ fun LauncherScreen(
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val profileSource: IProfileSource = koinInject()
+    val launcherTypingState: LauncherTypingState = koinInject()
+    val uiState: LauncherUiState by viewModel.uiState.collectAsState()
+    val isPopupOpen: Boolean by popupCardViewModel.isCardOpen.collectAsState()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railSide: RailSide by viewModel.railSide.collectAsState()
     val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
     val homeEditMode: HomeEditMode by viewModel.homeEditMode.collectAsState()
-    val homeIntentRequest: HomeIntentRequest = remember(backStackEntry) {
-        HomeIntentRequest(savedStateHandle = backStackEntry.savedStateHandle)
+    val launcherSignalRequest: LauncherSignalRequest = remember(backStackEntry) {
+        LauncherSignalRequest(savedStateHandle = backStackEntry.savedStateHandle)
     }
     val addWidgetRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_ADD_WIDGET_REQUEST_KEY)
@@ -265,13 +270,31 @@ fun LauncherScreen(
             onAction = popupEditor::startEdit
         )
     }
-    LaunchedEffect(homeIntentRequest) {
-        homeIntentRequest.collectRequests { wasResumed ->
-            popupCardViewModel.onHomeIntent()
-            val wasEditingHome: Boolean =
-                widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
-            if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
-                viewModel.onHomeIntent(wasResumed = wasResumed)
+    LaunchedEffect(uiState, homeEditMode, isPopupOpen) {
+        launcherTypingState.setAcceptsTyping(
+            acceptsTyping = viewModel.canAcceptTypedCharacter(isPopupOpen = isPopupOpen)
+        )
+    }
+    LaunchedEffect(launcherSignalRequest) {
+        launcherSignalRequest.collectRequests { signal ->
+            if (signal !is LauncherSignal.TypedCharacter) {
+                popupCardViewModel.onHomeIntent()
+            }
+            when (signal) {
+                is LauncherSignal.Home -> {
+                    val wasEditingHome: Boolean =
+                        widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
+                    if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
+                        viewModel.onHomeIntent(wasResumed = signal.wasResumed)
+                    }
+                }
+
+                LauncherSignal.OpenSearch -> viewModel.openSearch()
+
+                is LauncherSignal.TypedCharacter -> viewModel.onTypedCharacter(
+                    character = signal.character,
+                    isPopupOpen = popupCardViewModel.isCardOpen.value
+                )
             }
         }
     }

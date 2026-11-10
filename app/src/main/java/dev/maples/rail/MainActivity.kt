@@ -8,16 +8,21 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import core.lifecycle.HomePressState
-import core.lifecycle.HomeSignals
+import core.lifecycle.LauncherIntentHandler
+import core.lifecycle.LauncherKeyHandler
+import core.lifecycle.LauncherSignals
 import core.lifecycle.TemplateActivity
+import core.lifecycle.isSearchEntry
 import core.ui.App
 import core.ui.model.data.Destination
+import core.ui.model.data.LauncherTypingState
 import feature.launcher.launcherDestination
 import feature.launcher.widgets.AppWidgetResults
 import feature.settings.settingsDestination
@@ -40,12 +45,16 @@ class MainActivity : TemplateActivity() {
     )
 
     /**
-     * Delivers HOME intent events to the UI so a re-selection shows Home
-     * scrolled to the top.
+     * Delivers launcher signals to the UI so a re-selection shows Home
+     * scrolled to the top and the Search entry opens Search.
      *
-     * @property homeSignals the activity-owned [core.lifecycle.HomeSignals] queue
+     * @property launcherSignals the activity-owned [core.lifecycle.LauncherSignals] queue
      */
-    private val homeSignals: HomeSignals = HomeSignals()
+    private val launcherSignals: LauncherSignals = LauncherSignals()
+
+    private val launcherIntentHandler: LauncherIntentHandler = LauncherIntentHandler(onSignal = launcherSignals::signal)
+
+    private val launcherTypingState: LauncherTypingState by inject()
 
     private val wallpaperManager: WallpaperManager by lazy {
         WallpaperManager.getInstance(applicationContext)
@@ -54,6 +63,14 @@ class MainActivity : TemplateActivity() {
     private val homePressState: HomePressState = HomePressState()
 
     private var isWallpaperBacked: Boolean = launcherDestination.isWallpaperBacked
+    private var isLauncherShown: Boolean = true
+
+    private val launcherKeyHandler: LauncherKeyHandler = LauncherKeyHandler(
+        isLauncherShown = { isLauncherShown },
+        isTypingAccepted = { launcherTypingState.acceptsTyping.value },
+        onBack = { onBackPressedDispatcher.onBackPressed() },
+        onSignal = launcherSignals::signal
+    )
 
     // Replaced by App's reported tone before a non-wallpaper destination is shown.
     private var isSurfaceDark: Boolean = true
@@ -79,12 +96,15 @@ class MainActivity : TemplateActivity() {
 
         super.onCreate(savedInstanceState)
 
+        launcherIntentHandler.restore(savedInstanceState = savedInstanceState)
+        launcherIntentHandler.handle(intent = intent, wasResumed = false, isNewIntent = false)
+
         observeWallpaperColors()
         setContent {
             App(
                 destinations = destinations,
                 startDestination = launcherDestination.route,
-                homeSignals = homeSignals.events,
+                launcherSignals = launcherSignals.events,
                 onDestinationChanged = ::onDestinationChanged
             )
         }
@@ -124,12 +144,25 @@ class MainActivity : TemplateActivity() {
     }
 
     override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
-            homeSignals.signal(wasResumed = homePressState.wasResumedAtHomeIntent())
+        launcherIntentHandler.handle(
+            intent = intent,
+            wasResumed = homePressState.wasResumedAtHomeIntent(),
+            isNewIntent = true
+        )
+        // Only the Search entry skips TemplateActivity's pending-intent resend.
+        if (!intent.isSearchEntry()) {
+            super.onNewIntent(intent)
         }
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        launcherIntentHandler.save(outState = outState)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        launcherKeyHandler.onKeyDown(keyCode = keyCode, event = event) || super.onKeyDown(keyCode, event)
 
     private fun observeWallpaperColors() {
         wallpaperManager.addOnColorsChangedListener(wallpaperColorsListener, Handler(Looper.getMainLooper()))
@@ -147,7 +180,8 @@ class MainActivity : TemplateActivity() {
         }
     }
 
-    private fun onDestinationChanged(isWallpaperBacked: Boolean, isSurfaceDark: Boolean) {
+    private fun onDestinationChanged(route: String?, isWallpaperBacked: Boolean, isSurfaceDark: Boolean) {
+        isLauncherShown = route == launcherDestination.route
         this.isWallpaperBacked = isWallpaperBacked
         this.isSurfaceDark = isSurfaceDark
         updateSystemBarIconAppearance()
