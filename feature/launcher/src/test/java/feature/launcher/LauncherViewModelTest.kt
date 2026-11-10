@@ -31,6 +31,7 @@ import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.IShortcutSearchSource
 import core.data.search.SearchHistoryRecord
+import core.data.search.SearchResult
 import core.data.search.SearchShortcut
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
@@ -1772,10 +1773,10 @@ class LauncherViewModelTest {
             expectSearch()
 
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.setSearchQuery("be")
-            assertEquals(listOf(listedItem(1)), expectSearch().results)
+            assertEquals(launchableResults(listedItem(1)), expectSearch().results)
         }
     }
 
@@ -1789,7 +1790,7 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals("al", actualSearch.query)
-            assertEquals(listOf(inputItem), actualSearch.results)
+            assertEquals(launchableResults(inputItem), actualSearch.results)
         }
     }
 
@@ -1804,7 +1805,7 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals("a", actualSearch.query)
-            assertEquals(listOf(inputItem), actualSearch.results)
+            assertEquals(launchableResults(inputItem), actualSearch.results)
         }
     }
 
@@ -1841,7 +1842,7 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals("cal", actualSearch.query)
-            assertEquals(listOf(inputCalendar), actualSearch.results)
+            assertEquals(launchableResults(inputCalendar), actualSearch.results)
         }
     }
 
@@ -1901,18 +1902,53 @@ class LauncherViewModelTest {
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
             val actualSearch: LauncherUiState.Search = expectSearch()
-            assertEquals(listOf(inputItem), actualSearch.results)
-            assertEquals(inputItem, actualSearch.topResult)
+            assertEquals(launchableResults(inputItem), actualSearch.results)
+            assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
 
-            val actualTopResult: Launchable? = viewModel.onSearchGo()
-            assertEquals(inputItem, actualTopResult)
-            assertTrue(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            val actualTopResult: SearchResult? = viewModel.onSearchGo()
+            assertEquals(SearchResult.LaunchableResult(inputItem), actualTopResult)
+            assertTrue(viewModel.requestLaunch(inputItem))
 
-            viewModel.onLaunched(requireNotNull(actualTopResult))
+            viewModel.onLaunched(inputItem)
 
             expectAppList()
             viewModel.openSearch()
             assertEquals("", expectSearch().query)
+        }
+    }
+
+    @Test
+    fun `Go returns the Calculator row when no Launchable matches`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("12*7")
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            val expectedResult: SearchResult = SearchResult.CalculatorRow(expression = "12*7", value = "84")
+            assertEquals(listOf(expectedResult), actualSearch.results)
+            assertEquals(expectedResult, actualSearch.topResult)
+            assertEquals(expectedResult, viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `an App named 99 stays the Top result`() = runTest {
+        val inputApp: App = createApp(name = "99", packageName = "com.example.ninety-nine")
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputApp))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("99")
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            val expectedTopResult: SearchResult = SearchResult.LaunchableResult(inputApp)
+            assertEquals(listOf(expectedTopResult), actualSearch.results)
+            assertEquals(expectedTopResult, actualSearch.topResult)
         }
     }
 
@@ -1926,7 +1962,7 @@ class LauncherViewModelTest {
             expectAppList()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.onBack()
 
@@ -1948,7 +1984,7 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.onHomeIntent(wasResumed = true)
 
@@ -1987,7 +2023,7 @@ class LauncherViewModelTest {
             expectAppList()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.onLaunched(inputItem)
 
@@ -2025,7 +2061,7 @@ class LauncherViewModelTest {
             fixture.viewModel.openSearch()
 
             val actualSearch: LauncherUiState.Search = expectSearch()
-            assertEquals(listOf<Launchable>(fixture.app), actualSearch.results)
+            assertEquals(launchableResults(fixture.app), actualSearch.results)
             assertNull(actualSearch.topResult)
             assertNull(fixture.viewModel.onSearchGo())
         }
@@ -2039,7 +2075,7 @@ class LauncherViewModelTest {
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch()
-            assertEquals(listOf<Launchable>(fixture.app), expectSearch().results)
+            assertEquals(launchableResults(fixture.app), expectSearch().results)
         }
 
         fixture.viewModel.menuState.test {
@@ -2069,7 +2105,7 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
         }
 
         viewModel.menuState.test {
@@ -2090,7 +2126,7 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertTrue(actualSearch.isShowingSuggestions)
-            assertEquals(listOf<Launchable>(fixture.app), actualSearch.results)
+            assertEquals(launchableResults(fixture.app), actualSearch.results)
         }
     }
 
@@ -2132,7 +2168,7 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.editFavorites()
 
@@ -2154,11 +2190,11 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("gmail")
-            assertEquals(listOf(inputPausedApp), expectSearch().results)
+            assertEquals(launchableResults(inputPausedApp), expectSearch().results)
 
-            val actualTopResult: Launchable? = viewModel.onSearchGo()
-            assertEquals(inputPausedApp, actualTopResult)
-            assertFalse(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo()).launchableResult()
+            assertEquals(SearchResult.LaunchableResult(inputPausedApp), actualTopResult)
+            assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
             val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
             assertEquals("gmail", actualRemainingSearch.query)
         }
@@ -2174,12 +2210,12 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("shortcut")
-            assertEquals(listOf(inputDisabledShortcut), expectSearch().results)
+            assertEquals(launchableResults(inputDisabledShortcut), expectSearch().results)
 
-            val actualTopResult: Launchable? = viewModel.onSearchGo()
-            assertEquals(inputDisabledShortcut, actualTopResult)
-            assertTrue(requireNotNull(actualTopResult).isDisabled)
-            assertFalse(viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo()).launchableResult()
+            assertEquals(SearchResult.LaunchableResult(inputDisabledShortcut), actualTopResult)
+            assertTrue(actualTopResult.launchable.isDisabled)
+            assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
             val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
             assertEquals("shortcut", actualRemainingSearch.query)
         }
@@ -2195,8 +2231,8 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
             val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
-            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
-            assertEquals(expectedResult, actualSearch.topResult)
+            assertEquals(launchableResults(expectedResult), actualSearch.results)
+            assertEquals(SearchResult.LaunchableResult(expectedResult), actualSearch.topResult)
         }
     }
 
@@ -2210,13 +2246,13 @@ class LauncherViewModelTest {
             fixture.viewModel.openSearch(startingQuery = "new")
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
-            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
-            assertEquals(expectedResult, actualSearch.topResult)
+            assertEquals(launchableResults(expectedResult), actualSearch.results)
+            assertEquals(SearchResult.LaunchableResult(expectedResult), actualSearch.topResult)
 
-            val actualTopResult: Launchable? = fixture.viewModel.onSearchGo()
-            assertEquals(expectedResult, actualTopResult)
-            assertTrue(fixture.viewModel.requestLaunch(requireNotNull(actualTopResult)))
-            fixture.viewModel.onLaunched(requireNotNull(actualTopResult))
+            val actualTopResult: SearchResult? = fixture.viewModel.onSearchGo()
+            assertEquals(SearchResult.LaunchableResult(expectedResult), actualTopResult)
+            assertTrue(fixture.viewModel.requestLaunch(expectedResult))
+            fixture.viewModel.onLaunched(expectedResult)
 
             expectHome()
         }
@@ -2258,7 +2294,7 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
             val expectedResult: ShortcutLaunchable = inputVisibleShortcut.copy(publisherName = inputPublisher.name)
-            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
+            assertEquals(launchableResults(expectedResult), actualSearch.results)
         }
     }
 
@@ -2270,7 +2306,7 @@ class LauncherViewModelTest {
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = "new")
-            assertEquals(listOf<Launchable>(expectedResult), awaitFirstSearch().results)
+            assertEquals(launchableResults(expectedResult), awaitFirstSearch().results)
         }
 
         fixture.viewModel.menuState.test {
@@ -2312,7 +2348,7 @@ class LauncherViewModelTest {
         viewModel.setSearchQuery("secret")
 
         viewModel.uiState.test {
-            assertEquals(listOf(inputPrivateApp), expectSearch().results)
+            assertEquals(launchableResults(inputPrivateApp), expectSearch().results)
         }
     }
 
@@ -2326,7 +2362,7 @@ class LauncherViewModelTest {
         viewModel.setSearchQuery("tetris")
 
         viewModel.uiState.test {
-            assertEquals(listOf(inputMember), expectSearch().results)
+            assertEquals(launchableResults(inputMember), expectSearch().results)
         }
     }
 
@@ -2384,7 +2420,7 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
-            assertEquals(listOf(inputItem), expectSearch().results)
+            assertEquals(launchableResults(inputItem), expectSearch().results)
 
             viewModel.onHomeIntent(wasResumed = true)
 
@@ -2610,6 +2646,14 @@ class LauncherViewModelTest {
     }
 
     private fun railIndex(group: LaunchableGroup): Int = inputGroups.indexOf(group)
+
+    private fun launchableResults(vararg launchables: Launchable): List<SearchResult> =
+        launchables.map { launchable -> SearchResult.LaunchableResult(launchable) }
+
+    private fun SearchResult.launchableResult(): SearchResult.LaunchableResult {
+        assertTrue("Expected a Launchable result but was $this", this is SearchResult.LaunchableResult)
+        return this as SearchResult.LaunchableResult
+    }
 
     private fun listedItem(index: Int): Launchable = inputListedGroups[index].items.first()
 }

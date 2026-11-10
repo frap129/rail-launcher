@@ -27,9 +27,11 @@ import core.data.profiles.QuietRequestResult
 import core.data.search.ISearchHistoryRepository
 import core.data.search.IShortcutSearchSource
 import core.data.search.SearchHistoryRecord
+import core.data.search.SearchResult
 import core.data.search.SearchShortcut
-import core.data.search.searchResults
+import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
+import core.data.search.toSearchResults
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.time.IClockSource
@@ -39,6 +41,7 @@ import core.ui.layout.HomeEditState
 import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -75,7 +78,7 @@ sealed class LauncherUiState {
     }
 
     /** The Search state: the current query, its rows, the Top result and whether the rows are Search suggestions. */
-    data class Search(val query: String, val results: List<Launchable>, val topResult: Launchable?, val isShowingSuggestions: Boolean) :
+    data class Search(val query: String, val results: List<SearchResult>, val topResult: SearchResult?, val isShowingSuggestions: Boolean) :
         LauncherUiState()
 }
 
@@ -154,15 +157,24 @@ private fun toUiState(
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     navigation.search?.let { search ->
         val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
-        // Typed results wait for the first Shortcut emission, so no row is inserted above one already shown.
-        val results: List<Launchable> = when {
-            isShowingSuggestions -> state.searchSuggestions(history = searchData.history, nowEpochMs = searchData.nowEpochMs)
+        // Typed results wait for the first Shortcut emission, so no row is inserted above one already
+        // shown; the Calculator row is gated too.
+        val results: List<SearchResult> = when {
+            isShowingSuggestions -> state.searchSuggestions(
+                history = searchData.history,
+                nowEpochMs = searchData.nowEpochMs
+            ).toSearchResults()
 
             search.query.isEmpty() || !searchData.areShortcutsLoaded -> emptyList()
 
             else -> {
                 val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
-                state.searchResults(query = search.query, launchCounts = launchCounts, shortcuts = searchData.shortcuts)
+                state.searchResultRows(
+                    query = search.query,
+                    launchCounts = launchCounts,
+                    shortcuts = searchData.shortcuts,
+                    locale = Locale.getDefault()
+                )
             }
         }
         return LauncherUiState.Search(
@@ -582,8 +594,8 @@ class LauncherViewModel(
     /** Whether Search is the shown launcher state. */
     fun isSearchOpen(): Boolean = isShowingSearch
 
-    /** The Top result that the IME Go action opens, or null while Search suggestions are shown or no result matches. */
-    fun onSearchGo(): Launchable? = (uiState.value as? LauncherUiState.Search)?.topResult
+    /** The Top result that the IME Go action opens or copies, or null while Search suggestions are shown or no result matches. */
+    fun onSearchGo(): SearchResult? = (uiState.value as? LauncherUiState.Search)?.topResult
 
     /** A Launchable was launched, so Search records it and then closes and resets. */
     fun onLaunched(launchable: Launchable) {

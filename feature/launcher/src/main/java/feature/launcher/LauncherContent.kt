@@ -96,6 +96,7 @@ internal fun LauncherContent(
     onItemLaunch: (Launchable) -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
+    onCopyCalculatorRow: (String) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     homeEditMode: HomeEditMode
@@ -262,7 +263,8 @@ internal fun LauncherContent(
                         search = state,
                         itemActions = itemActions,
                         onQueryChange = viewModel::setSearchQuery,
-                        onSearchGo = viewModel::onSearchGo
+                        onSearchGo = viewModel::onSearchGo,
+                        onCopyCalculatorRow = onCopyCalculatorRow
                     )
                 }
             }

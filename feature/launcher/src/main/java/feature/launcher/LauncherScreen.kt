@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -162,6 +163,7 @@ fun LauncherScreen(
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
+    val calculatorCopiedMessage: String = stringResource(R.string.calculator_copied)
     val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
         if (launchable is Folder) {
             return@launchItem
@@ -170,7 +172,7 @@ fun LauncherScreen(
             keyboardController?.hide()
         }
         if (launchable.isDisabled) {
-            coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
+            coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenShortcutMessage)
             return@launchItem
         }
         if (!viewModel.requestLaunch(launchable)) {
@@ -179,7 +181,7 @@ fun LauncherScreen(
         popupCardViewModel.onLaunched()
         val didLaunch: Boolean = if (launchable is ShortcutLaunchable) {
             launchShortcut(shortcut = launchable, context = context) {
-                coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
+                coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenShortcutMessage)
             }
         } else {
             launchable.launch(context)
@@ -304,9 +306,7 @@ fun LauncherScreen(
                 origin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)
             )
             if (!started) {
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(message = finishEditingHomeMessage)
-                }
+                coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = finishEditingHomeMessage)
             }
         }
     }
@@ -342,6 +342,12 @@ fun LauncherScreen(
             onItemLaunch = launchItem,
             onItemOpenPopup = popupCardViewModel::open,
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
+            onCopyCalculatorRow = { result ->
+                // Android 13 and later show the system's own clipboard confirmation.
+                if (copyCalculatorRowResult(context = context, result = result) && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = calculatorCopiedMessage)
+                }
+            },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode
@@ -601,12 +607,10 @@ private suspend fun handleWidgetEvent(
             }
         }
 
-        is WidgetEvent.ShowMessage -> coroutineScope.launch {
-            snackbarHostState.showSnackbar(
-                message = event.formatArg?.let { arg -> context.getString(event.message, arg) }
-                    ?: context.getString(event.message)
-            )
-        }
+        is WidgetEvent.ShowMessage -> coroutineScope.showSnackbar(
+            snackbarHostState = snackbarHostState,
+            message = event.formatArg?.let { arg -> context.getString(event.message, arg) } ?: context.getString(event.message)
+        )
 
         is WidgetEvent.RemoveHostView -> appWidgetViewCache.remove(event.appWidgetId)
 
@@ -622,4 +626,9 @@ private suspend fun handleWidgetEvent(
 
         WidgetEvent.ReturnToSettings -> navController.navigate(WIDGETS_SETTINGS_ROUTE)
     }
+}
+
+/** Shows [message] in the launcher's Snackbar host. */
+private fun CoroutineScope.showSnackbar(snackbarHostState: SnackbarHostState, message: String) {
+    launch { snackbarHostState.showSnackbar(message = message) }
 }
