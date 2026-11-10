@@ -8,15 +8,13 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 
 /** A MockK [IIconRepository] answering [inputIcon] for every icon request. */
 fun createIconRepositoryMock(
     inputIcon: Icon,
     customIcon: Icon? = null,
-    iconPacks: StateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack)),
+    iconPacks: Flow<Set<IconPack>> = flowOf(setOf(IconPack.SystemIconPack)),
     packCategories: List<IconPackCategory> = emptyList(),
     suggestedIcons: Flow<List<Icon>> = flowOf(emptyList())
 ): IIconRepository {

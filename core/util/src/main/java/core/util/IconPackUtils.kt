@@ -158,6 +158,7 @@ private fun XmlPullParser.readAttributeValues(attribute: String): List<String> {
     return values
 }
 
+/** The App icons [packPackageName]'s appfilter maps, dropping entries whose drawable no longer resolves. */
 fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<ComponentName, String, Int>> {
     val icons: MutableSet<Triple<ComponentName, String, Int>> = mutableSetOf()
     val pack: IconPackResources = resolveIconPack(context = context, packPackageName = packPackageName) ?: return icons
@@ -184,13 +185,10 @@ fun getIconsFromPack(context: Context, packPackageName: String): Set<Triple<Comp
                                 if (isCalendar) {
                                     // TODO Handle calendar icons
                                 } else {
-                                    icons.add(
-                                        Triple(
-                                            parsed,
-                                            packPackageName,
-                                            pack.getDrawableId(drawableName = drawableName)
-                                        )
-                                    )
+                                    val resId: Int = pack.getDrawableId(drawableName = drawableName)
+                                    if (resId != 0) {
+                                        icons.add(Triple(parsed, packPackageName, resId))
+                                    }
                                 }
                             }
                         }

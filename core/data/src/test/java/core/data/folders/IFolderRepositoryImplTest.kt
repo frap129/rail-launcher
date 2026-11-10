@@ -20,6 +20,7 @@ import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createCustomIconPack
 import core.data.testing.createFavoritesRepositoryMock
+import core.data.testing.createIconPackFlow
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
@@ -34,6 +35,7 @@ import core.data.widgets.IWidgetAreaRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.verify
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
@@ -133,7 +135,7 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `resolves a Folder's Custom icon and falls back when its pack disappears`() = databaseTest {
+    fun `resolves a Folder's Custom icon and falls back when its pack no longer provides its drawable`() = databaseTest {
         val folderId: Long = database.getFolderDao().insert(FolderRecord())
         val inputFolder: Folder = Folder(folderId = folderId)
         val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
@@ -146,13 +148,12 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val customizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
         customizationDao.setIcon(key = inputFolder.key, icon = inputCustomIcon)
-        val inputIconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(
-            setOf(IconPack.SystemIconPack, createCustomIconPack())
-        )
+        val inputIconPacks: Set<IconPack> = setOf(IconPack.SystemIconPack, createCustomIconPack())
+        val inputIconPackFlow: MutableSharedFlow<Set<IconPack>> = createIconPackFlow(packs = inputIconPacks)
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
             inputIcon = inputFolder.defaultIcon,
             customIcon = expectedCustomIcon,
-            iconPacks = inputIconPacks
+            iconPacks = inputIconPackFlow
         )
         val repository: IFolderRepository = createRepository(
             customizationDao = customizationDao,
@@ -165,7 +166,8 @@ class IFolderRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals(expectedCustomIcon, actualCustomFolder.icon)
             assertEquals(Icon.FolderIcon(shade = 1), actualCustomFolder.defaultIcon)
             coEvery { mockIconRepository.getCustomIcon(any(), any()) } returns null
-            inputIconPacks.value = setOf(IconPack.SystemIconPack)
+            // A pack update that keeps the same installed set must still re-resolve the Folder.
+            inputIconPackFlow.tryEmit(inputIconPacks)
 
             val actualFallbackFolder: Folder = awaitItem().single()
             assertEquals(Icon.FolderIcon(shade = 1), actualFallbackFolder.icon)

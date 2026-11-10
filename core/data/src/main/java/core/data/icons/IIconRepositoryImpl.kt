@@ -20,15 +20,14 @@ import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.PackIconDao
 import core.data.shortcuts.ShortcutLaunchable
 import core.util.drawableNameHasWord
-import core.util.getIconsFromPack
+import core.util.reemittingFlow
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -38,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
+internal const val ICON_PACK_THEME_ACTION: String = "com.novalauncher.THEME"
 private const val MIN_LABEL_WORD_LENGTH: Int = 3
 private const val MAX_LABEL_SUGGESTIONS: Int = 12
 private val LABEL_WORD_SEPARATOR: Regex = Regex("[^\\p{L}\\p{N}]+")
@@ -54,15 +54,17 @@ class IIconRepositoryImpl(
 ) : IIconRepository {
     private val packageManager: PackageManager = context.packageManager
     private val iconPackIntents = listOf(
-        Intent("com.novalauncher.THEME"),
+        Intent(ICON_PACK_THEME_ACTION),
         Intent("org.adw.launcher.icons.ACTION_PICK_ICON"),
         Intent("com.dlto.atom.launcher.THEME"),
         Intent("app.lawnchair.icons.THEMED_ICON"),
         Intent("android.intent.action.MAIN").addCategory("com.anddoes.launcher.THEME")
     )
 
-    private val _iconPacks: MutableStateFlow<Set<IconPack>> = MutableStateFlow(setOf(IconPack.SystemIconPack))
-    override val iconPacks: StateFlow<Set<IconPack>> = _iconPacks.asStateFlow()
+    private val _iconPacks: MutableSharedFlow<Set<IconPack>> = reemittingFlow<Set<IconPack>>(
+        initialValue = setOf(IconPack.SystemIconPack)
+    )
+    override val iconPacks: Flow<Set<IconPack>> = _iconPacks.asSharedFlow()
 
     init {
         scope.launch(dispatcher) {
@@ -78,39 +80,34 @@ class IIconRepositoryImpl(
                     else -> return@collect
                 }
                 if (isIconPackChange(packageName = packageName)) {
-                    updateIconPacks()
+                    updateIconPacks(reemitUnchanged = true)
                 }
             }
         }
     }
 
     // A removed icon pack is only in the cached list; an installed one is only in PackageManager.
-    private fun isIconPackChange(packageName: String): Boolean =
-        _iconPacks.value.any { pack -> pack is IconPack.CustomIconPack && pack.packageName == packageName } ||
-            iconPackIntents.any { intent ->
-                packageManager.queryIntentActivities(intent, 0).any { info -> info.activityInfo.packageName == packageName }
-            }
+    private fun isIconPackChange(packageName: String): Boolean = _iconPacks.replayCache.any { packs ->
+        packs.any { pack -> pack is IconPack.CustomIconPack && pack.packageName == packageName }
+    } ||
+        iconPackIntents.any { intent ->
+            packageManager.queryIntentActivities(intent, 0).any { info -> info.activityInfo.packageName == packageName }
+        }
 
-    suspend fun updateIconPacks() {
+    /**
+     * Re-reads the installed Icon packs. A pack update can change drawables without changing the
+     * set, so [reemitUnchanged] re-emits an equal set; the startup read only emits a new one.
+     */
+    suspend fun updateIconPacks(reemitUnchanged: Boolean = false) {
         // Present cached packs for quick loading
         val cachedIconPacks = getIconPacksFromCache()
-        _iconPacks.value = cachedIconPacks
+        emitIconPacks(iconPacks = cachedIconPacks, reemitUnchanged = false)
 
         // Query currently installed packs and update cache
         val installedIconPacks = getInstalledIconPacks()
-        val iconsToCache = installedIconPacks.flatMap {
-            if (it is IconPack.CustomIconPack) {
-                getIconsFromPack(context, it.packageName).map { icon ->
-                    Icon.PackIcon(
-                        icon.first,
-                        icon.second,
-                        icon.third
-                    )
-                }
-            } else {
-                emptyList()
-            }
-        }
+        val iconsToCache: List<Icon.PackIcon> = installedIconPacks
+            .filterIsInstance<IconPack.CustomIconPack>()
+            .flatMap { pack -> iconPackSource.appIcons(packPackageName = pack.packageName) }
         val iconsToRemove = iconDao.getAll().filterNot { iconsToCache.contains(it) }
         val packsToCache = installedIconPacks
             .filterIsInstance<IconPack.CustomIconPack>()
@@ -121,7 +118,13 @@ class IIconRepositoryImpl(
         iconsToCache.forEach { iconDao.insert(it) }
         packsToRemove.forEach { iconPackDao.delete(it) }
         packsToCache.forEach { iconPackDao.insert(it) }
-        _iconPacks.value = installedIconPacks
+        emitIconPacks(iconPacks = installedIconPacks, reemitUnchanged = reemitUnchanged)
+    }
+
+    private fun emitIconPacks(iconPacks: Set<IconPack>, reemitUnchanged: Boolean) {
+        if (reemitUnchanged || _iconPacks.replayCache.lastOrNull() != iconPacks) {
+            _iconPacks.tryEmit(iconPacks)
+        }
     }
 
     override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {

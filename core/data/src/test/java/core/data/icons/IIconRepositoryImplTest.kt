@@ -1,9 +1,6 @@
 package core.data.icons
 
 import android.content.ComponentName
-import android.content.Intent
-import android.content.pm.ActivityInfo
-import android.content.pm.ResolveInfo
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
@@ -23,14 +20,17 @@ import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_GALLERY_ICON_FILE_NAME
 import core.data.testing.WORK_USER_ID
+import core.data.testing.addIconPackActivity
 import core.data.testing.createApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
+import core.data.testing.removeIconPackActivity
 import core.util.DrawableCategory
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
@@ -38,8 +38,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
 
 private const val ICON_PACK_PACKAGE_NAME: String = "com.example.iconpack"
 private const val ICON_PACK_LABEL: String = "Example icon pack"
@@ -59,6 +57,10 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputPrivateUser: UserHandle = createUserHandle(userId = PRIVATE_USER_ID)
     private val inputComponentName: ComponentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME)
     private val mockIconPackSource: IIconPackSource = mockk()
+
+    init {
+        every { mockIconPackSource.appIcons(any()) } returns emptySet()
+    }
 
     @Test
     fun `leaves a personal Profile's icon unbadged`() = databaseTest {
@@ -264,7 +266,8 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work),
             createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         )
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState(profiles = inputProfiles))
+        val repository: IIconRepositoryImpl =
+            createRepository(state = ProfileSourceState(profiles = inputProfiles))
 
         inputProfiles.forEach { inputProfile ->
             val actualIcon: Icon? = repository.getCustomIcon(customIcon = inputCustomIcon, profile = inputProfile)
@@ -287,7 +290,8 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work),
             createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
         )
-        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState(profiles = inputProfiles))
+        val repository: IIconRepositoryImpl =
+            createRepository(state = ProfileSourceState(profiles = inputProfiles))
 
         inputProfiles.forEach { inputProfile ->
             val actualIcon: Icon? = repository.getCustomIcon(
@@ -332,12 +336,33 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `re-emits an unchanged pack set only for a pack update`() = databaseTest {
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+
+        repository.iconPacks.test {
+            assertEquals(setOf(IconPack.SystemIconPack), awaitItem())
+            finishPendingWork()
+            val expectedPacks: Set<IconPack> = awaitItem()
+            assertTrue(repository.hasIconPack())
+
+            repository.updateIconPacks()
+            finishPendingWork()
+            expectNoEvents()
+
+            repository.updateIconPacks(reemitUnchanged = true)
+            finishPendingWork()
+            assertEquals(expectedPacks, awaitItem())
+        }
+    }
+
+    @Test
     fun `refreshes icon packs when an icon pack changes`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState()
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
         assertFalse(repository.hasIconPack())
-        addIconPackActivity()
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
 
         inputState.changes.emit(
             ProfileChange.PackageChanged(
@@ -355,7 +380,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         val inputState: ProfileSourceState = ProfileSourceState()
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
-        addIconPackActivity()
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
 
         inputState.changes.emit(
             ProfileChange.PackageAdded(
@@ -370,12 +395,12 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `refreshes icon packs when an icon pack is removed`() = databaseTest {
-        addIconPackActivity()
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
         val inputState: ProfileSourceState = ProfileSourceState()
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
         assertTrue(repository.hasIconPack())
-        removeIconPackActivity()
+        removeIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME)
 
         inputState.changes.emit(
             ProfileChange.PackageRemoved(
@@ -393,7 +418,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         val inputState: ProfileSourceState = ProfileSourceState()
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
-        addIconPackActivity()
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
         val inputChanges: List<ProfileChange> = listOf(
             ProfileChange.PackageAdded(user = inputPersonalUser, packageName = APP_PACKAGE_NAME),
             ProfileChange.PackageChanged(user = inputWorkUser, packageName = APP_PACKAGE_NAME),
@@ -406,23 +431,15 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         assertFalse(repository.hasIconPack())
     }
 
-    private fun TestScope.createRepository(state: ProfileSourceState): IIconRepositoryImpl = IIconRepositoryImpl(
-        context = RuntimeEnvironment.getApplication(),
-        iconPackDao = database.getCachedIconPackDao(),
-        iconDao = database.getPackIconDao(),
-        iconPackSource = mockIconPackSource,
-        imageStore = createIconImageStore(),
-        profileSource = createProfileSourceMock(state = state),
-        scope = backgroundScope,
-        dispatcher = databaseDispatcher
-    )
+    private fun TestScope.createRepository(state: ProfileSourceState): IIconRepositoryImpl =
+        createIconRepository(iconPackSource = mockIconPackSource, profileSource = createProfileSourceMock(state = state))
 
     private suspend fun TestScope.assertLabelSuggestions(
         launchable: Launchable,
         drawableNames: List<String>,
         expectedDrawableNames: List<String>
     ) {
-        addIconPackActivity()
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
         every { mockIconPackSource.drawableCategories(ICON_PACK_PACKAGE_NAME) } returns listOf(
             DrawableCategory(name = null, drawableNames = drawableNames)
         )
@@ -442,31 +459,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
         }
     }
 
-    private fun IIconRepositoryImpl.hasIconPack(): Boolean = iconPacks.value.any { pack ->
+    private suspend fun IIconRepositoryImpl.hasIconPack(): Boolean = iconPacks.first().any { pack ->
         pack is IconPack.CustomIconPack && pack.packageName == ICON_PACK_PACKAGE_NAME
-    }
-
-    @Suppress("DEPRECATION")
-    private fun addIconPackActivity(packageName: String = ICON_PACK_PACKAGE_NAME, label: String = ICON_PACK_LABEL) {
-        val inputActivityInfo: ActivityInfo = ActivityInfo().apply {
-            this.packageName = packageName
-            name = "$packageName.IconPack"
-            nonLocalizedLabel = label
-        }
-        val inputResolveInfo: ResolveInfo = ResolveInfo().apply {
-            activityInfo = inputActivityInfo
-        }
-        shadowOf(RuntimeEnvironment.getApplication().packageManager).addResolveInfoForIntent(
-            Intent("com.novalauncher.THEME"),
-            inputResolveInfo
-        )
-    }
-
-    @Suppress("DEPRECATION")
-    private fun removeIconPackActivity() {
-        shadowOf(RuntimeEnvironment.getApplication().packageManager).removeResolveInfosForIntent(
-            Intent("com.novalauncher.THEME"),
-            ICON_PACK_PACKAGE_NAME
-        )
     }
 }

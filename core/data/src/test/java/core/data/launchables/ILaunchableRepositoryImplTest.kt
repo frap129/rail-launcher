@@ -10,6 +10,7 @@ import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
 import core.data.folders.FolderRecord
+import core.data.icons.IIconPackSource
 import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
@@ -27,6 +28,7 @@ import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
+import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
@@ -56,6 +58,7 @@ import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.WORK_USER_ID
+import core.data.testing.addIconPackActivity
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
@@ -946,6 +949,114 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(inputApp.defaultIcon, actualApp.icon)
         assertEquals(inputCustomIcon, customizations().single().icon)
+    }
+
+    @Test
+    fun `re-resolves Custom icons when an Icon pack update keeps the pack set and drops its drawables`() = databaseTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME, profileInfo = inputProfile)
+        val inputKey: ShortcutKey = ShortcutKey(packageName = APP_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = inputProfile.user)
+        val inputResolution: MutableStateFlow<ShortcutResolution> = MutableStateFlow(
+            ShortcutResolution(
+                shortcuts = mapOf(
+                    inputKey to createShortcut(
+                        packageName = APP_PACKAGE_NAME,
+                        profile = inputProfile.user,
+                        longLabel = "Example site"
+                    )
+                )
+            )
+        )
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
+        val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
+        val expectedGlobalIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputComponentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconPackSource: IIconPackSource = mockk()
+        every {
+            mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        } returns true
+        every { mockIconPackSource.appIcons(packPackageName = TEST_ICON_PACK_PACKAGE) } returns setOf(expectedGlobalIcon)
+        addIconPackActivity(packageName = TEST_ICON_PACK_PACKAGE, label = "Icon pack")
+        val iconRepository: IIconRepository = createIconRepository(
+            iconPackSource = mockIconPackSource,
+            profileSource = mockProfileSource
+        )
+        database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setIcon(key = inputApp.key, icon = inputCustomIcon)
+        inputCustomizationDao.setIcon(key = inputKey.format(), icon = inputCustomIcon)
+        inputCustomizationDao.setIcon(key = inputFolder.key, icon = inputCustomIcon)
+        database.getSettingsDao().upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
+            inputKey = inputKey,
+            inputResolution = inputResolution,
+            mockProfileSource = mockProfileSource,
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockIconRepository = iconRepository
+        )
+        val collection: Job = backgroundScope.launch { launchableRepository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualInitialState: LaunchableState = launchableRepository.launchableState.first()
+            assertEquals(expectedCustomIcon, actualInitialState.launchableFor(inputApp.key)?.icon)
+            assertEquals(expectedCustomIcon, actualInitialState.launchableFor(inputKey.format())?.icon)
+            assertEquals(expectedCustomIcon, actualInitialState.launchableFor(inputFolder.key)?.icon)
+
+            every {
+                mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
+            } returns false
+            inputProfileState.changes.emit(
+                ProfileChange.PackageChanged(user = inputProfile.user, packageName = TEST_ICON_PACK_PACKAGE)
+            )
+            finishPendingWork()
+
+            val actualGlobalFallbackState: LaunchableState = launchableRepository.launchableState.first()
+            assertEquals(expectedGlobalIcon, actualGlobalFallbackState.launchableFor(inputApp.key)?.icon)
+            assertEquals(inputFolder.defaultIcon, actualGlobalFallbackState.launchableFor(inputFolder.key)?.icon)
+            assertEquals(
+                Icon.ShortcutIcon(packageName = APP_PACKAGE_NAME, shortcutId = FIRST_SHORTCUT_ID, profile = inputProfile.user),
+                actualGlobalFallbackState.launchableFor(inputKey.format())?.icon
+            )
+            assertEquals(listOf(inputCustomIcon, inputCustomIcon, inputCustomIcon), customizations().map { row -> row.icon })
+
+            every { mockIconPackSource.appIcons(packPackageName = TEST_ICON_PACK_PACKAGE) } returns emptySet()
+            inputProfileState.changes.emit(
+                ProfileChange.PackageChanged(user = inputProfile.user, packageName = TEST_ICON_PACK_PACKAGE)
+            )
+            finishPendingWork()
+
+            val actualDefaultFallbackState: LaunchableState = launchableRepository.launchableState.first()
+            assertEquals(inputApp.defaultIcon, actualDefaultFallbackState.launchableFor(inputApp.key)?.icon)
+            assertEquals(listOf(inputCustomIcon, inputCustomIcon, inputCustomIcon), customizations().map { row -> row.icon })
+
+            every {
+                mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
+            } returns true
+            inputProfileState.changes.emit(
+                ProfileChange.PackageChanged(user = inputProfile.user, packageName = TEST_ICON_PACK_PACKAGE)
+            )
+            finishPendingWork()
+
+            val actualRestoredState: LaunchableState = launchableRepository.launchableState.first()
+            assertEquals(expectedCustomIcon, actualRestoredState.launchableFor(inputApp.key)?.icon)
+            assertEquals(expectedCustomIcon, actualRestoredState.launchableFor(inputKey.format())?.icon)
+            assertEquals(expectedCustomIcon, actualRestoredState.launchableFor(inputFolder.key)?.icon)
+        } finally {
+            collection.cancel()
+        }
     }
 
     @Test
