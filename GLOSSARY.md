@@ -180,6 +180,18 @@ _Avoid_: Favorites screen, home page, dashboard
 The launcher state showing every Launchable grouped alphabetically, then the Private Space group last. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
+**Search**:
+The launcher state for typing a query, which shows the matching Launchables as Search results.
+_Avoid_: Search mode, finder
+
+**Search result**:
+One row of the Launchables Search finds for its query.
+_Avoid_: Match, hit
+
+**Top result**:
+The first Search result, which the IME Go action opens.
+_Avoid_: First result, primary result
+
 **Group mark**:
 What a group shows on the Rail and above its App List section: its text label or, for Private Space, a shield.
 _Avoid_: Glyph, icon (when meaning a mark)

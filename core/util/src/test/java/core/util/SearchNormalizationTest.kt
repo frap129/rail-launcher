@@ -30,6 +30,14 @@ class SearchNormalizationTest {
     }
 
     @Test
+    fun `splits words at punctuation and symbols`() {
+        assertEquals(listOf("Google", "Maps"), "Google Maps".wordsForSearch())
+        assertEquals(listOf("F", "Droid"), "F-Droid".wordsForSearch())
+        assertEquals(listOf("99"), "99".wordsForSearch())
+        assertEquals(listOf("a", "b", "b"), "a_b!b?".wordsForSearch())
+    }
+
+    @Test
     fun `matches a candidate that contains the folded query`() {
         assertTrue(SearchQuery("CAFÉ").matches(candidate = "Café Maps"))
         assertTrue(SearchQuery("map").matches(candidate = "Google Maps"))

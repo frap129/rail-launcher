@@ -23,6 +23,7 @@ import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
+import core.data.search.searchLaunchables
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.GroupMark
@@ -65,11 +66,15 @@ sealed class LauncherUiState {
 
         data class Scrolling(val group: LaunchableGroup.Listed, override val isEditingFavorites: Boolean) : AppList()
     }
+
+    /** The Search state: the current query and its results, strongest match first. */
+    data class Search(val query: String, val results: List<Launchable>) : LauncherUiState()
 }
 
 private enum class LauncherMode {
     Home,
-    AppList
+    AppList,
+    Search
 }
 
 sealed class LauncherMenuState {
@@ -97,12 +102,15 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
         .map { item -> item.launchable.name }
 }
 
+private data class SearchState(val origin: LauncherMode, val query: String = "")
+
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,
     val isScrolling: Boolean = false,
     val selected: LaunchableGroup.Listed? = null,
     val homeListState: LazyListState = LazyListState(),
-    val appListState: LazyListState? = null
+    val appListState: LazyListState? = null,
+    val search: SearchState? = null
 )
 
 // The selected Private Space follows the latest Locked or Unlocked container, or null while Hidden.
@@ -123,6 +131,12 @@ private fun toUiState(
         return LauncherUiState.Loading
     }
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
+    navigation.search?.let { search ->
+        return LauncherUiState.Search(
+            query = search.query,
+            results = state.searchLaunchables(query = search.query)
+        )
+    }
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
@@ -203,6 +217,7 @@ class LauncherViewModel(
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 
     private val isShowingAppList: Boolean get() = navigation.value.mode == LauncherMode.AppList
+    private val isShowingSearch: Boolean get() = navigation.value.mode == LauncherMode.Search
 
     // Keys of the Favorites in their edited order; null outside Edit Favorites mode.
     private val editedFavoriteKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
@@ -361,10 +376,13 @@ class LauncherViewModel(
     }
 
     /**
-     * Handles a request to launch [launchable]. Returns false and opens the paused prompt
-     * instead when [launchable] belongs to a Paused Profile.
+     * Handles a request to launch [launchable]. Returns false when [launchable] is disabled or
+     * belongs to a Paused Profile; a Paused one opens the paused prompt instead.
      */
     fun requestLaunch(launchable: Launchable): Boolean {
+        if (launchable.isDisabled) {
+            return false
+        }
         if (!launchable.isPaused) {
             return true
         }
@@ -423,6 +441,55 @@ class LauncherViewModel(
         requestedPausedLaunchable.value = null
     }
 
+    /** Opens Search unless a Home edit mode blocks it. */
+    fun openSearch() {
+        if (homeEditState.mode.value != HomeEditMode.None) {
+            return
+        }
+        navigation.update { current ->
+            if (current.mode == LauncherMode.Search) {
+                current
+            } else {
+                current.copy(
+                    mode = LauncherMode.Search,
+                    isScrolling = false,
+                    selected = null,
+                    search = SearchState(origin = current.mode)
+                )
+            }
+        }
+    }
+
+    /** Updates the Search query; the results follow synchronously from the Launchable State. */
+    fun setSearchQuery(query: String) {
+        navigation.update { current ->
+            current.search?.let { search -> current.copy(search = search.copy(query = query)) } ?: current
+        }
+    }
+
+    /** Whether Search is the shown launcher state. */
+    fun isSearchOpen(): Boolean = isShowingSearch
+
+    /** The Top result that the IME Go action opens, or null when Search is closed or shows none. */
+    fun onSearchGo(): Launchable? = (uiState.value as? LauncherUiState.Search)?.results?.firstOrNull()
+
+    /** A Launchable was launched, so Search closes and resets. */
+    fun onLaunched() {
+        closeSearch()
+    }
+
+    private fun closeSearch() {
+        navigation.update { current ->
+            val search: SearchState = current.search ?: return@update current
+            current.copy(
+                mode = search.origin,
+                isScrolling = false,
+                selected = null,
+                search = null
+            )
+        }
+    }
+
     fun onRailPreview(index: Int) = handleRailGroup(index, isScrolling = true)
 
     fun onRailReleased(index: Int) = handleRailGroup(index, isScrolling = false)
@@ -463,7 +530,8 @@ class LauncherViewModel(
         mode = LauncherMode.AppList,
         isScrolling = isScrolling,
         selected = group,
-        appListState = appListState
+        appListState = appListState,
+        search = null
     )
 
     private fun findRailGroup(index: Int): LaunchableGroup? {
@@ -476,22 +544,31 @@ class LauncherViewModel(
     }
 
     private fun showHomeFromRail() {
-        if (isShowingAppList) {
+        if (isShowingAppList || isShowingSearch) {
             showHome(resetScroll = false)
         }
     }
 
     /**
-     * Back from the App List returns to Home with Edit Favorites intact. Back on
-     * Home leaves Edit Favorites, keeping the pending order, and is a no-op
-     * outside Edit Favorites. Home always consumes Back so the launcher activity
-     * is never finished.
+     * Back from Search clears the query, then closes Search. Back from the App
+     * List returns to Home with Edit Favorites intact. Back on Home leaves Edit
+     * Favorites, keeping the pending order, and is a no-op outside Edit
+     * Favorites. Home always consumes Back so the launcher activity is never
+     * finished.
      */
     fun onBack() {
-        if (isShowingAppList) {
-            showHome(resetScroll = false)
-        } else {
-            finishEditingFavorites()
+        when {
+            isShowingSearch -> {
+                if (navigation.value.search?.query?.isNotEmpty() == true) {
+                    setSearchQuery("")
+                } else {
+                    closeSearch()
+                }
+            }
+
+            isShowingAppList -> showHome(resetScroll = false)
+
+            else -> finishEditingFavorites()
         }
     }
 
@@ -510,6 +587,7 @@ class LauncherViewModel(
                 isScrolling = false,
                 selected = null,
                 appListState = null,
+                search = null,
                 homeListState = if (resetScroll) LazyListState() else current.homeListState
             )
         }
@@ -564,6 +642,7 @@ class LauncherViewModel(
         if (!homeEditState.tryEnter(HomeEditMode.Favorites)) {
             return
         }
+        closeSearch()
         editedFavoriteKeys.value = favorites.value.map { it.key }
         closeItemMenu()
     }

@@ -18,11 +18,22 @@ private const val TEST_APP_PACKAGE_NAME: String = "com.example.app"
 /** A package name used for private Apps in tests. */
 const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 
+/** The Rail Settings Builtin group used across launcher tests. */
+fun createBuiltinGroup(): LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
+
 /** A Rail Launchable with a predictable key for tests. */
 fun createRailLaunchable(name: String, deeplink: String = "rail://$name"): RailLaunchable = RailLaunchable(
     defaultName = name,
     defaultIcon = Icon.RailIcon(resId = 0),
     deeplink = deeplink
+)
+
+/** A paused Gmail App in the Work profile. */
+fun createPausedWorkApp(): App = createApp(
+    name = "Gmail",
+    packageName = "com.example.gmail",
+    profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true),
+    badgedLabel = "Work Gmail"
 )
 
 /** An installed App with a predictable activity and key for tests. */

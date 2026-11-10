@@ -66,7 +66,7 @@ private val folderSummaryChevronSize: Dp = 16.dp
 
 @Immutable
 data class LauncherItemActions(
-    val onItemLaunch: (Launchable) -> Unit,
+    val onItemTap: (Launchable, PopupAnchor?) -> Unit,
     val onItemLongPress: (Launchable) -> Unit,
     val onToggleFavorite: (Launchable) -> Unit,
     val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
@@ -128,11 +128,7 @@ fun LauncherItem(
                         detectTapGestures(
                             onPress = { longPressGate.isFired = false },
                             onTap = {
-                                if (currentItem is Folder && !isEditingFavorites) {
-                                    anchorHolder.anchor?.let { anchor -> currentItemActions.onItemOpenPopup(currentItem, anchor) }
-                                } else {
-                                    currentItemActions.onItemLaunch(currentItem)
-                                }
+                                currentItemActions.onItemTap(currentItem, anchorHolder.anchor)
                             },
                             onLongPress = {
                                 longPressGate.isFired = true

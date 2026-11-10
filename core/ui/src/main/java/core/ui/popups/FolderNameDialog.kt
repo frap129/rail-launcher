@@ -7,7 +7,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,14 +14,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import core.data.folders.Folder
 import core.ui.R
+import core.ui.composables.RequestKeyboardFocus
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 /** Asks for a Folder's name, prefilled, selected and trimmed to the Launchable name limit. */
@@ -43,12 +41,7 @@ fun FolderNameDialog(
         )
     }
     val focusRequester: FocusRequester = remember { FocusRequester() }
-    val keyboardController: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
+    RequestKeyboardFocus(focusRequester = focusRequester)
 
     AlertDialog(
         onDismissRequest = onDismiss,

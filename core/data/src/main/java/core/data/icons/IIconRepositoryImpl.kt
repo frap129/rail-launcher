@@ -21,6 +21,7 @@ import core.data.room.dao.PackIconDao
 import core.data.shortcuts.ShortcutLaunchable
 import core.util.drawableNameHasWord
 import core.util.reemittingFlow
+import core.util.wordsForSearch
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,6 @@ import timber.log.Timber
 internal const val ICON_PACK_THEME_ACTION: String = "com.novalauncher.THEME"
 private const val MIN_LABEL_WORD_LENGTH: Int = 3
 private const val MAX_LABEL_SUGGESTIONS: Int = 12
-private val LABEL_WORD_SEPARATOR: Regex = Regex("[^\\p{L}\\p{N}]+")
 
 class IIconRepositoryImpl(
     private val context: Context,
@@ -239,4 +239,4 @@ class IIconRepositoryImpl(
 }
 
 private fun extractLabelWords(label: String): List<String> =
-    label.lowercase().split(LABEL_WORD_SEPARATOR).filter { word -> word.length >= MIN_LABEL_WORD_LENGTH }
+    label.lowercase().wordsForSearch().filter { word -> word.length >= MIN_LABEL_WORD_LENGTH }

@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
@@ -106,7 +107,13 @@ internal fun LauncherContent(
     val itemActions: LauncherItemActions =
         remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, railSide, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
-                onItemLaunch = onItemLaunch,
+                onItemTap = { launchable, anchor ->
+                    if (launchable is Folder) {
+                        anchor?.let { popupAnchor -> onItemOpenPopup(launchable, popupAnchor) }
+                    } else {
+                        onItemLaunch(launchable)
+                    }
+                },
                 onItemLongPress = viewModel::openItemMenu,
                 onToggleFavorite = viewModel::toggleFavorite,
                 onItemOpenPopup = onItemOpenPopup,
@@ -199,6 +206,7 @@ internal fun LauncherContent(
                     is LauncherUiState.AppList.Browsing -> LauncherUiState.AppList.Browsing::class
                     is LauncherUiState.AppList.Scrolling -> state.group
                     is LauncherUiState.Home -> LauncherUiState.Home::class
+                    is LauncherUiState.Search -> LauncherUiState.Search::class
                     LauncherUiState.Loading -> LauncherUiState.Loading
                 }
             }
@@ -222,7 +230,8 @@ internal fun LauncherContent(
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
-                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
+                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp,
+                        onSearchOpen = viewModel::openSearch
                     )
                 }
 
@@ -242,12 +251,25 @@ internal fun LauncherContent(
                         folderSummaries = folderSummaries
                     )
                 }
+
+                is LauncherUiState.Search -> {
+                    LauncherSearch(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .safeDrawingPadding()
+                            .padding(start = contentStartPadding, end = homeEdgePadding),
+                        search = state,
+                        itemActions = itemActions,
+                        onQueryChange = viewModel::setSearchQuery,
+                        onSearchGo = viewModel::onSearchGo
+                    )
+                }
             }
         }
     }
 }
 
-// Keeps the latest Home state while the App List covers Home.
+// Keeps the latest Home state while the App List or Search covers Home.
 @Composable
 private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
     var retained: LauncherUiState.Home? by remember { mutableStateOf<LauncherUiState.Home?>(null) }
@@ -258,7 +280,7 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
     }
     return when (uiState) {
         is LauncherUiState.Home -> uiState
-        is LauncherUiState.AppList -> retained
+        is LauncherUiState.AppList, is LauncherUiState.Search -> retained
         LauncherUiState.Loading -> null
     }
 }

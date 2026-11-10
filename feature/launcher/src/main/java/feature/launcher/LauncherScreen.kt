@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -122,6 +124,7 @@ fun LauncherScreen(
     val viewModel: LauncherViewModel = koinViewModel()
     val context: Context = LocalContext.current
     val activity: ComponentActivity? = context as? ComponentActivity
+    val keyboardController: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
@@ -158,6 +161,9 @@ fun LauncherScreen(
         if (launchable is Folder) {
             return@launchItem
         }
+        if (viewModel.isSearchOpen()) {
+            keyboardController?.hide()
+        }
         if (launchable.isDisabled) {
             coroutineScope.launch { snackbarHostState.showSnackbar(message = couldntOpenShortcutMessage) }
             return@launchItem
@@ -175,6 +181,7 @@ fun LauncherScreen(
             true
         }
         if (didLaunch) {
+            viewModel.onLaunched()
             widgetViewModel.onHomeIntent()
         }
     }

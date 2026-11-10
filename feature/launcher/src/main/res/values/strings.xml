@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="search">Search</string>
+    <string name="search_hint">Search apps and folders</string>
+    <string name="top_result">Top result</string>
+    <string name="clear_search">Clear search</string>
     <string name="header_removed">Header removed</string>
     <string name="header_replaced">Header replaced</string>
     <string name="undo">Undo</string>
