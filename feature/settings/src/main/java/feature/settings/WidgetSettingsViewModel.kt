@@ -46,9 +46,8 @@ import core.ui.widgets.HeaderFormatter
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.IHeaderTapTargetResolver
 import core.util.EventChannel
+import core.util.SearchQuery
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
-import java.text.Normalizer
-import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,8 +61,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-private val COMBINING_MARKS_REGEX: Regex = Regex("\\p{M}+")
 
 data class DateFormatOption(val preset: DateFormatPreset, val label: String)
 
@@ -632,12 +629,10 @@ class WidgetSettingsViewModel(
 
 /** Filters Launchables by name, ignoring case and accents. */
 internal fun filterLaunchables(launchables: List<Launchable>, query: String): List<Launchable> {
-    val normalizedQuery: String = query.normalizedForSearch()
-    val candidates: List<Launchable> = launchables.filterNot { launchable -> launchable is Folder }
-    if (normalizedQuery.isEmpty()) {
-        return candidates
-    }
-    return candidates.filter { launchable -> launchable.name.normalizedForSearch().contains(normalizedQuery) }
+    val searchQuery: SearchQuery = SearchQuery(query)
+    return launchables
+        .filterNot { launchable -> launchable is Folder }
+        .filter { launchable -> searchQuery.matches(candidate = launchable.name) }
 }
 
 /** The installed apps offered in the Media Player exclusion list, one row per package, excluded apps first. */
@@ -659,21 +654,17 @@ internal fun excludableApps(launchables: List<Launchable>, excludedPackages: Set
 
 /** Sorts excluded apps first and filters by label or package name. */
 internal fun filterExcludableApps(apps: List<ExcludableApp>, query: String): List<ExcludableApp> {
-    val normalizedQuery: String = query.normalizedForSearch()
+    val searchQuery: SearchQuery = SearchQuery(query)
     return apps
         .filter { app ->
-            normalizedQuery.isEmpty() ||
-                app.label.normalizedForSearch().contains(normalizedQuery) ||
-                app.packageName.normalizedForSearch().contains(normalizedQuery)
+            searchQuery.matches(candidate = app.label) ||
+                searchQuery.matches(candidate = app.packageName)
         }
         .sortedWith(
             compareByDescending<ExcludableApp> { app -> app.isExcluded }
                 .thenBy(String.CASE_INSENSITIVE_ORDER) { app -> app.label }
         )
 }
-
-private fun String.normalizedForSearch(): String =
-    Normalizer.normalize(this, Normalizer.Form.NFD).replace(COMBINING_MARKS_REGEX, "").lowercase(Locale.ROOT)
 
 private fun HeaderTapSetting.toSummary(defaultResource: Int, launchableState: LaunchableState): TapActionSummary = TapActionSummary(
     setting = this,
