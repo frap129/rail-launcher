@@ -4,12 +4,17 @@ import core.data.apps.model.isPrivateApp
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.profiles.isPrivate
+import core.data.shortcuts.ShortcutLaunchable
 import core.util.normalizedForSearch
 import core.util.wordsForSearch
 import kotlin.math.abs
 
 /** The longest query that only matches exact names and name starts. */
 private const val SINGLE_CHARACTER_QUERY_LENGTH: Int = 1
+
+/** The shortest query that matches a Shortcut. */
+private const val SHORTCUT_MIN_QUERY_LENGTH: Int = 2
 
 /** The shortest query that matches inside a word. */
 private const val IN_WORD_MIN_QUERY_LENGTH: Int = 3
@@ -35,6 +40,9 @@ private enum class SearchMatchTier {
     InWord,
     Typo
 }
+
+/** A Launchable matched at [tier], and whether it is a Shortcut result rather than a Launchable one. */
+private data class RankedSearchResult(val tier: SearchMatchTier, val isShortcut: Boolean, val launchable: Launchable)
 
 /** A Launchable about to be matched, with the names Search may match folded once for this query. */
 private data class SearchCandidate(val launchable: Launchable, val normalizedNames: List<String>)
@@ -131,7 +139,9 @@ private fun String.isWithinEditDistance(other: String, maxEdits: Int): Boolean {
 private fun LaunchableState.hasUnlockedPrivateSpace(): Boolean =
     groups.any { group -> group is LaunchableGroup.PrivateSpace && !group.isLocked }
 
-private fun LaunchableState.isSearchable(launchable: Launchable): Boolean = !launchable.isPrivateApp || hasUnlockedPrivateSpace()
+private fun Launchable.isPrivateLaunchable(): Boolean = isPrivateApp || (this is ShortcutLaunchable && profileInfo?.isPrivate == true)
+
+private fun LaunchableState.isSearchable(launchable: Launchable): Boolean = !launchable.isPrivateLaunchable() || hasUnlockedPrivateSpace()
 
 // App List order, then the Launchables kept out of it, such as Apps held in a Folder.
 internal fun LaunchableState.searchCandidates(): List<Launchable> {
@@ -143,29 +153,59 @@ internal fun LaunchableState.searchCandidates(): List<Launchable> {
 
 /**
  * The Search projection: matches [query] against the resolved name and, when it has one, the
- * original name of every Launchable in App List order, strongest match first. Exact names rank
- * above names starting with the query, then names with a word starting with it, initials,
- * matches inside a word and finally typo-tolerant matches. A single-character query only uses
- * the first two tiers; a query matches inside a word from [IN_WORD_MIN_QUERY_LENGTH] characters
- * and within [SINGLE_TYPO_EDITS] edit from [TYPO_MIN_QUERY_LENGTH] (an adjacent transposition
- * counts as one edit) or [DOUBLE_TYPO_EDITS] edits from [DOUBLE_TYPO_MIN_QUERY_LENGTH]. Within a
- * tier, Launchables with more launches recorded from Search in [launchCounts] rank first; equal
- * matches keep the App List order. Private Apps are only searchable while their Private Space is
- * Unlocked.
+ * original name of every Launchable in App List order, then against the Shortcuts in [shortcuts].
+ * Exact names rank above names starting with the query, then names with a word starting with it,
+ * initials, matches inside a word and finally typo-tolerant matches. A single-character query only
+ * uses the first two tiers and never matches a Shortcut; a query matches a Shortcut from
+ * [SHORTCUT_MIN_QUERY_LENGTH] characters, matches inside a word from
+ * [IN_WORD_MIN_QUERY_LENGTH] characters and is within [SINGLE_TYPO_EDITS] edit from
+ * [TYPO_MIN_QUERY_LENGTH] (an adjacent transposition counts as one edit) or [DOUBLE_TYPO_EDITS]
+ * edits from [DOUBLE_TYPO_MIN_QUERY_LENGTH]. Hidden and disabled Shortcuts never match, and a
+ * Shortcut already listed as its own Launchable is left to that Launchable. A Shortcut result
+ * carries its publishing App's name in its `publisherName`. Within a tier,
+ * Launchables rank above Shortcuts, Launchables with more launches recorded from Search in
+ * [launchCounts] rank first, and equal matches keep the App List or source order. Private Apps
+ * are only searchable while their Private Space is Unlocked.
  */
-fun LaunchableState.searchLaunchables(query: String, launchCounts: Map<String, Int> = emptyMap()): List<Launchable> {
+fun LaunchableState.searchResults(
+    query: String,
+    launchCounts: Map<String, Int> = emptyMap(),
+    shortcuts: List<SearchShortcut> = emptyList()
+): List<Launchable> {
     val normalizedQuery: String = query.normalizedForSearch().trim()
     if (normalizedQuery.isEmpty()) {
         return emptyList()
     }
-    return searchCandidates()
-        .map { launchable -> launchable.toSearchCandidate() }
-        .mapNotNull { candidate ->
-            candidate.matchTier(query = normalizedQuery)?.let { tier -> tier to candidate.launchable }
+    val launchableCandidates: List<Launchable> = searchCandidates()
+    val launchableKeys: Set<String> = launchableCandidates.mapTo(mutableSetOf()) { launchable -> launchable.key }
+    val launchableMatches: List<RankedSearchResult> = launchableCandidates.mapNotNull { launchable ->
+        launchable.toSearchCandidate().matchTier(query = normalizedQuery)?.let { tier ->
+            RankedSearchResult(tier = tier, isShortcut = false, launchable = launchable)
         }
+    }
+    val shortcutMatches: List<RankedSearchResult> = if (normalizedQuery.length >= SHORTCUT_MIN_QUERY_LENGTH) {
+        shortcuts.asSequence()
+            .filter { searchShortcut -> isSearchable(launchable = searchShortcut.shortcut) }
+            .filter { searchShortcut -> !searchShortcut.isHidden && !searchShortcut.shortcut.isDisabled }
+            .filter { searchShortcut -> searchShortcut.shortcut.key !in launchableKeys }
+            .mapNotNull { searchShortcut ->
+                searchShortcut.shortcut.toSearchCandidate().matchTier(query = normalizedQuery)?.let { tier ->
+                    RankedSearchResult(
+                        tier = tier,
+                        isShortcut = true,
+                        launchable = searchShortcut.shortcut.copy(publisherName = searchShortcut.publisherName)
+                    )
+                }
+            }
+            .toList()
+    } else {
+        emptyList()
+    }
+    return (launchableMatches + shortcutMatches)
         .sortedWith(
-            compareBy<Pair<SearchMatchTier, Launchable>> { (tier, _) -> tier.ordinal }
-                .thenByDescending { (_, launchable) -> launchCounts[launchable.key] ?: 0 }
+            compareBy<RankedSearchResult> { match -> match.tier.ordinal }
+                .thenBy { match -> match.isShortcut }
+                .thenByDescending { match -> launchCounts[match.launchable.key] ?: 0 }
         )
-        .map { (_, launchable) -> launchable }
+        .map { match -> match.launchable }
 }

@@ -99,7 +99,7 @@ fun LauncherItem(
     isFavorite: Boolean,
     isPopupSwipeEnabled: Boolean,
     itemActions: LauncherItemActions,
-    summary: String? = null,
+    secondaryText: String? = null,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -113,8 +113,8 @@ fun LauncherItem(
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isUnavailable: Boolean = item.isPaused || item.isDisabled
-    val summaryDescription: String? = summary?.let { summaryText ->
-        stringResource(R.string.folder_summary_description, item.name, summaryText)
+    val secondaryTextDescription: String? = secondaryText?.let { text ->
+        stringResource(R.string.launcher_item_description, item.name, text)
     }
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
@@ -164,9 +164,9 @@ fun LauncherItem(
                     currentItemActions.onItemAnchorChanged(currentItem, anchor)
                 }
                 .then(
-                    if (summaryDescription != null && !isEditingFavorites) {
+                    if (secondaryTextDescription != null && !isEditingFavorites) {
                         Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = summaryDescription
+                            contentDescription = secondaryTextDescription
                         }
                     } else {
                         Modifier
@@ -203,9 +203,9 @@ fun LauncherItem(
                 OutlinedText(
                     text = item.name
                 )
-                if (summary != null) {
+                if (secondaryText != null) {
                     Text(
-                        text = summary,
+                        text = secondaryText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -213,7 +213,7 @@ fun LauncherItem(
                     )
                 }
             }
-            if (summary != null) {
+            if (item is Folder && secondaryText != null) {
                 Icon(
                     modifier = Modifier.size(folderSummaryChevronSize),
                     imageVector = FontAwesomeIcons.Solid.ChevronRight,

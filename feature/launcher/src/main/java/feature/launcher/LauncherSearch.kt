@@ -29,6 +29,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.TimesCircle
 import core.data.launchables.model.Launchable
+import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestKeyboardFocus
 
 private val searchFieldPadding: Dp = 16.dp
@@ -135,7 +136,8 @@ private fun LauncherSearchResults(modifier: Modifier, results: List<Launchable>,
                 isEditingFavorites = false,
                 isFavorite = false,
                 isPopupSwipeEnabled = true,
-                itemActions = itemActions
+                itemActions = itemActions,
+                secondaryText = (launchable as? ShortcutLaunchable)?.publisherName
             )
         }
     }

@@ -66,6 +66,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
             is LauncherMenuState.Menu -> LauncherItemMenu(
                 item = currentMenuState.item,
                 isSearchSuggestion = currentMenuState.isSearchSuggestion,
+                isStandaloneShortcut = currentMenuState.isStandaloneShortcut,
                 viewModel = viewModel,
                 collaborators = collaborators
             )
@@ -81,6 +82,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
 internal fun LauncherItemMenu(
     item: Launchable,
     isSearchSuggestion: Boolean,
+    isStandaloneShortcut: Boolean,
     viewModel: LauncherViewModel,
     collaborators: IPopupCollaborators
 ) {
@@ -137,7 +139,8 @@ internal fun LauncherItemMenu(
                 item = item,
                 context = context,
                 viewModel = viewModel,
-                folderActions = folderActions
+                folderActions = folderActions,
+                isStandalone = isStandaloneShortcut
             )
 
             else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
@@ -174,7 +177,8 @@ private fun ShortcutMenuActions(
     item: ShortcutLaunchable,
     context: Context,
     viewModel: LauncherViewModel,
-    folderActions: IPopupFolderActions
+    folderActions: IPopupFolderActions,
+    isStandalone: Boolean
 ) {
     AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
     SheetMenuAction(
@@ -182,11 +186,13 @@ private fun ShortcutMenuActions(
         label = stringResource(CoreUiR.string.app_info),
         onClick = { item.openAppInfo(context) }
     )
-    SheetMenuAction(
-        imageVector = FontAwesomeIcons.Solid.TrashAlt,
-        label = stringResource(R.string.remove_shortcut),
-        onClick = { viewModel.removeShortcut(item) }
-    )
+    if (isStandalone) {
+        SheetMenuAction(
+            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+            label = stringResource(R.string.remove_shortcut),
+            onClick = { viewModel.removeShortcut(item) }
+        )
+    }
 }
 
 @Composable

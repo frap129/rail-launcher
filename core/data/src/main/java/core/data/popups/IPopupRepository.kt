@@ -8,6 +8,9 @@ interface IPopupRepository {
     /** The ids of the shortcuts hidden from [ownerKey]'s Pop-up. */
     fun hiddenShortcuts(ownerKey: String): Flow<Set<String>>
 
+    /** The hidden shortcut ids of every Pop-up owner, keyed by owner key. */
+    val hiddenShortcutsByOwner: Flow<Map<String, Set<String>>>
+
     /** Hides or shows the shortcut [shortcutId] in [ownerKey]'s Pop-up. */
     suspend fun setShortcutHidden(ownerKey: String, shortcutId: String, hidden: Boolean)
 

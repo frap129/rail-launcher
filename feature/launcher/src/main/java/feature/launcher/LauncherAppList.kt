@@ -150,7 +150,7 @@ fun LauncherItemGroup(
                 isFavorite = item.key in rowState.favoriteKeys,
                 isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
                 itemActions = itemActions,
-                summary = folderSummaries[item.key]
+                secondaryText = folderSummaries[item.key]
             )
         }
         if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {

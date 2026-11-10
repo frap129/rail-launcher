@@ -29,7 +29,9 @@ import core.data.profiles.QuietRequestResult
 import core.data.room.AppDatabase
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
+import core.data.search.IShortcutSearchSource
 import core.data.search.SearchHistoryRecord
+import core.data.search.SearchShortcut
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FavoritesRepositoryFixture
@@ -37,6 +39,7 @@ import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PopupRepositoryState
 import core.data.testing.ProfileSourceState
+import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
@@ -64,6 +67,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcut
+import core.data.testing.createShortcutSearchSourceMock
 import core.data.testing.createStandaloneShortcutRepositoryMock
 import core.data.testing.createTestNotificationSource
 import core.data.time.IClockSource
@@ -586,7 +590,10 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(inputItem)
-                assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
+                assertEquals(
+                    LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
+                    expectMostRecentItem()
+                )
             }
         }
     }
@@ -665,7 +672,10 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(inputItem, RENAMED_NAME)
-                assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
+                assertEquals(
+                    LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
+                    expectMostRecentItem()
+                )
             }
         }
     }
@@ -754,7 +764,10 @@ class LauncherViewModelTest {
                 expectAppList()
                 viewModel.menuState.test {
                     viewModel.openItemMenu(inputItem)
-                    assertEquals(LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false), expectMostRecentItem())
+                    assertEquals(
+                        LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
+                        expectMostRecentItem()
+                    )
                 }
             }
         }
@@ -1173,7 +1186,10 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             viewModel.openItemMenu(inputPausedApp)
-            assertEquals(LauncherMenuState.Menu(item = inputPausedApp, isSearchSuggestion = false), expectMostRecentItem())
+            assertEquals(
+                LauncherMenuState.Menu(item = inputPausedApp, isSearchSuggestion = false, isStandaloneShortcut = false),
+                expectMostRecentItem()
+            )
         }
     }
 
@@ -2170,6 +2186,105 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `the first Search state for a two character query contains a Shortcut result`() = runTest {
+        val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = "ne")
+
+            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
+            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
+            assertEquals(expectedResult, actualSearch.topResult)
+        }
+    }
+
+    @Test
+    fun `Go runs a Shortcut Top result when no Launchable matches`() = runTest {
+        val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
+        val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = "new")
+
+            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
+            assertEquals(expectedResult, actualSearch.topResult)
+
+            val actualTopResult: Launchable? = fixture.viewModel.onSearchGo()
+            assertEquals(expectedResult, actualTopResult)
+            assertTrue(fixture.viewModel.requestLaunch(requireNotNull(actualTopResult)))
+            fixture.viewModel.onLaunched(requireNotNull(actualTopResult))
+
+            expectHome()
+        }
+        advanceUntilIdle()
+
+        val actualRecord: SearchHistoryRecord? = mockSearchHistoryRepository.history.first()
+            .singleOrNull { record -> record.key == fixture.shortcut.key }
+        assertEquals(1, actualRecord?.launchCount)
+    }
+
+    @Test
+    fun `leaves a Hidden Shortcut out of the Search results`() = runTest {
+        val inputPublisher: App = createApp(name = "Messages", packageName = "com.example.messages")
+        val inputVisibleShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPublisher.packageName,
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        val inputHiddenShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPublisher.packageName,
+            shortcutId = SECOND_SHORTCUT_ID,
+            shortLabel = "New call",
+            longLabel = "New call"
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputPublisher))
+        val inputShortcuts: MutableStateFlow<List<SearchShortcut>> = MutableStateFlow(
+            listOf(
+                SearchShortcut(shortcut = inputVisibleShortcut, publisherName = inputPublisher.name, isHidden = false),
+                SearchShortcut(shortcut = inputHiddenShortcut, publisherName = inputPublisher.name, isHidden = true)
+            )
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch(startingQuery = "new")
+
+            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val expectedResult: ShortcutLaunchable = inputVisibleShortcut.copy(publisherName = inputPublisher.name)
+            assertEquals(listOf<Launchable>(expectedResult), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `long-pressing a Shortcut Search result opens its item menu`() = runTest {
+        val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
+        val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = "new")
+            assertEquals(listOf<Launchable>(expectedResult), awaitFirstSearch().results)
+        }
+
+        fixture.viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+
+            fixture.viewModel.openItemMenu(expectedResult)
+
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertEquals(fixture.shortcut, actualMenu.item)
+            assertFalse(actualMenu.isStandaloneShortcut)
+        }
+    }
+
+    @Test
     fun `Search hides a private App while its Private Space is Locked`() = runTest {
         val inputPrivateApp: App = createPrivateApp()
         val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(privateSpace = LaunchableGroup.PrivateSpace.Locked)
@@ -2349,6 +2464,23 @@ class LauncherViewModelTest {
         return SuggestionFixture(app = inputRecentApp, viewModel = viewModel)
     }
 
+    private fun TestScope.createShortcutSearchFixture(): ShortcutSearchFixture {
+        val inputPublisher: App = createApp(name = "Messages", packageName = "com.example.messages")
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPublisher.packageName,
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputPublisher))
+        val inputShortcuts: MutableStateFlow<List<SearchShortcut>> = MutableStateFlow(
+            listOf(SearchShortcut(shortcut = inputShortcut, publisherName = inputPublisher.name, isHidden = false))
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
+        )
+        return ShortcutSearchFixture(publisher = inputPublisher, shortcut = inputShortcut, viewModel = viewModel)
+    }
+
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
         mockFavoritesRepository: IFavoritesRepository = this@LauncherViewModelTest.mockFavoritesFixture.mockFavoritesRepository,
@@ -2361,7 +2493,8 @@ class LauncherViewModelTest {
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
         mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
         mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
-        mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource
+        mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
+        mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -2376,7 +2509,8 @@ class LauncherViewModelTest {
         privateSpaceLock = privateSpaceLock,
         standaloneShortcutRepository = mockStandaloneShortcutRepository,
         searchHistoryRepository = mockSearchHistoryRepository,
-        clockSource = mockClockSource
+        clockSource = mockClockSource,
+        shortcutSearchSource = mockShortcutSearchSource
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
@@ -2408,6 +2542,15 @@ class LauncherViewModelTest {
         while (true) {
             val actualState: LauncherUiState = awaitItem()
             if (actualState is LauncherUiState.AppList.Browsing && predicate(actualState.groups)) {
+                return actualState
+            }
+        }
+    }
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitFirstSearch(): LauncherUiState.Search {
+        while (true) {
+            val actualState: LauncherUiState = awaitItem()
+            if (actualState is LauncherUiState.Search) {
                 return actualState
             }
         }
@@ -2474,3 +2617,5 @@ class LauncherViewModelTest {
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)
 
 private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)
+
+private data class ShortcutSearchFixture(val publisher: App, val shortcut: ShortcutLaunchable, val viewModel: LauncherViewModel)

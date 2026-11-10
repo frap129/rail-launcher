@@ -91,6 +91,8 @@ import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
+import core.data.search.IShortcutSearchSource
+import core.data.search.IShortcutSearchSourceImpl
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPickerSource
@@ -302,6 +304,7 @@ class MainApplication :
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ISearchHistoryRepository> { ISearchHistoryRepositoryImpl(searchHistoryDao = get(), clockSource = get()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
+        single<IShortcutSearchSource> { IShortcutSearchSourceImpl(shortcutPickerSource = get(), popupRepository = get()) }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
         single<IShortcutPinCoordinator> {
@@ -480,7 +483,8 @@ class MainApplication :
                 privateSpaceLock = get(),
                 standaloneShortcutRepository = get(),
                 searchHistoryRepository = get(),
-                clockSource = get()
+                clockSource = get(),
+                shortcutSearchSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->

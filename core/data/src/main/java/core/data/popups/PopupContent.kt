@@ -8,6 +8,7 @@ import core.data.launchables.model.Launchable
 import core.data.notifications.NotificationSnapshot
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.shortcuts.shortcutsOrEmpty
 
 /** The owner shown at the top of a Pop-up. */
 data class PopupHeader(val name: String, val icon: Icon)
@@ -48,12 +49,8 @@ object PopupContentResolver {
         notifications: List<NotificationSnapshot> = emptyList()
     ): PopupContent {
         val effectiveShortcuts: ShortcutsResult = if (owner is Folder) ShortcutsResult.Available(shortcuts = emptyList()) else shortcuts
-        val shownShortcuts: List<ShortcutLaunchable> = when (effectiveShortcuts) {
-            is ShortcutsResult.Available ->
-                effectiveShortcuts.shortcuts.filterNot { shortcut -> shortcut.shortcutId in hiddenShortcutIds }
-
-            ShortcutsResult.Unavailable, ShortcutsResult.ProfilePaused -> emptyList()
-        }
+        val shownShortcuts: List<ShortcutLaunchable> = effectiveShortcuts.shortcutsOrEmpty()
+            .filterNot { shortcut -> shortcut.shortcutId in hiddenShortcutIds }
         val shownItems: List<PopupItem> = items.filterNot { item -> item is PopupItem.Shortcut && !item.isEnabled }
         val shownNotifications: List<NotificationSnapshot> = notificationsFor(owner = owner, notifications = notifications)
         val hasShortcuts: Boolean = shownShortcuts.isNotEmpty()

@@ -9,6 +9,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepository
 import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IPrivateSpaceStatus
+import core.data.search.IShortcutSearchSource
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -43,6 +44,7 @@ class MainApplicationModulesTest {
         assertNotNull(koin.get<IPrivateSpaceStatus>())
         assertNotNull(koin.get<ILaunchableRepository>())
         assertNotNull(koin.get<IShortcutPickerSource>())
+        assertNotNull(koin.get<IShortcutSearchSource>())
         assertNotNull(koin.get<IPopupShortcutPinSource>())
         assertNotNull(koin.get<IStandaloneShortcutSource>())
         assertNotNull(koin.get<IStandaloneShortcutPinSource>())

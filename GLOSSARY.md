@@ -181,7 +181,7 @@ The launcher state showing every Launchable grouped alphabetically, then the Pri
 _Avoid_: Drawer, all-apps, launcher list
 
 **Search**:
-The launcher state for typing a query, which shows the matching Launchables as Search results.
+The launcher state for typing a query, which shows the matching Launchables and Shortcuts as Search results.
 _Avoid_: Search mode, finder
 
 **Search entry**:
@@ -205,8 +205,16 @@ An upward drag on Home. The swipe-up entry in Rail Settings opens Search on it.
 _Avoid_: Upward swipe, flick
 
 **Search result**:
-One row of the Launchables Search finds for its query.
+One row of the Launchables and Shortcuts Search finds for its query.
 _Avoid_: Match, hit
+
+**Publisher name**:
+The name of the App that publishes a Shortcut, shown under that Shortcut in Search so Shortcuts with the same name are distinguishable.
+_Avoid_: Owner name, app label
+
+**Shortcut search source**:
+The source Search reads the Shortcuts of every Package representative from, with their Publisher names and whether they are Hidden.
+_Avoid_: Shortcut picker, shortcut provider
 
 **Top result**:
 The first Search result, which the IME Go action opens.
