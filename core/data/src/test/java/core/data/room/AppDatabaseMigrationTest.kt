@@ -253,7 +253,7 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun `adds the Search rows defaulting on and no Search engine and keeps the settings row`() {
+    fun `adds the Calculator and web rows on, the Play Store row off and no Search engine, and keeps the settings row`() {
         withDatabase(
             name = SEARCH_ROWS_DATABASE_NAME,
             version = SEARCH_ROWS_DATABASE_VERSION,
@@ -291,7 +291,7 @@ class AppDatabaseMigrationTest {
             )
             assertEquals(true, db.searchCalculatorRow())
             assertEquals(true, db.searchWebRow())
-            assertEquals(true, db.searchPlayStoreRow())
+            assertEquals(false, db.searchPlayStoreRow())
             assertEquals(SearchEngine.None.name, db.searchEngine())
             assertNull(db.searchEngineTemplate())
             assertEquals(false, db.searchSuggestions())
@@ -684,7 +684,7 @@ private fun SupportSQLiteDatabase.createSettingsRow(
             SettingsColumn(Settings.COLUMN_SEARCH_WEB_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
         },
         searchPlayStoreRow?.let { value ->
-            SettingsColumn(Settings.COLUMN_SEARCH_PLAY_STORE_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+            SettingsColumn(Settings.COLUMN_SEARCH_PLAY_STORE_ROW, "INTEGER NOT NULL DEFAULT 0", value.toSql())
         },
         searchEngine?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_ENGINE, "TEXT NOT NULL DEFAULT '${SearchEngine.None.name}'", "'${value.name}'")

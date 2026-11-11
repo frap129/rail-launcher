@@ -65,7 +65,7 @@ interface IPreferencesRepository {
     /** Sets whether Search shows Contact rows, after their permission is granted. */
     fun setSearchContacts(enabled: Boolean)
 
-    /** Sets the Search engine the Web search row uses. */
+    /** Sets the Search engine the Web search row uses, turning Live web suggestions off when none is chosen. */
     fun setSearchEngine(engine: SearchEngine)
 
     /** Stores [template] and makes it the custom Search engine the Web search row uses. */

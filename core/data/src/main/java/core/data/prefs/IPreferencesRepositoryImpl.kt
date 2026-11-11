@@ -207,7 +207,12 @@ class IPreferencesRepositoryImpl(
 
     override fun setSearchEngine(engine: SearchEngine) {
         scope.launch(dispatcher) {
-            settingsDao.update { settings -> settings.copy(searchEngine = engine) }
+            settingsDao.update { settings ->
+                settings.copy(
+                    searchEngine = engine,
+                    searchWebSuggestions = settings.searchWebSuggestions && engine != SearchEngine.None
+                )
+            }
         }
     }
 

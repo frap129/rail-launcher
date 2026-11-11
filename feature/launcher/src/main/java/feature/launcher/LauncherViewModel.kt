@@ -162,8 +162,9 @@ private data class WebSuggestions(val query: String, val suggestions: List<Strin
     fun forQuery(query: String): List<String> = if (this.query == query) suggestions else emptyList()
 }
 
-/** Whether this Search row may be the Top result: Contact and Web suggestion rows never are. */
-private fun SearchResult.canBeTopResult(): Boolean = this !is SearchResult.ContactRow && this !is SearchResult.WebSuggestionRow
+/** Whether this Search row may be the Top result: Contact, Web suggestion and Play Store rows never are. */
+private fun SearchResult.canBeTopResult(): Boolean =
+    this !is SearchResult.ContactRow && this !is SearchResult.WebSuggestionRow && this !is SearchResult.PlayStoreRow
 
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,

@@ -12,6 +12,7 @@ import core.data.room.dao.SettingsDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.createCustomIconPack
@@ -531,6 +532,18 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
         val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.searchEngine == SearchEngine.Kagi }
         assertEquals(Settings(searchEngine = SearchEngine.Kagi, searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE), actualSettings)
+    }
+
+    @Test
+    fun `choosing no Search engine turns Live web suggestions off`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(TEST_GOOGLE_SETTINGS.copy(searchWebSuggestions = true))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setSearchEngine(SearchEngine.None)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.searchEngine == SearchEngine.None }
+        assertFalse(actualSettings.searchWebSuggestions)
     }
 
     @Test

@@ -28,8 +28,8 @@ data class Settings(
     val searchCalculatorRow: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_WEB_ROW, defaultValue = "1")
     val searchWebRow: Boolean = true,
-    @ColumnInfo(name = Settings.COLUMN_SEARCH_PLAY_STORE_ROW, defaultValue = "1")
-    val searchPlayStoreRow: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_PLAY_STORE_ROW, defaultValue = "0")
+    val searchPlayStoreRow: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, defaultValue = "0")
     val searchWebSuggestions: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_CONTACTS, defaultValue = "0")
