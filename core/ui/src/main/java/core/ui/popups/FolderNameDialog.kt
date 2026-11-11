@@ -42,12 +42,12 @@ fun FolderNameDialog(
         )
     }
     val focusRequester: FocusRequester = remember { FocusRequester() }
-    RequestKeyboardFocus(focusRequester = focusRequester)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
+            RequestKeyboardFocus(focusRequester = focusRequester)
             OutlinedTextField(
                 modifier = Modifier.focusRequester(focusRequester),
                 value = name,
