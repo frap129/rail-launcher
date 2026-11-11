@@ -55,12 +55,12 @@ private class SearchAnchors {
 }
 
 /**
- * The Search screen: a focused query field whose Go action opens the Top result or copies a
- * Calculator row, and the results in match order. Launchable and Shortcut rows are the App
- * List's rows, so their menu, Pop-up, Profile badge and Custom icon stay the same as the App
- * List. Before typing, the rows are Search suggestions and no Top result is marked. Bottom-anchored
- * results reverse only the list, keeping the query field at the top so the Top result ends up next
- * to the keyboard.
+ * The Search screen: a focused query field whose Go action opens the Top result of the query it
+ * shows or copies a Calculator row, and the results in match order. Launchable and Shortcut rows
+ * are the App List's rows, so their menu, Pop-up, Profile badge and Custom icon stay the same as
+ * the App List. Before typing, the rows are Search suggestions and no Top result is marked.
+ * Bottom-anchored results reverse only the list, keeping the query field at the top so the Top
+ * result ends up next to the keyboard.
  */
 @Composable
 internal fun LauncherSearch(
@@ -69,7 +69,7 @@ internal fun LauncherSearch(
     shouldAutoLaunch: (SearchResult.LaunchableResult) -> Boolean,
     itemActions: LauncherItemActions,
     onQueryChange: (String) -> Unit,
-    onSearchGo: () -> SearchResult?,
+    onSearchGo: (String) -> SearchResult?,
     onCopyCalculatorRow: (String) -> Unit,
     onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
@@ -161,7 +161,7 @@ internal fun LauncherSearch(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { onSearchGo()?.let(onResultTap) })
+            keyboardActions = KeyboardActions(onGo = { onSearchGo(fieldValue.text)?.let(onResultTap) })
         )
         LauncherSearchResults(
             modifier = Modifier.weight(1f),

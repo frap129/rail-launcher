@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import core.data.launchables.model.Launchable
@@ -260,6 +261,23 @@ class LauncherSearchTest {
         assertEquals(listOf(QUERY + "a", QUERY + "ab", QUERY + "abc"), actualQueries)
     }
 
+    @Test
+    fun `passes the field text to Go`() {
+        var actualGoQuery: String? = null
+        setSearchContent(
+            query = mutableStateOf(""),
+            onSearchGo = { query ->
+                actualGoQuery = query
+                null
+            }
+        )
+
+        typeIntoQuery("a")
+        composeRule.onNode(hasSetTextAction()).performImeAction()
+
+        composeRule.runOnIdle { assertEquals("a", actualGoQuery) }
+    }
+
     private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
 
     private fun typeIntoQuery(text: String) {
@@ -275,7 +293,8 @@ class LauncherSearchTest {
         onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {},
         onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> },
         query: MutableState<String> = mutableStateOf(QUERY),
-        onQueryChange: (String) -> Unit = { text -> query.value = text }
+        onQueryChange: (String) -> Unit = { text -> query.value = text },
+        onSearchGo: (String) -> SearchResult? = { null }
     ) {
         composeRule.setContent {
             val inputResults: List<SearchResult> = resultsState.value
@@ -292,7 +311,7 @@ class LauncherSearchTest {
                 shouldAutoLaunch = { true },
                 itemActions = itemActions,
                 onQueryChange = onQueryChange,
-                onSearchGo = { null },
+                onSearchGo = onSearchGo,
                 onCopyCalculatorRow = {},
                 onOpenSearchRow = onOpenSearchRow,
                 onContactRowAction = onContactRowAction

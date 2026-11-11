@@ -93,7 +93,10 @@ sealed class LauncherUiState {
         val isShowingSuggestions: Boolean,
         val isBottomAnchored: Boolean,
         val autoLaunchResult: SearchResult.LaunchableResult?
-    ) : LauncherUiState()
+    ) : LauncherUiState() {
+        /** The Top result when these results belong to [query], or null when they belong to an earlier query. */
+        fun topResultFor(query: String): SearchResult? = topResult.takeIf { this.query == query }
+    }
 }
 
 private enum class LauncherMode {
@@ -713,8 +716,11 @@ class LauncherViewModel(
     /** Whether Search is the shown launcher state. */
     fun isSearchOpen(): Boolean = isShowingSearch
 
-    /** The Top result that the IME Go action opens or copies, or null while Search suggestions are shown or no result matches. */
-    fun onSearchGo(): SearchResult? = (uiState.value as? LauncherUiState.Search)?.topResult
+    /**
+     * The Top result that the IME Go action opens or copies for [query], or null while Search
+     * suggestions are shown, the shown results belong to an earlier query, or no result matches.
+     */
+    fun onSearchGo(query: String): SearchResult? = (uiState.value as? LauncherUiState.Search)?.topResultFor(query)
 
     /** A Launchable was launched, so Search records it and then closes and resets. */
     fun onLaunched(launchable: Launchable) {
