@@ -94,6 +94,7 @@ import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.verify
 import java.time.Instant
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -101,12 +102,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1930,6 +1933,27 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `Go opens nothing while the shown results belong to an earlier query`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val viewModel: LauncherViewModel = createViewModel()
+
+            viewModel.uiState.test {
+                openSearchFor(viewModel = viewModel, query = "al")
+                val actualSearch: LauncherUiState.Search = expectSearch()
+                assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
+
+                // The query field is a keystroke ahead: navigation has "alp" while the shown
+                // results, and so uiState, still belong to "al".
+                viewModel.setSearchQuery("alp")
+                assertNull(viewModel.onSearchGo("alp"))
+            }
+        } finally {
+            Dispatchers.setMain(mainDispatcherRule.dispatcher)
+        }
+    }
+
+    @Test
     fun `Go opens the Top result and resets Search`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 
@@ -1937,13 +1961,12 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.onRailReleased(railIndex(inputListedGroups[0]))
             expectAppList()
-            viewModel.openSearch()
-            viewModel.setSearchQuery("al")
+            openSearchFor(viewModel = viewModel, query = "al")
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals(launchableResults(inputItem), actualSearch.results)
             assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
 
-            val actualTopResult: SearchResult? = viewModel.onSearchGo()
+            val actualTopResult: SearchResult? = viewModel.onSearchGo("al")
             assertEquals(SearchResult.LaunchableResult(inputItem), actualTopResult)
             assertTrue(viewModel.requestLaunch(inputItem))
 
@@ -1968,7 +1991,7 @@ class LauncherViewModelTest {
             val expectedResult: SearchResult = SearchResult.CalculatorRow(expression = "12*7", value = "84")
             assertEquals(listOf(expectedResult), actualSearch.results)
             assertEquals(expectedResult, actualSearch.topResult)
-            assertEquals(expectedResult, viewModel.onSearchGo())
+            assertEquals(expectedResult, viewModel.onSearchGo("12*7"))
         }
     }
 
@@ -2003,7 +2026,7 @@ class LauncherViewModelTest {
 
             val expectedResult: SearchResult = SearchResult.TypedUrlRow(url = "https://example.com")
             assertEquals(expectedResult, expectSearch().topResult)
-            assertEquals(expectedResult, viewModel.onSearchGo())
+            assertEquals(expectedResult, viewModel.onSearchGo("example.com"))
         }
     }
 
@@ -2022,7 +2045,7 @@ class LauncherViewModelTest {
 
             val expectedResult: SearchResult = SearchResult.WebSearchRow(url = "https://www.google.com/search?q=rail%20launcher")
             assertEquals(expectedResult, expectSearch().topResult)
-            assertEquals(expectedResult, viewModel.onSearchGo())
+            assertEquals(expectedResult, viewModel.onSearchGo("rail launcher"))
         }
     }
 
@@ -2043,7 +2066,7 @@ class LauncherViewModelTest {
                 webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
             )
             assertEquals(expectedResult, expectSearch().topResult)
-            assertEquals(expectedResult, viewModel.onSearchGo())
+            assertEquals(expectedResult, viewModel.onSearchGo("12*7"))
         }
     }
 
@@ -2066,7 +2089,7 @@ class LauncherViewModelTest {
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals(listOf(expectedResult), actualSearch.results)
             assertEquals(expectedResult, actualSearch.topResult)
-            assertEquals(expectedResult, viewModel.onSearchGo())
+            assertEquals(expectedResult, viewModel.onSearchGo("unmatched"))
         }
     }
 
@@ -2552,7 +2575,7 @@ class LauncherViewModelTest {
                 actualSearch.results
             )
             assertNull(actualSearch.topResult)
-            assertNull(viewModel.onSearchGo())
+            assertNull(viewModel.onSearchGo("zz"))
         }
     }
 
@@ -2795,7 +2818,7 @@ class LauncherViewModelTest {
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals(launchableResults(fixture.app), actualSearch.results)
             assertNull(actualSearch.topResult)
-            assertNull(fixture.viewModel.onSearchGo())
+            assertNull(fixture.viewModel.onSearchGo(""))
         }
     }
 
@@ -2924,7 +2947,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("gmail")
             assertEquals(launchableResults(inputPausedApp), expectSearch().results)
 
-            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo()).launchableResult()
+            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo("gmail")).launchableResult()
             assertEquals(SearchResult.LaunchableResult(inputPausedApp), actualTopResult)
             assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
             val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
@@ -2944,7 +2967,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("shortcut")
             assertEquals(launchableResults(inputDisabledShortcut), expectSearch().results)
 
-            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo()).launchableResult()
+            val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo("shortcut")).launchableResult()
             assertEquals(SearchResult.LaunchableResult(inputDisabledShortcut), actualTopResult)
             assertTrue(actualTopResult.launchable.isDisabled)
             assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
@@ -2981,7 +3004,7 @@ class LauncherViewModelTest {
             assertEquals(launchableResults(expectedResult), actualSearch.results)
             assertEquals(SearchResult.LaunchableResult(expectedResult), actualSearch.topResult)
 
-            val actualTopResult: SearchResult? = fixture.viewModel.onSearchGo()
+            val actualTopResult: SearchResult? = fixture.viewModel.onSearchGo("new")
             assertEquals(SearchResult.LaunchableResult(expectedResult), actualTopResult)
             assertTrue(fixture.viewModel.requestLaunch(expectedResult))
             fixture.viewModel.onLaunched(expectedResult)
@@ -3393,6 +3416,12 @@ class LauncherViewModelTest {
     private fun TurbineTestContext<LauncherUiState>.expectAppList(): LauncherUiState.AppList.Browsing = expectState()
 
     private fun TurbineTestContext<LauncherUiState>.expectSearch(): LauncherUiState.Search = expectState()
+
+    private fun TestScope.openSearchFor(viewModel: LauncherViewModel, query: String) {
+        viewModel.openSearch()
+        viewModel.setSearchQuery(query)
+        runCurrent()
+    }
 
     private fun assertAppListStateRetained(before: LauncherUiState.AppList.Browsing, after: LauncherUiState) {
         val actualAfter: LauncherUiState.AppList.Browsing = checkState(after)
