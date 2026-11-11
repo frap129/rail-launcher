@@ -214,6 +214,35 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Auto-launch and Bottom-anchored results`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(searchAutoLaunch = true, searchBottomAnchoredResults = true)
+            )
+        )
+
+        viewModel.uiState.test {
+            val actualState: SettingsUiState = expectMostRecentItem()
+            assertTrue(actualState.searchAutoLaunch)
+            assertTrue(actualState.searchBottomAnchoredResults)
+        }
+    }
+
+    @Test
+    fun `persists Auto-launch and Bottom-anchored results`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setSearchAutoLaunch(true)
+            viewModel.setSearchBottomAnchoredResults(true)
+
+            verify(exactly = 1) { mockPreferencesRepository.setSearchAutoLaunch(true) }
+            verify(exactly = 1) { mockPreferencesRepository.setSearchBottomAnchoredResults(true) }
+        }
+    }
+
+    @Test
     fun `exposes the stored Search rows and engine`() = runTest {
         val inputSettings: Settings = Settings(
             searchCalculatorRow = false,

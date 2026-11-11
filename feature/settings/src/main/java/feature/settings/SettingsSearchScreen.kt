@@ -57,6 +57,22 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
         }
         item {
             SettingsSwitchRow(
+                title = stringResource(R.string.search_auto_launch),
+                checked = uiState.searchAutoLaunch,
+                supportingText = stringResource(R.string.search_auto_launch_summary),
+                onCheckedChange = viewModel::setSearchAutoLaunch
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_bottom_anchored_results),
+                checked = uiState.searchBottomAnchoredResults,
+                supportingText = stringResource(R.string.search_bottom_anchored_results_summary),
+                onCheckedChange = viewModel::setSearchBottomAnchoredResults
+            )
+        }
+        item {
+            SettingsSwitchRow(
                 title = stringResource(R.string.search_calculator_row),
                 checked = uiState.searchCalculatorRow,
                 supportingText = stringResource(R.string.search_calculator_row_summary),

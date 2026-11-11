@@ -4,12 +4,17 @@ import android.content.Context
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.search.SearchResult
 import core.data.testing.TEST_SDK
+import core.data.testing.createRailLaunchable
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,7 +80,43 @@ class LauncherSearchTest {
         composeRule.runOnIdle { assertEquals(inputRow, actualRow) }
     }
 
-    private fun setSearchContent(results: List<SearchResult>, onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {}) {
+    @Test
+    fun `shows the Top result nearest the keyboard when results are bottom-anchored`() {
+        val inputFirst: Launchable = createRailLaunchable("Alpha")
+        val inputSecond: Launchable = createRailLaunchable("Beta")
+        setSearchContent(
+            results = listOf(SearchResult.LaunchableResult(inputFirst), SearchResult.LaunchableResult(inputSecond)),
+            isBottomAnchored = true
+        )
+
+        val actualTopBottom: Float = composeRule.onAllNodesWithText(inputFirst.name).onFirst().fetchSemanticsNode().boundsInRoot.bottom
+        val actualSecondBottom: Float = composeRule.onAllNodesWithText(inputSecond.name).onFirst().fetchSemanticsNode().boundsInRoot.bottom
+
+        assertTrue(actualTopBottom > actualSecondBottom)
+    }
+
+    @Test
+    fun `opens an Auto-launch result through its row tap`() {
+        val inputLaunchable: Launchable = createRailLaunchable("Alpha")
+        val inputResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputLaunchable)
+        var actualTapCount: Int = 0
+        val inputItemActions: LauncherItemActions = itemActions.copy(onItemTap = { _, _ -> actualTapCount++ })
+        setSearchContent(
+            results = listOf(inputResult),
+            autoLaunchResult = inputResult,
+            itemActions = inputItemActions
+        )
+
+        composeRule.runOnIdle { assertEquals(1, actualTapCount) }
+    }
+
+    private fun setSearchContent(
+        results: List<SearchResult>,
+        isBottomAnchored: Boolean = false,
+        autoLaunchResult: SearchResult.LaunchableResult? = null,
+        itemActions: LauncherItemActions = this.itemActions,
+        onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {}
+    ) {
         composeRule.setContent {
             LauncherSearch(
                 modifier = Modifier,
@@ -83,8 +124,11 @@ class LauncherSearchTest {
                     query = QUERY,
                     results = results,
                     topResult = results.firstOrNull(),
-                    isShowingSuggestions = false
+                    isShowingSuggestions = false,
+                    isBottomAnchored = isBottomAnchored,
+                    autoLaunchResult = autoLaunchResult
                 ),
+                shouldAutoLaunch = { true },
                 itemActions = itemActions,
                 onQueryChange = {},
                 onSearchGo = { null },

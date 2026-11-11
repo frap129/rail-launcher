@@ -20,6 +20,10 @@ data class Settings(
     val openSearchOnHomePress: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_SUGGESTIONS, defaultValue = "1")
     val searchSuggestions: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_AUTO_LAUNCH, defaultValue = "0")
+    val searchAutoLaunch: Boolean = false,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS, defaultValue = "0")
+    val searchBottomAnchoredResults: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_CALCULATOR_ROW, defaultValue = "1")
     val searchCalculatorRow: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_WEB_ROW, defaultValue = "1")
@@ -39,6 +43,8 @@ data class Settings(
         const val COLUMN_OPEN_SEARCH_ON_SWIPE_UP: String = "open_search_on_swipe_up"
         const val COLUMN_OPEN_SEARCH_ON_HOME_PRESS: String = "open_search_on_home_press"
         const val COLUMN_SEARCH_SUGGESTIONS: String = "search_suggestions"
+        const val COLUMN_SEARCH_AUTO_LAUNCH: String = "search_auto_launch"
+        const val COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS: String = "search_bottom_anchored_results"
         const val COLUMN_SEARCH_CALCULATOR_ROW: String = "search_calculator_row"
         const val COLUMN_SEARCH_WEB_ROW: String = "search_web_row"
         const val COLUMN_SEARCH_PLAY_STORE_ROW: String = "search_play_store_row"

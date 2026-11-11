@@ -126,3 +126,18 @@ val MIGRATION_19_20: Migration = object : Migration(19, 20) {
         db.execSQL("ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} TEXT")
     }
 }
+
+/**
+ * Adds the Auto-launch and Bottom-anchored results switches, both defaulting to off, and keeps
+ * every other setting.
+ */
+val MIGRATION_20_21: Migration = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} INTEGER NOT NULL DEFAULT 0"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}

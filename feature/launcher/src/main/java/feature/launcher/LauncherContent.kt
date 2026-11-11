@@ -263,6 +263,7 @@ internal fun LauncherContent(
                             .safeDrawingPadding()
                             .padding(start = contentStartPadding, end = homeEdgePadding),
                         search = state,
+                        shouldAutoLaunch = viewModel::shouldAutoLaunch,
                         itemActions = itemActions,
                         onQueryChange = viewModel::setSearchQuery,
                         onSearchGo = viewModel::onSearchGo,

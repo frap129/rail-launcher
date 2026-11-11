@@ -8,6 +8,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
+import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceStatus
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+
+private val defaultSettings: Settings = Settings()
 
 enum class SettingsScreen(val key: String) {
     Main("main"),
@@ -35,6 +38,8 @@ data class SettingsUiState(
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
     val searchSuggestions: Boolean,
+    val searchAutoLaunch: Boolean,
+    val searchBottomAnchoredResults: Boolean,
     val searchCalculatorRow: Boolean,
     val searchWebRow: Boolean,
     val searchPlayStoreRow: Boolean,
@@ -67,6 +72,8 @@ class SettingsViewModel(
             openSearchOnSwipeUp = settings.openSearchOnSwipeUp,
             openSearchOnHomePress = settings.openSearchOnHomePress,
             searchSuggestions = settings.searchSuggestions,
+            searchAutoLaunch = settings.searchAutoLaunch,
+            searchBottomAnchoredResults = settings.searchBottomAnchoredResults,
             searchCalculatorRow = settings.searchCalculatorRow,
             searchWebRow = settings.searchWebRow,
             searchPlayStoreRow = settings.searchPlayStoreRow,
@@ -86,6 +93,8 @@ class SettingsViewModel(
             openSearchOnSwipeUp = true,
             openSearchOnHomePress = false,
             searchSuggestions = true,
+            searchAutoLaunch = defaultSettings.searchAutoLaunch,
+            searchBottomAnchoredResults = defaultSettings.searchBottomAnchoredResults,
             searchCalculatorRow = true,
             searchWebRow = true,
             searchPlayStoreRow = true,
@@ -116,6 +125,12 @@ class SettingsViewModel(
 
     /** Persists whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean) = prefsRepo.setSearchSuggestions(enabled)
+
+    /** Persists whether Auto-launch opens the only matching Launchable. */
+    fun setSearchAutoLaunch(enabled: Boolean) = prefsRepo.setSearchAutoLaunch(enabled)
+
+    /** Persists whether Search anchors its results at the bottom. */
+    fun setSearchBottomAnchoredResults(enabled: Boolean) = prefsRepo.setSearchBottomAnchoredResults(enabled)
 
     /** Persists whether Search shows the Calculator row. */
     fun setSearchCalculatorRow(enabled: Boolean) = prefsRepo.setSearchCalculatorRow(enabled)

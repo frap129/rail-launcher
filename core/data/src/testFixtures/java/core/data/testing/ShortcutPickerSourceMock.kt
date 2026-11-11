@@ -6,11 +6,12 @@ import core.data.shortcuts.AppShortcuts
 import core.data.shortcuts.IShortcutPickerSource
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** A MockK [IShortcutSearchSource] over [shortcuts]. */
-fun createShortcutSearchSourceMock(shortcuts: StateFlow<List<SearchShortcut>> = MutableStateFlow(emptyList())): IShortcutSearchSource {
+/** A MockK [IShortcutSearchSource] over [shortcuts], which may stay unemitted to hold Search results back. */
+fun createShortcutSearchSourceMock(shortcuts: Flow<List<SearchShortcut>> = MutableStateFlow(emptyList())): IShortcutSearchSource {
     val mockShortcutSearchSource: IShortcutSearchSource = mockk()
     every { mockShortcutSearchSource.shortcuts } returns shortcuts
     return mockShortcutSearchSource

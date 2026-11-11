@@ -26,6 +26,9 @@ private const val MOCKK_ALIAS = "test.mockk"
 // Robolectric's documented Java 17+ flag; API 36's ApplicationSharedMemory reads jdk.internal.access.
 private const val ROBOLECTRIC_JVM_ARG = "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED"
 
+// Robolectric keeps a sandbox per test class, so the full launcher suite outgrows the 512 MB default.
+private const val UNIT_TEST_MAX_HEAP = "1g"
+
 private val sharedTestLibraryAliases = listOf(
     "test.junit",
     "test.kotlinx.coroutines.test",
@@ -57,6 +60,7 @@ internal fun configureAndroid(target: Project, commonExtension: CommonExtension)
         buildFeatures.buildConfig = true
 
         testOptions.unitTests.all { test ->
+            test.maxHeapSize = UNIT_TEST_MAX_HEAP
             test.jvmArgs(ROBOLECTRIC_JVM_ARG)
         }
 

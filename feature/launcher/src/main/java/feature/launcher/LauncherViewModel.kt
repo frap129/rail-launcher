@@ -29,6 +29,7 @@ import core.data.search.IShortcutSearchSource
 import core.data.search.SearchHistoryRecord
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
+import core.data.search.autoLaunchResult
 import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
 import core.data.search.toSearchResults
@@ -77,9 +78,18 @@ sealed class LauncherUiState {
         data class Scrolling(val group: LaunchableGroup.Listed, override val isEditingFavorites: Boolean) : AppList()
     }
 
-    /** The Search state: the current query, its rows, the Top result and whether the rows are Search suggestions. */
-    data class Search(val query: String, val results: List<SearchResult>, val topResult: SearchResult?, val isShowingSuggestions: Boolean) :
-        LauncherUiState()
+    /**
+     * The Search state: the current query, its rows, the Top result, whether the rows are Search
+     * suggestions, where they are anchored and the result Auto-launch may open.
+     */
+    data class Search(
+        val query: String,
+        val results: List<SearchResult>,
+        val topResult: SearchResult?,
+        val isShowingSuggestions: Boolean,
+        val isBottomAnchored: Boolean,
+        val autoLaunchResult: SearchResult.LaunchableResult?
+    ) : LauncherUiState()
 }
 
 private enum class LauncherMode {
@@ -113,7 +123,7 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
         .map { item -> item.launchable.name }
 }
 
-private data class SearchState(val origin: LauncherMode, val query: String = "")
+private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
 /** The Shortcuts Search may match, and whether their source has emitted them yet. */
 private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
@@ -144,6 +154,43 @@ private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>)
         this
     }
 
+private fun toSearchUiState(search: SearchState, state: LaunchableState, searchData: SearchData): LauncherUiState.Search {
+    val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
+    // Typed results wait for the first Shortcut emission, so no row is inserted above one already
+    // shown; the Calculator, web and Play Store rows are gated too.
+    val results: List<SearchResult> = when {
+        isShowingSuggestions -> state.searchSuggestions(
+            history = searchData.history,
+            nowEpochMs = searchData.nowEpochMs
+        ).toSearchResults()
+
+        search.query.isEmpty() || !searchData.areShortcutsLoaded -> emptyList()
+
+        else -> {
+            val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
+            state.searchResultRows(
+                query = search.query,
+                launchCounts = launchCounts,
+                shortcuts = searchData.shortcuts,
+                locale = Locale.getDefault(),
+                settings = searchData.settings
+            )
+        }
+    }
+    return LauncherUiState.Search(
+        query = search.query,
+        results = results,
+        topResult = if (isShowingSuggestions) null else results.firstOrNull(),
+        isShowingSuggestions = isShowingSuggestions,
+        isBottomAnchored = searchData.settings.searchBottomAnchoredResults,
+        autoLaunchResult = if (isShowingSuggestions || !search.isForwardTyping) {
+            null
+        } else {
+            results.autoLaunchResult(settings = searchData.settings)
+        }
+    )
+}
+
 private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
@@ -156,34 +203,7 @@ private fun toUiState(
     }
     val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
     navigation.search?.let { search ->
-        val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
-        // Typed results wait for the first Shortcut emission, so no row is inserted above one already
-        // shown; the Calculator, web and Play Store rows are gated too.
-        val results: List<SearchResult> = when {
-            isShowingSuggestions -> state.searchSuggestions(
-                history = searchData.history,
-                nowEpochMs = searchData.nowEpochMs
-            ).toSearchResults()
-
-            search.query.isEmpty() || !searchData.areShortcutsLoaded -> emptyList()
-
-            else -> {
-                val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
-                state.searchResultRows(
-                    query = search.query,
-                    launchCounts = launchCounts,
-                    shortcuts = searchData.shortcuts,
-                    locale = Locale.getDefault(),
-                    settings = searchData.settings
-                )
-            }
-        }
-        return LauncherUiState.Search(
-            query = search.query,
-            results = results,
-            topResult = if (isShowingSuggestions) null else results.firstOrNull(),
-            isShowingSuggestions = isShowingSuggestions
-        )
+        return toSearchUiState(search = search, state = state, searchData = searchData)
     }
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
@@ -299,6 +319,25 @@ class LauncherViewModel(
             shortcuts = shortcutState.shortcuts,
             areShortcutsLoaded = shortcutState.isLoaded
         )
+    }
+
+    // Auto-launch derives from the Search state the screen shows, so the gates that build the rows
+    // stay in toSearchUiState. The screen asks shouldAutoLaunch before opening a result; the guard
+    // remembers the last result until the Search session or query changes, so a re-collection after
+    // a recreation cannot open it twice.
+    private var lastAutoLaunchKey: String? = null
+
+    /** Whether Auto-launch should open [result] once for the current Search results state. */
+    fun shouldAutoLaunch(result: SearchResult.LaunchableResult): Boolean {
+        if (result.launchable.key == lastAutoLaunchKey) {
+            return false
+        }
+        lastAutoLaunchKey = result.launchable.key
+        return true
+    }
+
+    private fun clearAutoLaunch() {
+        lastAutoLaunchKey = null
     }
 
     private val isShowingAppList: Boolean get() = navigation.value.mode == LauncherMode.AppList
@@ -550,6 +589,7 @@ class LauncherViewModel(
         if (homeEditState.mode.value != HomeEditMode.None) {
             return false
         }
+        val wasShowingSearch: Boolean = isShowingSearch
         navigation.update { current ->
             if (current.mode == LauncherMode.Search) {
                 current
@@ -558,9 +598,12 @@ class LauncherViewModel(
                     mode = LauncherMode.Search,
                     isScrolling = false,
                     selected = null,
-                    search = SearchState(origin = current.mode, query = startingQuery)
+                    search = SearchState(origin = current.mode, query = startingQuery, isForwardTyping = startingQuery.isNotEmpty())
                 )
             }
+        }
+        if (!wasShowingSearch) {
+            clearAutoLaunch()
         }
         return true
     }
@@ -587,8 +630,16 @@ class LauncherViewModel(
 
     /** Updates the Search query; the results follow synchronously from the Launchable State. */
     fun setSearchQuery(query: String) {
+        val search: SearchState = navigation.value.search ?: return
+        if (search.query == query) {
+            return
+        }
+        clearAutoLaunch()
+        val isForwardTyping: Boolean = query.length > search.query.length && query.startsWith(search.query)
         navigation.update { current ->
-            current.search?.let { search -> current.copy(search = search.copy(query = query)) } ?: current
+            current.search?.let { currentSearch ->
+                current.copy(search = currentSearch.copy(query = query, isForwardTyping = isForwardTyping))
+            } ?: current
         }
     }
 
@@ -618,6 +669,7 @@ class LauncherViewModel(
 
     /** Closes Search, returning to the state it was opened from and resetting the query. */
     fun closeSearch() {
+        clearAutoLaunch()
         navigation.update { current ->
             val search: SearchState = current.search ?: return@update current
             current.copy(
@@ -734,6 +786,7 @@ class LauncherViewModel(
         currentSettings.value.openSearchOnHomePress
 
     private fun showHome(resetScroll: Boolean) {
+        clearAutoLaunch()
         navigation.update { current ->
             current.copy(
                 mode = LauncherMode.Home,

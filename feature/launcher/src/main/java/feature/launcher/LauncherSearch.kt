@@ -50,12 +50,15 @@ private class SearchAnchors {
  * The Search screen: a focused query field whose Go action opens the Top result or copies a
  * Calculator row, and the results in match order. Launchable and Shortcut rows are the App
  * List's rows, so their menu, Pop-up, Profile badge and Custom icon stay the same as the App
- * List. Before typing, the rows are Search suggestions and no Top result is marked.
+ * List. Before typing, the rows are Search suggestions and no Top result is marked. Bottom-anchored
+ * results reverse only the list, keeping the query field at the top so the Top result ends up next
+ * to the keyboard.
  */
 @Composable
 internal fun LauncherSearch(
     modifier: Modifier,
     search: LauncherUiState.Search,
+    shouldAutoLaunch: (SearchResult.LaunchableResult) -> Boolean,
     itemActions: LauncherItemActions,
     onQueryChange: (String) -> Unit,
     onSearchGo: () -> SearchResult?,
@@ -82,6 +85,12 @@ internal fun LauncherSearch(
             is SearchResult.CalculatorRow -> onCopyCalculatorRow(result.value)
 
             is SearchResult.ExternalRow -> onOpenSearchRow(result)
+        }
+    }
+    LaunchedEffect(search.autoLaunchResult) {
+        val result: SearchResult.LaunchableResult = search.autoLaunchResult ?: return@LaunchedEffect
+        if (shouldAutoLaunch(result)) {
+            onResultTap(result)
         }
     }
     RequestKeyboardFocus(focusRequester = focusRequester)
@@ -118,6 +127,7 @@ internal fun LauncherSearch(
             results = search.results,
             itemActions = searchItemActions,
             showTopResult = search.topResult != null,
+            isBottomAnchored = search.isBottomAnchored,
             onResultTap = onResultTap
         )
     }
@@ -129,10 +139,11 @@ private fun LauncherSearchResults(
     results: List<SearchResult>,
     itemActions: LauncherItemActions,
     showTopResult: Boolean,
+    isBottomAnchored: Boolean,
     onResultTap: (SearchResult) -> Unit
 ) {
     val listState: LazyListState = rememberLazyListState()
-    LaunchedEffect(results) {
+    LaunchedEffect(results, isBottomAnchored) {
         if (results.isNotEmpty()) {
             listState.scrollToItem(0)
         }
@@ -140,6 +151,7 @@ private fun LauncherSearchResults(
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
         state = listState,
+        reverseLayout = isBottomAnchored,
         contentPadding = PaddingValues(bottom = resultsBottomPadding)
     ) {
         itemsIndexed(items = results, key = { _, result -> result.key }) { index, result ->

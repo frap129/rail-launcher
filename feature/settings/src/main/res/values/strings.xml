@@ -108,6 +108,10 @@
     <string name="search_entry_summary">Other apps can open Search with %1$s</string>
     <string name="search_suggestions">Search suggestions</string>
     <string name="search_suggestions_summary">Show recently installed, last opened and frequently opened Launchables before you type</string>
+    <string name="search_auto_launch">Auto-launch</string>
+    <string name="search_auto_launch_summary">Open the only matching Launchable or Shortcut without pressing Enter</string>
+    <string name="search_bottom_anchored_results">Bottom-anchored results</string>
+    <string name="search_bottom_anchored_results_summary">Show the Top result next to the keyboard</string>
     <string name="search_calculator_row">Calculator row</string>
     <string name="search_calculator_row_summary">Show an arithmetic expression and its result</string>
     <string name="search_web_row">Web search row</string>
