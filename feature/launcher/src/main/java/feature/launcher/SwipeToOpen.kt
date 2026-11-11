@@ -75,10 +75,18 @@ object SwipeToOpen {
 
     /**
      * Whether releasing a vertical drag of [dy] pixels at [velocityY] pixels per second opens
-     * Search. A Favorites list that can still scroll forward consumes the drag instead.
+     * Search. A Favorites list that can still scroll forward, or an App Widget that took the drag,
+     * never opens it.
      */
-    fun onSwipeUpRelease(dx: Float, dy: Float, velocityY: Float, density: Float, canScrollForward: Boolean): Boolean {
-        if (canScrollForward) {
+    fun onSwipeUpRelease(
+        dx: Float,
+        dy: Float,
+        velocityY: Float,
+        density: Float,
+        canScrollForward: Boolean,
+        isWidgetTakenSwipe: Boolean
+    ): Boolean {
+        if (canScrollForward || isWidgetTakenSwipe) {
             return false
         }
         val distanceUp: Float = -dy

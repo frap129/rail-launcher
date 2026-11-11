@@ -14,11 +14,15 @@ import androidx.compose.ui.platform.LocalDensity
 /**
  * Opens Search on a quick swipe up anywhere on Home. The drag is observed without consuming it,
  * so the Favorites list keeps its scroll: a list that can still scroll forward takes the drag,
- * and only a list that cannot scroll forward opens Search. A hidden Home whose touches are
- * consumed never reacts.
+ * and only a list that cannot scroll forward opens Search. A drag an App Widget takes never opens
+ * Search. A hidden Home whose touches are consumed never reacts.
  */
 @Composable
-internal fun Modifier.swipeUpToSearch(canScrollForward: () -> Boolean, onSwipeUp: () -> Unit): Modifier {
+internal fun Modifier.swipeUpToSearch(
+    canScrollForward: () -> Boolean,
+    widgetSwipeState: WidgetSwipeState,
+    onSwipeUp: () -> Unit
+): Modifier {
     val density: Float = LocalDensity.current.density
     val currentCanScrollForward: () -> Boolean by rememberUpdatedState(canScrollForward)
     val currentOnSwipeUp: () -> Unit by rememberUpdatedState(onSwipeUp)
@@ -30,6 +34,7 @@ internal fun Modifier.swipeUpToSearch(canScrollForward: () -> Boolean, onSwipeUp
             }
             // The list state at the start decides whether the Favorites list owns this drag.
             val canScrollForward: Boolean = currentCanScrollForward()
+            widgetSwipeState.reset()
             trackDrag(
                 down = down,
                 pass = PointerEventPass.Initial,
@@ -40,7 +45,8 @@ internal fun Modifier.swipeUpToSearch(canScrollForward: () -> Boolean, onSwipeUp
                             dy = end.totalDy,
                             velocityY = end.velocityY,
                             density = density,
-                            canScrollForward = canScrollForward
+                            canScrollForward = canScrollForward,
+                            isWidgetTakenSwipe = widgetSwipeState.isWidgetTakenSwipe
                         )
                     ) {
                         currentOnSwipeUp()

@@ -26,6 +26,8 @@ import core.data.widgets.WidgetAvailability
 import core.ui.widgets.AppWidgetModel
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.RailAppWidgetHostView
+import feature.launcher.LocalWidgetSwipeState
+import feature.launcher.WidgetSwipeState
 import kotlin.math.roundToInt
 import org.koin.compose.koinInject
 
@@ -47,6 +49,7 @@ fun AppWidgetContent(
     val context = LocalContext.current
     val density = LocalDensity.current
     val uiMode: Int = LocalConfiguration.current.uiMode
+    val widgetSwipeState: WidgetSwipeState? = LocalWidgetSwipeState.current
     val height: Int = heightDp ?: widget.minHeightDp.coerceAtLeast(MIN_APP_WIDGET_HEIGHT_DP)
     val appWidgetId: AppWidgetId = remember(widget.appWidgetId) { AppWidgetId(widget.appWidgetId) }
     val view: RailAppWidgetHostView? = if (widget.availability == WidgetAvailability.Available) {
@@ -79,6 +82,7 @@ fun AppWidgetContent(
         onDispose {
             if (view.parent == null) {
                 view.onLongPress = null
+                view.onGestureClaimed = null
             }
         }
     }
@@ -105,6 +109,7 @@ fun AppWidgetContent(
             } else {
                 null
             }
+            hostView.onGestureClaimed = widgetSwipeState?.let { state -> { state.markWidgetTookSwipe() } }
         }
     )
 }
