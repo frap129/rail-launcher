@@ -233,7 +233,7 @@ The Search setting that fetches Web suggestions from the Search engine while the
 _Avoid_: Autocomplete, autosuggest, web result setting
 
 **Web suggestion**:
-A query the Search engine suggests for what the user has typed, fetched only from the selected engine while Live web suggestions is on.
+A query the Search engine suggests for what the user has typed, fetched only from the selected engine while Live web suggestions is on. Search asks for none while the query shows its Calculator row or Typed URL row.
 _Avoid_: Autocomplete entry, autosuggest, prediction
 
 **Web suggestion row**:

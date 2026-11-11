@@ -4,6 +4,7 @@ import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_SDK
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createRailLaunchable
@@ -59,7 +60,7 @@ class AutoLaunchTest {
     @Test
     fun `holds Auto-launch back in every other state`() {
         val inputLaunchable: Launchable = createRailLaunchable("Alpha")
-        val inputCalculatorQuery: Launchable = createRailLaunchable("12*7")
+        val inputCalculatorQuery: Launchable = createRailLaunchable(TEST_CALCULATOR_QUERY)
         val cases: List<AutoLaunchCase> = listOf(
             AutoLaunchCase(
                 description = "two Launchables",
@@ -73,7 +74,7 @@ class AutoLaunchTest {
                 description = "a Calculator row",
                 results = listOf(
                     SearchResult.LaunchableResult(inputCalculatorQuery),
-                    SearchResult.CalculatorRow(expression = "12*7", value = "84")
+                    SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84")
                 ),
                 expectedResult = null
             ),
@@ -104,7 +105,7 @@ class AutoLaunchTest {
             ),
             AutoLaunchCase(
                 description = "no Launchable result",
-                results = listOf(SearchResult.CalculatorRow(expression = "12*7", value = "84")),
+                results = listOf(SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84")),
                 expectedResult = null
             )
         )
