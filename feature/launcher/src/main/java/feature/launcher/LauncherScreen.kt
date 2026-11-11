@@ -57,6 +57,9 @@ import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.ui.GroupMark
 import core.ui.R as CoreUiR
+import core.ui.composables.OnResume
+import core.ui.composables.PermissionDeniedDialog
+import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -160,20 +163,25 @@ fun LauncherScreen(
             widgetViewModel.onBindResult(granted = result.resultCode == Activity.RESULT_OK)
         }
     val permissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
+        rememberPermissionResultLauncher(permission = Manifest.permission.READ_CALENDAR) { granted, canAskAgain ->
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val couldntOpenSearchRowMessage: String = stringResource(R.string.couldnt_open_search_row)
     val calculatorCopiedMessage: String = stringResource(R.string.calculator_copied)
-    val openSearchRow: (SearchResult.ExternalRow) -> Unit = { row ->
+    val attemptSearchRowOpen: (open: () -> Boolean) -> Unit = { open ->
         keyboardController?.hide()
-        if (openSearchResultRow(context = context, row = row)) {
+        if (open()) {
             viewModel.closeSearch()
         } else {
             coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenSearchRowMessage)
         }
+    }
+    val openSearchRow: (SearchResult.ExternalRow) -> Unit = { row ->
+        attemptSearchRowOpen { openSearchResultRow(context = context, row = row) }
+    }
+    val openContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { row, action ->
+        attemptSearchRowOpen { openContactRow(context = context, contact = row.contact, action = action) }
     }
     val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
         if (launchable is Folder) {
@@ -206,11 +214,6 @@ fun LauncherScreen(
     DisposableEffect(lifecycleOwner, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    widgetViewModel.refreshCalendarPermission()
-                    widgetViewModel.refreshMediaAccess()
-                }
-
                 Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
 
                 Lifecycle.Event.ON_STOP -> {
@@ -232,6 +235,11 @@ fun LauncherScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
             appWidgetHostSource.stopListening()
         }
+    }
+    OnResume {
+        widgetViewModel.refreshCalendarPermission()
+        widgetViewModel.refreshMediaAccess()
+        viewModel.refreshContactsPermission()
     }
     LaunchedEffect(viewModel, widgetViewModel, popupCardViewModel) {
         val widgetCallbacks: WidgetEventCallbacks = WidgetEventCallbacks(
@@ -360,6 +368,7 @@ fun LauncherScreen(
                 }
             },
             onOpenSearchRow = openSearchRow,
+            onContactRowAction = openContactRowAction,
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode
@@ -446,24 +455,13 @@ fun LauncherScreen(
         )
     }
     if (showCalendarPermissionDialog) {
-        AlertDialog(
-            onDismissRequest = { showCalendarPermissionDialog = false },
-            title = { Text(text = stringResource(CoreUiR.string.calendar_permission_denied_title)) },
-            text = { Text(text = stringResource(CoreUiR.string.calendar_permission_denied_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showCalendarPermissionDialog = false
-                        context.openApplicationDetailsSettings()
-                    }
-                ) {
-                    Text(text = stringResource(CoreUiR.string.open_settings))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCalendarPermissionDialog = false }) {
-                    Text(text = stringResource(CoreUiR.string.cancel))
-                }
+        PermissionDeniedDialog(
+            title = stringResource(CoreUiR.string.calendar_permission_denied_title),
+            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
+            onDismiss = { showCalendarPermissionDialog = false },
+            onOpenSettings = {
+                showCalendarPermissionDialog = false
+                context.openApplicationDetailsSettings()
             }
         )
     }

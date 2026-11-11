@@ -193,6 +193,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setSearchContacts(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchContacts = enabled) }
+        }
+    }
+
     override fun setSearchEngine(engine: SearchEngine) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(searchEngine = engine) }

@@ -141,3 +141,15 @@ val MIGRATION_20_21: Migration = object : Migration(20, 21) {
         )
     }
 }
+
+/**
+ * Adds the Contact results switch, defaulting to off so Search never asks for the Contacts
+ * permission on its own, and keeps every other setting.
+ */
+val MIGRATION_21_22: Migration = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_CONTACTS} INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}

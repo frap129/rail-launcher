@@ -5,14 +5,13 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
-import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.database.Cursor
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
-import androidx.core.content.ContextCompat
+import core.data.permissions.PermissionState
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
@@ -28,9 +27,7 @@ import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -57,12 +54,15 @@ class ICalendarEventSourceImpl(
     private val queryDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ICalendarEventSource {
     private val appContext: Context = context.applicationContext
-    private val permission: MutableStateFlow<Boolean> = MutableStateFlow(hasCalendarPermission())
+    private val permissionState: PermissionState = PermissionState(
+        context = appContext,
+        permission = Manifest.permission.READ_CALENDAR
+    )
 
-    override val hasPermission: StateFlow<Boolean> = permission.asStateFlow()
+    override val hasPermission: StateFlow<Boolean> = permissionState.value
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val calendars: Flow<List<CalendarInfo>> = permission.flatMapLatest { granted ->
+    override val calendars: Flow<List<CalendarInfo>> = permissionState.value.flatMapLatest { granted ->
         if (granted) {
             contentObserverFlow(query = ::queryCalendars)
         } else {
@@ -97,13 +97,8 @@ class ICalendarEventSourceImpl(
     }.distinctUntilChanged()
 
     override fun refreshPermission() {
-        permission.value = hasCalendarPermission()
+        permissionState.refresh()
     }
-
-    private fun hasCalendarPermission(): Boolean = ContextCompat.checkSelfPermission(
-        appContext,
-        Manifest.permission.READ_CALENDAR
-    ) == PackageManager.PERMISSION_GRANTED
 
     /** Whether a Profile other than the personal one exists; null when the Profiles are unknown. */
     private fun hasSecondaryProfile(): Boolean? {

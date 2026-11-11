@@ -32,7 +32,7 @@ private const val SINGLE_TYPO_EDITS: Int = 1
 private const val DOUBLE_TYPO_EDITS: Int = 2
 
 /** The match strength of a Launchable against a Search query, strongest first. */
-private enum class SearchMatchTier {
+internal enum class SearchMatchTier {
     Exact,
     NameStart,
     WordStart,
@@ -57,7 +57,8 @@ private fun SearchCandidate.matchTier(query: String): SearchMatchTier? = normali
     .mapNotNull { normalizedName -> tierFor(normalizedName = normalizedName, query = query) }
     .minByOrNull { tier -> tier.ordinal }
 
-private fun tierFor(normalizedName: String, query: String): SearchMatchTier? {
+/** The match tier of [normalizedName] against an already normalized [query], or null when it does not match. */
+internal fun tierFor(normalizedName: String, query: String): SearchMatchTier? {
     if (normalizedName == query) {
         return SearchMatchTier.Exact
     }

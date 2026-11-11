@@ -240,12 +240,20 @@ _Avoid_: Owner name, app label
 The source Search reads the Shortcuts of every Package representative from, with their Publisher names and whether they are Hidden.
 _Avoid_: Shortcut picker, shortcut provider
 
+**Contact search source**:
+The source Search reads matching contacts of the current profile from while Contact results is on and the Contacts permission is granted.
+_Avoid_: Contacts provider, contact picker
+
+**Contact row**:
+The Search result for a matching contact of the current profile, with call and message buttons that open the dialer and the messaging app; a contact without a number has neither button. Only the current profile's contacts are searched.
+_Avoid_: Person row, contact result
+
 **Top result**:
-The first Search result, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
+The first Search result other than a Contact row, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
 _Avoid_: First result, primary result
 
 **Auto-launch**:
-The Search setting that opens the only Launchable or Shortcut result without pressing Enter, unless that result is Paused or disabled, or a Calculator row (or later, a contact row) is also showing.
+The Search setting that opens the only Launchable or Shortcut result without pressing Enter, unless that result is Paused or disabled, or a Calculator or Contact row is also showing.
 _Avoid_: Auto-open, auto-start
 
 **Bottom-anchored results**:

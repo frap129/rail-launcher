@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -29,10 +29,13 @@ import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calculator
+import compose.icons.fontawesomeicons.solid.Comment
 import compose.icons.fontawesomeicons.solid.Globe
+import compose.icons.fontawesomeicons.solid.Phone
 import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.Store
 import compose.icons.fontawesomeicons.solid.TimesCircle
+import compose.icons.fontawesomeicons.solid.User
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestKeyboardFocus
@@ -63,7 +66,8 @@ internal fun LauncherSearch(
     onQueryChange: (String) -> Unit,
     onSearchGo: () -> SearchResult?,
     onCopyCalculatorRow: (String) -> Unit,
-    onOpenSearchRow: (SearchResult.ExternalRow) -> Unit
+    onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
+    onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val focusRequester: FocusRequester = remember { FocusRequester() }
     val searchAnchors: SearchAnchors = remember { SearchAnchors() }
@@ -83,6 +87,8 @@ internal fun LauncherSearch(
             )
 
             is SearchResult.CalculatorRow -> onCopyCalculatorRow(result.value)
+
+            is SearchResult.ContactRow -> onContactRowAction(result, ContactRowAction.Open)
 
             is SearchResult.ExternalRow -> onOpenSearchRow(result)
         }
@@ -126,9 +132,10 @@ internal fun LauncherSearch(
             modifier = Modifier.weight(1f),
             results = search.results,
             itemActions = searchItemActions,
-            showTopResult = search.topResult != null,
+            topResultKey = search.topResult?.key,
             isBottomAnchored = search.isBottomAnchored,
-            onResultTap = onResultTap
+            onResultTap = onResultTap,
+            onContactRowAction = onContactRowAction
         )
     }
 }
@@ -138,9 +145,10 @@ private fun LauncherSearchResults(
     modifier: Modifier,
     results: List<SearchResult>,
     itemActions: LauncherItemActions,
-    showTopResult: Boolean,
+    topResultKey: String?,
     isBottomAnchored: Boolean,
-    onResultTap: (SearchResult) -> Unit
+    onResultTap: (SearchResult) -> Unit,
+    onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val listState: LazyListState = rememberLazyListState()
     LaunchedEffect(results, isBottomAnchored) {
@@ -154,8 +162,8 @@ private fun LauncherSearchResults(
         reverseLayout = isBottomAnchored,
         contentPadding = PaddingValues(bottom = resultsBottomPadding)
     ) {
-        itemsIndexed(items = results, key = { _, result -> result.key }) { index, result ->
-            if (showTopResult && index == 0) {
+        items(items = results, key = { result -> result.key }) { result ->
+            if (result.key == topResultKey) {
                 Text(
                     text = stringResource(R.string.top_result),
                     modifier = Modifier.padding(start = topResultPadding, top = topResultPadding),
@@ -177,6 +185,31 @@ private fun LauncherSearchResults(
                     imageVector = FontAwesomeIcons.Solid.Calculator,
                     label = stringResource(R.string.calculator_row, result.expression, result.value),
                     onClick = { onResultTap(result) }
+                )
+
+                is SearchResult.ContactRow -> LauncherActionRow(
+                    imageVector = FontAwesomeIcons.Solid.User,
+                    label = result.contact.name,
+                    onClick = { onResultTap(result) },
+                    onClickLabel = stringResource(R.string.search_contact_open),
+                    trailingContent = if (result.contact.phoneNumber != null) {
+                        {
+                            IconButton(onClick = { onContactRowAction(result, ContactRowAction.Dial) }) {
+                                Icon(
+                                    imageVector = FontAwesomeIcons.Solid.Phone,
+                                    contentDescription = stringResource(R.string.search_contact_call, result.contact.name)
+                                )
+                            }
+                            IconButton(onClick = { onContactRowAction(result, ContactRowAction.Message) }) {
+                                Icon(
+                                    imageVector = FontAwesomeIcons.Solid.Comment,
+                                    contentDescription = stringResource(R.string.search_contact_message, result.contact.name)
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    }
                 )
 
                 is SearchResult.ExternalRow -> {

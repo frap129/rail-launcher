@@ -27,9 +27,11 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
 import core.data.room.AppDatabase
+import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.IShortcutSearchSource
+import core.data.search.SearchContact
 import core.data.search.SearchHistoryRecord
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
@@ -49,6 +51,7 @@ import core.data.testing.createApp
 import core.data.testing.createBuiltinGroup
 import core.data.testing.createClockReading
 import core.data.testing.createClockSourceMock
+import core.data.testing.createContactSearchSourceMock
 import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createInMemoryDatabase
@@ -67,6 +70,7 @@ import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
+import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutSearchSourceMock
 import core.data.testing.createStandaloneShortcutRepositoryMock
@@ -2149,6 +2153,157 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `appends Contact rows after the Launchable results and before the web rows`() = runTest {
+        val inputContact: SearchContact = createSearchContact()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = MutableStateFlow(listOf(inputContact)),
+                hasPermission = MutableStateFlow(true)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.ContactRow }
+            } as LauncherUiState.Search
+
+            assertEquals(
+                launchableResults(inputItem) + listOf(
+                    SearchResult.ContactRow(contact = inputContact),
+                    SearchResult.WebSearchRow(url = "https://www.google.com/search?q=al"),
+                    SearchResult.PlayStoreRow(
+                        marketUrl = "market://search?q=al",
+                        webUrl = "https://play.google.com/store/search?q=al&c=apps"
+                    )
+                ),
+                actualSearch.results
+            )
+        }
+    }
+
+    @Test
+    fun `shows no Contact rows when the source offers none`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = MutableStateFlow(emptyList()),
+                hasPermission = MutableStateFlow(false)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("alice")
+            advanceUntilIdle()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertTrue(actualSearch.results.none { result -> result is SearchResult.ContactRow })
+        }
+    }
+
+    @Test
+    fun `typed results wait for the first Contact emission`() = runTest {
+        val inputContacts: MutableSharedFlow<List<SearchContact>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSearchRowsOff.copy(searchContacts = true)),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = inputContacts,
+                hasPermission = MutableStateFlow(true)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            advanceUntilIdle()
+            assertTrue(expectSearch().results.isEmpty())
+
+            inputContacts.emit(emptyList())
+
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.isNotEmpty()
+            } as LauncherUiState.Search
+            assertEquals(launchableResults(inputItem), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `does not make a Contact row the Top result`() = runTest {
+        val inputContact: SearchContact = createSearchContact()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = MutableStateFlow(listOf(inputContact)),
+                hasPermission = MutableStateFlow(true)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("alice")
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.ContactRow }
+            } as LauncherUiState.Search
+
+            assertEquals(
+                SearchResult.WebSearchRow(url = "https://www.google.com/search?q=alice"),
+                actualSearch.topResult
+            )
+        }
+    }
+
+    @Test
+    fun `holds Auto-launch back while a Contact row is showing`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(searchAutoLaunch = true, searchContacts = true)
+            ),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = MutableStateFlow(listOf(createSearchContact())),
+                hasPermission = MutableStateFlow(true)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.ContactRow }
+            } as LauncherUiState.Search
+            assertNull(actualSearch.autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `auto-launches when no Contact matches`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(searchAutoLaunch = true, searchContacts = true)
+            ),
+            mockContactSearchSource = createContactSearchSourceMock(
+                contacts = MutableStateFlow(emptyList()),
+                hasPermission = MutableStateFlow(true)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+
+            assertEquals(SearchResult.LaunchableResult(inputItem), awaitAutoLaunch())
+        }
+    }
+
+    @Test
     fun `auto-launches when typing forward after a backspace`() = runTest {
         val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
         viewModel.uiState.test {
@@ -2840,7 +2995,8 @@ class LauncherViewModelTest {
         mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
         mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
         mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
-        mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock()
+        mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock(),
+        mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -2856,7 +3012,8 @@ class LauncherViewModelTest {
         standaloneShortcutRepository = mockStandaloneShortcutRepository,
         searchHistoryRepository = mockSearchHistoryRepository,
         clockSource = mockClockSource,
-        shortcutSearchSource = mockShortcutSearchSource
+        shortcutSearchSource = mockShortcutSearchSource,
+        contactSearchSource = mockContactSearchSource
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(

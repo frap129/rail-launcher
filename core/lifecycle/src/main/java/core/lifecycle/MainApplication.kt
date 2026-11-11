@@ -76,6 +76,7 @@ import core.data.room.MIGRATION_17_18
 import core.data.room.MIGRATION_18_19
 import core.data.room.MIGRATION_19_20
 import core.data.room.MIGRATION_20_21
+import core.data.room.MIGRATION_21_22
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -91,6 +92,8 @@ import core.data.room.dao.SettingsDao
 import core.data.room.dao.StandaloneShortcutDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
+import core.data.search.IContactSearchSource
+import core.data.search.IContactSearchSourceImpl
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.IShortcutSearchSource
@@ -217,7 +220,8 @@ class MainApplication :
                 MIGRATION_17_18,
                 MIGRATION_18_19,
                 MIGRATION_19_20,
-                MIGRATION_20_21
+                MIGRATION_20_21,
+                MIGRATION_21_22
             )
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
@@ -309,6 +313,9 @@ class MainApplication :
         single<ISearchHistoryRepository> { ISearchHistoryRepositoryImpl(searchHistoryDao = get(), clockSource = get()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
         single<IShortcutSearchSource> { IShortcutSearchSourceImpl(shortcutPickerSource = get(), popupRepository = get()) }
+        single<IContactSearchSource> {
+            IContactSearchSourceImpl(context = androidContext(), preferencesRepository = get())
+        }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
         single<IShortcutPinCoordinator> {
@@ -488,7 +495,8 @@ class MainApplication :
                 standaloneShortcutRepository = get(),
                 searchHistoryRepository = get(),
                 clockSource = get(),
-                shortcutSearchSource = get()
+                shortcutSearchSource = get(),
+                contactSearchSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->
@@ -512,7 +520,7 @@ class MainApplication :
                 collaborators = get { parametersOf(session) }
             )
         }
-        viewModel { SettingsViewModel(get(), get(), get()) }
+        viewModel { SettingsViewModel(get(), get(), get(), get()) }
         viewModel { (session: IPopupSession) ->
             PopupSettingsViewModel(
                 folderRepository = get(),

@@ -24,8 +24,10 @@ import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
+import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.IShortcutSearchSource
+import core.data.search.SearchContact
 import core.data.search.SearchHistoryRecord
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
@@ -128,14 +130,22 @@ private data class SearchState(val origin: LauncherMode, val query: String = "",
 /** The Shortcuts Search may match, and whether their source has emitted them yet. */
 private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
 
-/** The Search history, clock and Shortcuts a Search projection reads, with the setting that shows Search suggestions. */
+/** The contacts Search may match, and whether their source has emitted them yet. */
+private data class ContactSearchState(val contacts: List<SearchContact> = emptyList(), val isLoaded: Boolean = false)
+
+/** The Search history, clock, Shortcuts and contacts a Search projection reads, with the setting that shows Search suggestions. */
 private data class SearchData(
     val history: List<SearchHistoryRecord>,
     val nowEpochMs: Long,
     val settings: Settings,
     val shortcuts: List<SearchShortcut>,
-    val areShortcutsLoaded: Boolean
-)
+    val areShortcutsLoaded: Boolean,
+    val contacts: List<SearchContact>,
+    val areContactsLoaded: Boolean
+) {
+    /** Typed results wait for both sources, so no row is ever shown before all of them are known. */
+    val areSearchSourcesLoaded: Boolean get() = areShortcutsLoaded && areContactsLoaded
+}
 
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,
@@ -156,15 +166,15 @@ private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>)
 
 private fun toSearchUiState(search: SearchState, state: LaunchableState, searchData: SearchData): LauncherUiState.Search {
     val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
-    // Typed results wait for the first Shortcut emission, so no row is inserted above one already
-    // shown; the Calculator, web and Play Store rows are gated too.
+    // Typed results wait for the first emission of every source, so no row is inserted above one
+    // already shown and Go never opens a target from a list that is still changing.
     val results: List<SearchResult> = when {
         isShowingSuggestions -> state.searchSuggestions(
             history = searchData.history,
             nowEpochMs = searchData.nowEpochMs
         ).toSearchResults()
 
-        search.query.isEmpty() || !searchData.areShortcutsLoaded -> emptyList()
+        search.query.isEmpty() || !searchData.areSearchSourcesLoaded -> emptyList()
 
         else -> {
             val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
@@ -172,6 +182,7 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
                 query = search.query,
                 launchCounts = launchCounts,
                 shortcuts = searchData.shortcuts,
+                contacts = searchData.contacts,
                 locale = Locale.getDefault(),
                 settings = searchData.settings
             )
@@ -180,7 +191,7 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
     return LauncherUiState.Search(
         query = search.query,
         results = results,
-        topResult = if (isShowingSuggestions) null else results.firstOrNull(),
+        topResult = if (isShowingSuggestions) null else results.firstOrNull { result -> result !is SearchResult.ContactRow },
         isShowingSuggestions = isShowingSuggestions,
         isBottomAnchored = searchData.settings.searchBottomAnchoredResults,
         autoLaunchResult = if (isShowingSuggestions || !search.isForwardTyping) {
@@ -251,7 +262,8 @@ class LauncherViewModel(
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
     private val clockSource: IClockSource,
-    private val shortcutSearchSource: IShortcutSearchSource
+    private val shortcutSearchSource: IShortcutSearchSource,
+    private val contactSearchSource: IContactSearchSource
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -296,6 +308,16 @@ class LauncherViewModel(
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 
+    // Contacts load with the launcher and stay warm across Search sessions, like the Shortcuts, so
+    // a keystroke only re-reads state.
+    private val contactSearchState: StateFlow<ContactSearchState> = contactSearchSource.contacts
+        .map { contacts -> ContactSearchState(contacts = contacts, isLoaded = true) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ContactSearchState()
+        )
+
     // Shortcuts load with the launcher and stay warm across Search sessions, so a keystroke only re-reads state.
     private val shortcutSearchState: StateFlow<ShortcutSearchState> = shortcutSearchSource.shortcuts
         .map { shortcuts -> ShortcutSearchState(shortcuts = shortcuts, isLoaded = true) }
@@ -305,19 +327,22 @@ class LauncherViewModel(
             initialValue = ShortcutSearchState()
         )
 
-    // Search reads its history and Shortcuts from state and re-derives suggestions as the clock ticks, never on a keystroke.
+    // Search reads its history, Shortcuts and contacts from state and re-derives suggestions as the clock ticks, never on a keystroke.
     private val searchData: Flow<SearchData> = combine(
         searchHistoryRepository.history,
         clockSource.readings,
         currentSettings,
-        shortcutSearchState
-    ) { history, reading, settings, shortcutState ->
+        shortcutSearchState,
+        contactSearchState
+    ) { history, reading, settings, shortcutState, contactState ->
         SearchData(
             history = history,
             nowEpochMs = reading.instant.toEpochMilli(),
             settings = settings,
             shortcuts = shortcutState.shortcuts,
-            areShortcutsLoaded = shortcutState.isLoaded
+            areShortcutsLoaded = shortcutState.isLoaded,
+            contacts = contactState.contacts,
+            areContactsLoaded = contactState.isLoaded
         )
     }
 
@@ -579,6 +604,11 @@ class LauncherViewModel(
 
     fun dismissPausedPrompt() {
         requestedPausedLaunchable.value = null
+    }
+
+    /** Rechecks the Contacts permission so Contact rows disappear when it is gone, without prompting. */
+    fun refreshContactsPermission() {
+        contactSearchSource.refreshPermission()
     }
 
     /**

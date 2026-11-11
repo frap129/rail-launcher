@@ -4,6 +4,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.prefs.Settings
 import core.util.evaluateCalculatorExpression
+import core.util.normalizedForSearch
 import core.util.substituteSearchTemplate
 import core.util.typedUrl
 import java.util.Locale
@@ -26,6 +27,11 @@ sealed interface SearchResult {
         override val key: String = CALCULATOR_ROW_KEY
     }
 
+    /** The row for a matching [contact], with call and message actions. */
+    data class ContactRow(val contact: SearchContact) : SearchResult {
+        override val key: String = CONTACT_ROW_KEY_PREFIX + contact.contactId
+    }
+
     /** The row that opens [url] directly because the query looks like a web address. */
     data class TypedUrlRow(val url: String) : ExternalRow {
         override val key: String = TYPED_URL_ROW_KEY
@@ -43,6 +49,7 @@ sealed interface SearchResult {
 }
 
 private const val CALCULATOR_ROW_KEY: String = "search-result:calculator"
+private const val CONTACT_ROW_KEY_PREFIX: String = "search-result:contact:"
 private const val TYPED_URL_ROW_KEY: String = "search-result:typed-url"
 private const val WEB_SEARCH_ROW_KEY: String = "search-result:web"
 private const val PLAY_STORE_ROW_KEY: String = "search-result:play-store"
@@ -54,16 +61,18 @@ fun List<Launchable>.toSearchResults(): List<SearchResult> = map { launchable ->
 
 /**
  * The Search rows for [query]: the Launchable and Shortcut matches, then the Calculator row when
- * [query] is an arithmetic expression in [locale], the typed-URL row when [query] looks like a
- * web address, the Web search row and the Play Store row. Those rows always follow the Launchable
- * results in that fixed order, so asynchronous rows can only be appended. [settings] turns each
- * of them on or off; the web switch covers both the typed-URL and Web search rows. A blank query
- * has no rows.
+ * [query] is an arithmetic expression in [locale], the Contact rows matched from [contacts] with
+ * the same matcher as Launchables and Shortcuts, the typed-URL row when [query] looks like a web
+ * address, the Web search row and the Play Store row. Contact rows stay on device and open other
+ * apps, so they follow the Calculator row and precede the rows that leave Rail; all of them
+ * always follow the Launchable results in that fixed order. [settings] turns each of them on or
+ * off; the web switch covers both the typed-URL and Web search rows. A blank query has no rows.
  */
 fun LaunchableState.searchResultRows(
     query: String,
     launchCounts: Map<String, Int>,
     shortcuts: List<SearchShortcut>,
+    contacts: List<SearchContact>,
     locale: Locale,
     settings: Settings
 ): List<SearchResult> {
@@ -100,5 +109,28 @@ fun LaunchableState.searchResultRows(
     } else {
         null
     }
-    return launchableResults + listOfNotNull(calculatorRow, typedUrlRow, webSearchRow, playStoreRow)
+    val contactRows: List<SearchResult> = contacts.toContactRows(query = query)
+    return launchableResults +
+        listOfNotNull(calculatorRow) +
+        contactRows +
+        listOfNotNull(typedUrlRow, webSearchRow, playStoreRow)
+}
+
+/** A contact matched at [tier], kept with its tier so the rows sort like Launchable results. */
+private data class RankedContact(val tier: SearchMatchTier, val contact: SearchContact)
+
+/** These contacts matched against [query] with the Launchable matcher, strongest match first. */
+private fun List<SearchContact>.toContactRows(query: String): List<SearchResult> {
+    val normalizedQuery: String = query.normalizedForSearch().trim()
+    if (normalizedQuery.isEmpty()) {
+        return emptyList()
+    }
+    return mapNotNull { contact ->
+        tierFor(normalizedName = contact.name.normalizedForSearch(), query = normalizedQuery)?.let { tier ->
+            RankedContact(tier = tier, contact = contact)
+        }
+    }.sortedWith(
+        compareBy<RankedContact> { ranked -> ranked.tier.ordinal }
+            .thenBy { ranked -> ranked.contact.name.normalizedForSearch() }
+    ).map { ranked -> SearchResult.ContactRow(contact = ranked.contact) }
 }
