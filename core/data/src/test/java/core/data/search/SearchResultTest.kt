@@ -9,6 +9,7 @@ import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_SDK
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createRailLaunchable
+import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -247,15 +248,122 @@ class SearchResultTest {
         assertTrue(actualResults.isEmpty())
     }
 
+    @Test
+    fun `places the Contact row after the Calculator row and before the web rows`() {
+        val inputContact: SearchContact = createSearchContact(name = "12*7")
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "12*7",
+            contacts = listOf(inputContact)
+        )
+
+        assertEquals(
+            listOf(
+                SearchResult.CalculatorRow(expression = "12*7", value = "84"),
+                SearchResult.ContactRow(contact = inputContact),
+                SearchResult.WebSearchRow(url = "https://www.google.com/search?q=12%2A7"),
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=12%2A7",
+                    webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
+                )
+            ),
+            actualResults
+        )
+    }
+
+    @Test
+    fun `places Contact rows after the Launchable and Shortcut results`() {
+        val inputApp: Launchable = createRailLaunchable("Alice")
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.messages", shortLabel = "Alice")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputApp))
+        val inputContacts: List<SearchContact> = listOf(createSearchContact())
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputState,
+            query = "al",
+            shortcuts = listOf(SearchShortcut(shortcut = inputShortcut, publisherName = "Messages", isHidden = false)),
+            contacts = inputContacts
+        )
+
+        assertEquals(
+            listOf(
+                SearchResult.LaunchableResult(inputApp),
+                SearchResult.LaunchableResult(inputShortcut.copy(publisherName = "Messages")),
+                SearchResult.ContactRow(contact = inputContacts.single()),
+                SearchResult.WebSearchRow(url = "https://www.google.com/search?q=al"),
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=al",
+                    webUrl = "https://play.google.com/store/search?q=al&c=apps"
+                )
+            ),
+            actualResults
+        )
+    }
+
+    @Test
+    fun `matches contacts with the same accent and case folding as Launchables`() {
+        val inputContact: SearchContact = createSearchContact(name = "Café")
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "CAFE",
+            contacts = listOf(inputContact)
+        )
+
+        assertEquals(SearchResult.ContactRow(contact = inputContact), actualResults.firstOrNull())
+    }
+
+    @Test
+    fun `matches only contact name starts for a single letter`() {
+        val inputNameStart: SearchContact = createSearchContact(name = "Alice")
+        val inputInsideWord: SearchContact = createSearchContact(
+            contactId = 2L,
+            lookupKey = "com.example.band",
+            name = "Band"
+        )
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "a",
+            contacts = listOf(inputNameStart, inputInsideWord)
+        )
+
+        assertEquals(SearchResult.ContactRow(contact = inputNameStart), actualResults.firstOrNull())
+        assertTrue(actualResults.none { result -> result is SearchResult.ContactRow && result.contact == inputInsideWord })
+    }
+
+    @Test
+    fun `keeps a contact without a number as a Contact row`() {
+        val inputContact: SearchContact = createSearchContact(phoneNumber = null)
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "alice",
+            contacts = listOf(inputContact)
+        )
+
+        assertEquals(SearchResult.ContactRow(contact = inputContact), actualResults.firstOrNull())
+    }
+
+    @Test
+    fun `adds no Contact row when the source supplied no contact`() {
+        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "alice", contacts = emptyList())
+
+        assertTrue(actualResults.none { result -> result is SearchResult.ContactRow })
+    }
+
     private fun searchRows(
         state: LaunchableState,
         query: String,
         shortcuts: List<SearchShortcut> = emptyList(),
+        contacts: List<SearchContact> = emptyList(),
         settings: Settings = Settings()
     ): List<SearchResult> = state.searchResultRows(
         query = query,
         launchCounts = emptyMap(),
         shortcuts = shortcuts,
+        contacts = contacts,
         locale = inputLocale,
         settings = settings
     )

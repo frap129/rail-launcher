@@ -99,6 +99,7 @@ internal fun LauncherContent(
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
     onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
+    onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     homeEditMode: HomeEditMode
@@ -268,7 +269,8 @@ internal fun LauncherContent(
                         onQueryChange = viewModel::setSearchQuery,
                         onSearchGo = viewModel::onSearchGo,
                         onCopyCalculatorRow = onCopyCalculatorRow,
-                        onOpenSearchRow = onOpenSearchRow
+                        onOpenSearchRow = onOpenSearchRow,
+                        onContactRowAction = onContactRowAction
                     )
                 }
             }

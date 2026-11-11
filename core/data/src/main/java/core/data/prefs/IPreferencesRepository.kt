@@ -59,6 +59,9 @@ interface IPreferencesRepository {
     /** Sets whether Search shows the Play Store row. */
     fun setSearchPlayStoreRow(enabled: Boolean)
 
+    /** Sets whether Search shows Contact rows, after their permission is granted. */
+    fun setSearchContacts(enabled: Boolean)
+
     /** Sets the Search engine the Web search row uses. */
     fun setSearchEngine(engine: SearchEngine)
 

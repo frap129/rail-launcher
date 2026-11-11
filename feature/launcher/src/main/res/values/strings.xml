@@ -9,6 +9,9 @@
     <string name="search_open_url">Open %1$s</string>
     <string name="search_web_action">Search the web</string>
     <string name="search_play_store_action">Search the Play Store</string>
+    <string name="search_contact_open">Open contact</string>
+    <string name="search_contact_call">Call %1$s</string>
+    <string name="search_contact_message">Message %1$s</string>
     <string name="couldnt_open_search_row">Couldn\'t open the search result</string>
     <string name="header_removed">Header removed</string>
     <string name="header_replaced">Header replaced</string>

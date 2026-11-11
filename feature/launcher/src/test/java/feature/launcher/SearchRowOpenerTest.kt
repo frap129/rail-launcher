@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,16 +10,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowActivity
-import org.robolectric.shadows.ShadowApplication
 import org.robolectric.shadows.ShadowPackageManager
 
 private const val WEB_URL: String = "https://www.google.com/search?q=rail"
@@ -35,17 +29,7 @@ private const val MARKET_SCHEME: String = "market"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
-class SearchRowOpenerTest {
-    private val context: Activity = Robolectric.buildActivity(Activity::class.java).setup().get()
-    private val shadowContext: ShadowApplication = shadowOf(RuntimeEnvironment.getApplication())
-    private val shadowActivity: ShadowActivity = shadowOf(context)
-
-    @Before
-    fun handleOnlyRegisteredActivities() {
-        shadowContext.checkActivities(true)
-        shadowContext.clearNextStartedActivities()
-    }
-
+class SearchRowOpenerTest : IntentLaunchTestBase() {
     @Test
     fun `opens a web row in the default browser with the Browsable category`() {
         registerBrowserHandler()

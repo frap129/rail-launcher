@@ -492,16 +492,18 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         repository.setSearchCalculatorRow(false)
         repository.setSearchWebRow(false)
         repository.setSearchPlayStoreRow(false)
+        repository.setSearchContacts(true)
 
         val actualSettings: Settings = awaitSettings(settingsDao) { stored ->
-            !stored.searchCalculatorRow && !stored.searchWebRow && !stored.searchPlayStoreRow
+            !stored.searchCalculatorRow && !stored.searchWebRow && !stored.searchPlayStoreRow && stored.searchContacts
         }
         assertEquals(
             Settings(
                 iconPack = TEST_ICON_PACK_PACKAGE,
                 searchCalculatorRow = false,
                 searchWebRow = false,
-                searchPlayStoreRow = false
+                searchPlayStoreRow = false,
+                searchContacts = true
             ),
             actualSettings
         )
@@ -556,6 +558,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setSearchCalculatorRow(enabled = false) },
             { repository.setSearchWebRow(enabled = false) },
             { repository.setSearchPlayStoreRow(enabled = false) },
+            { repository.setSearchContacts(enabled = true) },
             { repository.setSearchEngine(engine = SearchEngine.Kagi) },
             { repository.setCustomSearchEngineTemplate(template = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE) }
         )
@@ -578,6 +581,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 searchCalculatorRow = false,
                 searchWebRow = false,
                 searchPlayStoreRow = false,
+                searchContacts = true,
                 searchEngine = SearchEngine.Custom,
                 searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
             ),

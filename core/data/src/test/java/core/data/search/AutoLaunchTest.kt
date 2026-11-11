@@ -7,6 +7,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createRailLaunchable
+import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -73,6 +74,14 @@ class AutoLaunchTest {
                 results = listOf(
                     SearchResult.LaunchableResult(inputCalculatorQuery),
                     SearchResult.CalculatorRow(expression = "12*7", value = "84")
+                ),
+                expectedResult = null
+            ),
+            AutoLaunchCase(
+                description = "a Contact row",
+                results = listOf(
+                    SearchResult.LaunchableResult(inputLaunchable),
+                    SearchResult.ContactRow(contact = createSearchContact())
                 ),
                 expectedResult = null
             ),

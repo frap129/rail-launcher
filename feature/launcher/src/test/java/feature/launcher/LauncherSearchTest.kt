@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import core.data.launchables.model.Launchable
@@ -13,6 +14,7 @@ import core.data.prefs.RailSide
 import core.data.search.SearchResult
 import core.data.testing.TEST_SDK
 import core.data.testing.createRailLaunchable
+import core.data.testing.createSearchContact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -110,12 +112,71 @@ class LauncherSearchTest {
         composeRule.runOnIdle { assertEquals(1, actualTapCount) }
     }
 
+    @Test
+    fun `opens a Contact row through its row tap`() {
+        val inputRow: SearchResult.ContactRow = contactRow()
+        var actualAction: ContactRowAction? = null
+        setSearchContent(
+            results = listOf(inputRow),
+            onContactRowAction = { _, action -> actualAction = action }
+        )
+
+        composeRule.onNodeWithText(inputRow.contact.name).performClick()
+
+        composeRule.runOnIdle { assertEquals(ContactRowAction.Open, actualAction) }
+    }
+
+    @Test
+    fun `dials a Contact row through its call button`() {
+        val inputRow: SearchResult.ContactRow = contactRow()
+        var actualAction: ContactRowAction? = null
+        setSearchContent(
+            results = listOf(inputRow),
+            onContactRowAction = { _, action -> actualAction = action }
+        )
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_contact_call, inputRow.contact.name))
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(ContactRowAction.Dial, actualAction) }
+    }
+
+    @Test
+    fun `messages a Contact row through its message button`() {
+        val inputRow: SearchResult.ContactRow = contactRow()
+        var actualAction: ContactRowAction? = null
+        setSearchContent(
+            results = listOf(inputRow),
+            onContactRowAction = { _, action -> actualAction = action }
+        )
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_contact_message, inputRow.contact.name))
+            .performClick()
+
+        composeRule.runOnIdle { assertEquals(ContactRowAction.Message, actualAction) }
+    }
+
+    @Test
+    fun `hides the call and message buttons for a contact without a number`() {
+        val inputRow: SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact(phoneNumber = null))
+        setSearchContent(results = listOf(inputRow))
+
+        composeRule.onNodeWithText(inputRow.contact.name).assertExists()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_contact_call, inputRow.contact.name))
+            .assertDoesNotExist()
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_contact_message, inputRow.contact.name))
+            .assertDoesNotExist()
+    }
+
+    private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
+
     private fun setSearchContent(
         results: List<SearchResult>,
         isBottomAnchored: Boolean = false,
         autoLaunchResult: SearchResult.LaunchableResult? = null,
         itemActions: LauncherItemActions = this.itemActions,
-        onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {}
+        onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {},
+        onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> }
     ) {
         composeRule.setContent {
             LauncherSearch(
@@ -133,7 +194,8 @@ class LauncherSearchTest {
                 onQueryChange = {},
                 onSearchGo = { null },
                 onCopyCalculatorRow = {},
-                onOpenSearchRow = onOpenSearchRow
+                onOpenSearchRow = onOpenSearchRow,
+                onContactRowAction = onContactRowAction
             )
         }
     }

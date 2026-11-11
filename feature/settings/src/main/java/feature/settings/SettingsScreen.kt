@@ -2,16 +2,12 @@ package feature.settings
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.graphics.Insets
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowMetrics
 import androidx.activity.compose.ManagedActivityResultLauncher
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -67,7 +63,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -81,7 +76,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -90,9 +84,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavDeepLink
@@ -131,6 +122,9 @@ import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
 import core.ui.composables.DestructiveConfirmationDialog
 import core.ui.composables.NotificationAccessRow
+import core.ui.composables.OnResume
+import core.ui.composables.PermissionDeniedDialog
+import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
@@ -359,7 +353,6 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val activity: Activity? = remember(context) { context.findActivity() }
     val listState = rememberLazyListState()
     var scrolledToMedia: Boolean by remember { mutableStateOf(false) }
     var showClockStyleChooser: Boolean by remember { mutableStateOf(false) }
@@ -367,8 +360,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     var showPermissionDialog: Boolean by remember { mutableStateOf(false) }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     val permissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            val canAskAgain: Boolean = activity?.shouldShowRequestPermissionRationale(Manifest.permission.READ_CALENDAR) == true
+        rememberPermissionResultLauncher(permission = Manifest.permission.READ_CALENDAR) { granted, canAskAgain ->
             viewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
     LaunchedEffect(viewModel) {
@@ -390,16 +382,9 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
             }
         }
     }
-    val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, viewModel) {
-        val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refreshCalendarPermission()
-                viewModel.refreshMediaAccess()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    OnResume {
+        viewModel.refreshCalendarPermission()
+        viewModel.refreshMediaAccess()
     }
     Box(modifier = Modifier.fillMaxSize()) {
         WidgetSettingsList(
@@ -452,7 +437,9 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
         )
     }
     if (showPermissionDialog) {
-        CalendarPermissionDialog(
+        PermissionDeniedDialog(
+            title = stringResource(CoreUiR.string.calendar_permission_denied_title),
+            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
             onDismiss = { showPermissionDialog = false },
             onOpenSettings = {
                 context.openApplicationDetailsSettings()
@@ -1348,36 +1335,6 @@ private fun CalendarSelectionRow(calendar: CalendarInfo, selected: Boolean, onCh
             )
         }
     }
-}
-
-@Composable
-private fun CalendarPermissionDialog(onDismiss: () -> Unit, onOpenSettings: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(CoreUiR.string.calendar_permission_denied_title)) },
-        text = { Text(stringResource(CoreUiR.string.calendar_permission_denied_message)) },
-        confirmButton = {
-            TextButton(onClick = onOpenSettings) {
-                Text(stringResource(CoreUiR.string.open_settings))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(CoreUiR.string.cancel))
-            }
-        }
-    )
-}
-
-private fun Context.findActivity(): Activity? {
-    var current: Context = this
-    while (current is ContextWrapper) {
-        if (current is Activity) {
-            return current
-        }
-        current = current.baseContext
-    }
-    return current as? Activity
 }
 
 @Composable
