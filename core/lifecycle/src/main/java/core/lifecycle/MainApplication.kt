@@ -77,6 +77,7 @@ import core.data.room.MIGRATION_18_19
 import core.data.room.MIGRATION_19_20
 import core.data.room.MIGRATION_20_21
 import core.data.room.MIGRATION_21_22
+import core.data.room.MIGRATION_22_23
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -98,6 +99,8 @@ import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.IShortcutSearchSource
 import core.data.search.IShortcutSearchSourceImpl
+import core.data.search.IWebSuggestionSource
+import core.data.search.IWebSuggestionSourceImpl
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IPopupShortcutPinSourceImpl
 import core.data.shortcuts.IShortcutPickerSource
@@ -221,7 +224,8 @@ class MainApplication :
                 MIGRATION_18_19,
                 MIGRATION_19_20,
                 MIGRATION_20_21,
-                MIGRATION_21_22
+                MIGRATION_21_22,
+                MIGRATION_22_23
             )
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
@@ -316,6 +320,7 @@ class MainApplication :
         single<IContactSearchSource> {
             IContactSearchSourceImpl(context = androidContext(), preferencesRepository = get())
         }
+        single<IWebSuggestionSource> { IWebSuggestionSourceImpl(preferencesRepository = get()) }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
         single<IShortcutPinCoordinator> {
@@ -496,7 +501,8 @@ class MainApplication :
                 searchHistoryRepository = get(),
                 clockSource = get(),
                 shortcutSearchSource = get(),
-                contactSearchSource = get()
+                contactSearchSource = get(),
+                webSuggestionSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->

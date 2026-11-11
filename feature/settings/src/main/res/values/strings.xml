@@ -108,6 +108,9 @@
     <string name="search_entry_summary">Other apps can open Search with %1$s</string>
     <string name="search_suggestions">Search suggestions</string>
     <string name="search_suggestions_summary">Show recently installed, last opened and frequently opened Launchables before you type</string>
+    <string name="search_web_suggestions">Live web suggestions</string>
+    <string name="search_web_suggestions_summary">Show the Search engine\'s suggestions as you type</string>
+    <string name="search_web_suggestions_unavailable">This Search engine offers no suggestions</string>
     <string name="search_auto_launch">Auto-launch</string>
     <string name="search_auto_launch_summary">Open the only matching Launchable or Shortcut without pressing Enter</string>
     <string name="search_bottom_anchored_results">Bottom-anchored results</string>

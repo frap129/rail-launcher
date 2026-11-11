@@ -153,3 +153,15 @@ val MIGRATION_21_22: Migration = object : Migration(21, 22) {
         )
     }
 }
+
+/**
+ * Adds the Live web suggestions switch, defaulting to off so Search never contacts the Search
+ * engine on its own, and keeps every other setting.
+ */
+val MIGRATION_22_23: Migration = object : Migration(22, 23) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}

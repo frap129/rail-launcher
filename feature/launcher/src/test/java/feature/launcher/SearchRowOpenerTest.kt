@@ -44,6 +44,23 @@ class SearchRowOpenerTest : IntentLaunchTestBase() {
     }
 
     @Test
+    fun `opens a Web suggestion row in the default browser with the Browsable category`() {
+        registerBrowserHandler()
+
+        val actualOpened: Boolean = openSearchResultRow(
+            context = context,
+            row = SearchResult.WebSuggestionRow(suggestion = "rail", url = WEB_URL)
+        )
+
+        val actualIntent: Intent? = shadowActivity.nextStartedActivity
+        assertTrue(actualOpened)
+        assertEquals(Intent.ACTION_VIEW, actualIntent?.action)
+        assertEquals(Uri.parse(WEB_URL), actualIntent?.data)
+        assertEquals(setOf(Intent.CATEGORY_BROWSABLE), actualIntent?.categories)
+        assertNull(actualIntent?.`package`)
+    }
+
+    @Test
     fun `opens the Play Store market search first`() {
         registerMarketHandler()
 

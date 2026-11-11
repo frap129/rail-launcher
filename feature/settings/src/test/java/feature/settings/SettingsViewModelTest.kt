@@ -192,6 +192,31 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Live web suggestions switch`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(searchWebSuggestions = true)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertTrue(expectMostRecentItem().searchWebSuggestions)
+        }
+    }
+
+    @Test
+    fun `persists the Live web suggestions switch`() {
+        runTest {
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+            viewModel.setSearchWebSuggestions(true)
+
+            verify(exactly = 1) { mockPreferencesRepository.setSearchWebSuggestions(true) }
+        }
+    }
+
+    @Test
     fun `exposes the stored Search Home-press entry`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

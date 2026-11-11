@@ -30,6 +30,8 @@ data class Settings(
     val searchWebRow: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_PLAY_STORE_ROW, defaultValue = "1")
     val searchPlayStoreRow: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, defaultValue = "0")
+    val searchWebSuggestions: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_CONTACTS, defaultValue = "0")
     val searchContacts: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "GOOGLE")
@@ -50,6 +52,7 @@ data class Settings(
         const val COLUMN_SEARCH_CALCULATOR_ROW: String = "search_calculator_row"
         const val COLUMN_SEARCH_WEB_ROW: String = "search_web_row"
         const val COLUMN_SEARCH_PLAY_STORE_ROW: String = "search_play_store_row"
+        const val COLUMN_SEARCH_WEB_SUGGESTIONS: String = "search_web_suggestions"
         const val COLUMN_SEARCH_CONTACTS: String = "search_contacts"
         const val COLUMN_SEARCH_ENGINE: String = "search_engine"
         const val COLUMN_SEARCH_ENGINE_TEMPLATE: String = "search_engine_template"

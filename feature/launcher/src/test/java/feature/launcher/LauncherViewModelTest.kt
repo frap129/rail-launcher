@@ -31,6 +31,7 @@ import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.IShortcutSearchSource
+import core.data.search.IWebSuggestionSource
 import core.data.search.SearchContact
 import core.data.search.SearchHistoryRecord
 import core.data.search.SearchResult
@@ -43,8 +44,14 @@ import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PopupRepositoryState
 import core.data.testing.ProfileSourceState
 import core.data.testing.SECOND_SHORTCUT_ID
+import core.data.testing.TEST_ALPHA_WEB_SUGGESTION
+import core.data.testing.TEST_ALPHA_WEB_SUGGESTION_URL
+import core.data.testing.TEST_BETA_WEB_SUGGESTION
+import core.data.testing.TEST_BETA_WEB_SUGGESTION_URL
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
+import core.data.testing.TEST_WEB_SUGGESTION
+import core.data.testing.TEST_WEB_SUGGESTION_URL
 import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
@@ -75,6 +82,8 @@ import core.data.testing.createShortcut
 import core.data.testing.createShortcutSearchSourceMock
 import core.data.testing.createStandaloneShortcutRepositoryMock
 import core.data.testing.createTestNotificationSource
+import core.data.testing.createWebSuggestionRow
+import core.data.testing.createWebSuggestionSourceMock
 import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
@@ -2304,6 +2313,202 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `shows local results before Web suggestions arrive`() = runTest {
+        val inputSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = inputSearchRowsOff.copy(searchWebSuggestions = true)
+            ),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(suggestions = inputSuggestions)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(launchableResults(inputItem), expectSearch().results)
+
+            inputSuggestions.emit(listOf(TEST_ALPHA_WEB_SUGGESTION))
+
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.WebSuggestionRow }
+            } as LauncherUiState.Search
+            assertEquals(
+                launchableResults(inputItem) + createWebSuggestionRow(
+                    suggestion = TEST_ALPHA_WEB_SUGGESTION,
+                    url = TEST_ALPHA_WEB_SUGGESTION_URL
+                ),
+                actualSearch.results
+            )
+        }
+    }
+
+    @Test
+    fun `appends Web suggestion rows below every local row`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchWebSuggestions = true)),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestions = MutableStateFlow(listOf(TEST_ALPHA_WEB_SUGGESTION))
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            advanceUntilIdle()
+            val actualSearch: LauncherUiState.Search = expectSearch()
+
+            assertEquals(
+                launchableResults(inputItem) + listOf(
+                    SearchResult.WebSearchRow(url = "https://www.google.com/search?q=al"),
+                    SearchResult.PlayStoreRow(
+                        marketUrl = "market://search?q=al",
+                        webUrl = "https://play.google.com/store/search?q=al&c=apps"
+                    ),
+                    createWebSuggestionRow(
+                        suggestion = TEST_ALPHA_WEB_SUGGESTION,
+                        url = TEST_ALPHA_WEB_SUGGESTION_URL
+                    )
+                ),
+                actualSearch.results
+            )
+            assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
+        }
+    }
+
+    @Test
+    fun `drops a Web suggestion response for an older query`() = runTest {
+        val inputOldSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
+        val inputNewSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = inputSearchRowsOff.copy(searchWebSuggestions = true)
+            ),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestionsByQuery = mapOf("al" to inputOldSuggestions, "be" to inputNewSuggestions)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(launchableResults(inputItem), expectSearch().results)
+            viewModel.setSearchQuery("be")
+            assertEquals(launchableResults(listedItem(1)), expectSearch().results)
+
+            inputOldSuggestions.emit(listOf(TEST_ALPHA_WEB_SUGGESTION))
+            runCurrent()
+            expectNoEvents()
+
+            inputNewSuggestions.emit(listOf(TEST_BETA_WEB_SUGGESTION))
+            val actualSuggestedSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.WebSuggestionRow }
+            } as LauncherUiState.Search
+            assertEquals(
+                launchableResults(listedItem(1)) + createWebSuggestionRow(
+                    suggestion = TEST_BETA_WEB_SUGGESTION,
+                    url = TEST_BETA_WEB_SUGGESTION_URL
+                ),
+                actualSuggestedSearch.results
+            )
+        }
+    }
+
+    @Test
+    fun `never shows an older query's Web suggestions under a new query`() = runTest {
+        val inputOldSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
+        val inputNewSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = inputSearchRowsOff.copy(searchWebSuggestions = true)
+            ),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestionsByQuery = mapOf("ab" to inputOldSuggestions, "abc" to inputNewSuggestions)
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("ab")
+            expectSearch()
+            inputOldSuggestions.emit(listOf(TEST_ALPHA_WEB_SUGGESTION))
+            val actualOldSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.any { result -> result is SearchResult.WebSuggestionRow }
+            } as LauncherUiState.Search
+            assertEquals(
+                listOf(
+                    createWebSuggestionRow(
+                        suggestion = TEST_ALPHA_WEB_SUGGESTION,
+                        url = TEST_ALPHA_WEB_SUGGESTION_URL
+                    )
+                ),
+                actualOldSearch.results
+            )
+
+            viewModel.setSearchQuery("abc")
+
+            val actualNewSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.query == "abc"
+            } as LauncherUiState.Search
+            assertTrue(actualNewSearch.results.none { result -> result is SearchResult.WebSuggestionRow })
+        }
+    }
+
+    @Test
+    fun `does not make a Web suggestion row the Top result`() = runTest {
+        val inputSettings: Settings = Settings(
+            searchWebRow = false,
+            searchPlayStoreRow = false,
+            searchWebSuggestions = true
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestions = MutableStateFlow(listOf(TEST_WEB_SUGGESTION))
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("zz")
+            advanceUntilIdle()
+            val actualSearch: LauncherUiState.Search = expectSearch()
+
+            assertEquals(
+                listOf(createWebSuggestionRow(suggestion = TEST_WEB_SUGGESTION, url = TEST_WEB_SUGGESTION_URL)),
+                actualSearch.results
+            )
+            assertNull(actualSearch.topResult)
+            assertNull(viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `auto-launches despite Web suggestion rows`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = inputSearchRowsOff.copy(searchWebSuggestions = true, searchAutoLaunch = true)
+            ),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestions = MutableStateFlow(listOf(TEST_ALPHA_WEB_SUGGESTION))
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            advanceUntilIdle()
+
+            assertEquals(SearchResult.LaunchableResult(inputItem), expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
     fun `auto-launches when typing forward after a backspace`() = runTest {
         val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
         viewModel.uiState.test {
@@ -2996,7 +3201,8 @@ class LauncherViewModelTest {
         mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
         mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
         mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock(),
-        mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock()
+        mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock(),
+        mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -3013,7 +3219,8 @@ class LauncherViewModelTest {
         searchHistoryRepository = mockSearchHistoryRepository,
         clockSource = mockClockSource,
         shortcutSearchSource = mockShortcutSearchSource,
-        contactSearchSource = mockContactSearchSource
+        contactSearchSource = mockContactSearchSource,
+        webSuggestionSource = mockWebSuggestionSource
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
