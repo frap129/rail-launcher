@@ -1867,6 +1867,24 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `typing a hardware character appends to the query typed in the field`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onTypedCharacter(character = "g", isPopupOpen = false)
+            assertEquals("g", expectSearch().query)
+
+            viewModel.setSearchQuery(query = "gm")
+            assertEquals("gm", expectSearch().query)
+
+            viewModel.onTypedCharacter(character = "a", isPopupOpen = false)
+
+            assertEquals("gma", expectSearch().query)
+        }
+    }
+
+    @Test
     fun `typing a space appends to an open Search query`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 

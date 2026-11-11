@@ -21,6 +21,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import core.data.folders.Folder
 import core.ui.R
 import core.ui.composables.RequestKeyboardFocus
+import core.ui.composables.toTextFieldValueAtEnd
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 /** Asks for a Folder's name, prefilled, selected and trimmed to the Launchable name limit. */
@@ -52,7 +53,7 @@ fun FolderNameDialog(
                 value = name,
                 onValueChange = { value ->
                     val text: String = value.text.take(MAX_LAUNCHABLE_NAME_LENGTH)
-                    name = if (text == value.text) value else value.copy(text = text, selection = TextRange(text.length))
+                    name = if (text == value.text) value else text.toTextFieldValueAtEnd()
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),

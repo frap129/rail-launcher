@@ -17,13 +17,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
@@ -39,6 +43,7 @@ import compose.icons.fontawesomeicons.solid.User
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestKeyboardFocus
+import core.ui.composables.toTextFieldValueAtEnd
 
 private val searchFieldPadding: Dp = 16.dp
 private val searchFieldVerticalPadding: Dp = 8.dp
@@ -70,6 +75,32 @@ internal fun LauncherSearch(
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val focusRequester: FocusRequester = remember { FocusRequester() }
+    // The field owns the query while typing, so each keystroke shows and reaches the launcher
+    // before its UI state round trip.
+    var fieldValue: TextFieldValue by remember { mutableStateOf(search.query.toTextFieldValueAtEnd()) }
+    // Whether the field's latest text has not returned through the launcher state yet. Until it
+    // does, a different external value is an earlier keystroke's echo and must not replace it.
+    var isEditPending: Boolean by remember { mutableStateOf(false) }
+    fun updateFieldValue(value: TextFieldValue) {
+        val isTextChanged: Boolean = value.text != fieldValue.text
+        fieldValue = value
+        if (isTextChanged) {
+            isEditPending = true
+            onQueryChange(value.text)
+        }
+    }
+    LaunchedEffect(search.query) {
+        val externalQuery: String = search.query
+        if (externalQuery == fieldValue.text) {
+            // The echo of the latest text: keep the cursor and any composition as typed.
+            isEditPending = false
+        } else if (!isEditPending || externalQuery.startsWith(fieldValue.text)) {
+            // A change from outside the field (a hardware typed character or a clear): adopt it
+            // and put the cursor after its characters.
+            fieldValue = externalQuery.toTextFieldValueAtEnd()
+            isEditPending = false
+        }
+    }
     val searchAnchors: SearchAnchors = remember { SearchAnchors() }
     val searchItemActions: LauncherItemActions = remember(itemActions, searchAnchors) {
         itemActions.copy(
@@ -102,8 +133,8 @@ internal fun LauncherSearch(
     RequestKeyboardFocus(focusRequester = focusRequester)
     Column(modifier = modifier) {
         OutlinedTextField(
-            value = search.query,
-            onValueChange = onQueryChange,
+            value = fieldValue,
+            onValueChange = { value -> updateFieldValue(value) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -115,8 +146,12 @@ internal fun LauncherSearch(
                 .focusRequester(focusRequester),
             placeholder = { Text(text = stringResource(R.string.search_hint)) },
             trailingIcon = {
-                if (search.query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
+                if (fieldValue.text.isNotEmpty()) {
+                    IconButton(
+                        onClick = {
+                            updateFieldValue("".toTextFieldValueAtEnd())
+                        }
+                    ) {
                         Icon(
                             imageVector = FontAwesomeIcons.Solid.TimesCircle,
                             contentDescription = stringResource(R.string.clear_search)
