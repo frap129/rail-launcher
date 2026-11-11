@@ -65,19 +65,8 @@ import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IPrivateSpaceStatusImpl
 import core.data.profiles.IProfileSource
 import core.data.profiles.IProfileSourceImpl
+import core.data.room.APP_DATABASE_MIGRATIONS
 import core.data.room.AppDatabase
-import core.data.room.MIGRATION_11_12
-import core.data.room.MIGRATION_12_13
-import core.data.room.MIGRATION_13_14
-import core.data.room.MIGRATION_14_15
-import core.data.room.MIGRATION_15_16
-import core.data.room.MIGRATION_16_17
-import core.data.room.MIGRATION_17_18
-import core.data.room.MIGRATION_18_19
-import core.data.room.MIGRATION_19_20
-import core.data.room.MIGRATION_20_21
-import core.data.room.MIGRATION_21_22
-import core.data.room.MIGRATION_22_23
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
@@ -213,20 +202,7 @@ class MainApplication :
             "app-database"
         )
             .addCallback(WidgetAreaSeedCallback())
-            .addMigrations(
-                MIGRATION_11_12,
-                MIGRATION_12_13,
-                MIGRATION_13_14,
-                MIGRATION_14_15,
-                MIGRATION_15_16,
-                MIGRATION_16_17,
-                MIGRATION_17_18,
-                MIGRATION_18_19,
-                MIGRATION_19_20,
-                MIGRATION_20_21,
-                MIGRATION_21_22,
-                MIGRATION_22_23
-            )
+            .addMigrations(*APP_DATABASE_MIGRATIONS)
             // Pre-release only: replace with real migrations before the first public release.
             .fallbackToDestructiveMigration(dropAllTables = false)
             .build()

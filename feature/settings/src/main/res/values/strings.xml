@@ -126,6 +126,7 @@
     <string name="search_contacts_permission_title">Contacts access</string>
     <string name="search_contacts_permission_summary">Contact results need access to your contacts. Allow it in Rail\'s app settings.</string>
     <string name="search_engine">Search engine</string>
+    <string name="search_engine_none">None</string>
     <string name="search_engine_google">Google</string>
     <string name="search_engine_duckduckgo">DuckDuckGo</string>
     <string name="search_engine_brave">Brave</string>

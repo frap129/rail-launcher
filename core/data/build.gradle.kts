@@ -9,6 +9,11 @@ android {
     testFixtures {
         enable = true
     }
+    sourceSets {
+        getByName("test") {
+            resources.srcDir("$projectDir/schemas")
+        }
+    }
 }
 
 room {

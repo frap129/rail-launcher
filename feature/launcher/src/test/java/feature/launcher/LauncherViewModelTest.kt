@@ -48,6 +48,7 @@ import core.data.testing.TEST_ALPHA_WEB_SUGGESTION
 import core.data.testing.TEST_ALPHA_WEB_SUGGESTION_URL
 import core.data.testing.TEST_BETA_WEB_SUGGESTION
 import core.data.testing.TEST_BETA_WEB_SUGGESTION_URL
+import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_WEB_SUGGESTION
@@ -128,9 +129,9 @@ private const val FAVORITE_FOLDER_ID: Long = 42L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
 private const val TEST_NOW_EPOCH_MS: Long = 1_791_720_000_000L
 
-// The matching tests assert only the rows they are about; the row tests pass Settings with the
-// web and Play Store rows on, and the Home-press test asserts them with the production defaults.
-private val inputSearchRowsOff: Settings = Settings(searchWebRow = false, searchPlayStoreRow = false)
+// The matching tests assert only the rows they are about; the row tests give Search a Google
+// engine so its web rows show, and the production defaults have no engine.
+private val inputSearchRowsOff: Settings = TEST_GOOGLE_SETTINGS.copy(searchWebRow = false, searchPlayStoreRow = false)
 private val inputAutoLaunchRows: Settings = inputSearchRowsOff.copy(searchAutoLaunch = true)
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1991,7 +1992,9 @@ class LauncherViewModelTest {
     @Test
     fun `Go returns the web search row when nothing else matches`() = runTest {
         val viewModel: LauncherViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = TEST_GOOGLE_SETTINGS
+            )
         )
 
         viewModel.uiState.test {
@@ -2022,6 +2025,29 @@ class LauncherViewModelTest {
                 webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
             )
             assertEquals(expectedResult, expectSearch().topResult)
+            assertEquals(expectedResult, viewModel.onSearchGo())
+        }
+    }
+
+    @Test
+    fun `makes the Play Store row the Top result without a Search engine`() = runTest {
+        inputLaunchableState.value = createLoadedLaunchableState(emptyList())
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("unmatched")
+
+            val expectedResult: SearchResult = SearchResult.PlayStoreRow(
+                marketUrl = "market://search?q=unmatched",
+                webUrl = "https://play.google.com/store/search?q=unmatched&c=apps"
+            )
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertEquals(listOf(expectedResult), actualSearch.results)
+            assertEquals(expectedResult, actualSearch.topResult)
             assertEquals(expectedResult, viewModel.onSearchGo())
         }
     }
@@ -2165,7 +2191,9 @@ class LauncherViewModelTest {
     fun `appends Contact rows after the Launchable results and before the web rows`() = runTest {
         val inputContact: SearchContact = createSearchContact()
         val viewModel: LauncherViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = TEST_GOOGLE_SETTINGS.copy(searchContacts = true)
+            ),
             mockContactSearchSource = createContactSearchSourceMock(
                 contacts = MutableStateFlow(listOf(inputContact)),
                 hasPermission = MutableStateFlow(true)
@@ -2246,7 +2274,9 @@ class LauncherViewModelTest {
     fun `does not make a Contact row the Top result`() = runTest {
         val inputContact: SearchContact = createSearchContact()
         val viewModel: LauncherViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = TEST_GOOGLE_SETTINGS.copy(searchContacts = true)
+            ),
             mockContactSearchSource = createContactSearchSourceMock(
                 contacts = MutableStateFlow(listOf(inputContact)),
                 hasPermission = MutableStateFlow(true)
@@ -2313,6 +2343,25 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `shows no Web search or Web suggestion rows without a Search engine`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchPlayStoreRow = false)),
+            mockWebSuggestionSource = createWebSuggestionSourceMock(
+                suggestions = MutableStateFlow(listOf(TEST_ALPHA_WEB_SUGGESTION))
+            )
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            advanceUntilIdle()
+
+            assertEquals(launchableResults(inputItem), expectSearch().results)
+        }
+    }
+
+    @Test
     fun `shows local results before Web suggestions arrive`() = runTest {
         val inputSuggestions: MutableSharedFlow<List<String>> = MutableSharedFlow()
         val viewModel: LauncherViewModel = createViewModel(
@@ -2346,7 +2395,9 @@ class LauncherViewModelTest {
     @Test
     fun `appends Web suggestion rows below every local row`() = runTest {
         val viewModel: LauncherViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchWebSuggestions = true)),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = TEST_GOOGLE_SETTINGS.copy(searchWebSuggestions = true)
+            ),
             mockWebSuggestionSource = createWebSuggestionSourceMock(
                 suggestions = MutableStateFlow(listOf(TEST_ALPHA_WEB_SUGGESTION))
             )
@@ -2459,7 +2510,7 @@ class LauncherViewModelTest {
 
     @Test
     fun `does not make a Web suggestion row the Top result`() = runTest {
-        val inputSettings: Settings = Settings(
+        val inputSettings: Settings = TEST_GOOGLE_SETTINGS.copy(
             searchWebRow = false,
             searchPlayStoreRow = false,
             searchWebSuggestions = true
@@ -3077,7 +3128,9 @@ class LauncherViewModelTest {
 
     @Test
     fun `Home closes an open Search when the Home-press entry is on`() = runTest {
-        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+        val viewModel: LauncherViewModel = createViewModelWithSettings(
+            TEST_GOOGLE_SETTINGS.copy(openSearchOnHomePress = true)
+        )
 
         viewModel.uiState.test {
             expectHome()

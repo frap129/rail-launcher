@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 23,
-    "identityHash": "b1bb383a83120fe57628b964794fa535",
+    "identityHash": "8591ebf72e1a79a57ca8892de83f293d",
     "entities": [
       {
         "tableName": "icon_packs",
@@ -95,7 +95,7 @@
       },
       {
         "tableName": "settings",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `icon_pack` TEXT, `hide_private_space_when_locked` INTEGER NOT NULL DEFAULT 0, `scrub_edges` TEXT NOT NULL DEFAULT 'BOTH', `rail_side` TEXT NOT NULL DEFAULT 'END', `open_search_on_swipe_up` INTEGER NOT NULL DEFAULT 1, `open_search_on_home_press` INTEGER NOT NULL DEFAULT 0, `search_suggestions` INTEGER NOT NULL DEFAULT 1, `search_auto_launch` INTEGER NOT NULL DEFAULT 0, `search_bottom_anchored_results` INTEGER NOT NULL DEFAULT 0, `search_calculator_row` INTEGER NOT NULL DEFAULT 1, `search_web_row` INTEGER NOT NULL DEFAULT 1, `search_play_store_row` INTEGER NOT NULL DEFAULT 1, `search_web_suggestions` INTEGER NOT NULL DEFAULT 0, `search_contacts` INTEGER NOT NULL DEFAULT 0, `search_engine` TEXT NOT NULL DEFAULT 'GOOGLE', `search_engine_template` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `icon_pack` TEXT, `hide_private_space_when_locked` INTEGER NOT NULL DEFAULT 0, `scrub_edges` TEXT NOT NULL DEFAULT 'BOTH', `rail_side` TEXT NOT NULL DEFAULT 'END', `open_search_on_swipe_up` INTEGER NOT NULL DEFAULT 1, `open_search_on_home_press` INTEGER NOT NULL DEFAULT 0, `search_suggestions` INTEGER NOT NULL DEFAULT 1, `search_auto_launch` INTEGER NOT NULL DEFAULT 0, `search_bottom_anchored_results` INTEGER NOT NULL DEFAULT 0, `search_calculator_row` INTEGER NOT NULL DEFAULT 1, `search_web_row` INTEGER NOT NULL DEFAULT 1, `search_play_store_row` INTEGER NOT NULL DEFAULT 1, `search_web_suggestions` INTEGER NOT NULL DEFAULT 0, `search_contacts` INTEGER NOT NULL DEFAULT 0, `search_engine` TEXT NOT NULL DEFAULT 'None', `search_engine_template` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -204,7 +204,7 @@
             "columnName": "search_engine",
             "affinity": "TEXT",
             "notNull": true,
-            "defaultValue": "'GOOGLE'"
+            "defaultValue": "'None'"
           },
           {
             "fieldPath": "searchEngineTemplate",
@@ -816,7 +816,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b1bb383a83120fe57628b964794fa535')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8591ebf72e1a79a57ca8892de83f293d')"
     ]
   }
 }

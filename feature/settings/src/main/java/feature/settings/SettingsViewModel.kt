@@ -121,8 +121,8 @@ class SettingsViewModel(
             searchPlayStoreRow = true,
             searchWebSuggestions = defaultSettings.searchWebSuggestions,
             searchContacts = false,
-            searchEngine = SearchEngine.Google,
-            searchEngineTemplate = null
+            searchEngine = defaultSettings.searchEngine,
+            searchEngineTemplate = defaultSettings.searchEngineTemplate
         )
     )
 

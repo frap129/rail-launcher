@@ -6,6 +6,7 @@ import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION_URL
@@ -64,7 +65,11 @@ class SearchResultTest {
 
     @Test
     fun `places the Calculator, web and Play Store rows in their fixed order after the Launchable results`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "12*7")
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "12*7",
+            settings = TEST_GOOGLE_SETTINGS
+        )
 
         assertEquals(
             listOf(
@@ -81,7 +86,11 @@ class SearchResultTest {
 
     @Test
     fun `places the typed-URL row before the web and Play Store rows`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "example.com")
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "example.com",
+            settings = TEST_GOOGLE_SETTINGS
+        )
 
         assertEquals(
             listOf(
@@ -94,6 +103,40 @@ class SearchResultTest {
             ),
             actualResults
         )
+    }
+
+    @Test
+    fun `keeps the typed-URL and Play Store rows without a chosen Search engine`() {
+        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "example.com")
+
+        assertEquals(
+            listOf(
+                SearchResult.TypedUrlRow(url = "https://example.com"),
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=example.com",
+                    webUrl = "https://play.google.com/store/search?q=example.com&c=apps"
+                )
+            ),
+            actualResults
+        )
+    }
+
+    @Test
+    fun `adds no web row without a chosen Search engine`() {
+        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "rail launcher")
+
+        assertTrue(actualResults.none { result -> result is SearchResult.WebSearchRow })
+    }
+
+    @Test
+    fun `adds no Web suggestion rows without a chosen Search engine`() {
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "rail",
+            webSuggestions = listOf(TEST_WEB_SUGGESTION, TEST_SECOND_WEB_SUGGESTION)
+        )
+
+        assertTrue(actualResults.none { result -> result is SearchResult.WebSuggestionRow })
     }
 
     @Test
@@ -175,7 +218,11 @@ class SearchResultTest {
 
     @Test
     fun `makes the web row the Top result when no Launchable, Calculator or typed-URL row matches`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "rail launcher")
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "rail launcher",
+            settings = TEST_GOOGLE_SETTINGS
+        )
 
         assertEquals(
             SearchResult.WebSearchRow(url = "https://www.google.com/search?q=rail%20launcher"),
@@ -260,7 +307,8 @@ class SearchResultTest {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
             query = "12*7",
-            contacts = listOf(inputContact)
+            contacts = listOf(inputContact),
+            settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(
@@ -288,7 +336,8 @@ class SearchResultTest {
             state = inputState,
             query = "al",
             shortcuts = listOf(SearchShortcut(shortcut = inputShortcut, publisherName = "Messages", isHidden = false)),
-            contacts = inputContacts
+            contacts = inputContacts,
+            settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(
@@ -363,7 +412,8 @@ class SearchResultTest {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
             query = "rail",
-            webSuggestions = listOf(TEST_WEB_SUGGESTION, TEST_SECOND_WEB_SUGGESTION)
+            webSuggestions = listOf(TEST_WEB_SUGGESTION, TEST_SECOND_WEB_SUGGESTION),
+            settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(
@@ -412,7 +462,8 @@ class SearchResultTest {
         val actualResults: List<SearchResult> = searchRows(
             state = inputState,
             query = "rail",
-            webSuggestions = listOf(TEST_WEB_SUGGESTION)
+            webSuggestions = listOf(TEST_WEB_SUGGESTION),
+            settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(SearchResult.LaunchableResult(inputApp), actualResults.first())

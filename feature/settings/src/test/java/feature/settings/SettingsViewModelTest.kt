@@ -271,6 +271,15 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes no Search engine by default`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            assertEquals(SearchEngine.None, expectMostRecentItem().searchEngine)
+        }
+    }
+
+    @Test
     fun `exposes the stored Search rows and engine`() = runTest {
         val inputSettings: Settings = Settings(
             searchCalculatorRow = false,

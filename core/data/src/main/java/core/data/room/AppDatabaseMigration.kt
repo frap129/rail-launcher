@@ -106,7 +106,7 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
 
 /**
  * Adds the Calculator, web and Play Store row switches, all defaulting to on, and the Search
- * engine choice, defaulting to Google with no custom template, keeping every other setting.
+ * engine choice, defaulting to no engine, keeping every other setting.
  */
 val MIGRATION_19_20: Migration = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -121,7 +121,7 @@ val MIGRATION_19_20: Migration = object : Migration(19, 20) {
         )
         db.execSQL(
             "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +
-                "DEFAULT '${SearchEngine.Google.name}'"
+                "DEFAULT '${SearchEngine.None.name}'"
         )
         db.execSQL("ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} TEXT")
     }
@@ -165,3 +165,19 @@ val MIGRATION_22_23: Migration = object : Migration(22, 23) {
         )
     }
 }
+
+/** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
+val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
+    MIGRATION_11_12,
+    MIGRATION_12_13,
+    MIGRATION_13_14,
+    MIGRATION_14_15,
+    MIGRATION_15_16,
+    MIGRATION_16_17,
+    MIGRATION_17_18,
+    MIGRATION_18_19,
+    MIGRATION_19_20,
+    MIGRATION_20_21,
+    MIGRATION_21_22,
+    MIGRATION_22_23
+)

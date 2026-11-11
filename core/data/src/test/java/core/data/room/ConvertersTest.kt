@@ -131,7 +131,7 @@ class ConvertersTest {
     }
 
     @Test
-    fun `falls back to Google for an unknown Search engine value`() {
-        assertEquals(SearchEngine.Google, converters.fromStringToSearchEngine("UNKNOWN"))
+    fun `falls back to no Search engine for an unknown value`() {
+        assertEquals(SearchEngine.None, converters.fromStringToSearchEngine("UNKNOWN"))
     }
 }

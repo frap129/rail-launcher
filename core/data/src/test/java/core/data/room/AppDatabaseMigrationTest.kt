@@ -1,5 +1,7 @@
 package core.data.room
 
+import android.content.Context
+import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -10,6 +12,9 @@ import core.data.prefs.Settings
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
+import java.net.URL
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -19,7 +24,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 private const val FOLDER_DATABASE_NAME: String = "folder-migration-test"
-private const val FOLDERS_DATABASE_VERSION: Int = 11
+private const val MIGRATION_START_DATABASE_VERSION: Int = 11
 private const val SETTINGS_DATABASE_NAME: String = "settings-migration-test"
 private const val SETTINGS_DATABASE_VERSION: Int = 12
 private const val STANDALONE_SHORTCUTS_DATABASE_NAME: String = "standalone-shortcuts-migration-test"
@@ -42,6 +47,8 @@ private const val CONTACTS_DATABASE_NAME: String = "contacts-migration-test"
 private const val CONTACTS_DATABASE_VERSION: Int = 21
 private const val WEB_SUGGESTIONS_DATABASE_NAME: String = "web-suggestions-migration-test"
 private const val WEB_SUGGESTIONS_DATABASE_VERSION: Int = 22
+private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
+private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
@@ -58,7 +65,7 @@ class AppDatabaseMigrationTest {
     fun `removes the App List flag and keeps every Folder`() {
         withDatabase(
             name = FOLDER_DATABASE_NAME,
-            version = FOLDERS_DATABASE_VERSION,
+            version = MIGRATION_START_DATABASE_VERSION,
             createTables = { db ->
                 db.execSQL("CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, show_in_app_list INTEGER NOT NULL)")
                 db.execSQL("INSERT INTO folders (id, show_in_app_list) VALUES ($FIRST_FOLDER_ID, 1)")
@@ -246,7 +253,7 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun `adds the Search rows and engine defaulting on and Google and keeps the settings row`() {
+    fun `adds the Search rows defaulting on and no Search engine and keeps the settings row`() {
         withDatabase(
             name = SEARCH_ROWS_DATABASE_NAME,
             version = SEARCH_ROWS_DATABASE_VERSION,
@@ -285,7 +292,7 @@ class AppDatabaseMigrationTest {
             assertEquals(true, db.searchCalculatorRow())
             assertEquals(true, db.searchWebRow())
             assertEquals(true, db.searchPlayStoreRow())
-            assertEquals(SearchEngine.Google.name, db.searchEngine())
+            assertEquals(SearchEngine.None.name, db.searchEngine())
             assertNull(db.searchEngineTemplate())
             assertEquals(false, db.searchSuggestions())
             assertEquals(false, db.openSearchOnSwipeUp())
@@ -528,6 +535,16 @@ class AppDatabaseMigrationTest {
             assertEquals(true, actualSwitch)
         }
     }
+
+    @Test
+    fun `opens a main database with Room after migrating it to the current version`() {
+        assertOpensAfterMigration(version = SEARCH_ENTRIES_DATABASE_VERSION)
+    }
+
+    @Test
+    fun `opens the oldest restorable database with Room after migrating it to the current version`() {
+        assertOpensAfterMigration(version = MIGRATION_START_DATABASE_VERSION)
+    }
 }
 
 /** Opens [name] at [version] with [createTables], runs [testBody] against it and removes it again. */
@@ -561,6 +578,67 @@ private fun withDatabase(
 
 /** A Settings column a migration test creates, with its definition and stored value. */
 private data class SettingsColumn(val name: String, val definition: String, val value: String)
+
+/**
+ * Creates [name] at [version] from its exported Room schema, runs [insertRows] on it and closes it,
+ * so Room can migrate and validate it when the test opens it.
+ */
+private fun createSchemaDatabase(name: String, version: Int, insertRows: (SupportSQLiteDatabase) -> Unit = {}) {
+    val context: Context = RuntimeEnvironment.getApplication()
+    context.deleteDatabase(name)
+    val schemaResource: URL =
+        checkNotNull(AppDatabaseMigrationTest::class.java.classLoader?.getResource("${AppDatabase::class.java.name}/$version.json")) {
+            "Missing the exported Room schema for version $version"
+        }
+    val entities: JSONArray = JSONObject(schemaResource.readText()).getJSONObject("database").getJSONArray("entities")
+    val callback: SupportSQLiteOpenHelper.Callback = object : SupportSQLiteOpenHelper.Callback(version) {
+        override fun onCreate(db: SupportSQLiteDatabase) {
+            for (index in 0 until entities.length()) {
+                val entity: JSONObject = entities.getJSONObject(index)
+                val tableName: String = entity.getString("tableName")
+                db.execSQL(entity.getString("createSql").replace(TABLE_NAME_PLACEHOLDER, tableName))
+                val indices: JSONArray = entity.optJSONArray("indices") ?: JSONArray()
+                for (indexPosition in 0 until indices.length()) {
+                    db.execSQL(indices.getJSONObject(indexPosition).getString("createSql").replace(TABLE_NAME_PLACEHOLDER, tableName))
+                }
+            }
+            insertRows(db)
+        }
+
+        override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    }
+    val configuration: SupportSQLiteOpenHelper.Configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+        .name(name)
+        .callback(callback)
+        .build()
+    FrameworkSQLiteOpenHelperFactory().create(configuration).use { helper -> helper.writableDatabase }
+}
+
+/** Creates [version]'s schema, opens it with Room and asserts the migration kept its settings and chose no engine. */
+private fun assertOpensAfterMigration(version: Int) {
+    val inputContext: Context = RuntimeEnvironment.getApplication()
+    val inputDatabaseName: String = "$ROOM_OPEN_DATABASE_NAME-$version"
+    createSchemaDatabase(name = inputDatabaseName, version = version) { db ->
+        db.execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack) VALUES (0, '$TEST_ICON_PACK_PACKAGE')")
+    }
+    val actualDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
+        .addMigrations(*APP_DATABASE_MIGRATIONS)
+        .build()
+    try {
+        val actualSettings: Pair<String?, String> = actualDatabase.openHelper.writableDatabase
+            .query("SELECT icon_pack, ${Settings.COLUMN_SEARCH_ENGINE} FROM $SETTINGS_TABLE")
+            .use { cursor ->
+                cursor.moveToFirst()
+                cursor.getString(cursor.getColumnIndexOrThrow("icon_pack")) to
+                    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE))
+            }
+        assertEquals("Version $version kept its settings", TEST_ICON_PACK_PACKAGE, actualSettings.first)
+        assertEquals("Version $version chose no engine", SearchEngine.None.name, actualSettings.second)
+    } finally {
+        actualDatabase.close()
+        inputContext.deleteDatabase(inputDatabaseName)
+    }
+}
 
 /** Creates a settings table and inserts one row with the columns each database version had. */
 private fun SupportSQLiteDatabase.createSettingsRow(
@@ -609,7 +687,7 @@ private fun SupportSQLiteDatabase.createSettingsRow(
             SettingsColumn(Settings.COLUMN_SEARCH_PLAY_STORE_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
         },
         searchEngine?.let { value ->
-            SettingsColumn(Settings.COLUMN_SEARCH_ENGINE, "TEXT NOT NULL DEFAULT '${SearchEngine.Google.name}'", "'${value.name}'")
+            SettingsColumn(Settings.COLUMN_SEARCH_ENGINE, "TEXT NOT NULL DEFAULT '${SearchEngine.None.name}'", "'${value.name}'")
         },
         searchEngineTemplate?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_ENGINE_TEMPLATE, "TEXT", "'$value'")
