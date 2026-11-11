@@ -7,7 +7,9 @@ import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+import core.data.testing.TEST_GOOGLE_PLAY_STORE_SETTINGS
 import core.data.testing.TEST_GOOGLE_SETTINGS
+import core.data.testing.TEST_PLAY_STORE_SETTINGS
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION_URL
@@ -70,7 +72,7 @@ class SearchResultTest {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
             query = TEST_CALCULATOR_QUERY,
-            settings = TEST_GOOGLE_SETTINGS
+            settings = TEST_GOOGLE_PLAY_STORE_SETTINGS
         )
 
         assertEquals(
@@ -91,7 +93,7 @@ class SearchResultTest {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
             query = TEST_TYPED_URL_QUERY,
-            settings = TEST_GOOGLE_SETTINGS
+            settings = TEST_GOOGLE_PLAY_STORE_SETTINGS
         )
 
         assertEquals(
@@ -109,7 +111,11 @@ class SearchResultTest {
 
     @Test
     fun `keeps the typed-URL and Play Store rows without a chosen Search engine`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = TEST_TYPED_URL_QUERY)
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = TEST_TYPED_URL_QUERY,
+            settings = TEST_PLAY_STORE_SETTINGS
+        )
 
         assertEquals(
             listOf(
@@ -150,7 +156,11 @@ class SearchResultTest {
 
     @Test
     fun `encodes the Play Store query in both of its URLs`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "it's a game")
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "it's a game",
+            settings = TEST_PLAY_STORE_SETTINGS
+        )
 
         assertEquals(
             SearchResult.PlayStoreRow(
@@ -233,19 +243,21 @@ class SearchResultTest {
     }
 
     @Test
-    fun `makes the lone Play Store row the Top result`() {
+    fun `keeps the Play Store row when no other row matches`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
             query = TEST_CALCULATOR_QUERY,
-            settings = Settings(searchCalculatorRow = false, searchWebRow = false)
+            settings = TEST_PLAY_STORE_SETTINGS.copy(searchCalculatorRow = false, searchWebRow = false)
         )
 
         assertEquals(
-            SearchResult.PlayStoreRow(
-                marketUrl = "market://search?q=12%2A7",
-                webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
+            listOf(
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=12%2A7",
+                    webUrl = "https://play.google.com/store/search?q=12%2A7&c=apps"
+                )
             ),
-            actualResults.firstOrNull()
+            actualResults
         )
     }
 
@@ -310,7 +322,7 @@ class SearchResultTest {
             state = inputEmptyState,
             query = TEST_CALCULATOR_QUERY,
             contacts = listOf(inputContact),
-            settings = TEST_GOOGLE_SETTINGS
+            settings = TEST_GOOGLE_PLAY_STORE_SETTINGS
         )
 
         assertEquals(
@@ -339,7 +351,7 @@ class SearchResultTest {
             query = "al",
             shortcuts = listOf(SearchShortcut(shortcut = inputShortcut, publisherName = "Messages", isHidden = false)),
             contacts = inputContacts,
-            settings = TEST_GOOGLE_SETTINGS
+            settings = TEST_GOOGLE_PLAY_STORE_SETTINGS
         )
 
         assertEquals(
@@ -435,7 +447,7 @@ class SearchResultTest {
             state = inputEmptyState,
             query = "rail",
             webSuggestions = listOf(TEST_WEB_SUGGESTION, TEST_SECOND_WEB_SUGGESTION),
-            settings = TEST_GOOGLE_SETTINGS
+            settings = TEST_GOOGLE_PLAY_STORE_SETTINGS
         )
 
         assertEquals(

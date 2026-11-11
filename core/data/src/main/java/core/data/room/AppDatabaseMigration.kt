@@ -105,8 +105,9 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
 }
 
 /**
- * Adds the Calculator, web and Play Store row switches, all defaulting to on, and the Search
- * engine choice, defaulting to no engine, keeping every other setting.
+ * Adds the Calculator and web row switches, defaulting to on, the Play Store row switch,
+ * defaulting to off, and the Search engine choice, defaulting to no engine, keeping every other
+ * setting.
  */
 val MIGRATION_19_20: Migration = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -117,7 +118,7 @@ val MIGRATION_19_20: Migration = object : Migration(19, 20) {
             "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_ROW} INTEGER NOT NULL DEFAULT 1"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 0"
         )
         db.execSQL(
             "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +

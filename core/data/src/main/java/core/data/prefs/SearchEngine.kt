@@ -4,9 +4,9 @@ import core.util.searchUrlFor
 
 /**
  * The Search engine the Web search row uses: a built-in engine's URL template, [Custom] with the
- * stored custom template, or [None] until the user chooses one. Every template puts the encoded
- * query after the host. [suggestionTemplate] is the engine's public Web suggestion endpoint, or
- * null when it has none.
+ * stored custom template, or [None] when the user chooses no engine. Every template puts the
+ * encoded query after the host. [suggestionTemplate] is the engine's public Web suggestion
+ * endpoint, or null when it has none.
  */
 enum class SearchEngine(val template: String?, val suggestionTemplate: String?) {
     None(null, null),
@@ -44,7 +44,7 @@ enum class SearchEngine(val template: String?, val suggestionTemplate: String?) 
     val offersSuggestions: Boolean get() = suggestionTemplate != null
 
     companion object {
-        /** The engines the Search engine picker offers; [Custom] is chosen through its template instead. */
-        val selectable: List<SearchEngine> = entries.filter { engine -> engine != None && engine != Custom }
+        /** The choices the Search engine picker offers, including [None]; [Custom] is chosen through its template instead. */
+        val selectable: List<SearchEngine> = entries.filter { engine -> engine != Custom }
     }
 }

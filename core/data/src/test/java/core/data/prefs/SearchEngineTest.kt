@@ -29,8 +29,9 @@ class SearchEngineTest {
     }
 
     @Test
-    fun `lists every built-in engine as a Search engine choice`() {
+    fun `lists None and every built-in engine as a Search engine choice`() {
         val expectedEngines: List<SearchEngine> = listOf(
+            SearchEngine.None,
             SearchEngine.Google,
             SearchEngine.DuckDuckGo,
             SearchEngine.Brave,

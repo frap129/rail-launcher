@@ -213,7 +213,7 @@ The Search result that shows an arithmetic expression and its result, with `%` a
 _Avoid_: Calculator result, calculator widget
 
 **Search engine**:
-The web engine the Web search row uses: Google, DuckDuckGo, Brave, Kagi, Startpage, Bing or Perplexity, or a custom `http` or `https` URL template containing `%s` where the encoded query goes. Rail has no Search engine until the user chooses one in Search settings: with none, Search shows no Web search row and no Web suggestions. Google, DuckDuckGo, Brave, Kagi and Bing also offer Web suggestions; Startpage, Perplexity, a custom template and no engine offer none.
+The web engine the Web search row uses: None, Google, DuckDuckGo, Brave, Kagi, Startpage, Bing or Perplexity, or a custom `http` or `https` URL template containing `%s` where the encoded query goes. The Search engine picker offers None at any time; choosing it stores no engine and turns Live web suggestions off. With none, Search shows no Web search row and no Web suggestions. Google, DuckDuckGo, Brave, Kagi and Bing also offer Web suggestions; Startpage, Perplexity, a custom template and None offer none.
 _Avoid_: Search provider, web engine
 
 **Typed URL**:
@@ -241,7 +241,7 @@ The Search result that opens the Web search for a Web suggestion with the Search
 _Avoid_: Autocomplete row, suggestion result, web result
 
 **Play Store row**:
-The Search result that opens a Play Store search for the query, falling back to the Play Store web address when no Play Store app accepts it. It always follows the Web search row.
+The Search result that opens a Play Store search for the query, falling back to the Play Store web address when no Play Store app accepts it. It follows the Web search row, is off by default and is never the Top result.
 _Avoid_: Store row, app store row
 
 **Publisher name**:
@@ -261,7 +261,7 @@ The Search result for a matching contact of the current profile, with call and m
 _Avoid_: Person row, contact result
 
 **Top result**:
-The first Search result other than a Contact row or a Web suggestion row, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
+The first Search result other than a Contact row, a Web suggestion row or the Play Store row, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
 _Avoid_: First result, primary result
 
 **Auto-launch**:

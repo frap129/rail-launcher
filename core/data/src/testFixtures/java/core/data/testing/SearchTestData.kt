@@ -19,6 +19,12 @@ const val TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE: String = "https://search.example.c
 /** Settings with Google as the Search engine, for tests that assert its web rows. */
 val TEST_GOOGLE_SETTINGS: Settings = Settings(searchEngine = SearchEngine.Google)
 
+/** Settings with the Play Store row on and no Search engine, for tests that assert that row. */
+val TEST_PLAY_STORE_SETTINGS: Settings = Settings(searchPlayStoreRow = true)
+
+/** Settings with Google as the Search engine and the Play Store row on, for tests that assert both rows. */
+val TEST_GOOGLE_PLAY_STORE_SETTINGS: Settings = TEST_GOOGLE_SETTINGS.copy(searchPlayStoreRow = true)
+
 /** A query that shows the Calculator row. */
 const val TEST_CALCULATOR_QUERY: String = "12*7"
 
