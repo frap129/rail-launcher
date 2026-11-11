@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTextInput
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.search.SearchResult
@@ -59,7 +61,10 @@ class LauncherSearchTest {
     @Test
     fun `opens the typed URL when its row is tapped`() {
         var actualRow: SearchResult.ExternalRow? = null
-        setSearchContent(results = listOf(SearchResult.TypedUrlRow(url = INPUT_URL)), onOpenSearchRow = { row -> actualRow = row })
+        setSearchContent(
+            results = listOf(SearchResult.TypedUrlRow(url = INPUT_URL)),
+            onOpenSearchRow = { row -> actualRow = row }
+        )
 
         composeRule.onNodeWithText(context.getString(R.string.search_open_url, INPUT_URL)).performClick()
 
@@ -69,7 +74,10 @@ class LauncherSearchTest {
     @Test
     fun `opens the web search when its row is tapped`() {
         var actualRow: SearchResult.ExternalRow? = null
-        setSearchContent(results = listOf(SearchResult.WebSearchRow(url = INPUT_WEB_URL)), onOpenSearchRow = { row -> actualRow = row })
+        setSearchContent(
+            results = listOf(SearchResult.WebSearchRow(url = INPUT_WEB_URL)),
+            onOpenSearchRow = { row -> actualRow = row }
+        )
 
         composeRule.onNodeWithText(context.getString(R.string.search_web_action)).performClick()
 
@@ -95,26 +103,8 @@ class LauncherSearchTest {
         val inputResults: MutableState<List<SearchResult>> = mutableStateOf(
             (1..20).map { index -> SearchResult.LaunchableResult(createRailLaunchable("Item $index")) }
         )
-        composeRule.setContent {
-            LauncherSearch(
-                modifier = Modifier,
-                search = LauncherUiState.Search(
-                    query = "item",
-                    results = inputResults.value,
-                    topResult = null,
-                    isShowingSuggestions = false,
-                    isBottomAnchored = false,
-                    autoLaunchResult = null
-                ),
-                shouldAutoLaunch = { true },
-                itemActions = itemActions,
-                onQueryChange = {},
-                onSearchGo = { null },
-                onCopyCalculatorRow = {},
-                onOpenSearchRow = {},
-                onContactRowAction = { _, _ -> }
-            )
-        }
+        setSearchContent(resultsState = inputResults, query = mutableStateOf("item"))
+
         composeRule.onNode(hasScrollAction()).performScrollToIndex(19)
         composeRule.onAllNodesWithText("Item 20").onFirst().assertIsDisplayed()
 
@@ -148,7 +138,10 @@ class LauncherSearchTest {
         val inputFirst: Launchable = createRailLaunchable("Alpha")
         val inputSecond: Launchable = createRailLaunchable("Beta")
         setSearchContent(
-            results = listOf(SearchResult.LaunchableResult(inputFirst), SearchResult.LaunchableResult(inputSecond)),
+            results = listOf(
+                SearchResult.LaunchableResult(inputFirst),
+                SearchResult.LaunchableResult(inputSecond)
+            ),
             isBottomAnchored = true
         )
 
@@ -229,30 +222,76 @@ class LauncherSearchTest {
             .assertDoesNotExist()
     }
 
+    @Test
+    fun `puts the cursor after a starting query`() {
+        val inputQuery: MutableState<String> = mutableStateOf(QUERY)
+        setSearchContent(query = inputQuery)
+
+        typeIntoQuery("a")
+
+        assertEquals(QUERY + "a", inputQuery.value)
+    }
+
+    @Test
+    fun `appends the next character after an external query change`() {
+        val inputQuery: MutableState<String> = mutableStateOf("g")
+        setSearchContent(query = inputQuery)
+
+        composeRule.runOnIdle { inputQuery.value = "gm" }
+        typeIntoQuery("a")
+
+        assertEquals("gma", inputQuery.value)
+    }
+
+    @Test
+    fun `keeps every character typed while an earlier echo arrives`() {
+        val inputQuery: MutableState<String> = mutableStateOf(QUERY)
+        val actualQueries: MutableList<String> = mutableListOf()
+        setSearchContent(
+            query = inputQuery,
+            onQueryChange = { text -> actualQueries += text }
+        )
+
+        typeIntoQuery("a")
+        typeIntoQuery("b")
+        composeRule.runOnIdle { inputQuery.value = QUERY + "a" }
+        typeIntoQuery("c")
+
+        assertEquals(listOf(QUERY + "a", QUERY + "ab", QUERY + "abc"), actualQueries)
+    }
+
     private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
 
+    private fun typeIntoQuery(text: String) {
+        composeRule.onNode(hasSetTextAction()).performTextInput(text)
+    }
+
     private fun setSearchContent(
-        results: List<SearchResult>,
+        results: List<SearchResult> = emptyList(),
+        resultsState: MutableState<List<SearchResult>> = mutableStateOf(results),
         isBottomAnchored: Boolean = false,
         autoLaunchResult: SearchResult.LaunchableResult? = null,
         itemActions: LauncherItemActions = this.itemActions,
         onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {},
-        onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> }
+        onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> },
+        query: MutableState<String> = mutableStateOf(QUERY),
+        onQueryChange: (String) -> Unit = { text -> query.value = text }
     ) {
         composeRule.setContent {
+            val inputResults: List<SearchResult> = resultsState.value
             LauncherSearch(
                 modifier = Modifier,
                 search = LauncherUiState.Search(
-                    query = QUERY,
-                    results = results,
-                    topResult = results.firstOrNull(),
+                    query = query.value,
+                    results = inputResults,
+                    topResult = inputResults.firstOrNull(),
                     isShowingSuggestions = false,
                     isBottomAnchored = isBottomAnchored,
                     autoLaunchResult = autoLaunchResult
                 ),
                 shouldAutoLaunch = { true },
                 itemActions = itemActions,
-                onQueryChange = {},
+                onQueryChange = onQueryChange,
                 onSearchGo = { null },
                 onCopyCalculatorRow = {},
                 onOpenSearchRow = onOpenSearchRow,
