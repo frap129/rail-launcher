@@ -140,11 +140,11 @@ private fun List<SearchContact>.toContactRows(query: String): List<SearchResult>
         return emptyList()
     }
     return mapNotNull { contact ->
-        tierFor(normalizedName = contact.name.normalizedForSearch(), query = normalizedQuery)?.let { tier ->
+        tierFor(normalizedName = contact.normalizedName, query = normalizedQuery)?.let { tier ->
             RankedContact(tier = tier, contact = contact)
         }
     }.sortedWith(
         compareBy<RankedContact> { ranked -> ranked.tier.ordinal }
-            .thenBy { ranked -> ranked.contact.name.normalizedForSearch() }
+            .thenBy { ranked -> ranked.contact.normalizedName }
     ).map { ranked -> SearchResult.ContactRow(contact = ranked.contact) }
 }
