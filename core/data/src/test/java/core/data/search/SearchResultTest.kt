@@ -388,6 +388,26 @@ class SearchResultTest {
     }
 
     @Test
+    fun `sorts Contact rows by folded name`() {
+        val inputFirst: SearchContact = createSearchContact(name = "Zoë Alice")
+        val inputSecond: SearchContact = createSearchContact(contactId = 2L, name = "Émile Alice")
+
+        val actualContactRows: List<SearchResult.ContactRow> = searchRows(
+            state = inputEmptyState,
+            query = "alice",
+            contacts = listOf(inputFirst, inputSecond)
+        ).filterIsInstance<SearchResult.ContactRow>()
+
+        assertEquals(
+            listOf(
+                SearchResult.ContactRow(contact = inputSecond),
+                SearchResult.ContactRow(contact = inputFirst)
+            ),
+            actualContactRows
+        )
+    }
+
+    @Test
     fun `keeps a contact without a number as a Contact row`() {
         val inputContact: SearchContact = createSearchContact(phoneNumber = null)
 
