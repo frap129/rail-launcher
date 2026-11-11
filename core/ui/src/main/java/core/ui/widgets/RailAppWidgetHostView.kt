@@ -18,6 +18,9 @@ import android.view.ViewConfiguration
 class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
     var onLongPress: (() -> Unit)? = null
 
+    /** Called when a hosted view claims the touch gesture, such as a list that starts scrolling. */
+    var onGestureClaimed: (() -> Unit)? = null
+
     private val touchSlop: Int = ViewConfiguration.get(context).scaledTouchSlop
     private val longPressTimeout: Long = ViewConfiguration.getLongPressTimeout().toLong()
     private var downX: Float = 0f
@@ -81,6 +84,7 @@ class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
     override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
         if (disallowIntercept) {
             cancelPendingLongPress()
+            onGestureClaimed?.invoke()
         }
         super.requestDisallowInterceptTouchEvent(disallowIntercept)
     }

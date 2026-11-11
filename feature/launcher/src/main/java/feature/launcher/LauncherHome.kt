@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -81,6 +82,7 @@ fun LauncherHome(
     onResizeOutsideTap: () -> Unit
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+    val widgetSwipeState: WidgetSwipeState = remember { WidgetSwipeState() }
     val layout: WidgetAreaLayout = widgetArea.state.layout
     val layoutMode: Boolean = layout is WidgetAreaLayout.Capped
     val menuEnabled: Boolean = widgetArea.actions.menuEnabled
@@ -96,6 +98,7 @@ fun LauncherHome(
             .safeDrawingPadding()
             .swipeUpToSearch(
                 canScrollForward = { home.lazyListState.canScrollForward },
+                widgetSwipeState = widgetSwipeState,
                 onSwipeUp = onSwipeUp
             )
     ) {
@@ -108,94 +111,96 @@ fun LauncherHome(
         LaunchedEffect(layoutMode) {
             home.lazyListState.scrollToItem(0)
         }
-        when (layout) {
-            is WidgetAreaLayout.Capped -> {
-                val cappedHeight: Dp = (maxHeight * layout.fraction).coerceAtLeast(0.dp)
-                Column(modifier = Modifier.fillMaxSize()) {
-                    CappedWidgetArea(
-                        ui = widgetArea,
-                        maxHeight = cappedHeight,
-                        railSide = railSide,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    FavoritesBottomArea(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        home = home,
-                        railSide = railSide,
-                        itemActions = itemActions,
-                        folderSummaries = folderSummaries,
-                        onFavoriteMoved = onFavoriteMoved,
-                        onEmptyAreaLongPress = onEmptyAreaLongPress,
-                        isPopupSwipeEnabled = isPopupSwipeEnabled,
-                        interaction = interaction
-                    )
-                }
-            }
-
-            WidgetAreaLayout.Uncapped -> {
-                val placeIds: List<Long> = widgetArea.state.placeIds
-                val favoriteKeys: List<String> = rememberFavoriteKeys(home.favorites)
-                val reorderState: ReorderableLazyListState = rememberHomeReorderState(
-                    listState = home.lazyListState,
-                    favoriteKeys = favoriteKeys,
-                    onMoveFavorite = onFavoriteMoved,
-                    placeIds = placeIds,
-                    onMovePlace = widgetArea.actions.onMovePlace
-                )
-                val mergeState: EditMergeState = remember { EditMergeState() }
-                WidgetAreaScrollToPlaceEffect(
-                    ui = widgetArea,
-                    listState = home.lazyListState,
-                    listPrefix = widgetArea.uncappedListPrefix
-                )
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(interaction.isResizing) {
-                            if (interaction.isResizing) {
-                                detectTapGestures(onTap = { interaction.onResizeOutsideTap() })
-                            }
-                        }
-                        .homeEmptyAreaLongPress(
-                            hapticFeedback = hapticFeedback,
-                            enabled = menuEnabled && !interaction.isResizing,
-                            onLongPress = onEmptyAreaLongPress
+        CompositionLocalProvider(LocalWidgetSwipeState provides widgetSwipeState) {
+            when (layout) {
+                is WidgetAreaLayout.Capped -> {
+                    val cappedHeight: Dp = (maxHeight * layout.fraction).coerceAtLeast(0.dp)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        CappedWidgetArea(
+                            ui = widgetArea,
+                            maxHeight = cappedHeight,
+                            railSide = railSide,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        .testTag(LAUNCHER_HOME_TEST_TAG),
-                    state = home.lazyListState,
-                    verticalArrangement = Arrangement.Top,
-                    contentPadding = PaddingValues(
-                        start = homeEdgePadding,
-                        top = homeEdgePadding,
-                        end = homeEdgePadding,
-                        bottom = homeEdgePadding
-                    )
-                ) {
-                    item(key = WIDGET_AREA_OFFSET_KEY) {
-                        WidgetAreaTopOffsetSpacer(ui = widgetArea)
+                        FavoritesBottomArea(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            home = home,
+                            railSide = railSide,
+                            itemActions = itemActions,
+                            folderSummaries = folderSummaries,
+                            onFavoriteMoved = onFavoriteMoved,
+                            onEmptyAreaLongPress = onEmptyAreaLongPress,
+                            isPopupSwipeEnabled = isPopupSwipeEnabled,
+                            interaction = interaction
+                        )
                     }
-                    widgetAreaItems(
-                        ui = widgetArea,
-                        reorderableState = reorderState,
-                        mergeState = mergeState,
-                        railSide = railSide
+                }
+
+                WidgetAreaLayout.Uncapped -> {
+                    val placeIds: List<Long> = widgetArea.state.placeIds
+                    val favoriteKeys: List<String> = rememberFavoriteKeys(home.favorites)
+                    val reorderState: ReorderableLazyListState = rememberHomeReorderState(
+                        listState = home.lazyListState,
+                        favoriteKeys = favoriteKeys,
+                        onMoveFavorite = onFavoriteMoved,
+                        placeIds = placeIds,
+                        onMovePlace = widgetArea.actions.onMovePlace
                     )
-                    favoriteItems(
-                        home = home,
-                        railSide = railSide,
-                        itemActions = itemActions,
-                        folderSummaries = folderSummaries,
-                        reorderableState = reorderState,
-                        blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
-                        onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null,
-                        isPopupSwipeEnabled = isPopupSwipeEnabled
+                    val mergeState: EditMergeState = remember { EditMergeState() }
+                    WidgetAreaScrollToPlaceEffect(
+                        ui = widgetArea,
+                        listState = home.lazyListState,
+                        listPrefix = widgetArea.uncappedListPrefix
+                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(interaction.isResizing) {
+                                if (interaction.isResizing) {
+                                    detectTapGestures(onTap = { interaction.onResizeOutsideTap() })
+                                }
+                            }
+                            .homeEmptyAreaLongPress(
+                                hapticFeedback = hapticFeedback,
+                                enabled = menuEnabled && !interaction.isResizing,
+                                onLongPress = onEmptyAreaLongPress
+                            )
+                            .testTag(LAUNCHER_HOME_TEST_TAG),
+                        state = home.lazyListState,
+                        verticalArrangement = Arrangement.Top,
+                        contentPadding = PaddingValues(
+                            start = homeEdgePadding,
+                            top = homeEdgePadding,
+                            end = homeEdgePadding,
+                            bottom = homeEdgePadding
+                        )
+                    ) {
+                        item(key = WIDGET_AREA_OFFSET_KEY) {
+                            WidgetAreaTopOffsetSpacer(ui = widgetArea)
+                        }
+                        widgetAreaItems(
+                            ui = widgetArea,
+                            reorderableState = reorderState,
+                            mergeState = mergeState,
+                            railSide = railSide
+                        )
+                        favoriteItems(
+                            home = home,
+                            railSide = railSide,
+                            itemActions = itemActions,
+                            folderSummaries = folderSummaries,
+                            reorderableState = reorderState,
+                            blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
+                            onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null,
+                            isPopupSwipeEnabled = isPopupSwipeEnabled
+                        )
+                    }
+                    WidgetAreaResizeAutoScroll(
+                        ui = widgetArea,
+                        listState = home.lazyListState,
+                        listPrefix = widgetArea.uncappedListPrefix
                     )
                 }
-                WidgetAreaResizeAutoScroll(
-                    ui = widgetArea,
-                    listState = home.lazyListState,
-                    listPrefix = widgetArea.uncappedListPrefix
-                )
             }
         }
     }
