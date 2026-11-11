@@ -169,8 +169,7 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
     if (isChoosingEngine) {
         SingleChoiceDialog(
             title = stringResource(R.string.search_engine),
-            options = SearchEngine.entries
-                .filter { engine -> engine != SearchEngine.Custom }
+            options = SearchEngine.selectable
                 .map { engine -> SingleChoiceOption(value = engine, label = stringResource(engine.labelResource())) },
             selected = uiState.searchEngine,
             onSelect = { engine ->
@@ -242,6 +241,7 @@ private fun SearchEngineTemplateDialog(initialTemplate: String?, onSave: (String
 
 @StringRes
 private fun SearchEngine.labelResource(): Int = when (this) {
+    SearchEngine.None -> R.string.search_engine_none
     SearchEngine.Google -> R.string.search_engine_google
     SearchEngine.DuckDuckGo -> R.string.search_engine_duckduckgo
     SearchEngine.Brave -> R.string.search_engine_brave

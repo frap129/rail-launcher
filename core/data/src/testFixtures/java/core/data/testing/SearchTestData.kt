@@ -1,5 +1,7 @@
 package core.data.testing
 
+import core.data.prefs.SearchEngine
+import core.data.prefs.Settings
 import core.data.search.IContactSearchSource
 import core.data.search.SearchContact
 import core.data.search.SearchResult
@@ -13,6 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** A valid custom Search engine template, with the placeholder after the host. */
 const val TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE: String = "https://search.example.com/?q=%s"
+
+/** Settings with Google as the Search engine, for tests that assert its web rows. */
+val TEST_GOOGLE_SETTINGS: Settings = Settings(searchEngine = SearchEngine.Google)
 
 const val TEST_CONTACT_ID: Long = 1L
 const val TEST_CONTACT_LOOKUP_KEY: String = "com.example.alice"

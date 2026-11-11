@@ -136,7 +136,7 @@ class Converters {
 
     @TypeConverter
     fun fromStringToSearchEngine(engine: String): SearchEngine =
-        SearchEngine.entries.firstOrNull { entry -> entry.name == engine } ?: SearchEngine.Google
+        SearchEngine.entries.firstOrNull { entry -> entry.name == engine } ?: SearchEngine.None
 
     @TypeConverter
     fun fromCustomIconToString(icon: CustomIcon?): String? = icon?.format()

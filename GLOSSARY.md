@@ -213,7 +213,7 @@ The Search result that shows an arithmetic expression and its result, with `%` a
 _Avoid_: Calculator result, calculator widget
 
 **Search engine**:
-The web engine the Web search row uses: Google, DuckDuckGo, Brave, Kagi, Startpage, Bing or Perplexity, or a custom `http` or `https` URL template containing `%s` where the encoded query goes. Google, DuckDuckGo, Brave, Kagi and Bing also offer Web suggestions; Startpage, Perplexity and a custom template offer none.
+The web engine the Web search row uses: Google, DuckDuckGo, Brave, Kagi, Startpage, Bing or Perplexity, or a custom `http` or `https` URL template containing `%s` where the encoded query goes. Rail has no Search engine until the user chooses one in Search settings: with none, Search shows no Web search row and no Web suggestions. Google, DuckDuckGo, Brave, Kagi and Bing also offer Web suggestions; Startpage, Perplexity, a custom template and no engine offer none.
 _Avoid_: Search provider, web engine
 
 **Typed URL**:

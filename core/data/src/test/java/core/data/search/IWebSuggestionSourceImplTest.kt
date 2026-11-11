@@ -1,6 +1,7 @@
 package core.data.search
 
 import core.data.prefs.Settings
+import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_SDK
 import core.data.testing.createPreferencesRepositoryMock
 import java.io.ByteArrayInputStream
@@ -35,7 +36,7 @@ class IWebSuggestionSourceImplTest {
     fun `waits the debounce delay before requesting suggestions`() = runTest {
         var actualRequestCount: Int = 0
         val source: IWebSuggestionSourceImpl = createSource(
-            settingsFlow = MutableStateFlow(Settings(searchWebSuggestions = true)),
+            settingsFlow = MutableStateFlow(TEST_GOOGLE_SETTINGS.copy(searchWebSuggestions = true)),
             readUrl = {
                 actualRequestCount++
                 SAMPLE_RESPONSE
@@ -49,6 +50,23 @@ class IWebSuggestionSourceImplTest {
         advanceTimeBy(1)
         runCurrent()
         assertEquals(1, actualRequestCount)
+    }
+
+    @Test
+    fun `makes no request while no Search engine is chosen`() = runTest {
+        var actualRequestCount: Int = 0
+        val source: IWebSuggestionSourceImpl = createSource(
+            settingsFlow = MutableStateFlow(Settings(searchWebSuggestions = true)),
+            readUrl = {
+                actualRequestCount++
+                SAMPLE_RESPONSE
+            }
+        )
+
+        val actualSuggestions: List<String> = source.suggestions(query = "rail").first()
+
+        assertEquals(emptyList<String>(), actualSuggestions)
+        assertEquals(0, actualRequestCount)
     }
 
     @Test
@@ -72,7 +90,7 @@ class IWebSuggestionSourceImplTest {
     fun `never emits a slow response for an older query`() = runTest {
         val inputOlderResponse: CompletableDeferred<String?> = CompletableDeferred()
         val source: IWebSuggestionSourceImpl = createSource(
-            settingsFlow = MutableStateFlow(Settings(searchWebSuggestions = true)),
+            settingsFlow = MutableStateFlow(TEST_GOOGLE_SETTINGS.copy(searchWebSuggestions = true)),
             readUrl = { url -> if (url.contains("older")) inputOlderResponse.await() else """["newer",["newer suggestion"]]""" }
         )
         val inputQueries: MutableStateFlow<String> = MutableStateFlow("older")

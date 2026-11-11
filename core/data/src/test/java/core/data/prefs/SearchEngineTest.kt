@@ -23,6 +23,27 @@ class SearchEngineTest {
     }
 
     @Test
+    fun `has no Search URL without a chosen engine even with a stored template`() {
+        assertNull(SearchEngine.None.searchUrl(query = "a", customTemplate = null))
+        assertNull(SearchEngine.None.searchUrl(query = "a", customTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE))
+    }
+
+    @Test
+    fun `lists every built-in engine as a Search engine choice`() {
+        val expectedEngines: List<SearchEngine> = listOf(
+            SearchEngine.Google,
+            SearchEngine.DuckDuckGo,
+            SearchEngine.Brave,
+            SearchEngine.Kagi,
+            SearchEngine.Startpage,
+            SearchEngine.Bing,
+            SearchEngine.Perplexity
+        )
+
+        assertEquals(expectedEngines, SearchEngine.selectable)
+    }
+
+    @Test
     fun `builds each Web suggestion endpoint with the encoded query`() {
         val inputUrls: Map<SearchEngine, String> = mapOf(
             SearchEngine.Google to "https://suggestqueries.google.com/complete/search?client=firefox&q=rail%20launcher",
@@ -39,6 +60,7 @@ class SearchEngineTest {
 
     @Test
     fun `has no Web suggestion URL for engines without an endpoint`() {
+        assertNull(SearchEngine.None.suggestionUrl(query = "rail"))
         assertNull(SearchEngine.Startpage.suggestionUrl(query = "rail"))
         assertNull(SearchEngine.Perplexity.suggestionUrl(query = "rail"))
         assertNull(SearchEngine.Custom.suggestionUrl(query = "rail"))
@@ -54,7 +76,8 @@ class SearchEngineTest {
             SearchEngine.Startpage to false,
             SearchEngine.Bing to true,
             SearchEngine.Perplexity to false,
-            SearchEngine.Custom to false
+            SearchEngine.Custom to false,
+            SearchEngine.None to false
         )
 
         inputExpected.forEach { (engine, expectedOffersSuggestions) ->

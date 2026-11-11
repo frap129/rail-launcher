@@ -34,8 +34,8 @@ data class Settings(
     val searchWebSuggestions: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_CONTACTS, defaultValue = "0")
     val searchContacts: Boolean = false,
-    @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "GOOGLE")
-    val searchEngine: SearchEngine = SearchEngine.Google,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "None")
+    val searchEngine: SearchEngine = SearchEngine.None,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE_TEMPLATE)
     val searchEngineTemplate: String? = null
 ) {
