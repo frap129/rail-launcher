@@ -40,6 +40,8 @@ private const val AUTO_LAUNCH_DATABASE_NAME: String = "auto-launch-migration-tes
 private const val AUTO_LAUNCH_DATABASE_VERSION: Int = 20
 private const val CONTACTS_DATABASE_NAME: String = "contacts-migration-test"
 private const val CONTACTS_DATABASE_VERSION: Int = 21
+private const val WEB_SUGGESTIONS_DATABASE_NAME: String = "web-suggestions-migration-test"
+private const val WEB_SUGGESTIONS_DATABASE_VERSION: Int = 22
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
@@ -422,6 +424,74 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Live web suggestions switch defaulting off and keeps the settings row`() {
+        withDatabase(
+            name = WEB_SUGGESTIONS_DATABASE_NAME,
+            version = WEB_SUGGESTIONS_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    hidePrivateSpaceWhenLocked = true,
+                    scrubEdges = ScrubEdges.START,
+                    railSide = RailSide.START,
+                    openSearchOnSwipeUp = false,
+                    openSearchOnHomePress = true,
+                    searchSuggestions = false,
+                    searchCalculatorRow = false,
+                    searchWebRow = false,
+                    searchPlayStoreRow = false,
+                    searchAutoLaunch = true,
+                    searchBottomAnchoredResults = true,
+                    searchContacts = true,
+                    searchEngine = SearchEngine.Kagi,
+                    searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+                )
+            }
+        ) { db ->
+            MIGRATION_22_23.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED,
+                    Settings.COLUMN_SCRUB_EDGES,
+                    Settings.COLUMN_RAIL_SIDE,
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS,
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_SEARCH_CALCULATOR_ROW,
+                    Settings.COLUMN_SEARCH_WEB_ROW,
+                    Settings.COLUMN_SEARCH_PLAY_STORE_ROW,
+                    Settings.COLUMN_SEARCH_ENGINE,
+                    Settings.COLUMN_SEARCH_ENGINE_TEMPLATE,
+                    Settings.COLUMN_SEARCH_AUTO_LAUNCH,
+                    Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS,
+                    Settings.COLUMN_SEARCH_CONTACTS,
+                    Settings.COLUMN_SEARCH_WEB_SUGGESTIONS
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(false, db.searchWebSuggestions())
+            assertEquals(true, db.searchContacts())
+            assertEquals(true, db.searchAutoLaunch())
+            assertEquals(true, db.searchBottomAnchoredResults())
+            assertEquals(false, db.searchCalculatorRow())
+            assertEquals(false, db.searchWebRow())
+            assertEquals(false, db.searchPlayStoreRow())
+            assertEquals(SearchEngine.Kagi.name, db.searchEngine())
+            assertEquals(TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE, db.searchEngineTemplate())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(true, db.openSearchOnHomePress())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(true, db.hidePrivateSpaceWhenLocked())
+            assertEquals("START", db.scrubEdges())
+            assertEquals("START", db.railSide())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -506,6 +576,7 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     searchPlayStoreRow: Boolean? = null,
     searchAutoLaunch: Boolean? = null,
     searchBottomAnchoredResults: Boolean? = null,
+    searchContacts: Boolean? = null,
     searchEngine: SearchEngine? = null,
     searchEngineTemplate: String? = null
 ) {
@@ -548,6 +619,9 @@ private fun SupportSQLiteDatabase.createSettingsRow(
         },
         searchBottomAnchoredResults?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
+        },
+        searchContacts?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_CONTACTS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
         }
     )
     val definitions: String = columns.joinToString(separator = "") { column -> ", ${column.name} ${column.definition}" }
@@ -657,6 +731,12 @@ private fun SupportSQLiteDatabase.searchContacts(): Boolean =
     query("SELECT ${Settings.COLUMN_SEARCH_CONTACTS} FROM $SETTINGS_TABLE").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CONTACTS)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchEngine(): String =

@@ -46,6 +46,7 @@ data class SettingsUiState(
     val searchCalculatorRow: Boolean,
     val searchWebRow: Boolean,
     val searchPlayStoreRow: Boolean,
+    val searchWebSuggestions: Boolean,
     val searchContacts: Boolean,
     val searchEngine: SearchEngine,
     val searchEngineTemplate: String?
@@ -95,6 +96,7 @@ class SettingsViewModel(
             searchCalculatorRow = settings.searchCalculatorRow,
             searchWebRow = settings.searchWebRow,
             searchPlayStoreRow = settings.searchPlayStoreRow,
+            searchWebSuggestions = settings.searchWebSuggestions,
             searchContacts = settings.searchContacts && hasContactPermission,
             searchEngine = settings.searchEngine,
             searchEngineTemplate = settings.searchEngineTemplate
@@ -117,6 +119,7 @@ class SettingsViewModel(
             searchCalculatorRow = true,
             searchWebRow = true,
             searchPlayStoreRow = true,
+            searchWebSuggestions = defaultSettings.searchWebSuggestions,
             searchContacts = false,
             searchEngine = SearchEngine.Google,
             searchEngineTemplate = null
@@ -160,6 +163,9 @@ class SettingsViewModel(
 
     /** Persists whether Search shows the Play Store row. */
     fun setSearchPlayStoreRow(enabled: Boolean) = prefsRepo.setSearchPlayStoreRow(enabled)
+
+    /** Persists whether Search fetches Web suggestions from the Search engine while typing. */
+    fun setSearchWebSuggestions(enabled: Boolean) = prefsRepo.setSearchWebSuggestions(enabled)
 
     /**
      * Persists whether Search shows Contact rows, asking for the Contacts permission first when

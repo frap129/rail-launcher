@@ -27,6 +27,7 @@ import core.data.profiles.QuietRequestResult
 import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.IShortcutSearchSource
+import core.data.search.IWebSuggestionSource
 import core.data.search.SearchContact
 import core.data.search.SearchHistoryRecord
 import core.data.search.SearchResult
@@ -45,6 +46,7 @@ import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import java.util.Locale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -133,7 +135,10 @@ private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emp
 /** The contacts Search may match, and whether their source has emitted them yet. */
 private data class ContactSearchState(val contacts: List<SearchContact> = emptyList(), val isLoaded: Boolean = false)
 
-/** The Search history, clock, Shortcuts and contacts a Search projection reads, with the setting that shows Search suggestions. */
+/**
+ * The Search history, clock, Shortcuts, contacts and Web suggestions a Search projection reads,
+ * with the setting that shows Search suggestions.
+ */
 private data class SearchData(
     val history: List<SearchHistoryRecord>,
     val nowEpochMs: Long,
@@ -141,11 +146,21 @@ private data class SearchData(
     val shortcuts: List<SearchShortcut>,
     val areShortcutsLoaded: Boolean,
     val contacts: List<SearchContact>,
-    val areContactsLoaded: Boolean
+    val areContactsLoaded: Boolean,
+    val webSuggestions: WebSuggestions
 ) {
     /** Typed results wait for both sources, so no row is ever shown before all of them are known. */
     val areSearchSourcesLoaded: Boolean get() = areShortcutsLoaded && areContactsLoaded
 }
+
+/** The Web suggestions fetched for [query], so a new query never shows an older query's rows. */
+private data class WebSuggestions(val query: String, val suggestions: List<String>) {
+    /** These suggestions when they belong to [query], or none when they belong to an older query. */
+    fun forQuery(query: String): List<String> = if (this.query == query) suggestions else emptyList()
+}
+
+/** Whether this Search row may be the Top result: Contact and Web suggestion rows never are. */
+private fun SearchResult.canBeTopResult(): Boolean = this !is SearchResult.ContactRow && this !is SearchResult.WebSuggestionRow
 
 private data class RailNavigation(
     val mode: LauncherMode = LauncherMode.Home,
@@ -183,6 +198,7 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
                 launchCounts = launchCounts,
                 shortcuts = searchData.shortcuts,
                 contacts = searchData.contacts,
+                webSuggestions = searchData.webSuggestions.forQuery(query = search.query),
                 locale = Locale.getDefault(),
                 settings = searchData.settings
             )
@@ -191,7 +207,7 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
     return LauncherUiState.Search(
         query = search.query,
         results = results,
-        topResult = if (isShowingSuggestions) null else results.firstOrNull { result -> result !is SearchResult.ContactRow },
+        topResult = if (isShowingSuggestions) null else results.firstOrNull { result -> result.canBeTopResult() },
         isShowingSuggestions = isShowingSuggestions,
         isBottomAnchored = searchData.settings.searchBottomAnchoredResults,
         autoLaunchResult = if (isShowingSuggestions || !search.isForwardTyping) {
@@ -263,7 +279,8 @@ class LauncherViewModel(
     private val searchHistoryRepository: ISearchHistoryRepository,
     private val clockSource: IClockSource,
     private val shortcutSearchSource: IShortcutSearchSource,
-    private val contactSearchSource: IContactSearchSource
+    private val contactSearchSource: IContactSearchSource,
+    private val webSuggestionSource: IWebSuggestionSource
 ) : ViewModel() {
 
     val listStartOffsetPx: Int = listOffsets.startPx
@@ -327,6 +344,21 @@ class LauncherViewModel(
             initialValue = ShortcutSearchState()
         )
 
+    // Web suggestions follow the live query; flatMapLatest cancels the previous query's request,
+    // and the source debounces the new one. A blank query has none.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val webSuggestions: Flow<WebSuggestions> = navigation
+        .map { navigation -> navigation.search?.query.orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()) {
+                flowOf(WebSuggestions(query = query, suggestions = emptyList()))
+            } else {
+                webSuggestionSource.suggestions(query = query)
+                    .map { suggestions -> WebSuggestions(query = query, suggestions = suggestions) }
+            }
+        }
+
     // Search reads its history, Shortcuts and contacts from state and re-derives suggestions as the clock ticks, never on a keystroke.
     private val searchData: Flow<SearchData> = combine(
         searchHistoryRepository.history,
@@ -342,8 +374,13 @@ class LauncherViewModel(
             shortcuts = shortcutState.shortcuts,
             areShortcutsLoaded = shortcutState.isLoaded,
             contacts = contactState.contacts,
-            areContactsLoaded = contactState.isLoaded
+            areContactsLoaded = contactState.isLoaded,
+            webSuggestions = WebSuggestions(query = "", suggestions = emptyList())
         )
+    }
+
+    private val searchDataWithWebSuggestions: Flow<SearchData> = combine(searchData, webSuggestions) { data, suggestions ->
+        data.copy(webSuggestions = suggestions)
     }
 
     // Auto-launch derives from the Search state the screen shows, so the gates that build the rows
@@ -406,7 +443,7 @@ class LauncherViewModel(
         launchableState,
         favorites,
         isEditingFavorites,
-        searchData
+        searchDataWithWebSuggestions
     ) { navigation, state, favorites, isEditingFavorites, searchData ->
         toUiState(
             navigation = navigation,

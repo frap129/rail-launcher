@@ -7,10 +7,15 @@ import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_SDK
+import core.data.testing.TEST_SECOND_WEB_SUGGESTION
+import core.data.testing.TEST_SECOND_WEB_SUGGESTION_URL
+import core.data.testing.TEST_WEB_SUGGESTION
+import core.data.testing.TEST_WEB_SUGGESTION_URL
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
+import core.data.testing.createWebSuggestionRow
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -353,17 +358,83 @@ class SearchResultTest {
         assertTrue(actualResults.none { result -> result is SearchResult.ContactRow })
     }
 
+    @Test
+    fun `appends Web suggestion rows after the Play Store row`() {
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "rail",
+            webSuggestions = listOf(TEST_WEB_SUGGESTION, TEST_SECOND_WEB_SUGGESTION)
+        )
+
+        assertEquals(
+            listOf(
+                SearchResult.WebSearchRow(url = "https://www.google.com/search?q=rail"),
+                SearchResult.PlayStoreRow(
+                    marketUrl = "market://search?q=rail",
+                    webUrl = "https://play.google.com/store/search?q=rail&c=apps"
+                ),
+                createWebSuggestionRow(
+                    suggestion = TEST_WEB_SUGGESTION,
+                    url = TEST_WEB_SUGGESTION_URL
+                ),
+                createWebSuggestionRow(
+                    suggestion = TEST_SECOND_WEB_SUGGESTION,
+                    url = TEST_SECOND_WEB_SUGGESTION_URL
+                )
+            ),
+            actualResults
+        )
+    }
+
+    @Test
+    fun `builds Web suggestion rows with the selected Search engine`() {
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputEmptyState,
+            query = "rail",
+            webSuggestions = listOf("rail way"),
+            settings = Settings(searchEngine = SearchEngine.DuckDuckGo)
+        )
+
+        assertEquals(
+            SearchResult.WebSuggestionRow(
+                suggestion = "rail way",
+                url = "https://duckduckgo.com/?q=rail%20way"
+            ),
+            actualResults.last()
+        )
+    }
+
+    @Test
+    fun `keeps the Launchable results above the Web suggestion rows`() {
+        val inputApp: Launchable = createRailLaunchable("Rail")
+        val inputState: LaunchableState = createLoadedLaunchableState(listOf(inputApp))
+
+        val actualResults: List<SearchResult> = searchRows(
+            state = inputState,
+            query = "rail",
+            webSuggestions = listOf(TEST_WEB_SUGGESTION)
+        )
+
+        assertEquals(SearchResult.LaunchableResult(inputApp), actualResults.first())
+        assertEquals(
+            createWebSuggestionRow(suggestion = TEST_WEB_SUGGESTION, url = TEST_WEB_SUGGESTION_URL),
+            actualResults.last()
+        )
+    }
+
     private fun searchRows(
         state: LaunchableState,
         query: String,
         shortcuts: List<SearchShortcut> = emptyList(),
         contacts: List<SearchContact> = emptyList(),
+        webSuggestions: List<String> = emptyList(),
         settings: Settings = Settings()
     ): List<SearchResult> = state.searchResultRows(
         query = query,
         launchCounts = emptyMap(),
         shortcuts = shortcuts,
         contacts = contacts,
+        webSuggestions = webSuggestions,
         locale = inputLocale,
         settings = settings
     )

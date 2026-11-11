@@ -36,6 +36,7 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setSearchCalculatorRow(any()) } just Runs
     every { mockPreferencesRepository.setSearchWebRow(any()) } just Runs
     every { mockPreferencesRepository.setSearchPlayStoreRow(any()) } just Runs
+    every { mockPreferencesRepository.setSearchWebSuggestions(any()) } just Runs
     every { mockPreferencesRepository.setSearchContacts(any()) } just Runs
     every { mockPreferencesRepository.setSearchEngine(any()) } just Runs
     every { mockPreferencesRepository.setCustomSearchEngineTemplate(any()) } just Runs

@@ -510,6 +510,18 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores the Live web suggestions switch without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setSearchWebSuggestions(true)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.searchWebSuggestions }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, searchWebSuggestions = true), actualSettings)
+    }
+
+    @Test
     fun `stores the Search engine without clearing the custom template`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE))
@@ -558,6 +570,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setSearchCalculatorRow(enabled = false) },
             { repository.setSearchWebRow(enabled = false) },
             { repository.setSearchPlayStoreRow(enabled = false) },
+            { repository.setSearchWebSuggestions(enabled = true) },
             { repository.setSearchContacts(enabled = true) },
             { repository.setSearchEngine(engine = SearchEngine.Kagi) },
             { repository.setCustomSearchEngineTemplate(template = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE) }
@@ -581,6 +594,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 searchCalculatorRow = false,
                 searchWebRow = false,
                 searchPlayStoreRow = false,
+                searchWebSuggestions = true,
                 searchContacts = true,
                 searchEngine = SearchEngine.Custom,
                 searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE

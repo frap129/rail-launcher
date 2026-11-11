@@ -82,6 +82,20 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
             )
         }
         item {
+            val hasSuggestionEngine: Boolean = uiState.searchEngine.offersSuggestions
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_web_suggestions),
+                checked = uiState.searchWebSuggestions,
+                supportingText = if (hasSuggestionEngine) {
+                    stringResource(R.string.search_web_suggestions_summary)
+                } else {
+                    stringResource(R.string.search_web_suggestions_unavailable)
+                },
+                enabled = hasSuggestionEngine,
+                onCheckedChange = viewModel::setSearchWebSuggestions
+            )
+        }
+        item {
             SettingsSwitchRow(
                 title = stringResource(R.string.search_auto_launch),
                 checked = uiState.searchAutoLaunch,

@@ -1,7 +1,11 @@
 package feature.launcher
 
 import android.content.Context
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -9,12 +13,16 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.search.SearchResult
 import core.data.testing.TEST_SDK
+import core.data.testing.TEST_WEB_SUGGESTION
+import core.data.testing.TEST_WEB_SUGGESTION_URL
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
+import core.data.testing.createWebSuggestionRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -66,6 +74,59 @@ class LauncherSearchTest {
         composeRule.onNodeWithText(context.getString(R.string.search_web_action)).performClick()
 
         composeRule.runOnIdle { assertEquals(SearchResult.WebSearchRow(url = INPUT_WEB_URL), actualRow) }
+    }
+
+    @Test
+    fun `opens the Web suggestion when its row is tapped`() {
+        val inputRow: SearchResult.WebSuggestionRow = createWebSuggestionRow(
+            suggestion = TEST_WEB_SUGGESTION,
+            url = TEST_WEB_SUGGESTION_URL
+        )
+        var actualRow: SearchResult.ExternalRow? = null
+        setSearchContent(results = listOf(inputRow), onOpenSearchRow = { row -> actualRow = row })
+
+        composeRule.onNodeWithText(inputRow.suggestion).performClick()
+
+        composeRule.runOnIdle { assertEquals(inputRow, actualRow) }
+    }
+
+    @Test
+    fun `keeps the scroll position when Web suggestions arrive`() {
+        val inputResults: MutableState<List<SearchResult>> = mutableStateOf(
+            (1..20).map { index -> SearchResult.LaunchableResult(createRailLaunchable("Item $index")) }
+        )
+        composeRule.setContent {
+            LauncherSearch(
+                modifier = Modifier,
+                search = LauncherUiState.Search(
+                    query = "item",
+                    results = inputResults.value,
+                    topResult = null,
+                    isShowingSuggestions = false,
+                    isBottomAnchored = false,
+                    autoLaunchResult = null
+                ),
+                shouldAutoLaunch = { true },
+                itemActions = itemActions,
+                onQueryChange = {},
+                onSearchGo = { null },
+                onCopyCalculatorRow = {},
+                onOpenSearchRow = {},
+                onContactRowAction = { _, _ -> }
+            )
+        }
+        composeRule.onNode(hasScrollAction()).performScrollToIndex(19)
+        composeRule.onAllNodesWithText("Item 20").onFirst().assertIsDisplayed()
+
+        composeRule.runOnIdle {
+            inputResults.value = inputResults.value + createWebSuggestionRow(
+                suggestion = TEST_WEB_SUGGESTION,
+                url = TEST_WEB_SUGGESTION_URL
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onAllNodesWithText("Item 20").onFirst().assertIsDisplayed()
     }
 
     @Test

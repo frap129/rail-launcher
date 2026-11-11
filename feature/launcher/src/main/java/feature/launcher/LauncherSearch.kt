@@ -130,6 +130,7 @@ internal fun LauncherSearch(
         )
         LauncherSearchResults(
             modifier = Modifier.weight(1f),
+            query = search.query,
             results = search.results,
             itemActions = searchItemActions,
             topResultKey = search.topResult?.key,
@@ -143,6 +144,7 @@ internal fun LauncherSearch(
 @Composable
 private fun LauncherSearchResults(
     modifier: Modifier,
+    query: String,
     results: List<SearchResult>,
     itemActions: LauncherItemActions,
     topResultKey: String?,
@@ -151,7 +153,8 @@ private fun LauncherSearchResults(
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val listState: LazyListState = rememberLazyListState()
-    LaunchedEffect(results, isBottomAnchored) {
+    // Only a new query or anchoring resets the list, so rows appended after it stay in place.
+    LaunchedEffect(query, isBottomAnchored) {
         if (results.isNotEmpty()) {
             listState.scrollToItem(0)
         }
@@ -238,6 +241,11 @@ private fun SearchResult.ExternalRow.searchRowAction(): SearchRowAction = when (
     is SearchResult.WebSearchRow -> SearchRowAction(
         imageVector = FontAwesomeIcons.Solid.Search,
         label = stringResource(R.string.search_web_action)
+    )
+
+    is SearchResult.WebSuggestionRow -> SearchRowAction(
+        imageVector = FontAwesomeIcons.Solid.Search,
+        label = suggestion
     )
 
     is SearchResult.PlayStoreRow -> SearchRowAction(

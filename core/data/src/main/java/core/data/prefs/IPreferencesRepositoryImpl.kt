@@ -193,6 +193,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setSearchWebSuggestions(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchWebSuggestions = enabled) }
+        }
+    }
+
     override fun setSearchContacts(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(searchContacts = enabled) }

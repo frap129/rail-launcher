@@ -13,6 +13,7 @@ import core.util.tryStartActivity
 internal fun openSearchResultRow(context: Context, row: SearchResult.ExternalRow): Boolean = when (row) {
     is SearchResult.TypedUrlRow -> openBrowserUrl(context = context, url = row.url)
     is SearchResult.WebSearchRow -> openBrowserUrl(context = context, url = row.url)
+    is SearchResult.WebSuggestionRow -> openBrowserUrl(context = context, url = row.url)
     is SearchResult.PlayStoreRow -> openPlayStoreRow(context = context, row = row)
 }
 

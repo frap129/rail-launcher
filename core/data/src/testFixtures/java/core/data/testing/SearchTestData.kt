@@ -2,6 +2,7 @@ package core.data.testing
 
 import core.data.search.IContactSearchSource
 import core.data.search.SearchContact
+import core.data.search.SearchResult
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -17,6 +18,19 @@ const val TEST_CONTACT_ID: Long = 1L
 const val TEST_CONTACT_LOOKUP_KEY: String = "com.example.alice"
 const val TEST_CONTACT_NAME: String = "Alice"
 const val TEST_CONTACT_NUMBER: String = "5550100"
+
+const val TEST_WEB_SUGGESTION: String = "railway"
+const val TEST_WEB_SUGGESTION_URL: String = "https://www.google.com/search?q=railway"
+const val TEST_SECOND_WEB_SUGGESTION: String = "railroad"
+const val TEST_SECOND_WEB_SUGGESTION_URL: String = "https://www.google.com/search?q=railroad"
+const val TEST_ALPHA_WEB_SUGGESTION: String = "alpha academy"
+const val TEST_ALPHA_WEB_SUGGESTION_URL: String = "https://www.google.com/search?q=alpha%20academy"
+const val TEST_BETA_WEB_SUGGESTION: String = "beta blocker"
+const val TEST_BETA_WEB_SUGGESTION_URL: String = "https://www.google.com/search?q=beta%20blocker"
+
+/** A Web suggestion row for [suggestion], which opens [url]. */
+fun createWebSuggestionRow(suggestion: String, url: String): SearchResult.WebSuggestionRow =
+    SearchResult.WebSuggestionRow(suggestion = suggestion, url = url)
 
 /** A contact with the Search test defaults. */
 fun createSearchContact(

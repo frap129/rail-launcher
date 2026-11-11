@@ -59,6 +59,9 @@ interface IPreferencesRepository {
     /** Sets whether Search shows the Play Store row. */
     fun setSearchPlayStoreRow(enabled: Boolean)
 
+    /** Sets whether Search fetches Web suggestions from the Search engine while typing. */
+    fun setSearchWebSuggestions(enabled: Boolean)
+
     /** Sets whether Search shows Contact rows, after their permission is granted. */
     fun setSearchContacts(enabled: Boolean)
 
