@@ -5,11 +5,13 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION
 import core.data.testing.TEST_SECOND_WEB_SUGGESTION_URL
+import core.data.testing.TEST_TYPED_URL_QUERY
 import core.data.testing.TEST_WEB_SUGGESTION
 import core.data.testing.TEST_WEB_SUGGESTION_URL
 import core.data.testing.createLoadedLaunchableState
@@ -67,13 +69,13 @@ class SearchResultTest {
     fun `places the Calculator, web and Play Store rows in their fixed order after the Launchable results`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "12*7",
+            query = TEST_CALCULATOR_QUERY,
             settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(
             listOf(
-                SearchResult.CalculatorRow(expression = "12*7", value = "84"),
+                SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84"),
                 SearchResult.WebSearchRow(url = "https://www.google.com/search?q=12%2A7"),
                 SearchResult.PlayStoreRow(
                     marketUrl = "market://search?q=12%2A7",
@@ -88,7 +90,7 @@ class SearchResultTest {
     fun `places the typed-URL row before the web and Play Store rows`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "example.com",
+            query = TEST_TYPED_URL_QUERY,
             settings = TEST_GOOGLE_SETTINGS
         )
 
@@ -107,7 +109,7 @@ class SearchResultTest {
 
     @Test
     fun `keeps the typed-URL and Play Store rows without a chosen Search engine`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "example.com")
+        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = TEST_TYPED_URL_QUERY)
 
         assertEquals(
             listOf(
@@ -200,16 +202,16 @@ class SearchResultTest {
 
     @Test
     fun `makes the Calculator row the Top result when nothing else matches`() {
-        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = "12*7")
+        val actualResults: List<SearchResult> = searchRows(state = inputEmptyState, query = TEST_CALCULATOR_QUERY)
 
-        assertEquals(SearchResult.CalculatorRow(expression = "12*7", value = "84"), actualResults.firstOrNull())
+        assertEquals(SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84"), actualResults.firstOrNull())
     }
 
     @Test
     fun `makes the typed-URL row the Top result when no Launchable or Calculator row matches`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "example.com",
+            query = TEST_TYPED_URL_QUERY,
             settings = Settings(searchCalculatorRow = false)
         )
 
@@ -234,7 +236,7 @@ class SearchResultTest {
     fun `makes the lone Play Store row the Top result`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "12*7",
+            query = TEST_CALCULATOR_QUERY,
             settings = Settings(searchCalculatorRow = false, searchWebRow = false)
         )
 
@@ -251,7 +253,7 @@ class SearchResultTest {
     fun `adds no Calculator row when its switch is off`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "12*7",
+            query = TEST_CALCULATOR_QUERY,
             settings = Settings(searchCalculatorRow = false)
         )
 
@@ -262,7 +264,7 @@ class SearchResultTest {
     fun `adds no typed-URL or web row when the web switch is off`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "example.com",
+            query = TEST_TYPED_URL_QUERY,
             settings = Settings(searchWebRow = false)
         )
 
@@ -275,7 +277,7 @@ class SearchResultTest {
     fun `adds no Play Store row when its switch is off`() {
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "example.com",
+            query = TEST_TYPED_URL_QUERY,
             settings = Settings(searchPlayStoreRow = false)
         )
 
@@ -306,14 +308,14 @@ class SearchResultTest {
 
         val actualResults: List<SearchResult> = searchRows(
             state = inputEmptyState,
-            query = "12*7",
+            query = TEST_CALCULATOR_QUERY,
             contacts = listOf(inputContact),
             settings = TEST_GOOGLE_SETTINGS
         )
 
         assertEquals(
             listOf(
-                SearchResult.CalculatorRow(expression = "12*7", value = "84"),
+                SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84"),
                 SearchResult.ContactRow(contact = inputContact),
                 SearchResult.WebSearchRow(url = "https://www.google.com/search?q=12%2A7"),
                 SearchResult.PlayStoreRow(

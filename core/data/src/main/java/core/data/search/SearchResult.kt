@@ -93,17 +93,7 @@ fun LaunchableState.searchResultRows(
         launchCounts = launchCounts,
         shortcuts = shortcuts
     ).toSearchResults()
-    val calculatorRow: SearchResult.CalculatorRow? = if (settings.searchCalculatorRow) {
-        evaluateCalculatorExpression(query = query, locale = locale)
-            ?.let { value -> SearchResult.CalculatorRow(expression = query, value = value) }
-    } else {
-        null
-    }
-    val typedUrlRow: SearchResult.TypedUrlRow? = if (settings.searchWebRow) {
-        typedUrl(query = query)?.let { url -> SearchResult.TypedUrlRow(url = url) }
-    } else {
-        null
-    }
+    val dedicatedRows: DedicatedSearchRows = settings.dedicatedSearchRows(query = query, locale = locale)
     val webSearchRow: SearchResult.WebSearchRow? = if (settings.searchWebRow) {
         settings.searchEngine.searchUrl(query = query, customTemplate = settings.searchEngineTemplate)
             ?.let { url -> SearchResult.WebSearchRow(url = url) }
@@ -124,10 +114,37 @@ fun LaunchableState.searchResultRows(
             ?.let { url -> SearchResult.WebSuggestionRow(suggestion = suggestion, url = url) }
     }
     return launchableResults +
-        listOfNotNull(calculatorRow) +
+        listOfNotNull(dedicatedRows.calculatorRow) +
         contactRows +
-        listOfNotNull(typedUrlRow, webSearchRow, playStoreRow) +
+        listOfNotNull(dedicatedRows.typedUrlRow, webSearchRow, playStoreRow) +
         webSuggestionRows
+}
+
+/**
+ * The Calculator and typed URL rows [query] gets under these [settings]: the Calculator row while
+ * [Settings.searchCalculatorRow] is on and [query] is an arithmetic expression in [locale], the
+ * typed-URL row while [Settings.searchWebRow] is on and [query] looks like a web address. Each is
+ * null when its row is off or [query] does not match.
+ */
+internal fun Settings.dedicatedSearchRows(query: String, locale: Locale): DedicatedSearchRows {
+    val calculatorRow: SearchResult.CalculatorRow? = if (searchCalculatorRow) {
+        evaluateCalculatorExpression(query = query, locale = locale)
+            ?.let { value -> SearchResult.CalculatorRow(expression = query, value = value) }
+    } else {
+        null
+    }
+    val typedUrlRow: SearchResult.TypedUrlRow? = if (searchWebRow) {
+        typedUrl(query = query)?.let { url -> SearchResult.TypedUrlRow(url = url) }
+    } else {
+        null
+    }
+    return DedicatedSearchRows(calculatorRow = calculatorRow, typedUrlRow = typedUrlRow)
+}
+
+/** The Calculator and typed URL rows [query] gets, each null when its row is off or does not match. */
+internal data class DedicatedSearchRows(val calculatorRow: SearchResult.CalculatorRow?, val typedUrlRow: SearchResult.TypedUrlRow?) {
+    /** Whether either row is showing, so the query already has a row of its own. */
+    val hasAnyRow: Boolean get() = calculatorRow != null || typedUrlRow != null
 }
 
 /** A contact matched at [tier], kept with its tier so the rows sort like Launchable results. */

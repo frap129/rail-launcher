@@ -5,6 +5,7 @@ import core.data.prefs.SearchEngine
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -37,14 +38,15 @@ private const val MAX_WEB_SUGGESTIONS: Int = 8
 /** The `Accept` header that asks a suggestion endpoint for JSON. */
 private const val JSON_ACCEPT_HEADER: String = "application/json"
 
-/** The query, engine and setting one suggestions flow depends on. */
-private data class WebSuggestionRequest(val query: String, val engine: SearchEngine, val isEnabled: Boolean)
+/** The query, engine, setting and row visibility one suggestions flow depends on. */
+private data class WebSuggestionRequest(val query: String, val engine: SearchEngine, val isEnabled: Boolean, val hasDedicatedRow: Boolean)
 
 /**
  * Reads Web suggestions from the selected Search engine over https, while Live web suggestions
- * is on and the engine has a suggestion endpoint. Requests are debounced; a failure logs and
- * emits no rows, and cancelling the flow cancels an in-flight read. [readUrl] is the network read
- * seam, which tests replace so they never open a connection, and defaults to [readInterruptibly].
+ * is on and the engine has a suggestion endpoint. A query that shows its Calculator or typed URL
+ * row is never sent. Requests are debounced; a failure logs and emits no rows, and cancelling the
+ * flow cancels an in-flight read. [readUrl] is the network read seam, which tests replace so they
+ * never open a connection, and defaults to [readInterruptibly].
  */
 class IWebSuggestionSourceImpl(
     private val preferencesRepository: IPreferencesRepository,
@@ -54,7 +56,7 @@ class IWebSuggestionSourceImpl(
     // flatMapLatest cancels the request of the previous engine or switch, so an older response
     // never reaches the collector.
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun suggestions(query: String): Flow<List<String>> {
+    override fun suggestions(query: String, locale: Locale): Flow<List<String>> {
         if (query.isBlank()) {
             return flowOf(emptyList())
         }
@@ -63,11 +65,14 @@ class IWebSuggestionSourceImpl(
                 WebSuggestionRequest(
                     query = query,
                     engine = settings.searchEngine,
-                    isEnabled = settings.searchWebSuggestions
+                    isEnabled = settings.searchWebSuggestions,
+                    hasDedicatedRow = settings.dedicatedSearchRows(query = query, locale = locale).hasAnyRow
                 )
             }
             .distinctUntilChanged()
-            .flatMapLatest { request -> if (request.isEnabled) requestSuggestions(request) else flowOf(emptyList()) }
+            .flatMapLatest { request ->
+                if (request.isEnabled && !request.hasDedicatedRow) requestSuggestions(request) else flowOf(emptyList())
+            }
             .catch { exception ->
                 if (exception is CancellationException) {
                     throw exception

@@ -357,7 +357,7 @@ class LauncherViewModel(
             if (query.isBlank()) {
                 flowOf(WebSuggestions(query = query, suggestions = emptyList()))
             } else {
-                webSuggestionSource.suggestions(query = query)
+                webSuggestionSource.suggestions(query = query, locale = Locale.getDefault())
                     .map { suggestions -> WebSuggestions(query = query, suggestions = suggestions) }
             }
         }

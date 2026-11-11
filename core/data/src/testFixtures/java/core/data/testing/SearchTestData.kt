@@ -19,6 +19,12 @@ const val TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE: String = "https://search.example.c
 /** Settings with Google as the Search engine, for tests that assert its web rows. */
 val TEST_GOOGLE_SETTINGS: Settings = Settings(searchEngine = SearchEngine.Google)
 
+/** A query that shows the Calculator row. */
+const val TEST_CALCULATOR_QUERY: String = "12*7"
+
+/** A query that shows the typed-URL row. */
+const val TEST_TYPED_URL_QUERY: String = "example.com"
+
 const val TEST_CONTACT_ID: Long = 1L
 const val TEST_CONTACT_LOOKUP_KEY: String = "com.example.alice"
 const val TEST_CONTACT_NAME: String = "Alice"

@@ -15,6 +15,6 @@ fun createWebSuggestionSourceMock(
     suggestionsByQuery: Map<String, Flow<List<String>>> = emptyMap()
 ): IWebSuggestionSource {
     val mockWebSuggestionSource: IWebSuggestionSource = mockk()
-    every { mockWebSuggestionSource.suggestions(any()) } answers { suggestionsByQuery[firstArg()] ?: suggestions }
+    every { mockWebSuggestionSource.suggestions(any(), any()) } answers { suggestionsByQuery[firstArg()] ?: suggestions }
     return mockWebSuggestionSource
 }
