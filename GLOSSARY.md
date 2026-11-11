@@ -244,6 +244,14 @@ _Avoid_: Shortcut picker, shortcut provider
 The first Search result, which the IME Go action opens; when it is the Calculator row, Go copies its result instead.
 _Avoid_: First result, primary result
 
+**Auto-launch**:
+The Search setting that opens the only Launchable or Shortcut result without pressing Enter, unless that result is Paused or disabled, or a Calculator row (or later, a contact row) is also showing.
+_Avoid_: Auto-open, auto-start
+
+**Bottom-anchored results**:
+The Search setting that reverses the Search results, leaving the query field at the top so the Top result sits next to the keyboard.
+_Avoid_: Bottom search, reversed results
+
 **Search suggestions**:
 The rows Search shows before typing: recently installed Apps, the last Launchable opened from Search within 15 minutes, and the Launchables opened most often from Search. They can be turned off in Rail Settings and removed one at a time.
 _Avoid_: Recents, predictions, quick access

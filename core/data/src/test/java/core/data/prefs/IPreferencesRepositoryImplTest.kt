@@ -462,6 +462,28 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores Auto-launch and Bottom-anchored results without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setSearchAutoLaunch(true)
+        repository.setSearchBottomAnchoredResults(true)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored ->
+            stored.searchAutoLaunch && stored.searchBottomAnchoredResults
+        }
+        assertEquals(
+            Settings(
+                iconPack = TEST_ICON_PACK_PACKAGE,
+                searchAutoLaunch = true,
+                searchBottomAnchoredResults = true
+            ),
+            actualSettings
+        )
+    }
+
+    @Test
     fun `stores the Search row switches without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -529,6 +551,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setRailSide(side = RailSide.START) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
+            { repository.setSearchAutoLaunch(enabled = true) },
+            { repository.setSearchBottomAnchoredResults(enabled = true) },
             { repository.setSearchCalculatorRow(enabled = false) },
             { repository.setSearchWebRow(enabled = false) },
             { repository.setSearchPlayStoreRow(enabled = false) },
@@ -549,6 +573,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 railSide = RailSide.START,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
+                searchAutoLaunch = true,
+                searchBottomAnchoredResults = true,
                 searchCalculatorRow = false,
                 searchWebRow = false,
                 searchPlayStoreRow = false,

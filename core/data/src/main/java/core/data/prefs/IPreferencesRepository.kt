@@ -44,6 +44,12 @@ interface IPreferencesRepository {
     /** Sets whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean)
 
+    /** Sets whether Auto-launch opens the only matching Launchable. */
+    fun setSearchAutoLaunch(enabled: Boolean)
+
+    /** Sets whether Search anchors its results at the bottom. */
+    fun setSearchBottomAnchoredResults(enabled: Boolean)
+
     /** Sets whether Search shows the Calculator row. */
     fun setSearchCalculatorRow(enabled: Boolean)
 

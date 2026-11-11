@@ -58,7 +58,7 @@ import core.data.widgets.WidgetRecord
         StandaloneShortcutRecord::class,
         SearchHistoryRecord::class
     ],
-    version = 20
+    version = 21
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

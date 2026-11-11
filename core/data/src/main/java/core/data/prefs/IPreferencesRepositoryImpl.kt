@@ -163,6 +163,18 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setSearchAutoLaunch(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchAutoLaunch = enabled) }
+        }
+    }
+
+    override fun setSearchBottomAnchoredResults(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchBottomAnchoredResults = enabled) }
+        }
+    }
+
     override fun setSearchCalculatorRow(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(searchCalculatorRow = enabled) }

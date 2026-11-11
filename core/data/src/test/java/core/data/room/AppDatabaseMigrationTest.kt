@@ -7,6 +7,7 @@ import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
+import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
 import org.junit.Assert.assertEquals
@@ -35,6 +36,8 @@ private const val SEARCH_SUGGESTIONS_DATABASE_NAME: String = "search-suggestions
 private const val SEARCH_SUGGESTIONS_DATABASE_VERSION: Int = 18
 private const val SEARCH_ROWS_DATABASE_NAME: String = "search-rows-migration-test"
 private const val SEARCH_ROWS_DATABASE_VERSION: Int = 19
+private const val AUTO_LAUNCH_DATABASE_NAME: String = "auto-launch-migration-test"
+private const val AUTO_LAUNCH_DATABASE_VERSION: Int = 20
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
@@ -291,6 +294,67 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds Auto-launch and Bottom-anchored results defaulting off and keeps the settings row`() {
+        withDatabase(
+            name = AUTO_LAUNCH_DATABASE_NAME,
+            version = AUTO_LAUNCH_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    hidePrivateSpaceWhenLocked = true,
+                    scrubEdges = ScrubEdges.START,
+                    railSide = RailSide.START,
+                    openSearchOnSwipeUp = false,
+                    openSearchOnHomePress = true,
+                    searchSuggestions = false,
+                    searchCalculatorRow = false,
+                    searchWebRow = false,
+                    searchPlayStoreRow = false,
+                    searchEngine = SearchEngine.Kagi,
+                    searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
+                )
+            }
+        ) { db ->
+            MIGRATION_20_21.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED,
+                    Settings.COLUMN_SCRUB_EDGES,
+                    Settings.COLUMN_RAIL_SIDE,
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS,
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_SEARCH_CALCULATOR_ROW,
+                    Settings.COLUMN_SEARCH_WEB_ROW,
+                    Settings.COLUMN_SEARCH_PLAY_STORE_ROW,
+                    Settings.COLUMN_SEARCH_ENGINE,
+                    Settings.COLUMN_SEARCH_ENGINE_TEMPLATE,
+                    Settings.COLUMN_SEARCH_AUTO_LAUNCH,
+                    Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(false, db.searchAutoLaunch())
+            assertEquals(false, db.searchBottomAnchoredResults())
+            assertEquals(false, db.searchCalculatorRow())
+            assertEquals(false, db.searchWebRow())
+            assertEquals(false, db.searchPlayStoreRow())
+            assertEquals(SearchEngine.Kagi.name, db.searchEngine())
+            assertEquals(TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE, db.searchEngineTemplate())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(true, db.openSearchOnHomePress())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(true, db.hidePrivateSpaceWhenLocked())
+            assertEquals("START", db.scrubEdges())
+            assertEquals("START", db.railSide())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -358,6 +422,9 @@ private fun withDatabase(
     }
 }
 
+/** A Settings column a migration test creates, with its definition and stored value. */
+private data class SettingsColumn(val name: String, val definition: String, val value: String)
+
 /** Creates a settings table and inserts one row with the columns each database version had. */
 private fun SupportSQLiteDatabase.createSettingsRow(
     iconPack: String,
@@ -366,55 +433,56 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     railSide: RailSide? = null,
     openSearchOnSwipeUp: Boolean? = null,
     openSearchOnHomePress: Boolean? = null,
-    searchSuggestions: Boolean? = null
+    searchSuggestions: Boolean? = null,
+    searchCalculatorRow: Boolean? = null,
+    searchWebRow: Boolean? = null,
+    searchPlayStoreRow: Boolean? = null,
+    searchEngine: SearchEngine? = null,
+    searchEngineTemplate: String? = null
 ) {
-    val hideDefinition: String? = hidePrivateSpaceWhenLocked?.let {
-        ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
-    }
-    val scrubEdgesDefinition: String? = scrubEdges?.let {
-        ", ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
-    }
-    val railSideDefinition: String? = railSide?.let {
-        ", ${Settings.COLUMN_RAIL_SIDE} TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'"
-    }
-    val openSearchOnSwipeUpDefinition: String? = openSearchOnSwipeUp?.let {
-        ", ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} INTEGER NOT NULL DEFAULT 1"
-    }
-    val openSearchOnHomePressDefinition: String? = openSearchOnHomePress?.let {
-        ", ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
-    }
-    val searchSuggestionsDefinition: String? = searchSuggestions?.let {
-        ", ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
-    }
-    val definitions: String = listOfNotNull(
-        hideDefinition,
-        scrubEdgesDefinition,
-        railSideDefinition,
-        openSearchOnSwipeUpDefinition,
-        openSearchOnHomePressDefinition,
-        searchSuggestionsDefinition
-    ).joinToString(separator = "")
-    val optionalColumns: List<String> = listOfNotNull(
-        hidePrivateSpaceWhenLocked?.let { ", ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED}" },
-        scrubEdges?.let { ", ${Settings.COLUMN_SCRUB_EDGES}" },
-        railSide?.let { ", ${Settings.COLUMN_RAIL_SIDE}" },
-        openSearchOnSwipeUp?.let { ", ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP}" },
-        openSearchOnHomePress?.let { ", ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS}" },
-        searchSuggestions?.let { ", ${Settings.COLUMN_SEARCH_SUGGESTIONS}" }
+    val columns: List<SettingsColumn> = listOfNotNull(
+        hidePrivateSpaceWhenLocked?.let { value ->
+            SettingsColumn(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED, "INTEGER NOT NULL DEFAULT 0", value.toSql())
+        },
+        scrubEdges?.let { value ->
+            SettingsColumn(Settings.COLUMN_SCRUB_EDGES, "TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'", "'${value.name}'")
+        },
+        railSide?.let { value ->
+            SettingsColumn(Settings.COLUMN_RAIL_SIDE, "TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'", "'${value.name}'")
+        },
+        openSearchOnSwipeUp?.let { value ->
+            SettingsColumn(Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+        },
+        openSearchOnHomePress?.let { value ->
+            SettingsColumn(Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
+        },
+        searchSuggestions?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_SUGGESTIONS, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+        },
+        searchCalculatorRow?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_CALCULATOR_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+        },
+        searchWebRow?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_WEB_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+        },
+        searchPlayStoreRow?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_PLAY_STORE_ROW, "INTEGER NOT NULL DEFAULT 1", value.toSql())
+        },
+        searchEngine?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_ENGINE, "TEXT NOT NULL DEFAULT '${SearchEngine.Google.name}'", "'${value.name}'")
+        },
+        searchEngineTemplate?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_ENGINE_TEMPLATE, "TEXT", "'$value'")
+        }
     )
-    val optionalValues: List<String> = listOfNotNull(
-        hidePrivateSpaceWhenLocked?.let { ", ${if (it) 1 else 0}" },
-        scrubEdges?.let { ", '${it.name}'" },
-        railSide?.let { ", '${it.name}'" },
-        openSearchOnSwipeUp?.let { ", ${if (it) 1 else 0}" },
-        openSearchOnHomePress?.let { ", ${if (it) 1 else 0}" },
-        searchSuggestions?.let { ", ${if (it) 1 else 0}" }
-    )
-    val columns: String = "id INTEGER NOT NULL, icon_pack TEXT$definitions"
-    val values: String = "0, '$iconPack'${optionalValues.joinToString(separator = "")}"
-    execSQL("CREATE TABLE $SETTINGS_TABLE ($columns, PRIMARY KEY(id))")
-    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack${optionalColumns.joinToString(separator = "")}) VALUES ($values)")
+    val definitions: String = columns.joinToString(separator = "") { column -> ", ${column.name} ${column.definition}" }
+    val columnNames: String = columns.joinToString(separator = "") { column -> ", ${column.name}" }
+    val values: String = columns.joinToString(separator = "") { column -> ", ${column.value}" }
+    execSQL("CREATE TABLE $SETTINGS_TABLE (id INTEGER NOT NULL, icon_pack TEXT$definitions, PRIMARY KEY(id))")
+    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$columnNames) VALUES (0, '$iconPack'$values)")
 }
+
+private fun Boolean.toSql(): String = if (this) "1" else "0"
 
 private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = query("PRAGMA table_info($table)").use { cursor ->
     cursor.moveToFirst()
@@ -478,6 +546,18 @@ private fun SupportSQLiteDatabase.searchSuggestions(): Boolean =
     query("SELECT ${Settings.COLUMN_SEARCH_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_SUGGESTIONS)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchAutoLaunch(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_AUTO_LAUNCH)) != 0
+    }
+
+private fun SupportSQLiteDatabase.searchBottomAnchoredResults(): Boolean =
+    query("SELECT ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchCalculatorRow(): Boolean =

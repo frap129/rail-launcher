@@ -82,6 +82,7 @@ import io.mockk.verify
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -117,6 +118,7 @@ private const val TEST_NOW_EPOCH_MS: Long = 1_791_720_000_000L
 // The matching tests assert only the rows they are about; the row tests pass Settings with the
 // web and Play Store rows on, and the Home-press test asserts them with the production defaults.
 private val inputSearchRowsOff: Settings = Settings(searchWebRow = false, searchPlayStoreRow = false)
+private val inputAutoLaunchRows: Settings = inputSearchRowsOff.copy(searchAutoLaunch = true)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -2030,6 +2032,207 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `auto-launches the only Search result`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+
+            val actualResult: SearchResult.LaunchableResult = requireNotNull(expectSearch().autoLaunchResult)
+            assertEquals(SearchResult.LaunchableResult(inputItem), actualResult)
+            assertTrue(viewModel.shouldAutoLaunch(actualResult))
+        }
+    }
+
+    @Test
+    fun `does not auto-launch when the setting is off`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `does not auto-launch either of two results`() = runTest {
+        inputLaunchableState.value = createLoadedLaunchableState(
+            listOf(createRailLaunchable("Alpha"), createRailLaunchable("Alfred"))
+        )
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `does not auto-launch while the Calculator row is showing`() = runTest {
+        val inputApp: App = createApp(name = "12*7", packageName = "com.example.calculator")
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputApp))
+        val viewModel: LauncherViewModel = createViewModelWithSettings(inputAutoLaunchRows)
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("12*7")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `does not auto-launch a Paused result`() = runTest {
+        val inputPausedApp: App = createPausedWorkApp()
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputPausedApp))
+        val viewModel: LauncherViewModel = createViewModelWithSettings(inputAutoLaunchRows)
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("gmail")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `does not auto-launch a disabled result`() = runTest {
+        val inputDisabledShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site", isEnabled = false)
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups, folders = listOf(inputDisabledShortcut))
+        val viewModel: LauncherViewModel = createViewModelWithSettings(inputAutoLaunchRows)
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("shortcut")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `does not auto-launch before the Shortcuts load`() = runTest {
+        val inputShortcuts: MutableSharedFlow<List<SearchShortcut>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchAutoLaunch = true)),
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            advanceUntilIdle()
+            assertNull(expectSearch().autoLaunchResult)
+
+            inputShortcuts.emit(emptyList())
+
+            assertEquals(SearchResult.LaunchableResult(inputItem), awaitAutoLaunch())
+        }
+    }
+
+    @Test
+    fun `does not auto-launch when a backspace leaves a single match`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("alpha x")
+            viewModel.setSearchQuery("alpha")
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `auto-launches when typing forward after a backspace`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("alx")
+            viewModel.setSearchQuery("al")
+            assertNull(expectSearch().autoLaunchResult)
+
+            viewModel.setSearchQuery("alp")
+
+            val actualResult: SearchResult.LaunchableResult = requireNotNull(awaitAutoLaunch())
+            assertEquals(SearchResult.LaunchableResult(inputItem), actualResult)
+            assertTrue(viewModel.shouldAutoLaunch(actualResult))
+        }
+    }
+
+    @Test
+    fun `does not auto-launch the same result again after a recreation`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
+        val expectedResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputItem)
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(expectedResult, expectSearch().autoLaunchResult)
+        }
+        assertTrue(viewModel.shouldAutoLaunch(expectedResult))
+
+        viewModel.uiState.test {
+            assertEquals(expectedResult, expectSearch().autoLaunchResult)
+        }
+        assertFalse(viewModel.shouldAutoLaunch(expectedResult))
+    }
+
+    @Test
+    fun `does not auto-launch the same result again after a re-emission`() = runTest {
+        val inputSettings: Settings = Settings(searchAutoLaunch = true)
+        val inputSettingsFlow: MutableStateFlow<Settings> = MutableStateFlow(inputSettings)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings, settingsFlow = inputSettingsFlow)
+        )
+        val expectedResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputItem)
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            assertEquals(expectedResult, expectSearch().autoLaunchResult)
+            assertTrue(viewModel.shouldAutoLaunch(expectedResult))
+
+            inputSettingsFlow.value = inputSettings.copy(searchBottomAnchoredResults = true)
+
+            val actualReemittedResult: SearchResult.LaunchableResult = awaitAutoLaunch()
+            assertEquals(expectedResult, actualReemittedResult)
+            assertFalse(viewModel.shouldAutoLaunch(actualReemittedResult))
+        }
+    }
+
+    @Test
+    fun `does not auto-launch a Search suggestion`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture(settings = Settings(searchAutoLaunch = true))
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+
+            assertNull(expectSearch().autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `exposes Bottom-anchored results from the setting`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchBottomAnchoredResults = true))
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+
+            assertTrue(expectSearch().isBottomAnchored)
+        }
+    }
+
+    @Test
     fun `opening an external Search row closes and resets Search`() = runTest {
         val viewModel: LauncherViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings())
@@ -2690,14 +2893,24 @@ class LauncherViewModelTest {
         }
     }
 
-    private suspend fun TurbineTestContext<LauncherUiState>.awaitFirstSearch(): LauncherUiState.Search {
+    private suspend fun <T> TurbineTestContext<T>.awaitFirstMatching(predicate: (T) -> Boolean): T {
         while (true) {
-            val actualState: LauncherUiState = awaitItem()
-            if (actualState is LauncherUiState.Search) {
-                return actualState
+            val actualItem: T = awaitItem()
+            if (predicate(actualItem)) {
+                return actualItem
             }
         }
     }
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitAutoLaunch(): SearchResult.LaunchableResult {
+        val actualState: LauncherUiState.Search = awaitFirstMatching { state ->
+            state is LauncherUiState.Search && state.autoLaunchResult != null
+        } as LauncherUiState.Search
+        return requireNotNull(actualState.autoLaunchResult)
+    }
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitFirstSearch(): LauncherUiState.Search =
+        awaitFirstMatching { state -> state is LauncherUiState.Search } as LauncherUiState.Search
 
     private suspend fun TurbineTestContext<List<GroupMark>>.awaitRailItems(expected: List<GroupMark>): List<GroupMark> {
         var actualRailItems: List<GroupMark> = awaitItem()
