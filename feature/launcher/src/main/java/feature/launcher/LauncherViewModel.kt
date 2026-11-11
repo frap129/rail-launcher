@@ -581,13 +581,10 @@ class LauncherViewModel(
     }
 
     /**
-     * Handles a request to launch [launchable]. Returns false when [launchable] is disabled or
-     * belongs to a Paused Profile; a Paused one opens the paused prompt instead.
+     * Handles a request to launch [launchable]. Returns false when [launchable] belongs to a
+     * Paused Profile; a Paused one opens the paused prompt instead.
      */
     fun requestLaunch(launchable: Launchable): Boolean {
-        if (launchable.isDisabled) {
-            return false
-        }
         if (!launchable.isPaused) {
             return true
         }

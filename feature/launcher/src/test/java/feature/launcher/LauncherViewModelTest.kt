@@ -2956,7 +2956,7 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `Go on a disabled Shortcut result never launches it`() = runTest {
+    fun `Go offers a disabled Shortcut as the Top result`() = runTest {
         val inputDisabledShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site", isEnabled = false)
         inputLaunchableState.value = createLaunchableState(groups = inputGroups, folders = listOf(inputDisabledShortcut))
         val viewModel: LauncherViewModel = createViewModel()
@@ -2970,9 +2970,6 @@ class LauncherViewModelTest {
             val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo("shortcut")).launchableResult()
             assertEquals(SearchResult.LaunchableResult(inputDisabledShortcut), actualTopResult)
             assertTrue(actualTopResult.launchable.isDisabled)
-            assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
-            val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
-            assertEquals("shortcut", actualRemainingSearch.query)
         }
     }
 

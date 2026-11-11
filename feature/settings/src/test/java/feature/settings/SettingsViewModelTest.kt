@@ -280,6 +280,27 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `starts with the Search defaults before the stored settings load`() = runTest {
+        val inputDefaults: Settings = Settings()
+        val viewModel: SettingsViewModel = createViewModel()
+
+        val actualState: SettingsUiState = viewModel.uiState.value
+
+        assertEquals(inputDefaults.openSearchOnSwipeUp, actualState.openSearchOnSwipeUp)
+        assertEquals(inputDefaults.openSearchOnHomePress, actualState.openSearchOnHomePress)
+        assertEquals(inputDefaults.searchSuggestions, actualState.searchSuggestions)
+        assertEquals(inputDefaults.searchAutoLaunch, actualState.searchAutoLaunch)
+        assertEquals(inputDefaults.searchBottomAnchoredResults, actualState.searchBottomAnchoredResults)
+        assertEquals(inputDefaults.searchCalculatorRow, actualState.searchCalculatorRow)
+        assertEquals(inputDefaults.searchWebRow, actualState.searchWebRow)
+        assertEquals(inputDefaults.searchPlayStoreRow, actualState.searchPlayStoreRow)
+        assertEquals(inputDefaults.searchWebSuggestions, actualState.searchWebSuggestions)
+        assertEquals(inputDefaults.searchContacts, actualState.searchContacts)
+        assertEquals(inputDefaults.searchEngine, actualState.searchEngine)
+        assertEquals(inputDefaults.searchEngineTemplate, actualState.searchEngineTemplate)
+    }
+
+    @Test
     fun `exposes the stored Search rows and engine`() = runTest {
         val inputSettings: Settings = Settings(
             searchCalculatorRow = false,
