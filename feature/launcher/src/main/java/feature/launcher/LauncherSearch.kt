@@ -75,30 +75,39 @@ internal fun LauncherSearch(
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val focusRequester: FocusRequester = remember { FocusRequester() }
-    // The field owns the query while typing, so each keystroke shows and reaches the launcher
-    // before its UI state round trip.
+    // The field owns the query while typing, so each Typed character shows and reaches the
+    // launcher before its UI state round trip.
     var fieldValue: TextFieldValue by remember { mutableStateOf(search.query.toTextFieldValueAtEnd()) }
-    // Whether the field's latest text has not returned through the launcher state yet. Until it
-    // does, a different external value is an earlier keystroke's echo and must not replace it.
-    var isEditPending: Boolean by remember { mutableStateOf(false) }
+    // The texts the field typed that have not returned through the launcher state yet.
+    val sentQueries: MutableList<String> = remember { mutableListOf() }
     fun updateFieldValue(value: TextFieldValue) {
         val isTextChanged: Boolean = value.text != fieldValue.text
         fieldValue = value
         if (isTextChanged) {
-            isEditPending = true
+            sentQueries += value.text
             onQueryChange(value.text)
         }
     }
     LaunchedEffect(search.query) {
         val externalQuery: String = search.query
-        if (externalQuery == fieldValue.text) {
-            // The echo of the latest text: keep the cursor and any composition as typed.
-            isEditPending = false
-        } else if (!isEditPending || externalQuery.startsWith(fieldValue.text)) {
-            // A change from outside the field (a hardware typed character or a clear): adopt it
-            // and put the cursor after its characters.
-            fieldValue = externalQuery.toTextFieldValueAtEnd()
-            isEditPending = false
+        val echoIndex: Int = sentQueries.lastIndexOf(externalQuery)
+        when {
+            externalQuery == fieldValue.text -> {
+                // The echo of the latest text: keep the cursor and any composition as typed.
+                sentQueries.clear()
+            }
+
+            echoIndex >= 0 -> {
+                // An earlier edit's echo: the field already shows newer text, so keep it.
+                sentQueries.subList(0, echoIndex + 1).clear()
+            }
+
+            else -> {
+                // A change from outside the field, including a clear or a hardware typed
+                // character, is adopted with the cursor after its characters.
+                fieldValue = externalQuery.toTextFieldValueAtEnd()
+                sentQueries.clear()
+            }
         }
     }
     val searchAnchors: SearchAnchors = remember { SearchAnchors() }
