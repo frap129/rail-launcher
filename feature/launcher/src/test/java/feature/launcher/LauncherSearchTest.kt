@@ -76,26 +76,6 @@ private const val INPUT_URL: String = "https://example.com"
 private const val INPUT_WEB_URL: String = "https://www.google.com/search?q=example.com"
 private const val CLOSE_SHEET: String = "Close sheet"
 
-private val defaultSearchOptions: SearchOptions = SearchOptions(
-    openSearchOnSwipeUp = true,
-    searchSuggestions = true,
-    searchWebSuggestions = false,
-    searchContacts = false,
-    searchCalculatorRow = true,
-    searchEngine = SearchEngine.None
-)
-
-private val defaultSearchOptionsActions: SearchOptionsActions = SearchOptionsActions(
-    onOpenSearchOnSwipeUpChange = {},
-    onSearchSuggestionsChange = {},
-    onSearchWebSuggestionsChange = {},
-    onSearchContactsChange = {},
-    onSearchCalculatorRowChange = {},
-    onContactsPermissionResult = { _, _ -> },
-    onRefreshContactsPermission = {},
-    onOpenSearchSettings = {}
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -603,7 +583,7 @@ class LauncherSearchTest {
     fun `shows Live web suggestions as unavailable without a suggestion engine`() {
         setSearchContent(
             query = mutableStateOf(""),
-            options = defaultSearchOptions.copy(searchEngine = SearchEngine.None)
+            options = inputSearchOptions.copy(searchEngine = SearchEngine.None)
         )
 
         composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
@@ -617,7 +597,7 @@ class LauncherSearchTest {
         var actualOpenedSettings: Boolean = false
         setSearchContent(
             query = mutableStateOf(""),
-            searchOptionsActions = defaultSearchOptionsActions.copy(onOpenSearchSettings = { actualOpenedSettings = true })
+            searchOptionsActions = inputSearchOptionsActions.copy(onOpenSearchSettings = { actualOpenedSettings = true })
         )
 
         composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
@@ -733,9 +713,9 @@ class LauncherSearchTest {
         onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {},
         onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> },
         query: MutableState<String> = mutableStateOf(QUERY),
-        options: SearchOptions = defaultSearchOptions,
+        options: SearchOptions = inputSearchOptions,
         contactsEvents: Flow<SearchContactsUiEvent> = emptyFlow(),
-        searchOptionsActions: SearchOptionsActions = defaultSearchOptionsActions,
+        searchOptionsActions: SearchOptionsActions = inputSearchOptionsActions,
         onQueryChange: (String) -> Unit = { text -> query.value = text },
         onSearchGo: (String) -> SearchResult? = { null }
     ) {

@@ -9,6 +9,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
 
@@ -17,12 +18,17 @@ data class PopupSheetTitleAction(val label: String, val onClick: () -> Unit)
 
 /** The title row with optional leading and trailing text actions, shared by the Pop-up editor and pickers. */
 @Composable
-fun PopupSheetTitleRow(title: String, navigationAction: PopupSheetTitleAction? = null, action: PopupSheetTitleAction? = null) {
+fun PopupSheetTitleRow(
+    title: String,
+    navigationAction: PopupSheetTitleAction? = null,
+    action: PopupSheetTitleAction? = null,
+    horizontalPadding: Dp = sheetHorizontalPadding
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding)
+            .padding(horizontal = horizontalPadding, vertical = sheetVerticalPadding)
     ) {
         if (navigationAction != null) {
             TextButton(onClick = navigationAction.onClick) {

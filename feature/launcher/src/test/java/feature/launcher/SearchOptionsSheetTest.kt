@@ -1,0 +1,119 @@
+package feature.launcher
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.DpRect
+import core.data.testing.TEST_SDK
+import core.ui.R as CoreUiR
+import core.ui.composables.ROW_LEADING_ICON_TEST_TAG
+import core.ui.composables.RowTestContent
+import core.ui.composables.assertActionLabelMatchesSwitchTitle
+import core.ui.composables.assertActionRowMatchesSwitchRow
+import core.ui.composables.assertPaintsTopEdge
+import core.ui.composables.rowTestBackgroundColor
+import kotlinx.coroutines.flow.emptyFlow
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+private val SHEET_ROW_LABELS: List<Int> = listOf(
+    CoreUiR.string.search_web_suggestions,
+    CoreUiR.string.search_contacts,
+    CoreUiR.string.search_suggestions,
+    CoreUiR.string.search_calculator_row,
+    CoreUiR.string.search_swipe_up,
+    R.string.search_settings
+)
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [TEST_SDK])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class SearchOptionsSheetTest {
+    @get:Rule
+    val composeRule: ComposeContentTestRule = createComposeRule()
+
+    @Test
+    fun `paints every row with the sheet container colour`() {
+        val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
+        setSheetContent { expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow }
+
+        SHEET_ROW_LABELS.forEach { label ->
+            composeRule.onNodeWithText(getString(label))
+                .performScrollTo()
+                .assertPaintsTopEdge(requireNotNull(expectedSheetColor.value))
+        }
+    }
+
+    @Test
+    fun `lets the contrasting background show through the title`() {
+        setSheetContent()
+
+        composeRule.onNodeWithText(getString(CoreUiR.string.search)).assertPaintsTopEdge(rowTestBackgroundColor)
+    }
+
+    @Test
+    fun `lines the title up with the row content`() {
+        setSheetContent()
+
+        val actualTitle: DpRect = composeRule.onNodeWithText(getString(CoreUiR.string.search), useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        val actualLeadingIcon: DpRect = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true)
+            .onFirst()
+            .getUnclippedBoundsInRoot()
+
+        assertEquals(actualLeadingIcon.left, actualTitle.left)
+    }
+
+    @Test
+    fun `starts the Search settings label where the switch rows start their titles`() {
+        setSheetContent()
+
+        assertActionLabelMatchesSwitchTitle(
+            actionLabel = composeRule.onNodeWithText(getString(R.string.search_settings), useUnmergedTree = true)
+                .performScrollTo(),
+            switchTitle = composeRule.onNodeWithText(getString(CoreUiR.string.search_suggestions), useUnmergedTree = true)
+                .performScrollTo()
+        )
+    }
+
+    @Test
+    fun `gives the Search settings action the same horizontal bounds as the switch rows`() {
+        setSheetContent()
+
+        assertActionRowMatchesSwitchRow(
+            actionRow = composeRule.onNodeWithText(getString(R.string.search_settings)).performScrollTo(),
+            switchRow = composeRule.onNodeWithText(getString(CoreUiR.string.search_suggestions)).performScrollTo()
+        )
+    }
+
+    private fun setSheetContent(onTheme: @Composable () -> Unit = {}) {
+        composeRule.setContent {
+            RowTestContent {
+                onTheme()
+                SearchOptionsContent(
+                    options = inputSearchOptions,
+                    contactsEvents = emptyFlow(),
+                    actions = inputSearchOptionsActions,
+                    onDismiss = {}
+                )
+            }
+        }
+    }
+
+    private fun getString(id: Int): String = RuntimeEnvironment.getApplication().getString(id)
+}
