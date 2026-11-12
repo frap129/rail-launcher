@@ -30,7 +30,6 @@ import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.layout.HomeEditMode
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -344,24 +343,28 @@ class LauncherRailTest {
             val actualBubbleCenterX: Float = (actualBubbleBounds.left.toPx() + actualBubbleBounds.right.toPx()) / 2f
             val isBubbleOnRight: Boolean = actualBubbleCenterX > actualRailBounds.center.x
             assertEquals(isRailOnLeft, isBubbleOnRight)
-            assertTrue(
-                "Bubble must be inside the screen",
-                actualBubbleBounds.left.toPx() >= actualRootBounds.left.toPx() &&
-                    actualBubbleBounds.right.toPx() <= actualRootBounds.right.toPx()
-            )
         }
+        assertHorizontallyInsideScreen(actualBubbleBounds, actualRootBounds, "Bubble must be inside the screen")
     }
 
     private fun assertRailInsideScreenOnSide(railBounds: RailBounds, isOnLeft: Boolean) {
         composeRule.waitForIdle()
         val actualBounds: Rect = requireNotNull(railBounds.current)
         val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        val actualBoundsDp: DpRect = with(composeRule.density) {
+            DpRect(
+                left = actualBounds.left.toDp(),
+                top = actualBounds.top.toDp(),
+                right = actualBounds.right.toDp(),
+                bottom = actualBounds.bottom.toDp()
+            )
+        }
         with(composeRule.density) {
             val actualRootLeftPx: Float = actualRootBounds.left.toPx()
             val actualRootRightPx: Float = actualRootBounds.right.toPx()
             assertEquals(isOnLeft, actualBounds.center.x < (actualRootLeftPx + actualRootRightPx) / 2f)
-            assertTrue("Rail must be inside the screen", actualBounds.left >= actualRootLeftPx && actualBounds.right <= actualRootRightPx)
         }
+        assertHorizontallyInsideScreen(actualBoundsDp, actualRootBounds, "Rail must be inside the screen")
     }
 
     private fun assertMirrorStripOnSide(isOnLeft: Boolean) {

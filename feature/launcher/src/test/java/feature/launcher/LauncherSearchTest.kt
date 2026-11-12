@@ -25,7 +25,6 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.data.prefs.RailSide
 import core.data.profiles.ProfileKind
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
@@ -60,16 +59,7 @@ class LauncherSearchTest {
     private val context: Context
         get() = RuntimeEnvironment.getApplication()
 
-    private val itemActions: LauncherItemActions = LauncherItemActions(
-        onItemTap = { _, _ -> },
-        onItemLongPress = {},
-        onToggleFavorite = {},
-        onItemOpenPopup = { _, _ -> },
-        onItemAnchorChanged = { _, _ -> },
-        privateSpaceActions = PrivateSpaceActions(onUnlock = {}, onLock = {}, onSettings = null),
-        railBounds = { null },
-        railSide = RailSide.DEFAULT
-    )
+    private val itemActions: LauncherItemActions = createLauncherItemActions()
 
     @Test
     fun `opens the typed URL when its row is tapped`() {
