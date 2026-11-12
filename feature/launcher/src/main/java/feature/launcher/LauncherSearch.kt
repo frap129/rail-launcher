@@ -26,6 +26,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
@@ -197,6 +199,7 @@ private fun LauncherSearchResults(
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
 ) {
     val listState: LazyListState = rememberLazyListState()
+    val topResultLabel: String = stringResource(R.string.top_result)
     // Only a new query or anchoring resets the list, so rows appended after it stay in place.
     LaunchedEffect(query, isBottomAnchored) {
         if (results.isNotEmpty()) {
@@ -210,10 +213,23 @@ private fun LauncherSearchResults(
         contentPadding = PaddingValues(bottom = resultsBottomPadding)
     ) {
         items(items = results, key = { result -> result.key }) { result ->
-            if (result.key == topResultKey) {
+            val isTopResult: Boolean = result.key == topResultKey
+            val accessibilityAnnouncement: String? = if (isTopResult) {
+                val announcementId: Int = if (result is SearchResult.CalculatorRow) {
+                    R.string.top_result_copies
+                } else {
+                    R.string.top_result_opens
+                }
+                stringResource(announcementId, topResultLabel)
+            } else {
+                null
+            }
+            if (isTopResult) {
                 Text(
-                    text = stringResource(R.string.top_result),
-                    modifier = Modifier.padding(start = topResultPadding, top = topResultPadding),
+                    text = topResultLabel,
+                    modifier = Modifier
+                        .padding(start = topResultPadding, top = topResultPadding)
+                        .clearAndSetSemantics { hideFromAccessibility() },
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelMedium
                 )
@@ -225,13 +241,15 @@ private fun LauncherSearchResults(
                     isFavorite = false,
                     isPopupSwipeEnabled = true,
                     itemActions = itemActions,
-                    secondaryText = (result.launchable as? ShortcutLaunchable)?.publisherName
+                    secondaryText = (result.launchable as? ShortcutLaunchable)?.publisherName,
+                    accessibilityAnnouncement = accessibilityAnnouncement
                 )
 
                 is SearchResult.CalculatorRow -> LauncherActionRow(
                     imageVector = FontAwesomeIcons.Solid.Calculator,
                     label = stringResource(R.string.calculator_row, result.expression, result.value),
-                    onClick = { onResultTap(result) }
+                    onClick = { onResultTap(result) },
+                    accessibilityAnnouncement = accessibilityAnnouncement
                 )
 
                 is SearchResult.ContactRow -> LauncherActionRow(
@@ -264,7 +282,8 @@ private fun LauncherSearchResults(
                     LauncherActionRow(
                         imageVector = action.imageVector,
                         label = action.label,
-                        onClick = { onResultTap(result) }
+                        onClick = { onResultTap(result) },
+                        accessibilityAnnouncement = accessibilityAnnouncement
                     )
                 }
             }

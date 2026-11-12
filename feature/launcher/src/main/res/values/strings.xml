@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="search_hint">Search apps and folders</string>
+    <string name="search_hint">Search apps, folders, Shortcuts and more</string>
     <string name="top_result">Top result</string>
+    <string name="top_result_opens">%1$s, Enter opens</string>
+    <string name="top_result_copies">%1$s, Enter copies</string>
     <string name="clear_search">Clear search</string>
     <string name="calculator_row">%1$s = %2$s</string>
     <string name="calculator_copied">Copied to clipboard</string>

@@ -26,12 +26,15 @@ internal fun LauncherActionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onClickLabel: String? = null,
+    accessibilityAnnouncement: String? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
+    val rowDescription: String? = launcherItemDescription(label = label, announcement = accessibilityAnnouncement)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = launchableIconSize)
+            .contentDescriptionSemantics(description = rowDescription)
             .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {

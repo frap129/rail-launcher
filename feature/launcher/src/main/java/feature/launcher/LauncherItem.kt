@@ -87,6 +87,30 @@ private class LongPressGate {
 private fun List<Launchable>.favoriteKeys(): List<String> = map { launchable -> launchable.key }
 
 @Composable
+private fun joinedLauncherItemDescription(label: String, detail: String): String =
+    stringResource(R.string.launcher_item_description, label, detail)
+
+@Composable
+internal fun launcherItemDescription(label: String, detail: String? = null, announcement: String? = null): String? {
+    val parts: List<String> = listOfNotNull(detail, announcement)
+    if (parts.isEmpty()) {
+        return null
+    }
+    var description: String = label
+    for (part in parts) {
+        description = joinedLauncherItemDescription(label = description, detail = part)
+    }
+    return description
+}
+
+internal fun Modifier.contentDescriptionSemantics(description: String?, mergeDescendants: Boolean = false): Modifier =
+    if (description == null) {
+        this
+    } else {
+        semantics(mergeDescendants = mergeDescendants) { contentDescription = description }
+    }
+
+@Composable
 internal fun rememberFavoriteKeys(favorites: List<Launchable>): List<String> = remember(favorites) { favorites.favoriteKeys() }
 
 @Composable
@@ -100,6 +124,7 @@ fun LauncherItem(
     isPopupSwipeEnabled: Boolean,
     itemActions: LauncherItemActions,
     secondaryText: String? = null,
+    accessibilityAnnouncement: String? = null,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -113,9 +138,11 @@ fun LauncherItem(
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isUnavailable: Boolean = item.isPaused || item.isDisabled
-    val secondaryTextDescription: String? = secondaryText?.let { text ->
-        stringResource(R.string.launcher_item_description, item.name, text)
-    }
+    val rowDescription: String? = launcherItemDescription(
+        label = item.accessibilityName,
+        detail = secondaryText,
+        announcement = accessibilityAnnouncement
+    ).takeIf { !isEditingFavorites }
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -163,14 +190,9 @@ fun LauncherItem(
                     anchorHolder.anchor = anchor
                     currentItemActions.onItemAnchorChanged(currentItem, anchor)
                 }
-                .then(
-                    if (secondaryTextDescription != null && !isEditingFavorites) {
-                        Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = secondaryTextDescription
-                        }
-                    } else {
-                        Modifier
-                    }
+                .contentDescriptionSemantics(
+                    description = rowDescription,
+                    mergeDescendants = true
                 )
                 .then(
                     if (canOpenPopup) {
@@ -198,7 +220,10 @@ fun LauncherItem(
                     onClick = { currentItemActions.onToggleFavorite(currentItem) }
                 )
             }
-            LaunchableIcon(launchable = item)
+            LaunchableIcon(
+                launchable = item,
+                contentDescription = if (rowDescription == null) item.accessibilityName else null
+            )
             Column(modifier = Modifier.weight(1f)) {
                 OutlinedText(
                     text = item.name
