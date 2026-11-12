@@ -10,6 +10,7 @@
     <string name="notification_access_allowed">Allowed</string>
     <string name="notification_access_not_allowed">Not allowed — tap to allow</string>
     <string name="settings">Settings</string>
+    <string name="search">Search</string>
     <string name="cancel">Cancel</string>
     <string name="media_player">Media Player</string>
     <string name="extend_under_rail">Extend under Rail</string>

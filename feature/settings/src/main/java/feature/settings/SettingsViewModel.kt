@@ -52,6 +52,33 @@ data class SettingsUiState(
     val searchEngineTemplate: String?
 )
 
+/** These Settings as the screen state, with the icon packs, Private Space status and Contacts permission the screen also shows. */
+private fun Settings.toSettingsUiState(
+    iconPacks: Set<IconPack>,
+    selectedIconPack: IconPack,
+    isPrivateSpaceAvailable: Boolean,
+    hasContactPermission: Boolean
+): SettingsUiState = SettingsUiState(
+    iconPacks = iconPacks,
+    selectedIconPack = selectedIconPack,
+    hidePrivateSpaceWhenLocked = hidePrivateSpaceWhenLocked,
+    isPrivateSpaceAvailable = isPrivateSpaceAvailable,
+    scrubEdges = scrubEdges,
+    railSide = railSide,
+    openSearchOnSwipeUp = openSearchOnSwipeUp,
+    openSearchOnHomePress = openSearchOnHomePress,
+    searchSuggestions = searchSuggestions,
+    searchAutoLaunch = searchAutoLaunch,
+    searchBottomAnchoredResults = searchBottomAnchoredResults,
+    searchCalculatorRow = searchCalculatorRow,
+    searchWebRow = searchWebRow,
+    searchPlayStoreRow = searchPlayStoreRow,
+    searchWebSuggestions = searchWebSuggestions,
+    searchContacts = searchContacts && hasContactPermission,
+    searchEngine = searchEngine,
+    searchEngineTemplate = searchEngineTemplate
+)
+
 /** What the Search settings screen must ask the host to show after a Contacts permission change. */
 sealed interface SettingsEvent {
     data object RequestContactsPermission : SettingsEvent
@@ -81,48 +108,20 @@ class SettingsViewModel(
         privateSpaceStatus.status,
         contactSearchSource.hasPermission
     ) { iconPacks, selectedIconPack, settings, status, hasContactPermission ->
-        SettingsUiState(
+        settings.toSettingsUiState(
             iconPacks = iconPacks,
             selectedIconPack = selectedIconPack,
-            hidePrivateSpaceWhenLocked = settings.hidePrivateSpaceWhenLocked,
             isPrivateSpaceAvailable = status.profile != null,
-            scrubEdges = settings.scrubEdges,
-            railSide = settings.railSide,
-            openSearchOnSwipeUp = settings.openSearchOnSwipeUp,
-            openSearchOnHomePress = settings.openSearchOnHomePress,
-            searchSuggestions = settings.searchSuggestions,
-            searchAutoLaunch = settings.searchAutoLaunch,
-            searchBottomAnchoredResults = settings.searchBottomAnchoredResults,
-            searchCalculatorRow = settings.searchCalculatorRow,
-            searchWebRow = settings.searchWebRow,
-            searchPlayStoreRow = settings.searchPlayStoreRow,
-            searchWebSuggestions = settings.searchWebSuggestions,
-            searchContacts = settings.searchContacts && hasContactPermission,
-            searchEngine = settings.searchEngine,
-            searchEngineTemplate = settings.searchEngineTemplate
+            hasContactPermission = hasContactPermission
         )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        SettingsUiState(
+        defaultSettings.toSettingsUiState(
             iconPacks = setOf(IconPack.SystemIconPack),
             selectedIconPack = IconPack.SystemIconPack,
-            hidePrivateSpaceWhenLocked = defaultSettings.hidePrivateSpaceWhenLocked,
             isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null,
-            scrubEdges = defaultSettings.scrubEdges,
-            railSide = defaultSettings.railSide,
-            openSearchOnSwipeUp = defaultSettings.openSearchOnSwipeUp,
-            openSearchOnHomePress = defaultSettings.openSearchOnHomePress,
-            searchSuggestions = defaultSettings.searchSuggestions,
-            searchAutoLaunch = defaultSettings.searchAutoLaunch,
-            searchBottomAnchoredResults = defaultSettings.searchBottomAnchoredResults,
-            searchCalculatorRow = defaultSettings.searchCalculatorRow,
-            searchWebRow = defaultSettings.searchWebRow,
-            searchPlayStoreRow = defaultSettings.searchPlayStoreRow,
-            searchWebSuggestions = defaultSettings.searchWebSuggestions,
-            searchContacts = defaultSettings.searchContacts,
-            searchEngine = defaultSettings.searchEngine,
-            searchEngineTemplate = defaultSettings.searchEngineTemplate
+            hasContactPermission = contactSearchSource.hasPermission.value
         )
     )
 

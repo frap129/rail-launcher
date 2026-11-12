@@ -69,7 +69,6 @@
     <string name="maximum_height">Maximum height</string>
     <string name="top_offset">Top offset</string>
     <string name="spacing_between_widgets">Spacing between widgets</string>
-    <string name="spacing_none">None</string>
     <string name="spacing_small">Small</string>
     <string name="spacing_default">Default</string>
     <string name="spacing_large">Large</string>
@@ -98,7 +97,6 @@
     <string name="no_apps_found">No apps found</string>
     <string name="popups_and_folders">Pop-ups and Folders</string>
     <string name="popups_and_folders_summary">Manage your Folders</string>
-    <string name="search">Search</string>
     <string name="search_summary">Choose how Search opens</string>
     <string name="search_swipe_up">Swipe up on Home</string>
     <string name="search_swipe_up_summary">Open Search with a swipe up</string>
@@ -126,7 +124,6 @@
     <string name="search_contacts_permission_title">Contacts access</string>
     <string name="search_contacts_permission_summary">Contact results need access to your contacts. Allow it in Rail\'s app settings.</string>
     <string name="search_engine">Search engine</string>
-    <string name="search_engine_none">None</string>
     <string name="search_engine_google">Google</string>
     <string name="search_engine_duckduckgo">DuckDuckGo</string>
     <string name="search_engine_brave">Brave</string>
