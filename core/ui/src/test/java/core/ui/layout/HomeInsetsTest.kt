@@ -1,5 +1,6 @@
 package core.ui.layout
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.prefs.RailSide
@@ -45,6 +46,17 @@ class HomeInsetsTest {
                 favoritesPadding = HorizontalPadding(start = 48.dp, end = 0.dp)
             )
         )
+    }
+
+    @Test
+    fun `pads full-width Home content by the Rail insets and the given bottom`() {
+        val actualPadding: PaddingValues = homeRailContentPaddingValues(railSide = RailSide.START, bottom = 16.dp)
+
+        assertHorizontalPadding(
+            actualPadding = actualPadding,
+            expected = HorizontalPadding(start = 80.dp, end = 32.dp)
+        )
+        assertEquals(16.dp, actualPadding.calculateBottomPadding())
     }
 
     private fun assertInsets(expected: ExpectedHomeInsets) {

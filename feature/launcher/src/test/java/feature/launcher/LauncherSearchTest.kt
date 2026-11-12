@@ -8,7 +8,6 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -17,6 +16,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -33,8 +33,11 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.prefs.RailSide
 import core.data.prefs.SearchEngine
 import core.data.profiles.ProfileKind
 import core.data.search.SearchResult
@@ -49,6 +52,8 @@ import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import core.data.testing.createWebSuggestionRow
 import core.ui.R as CoreUiR
+import core.ui.layout.homeEdgePadding
+import core.ui.layout.homeRailStartInset
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -487,6 +492,27 @@ class LauncherSearchTest {
     }
 
     @Test
+    fun `starts the query field 16dp from the screen edge`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        val actualFieldBounds: DpRect = queryField().getUnclippedBoundsInRoot()
+        val actualScreenBounds: DpRect = composeRule.screenBounds()
+
+        assertEquals(16.dp, actualFieldBounds.left - actualScreenBounds.left)
+        assertEquals(16.dp, actualScreenBounds.right - actualFieldBounds.right)
+    }
+
+    @Test
+    fun `keeps the result row horizontal inset for an End Rail`() {
+        assertResultRowHorizontalInset(railSide = RailSide.END)
+    }
+
+    @Test
+    fun `keeps the result row horizontal inset for a Start Rail`() {
+        assertResultRowHorizontalInset(railSide = RailSide.START)
+    }
+
+    @Test
     fun `styles every Search field state with the search bar container and no indicator`() {
         val actualColors: MutableState<TextFieldColors?> = mutableStateOf(null)
         val actualColorScheme: MutableState<ColorScheme?> = mutableStateOf(null)
@@ -624,6 +650,20 @@ class LauncherSearchTest {
         assertEquals(listOf(expectedDescription), actualDescriptions)
     }
 
+    private fun assertResultRowHorizontalInset(railSide: RailSide) {
+        val inputLaunchable: Launchable = createRailLaunchable("Alpha")
+        setSearchContent(
+            results = listOf(SearchResult.LaunchableResult(inputLaunchable)),
+            itemActions = createLauncherItemActions(railSide = railSide)
+        )
+
+        val actualRowBounds: DpRect = composeRule.onAllNodesWithText(inputLaunchable.name).onFirst().getUnclippedBoundsInRoot()
+        val actualScreenBounds: DpRect = composeRule.screenBounds()
+
+        assertEquals(homeRailStartInset(railSide = railSide), actualRowBounds.left - actualScreenBounds.left)
+        assertEquals(homeEdgePadding, actualScreenBounds.right - actualRowBounds.right)
+    }
+
     private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
 
     private fun queryField(): SemanticsNodeInteraction = composeRule.onNode(hasSetTextAction())
@@ -659,7 +699,6 @@ class LauncherSearchTest {
         composeRule.setContent {
             val inputResults: List<SearchResult> = resultsState.value
             LauncherSearch(
-                modifier = Modifier,
                 search = LauncherUiState.Search(
                     query = query.value,
                     results = inputResults,

@@ -2,13 +2,14 @@ package feature.launcher
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -57,11 +58,13 @@ import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.Store
 import compose.icons.fontawesomeicons.solid.TimesCircle
 import compose.icons.fontawesomeicons.solid.User
+import core.data.prefs.RailSide
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestFocusedWindow
 import core.ui.composables.RequestKeyboardFocus
 import core.ui.composables.toTextFieldValueAtEnd
+import core.ui.layout.homeRailContentPaddingValues
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
 
@@ -97,7 +100,6 @@ private class SearchAnchors {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun LauncherSearch(
-    modifier: Modifier,
     search: LauncherUiState.Search,
     shouldAutoLaunch: (SearchResult.LaunchableResult) -> Boolean,
     itemActions: LauncherItemActions,
@@ -211,7 +213,7 @@ internal fun LauncherSearch(
             }
         )
     }
-    Column(modifier = modifier) {
+    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
         TextField(
             value = fieldValue,
             onValueChange = { value -> updateFieldValue(value) },
@@ -267,6 +269,7 @@ internal fun LauncherSearch(
         )
         LauncherSearchResults(
             modifier = Modifier.weight(1f),
+            railSide = itemActions.railSide,
             query = search.query,
             results = search.results,
             itemActions = searchItemActions,
@@ -289,6 +292,7 @@ internal fun LauncherSearch(
 @Composable
 private fun LauncherSearchResults(
     modifier: Modifier,
+    railSide: RailSide,
     query: String,
     results: List<SearchResult>,
     itemActions: LauncherItemActions,
@@ -309,7 +313,7 @@ private fun LauncherSearchResults(
         modifier = modifier.fillMaxWidth(),
         state = listState,
         reverseLayout = isBottomAnchored,
-        contentPadding = PaddingValues(bottom = resultsBottomPadding)
+        contentPadding = homeRailContentPaddingValues(railSide = railSide, bottom = resultsBottomPadding)
     ) {
         items(items = results, key = { result -> result.key }) { result ->
             val isTopResult: Boolean = result.key == topResultKey

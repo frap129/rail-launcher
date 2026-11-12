@@ -9,7 +9,6 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -56,7 +55,7 @@ class LauncherAppListTest {
         actualLabel.assertIsDisplayed()
         val actualLabelBounds: DpRect = actualLabel.getUnclippedBoundsInRoot()
         val actualIconBounds: DpRect = searchIconBounds()
-        val actualScreenBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        val actualScreenBounds: DpRect = composeRule.screenBounds()
 
         assertHorizontallyInsideScreen(actualLabelBounds, actualScreenBounds, "Search label must be inside the screen")
         assertTrue("Search label must sit to the right of the icon", actualLabelBounds.left >= actualIconBounds.right)

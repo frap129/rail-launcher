@@ -2,7 +2,7 @@ package feature.launcher
 
 import core.data.prefs.RailSide
 
-fun createLauncherItemActions(): LauncherItemActions = LauncherItemActions(
+fun createLauncherItemActions(railSide: RailSide = RailSide.DEFAULT): LauncherItemActions = LauncherItemActions(
     onItemTap = { _, _ -> },
     onItemLongPress = {},
     onToggleFavorite = {},
@@ -10,5 +10,5 @@ fun createLauncherItemActions(): LauncherItemActions = LauncherItemActions(
     onItemAnchorChanged = { _, _ -> },
     privateSpaceActions = PrivateSpaceActions(onUnlock = {}, onLock = {}, onSettings = null),
     railBounds = { null },
-    railSide = RailSide.DEFAULT
+    railSide = railSide
 )
