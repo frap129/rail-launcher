@@ -42,9 +42,11 @@ import core.data.launchables.model.Launchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
+import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
-import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.ui.composables.sheetContainerColor
+import core.ui.composables.sheetRowContentInset
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
@@ -60,7 +62,8 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
     }
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
-        onDismissRequest = { viewModel.closeItemMenu() }
+        onDismissRequest = { viewModel.closeItemMenu() },
+        containerColor = sheetContainerColor
     ) {
         when (val currentMenuState: LauncherMenuState = menuState) {
             is LauncherMenuState.Menu -> LauncherItemMenu(
@@ -102,49 +105,48 @@ internal fun LauncherItemMenu(
                 }
             } else {
                 null
-            }
+            },
+            horizontalPadding = sheetRowContentInset
         )
     }
 
-    CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
-        SheetMenuAction(
-            imageVector = FontAwesomeIcons.Solid.GripVertical,
-            label = stringResource(R.string.edit_favorites),
-            onClick = { viewModel.editFavorites() }
+    SheetActionRow(
+        imageVector = FontAwesomeIcons.Solid.GripVertical,
+        label = stringResource(R.string.edit_favorites),
+        onClick = { viewModel.editFavorites() }
+    )
+    if (isSearchSuggestion) {
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.TimesCircle,
+            label = stringResource(R.string.remove_from_suggestions),
+            onClick = { viewModel.removeSearchSuggestion(item) }
         )
-        if (isSearchSuggestion) {
-            SheetMenuAction(
-                imageVector = FontAwesomeIcons.Solid.TimesCircle,
-                label = stringResource(R.string.remove_from_suggestions),
-                onClick = { viewModel.removeSearchSuggestion(item) }
-            )
-        }
-        when (item) {
-            is App -> AppMenuActions(
-                item = item,
-                context = context,
-                viewModel = viewModel,
-                editor = editor,
-                folderActions = folderActions
-            )
+    }
+    when (item) {
+        is App -> AppMenuActions(
+            item = item,
+            context = context,
+            viewModel = viewModel,
+            editor = editor,
+            folderActions = folderActions
+        )
 
-            is Folder -> FolderMenuActions(
-                item = item,
-                viewModel = viewModel,
-                editor = editor,
-                folderActions = folderActions
-            )
+        is Folder -> FolderMenuActions(
+            item = item,
+            viewModel = viewModel,
+            editor = editor,
+            folderActions = folderActions
+        )
 
-            is ShortcutLaunchable -> ShortcutMenuActions(
-                item = item,
-                context = context,
-                viewModel = viewModel,
-                folderActions = folderActions,
-                isStandalone = isStandaloneShortcut
-            )
+        is ShortcutLaunchable -> ShortcutMenuActions(
+            item = item,
+            context = context,
+            viewModel = viewModel,
+            folderActions = folderActions,
+            isStandalone = isStandaloneShortcut
+        )
 
-            else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
-        }
+        else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
     }
 }
 
@@ -156,7 +158,7 @@ private fun AppMenuActions(
     editor: IPopupEditor,
     folderActions: IPopupFolderActions
 ) {
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(CoreUiR.string.edit_popup),
         onClick = {
@@ -165,7 +167,7 @@ private fun AppMenuActions(
         }
     )
     AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),
         onClick = { item.openAppInfo(context) }
@@ -181,13 +183,13 @@ private fun ShortcutMenuActions(
     isStandalone: Boolean
 ) {
     AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),
         onClick = { item.openAppInfo(context) }
     )
     if (isStandalone) {
-        SheetMenuAction(
+        SheetActionRow(
             imageVector = FontAwesomeIcons.Solid.TrashAlt,
             label = stringResource(R.string.remove_shortcut),
             onClick = { viewModel.removeShortcut(item) }
@@ -197,7 +199,7 @@ private fun ShortcutMenuActions(
 
 @Composable
 private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.PencilAlt,
         label = stringResource(R.string.edit_folder),
         onClick = {
@@ -205,7 +207,7 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor
             editor.startEdit(item)
         }
     )
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.TrashAlt,
         label = stringResource(CoreUiR.string.delete_folder),
         onClick = {
@@ -217,7 +219,7 @@ private fun FolderMenuActions(item: Folder, viewModel: LauncherViewModel, editor
 
 @Composable
 private fun AddToFolderAction(item: Launchable, viewModel: LauncherViewModel, folderActions: IPopupFolderActions) {
-    SheetMenuAction(
+    SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.FolderPlus,
         label = stringResource(R.string.add_to_folder),
         onClick = {

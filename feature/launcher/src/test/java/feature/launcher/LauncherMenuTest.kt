@@ -1,12 +1,16 @@
 package feature.launcher
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import core.data.apps.model.App
@@ -16,6 +20,11 @@ import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createShortcut
 import core.ui.R as CoreUiR
+import core.ui.composables.ROW_LEADING_ICON_TEST_TAG
+import core.ui.composables.RowTestContent
+import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
+import core.ui.composables.assertRowsPaintSheetColor
+import core.ui.composables.assertSheetTitleMatchesRowContent
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import io.mockk.every
@@ -26,8 +35,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 private const val APP_NAME: String = "Maps"
 private const val FOLDER_NAME: String = "Music"
@@ -37,6 +46,7 @@ private const val SHORTCUT_PACKAGE_NAME: String = "com.example.site"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LauncherMenuTest {
     @get:Rule
     val composeRule: ComposeContentTestRule = createComposeRule()
@@ -45,11 +55,11 @@ class LauncherMenuTest {
     private val mockIconPicker: IIconPicker = mockk(relaxed = true)
     private val mockCollaborators: IPopupCollaborators = mockk(relaxed = true)
     private val changeIconDescription: String
-        get() = RuntimeEnvironment.getApplication().getString(CoreUiR.string.change_icon)
+        get() = getString(CoreUiR.string.change_icon)
     private val removeSuggestionLabel: String
-        get() = RuntimeEnvironment.getApplication().getString(R.string.remove_from_suggestions)
+        get() = getString(R.string.remove_from_suggestions)
     private val removeShortcutLabel: String
-        get() = RuntimeEnvironment.getApplication().getString(R.string.remove_shortcut)
+        get() = getString(R.string.remove_shortcut)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -110,6 +120,60 @@ class LauncherMenuTest {
         composeRule.onNodeWithText(removeShortcutLabel).assertExists()
     }
 
+    @Test
+    fun `paints the App menu rows with the sheet container colour`() {
+        assertRowsPaintSheetColor(
+            item = createApp(name = APP_NAME),
+            isSearchSuggestion = true,
+            labels = listOf(
+                R.string.edit_favorites,
+                R.string.remove_from_suggestions,
+                CoreUiR.string.edit_popup,
+                R.string.add_to_folder,
+                CoreUiR.string.app_info
+            )
+        )
+    }
+
+    @Test
+    fun `paints the Folder menu rows with the sheet container colour`() {
+        assertRowsPaintSheetColor(
+            item = Folder(folderId = FOLDER_ID, name = FOLDER_NAME),
+            labels = listOf(R.string.edit_favorites, R.string.edit_folder, CoreUiR.string.delete_folder)
+        )
+    }
+
+    @Test
+    fun `paints the Shortcut menu rows with the sheet container colour`() {
+        assertRowsPaintSheetColor(
+            item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME, shortLabel = SHORTCUT_NAME),
+            isStandaloneShortcut = true,
+            labels = listOf(R.string.edit_favorites, R.string.add_to_folder, CoreUiR.string.app_info, R.string.remove_shortcut)
+        )
+    }
+
+    @Test
+    fun `lines the sheet title up with the row content`() {
+        setItemMenuContent(item = createApp(name = APP_NAME))
+
+        assertSheetTitleMatchesRowContent(
+            titleContent = composeRule.onNodeWithTag(SHEET_TITLE_ICON_TEST_TAG, useUnmergedTree = true),
+            rowLeadingContent = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true).onFirst()
+        )
+    }
+
+    private fun assertRowsPaintSheetColor(
+        item: Launchable,
+        labels: List<Int>,
+        isSearchSuggestion: Boolean = false,
+        isStandaloneShortcut: Boolean = false
+    ) {
+        composeRule.assertRowsPaintSheetColor(
+            content = { ItemMenuContent(item, isSearchSuggestion, isStandaloneShortcut) },
+            labels = { labels.map { label -> composeRule.onNodeWithText(getString(label)) } }
+        )
+    }
+
     private fun assertHeaderIconStartsPicking(item: Launchable) {
         setMenuContent(item = item)
 
@@ -119,6 +183,25 @@ class LauncherMenuTest {
 
         verify(exactly = 1) { mockViewModel.closeItemMenu() }
         verify(exactly = 1) { mockIconPicker.startPicking(item) }
+    }
+
+    private fun setItemMenuContent(item: Launchable, isSearchSuggestion: Boolean = false, isStandaloneShortcut: Boolean = false) {
+        composeRule.setContent {
+            RowTestContent {
+                ItemMenuContent(item = item, isSearchSuggestion = isSearchSuggestion, isStandaloneShortcut = isStandaloneShortcut)
+            }
+        }
+    }
+
+    @Composable
+    private fun ItemMenuContent(item: Launchable, isSearchSuggestion: Boolean, isStandaloneShortcut: Boolean) {
+        LauncherItemMenu(
+            item = item,
+            isSearchSuggestion = isSearchSuggestion,
+            isStandaloneShortcut = isStandaloneShortcut,
+            viewModel = mockViewModel,
+            collaborators = mockCollaborators
+        )
     }
 
     private fun setMenuContent(item: Launchable, isSearchSuggestion: Boolean = false, isStandaloneShortcut: Boolean = false) {
