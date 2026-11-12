@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -17,6 +19,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.text.TextRange
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.search.SearchResult
@@ -262,6 +267,48 @@ class LauncherSearchTest {
     }
 
     @Test
+    fun `clears the field in one press when the echo and clear coalesce`() {
+        val inputQuery: MutableState<String> = mutableStateOf(QUERY)
+        setSearchContent(query = inputQuery)
+
+        typeIntoQuery("a")
+        composeRule.runOnIdle {
+            inputQuery.value = QUERY + "a"
+            inputQuery.value = ""
+        }
+        composeRule.waitForIdle()
+
+        assertEquals("", queryFieldText())
+    }
+
+    @Test
+    fun `keeps the typed text and cursor when a stale echo arrives after an edit`() {
+        val inputQuery: MutableState<String> = mutableStateOf("")
+        setSearchContent(query = inputQuery, onQueryChange = {})
+
+        typeIntoQuery("gmail")
+        queryField().performTextReplacement("gxail")
+        queryField().performTextInputSelection(TextRange(2))
+        composeRule.runOnIdle { inputQuery.value = "gmail" }
+        composeRule.waitForIdle()
+
+        assertEquals("gxail", queryFieldText())
+        assertEquals(TextRange(2), queryFieldSelection())
+    }
+
+    @Test
+    fun `adopts an external truncation that is not an echo`() {
+        val inputQuery: MutableState<String> = mutableStateOf("g")
+        setSearchContent(query = inputQuery, onQueryChange = {})
+
+        typeIntoQuery("mail")
+        composeRule.runOnIdle { inputQuery.value = "gma" }
+        composeRule.waitForIdle()
+
+        assertEquals("gma", queryFieldText())
+    }
+
+    @Test
     fun `passes the field text to Go`() {
         var actualGoQuery: String? = null
         setSearchContent(
@@ -273,16 +320,27 @@ class LauncherSearchTest {
         )
 
         typeIntoQuery("a")
-        composeRule.onNode(hasSetTextAction()).performImeAction()
+        queryField().performImeAction()
 
         composeRule.runOnIdle { assertEquals("a", actualGoQuery) }
     }
 
     private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
 
+    private fun queryField(): SemanticsNodeInteraction = composeRule.onNode(hasSetTextAction())
+
     private fun typeIntoQuery(text: String) {
-        composeRule.onNode(hasSetTextAction()).performTextInput(text)
+        queryField().performTextInput(text)
     }
+
+    private fun queryFieldText(): String = queryField()
+        .fetchSemanticsNode()
+        .config[SemanticsProperties.EditableText]
+        .text
+
+    private fun queryFieldSelection(): TextRange = queryField()
+        .fetchSemanticsNode()
+        .config[SemanticsProperties.TextSelectionRange]
 
     private fun setSearchContent(
         results: List<SearchResult> = emptyList(),
