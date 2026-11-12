@@ -20,6 +20,7 @@ dependencies {
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:ui")))
     testImplementation(libs.compose.ui.test.junit4)
+    testFixturesImplementation(libs.test.robolectric)
     debugImplementation(libs.test.compose.ui.testManifest)
     // The compose compiler plugin also runs on testFixtures and needs the runtime.
     testFixturesImplementation(platform(libs.compose.bom))

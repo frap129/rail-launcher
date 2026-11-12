@@ -1,9 +1,7 @@
 package core.ui.composables
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -59,29 +57,19 @@ class SheetRowTest {
 
     @Test
     fun `keeps a settings switch row on its own container colour`() {
-        val expectedSettingsColor: MutableState<Color?> = mutableStateOf(null)
-        composeRule.setContent {
-            RowTestContent {
-                expectedSettingsColor.value = MaterialTheme.colorScheme.surface
-                SettingsSwitchRow(title = SETTINGS_TITLE, checked = true, onCheckedChange = {})
-            }
-        }
-
-        composeRule.onNodeWithText(SETTINGS_TITLE).assertPaintsTopEdge(requireNotNull(expectedSettingsColor.value))
+        composeRule.assertRowsPaintColor(
+            expectedColor = { MaterialTheme.colorScheme.surface },
+            content = { SettingsSwitchRow(title = SETTINGS_TITLE, checked = true, onCheckedChange = {}) },
+            labels = { listOf(composeRule.onNodeWithText(SETTINGS_TITLE)) }
+        )
     }
 
     @Test
     fun `reads the sheet container colour from the theme`() {
-        val actualSheetContainerColor: MutableState<Color?> = mutableStateOf(null)
-        val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
-        composeRule.setContent {
-            RowTestContent {
-                actualSheetContainerColor.value = sheetContainerColor
-                expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow
-            }
-        }
-
-        assertEquals(requireNotNull(expectedSheetColor.value), actualSheetContainerColor.value)
+        composeRule.assertRowsPaintSheetColor(
+            content = { SheetRow(headlineContent = { Text(SETTINGS_TITLE) }) },
+            labels = { listOf(composeRule.onNodeWithText(SETTINGS_TITLE)) }
+        )
     }
 
     @Test

@@ -47,18 +47,34 @@ fun SemanticsNodeInteraction.assertPaintsTopEdge(expectedColor: Color) {
 
 /**
  * Renders [content] over the contrasting test background and asserts every node from [labels]
- * paints the sheet container colour at its top edge.
+ * paints the colour [expectedColor] resolves to in the theme.
  */
-fun ComposeContentTestRule.assertRowsPaintSheetColor(content: @Composable () -> Unit, labels: () -> List<SemanticsNodeInteraction>) {
-    val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
+fun ComposeContentTestRule.assertRowsPaintColor(
+    expectedColor: @Composable () -> Color,
+    content: @Composable () -> Unit,
+    labels: () -> List<SemanticsNodeInteraction>
+) {
+    val capturedExpectedColor: MutableState<Color?> = mutableStateOf(null)
     setContent {
         RowTestContent {
-            expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow
+            capturedExpectedColor.value = expectedColor()
             content()
         }
     }
-    val actualSheetColor: Color = requireNotNull(expectedSheetColor.value)
-    labels().forEach { label -> label.assertPaintsTopEdge(actualSheetColor) }
+    val actualExpectedColor: Color = requireNotNull(capturedExpectedColor.value)
+    labels().forEach { label -> label.assertPaintsTopEdge(actualExpectedColor) }
+}
+
+/**
+ * Renders [content] over the contrasting test background and asserts every node from [labels]
+ * paints the sheet container colour.
+ */
+fun ComposeContentTestRule.assertRowsPaintSheetColor(content: @Composable () -> Unit, labels: () -> List<SemanticsNodeInteraction>) {
+    assertRowsPaintColor(
+        expectedColor = { MaterialTheme.colorScheme.surfaceContainerLow },
+        content = content,
+        labels = labels
+    )
 }
 
 /** Asserts [actionLabel] starts where [switchTitle] starts and has the same text height. */

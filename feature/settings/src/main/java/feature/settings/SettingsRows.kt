@@ -21,12 +21,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetRow
+import core.ui.composables.settingsRowContainerColor
 
 private val navigationIconSize: Dp = 64.dp
 private val navigationIconPadding: Dp = 16.dp
@@ -61,23 +64,32 @@ internal fun SettingsNavigationRow(@StringRes title: Int, @StringRes summary: In
 }
 
 @Composable
-internal fun SettingsActionRow(title: String, value: String, onClick: () -> Unit, enabled: Boolean = true, supportingText: String? = null) {
-    ListItem(
+internal fun SettingsActionRow(
+    title: String,
+    value: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    supportingText: String? = null,
+    containerColor: Color = settingsRowContainerColor
+) {
+    SheetRow(
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
         headlineContent = { Text(title) },
         supportingContent = if (value.isNotEmpty() || supportingText != null) {
             { Text(value.ifEmpty { supportingText.orEmpty() }) }
         } else {
             null
-        }
+        },
+        containerColor = containerColor
     )
 }
 
 @Composable
-internal fun SettingsDestructiveRow(title: String, onClick: () -> Unit) {
-    ListItem(
+internal fun SettingsDestructiveRow(title: String, onClick: () -> Unit, containerColor: Color = settingsRowContainerColor) {
+    SheetRow(
         modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text(text = title, color = MaterialTheme.colorScheme.error) }
+        headlineContent = { Text(text = title, color = MaterialTheme.colorScheme.error) },
+        containerColor = containerColor
     )
 }
 
