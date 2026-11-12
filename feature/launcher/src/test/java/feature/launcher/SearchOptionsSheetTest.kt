@@ -13,6 +13,7 @@ import core.ui.composables.assertActionRowMatchesSwitchRow
 import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.assertRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesFirstRow
+import core.ui.composables.getString
 import core.ui.composables.rowTestBackgroundColor
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Rule

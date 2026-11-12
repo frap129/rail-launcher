@@ -46,7 +46,6 @@ import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
 import core.ui.composables.sheetContainerColor
-import core.ui.composables.sheetRowContentInset
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
@@ -105,8 +104,7 @@ internal fun LauncherItemMenu(
                 }
             } else {
                 null
-            },
-            horizontalPadding = sheetRowContentInset
+            }
         )
     }
 

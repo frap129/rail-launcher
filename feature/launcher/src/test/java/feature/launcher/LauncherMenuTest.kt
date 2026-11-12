@@ -20,7 +20,9 @@ import core.data.testing.createShortcut
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
 import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
+import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesFirstRow
+import core.ui.composables.getString
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import io.mockk.every

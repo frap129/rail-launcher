@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import core.data.launchables.model.Launchable
 import core.ui.R
@@ -41,8 +40,7 @@ fun SheetTitle(
     launchable: Launchable,
     modifier: Modifier = Modifier,
     onNameClick: (() -> Unit)? = null,
-    onIconClick: (() -> Unit)? = null,
-    horizontalPadding: Dp = sheetHorizontalPadding
+    onIconClick: (() -> Unit)? = null
 ) {
     val iconClickModifier: Modifier = if (onIconClick == null) {
         Modifier
@@ -55,7 +53,7 @@ fun SheetTitle(
         horizontalArrangement = Arrangement.Start,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = sheetVerticalPadding)
+            .padding(horizontal = sheetRowContentInset, vertical = sheetVerticalPadding)
     ) {
         Box(modifier = Modifier.size(launchableIconSize).then(iconClickModifier), contentAlignment = Alignment.CenterStart) {
             LaunchableIconArtwork(

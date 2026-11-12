@@ -9,7 +9,9 @@ import androidx.compose.ui.test.performClick
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
+import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesFirstRow
+import core.ui.composables.getString
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

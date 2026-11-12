@@ -18,8 +18,10 @@ import core.data.widgets.AppWidgetId
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
 import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
+import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesFirstRow
 import core.ui.composables.assertSheetTitleMatchesRowContent
+import core.ui.composables.getString
 import core.ui.widgets.createHeaderModel
 import core.ui.widgets.labelResource
 import feature.launcher.widgets.WidgetMenu

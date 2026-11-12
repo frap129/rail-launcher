@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,28 +28,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -73,7 +67,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
@@ -110,7 +103,6 @@ import core.data.prefs.BatteryVisibility
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
-import core.data.prefs.HeaderTapSetting
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.TimeFormat
@@ -126,6 +118,7 @@ import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.SettingsSwitchRow
 import core.ui.composables.rememberPermissionResultLauncher
+import core.ui.composables.sheetContainerColor
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
@@ -862,8 +855,6 @@ private fun HeaderTapActionRows(uiState: WidgetSettingsUiState, onTapActionClick
     }
 }
 
-private data class TapActionPartUi(val selected: HeaderTapSetting, val icon: ImageVector, val onSelect: (HeaderTapSetting) -> Unit)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TapActionPickerSheet(
@@ -886,76 +877,13 @@ private fun TapActionPickerSheet(
             onSelect = viewModel::setDateTapTarget
         )
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.fillMaxHeight()) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = viewModel::setTapActionQuery,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                label = { Text(stringResource(CoreUiR.string.search)) },
-                singleLine = true
-            )
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                item {
-                    TapActionRow(
-                        label = stringResource(R.string.tap_action_system_default),
-                        selected = partUi.selected == HeaderTapSetting.SystemDefault,
-                        icon = {
-                            Icon(
-                                imageVector = partUi.icon,
-                                contentDescription = null
-                            )
-                        },
-                        onClick = { partUi.onSelect(HeaderTapSetting.SystemDefault) }
-                    )
-                }
-                item {
-                    TapActionRow(
-                        label = stringResource(R.string.tap_action_nothing),
-                        selected = partUi.selected == HeaderTapSetting.Nothing,
-                        onClick = { partUi.onSelect(HeaderTapSetting.Nothing) }
-                    )
-                }
-                item { HorizontalDivider() }
-                if (!state.isLoaded) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                } else {
-                    items(items = state.launchables, key = { launchable -> launchable.setting.key }) { launchable ->
-                        TapActionRow(
-                            label = launchable.name,
-                            selected = partUi.selected == launchable.setting,
-                            icon = {
-                                AsyncImage(
-                                    modifier = Modifier.size(40.dp),
-                                    model = launchable.icon,
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = { partUi.onSelect(launchable.setting) }
-                        )
-                    }
-                }
-            }
-        }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = sheetContainerColor) {
+        TapActionPickerContent(
+            state = state,
+            partUi = partUi,
+            onQueryChange = viewModel::setTapActionQuery
+        )
     }
-}
-
-@Composable
-private fun TapActionRow(label: String, selected: Boolean, onClick: () -> Unit, icon: (@Composable () -> Unit)? = null) {
-    ListItem(
-        modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
-        headlineContent = { Text(label) },
-        leadingContent = icon,
-        trailingContent = if (selected) {
-            { Icon(imageVector = Icons.Default.Check, contentDescription = null) }
-        } else {
-            null
-        }
-    )
 }
 
 @Composable

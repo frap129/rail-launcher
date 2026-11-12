@@ -42,6 +42,7 @@ import core.ui.composables.NotificationAccessRow
 import core.ui.composables.SettingsSwitchRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
+import core.ui.composables.sheetContainerColor
 import core.ui.popups.FolderDeleteHost
 import core.ui.popups.FolderNameDialog
 import core.ui.popups.IIconPicker
@@ -242,15 +243,59 @@ private fun FolderActionsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        dragHandle = { SheetDragHandle() }
+        dragHandle = { SheetDragHandle() },
+        containerColor = sheetContainerColor
     ) {
-        Column {
-            SheetTitle(launchable = row.folder)
-            SettingsActionRow(title = stringResource(R.string.name), value = row.folder.name, onClick = onRenameClick)
-            SettingsActionRow(title = stringResource(CoreUiR.string.change_icon), value = "", onClick = onIconChange)
-            SettingsActionRow(title = stringResource(R.string.edit_contents), value = "", onClick = onEditContents)
-            SettingsSwitchRow(title = stringResource(R.string.on_home), checked = row.isOnHome, onCheckedChange = onOnHomeChange)
-            SettingsDestructiveRow(title = stringResource(CoreUiR.string.delete_folder), onClick = onDeleteClick)
-        }
+        FolderActionsContent(
+            row = row,
+            onRenameClick = onRenameClick,
+            onIconChange = onIconChange,
+            onEditContents = onEditContents,
+            onOnHomeChange = onOnHomeChange,
+            onDeleteClick = onDeleteClick
+        )
+    }
+}
+
+@Composable
+internal fun FolderActionsContent(
+    row: PopupSettingsFolder,
+    onRenameClick: () -> Unit,
+    onIconChange: () -> Unit,
+    onEditContents: () -> Unit,
+    onOnHomeChange: (Boolean) -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    Column {
+        SheetTitle(launchable = row.folder)
+        SettingsActionRow(
+            title = stringResource(R.string.name),
+            value = row.folder.name,
+            onClick = onRenameClick,
+            containerColor = sheetContainerColor
+        )
+        SettingsActionRow(
+            title = stringResource(CoreUiR.string.change_icon),
+            value = "",
+            onClick = onIconChange,
+            containerColor = sheetContainerColor
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.edit_contents),
+            value = "",
+            onClick = onEditContents,
+            containerColor = sheetContainerColor
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.on_home),
+            checked = row.isOnHome,
+            onCheckedChange = onOnHomeChange,
+            containerColor = sheetContainerColor
+        )
+        SettingsDestructiveRow(
+            title = stringResource(CoreUiR.string.delete_folder),
+            onClick = onDeleteClick,
+            containerColor = sheetContainerColor
+        )
     }
 }

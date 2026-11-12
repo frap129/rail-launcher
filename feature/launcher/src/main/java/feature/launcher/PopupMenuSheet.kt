@@ -30,7 +30,6 @@ import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
 import core.ui.composables.sheetContainerColor
-import core.ui.composables.sheetRowContentInset
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.openApplicationDetailsSettings
@@ -68,7 +67,7 @@ internal fun PopupMenuContent(
         if (widgetPage != null) {
             WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label)
         } else {
-            SheetTitle(launchable = state.target, horizontalPadding = sheetRowContentInset)
+            SheetTitle(launchable = state.target)
         }
         state.items.forEach { item ->
             when (item) {
