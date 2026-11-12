@@ -60,6 +60,7 @@ import core.ui.composables.scrollrail.railWidth
 import core.ui.composables.scrollrail.rememberRailScrubState
 import core.ui.layout.HomeEditMode
 import core.ui.layout.homeEdgePadding
+import core.ui.layout.homeRailContentPaddingValues
 import core.ui.layout.homeRailStartInset
 import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupEditState
@@ -164,8 +165,8 @@ internal fun LauncherContent(
             .clearAndSetSemantics { hideFromAccessibility() }
             .consumeTouches()
     }
-    val contentStartPadding: Dp = homeRailStartInset(railSide = railSide)
     val homePaint: Paint = remember { Paint() }
+
     Box(modifier) {
         // Kept composed under the App List so returning to Home never rebuilds it.
         if (home != null) {
@@ -241,7 +242,7 @@ internal fun LauncherContent(
                     LauncherAppList(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = contentStartPadding, end = homeEdgePadding),
+                            .padding(homeRailContentPaddingValues(railSide = railSide)),
                         appList = state.groups,
                         lazyListState = state.lazyListState,
                         rowState = rowState,
@@ -262,7 +263,7 @@ internal fun LauncherContent(
                     LauncherItemGroup(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = contentStartPadding, top = viewModel.listStartOffsetPx.toDp(context).dp),
+                            .padding(start = homeRailStartInset(railSide = railSide), top = viewModel.listStartOffsetPx.toDp(context).dp),
                         group = state.group,
                         rowState = rowState,
                         itemActions = itemActions,
@@ -272,10 +273,6 @@ internal fun LauncherContent(
 
                 is LauncherUiState.Search -> {
                     LauncherSearch(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .safeDrawingPadding()
-                            .padding(start = contentStartPadding, end = homeEdgePadding),
                         search = state,
                         shouldAutoLaunch = viewModel::shouldAutoLaunch,
                         itemActions = itemActions,

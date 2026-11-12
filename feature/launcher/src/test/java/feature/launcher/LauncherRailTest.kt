@@ -18,7 +18,6 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
@@ -338,7 +337,7 @@ class LauncherRailTest {
 
         val actualRailBounds: Rect = requireNotNull(railBounds.current)
         val actualBubbleBounds: DpRect = composeRule.onNodeWithTag(SCROLL_RAIL_BUBBLE_TEST_TAG).getUnclippedBoundsInRoot()
-        val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        val actualRootBounds: DpRect = composeRule.screenBounds()
         with(composeRule.density) {
             val actualBubbleCenterX: Float = (actualBubbleBounds.left.toPx() + actualBubbleBounds.right.toPx()) / 2f
             val isBubbleOnRight: Boolean = actualBubbleCenterX > actualRailBounds.center.x
@@ -350,7 +349,7 @@ class LauncherRailTest {
     private fun assertRailInsideScreenOnSide(railBounds: RailBounds, isOnLeft: Boolean) {
         composeRule.waitForIdle()
         val actualBounds: Rect = requireNotNull(railBounds.current)
-        val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        val actualRootBounds: DpRect = composeRule.screenBounds()
         val actualBoundsDp: DpRect = with(composeRule.density) {
             DpRect(
                 left = actualBounds.left.toDp(),
@@ -370,7 +369,7 @@ class LauncherRailTest {
     private fun assertMirrorStripOnSide(isOnLeft: Boolean) {
         composeRule.waitForIdle()
         val actualMirrorBounds: DpRect = composeRule.onNodeWithTag(RAIL_MIRROR_STRIP_TEST_TAG).getUnclippedBoundsInRoot()
-        val actualRootBounds: DpRect = composeRule.onRoot().getUnclippedBoundsInRoot()
+        val actualRootBounds: DpRect = composeRule.screenBounds()
         assertEquals(isOnLeft, actualMirrorBounds.centerX() < actualRootBounds.centerX())
     }
 

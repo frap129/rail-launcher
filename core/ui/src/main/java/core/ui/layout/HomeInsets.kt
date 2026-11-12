@@ -28,6 +28,13 @@ fun homeContentStartInset(railSide: RailSide): Dp = homeRailStartInset(railSide 
 /** The end inset inside [homeEdgePadding] that keeps inset Widgets clear of the Rail's touch column. */
 fun homeContentEndInset(railSide: RailSide): Dp = homeRailEndInset(railSide = railSide) - homeEdgePadding
 
+/** The padding that keeps full-width Home content clear of the Rail's touch column on [railSide]. */
+fun homeRailContentPaddingValues(railSide: RailSide, bottom: Dp = 0.dp): PaddingValues = PaddingValues(
+    start = homeRailStartInset(railSide = railSide),
+    end = homeEdgePadding,
+    bottom = bottom
+)
+
 /** The padding that keeps Home content clear of the Rail's touch column on [railSide]. */
 fun homeContentPaddingValues(railSide: RailSide): PaddingValues = PaddingValues(
     start = homeContentStartInset(railSide = railSide),
