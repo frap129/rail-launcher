@@ -1,8 +1,6 @@
 package feature.launcher
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.provider.ContactsContract
 import core.data.testing.TEST_CONTACT_ID
@@ -17,9 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowPackageManager
 
 private const val DIALER_PACKAGE: String = "com.example.dialer"
 private const val DIALER_ACTIVITY: String = "com.example.dialer.DialerActivity"
@@ -68,7 +64,12 @@ class ContactRowOpenerTest : IntentLaunchTestBase() {
 
     @Test
     fun `opens the dialer with the contact's number`() {
-        registerDialer()
+        registerIntentHandler(
+            packageName = DIALER_PACKAGE,
+            className = DIALER_ACTIVITY,
+            action = Intent.ACTION_DIAL,
+            dataScheme = DIAL_SCHEME
+        )
         val actualOpened: Boolean = openContactRow(
             context = context,
             contact = createSearchContact(),
@@ -103,18 +104,5 @@ class ContactRowOpenerTest : IntentLaunchTestBase() {
 
         assertFalse(actualOpened)
         assertNull(shadowActivity.nextStartedActivity)
-    }
-
-    private fun registerDialer() {
-        val manager: ShadowPackageManager = shadowOf(context.packageManager)
-        val component: ComponentName = ComponentName(DIALER_PACKAGE, DIALER_ACTIVITY)
-        manager.addActivityIfNotPresent(component)
-        manager.addIntentFilterForActivity(
-            component,
-            IntentFilter(Intent.ACTION_DIAL).apply {
-                addCategory(Intent.CATEGORY_DEFAULT)
-                addDataScheme(DIAL_SCHEME)
-            }
-        )
     }
 }

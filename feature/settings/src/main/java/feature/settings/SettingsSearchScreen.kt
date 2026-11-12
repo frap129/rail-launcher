@@ -241,7 +241,7 @@ private fun SearchEngineTemplateDialog(initialTemplate: String?, onSave: (String
 
 @StringRes
 private fun SearchEngine.labelResource(): Int = when (this) {
-    SearchEngine.None -> R.string.search_engine_none
+    SearchEngine.None -> R.string.none
     SearchEngine.Google -> R.string.search_engine_google
     SearchEngine.DuckDuckGo -> R.string.search_engine_duckduckgo
     SearchEngine.Brave -> R.string.search_engine_brave

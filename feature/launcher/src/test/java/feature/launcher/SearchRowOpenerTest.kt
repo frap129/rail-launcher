@@ -1,8 +1,6 @@
 package feature.launcher
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import core.data.search.SearchResult
 import core.data.testing.TEST_SDK
@@ -13,9 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowPackageManager
 
 private const val WEB_URL: String = "https://www.google.com/search?q=rail"
 private const val WEB_FALLBACK_URL: String = "https://play.google.com/store/search?q=rail&c=apps"
@@ -62,7 +58,12 @@ class SearchRowOpenerTest : IntentLaunchTestBase() {
 
     @Test
     fun `opens the Play Store market search first`() {
-        registerMarketHandler()
+        registerIntentHandler(
+            packageName = STORE_PACKAGE,
+            className = STORE_ACTIVITY,
+            action = Intent.ACTION_VIEW,
+            dataScheme = MARKET_SCHEME
+        )
 
         val actualOpened: Boolean = openSearchResultRow(context = context, row = playStoreRow())
 
@@ -93,32 +94,13 @@ class SearchRowOpenerTest : IntentLaunchTestBase() {
         assertNull(shadowActivity.nextStartedActivity)
     }
 
-    private fun registerBrowserHandler() {
-        val manager: ShadowPackageManager = shadowOf(context.packageManager)
-        val component: ComponentName = ComponentName(BROWSER_PACKAGE, BROWSER_ACTIVITY)
-        manager.addActivityIfNotPresent(component)
-        manager.addIntentFilterForActivity(
-            component,
-            IntentFilter(Intent.ACTION_VIEW).apply {
-                addCategory(Intent.CATEGORY_DEFAULT)
-                addCategory(Intent.CATEGORY_BROWSABLE)
-                addDataScheme(WEB_SCHEME)
-            }
-        )
-    }
-
-    private fun registerMarketHandler() {
-        val manager: ShadowPackageManager = shadowOf(context.packageManager)
-        val component: ComponentName = ComponentName(STORE_PACKAGE, STORE_ACTIVITY)
-        manager.addActivityIfNotPresent(component)
-        manager.addIntentFilterForActivity(
-            component,
-            IntentFilter(Intent.ACTION_VIEW).apply {
-                addCategory(Intent.CATEGORY_DEFAULT)
-                addDataScheme(MARKET_SCHEME)
-            }
-        )
-    }
+    private fun registerBrowserHandler() = registerIntentHandler(
+        packageName = BROWSER_PACKAGE,
+        className = BROWSER_ACTIVITY,
+        action = Intent.ACTION_VIEW,
+        dataScheme = WEB_SCHEME,
+        categories = listOf(Intent.CATEGORY_BROWSABLE)
+    )
 
     private fun playStoreRow(): SearchResult.PlayStoreRow = SearchResult.PlayStoreRow(marketUrl = MARKET_URL, webUrl = WEB_FALLBACK_URL)
 }

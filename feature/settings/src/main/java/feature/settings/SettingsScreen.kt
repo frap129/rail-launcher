@@ -227,7 +227,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
                         SettingsScreen.Popups -> stringResource(R.string.popups_and_folders)
-                        SettingsScreen.Search -> stringResource(R.string.search)
+                        SettingsScreen.Search -> stringResource(CoreUiR.string.search)
                     }
 
                     Text(
@@ -325,7 +325,7 @@ fun SettingsMainScreen(
         }
         item {
             SettingsNavigationRow(
-                title = R.string.search,
+                title = CoreUiR.string.search,
                 summary = R.string.search_summary,
                 icon = FontAwesomeIcons.Solid.Search,
                 onClick = toSearch
@@ -890,7 +890,7 @@ private fun TapActionPickerSheet(
                 value = state.query,
                 onValueChange = viewModel::setTapActionQuery,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                label = { Text(stringResource(R.string.search)) },
+                label = { Text(stringResource(CoreUiR.string.search)) },
                 singleLine = true
             )
             LazyColumn(modifier = Modifier.weight(1f)) {
@@ -1415,7 +1415,7 @@ private fun WidgetAreaHeightLimit.labelResource(): Int = when (this) {
 
 @StringRes
 private fun WidgetSpacing.labelResource(): Int = when (this) {
-    WidgetSpacing.NONE -> R.string.spacing_none
+    WidgetSpacing.NONE -> R.string.none
     WidgetSpacing.SMALL -> R.string.spacing_small
     WidgetSpacing.DEFAULT -> R.string.spacing_default
     WidgetSpacing.LARGE -> R.string.spacing_large

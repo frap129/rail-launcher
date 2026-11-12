@@ -35,6 +35,7 @@ import compose.icons.fontawesomeicons.solid.Search
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
+import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableGroupHeader
 import kotlinx.coroutines.flow.StateFlow
 
@@ -123,7 +124,7 @@ private fun SearchButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         modifier = modifier.padding(horizontal = searchButtonHorizontalPadding)
     ) {
         Icon(imageVector = FontAwesomeIcons.Solid.Search, contentDescription = null)
-        Text(text = stringResource(R.string.search), modifier = Modifier.padding(start = searchButtonIconPadding))
+        Text(text = stringResource(CoreUiR.string.search), modifier = Modifier.padding(start = searchButtonIconPadding))
     }
 }
 

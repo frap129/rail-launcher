@@ -64,6 +64,10 @@ _Avoid_: Work user, work space, managed profile
 A Work profile in quiet mode: its Apps stay in place but are greyed out, and tapping one offers to turn work apps on.
 _Avoid_: Off, disabled, stopped
 
+**Disabled**:
+A Launchable its publisher currently disables, so it cannot open.
+_Avoid_: Off, removed
+
 **Private Space**:
 The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
 _Avoid_: Private profile, vault, space
@@ -265,7 +269,7 @@ The first Search result other than a Contact row, a Web suggestion row or the Pl
 _Avoid_: First result, primary result
 
 **Auto-launch**:
-The Search setting that opens the only Launchable or Shortcut result without pressing Enter, unless that result is Paused or disabled, or a Calculator or Contact row is also showing.
+The Search setting that opens the only Launchable or Shortcut result without pressing Enter, and only when the new query is longer than the previous one and starts with it, so deleting text or replacing it with something that does not extend it never fires it. It does not fire when that result is Paused, Disabled or a Folder, which opens its Pop-up instead, or when a Calculator or Contact row is also showing.
 _Avoid_: Auto-open, auto-start
 
 **Bottom-anchored results**:
