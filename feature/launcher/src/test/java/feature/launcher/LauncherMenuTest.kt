@@ -7,8 +7,6 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -20,11 +18,9 @@ import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createShortcut
 import core.ui.R as CoreUiR
-import core.ui.composables.ROW_LEADING_ICON_TEST_TAG
 import core.ui.composables.RowTestContent
 import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
-import core.ui.composables.assertRowsPaintSheetColor
-import core.ui.composables.assertSheetTitleMatchesRowContent
+import core.ui.composables.assertSheetTitleMatchesFirstRow
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import io.mockk.every
@@ -156,9 +152,8 @@ class LauncherMenuTest {
     fun `lines the sheet title up with the row content`() {
         setItemMenuContent(item = createApp(name = APP_NAME))
 
-        assertSheetTitleMatchesRowContent(
-            titleContent = composeRule.onNodeWithTag(SHEET_TITLE_ICON_TEST_TAG, useUnmergedTree = true),
-            rowLeadingContent = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true).onFirst()
+        composeRule.assertSheetTitleMatchesFirstRow(
+            titleContent = composeRule.onNodeWithTag(SHEET_TITLE_ICON_TEST_TAG, useUnmergedTree = true)
         )
     }
 
@@ -168,9 +163,9 @@ class LauncherMenuTest {
         isSearchSuggestion: Boolean = false,
         isStandaloneShortcut: Boolean = false
     ) {
-        composeRule.assertRowsPaintSheetColor(
+        composeRule.assertSheetRowsPaintSheetColor(
             content = { ItemMenuContent(item, isSearchSuggestion, isStandaloneShortcut) },
-            labels = { labels.map { label -> composeRule.onNodeWithText(getString(label)) } }
+            labels = labels
         )
     }
 

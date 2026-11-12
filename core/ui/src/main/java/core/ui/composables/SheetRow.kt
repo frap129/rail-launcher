@@ -35,7 +35,7 @@ const val ROW_LEADING_ICON_TEST_TAG: String = "rowLeadingIcon"
 
 /** The leading icon shared by settings and sheet rows. */
 @Composable
-internal fun RowLeadingIcon(imageVector: ImageVector) {
+fun RowLeadingIcon(imageVector: ImageVector) {
     Icon(
         modifier = Modifier
             .size(compactIconSize)
@@ -65,12 +65,23 @@ fun SheetRow(
     )
 }
 
-/** One tappable action row inside a bottom sheet, with a leading icon and a label. */
+/** One tappable action row inside a bottom sheet, with a leading icon, a label and optional supporting text. */
 @Composable
-fun SheetActionRow(imageVector: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SheetActionRow(
+    imageVector: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null
+) {
     SheetRow(
         modifier = modifier.clickable(role = Role.Button, onClick = onClick),
         headlineContent = { Text(label) },
+        supportingContent = supportingText?.let { text ->
+            {
+                Text(text)
+            }
+        },
         leadingContent = { RowLeadingIcon(imageVector = imageVector) }
     )
 }

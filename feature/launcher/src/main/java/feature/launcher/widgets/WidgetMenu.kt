@@ -2,22 +2,15 @@ package feature.launcher.widgets
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.Icon as MaterialIcon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.ArrowsAltH
@@ -38,12 +31,13 @@ import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.prefs.ClockStyle
 import core.ui.R as CoreUiR
-import core.ui.composables.SheetSwitchRow
-import core.ui.composables.sheetHorizontalPadding
-import core.ui.composables.sheetRowIconPadding
-import core.ui.composables.sheetRowIconSize
-import core.ui.composables.sheetVerticalPadding
-import core.ui.widgets.HeaderClockStyleChooser
+import core.ui.composables.RowLeadingIcon
+import core.ui.composables.SettingsSwitchRow
+import core.ui.composables.SheetActionRow
+import core.ui.composables.SheetRow
+import core.ui.composables.SheetTextTitle
+import core.ui.composables.sheetContainerColor
+import core.ui.widgets.SheetClockStyleChooser
 import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */
@@ -57,70 +51,52 @@ fun WidgetMenu(
     onClockStyleSelected: (ClockStyle) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val header: @Composable () -> Unit
+    val items: List<WidgetMenuItem>
     when (state) {
-        WidgetMenuState.Closed -> Unit
+        WidgetMenuState.Closed -> return
 
-        is WidgetMenuState.HeaderMenu -> Column(modifier = modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(R.string.header_title),
-                modifier = Modifier.padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
-                style = MaterialTheme.typography.headlineMedium
+        is WidgetMenuState.ClockStyleChooser -> {
+            SheetClockStyleChooser(
+                selected = state.selected,
+                previews = state.previews,
+                onSelect = onClockStyleSelected,
+                modifier = modifier
             )
-            state.items.forEach { item ->
-                WidgetMenuRow(
-                    item = item,
-                    onToggle = onToggle,
-                    onAction = onAction,
-                    onChoiceClick = onChoiceClick,
-                    onChoiceSelected = onChoiceSelected
-                )
-            }
+            return
         }
 
-        is WidgetMenuState.EmptyAreaMenu -> Column(modifier = modifier.fillMaxWidth()) {
-            state.items.forEach { item ->
-                WidgetMenuRow(
-                    item = item,
-                    onToggle = onToggle,
-                    onAction = onAction,
-                    onChoiceClick = onChoiceClick,
-                    onChoiceSelected = onChoiceSelected
-                )
-            }
+        is WidgetMenuState.HeaderMenu -> {
+            header = { SheetTextTitle(title = stringResource(R.string.header_title)) }
+            items = state.items
         }
 
-        is WidgetMenuState.AppWidgetMenu -> Column(modifier = modifier.fillMaxWidth()) {
-            WidgetMenuTitle(icon = state.icon, label = state.label)
-            state.items.forEach { item ->
-                WidgetMenuRow(
-                    item = item,
-                    onToggle = onToggle,
-                    onAction = onAction,
-                    onChoiceClick = onChoiceClick,
-                    onChoiceSelected = onChoiceSelected
-                )
-            }
+        is WidgetMenuState.EmptyAreaMenu -> {
+            header = {}
+            items = state.items
         }
 
-        is WidgetMenuState.MediaPlayerMenu -> Column(modifier = modifier.fillMaxWidth()) {
-            WidgetMenuTitle(icon = state.icon, label = state.label)
-            state.items.forEach { item ->
-                WidgetMenuRow(
-                    item = item,
-                    onToggle = onToggle,
-                    onAction = onAction,
-                    onChoiceClick = onChoiceClick,
-                    onChoiceSelected = onChoiceSelected
-                )
-            }
+        is WidgetMenuState.AppWidgetMenu -> {
+            header = { WidgetMenuTitle(icon = state.icon, label = state.label) }
+            items = state.items
         }
 
-        is WidgetMenuState.ClockStyleChooser -> HeaderClockStyleChooser(
-            selected = state.selected,
-            previews = state.previews,
-            onSelect = onClockStyleSelected,
-            modifier = modifier
-        )
+        is WidgetMenuState.MediaPlayerMenu -> {
+            header = { WidgetMenuTitle(icon = state.icon, label = state.label) }
+            items = state.items
+        }
+    }
+    Column(modifier = modifier.fillMaxWidth()) {
+        header()
+        items.forEach { item ->
+            WidgetMenuRow(
+                item = item,
+                onToggle = onToggle,
+                onAction = onAction,
+                onChoiceClick = onChoiceClick,
+                onChoiceSelected = onChoiceSelected
+            )
+        }
     }
 }
 
@@ -141,32 +117,25 @@ private fun WidgetMenuRow(
 
 @Composable
 private fun ToggleRow(item: WidgetMenuItem.Toggle, onToggle: (WidgetMenuAction, Boolean) -> Unit, onAction: (WidgetMenuAction) -> Unit) {
-    SheetSwitchRow(
-        imageVector = item.id.icon(),
-        label = stringResource(item.id.label()),
+    SettingsSwitchRow(
+        title = stringResource(item.id.label()),
         checked = item.checked,
         onCheckedChange = { checked -> onToggle(item.id, checked) },
-        supportingText = item.supportingText?.let { supportingText -> stringResource(supportingText) },
         enabled = item.enabled,
+        supportingText = item.supportingText?.let { supportingText -> stringResource(supportingText) },
+        leadingIcon = item.id.icon(),
+        containerColor = sheetContainerColor,
         onClick = if (item.rowOpensAction) ({ onAction(item.id) }) else null
     )
 }
 
 @Composable
 private fun ActionRow(item: WidgetMenuItem.Action, onAction: (WidgetMenuAction) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onAction(item.id) }
-            .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        WidgetMenuIcon(action = item.id)
-        Text(
-            text = item.labelArg?.let { arg -> stringResource(item.id.label(), arg) } ?: stringResource(item.id.label()),
-            style = MaterialTheme.typography.titleLarge
-        )
-    }
+    SheetActionRow(
+        imageVector = item.id.icon(),
+        label = item.labelArg?.let { arg -> stringResource(item.id.label(), arg) } ?: stringResource(item.id.label()),
+        onClick = { onAction(item.id) }
+    )
 }
 
 @Composable
@@ -176,48 +145,28 @@ private fun ChoiceRow(
     onChoiceSelected: (WidgetMenuAction, WidgetMenuChoiceKey) -> Unit
 ) {
     Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button) { onChoiceClick(item.id) }
-                .padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            WidgetMenuIcon(action = item.id)
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                Text(text = stringResource(item.id.label()), style = MaterialTheme.typography.titleLarge)
-                Text(text = stringResource(item.valueLabel), style = MaterialTheme.typography.bodySmall)
-            }
-        }
+        SheetRow(
+            modifier = Modifier.clickable(role = Role.Button) { onChoiceClick(item.id) },
+            headlineContent = { Text(stringResource(item.id.label())) },
+            supportingContent = { Text(stringResource(item.valueLabel)) },
+            leadingContent = { RowLeadingIcon(imageVector = item.id.icon()) }
+        )
         if (item.expanded) {
             item.options.forEach { option ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .selectable(
-                            selected = option.key == item.selectedKey,
-                            enabled = option.enabled,
-                            role = Role.RadioButton,
-                            onClick = { onChoiceSelected(item.id, option.key) }
-                        )
-                        .padding(start = 76.dp, end = 20.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = option.key == item.selectedKey, onClick = null, enabled = option.enabled)
-                    Text(text = stringResource(option.label), modifier = Modifier.padding(start = 12.dp))
-                }
+                val isSelected: Boolean = option.key == item.selectedKey
+                SheetRow(
+                    modifier = Modifier.selectable(
+                        selected = isSelected,
+                        enabled = option.enabled,
+                        role = Role.RadioButton,
+                        onClick = { onChoiceSelected(item.id, option.key) }
+                    ),
+                    headlineContent = { Text(stringResource(option.label)) },
+                    leadingContent = { RadioButton(selected = isSelected, onClick = null, enabled = option.enabled) }
+                )
             }
         }
     }
-}
-
-@Composable
-private fun WidgetMenuIcon(action: WidgetMenuAction) {
-    MaterialIcon(
-        modifier = Modifier.size(sheetRowIconSize).padding(sheetRowIconPadding),
-        imageVector = action.icon(),
-        contentDescription = null
-    )
 }
 
 private fun WidgetMenuAction.label(): Int = when (this) {

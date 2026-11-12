@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +24,16 @@ private val titleFontSize = 28.sp
 
 /** The test tag on a sheet title's drawn icon, used to measure where the title starts. */
 const val SHEET_TITLE_ICON_TEST_TAG: String = "sheetTitleIcon"
+
+/** A text-only sheet title, aligned with the sheet rows' content column. */
+@Composable
+fun SheetTextTitle(title: String, modifier: Modifier = Modifier) {
+    Text(
+        text = title,
+        modifier = modifier.padding(horizontal = sheetRowContentInset, vertical = sheetVerticalPadding),
+        style = MaterialTheme.typography.headlineMedium
+    )
+}
 
 /** The icon-and-name header shown at the top of a launcher sheet. */
 @Composable

@@ -3,19 +3,16 @@ package feature.launcher
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
-import core.ui.composables.ROW_LEADING_ICON_TEST_TAG
 import core.ui.composables.RowTestContent
 import core.ui.composables.assertActionLabelMatchesSwitchTitle
 import core.ui.composables.assertActionRowMatchesSwitchRow
 import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.assertRowsPaintSheetColor
-import core.ui.composables.assertSheetTitleMatchesRowContent
+import core.ui.composables.assertSheetTitleMatchesFirstRow
 import core.ui.composables.rowTestBackgroundColor
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Rule
@@ -62,9 +59,8 @@ class SearchOptionsSheetTest {
     fun `lines the title up with the row content`() {
         setSheetContent()
 
-        assertSheetTitleMatchesRowContent(
-            titleContent = composeRule.onNodeWithText(getString(CoreUiR.string.search), useUnmergedTree = true),
-            rowLeadingContent = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true).onFirst()
+        composeRule.assertSheetTitleMatchesFirstRow(
+            titleContent = composeRule.onNodeWithText(getString(CoreUiR.string.search), useUnmergedTree = true)
         )
     }
 

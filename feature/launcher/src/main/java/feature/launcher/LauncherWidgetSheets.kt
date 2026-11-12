@@ -1,21 +1,23 @@
 package feature.launcher
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import compose.icons.FontAwesomeIcons
+import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.ArrowsAltV
+import compose.icons.fontawesomeicons.solid.PlusSquare
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
+import core.ui.composables.SheetTextTitle
+import core.ui.composables.sheetContainerColor
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetMenu
 import feature.launcher.widgets.WidgetMenuAction
@@ -31,7 +33,8 @@ internal fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
     }
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
-        onDismissRequest = viewModel::closeMenu
+        onDismissRequest = viewModel::closeMenu,
+        containerColor = sheetContainerColor
     ) {
         WidgetMenu(
             state = state,
@@ -81,39 +84,31 @@ internal fun LauncherWidgetMenu(viewModel: WidgetAreaViewModel) {
 internal fun AddPlacementSheet(canAddToStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
-        onDismissRequest = onDismiss
+        onDismissRequest = onDismiss,
+        containerColor = sheetContainerColor
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(CoreUiR.string.add_widget),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.headlineMedium
-            )
-            PlacementChoice(
-                label = stringResource(R.string.add_below),
-                supportingText = stringResource(R.string.add_below_supporting_text),
-                onClick = onBelow
-            )
-            if (canAddToStack) {
-                PlacementChoice(
-                    label = stringResource(CoreUiR.string.add_next_to),
-                    supportingText = stringResource(R.string.add_next_to_supporting_text),
-                    onClick = onIntoStack
-                )
-            }
-        }
+        AddPlacementContent(canAddToStack = canAddToStack, onBelow = onBelow, onIntoStack = onIntoStack)
     }
 }
 
+/** The Add widget sheet's placement choices, on the sheet's container colour. */
 @Composable
-private fun PlacementChoice(label: String, supportingText: String, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Text(text = label, style = MaterialTheme.typography.titleLarge)
-        Text(text = supportingText, style = MaterialTheme.typography.bodySmall)
+internal fun AddPlacementContent(canAddToStack: Boolean, onBelow: () -> Unit, onIntoStack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SheetTextTitle(title = stringResource(CoreUiR.string.add_widget))
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
+            label = stringResource(R.string.add_below),
+            onClick = onBelow,
+            supportingText = stringResource(R.string.add_below_supporting_text)
+        )
+        if (canAddToStack) {
+            SheetActionRow(
+                imageVector = FontAwesomeIcons.Solid.PlusSquare,
+                label = stringResource(CoreUiR.string.add_next_to),
+                onClick = onIntoStack,
+                supportingText = stringResource(R.string.add_next_to_supporting_text)
+            )
+        }
     }
 }
