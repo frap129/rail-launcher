@@ -8,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
@@ -21,8 +22,10 @@ import core.ui.R as CoreUiR
 import core.ui.composables.SearchContactsSwitchRow
 import core.ui.composables.SearchWebSuggestionsSwitchRow
 import core.ui.composables.SettingsSwitchRow
+import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
-import core.ui.composables.SheetMenuAction
+import core.ui.composables.sheetContainerColor
+import core.ui.composables.sheetRowContentInset
 import core.ui.popups.PopupSheetTitleRow
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
@@ -50,53 +53,71 @@ internal fun SearchOptionsSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        containerColor = sheetContainerColor,
         dragHandle = { SheetDragHandle() }
     ) {
-        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-            PopupSheetTitleRow(title = stringResource(CoreUiR.string.search))
-            SearchWebSuggestionsSwitchRow(
-                checked = options.searchWebSuggestions,
-                searchEngine = options.searchEngine,
-                onCheckedChange = actions.onSearchWebSuggestionsChange,
-                leadingIcon = FontAwesomeIcons.Solid.Globe
-            )
-            SearchContactsSwitchRow(
-                checked = options.searchContacts,
-                events = contactsEvents,
-                onCheckedChange = actions.onSearchContactsChange,
-                onPermissionResult = actions.onContactsPermissionResult,
-                onRefreshPermission = actions.onRefreshContactsPermission,
-                leadingIcon = FontAwesomeIcons.Solid.User
-            )
-            SettingsSwitchRow(
-                title = stringResource(CoreUiR.string.search_suggestions),
-                checked = options.searchSuggestions,
-                onCheckedChange = actions.onSearchSuggestionsChange,
-                supportingText = stringResource(CoreUiR.string.search_suggestions_summary),
-                leadingIcon = FontAwesomeIcons.Solid.Search
-            )
-            SettingsSwitchRow(
-                title = stringResource(CoreUiR.string.search_calculator_row),
-                checked = options.searchCalculatorRow,
-                onCheckedChange = actions.onSearchCalculatorRowChange,
-                supportingText = stringResource(CoreUiR.string.search_calculator_row_summary),
-                leadingIcon = FontAwesomeIcons.Solid.Calculator
-            )
-            SettingsSwitchRow(
-                title = stringResource(CoreUiR.string.search_swipe_up),
-                checked = options.openSearchOnSwipeUp,
-                onCheckedChange = actions.onOpenSearchOnSwipeUpChange,
-                supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
-                leadingIcon = FontAwesomeIcons.Solid.ArrowUp
-            )
-            SheetMenuAction(
-                imageVector = FontAwesomeIcons.Solid.Cog,
-                label = stringResource(R.string.search_settings),
-                onClick = {
-                    onDismiss()
-                    actions.onOpenSearchSettings()
-                }
-            )
-        }
+        SearchOptionsContent(options = options, contactsEvents = contactsEvents, actions = actions, onDismiss = onDismiss)
+    }
+}
+
+/** The Search options sheet's rows, on the sheet's container colour. */
+@Composable
+internal fun SearchOptionsContent(
+    options: SearchOptions,
+    contactsEvents: Flow<SearchContactsUiEvent>,
+    actions: SearchOptionsActions,
+    onDismiss: () -> Unit
+) {
+    val containerColor: Color = sheetContainerColor
+    Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        PopupSheetTitleRow(title = stringResource(CoreUiR.string.search), horizontalPadding = sheetRowContentInset)
+        SearchWebSuggestionsSwitchRow(
+            checked = options.searchWebSuggestions,
+            searchEngine = options.searchEngine,
+            onCheckedChange = actions.onSearchWebSuggestionsChange,
+            leadingIcon = FontAwesomeIcons.Solid.Globe,
+            containerColor = containerColor
+        )
+        SearchContactsSwitchRow(
+            checked = options.searchContacts,
+            events = contactsEvents,
+            onCheckedChange = actions.onSearchContactsChange,
+            onPermissionResult = actions.onContactsPermissionResult,
+            onRefreshPermission = actions.onRefreshContactsPermission,
+            leadingIcon = FontAwesomeIcons.Solid.User,
+            containerColor = containerColor
+        )
+        SettingsSwitchRow(
+            title = stringResource(CoreUiR.string.search_suggestions),
+            checked = options.searchSuggestions,
+            onCheckedChange = actions.onSearchSuggestionsChange,
+            supportingText = stringResource(CoreUiR.string.search_suggestions_summary),
+            leadingIcon = FontAwesomeIcons.Solid.Search,
+            containerColor = containerColor
+        )
+        SettingsSwitchRow(
+            title = stringResource(CoreUiR.string.search_calculator_row),
+            checked = options.searchCalculatorRow,
+            onCheckedChange = actions.onSearchCalculatorRowChange,
+            supportingText = stringResource(CoreUiR.string.search_calculator_row_summary),
+            leadingIcon = FontAwesomeIcons.Solid.Calculator,
+            containerColor = containerColor
+        )
+        SettingsSwitchRow(
+            title = stringResource(CoreUiR.string.search_swipe_up),
+            checked = options.openSearchOnSwipeUp,
+            onCheckedChange = actions.onOpenSearchOnSwipeUpChange,
+            supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
+            leadingIcon = FontAwesomeIcons.Solid.ArrowUp,
+            containerColor = containerColor
+        )
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.Cog,
+            label = stringResource(R.string.search_settings),
+            onClick = {
+                onDismiss()
+                actions.onOpenSearchSettings()
+            }
+        )
     }
 }

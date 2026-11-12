@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -24,7 +25,8 @@ fun SearchWebSuggestionsSwitchRow(
     checked: Boolean,
     searchEngine: SearchEngine,
     onCheckedChange: (Boolean) -> Unit,
-    leadingIcon: ImageVector? = null
+    leadingIcon: ImageVector? = null,
+    containerColor: Color = settingsRowContainerColor
 ) {
     val hasSuggestionEngine: Boolean = searchEngine.offersSuggestions
     SettingsSwitchRow(
@@ -39,7 +41,8 @@ fun SearchWebSuggestionsSwitchRow(
                 R.string.search_web_suggestions_unavailable
             }
         ),
-        leadingIcon = leadingIcon
+        leadingIcon = leadingIcon,
+        containerColor = containerColor
     )
 }
 
@@ -54,7 +57,8 @@ fun SearchContactsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     onPermissionResult: (granted: Boolean, canAskAgain: Boolean) -> Unit,
     onRefreshPermission: () -> Unit,
-    leadingIcon: ImageVector? = null
+    leadingIcon: ImageVector? = null,
+    containerColor: Color = settingsRowContainerColor
 ) {
     val context: Context = LocalContext.current
     var showPermissionDenied: Boolean by remember { mutableStateOf(false) }
@@ -78,7 +82,8 @@ fun SearchContactsSwitchRow(
         checked = checked,
         onCheckedChange = onCheckedChange,
         supportingText = stringResource(R.string.search_contacts_summary),
-        leadingIcon = leadingIcon
+        leadingIcon = leadingIcon,
+        containerColor = containerColor
     )
     if (showPermissionDenied) {
         PermissionDeniedDialog(
