@@ -1,8 +1,5 @@
 package feature.settings
 
-import android.Manifest
-import android.content.Context
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,55 +10,35 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import core.data.prefs.SearchEngine
 import core.ui.R as CoreUiR
-import core.ui.composables.OnResume
-import core.ui.composables.PermissionDeniedDialog
-import core.ui.composables.rememberPermissionResultLauncher
+import core.ui.composables.SearchContactsSwitchRow
+import core.ui.composables.SearchWebSuggestionsSwitchRow
+import core.ui.composables.SettingsSwitchRow
 import core.ui.model.data.SEARCH_ENTRY_URI
 import core.util.SEARCH_TEMPLATE_PLACEHOLDER
 import core.util.isValidSearchTemplate
-import core.util.openApplicationDetailsSettings
 import org.koin.androidx.compose.koinViewModel
 
-/** The Search section: how Search opens, its rows, Search suggestions and the Search engine. */
+/** The Search settings screen: how Search opens, its rows, Search suggestions and the Search engine. */
 @Composable
-fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
+fun SearchSettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
     val uiState: SettingsUiState by viewModel.uiState.collectAsState()
-    val context: Context = LocalContext.current
     var isChoosingEngine: Boolean by remember { mutableStateOf(false) }
     var isEditingCustomEngine: Boolean by remember { mutableStateOf(false) }
-    var showContactsPermissionDenied: Boolean by remember { mutableStateOf(false) }
-    val contactsPermissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
-        rememberPermissionResultLauncher(permission = Manifest.permission.READ_CONTACTS) { granted, canAskAgain ->
-            viewModel.onContactsPermissionResult(granted = granted, canAskAgain = canAskAgain)
-        }
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            when (event) {
-                SettingsEvent.RequestContactsPermission -> contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                SettingsEvent.ShowContactsPermissionDenied -> showContactsPermissionDenied = true
-            }
-        }
-    }
-    OnResume {
-        viewModel.refreshContactsPermission()
-    }
     LazyColumn {
         item {
             SettingsSwitchRow(
-                title = stringResource(R.string.search_swipe_up),
+                title = stringResource(CoreUiR.string.search_swipe_up),
                 checked = uiState.openSearchOnSwipeUp,
-                supportingText = stringResource(R.string.search_swipe_up_summary),
+                supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
                 onCheckedChange = viewModel::setOpenSearchOnSwipeUp
             )
         }
@@ -75,23 +52,16 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
         }
         item {
             SettingsSwitchRow(
-                title = stringResource(R.string.search_suggestions),
+                title = stringResource(CoreUiR.string.search_suggestions),
                 checked = uiState.searchSuggestions,
-                supportingText = stringResource(R.string.search_suggestions_summary),
+                supportingText = stringResource(CoreUiR.string.search_suggestions_summary),
                 onCheckedChange = viewModel::setSearchSuggestions
             )
         }
         item {
-            val hasSuggestionEngine: Boolean = uiState.searchEngine.offersSuggestions
-            SettingsSwitchRow(
-                title = stringResource(R.string.search_web_suggestions),
+            SearchWebSuggestionsSwitchRow(
                 checked = uiState.searchWebSuggestions,
-                supportingText = if (hasSuggestionEngine) {
-                    stringResource(R.string.search_web_suggestions_summary)
-                } else {
-                    stringResource(R.string.search_web_suggestions_unavailable)
-                },
-                enabled = hasSuggestionEngine,
+                searchEngine = uiState.searchEngine,
                 onCheckedChange = viewModel::setSearchWebSuggestions
             )
         }
@@ -113,9 +83,9 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
         }
         item {
             SettingsSwitchRow(
-                title = stringResource(R.string.search_calculator_row),
+                title = stringResource(CoreUiR.string.search_calculator_row),
                 checked = uiState.searchCalculatorRow,
-                supportingText = stringResource(R.string.search_calculator_row_summary),
+                supportingText = stringResource(CoreUiR.string.search_calculator_row_summary),
                 onCheckedChange = viewModel::setSearchCalculatorRow
             )
         }
@@ -136,11 +106,12 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
             )
         }
         item {
-            SettingsSwitchRow(
-                title = stringResource(R.string.search_contacts),
+            SearchContactsSwitchRow(
                 checked = uiState.searchContacts,
-                supportingText = stringResource(R.string.search_contacts_summary),
-                onCheckedChange = viewModel::setSearchContacts
+                events = viewModel.events,
+                onCheckedChange = viewModel::setSearchContacts,
+                onPermissionResult = viewModel::onContactsPermissionResult,
+                onRefreshPermission = viewModel::refreshContactsPermission
             )
         }
         item {
@@ -187,17 +158,6 @@ fun SettingsSearchScreen(viewModel: SettingsViewModel = koinViewModel()) {
                 isEditingCustomEngine = false
             },
             onDismiss = { isEditingCustomEngine = false }
-        )
-    }
-    if (showContactsPermissionDenied) {
-        PermissionDeniedDialog(
-            title = stringResource(R.string.search_contacts_permission_title),
-            message = stringResource(R.string.search_contacts_permission_summary),
-            onDismiss = { showContactsPermissionDenied = false },
-            onOpenSettings = {
-                showContactsPermissionDenied = false
-                context.openApplicationDetailsSettings()
-            }
         )
     }
 }

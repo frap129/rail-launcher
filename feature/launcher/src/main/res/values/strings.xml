@@ -5,6 +5,8 @@
     <string name="top_result_opens">%1$s, Enter opens</string>
     <string name="top_result_copies">%1$s, Enter copies</string>
     <string name="clear_search">Clear search</string>
+    <string name="search_options">Search options</string>
+    <string name="search_settings">Search settings</string>
     <string name="calculator_row">%1$s = %2$s</string>
     <string name="calculator_copied">Copied to clipboard</string>
     <string name="search_open_url">Open %1$s</string>

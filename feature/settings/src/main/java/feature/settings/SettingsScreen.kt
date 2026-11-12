@@ -124,12 +124,14 @@ import core.ui.composables.DestructiveConfirmationDialog
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
+import core.ui.composables.SettingsSwitchRow
 import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.POPUPS_SETTINGS_ROUTE
+import core.ui.model.data.SEARCH_SETTINGS_ROUTE
 import core.ui.model.data.SETTINGS_ROUTE
 import core.ui.util.formatDpLabel
 import core.ui.widgets.HeaderClockStyleChooser
@@ -260,7 +262,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toAppearance = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Appearance.key}") },
                     toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
                     toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
-                    toSearch = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Search.key}") },
+                    toSearch = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
                     onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
                 )
 
@@ -282,7 +284,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 
                 SettingsScreen.Popups -> SettingsPopupsScreen()
 
-                SettingsScreen.Search -> SettingsSearchScreen()
+                SettingsScreen.Search -> SearchSettingsScreen()
             }
         }
     }

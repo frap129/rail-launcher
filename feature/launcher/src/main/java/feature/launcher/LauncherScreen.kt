@@ -68,6 +68,7 @@ import core.ui.model.data.LauncherSignal
 import core.ui.model.data.LauncherSignalRequest
 import core.ui.model.data.LauncherTypingState
 import core.ui.model.data.OneShotRequest
+import core.ui.model.data.SEARCH_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.popups.FolderDeleteHost
@@ -369,6 +370,7 @@ fun LauncherScreen(
             },
             onOpenSearchRow = openSearchRow,
             onContactRowAction = openContactRowAction,
+            onOpenSearchSettings = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode

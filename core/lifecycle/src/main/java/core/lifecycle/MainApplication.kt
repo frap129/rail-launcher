@@ -59,6 +59,8 @@ import core.data.popups.IPopupRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.IPreferencesRepositoryImpl
+import core.data.prefs.ISearchSettings
+import core.data.prefs.ISearchSettingsImpl
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceLockImpl
 import core.data.profiles.IPrivateSpaceStatus
@@ -296,6 +298,9 @@ class MainApplication :
         single<IContactSearchSource> {
             IContactSearchSourceImpl(context = androidContext(), preferencesRepository = get())
         }
+        single<ISearchSettings> {
+            ISearchSettingsImpl(preferencesRepository = get(), contactSearchSource = get())
+        }
         single<IWebSuggestionSource> { IWebSuggestionSourceImpl(preferencesRepository = get()) }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
@@ -478,6 +483,7 @@ class MainApplication :
                 clockSource = get(),
                 shortcutSearchSource = get(),
                 contactSearchSource = get(),
+                searchSettings = get(),
                 webSuggestionSource = get()
             )
         }

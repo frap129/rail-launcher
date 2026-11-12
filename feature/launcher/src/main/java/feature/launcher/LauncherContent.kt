@@ -100,6 +100,7 @@ internal fun LauncherContent(
     onCopyCalculatorRow: (String) -> Unit,
     onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit,
+    onOpenSearchSettings: () -> Unit,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     homeEditMode: HomeEditMode
@@ -133,6 +134,18 @@ internal fun LauncherContent(
                 railSide = railSide
             )
         }
+    val searchOptionsActions: SearchOptionsActions = remember(viewModel, onOpenSearchSettings) {
+        SearchOptionsActions(
+            onOpenSearchOnSwipeUpChange = viewModel::setOpenSearchOnSwipeUp,
+            onSearchSuggestionsChange = viewModel::setSearchSuggestions,
+            onSearchWebSuggestionsChange = viewModel::setSearchWebSuggestions,
+            onSearchContactsChange = viewModel::setSearchContacts,
+            onSearchCalculatorRowChange = viewModel::setSearchCalculatorRow,
+            onContactsPermissionResult = viewModel::onContactsPermissionResult,
+            onRefreshContactsPermission = viewModel::refreshContactsPermission,
+            onOpenSearchSettings = onOpenSearchSettings
+        )
+    }
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
     val isEditingHome: Boolean = homeEditMode != HomeEditMode.None
@@ -266,6 +279,8 @@ internal fun LauncherContent(
                         search = state,
                         shouldAutoLaunch = viewModel::shouldAutoLaunch,
                         itemActions = itemActions,
+                        contactsEvents = viewModel.events,
+                        searchOptionsActions = searchOptionsActions,
                         onQueryChange = viewModel::setSearchQuery,
                         onSearchGo = viewModel::onSearchGo,
                         onCopyCalculatorRow = onCopyCalculatorRow,

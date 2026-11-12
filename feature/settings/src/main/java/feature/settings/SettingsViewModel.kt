@@ -5,21 +5,23 @@ import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ISearchSettings
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
+import core.data.prefs.isContactResultsEnabled
 import core.data.profiles.IPrivateSpaceStatus
-import core.data.search.IContactSearchSource
 import core.ui.model.data.POPUPS_SETTINGS_KEY
-import core.util.EventChannel
+import core.ui.model.data.SEARCH_SETTINGS_KEY
+import core.ui.search.SearchContactsUiEvent
+import core.ui.search.SearchContactsUiEvents
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 private val defaultSettings: Settings = Settings()
 
@@ -28,7 +30,7 @@ enum class SettingsScreen(val key: String) {
     Appearance("appearance"),
     Widgets("widgets"),
     Popups(POPUPS_SETTINGS_KEY),
-    Search("search")
+    Search(SEARCH_SETTINGS_KEY)
 }
 
 data class SettingsUiState(
@@ -74,28 +76,21 @@ private fun Settings.toSettingsUiState(
     searchWebRow = searchWebRow,
     searchPlayStoreRow = searchPlayStoreRow,
     searchWebSuggestions = searchWebSuggestions,
-    searchContacts = searchContacts && hasContactPermission,
+    searchContacts = isContactResultsEnabled(hasContactsPermission = hasContactPermission),
     searchEngine = searchEngine,
     searchEngineTemplate = searchEngineTemplate
 )
-
-/** What the Search settings screen must ask the host to show after a Contacts permission change. */
-sealed interface SettingsEvent {
-    data object RequestContactsPermission : SettingsEvent
-
-    data object ShowContactsPermissionDenied : SettingsEvent
-}
 
 class SettingsViewModel(
     private val prefsRepo: IPreferencesRepository,
     private val iconRepo: IIconRepository,
     private val privateSpaceStatus: IPrivateSpaceStatus,
-    private val contactSearchSource: IContactSearchSource
+    private val searchSettings: ISearchSettings
 ) : ViewModel() {
-    private val eventChannel: EventChannel<SettingsEvent> = EventChannel()
+    private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
-    /** The permission prompts and denials the Search settings screen must show. */
-    val events: Flow<SettingsEvent> = eventChannel.flow
+    /** The permission prompts and denials the Contact results row must show. */
+    val events: Flow<SearchContactsUiEvent> = searchContactsUiEvents.events
 
     private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.settings) { iconPacks, settings ->
         iconPacks.find { it is IconPack.CustomIconPack && it.packageName == settings.iconPack } ?: IconPack.SystemIconPack
@@ -106,7 +101,7 @@ class SettingsViewModel(
         selectedIconPack,
         prefsRepo.settings,
         privateSpaceStatus.status,
-        contactSearchSource.hasPermission
+        searchSettings.hasContactsPermission
     ) { iconPacks, selectedIconPack, settings, status, hasContactPermission ->
         settings.toSettingsUiState(
             iconPacks = iconPacks,
@@ -121,7 +116,7 @@ class SettingsViewModel(
             iconPacks = setOf(IconPack.SystemIconPack),
             selectedIconPack = IconPack.SystemIconPack,
             isPrivateSpaceAvailable = privateSpaceStatus.currentStatus().profile != null,
-            hasContactPermission = contactSearchSource.hasPermission.value
+            hasContactPermission = searchSettings.hasContactsPermission.value
         )
     )
 
@@ -140,13 +135,13 @@ class SettingsViewModel(
     fun setRailSide(side: RailSide) = prefsRepo.setRailSide(side)
 
     /** Persists whether swiping up on Home opens Search. */
-    fun setOpenSearchOnSwipeUp(enabled: Boolean) = prefsRepo.setOpenSearchOnSwipeUp(enabled)
+    fun setOpenSearchOnSwipeUp(enabled: Boolean) = searchSettings.setOpenSearchOnSwipeUp(enabled)
 
     /** Persists whether pressing Home on Home opens Search. */
     fun setOpenSearchOnHomePress(enabled: Boolean) = prefsRepo.setOpenSearchOnHomePress(enabled)
 
     /** Persists whether Search shows Search suggestions before typing. */
-    fun setSearchSuggestions(enabled: Boolean) = prefsRepo.setSearchSuggestions(enabled)
+    fun setSearchSuggestions(enabled: Boolean) = searchSettings.setSearchSuggestions(enabled)
 
     /** Persists whether Auto-launch opens the only matching Launchable. */
     fun setSearchAutoLaunch(enabled: Boolean) = prefsRepo.setSearchAutoLaunch(enabled)
@@ -155,7 +150,7 @@ class SettingsViewModel(
     fun setSearchBottomAnchoredResults(enabled: Boolean) = prefsRepo.setSearchBottomAnchoredResults(enabled)
 
     /** Persists whether Search shows the Calculator row. */
-    fun setSearchCalculatorRow(enabled: Boolean) = prefsRepo.setSearchCalculatorRow(enabled)
+    fun setSearchCalculatorRow(enabled: Boolean) = searchSettings.setSearchCalculatorRow(enabled)
 
     /** Persists whether Search shows the typed-URL and Web search rows. */
     fun setSearchWebRow(enabled: Boolean) = prefsRepo.setSearchWebRow(enabled)
@@ -164,42 +159,20 @@ class SettingsViewModel(
     fun setSearchPlayStoreRow(enabled: Boolean) = prefsRepo.setSearchPlayStoreRow(enabled)
 
     /** Persists whether Search fetches Web suggestions from the Search engine while typing. */
-    fun setSearchWebSuggestions(enabled: Boolean) = prefsRepo.setSearchWebSuggestions(enabled)
+    fun setSearchWebSuggestions(enabled: Boolean) = searchSettings.setSearchWebSuggestions(enabled)
 
-    /**
-     * Persists whether Search shows Contact rows, asking for the Contacts permission first when
-     * it turns on. A denial leaves the switch off; only a permanent denial opens a dialog.
-     */
+    /** Persists whether Search shows Contact rows, asking for the Contacts permission first when it turns on. */
     fun setSearchContacts(enabled: Boolean) {
-        if (!enabled) {
-            prefsRepo.setSearchContacts(false)
-            return
-        }
-        contactSearchSource.refreshPermission()
-        if (contactSearchSource.hasPermission.value) {
-            prefsRepo.setSearchContacts(true)
-        } else {
-            viewModelScope.launch {
-                eventChannel.send(SettingsEvent.RequestContactsPermission)
-            }
-        }
+        searchContactsUiEvents.report(searchSettings.setSearchContacts(enabled))
     }
 
     /** Persists the Contact results switch from the permission result and reports a permanent denial. */
     fun onContactsPermissionResult(granted: Boolean, canAskAgain: Boolean) {
-        contactSearchSource.refreshPermission()
-        prefsRepo.setSearchContacts(granted)
-        if (!granted && !canAskAgain) {
-            viewModelScope.launch {
-                eventChannel.send(SettingsEvent.ShowContactsPermissionDenied)
-            }
-        }
+        searchContactsUiEvents.report(searchSettings.onContactsPermissionResult(granted = granted, canAskAgain = canAskAgain))
     }
 
     /** Rechecks the Contacts permission so the Contact results switch follows a change made outside Rail. */
-    fun refreshContactsPermission() {
-        contactSearchSource.refreshPermission()
-    }
+    fun refreshContactsPermission() = searchSettings.refreshContactsPermission()
 
     /** Persists the Search engine the Web search row uses. */
     fun setSearchEngine(engine: SearchEngine) = prefsRepo.setSearchEngine(engine)
