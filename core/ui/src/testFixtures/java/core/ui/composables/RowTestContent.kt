@@ -15,6 +15,8 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.unit.DpRect
 import org.junit.Assert.assertEquals
 
@@ -78,4 +80,12 @@ fun assertActionRowMatchesSwitchRow(actionRow: SemanticsNodeInteraction, switchR
 /** Asserts [titleContent] starts where [rowLeadingContent] starts. */
 fun assertSheetTitleMatchesRowContent(titleContent: SemanticsNodeInteraction, rowLeadingContent: SemanticsNodeInteraction) {
     assertEquals(rowLeadingContent.getUnclippedBoundsInRoot().left, titleContent.getUnclippedBoundsInRoot().left)
+}
+
+/** Asserts [titleContent] starts where the first row's leading content starts. */
+fun ComposeContentTestRule.assertSheetTitleMatchesFirstRow(titleContent: SemanticsNodeInteraction) {
+    assertSheetTitleMatchesRowContent(
+        titleContent = titleContent,
+        rowLeadingContent = onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true).onFirst()
+    )
 }

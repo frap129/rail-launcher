@@ -48,6 +48,8 @@ import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.ui.R
 import core.ui.composables.OutlinedText
+import core.ui.composables.SheetRow
+import core.ui.composables.SheetTextTitle
 import core.ui.layout.minTouchTargetSize
 
 private val previewSpacing: Dp = 8.dp
@@ -158,25 +160,56 @@ fun HeaderClockStyleChooser(
                     .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(preview.style) })
                     .padding(horizontal = previewPadding, vertical = 10.dp)
             ) {
-                HeaderContent(
-                    model = preview,
-                    menuEnabled = false,
-                    onTapTarget = {},
-                    onLongPress = {},
-                    interactive = false
+                ClockStylePreview(preview = preview, isSelected = isSelected)
+            }
+        }
+    }
+}
+
+/** The Clock style chooser inside a launcher sheet, on the sheet's container colour. */
+@Composable
+fun SheetClockStyleChooser(
+    selected: ClockStyle,
+    previews: List<HeaderModel>,
+    onSelect: (ClockStyle) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        SheetTextTitle(title = stringResource(R.string.clock_style_title))
+        previews.forEach { preview ->
+            val isSelected: Boolean = preview.style == selected
+            SheetRow(
+                modifier = Modifier.selectable(
+                    selected = isSelected,
+                    role = Role.RadioButton,
+                    onClick = { onSelect(preview.style) }
+                ),
+                headlineContent = { ClockStylePreview(preview = preview, isSelected = isSelected) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClockStylePreview(preview: HeaderModel, isSelected: Boolean) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HeaderContent(
+            model = preview,
+            menuEnabled = false,
+            onTapTarget = {},
+            onLongPress = {},
+            interactive = false
+        )
+        Spacer(modifier = Modifier.size(previewSpacing))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = stringResource(preview.style.labelResource()), style = MaterialTheme.typography.titleMedium)
+            if (isSelected) {
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(
+                    modifier = Modifier.size(selectedIconSize),
+                    imageVector = FontAwesomeIcons.Solid.Check,
+                    contentDescription = null
                 )
-                Spacer(modifier = Modifier.size(previewSpacing))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = stringResource(preview.style.labelResource()), style = MaterialTheme.typography.titleMedium)
-                    if (isSelected) {
-                        Spacer(modifier = Modifier.weight(1f))
-                        Icon(
-                            modifier = Modifier.size(selectedIconSize),
-                            imageVector = FontAwesomeIcons.Solid.Check,
-                            contentDescription = null
-                        )
-                    }
-                }
             }
         }
     }

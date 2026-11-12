@@ -66,7 +66,7 @@ internal fun PopupMenuContent(
     Column(modifier = Modifier.fillMaxWidth()) {
         val widgetPage: PopupWidgetPage? = state.widgetPage
         if (widgetPage != null) {
-            WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label, horizontalPadding = sheetRowContentInset)
+            WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label)
         } else {
             SheetTitle(launchable = state.target, horizontalPadding = sheetRowContentInset)
         }
