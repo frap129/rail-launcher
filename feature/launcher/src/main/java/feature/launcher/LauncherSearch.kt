@@ -3,6 +3,7 @@ package feature.launcher
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -10,11 +11,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,12 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
@@ -52,6 +59,18 @@ private val searchFieldVerticalPadding: Dp = 8.dp
 private val topResultPadding: Dp = 16.dp
 private val resultsBottomPadding: Dp = 16.dp
 
+@Composable
+internal fun searchFieldColors(): TextFieldColors = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    errorContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+    errorIndicatorColor = Color.Transparent
+)
+
 private class SearchAnchors {
     val byKey: MutableMap<String, PopupAnchor> = mutableMapOf()
 }
@@ -64,6 +83,7 @@ private class SearchAnchors {
  * Bottom-anchored results reverse only the list, keeping the query field at the top so the Top
  * result ends up next to the keyboard.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LauncherSearch(
     modifier: Modifier,
@@ -143,7 +163,7 @@ internal fun LauncherSearch(
     }
     RequestKeyboardFocus(focusRequester = focusRequester)
     Column(modifier = modifier) {
-        OutlinedTextField(
+        TextField(
             value = fieldValue,
             onValueChange = { value -> updateFieldValue(value) },
             modifier = Modifier
@@ -154,8 +174,15 @@ internal fun LauncherSearch(
                     end = searchFieldPadding,
                     bottom = searchFieldVerticalPadding
                 )
+                .height(SearchBarDefaults.InputFieldHeight)
                 .focusRequester(focusRequester),
-            placeholder = { Text(text = stringResource(R.string.search_hint)) },
+            placeholder = {
+                Text(
+                    text = stringResource(R.string.search_hint),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
             trailingIcon = {
                 if (fieldValue.text.isNotEmpty()) {
                     IconButton(
@@ -171,6 +198,8 @@ internal fun LauncherSearch(
                 }
             },
             singleLine = true,
+            shape = SearchBarDefaults.inputFieldShape,
+            colors = searchFieldColors(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { onSearchGo(fieldValue.text)?.let(onResultTap) })
         )

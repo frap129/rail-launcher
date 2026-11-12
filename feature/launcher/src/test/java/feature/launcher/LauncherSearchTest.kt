@@ -1,13 +1,21 @@
 package feature.launcher
 
 import android.content.Context
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -50,6 +58,7 @@ private const val QUERY: String = "example.com"
 private const val INPUT_URL: String = "https://example.com"
 private const val INPUT_WEB_URL: String = "https://www.google.com/search?q=example.com"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
 class LauncherSearchTest {
@@ -410,6 +419,82 @@ class LauncherSearchTest {
 
         composeRule.runOnIdle { assertEquals("a", actualGoQuery) }
     }
+
+    @Test
+    fun `opens the Top result through Go`() {
+        val inputRow: SearchResult.WebSearchRow = SearchResult.WebSearchRow(url = INPUT_WEB_URL)
+        var actualRow: SearchResult.ExternalRow? = null
+        setSearchContent(
+            results = listOf(inputRow),
+            onSearchGo = { inputRow },
+            onOpenSearchRow = { row -> actualRow = row }
+        )
+
+        queryField().performImeAction()
+
+        composeRule.runOnIdle { assertEquals(inputRow, actualRow) }
+    }
+
+    @Test
+    fun `clears the query when the clear button is tapped`() {
+        val inputQuery: MutableState<String> = mutableStateOf(QUERY)
+        setSearchContent(query = inputQuery)
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.clear_search)).performClick()
+
+        composeRule.runOnIdle {
+            assertEquals("", inputQuery.value)
+            assertEquals("", queryFieldText())
+        }
+    }
+
+    @Test
+    fun `keeps the query field at the search bar height with and without text`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        queryField().assertHeightIsEqualTo(SearchBarDefaults.InputFieldHeight)
+        typeIntoQuery("g")
+        queryField().assertHeightIsEqualTo(SearchBarDefaults.InputFieldHeight)
+    }
+
+    @Test
+    fun `styles every Search field state with the search bar container and no indicator`() {
+        val actualColors: MutableState<TextFieldColors?> = mutableStateOf(null)
+        val actualColorScheme: MutableState<ColorScheme?> = mutableStateOf(null)
+        composeRule.setContent {
+            actualColors.value = searchFieldColors()
+            actualColorScheme.value = MaterialTheme.colorScheme
+        }
+
+        val inputColorScheme: ColorScheme = requireNotNull(actualColorScheme.value)
+        val actualSearchFieldColors: TextFieldColors = requireNotNull(actualColors.value)
+        val actualContainerColors: List<Color> = actualSearchFieldColors.containerColors()
+        val actualIndicatorColors: List<Color> = actualSearchFieldColors.indicatorColors()
+
+        assertEquals(List(actualContainerColors.size) { inputColorScheme.surfaceContainerHigh }, actualContainerColors)
+        assertEquals(List(actualIndicatorColors.size) { Color.Transparent }, actualIndicatorColors)
+    }
+
+    @Test
+    fun `focuses the query field when Search opens`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        queryField().assertIsFocused()
+    }
+
+    private fun TextFieldColors.containerColors(): List<Color> = listOf(
+        focusedContainerColor,
+        unfocusedContainerColor,
+        disabledContainerColor,
+        errorContainerColor
+    )
+
+    private fun TextFieldColors.indicatorColors(): List<Color> = listOf(
+        focusedIndicatorColor,
+        unfocusedIndicatorColor,
+        disabledIndicatorColor,
+        errorIndicatorColor
+    )
 
     private fun assertRowDescription(rowText: String, expectedDescription: String) {
         val actualNode: SemanticsNode = composeRule.onNodeWithText(rowText).fetchSemanticsNode()
