@@ -150,6 +150,7 @@ internal fun LauncherContent(
     val home: LauncherUiState.Home? = retainedHomeState(uiState)
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
     val isEditingHome: Boolean = homeEditMode != HomeEditMode.None
+    val isSwipeUpEnabled: Boolean = isHomeVisible && home?.isSwipeUpEnabled == true && !isEditingHome
     val homeAlpha: State<Float> = animateFloatAsState(
         targetValue = if (isHomeVisible) 1f else 0f,
         animationSpec = if (isHomeVisible) {
@@ -201,6 +202,7 @@ internal fun LauncherContent(
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 onSwipeUp = viewModel::onHomeSwipeUp,
+                isSwipeUpEnabled = isSwipeUpEnabled,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
                 isPopupSwipeEnabled = !isEditingHome,

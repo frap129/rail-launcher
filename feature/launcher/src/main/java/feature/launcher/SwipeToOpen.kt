@@ -25,9 +25,6 @@ object SwipeToOpen {
     const val OPEN_THRESHOLD_DP: Float = 48f
     const val MAX_OFFSET_DP: Float = 72f
 
-    /** How far up Home must be dragged to open Search. */
-    const val SWIPE_UP_OPEN_THRESHOLD_DP: Float = 72f
-
     /** The offset the row content shows while [dxPx] toward the Rail has been dragged. */
     fun offsetFor(dxPx: Float, density: Float): Float {
         val dxDp: Float = abs(dxPx) / density
@@ -73,33 +70,28 @@ object SwipeToOpen {
     fun hasReachedRail(wasReached: Boolean, fingerInRoot: Offset, railBounds: Rect?): Boolean =
         wasReached || (railBounds?.contains(fingerInRoot) == true)
 
+    /** How far Home moves up at the end of its rubber band. */
+    const val SWIPE_UP_MAX_OFFSET_DP: Float = 64f
+
+    /** How far the finger must pull Home up past its end to reach the end of the rubber band and arm Search. */
+    const val SWIPE_UP_ARM_PULL_DP: Float = 180f
+
     /**
-     * Whether releasing a vertical drag of [dy] pixels at [velocityY] pixels per second opens
-     * Search. A Favorites list that can still scroll forward, or an App Widget that took the drag,
-     * never opens it.
+     * The upward offset Home shows for a finger [pullPx] past the end of its content: it moves
+     * less than the finger, resists more the further it is pulled, and stops at
+     * [SWIPE_UP_MAX_OFFSET_DP] exactly when the pull arms Search.
      */
-    fun onSwipeUpRelease(
-        dx: Float,
-        dy: Float,
-        velocityY: Float,
-        density: Float,
-        canScrollForward: Boolean,
-        isWidgetTakenSwipe: Boolean
-    ): Boolean {
-        if (canScrollForward || isWidgetTakenSwipe) {
-            return false
-        }
-        val distanceUp: Float = -dy
-        return distanceUp > 0f &&
-            isVerticalDominant(dx = dx, dy = dy) &&
-            (distanceUp >= swipeUpThresholdPx(density = density) || -velocityY >= velocityThresholdPx(density = density))
+    fun rubberBandOffset(pullPx: Float, density: Float): Float {
+        val progress: Float = (pullPx / (SWIPE_UP_ARM_PULL_DP * density)).coerceIn(0f, 1f)
+        val remaining: Float = 1f - progress
+        return SWIPE_UP_MAX_OFFSET_DP * density * (1f - remaining * remaining)
     }
+
+    /** Whether a pull of [pullPx] past the end of Home arms opening Search on release. */
+    fun isSwipeUpArmed(pullPx: Float, density: Float): Boolean = pullPx >= SWIPE_UP_ARM_PULL_DP * density
 
     /** The release distance threshold in pixels. */
     fun thresholdPx(density: Float): Float = OPEN_THRESHOLD_DP * density
-
-    /** The swipe-up distance threshold in pixels. */
-    fun swipeUpThresholdPx(density: Float): Float = SWIPE_UP_OPEN_THRESHOLD_DP * density
 
     /** The release velocity threshold in pixels per second. */
     fun velocityThresholdPx(density: Float): Float = VELOCITY_THRESHOLD_DP_PER_SECOND * density

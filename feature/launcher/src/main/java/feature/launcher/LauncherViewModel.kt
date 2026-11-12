@@ -82,8 +82,12 @@ data class SearchOptions(
 sealed class LauncherUiState {
     data object Loading : LauncherUiState()
 
-    data class Home(val lazyListState: LazyListState, val favorites: List<Launchable>, val isEditingFavorites: Boolean = false) :
-        LauncherUiState()
+    data class Home(
+        val lazyListState: LazyListState,
+        val favorites: List<Launchable>,
+        val isSwipeUpEnabled: Boolean,
+        val isEditingFavorites: Boolean = false
+    ) : LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
         abstract val isEditingFavorites: Boolean
@@ -271,6 +275,7 @@ private fun toUiState(
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
             favorites = favorites,
+            isSwipeUpEnabled = searchData.settings.openSearchOnSwipeUp,
             isEditingFavorites = isEditingFavorites
         )
     }

@@ -17,3 +17,8 @@ fun HapticFeedback.performSegmentTickHaptic() {
 fun HapticFeedback.performRailTickHaptic() {
     performHapticFeedback(HapticFeedbackType.TextHandleMove)
 }
+
+/** Performs the firm haptic that confirms a swipe up to Search. */
+fun HapticFeedback.performSearchSwipeHaptic() {
+    performHapticFeedback(HapticFeedbackType.Confirm)
+}

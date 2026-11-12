@@ -213,7 +213,7 @@ A HOME intent that arrives while Rail is already resumed and showing Home. The H
 _Avoid_: Home tap, re-selection
 
 **Swipe up**:
-An upward drag on Home. The swipe-up entry in Rail Settings opens Search on it.
+An upward drag on Home past the end of its lists. The swipe-up entry in Rail Settings opens Search on it.
 _Avoid_: Upward swipe, flick
 
 **Search result**:
