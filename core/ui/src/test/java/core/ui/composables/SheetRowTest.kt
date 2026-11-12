@@ -35,23 +35,16 @@ class SheetRowTest {
 
     @Test
     fun `paints an action row with the sheet container colour`() {
-        val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
-        composeRule.setContent {
-            RowTestContent {
-                expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow
-                SheetActionRow(imageVector = FontAwesomeIcons.Solid.Cog, label = ACTION_LABEL, onClick = {})
-            }
-        }
-
-        composeRule.onNodeWithText(ACTION_LABEL).assertPaintsTopEdge(requireNotNull(expectedSheetColor.value))
+        composeRule.assertRowsPaintSheetColor(
+            content = { SheetActionRow(imageVector = FontAwesomeIcons.Solid.Cog, label = ACTION_LABEL, onClick = {}) },
+            labels = { listOf(composeRule.onNodeWithText(ACTION_LABEL)) }
+        )
     }
 
     @Test
     fun `paints a sheet switch row with the sheet container colour`() {
-        val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
-        composeRule.setContent {
-            RowTestContent {
-                expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow
+        composeRule.assertRowsPaintSheetColor(
+            content = {
                 SettingsSwitchRow(
                     title = SWITCH_TITLE,
                     checked = true,
@@ -59,10 +52,9 @@ class SheetRowTest {
                     leadingIcon = FontAwesomeIcons.Solid.Search,
                     containerColor = sheetContainerColor
                 )
-            }
-        }
-
-        composeRule.onNodeWithText(SWITCH_TITLE).assertPaintsTopEdge(requireNotNull(expectedSheetColor.value))
+            },
+            labels = { listOf(composeRule.onNodeWithText(SWITCH_TITLE)) }
+        )
     }
 
     @Test

@@ -1,18 +1,12 @@
 package feature.launcher
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.unit.DpRect
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
 import core.ui.composables.ROW_LEADING_ICON_TEST_TAG
@@ -20,14 +14,14 @@ import core.ui.composables.RowTestContent
 import core.ui.composables.assertActionLabelMatchesSwitchTitle
 import core.ui.composables.assertActionRowMatchesSwitchRow
 import core.ui.composables.assertPaintsTopEdge
+import core.ui.composables.assertRowsPaintSheetColor
+import core.ui.composables.assertSheetTitleMatchesRowContent
 import core.ui.composables.rowTestBackgroundColor
 import kotlinx.coroutines.flow.emptyFlow
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -49,14 +43,12 @@ class SearchOptionsSheetTest {
 
     @Test
     fun `paints every row with the sheet container colour`() {
-        val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
-        setSheetContent { expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow }
-
-        SHEET_ROW_LABELS.forEach { label ->
-            composeRule.onNodeWithText(getString(label))
-                .performScrollTo()
-                .assertPaintsTopEdge(requireNotNull(expectedSheetColor.value))
-        }
+        composeRule.assertRowsPaintSheetColor(
+            content = { SheetContent() },
+            labels = {
+                SHEET_ROW_LABELS.map { label -> composeRule.onNodeWithText(getString(label)).performScrollTo() }
+            }
+        )
     }
 
     @Test
@@ -70,13 +62,10 @@ class SearchOptionsSheetTest {
     fun `lines the title up with the row content`() {
         setSheetContent()
 
-        val actualTitle: DpRect = composeRule.onNodeWithText(getString(CoreUiR.string.search), useUnmergedTree = true)
-            .getUnclippedBoundsInRoot()
-        val actualLeadingIcon: DpRect = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true)
-            .onFirst()
-            .getUnclippedBoundsInRoot()
-
-        assertEquals(actualLeadingIcon.left, actualTitle.left)
+        assertSheetTitleMatchesRowContent(
+            titleContent = composeRule.onNodeWithText(getString(CoreUiR.string.search), useUnmergedTree = true),
+            rowLeadingContent = composeRule.onAllNodesWithTag(ROW_LEADING_ICON_TEST_TAG, useUnmergedTree = true).onFirst()
+        )
     }
 
     @Test
@@ -101,19 +90,21 @@ class SearchOptionsSheetTest {
         )
     }
 
-    private fun setSheetContent(onTheme: @Composable () -> Unit = {}) {
+    private fun setSheetContent() {
         composeRule.setContent {
             RowTestContent {
-                onTheme()
-                SearchOptionsContent(
-                    options = inputSearchOptions,
-                    contactsEvents = emptyFlow(),
-                    actions = inputSearchOptionsActions,
-                    onDismiss = {}
-                )
+                SheetContent()
             }
         }
     }
 
-    private fun getString(id: Int): String = RuntimeEnvironment.getApplication().getString(id)
+    @Composable
+    private fun SheetContent() {
+        SearchOptionsContent(
+            options = inputSearchOptions,
+            contactsEvents = emptyFlow(),
+            actions = inputSearchOptionsActions,
+            onDismiss = {}
+        )
+    }
 }

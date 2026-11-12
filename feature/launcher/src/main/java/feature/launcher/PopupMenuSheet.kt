@@ -6,11 +6,8 @@ import android.os.UserHandle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,9 +26,11 @@ import core.data.launchables.model.Launchable
 import core.data.profiles.IProfileSource
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
+import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
-import core.ui.composables.SheetMenuAction
 import core.ui.composables.SheetTitle
+import core.ui.composables.sheetContainerColor
+import core.ui.composables.sheetRowContentInset
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.openApplicationDetailsSettings
@@ -44,92 +43,103 @@ import org.koin.compose.koinInject
 fun PopupMenuSheet(card: PopupCardViewModel, editor: IPopupEditor, folderActions: IPopupFolderActions) {
     val menuState: PopupMenuState by card.menuState.collectAsState()
     val state: PopupMenuState.Open = menuState as? PopupMenuState.Open ?: return
-    val context: Context = LocalContext.current
     val profileSource: IProfileSource = koinInject()
     ModalBottomSheet(
         dragHandle = { SheetDragHandle() },
-        onDismissRequest = card::closeMenu
+        onDismissRequest = card::closeMenu,
+        containerColor = sheetContainerColor
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            val widgetPage: PopupWidgetPage? = state.widgetPage
-            if (widgetPage != null) {
-                WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label)
-            } else {
-                SheetTitle(launchable = state.target)
-            }
-            CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleLarge) {
-                state.items.forEach { item ->
-                    when (item) {
-                        PopupMenuItem.EditPopup, PopupMenuItem.EditFolder -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.PencilAlt,
-                            label = stringResource(
-                                if (item == PopupMenuItem.EditPopup) CoreUiR.string.edit_popup else R.string.edit_folder
-                            ),
-                            onClick = { editor.startEdit(state.target) }
-                        )
+        PopupMenuContent(state = state, profileSource = profileSource, card = card, editor = editor, folderActions = folderActions)
+    }
+}
 
-                        PopupMenuItem.DeleteFolder -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                            label = stringResource(CoreUiR.string.delete_folder),
-                            onClick = { folderActions.requestDeleteFolder(state.target) }
-                        )
+/** The open Pop-up menu's title and action rows, on the sheet's container colour. */
+@Composable
+internal fun PopupMenuContent(
+    state: PopupMenuState.Open,
+    profileSource: IProfileSource,
+    card: PopupCardViewModel,
+    editor: IPopupEditor,
+    folderActions: IPopupFolderActions
+) {
+    val context: Context = LocalContext.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        val widgetPage: PopupWidgetPage? = state.widgetPage
+        if (widgetPage != null) {
+            WidgetMenuTitle(icon = widgetPage.model.icon, label = widgetPage.model.label, horizontalPadding = sheetRowContentInset)
+        } else {
+            SheetTitle(launchable = state.target, horizontalPadding = sheetRowContentInset)
+        }
+        state.items.forEach { item ->
+            when (item) {
+                PopupMenuItem.EditPopup, PopupMenuItem.EditFolder -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.PencilAlt,
+                    label = stringResource(
+                        if (item == PopupMenuItem.EditPopup) CoreUiR.string.edit_popup else R.string.edit_folder
+                    ),
+                    onClick = { editor.startEdit(state.target) }
+                )
 
-                        PopupMenuItem.AddWidget -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.PlusSquare,
-                            label = stringResource(CoreUiR.string.add_widget),
-                            onClick = card::startAddWidget
-                        )
+                PopupMenuItem.DeleteFolder -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                    label = stringResource(CoreUiR.string.delete_folder),
+                    onClick = { folderActions.requestDeleteFolder(state.target) }
+                )
 
-                        PopupMenuItem.AddToStack -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.PlusSquare,
-                            label = stringResource(CoreUiR.string.add_next_to),
-                            onClick = card::startAddWidget
-                        )
+                PopupMenuItem.AddWidget -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.PlusSquare,
+                    label = stringResource(CoreUiR.string.add_widget),
+                    onClick = card::startAddWidget
+                )
 
-                        PopupMenuItem.ResizeWidget -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
-                            label = stringResource(CoreUiR.string.resize_widget),
-                            onClick = card::resizeWidget
-                        )
+                PopupMenuItem.AddToStack -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.PlusSquare,
+                    label = stringResource(CoreUiR.string.add_next_to),
+                    onClick = card::startAddWidget
+                )
 
-                        PopupMenuItem.ReconfigureWidget -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.Cog,
-                            label = stringResource(CoreUiR.string.reconfigure_widget),
-                            onClick = card::reconfigureWidget
-                        )
+                PopupMenuItem.ResizeWidget -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.ArrowsAltV,
+                    label = stringResource(CoreUiR.string.resize_widget),
+                    onClick = card::resizeWidget
+                )
 
-                        PopupMenuItem.RemoveWidget -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                            label = stringResource(CoreUiR.string.remove_widget),
-                            onClick = card::removeWidget
-                        )
+                PopupMenuItem.ReconfigureWidget -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.Cog,
+                    label = stringResource(CoreUiR.string.reconfigure_widget),
+                    onClick = card::reconfigureWidget
+                )
 
-                        PopupMenuItem.RemoveFromStack -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                            label = stringResource(CoreUiR.string.remove_from_stack),
-                            onClick = card::removeWidget
-                        )
+                PopupMenuItem.RemoveWidget -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                    label = stringResource(CoreUiR.string.remove_widget),
+                    onClick = card::removeWidget
+                )
 
-                        PopupMenuItem.RemoveFromPopup -> SheetMenuAction(
-                            imageVector = FontAwesomeIcons.Solid.TrashAlt,
-                            label = stringResource(R.string.remove_from_popup),
-                            onClick = card::removeMenuItem
-                        )
+                PopupMenuItem.RemoveFromStack -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                    label = stringResource(CoreUiR.string.remove_from_stack),
+                    onClick = card::removeWidget
+                )
 
-                        PopupMenuItem.AppInfo -> appInfoFor(target = state.target, widgetPage = widgetPage)?.let { appInfo ->
-                            SheetMenuAction(
-                                imageVector = FontAwesomeIcons.Solid.InfoCircle,
-                                label = stringResource(CoreUiR.string.app_info),
-                                onClick = {
-                                    context.openAppInfo(appInfo = appInfo, profileSource = profileSource)
-                                    card.closeMenu()
-                                    if (widgetPage == null) {
-                                        card.close()
-                                    }
-                                }
-                            )
+                PopupMenuItem.RemoveFromPopup -> SheetActionRow(
+                    imageVector = FontAwesomeIcons.Solid.TrashAlt,
+                    label = stringResource(R.string.remove_from_popup),
+                    onClick = card::removeMenuItem
+                )
+
+                PopupMenuItem.AppInfo -> appInfoFor(target = state.target, widgetPage = widgetPage)?.let { appInfo ->
+                    SheetActionRow(
+                        imageVector = FontAwesomeIcons.Solid.InfoCircle,
+                        label = stringResource(CoreUiR.string.app_info),
+                        onClick = {
+                            context.openAppInfo(appInfo = appInfo, profileSource = profileSource)
+                            card.closeMenu()
+                            if (widgetPage == null) {
+                                card.close()
+                            }
                         }
-                    }
+                    )
                 }
             }
         }

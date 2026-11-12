@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.DpRect
 import org.junit.Assert.assertEquals
 
@@ -40,6 +43,22 @@ fun SemanticsNodeInteraction.assertPaintsTopEdge(expectedColor: Color) {
     assertEquals(expectedColor, topEdgeColor())
 }
 
+/**
+ * Renders [content] over the contrasting test background and asserts every node from [labels]
+ * paints the sheet container colour at its top edge.
+ */
+fun ComposeContentTestRule.assertRowsPaintSheetColor(content: @Composable () -> Unit, labels: () -> List<SemanticsNodeInteraction>) {
+    val expectedSheetColor: MutableState<Color?> = mutableStateOf(null)
+    setContent {
+        RowTestContent {
+            expectedSheetColor.value = MaterialTheme.colorScheme.surfaceContainerLow
+            content()
+        }
+    }
+    val actualSheetColor: Color = requireNotNull(expectedSheetColor.value)
+    labels().forEach { label -> label.assertPaintsTopEdge(actualSheetColor) }
+}
+
 /** Asserts [actionLabel] starts where [switchTitle] starts and has the same text height. */
 fun assertActionLabelMatchesSwitchTitle(actionLabel: SemanticsNodeInteraction, switchTitle: SemanticsNodeInteraction) {
     val actualActionLabel: DpRect = actionLabel.getUnclippedBoundsInRoot()
@@ -54,4 +73,9 @@ fun assertActionRowMatchesSwitchRow(actionRow: SemanticsNodeInteraction, switchR
     val actualSwitchRow: DpRect = switchRow.getUnclippedBoundsInRoot()
     assertEquals(actualSwitchRow.left, actualActionRow.left)
     assertEquals(actualSwitchRow.right - actualSwitchRow.left, actualActionRow.right - actualActionRow.left)
+}
+
+/** Asserts [titleContent] starts where [rowLeadingContent] starts. */
+fun assertSheetTitleMatchesRowContent(titleContent: SemanticsNodeInteraction, rowLeadingContent: SemanticsNodeInteraction) {
+    assertEquals(rowLeadingContent.getUnclippedBoundsInRoot().left, titleContent.getUnclippedBoundsInRoot().left)
 }

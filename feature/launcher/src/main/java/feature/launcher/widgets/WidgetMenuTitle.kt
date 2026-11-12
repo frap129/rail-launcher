@@ -9,23 +9,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.icons.model.Icon
+import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
 
 /** The icon and label heading a Widget's menu. */
 @Composable
-fun WidgetMenuTitle(icon: Icon, label: String) {
+fun WidgetMenuTitle(icon: Icon, label: String, horizontalPadding: Dp = sheetHorizontalPadding) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = sheetHorizontalPadding, vertical = sheetVerticalPadding),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = sheetVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = icon,
             contentDescription = null,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(40.dp).testTag(SHEET_TITLE_ICON_TEST_TAG)
         )
         Text(
             text = label,
