@@ -192,6 +192,14 @@ _Avoid_: Search mode, finder
 The exported `rail-launcher://search` intent other apps call to open Search.
 _Avoid_: Search link, exported entry, search deeplink
 
+**Search options sheet**:
+The bottom sheet at the trailing end of the Search field that toggles the Search preferences used most while searching and opens the Search settings screen.
+_Avoid_: Search quick settings, search menu
+
+**Search settings screen**:
+The Rail Settings screen holding every Search preference.
+_Avoid_: Search section, Search screen
+
 **Typed character**:
 A printable character typed with a hardware keyboard while the launcher is shown, which opens Search with that character as the query.
 _Avoid_: Key press, keystroke

@@ -21,11 +21,11 @@ import core.data.testing.createIconRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
+import core.data.testing.createSearchSettings
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -155,18 +155,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `persists the Search swipe-up entry`() {
-        runTest {
-            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-            viewModel.setOpenSearchOnSwipeUp(false)
-
-            verify(exactly = 1) { mockPreferencesRepository.setOpenSearchOnSwipeUp(false) }
-        }
-    }
-
-    @Test
     fun `exposes the stored Search suggestions switch`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
@@ -180,18 +168,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `persists the Search suggestions switch`() {
-        runTest {
-            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-            viewModel.setSearchSuggestions(false)
-
-            verify(exactly = 1) { mockPreferencesRepository.setSearchSuggestions(false) }
-        }
-    }
-
-    @Test
     fun `exposes the stored Live web suggestions switch`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
@@ -201,18 +177,6 @@ class SettingsViewModelTest {
 
         viewModel.uiState.test {
             assertTrue(expectMostRecentItem().searchWebSuggestions)
-        }
-    }
-
-    @Test
-    fun `persists the Live web suggestions switch`() {
-        runTest {
-            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-            viewModel.setSearchWebSuggestions(true)
-
-            verify(exactly = 1) { mockPreferencesRepository.setSearchWebSuggestions(true) }
         }
     }
 
@@ -324,16 +288,14 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `persists the Search rows`() {
+    fun `persists the Web search and Play Store rows`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
             val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
-            viewModel.setSearchCalculatorRow(false)
             viewModel.setSearchWebRow(false)
             viewModel.setSearchPlayStoreRow(false)
 
-            verify(exactly = 1) { mockPreferencesRepository.setSearchCalculatorRow(false) }
             verify(exactly = 1) { mockPreferencesRepository.setSearchWebRow(false) }
             verify(exactly = 1) { mockPreferencesRepository.setSearchPlayStoreRow(false) }
         }
@@ -360,81 +322,6 @@ class SettingsViewModelTest {
 
         viewModel.uiState.test {
             assertFalse(expectMostRecentItem().searchContacts)
-        }
-    }
-
-    @Test
-    fun `persists Contact results when the permission is already granted`() = runTest {
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(
-            mockPreferencesRepository = mockPreferencesRepository,
-            mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(true))
-        )
-
-        viewModel.setSearchContacts(true)
-        advanceUntilIdle()
-
-        verify(exactly = 1) { mockPreferencesRepository.setSearchContacts(true) }
-    }
-
-    @Test
-    fun `requests the Contacts permission without turning Contact results on`() = runTest {
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(
-            mockPreferencesRepository = mockPreferencesRepository,
-            mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(false))
-        )
-
-        viewModel.events.test {
-            viewModel.setSearchContacts(true)
-
-            assertEquals(SettingsEvent.RequestContactsPermission, awaitItem())
-        }
-        verify(exactly = 0) { mockPreferencesRepository.setSearchContacts(any()) }
-    }
-
-    @Test
-    fun `turns Contact results off without asking for the permission`() = runTest {
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-        viewModel.setSearchContacts(false)
-
-        verify(exactly = 1) { mockPreferencesRepository.setSearchContacts(false) }
-    }
-
-    @Test
-    fun `persists Contact results from a grant`() = runTest {
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-        viewModel.onContactsPermissionResult(granted = true, canAskAgain = true)
-        advanceUntilIdle()
-
-        verify(exactly = 1) { mockPreferencesRepository.setSearchContacts(true) }
-    }
-
-    @Test
-    fun `keeps Contact results off from a denial`() = runTest {
-        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-        viewModel.onContactsPermissionResult(granted = false, canAskAgain = true)
-        advanceUntilIdle()
-
-        verify(exactly = 1) { mockPreferencesRepository.setSearchContacts(false) }
-    }
-
-    @Test
-    fun `asks for the permission dialog after a permanent denial`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
-            mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(false))
-        )
-
-        viewModel.events.test {
-            viewModel.onContactsPermissionResult(granted = false, canAskAgain = false)
-
-            assertEquals(SettingsEvent.ShowContactsPermissionDenied, awaitItem())
         }
     }
 
@@ -481,6 +368,9 @@ class SettingsViewModelTest {
         prefsRepo = mockPreferencesRepository,
         iconRepo = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID)),
         privateSpaceStatus = mockPrivateSpaceStatus,
-        contactSearchSource = mockContactSearchSource
+        searchSettings = createSearchSettings(
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockContactSearchSource = mockContactSearchSource
+        )
     )
 }

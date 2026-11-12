@@ -1,9 +1,13 @@
 package feature.launcher
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -26,11 +30,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -43,6 +50,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calculator
 import compose.icons.fontawesomeicons.solid.Comment
+import compose.icons.fontawesomeicons.solid.EllipsisH
 import compose.icons.fontawesomeicons.solid.Globe
 import compose.icons.fontawesomeicons.solid.Phone
 import compose.icons.fontawesomeicons.solid.Search
@@ -51,8 +59,11 @@ import compose.icons.fontawesomeicons.solid.TimesCircle
 import compose.icons.fontawesomeicons.solid.User
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
+import core.ui.composables.RequestFocusedWindow
 import core.ui.composables.RequestKeyboardFocus
 import core.ui.composables.toTextFieldValueAtEnd
+import core.ui.search.SearchContactsUiEvent
+import kotlinx.coroutines.flow.Flow
 
 private val searchFieldPadding: Dp = 16.dp
 private val searchFieldVerticalPadding: Dp = 8.dp
@@ -83,13 +94,15 @@ private class SearchAnchors {
  * Bottom-anchored results reverse only the list, keeping the query field at the top so the Top
  * result ends up next to the keyboard.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun LauncherSearch(
     modifier: Modifier,
     search: LauncherUiState.Search,
     shouldAutoLaunch: (SearchResult.LaunchableResult) -> Boolean,
     itemActions: LauncherItemActions,
+    contactsEvents: Flow<SearchContactsUiEvent>,
+    searchOptionsActions: SearchOptionsActions,
     onQueryChange: (String) -> Unit,
     onSearchGo: (String) -> SearchResult?,
     onCopyCalculatorRow: (String) -> Unit,
@@ -162,6 +175,42 @@ internal fun LauncherSearch(
         }
     }
     RequestKeyboardFocus(focusRequester = focusRequester)
+    val keyboardController: SoftwareKeyboardController? = LocalSoftwareKeyboardController.current
+    val isImeVisible: Boolean = WindowInsets.isImeVisible
+    var isShowingOptions: Boolean by remember { mutableStateOf(false) }
+    var wasShowingOptions: Boolean by remember { mutableStateOf(false) }
+    var isOpeningSettings: Boolean by remember { mutableStateOf(false) }
+    var wasImeVisibleBeforeOptions: Boolean by remember { mutableStateOf(false) }
+    var isWaitingForFocusRestore: Boolean by remember { mutableStateOf(false) }
+    LaunchedEffect(isShowingOptions) {
+        if (isShowingOptions) {
+            wasShowingOptions = true
+            isOpeningSettings = false
+            isWaitingForFocusRestore = false
+        } else if (wasShowingOptions) {
+            wasShowingOptions = false
+            if (!isOpeningSettings) {
+                isWaitingForFocusRestore = true
+            }
+        }
+    }
+    if (isWaitingForFocusRestore) {
+        RequestFocusedWindow {
+            isWaitingForFocusRestore = false
+            focusRequester.requestFocus()
+            if (wasImeVisibleBeforeOptions) {
+                keyboardController?.show()
+            }
+        }
+    }
+    val sheetActions: SearchOptionsActions = remember(searchOptionsActions) {
+        searchOptionsActions.copy(
+            onOpenSearchSettings = {
+                isOpeningSettings = true
+                searchOptionsActions.onOpenSearchSettings()
+            }
+        )
+    }
     Column(modifier = modifier) {
         TextField(
             value = fieldValue,
@@ -184,15 +233,28 @@ internal fun LauncherSearch(
                 )
             },
             trailingIcon = {
-                if (fieldValue.text.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (fieldValue.text.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                updateFieldValue("".toTextFieldValueAtEnd())
+                            }
+                        ) {
+                            Icon(
+                                imageVector = FontAwesomeIcons.Solid.TimesCircle,
+                                contentDescription = stringResource(R.string.clear_search)
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = {
-                            updateFieldValue("".toTextFieldValueAtEnd())
+                            wasImeVisibleBeforeOptions = isImeVisible
+                            isShowingOptions = true
                         }
                     ) {
                         Icon(
-                            imageVector = FontAwesomeIcons.Solid.TimesCircle,
-                            contentDescription = stringResource(R.string.clear_search)
+                            imageVector = FontAwesomeIcons.Solid.EllipsisH,
+                            contentDescription = stringResource(R.string.search_options)
                         )
                     }
                 }
@@ -212,6 +274,14 @@ internal fun LauncherSearch(
             isBottomAnchored = search.isBottomAnchored,
             onResultTap = onResultTap,
             onContactRowAction = onContactRowAction
+        )
+    }
+    if (isShowingOptions) {
+        SearchOptionsSheet(
+            options = search.options,
+            contactsEvents = contactsEvents,
+            actions = sheetActions,
+            onDismiss = { isShowingOptions = false }
         )
     }
 }

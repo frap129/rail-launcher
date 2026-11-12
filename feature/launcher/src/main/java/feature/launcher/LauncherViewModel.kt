@@ -17,9 +17,12 @@ import core.data.popups.IPopupRepository
 import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ISearchSettings
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
+import core.data.prefs.isContactResultsEnabled
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
@@ -42,6 +45,8 @@ import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.search.SearchContactsUiEvent
+import core.ui.search.SearchContactsUiEvents
 import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
@@ -64,6 +69,16 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 
+/** The Search preferences the Search options sheet shows and edits. */
+data class SearchOptions(
+    val openSearchOnSwipeUp: Boolean,
+    val searchSuggestions: Boolean,
+    val searchWebSuggestions: Boolean,
+    val searchContacts: Boolean,
+    val searchCalculatorRow: Boolean,
+    val searchEngine: SearchEngine
+)
+
 sealed class LauncherUiState {
     data object Loading : LauncherUiState()
 
@@ -84,7 +99,7 @@ sealed class LauncherUiState {
 
     /**
      * The Search state: the current query, its rows, the Top result, whether the rows are Search
-     * suggestions, where they are anchored and the result Auto-launch may open.
+     * suggestions, where they are anchored, the result Auto-launch may open and the Search options.
      */
     data class Search(
         val query: String,
@@ -92,7 +107,8 @@ sealed class LauncherUiState {
         val topResult: SearchResult?,
         val isShowingSuggestions: Boolean,
         val isBottomAnchored: Boolean,
-        val autoLaunchResult: SearchResult.LaunchableResult?
+        val autoLaunchResult: SearchResult.LaunchableResult?,
+        val options: SearchOptions
     ) : LauncherUiState() {
         /** The Top result when these results belong to [query], or null when they belong to an earlier query. */
         fun topResultFor(query: String): SearchResult? = topResult.takeIf { this.query == query }
@@ -135,8 +151,12 @@ private data class SearchState(val origin: LauncherMode, val query: String = "",
 /** The Shortcuts Search may match, and whether their source has emitted them yet. */
 private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
 
-/** The contacts Search may match, and whether their source has emitted them yet. */
-private data class ContactSearchState(val contacts: List<SearchContact> = emptyList(), val isLoaded: Boolean = false)
+/** The contacts Search may match, whether their source has emitted them yet and whether Rail may read them. */
+private data class ContactSearchState(
+    val contacts: List<SearchContact> = emptyList(),
+    val isLoaded: Boolean = false,
+    val hasPermission: Boolean = false
+)
 
 /**
  * The Search history, clock, Shortcuts, contacts and Web suggestions a Search projection reads,
@@ -150,6 +170,7 @@ private data class SearchData(
     val areShortcutsLoaded: Boolean,
     val contacts: List<SearchContact>,
     val areContactsLoaded: Boolean,
+    val hasContactsPermission: Boolean,
     val webSuggestions: WebSuggestions
 ) {
     /** Typed results wait for both sources, so no row is ever shown before all of them are known. */
@@ -182,6 +203,15 @@ private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>)
     } else {
         this
     }
+
+private fun Settings.toSearchOptions(hasContactsPermission: Boolean): SearchOptions = SearchOptions(
+    openSearchOnSwipeUp = openSearchOnSwipeUp,
+    searchSuggestions = searchSuggestions,
+    searchWebSuggestions = searchWebSuggestions,
+    searchContacts = isContactResultsEnabled(hasContactsPermission = hasContactsPermission),
+    searchCalculatorRow = searchCalculatorRow,
+    searchEngine = searchEngine
+)
 
 private fun toSearchUiState(search: SearchState, state: LaunchableState, searchData: SearchData): LauncherUiState.Search {
     val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
@@ -218,7 +248,8 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
             null
         } else {
             results.autoLaunchResult(settings = searchData.settings)
-        }
+        },
+        options = searchData.settings.toSearchOptions(hasContactsPermission = searchData.hasContactsPermission)
     )
 }
 
@@ -284,8 +315,13 @@ class LauncherViewModel(
     private val clockSource: IClockSource,
     private val shortcutSearchSource: IShortcutSearchSource,
     private val contactSearchSource: IContactSearchSource,
+    private val searchSettings: ISearchSettings,
     private val webSuggestionSource: IWebSuggestionSource
 ) : ViewModel() {
+    private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
+
+    /** The permission prompts and denials the Search options sheet must show. */
+    val events: Flow<SearchContactsUiEvent> = searchContactsUiEvents.events
 
     val listStartOffsetPx: Int = listOffsets.startPx
     val listEndOffsetPx: Int = listOffsets.endPx
@@ -331,13 +367,16 @@ class LauncherViewModel(
 
     // Contacts load with the launcher and stay warm across Search sessions, like the Shortcuts, so
     // a keystroke only re-reads state.
-    private val contactSearchState: StateFlow<ContactSearchState> = contactSearchSource.contacts
-        .map { contacts -> ContactSearchState(contacts = contacts, isLoaded = true) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = ContactSearchState()
-        )
+    private val contactSearchState: StateFlow<ContactSearchState> = combine(
+        contactSearchSource.contacts,
+        searchSettings.hasContactsPermission
+    ) { contacts, hasPermission ->
+        ContactSearchState(contacts = contacts, isLoaded = true, hasPermission = hasPermission)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ContactSearchState()
+    )
 
     // Shortcuts load with the launcher and stay warm across Search sessions, so a keystroke only re-reads state.
     private val shortcutSearchState: StateFlow<ShortcutSearchState> = shortcutSearchSource.shortcuts
@@ -379,6 +418,7 @@ class LauncherViewModel(
             areShortcutsLoaded = shortcutState.isLoaded,
             contacts = contactState.contacts,
             areContactsLoaded = contactState.isLoaded,
+            hasContactsPermission = contactState.hasPermission,
             webSuggestions = WebSuggestions(query = "", suggestions = emptyList())
         )
     }
@@ -645,9 +685,29 @@ class LauncherViewModel(
     }
 
     /** Rechecks the Contacts permission so Contact rows disappear when it is gone, without prompting. */
-    fun refreshContactsPermission() {
-        contactSearchSource.refreshPermission()
+    fun refreshContactsPermission() = searchSettings.refreshContactsPermission()
+
+    /** Persists whether swiping up on Home opens Search. */
+    fun setOpenSearchOnSwipeUp(enabled: Boolean) = searchSettings.setOpenSearchOnSwipeUp(enabled)
+
+    /** Persists whether Search shows Search suggestions before typing. */
+    fun setSearchSuggestions(enabled: Boolean) = searchSettings.setSearchSuggestions(enabled)
+
+    /** Persists whether Search fetches Web suggestions from the Search engine while typing. */
+    fun setSearchWebSuggestions(enabled: Boolean) = searchSettings.setSearchWebSuggestions(enabled)
+
+    /** Persists whether Search shows Contact rows, asking for the Contacts permission first when it turns on. */
+    fun setSearchContacts(enabled: Boolean) {
+        searchContactsUiEvents.report(searchSettings.setSearchContacts(enabled))
     }
+
+    /** Persists the Contact results switch from the permission result and reports a permanent denial. */
+    fun onContactsPermissionResult(granted: Boolean, canAskAgain: Boolean) {
+        searchContactsUiEvents.report(searchSettings.onContactsPermissionResult(granted = granted, canAskAgain = canAskAgain))
+    }
+
+    /** Persists whether Search shows the Calculator row. */
+    fun setSearchCalculatorRow(enabled: Boolean) = searchSettings.setSearchCalculatorRow(enabled)
 
     /**
      * Opens Search with [startingQuery] unless a Home edit mode blocks it; returns whether Search

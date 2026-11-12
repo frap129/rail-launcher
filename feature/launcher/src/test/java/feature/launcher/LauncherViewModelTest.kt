@@ -16,8 +16,10 @@ import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.ISearchSettings
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
+import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
@@ -48,6 +50,7 @@ import core.data.testing.TEST_ALPHA_WEB_SUGGESTION
 import core.data.testing.TEST_ALPHA_WEB_SUGGESTION_URL
 import core.data.testing.TEST_BETA_WEB_SUGGESTION
 import core.data.testing.TEST_BETA_WEB_SUGGESTION_URL
+import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_GOOGLE_PLAY_STORE_SETTINGS
 import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_NOTIFICATION_KEY
@@ -81,6 +84,7 @@ import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
+import core.data.testing.createSearchSettings
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutSearchSourceMock
 import core.data.testing.createStandaloneShortcutRepositoryMock
@@ -1820,6 +1824,73 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `shows the stored Search options and follows a change to them`() = runTest {
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(
+            Settings(
+                openSearchOnSwipeUp = false,
+                searchSuggestions = false,
+                searchWebSuggestions = true,
+                searchContacts = true,
+                searchCalculatorRow = false,
+                searchEngine = SearchEngine.Kagi
+            )
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings),
+            mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(true))
+        )
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            val actualOptions: SearchOptions = expectSearch().options
+            assertFalse(actualOptions.openSearchOnSwipeUp)
+            assertFalse(actualOptions.searchSuggestions)
+            assertTrue(actualOptions.searchWebSuggestions)
+            assertTrue(actualOptions.searchContacts)
+            assertFalse(actualOptions.searchCalculatorRow)
+            assertEquals(SearchEngine.Kagi, actualOptions.searchEngine)
+
+            inputSettings.value = inputSettings.value.copy(searchCalculatorRow = true)
+
+            assertTrue(expectSearch().options.searchCalculatorRow)
+        }
+    }
+
+    @Test
+    fun `removes and restores the Calculator row when its Search option changes`() = runTest {
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings(searchCalculatorRow = true))
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings)
+        every { mockPreferencesRepository.setSearchCalculatorRow(any()) } answers {
+            inputSettings.value = inputSettings.value.copy(searchCalculatorRow = firstArg())
+        }
+        val viewModel: LauncherViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery(TEST_CALCULATOR_QUERY)
+            assertTrue(expectSearch().results.any { result -> result is SearchResult.CalculatorRow })
+
+            viewModel.setSearchCalculatorRow(false)
+
+            val actualSearchWithoutCalculator: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search &&
+                    state.results.none { result -> result is SearchResult.CalculatorRow }
+            } as LauncherUiState.Search
+            assertTrue(actualSearchWithoutCalculator.results.none { result -> result is SearchResult.CalculatorRow })
+
+            viewModel.setSearchCalculatorRow(true)
+
+            val actualSearchWithCalculator: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search &&
+                    state.results.any { result -> result is SearchResult.CalculatorRow }
+            } as LauncherUiState.Search
+            assertTrue(actualSearchWithCalculator.results.any { result -> result is SearchResult.CalculatorRow })
+        }
+    }
+
+    @Test
     fun `typing on Home opens Search with the typed character`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 
@@ -3273,6 +3344,10 @@ class LauncherViewModelTest {
         mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
         mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock(),
         mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock(),
+        mockSearchSettings: ISearchSettings = createSearchSettings(
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockContactSearchSource = mockContactSearchSource
+        ),
         mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
@@ -3291,6 +3366,7 @@ class LauncherViewModelTest {
         clockSource = mockClockSource,
         shortcutSearchSource = mockShortcutSearchSource,
         contactSearchSource = mockContactSearchSource,
+        searchSettings = mockSearchSettings,
         webSuggestionSource = mockWebSuggestionSource
     )
 

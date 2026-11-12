@@ -12,6 +12,12 @@ const val WIDGETS_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/widgets"
 /** The Widgets settings screen scrolled to the Media Player section. */
 const val WIDGETS_MEDIA_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/widgets?section=media"
 
+/** The Search screen key under [SETTINGS_ROUTE]. */
+const val SEARCH_SETTINGS_KEY: String = "search"
+
+/** The Search settings screen. */
+const val SEARCH_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/$SEARCH_SETTINGS_KEY"
+
 /** The Pop-ups and Folders screen key under [SETTINGS_ROUTE]. */
 const val POPUPS_SETTINGS_KEY: String = "popups"
 

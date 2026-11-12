@@ -16,6 +16,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -26,6 +27,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
@@ -33,6 +35,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.prefs.SearchEngine
 import core.data.profiles.ProfileKind
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
@@ -45,6 +48,10 @@ import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import core.data.testing.createWebSuggestionRow
+import core.ui.R as CoreUiR
+import core.ui.search.SearchContactsUiEvent
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -53,10 +60,32 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowDialog
 
 private const val QUERY: String = "example.com"
 private const val INPUT_URL: String = "https://example.com"
 private const val INPUT_WEB_URL: String = "https://www.google.com/search?q=example.com"
+private const val CLOSE_SHEET: String = "Close sheet"
+
+private val defaultSearchOptions: SearchOptions = SearchOptions(
+    openSearchOnSwipeUp = true,
+    searchSuggestions = true,
+    searchWebSuggestions = false,
+    searchContacts = false,
+    searchCalculatorRow = true,
+    searchEngine = SearchEngine.None
+)
+
+private val defaultSearchOptionsActions: SearchOptionsActions = SearchOptionsActions(
+    onOpenSearchOnSwipeUpChange = {},
+    onSearchSuggestionsChange = {},
+    onSearchWebSuggestionsChange = {},
+    onSearchContactsChange = {},
+    onSearchCalculatorRowChange = {},
+    onContactsPermissionResult = { _, _ -> },
+    onRefreshContactsPermission = {},
+    onOpenSearchSettings = {}
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RunWith(RobolectricTestRunner::class)
@@ -482,6 +511,99 @@ class LauncherSearchTest {
         queryField().assertIsFocused()
     }
 
+    @Test
+    fun `shows the Clear button only while the query is not empty`() {
+        val inputQuery: MutableState<String> = mutableStateOf("")
+        setSearchContent(query = inputQuery)
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.clear_search)).assertDoesNotExist()
+
+        composeRule.runOnIdle { inputQuery.value = QUERY }
+        composeRule.onNodeWithContentDescription(context.getString(R.string.clear_search)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `opens the Search options sheet from its button`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+
+        composeRule.onNodeWithText(context.getString(CoreUiR.string.search)).assertExists()
+        listOf(
+            CoreUiR.string.search_web_suggestions,
+            CoreUiR.string.search_contacts,
+            CoreUiR.string.search_suggestions,
+            CoreUiR.string.search_calculator_row,
+            CoreUiR.string.search_swipe_up,
+            R.string.search_settings
+        ).forEach { label ->
+            composeRule.onNodeWithText(context.getString(label)).assertExists()
+        }
+    }
+
+    @Test
+    fun `shows Live web suggestions as unavailable without a suggestion engine`() {
+        setSearchContent(
+            query = mutableStateOf(""),
+            options = defaultSearchOptions.copy(searchEngine = SearchEngine.None)
+        )
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+
+        composeRule.onNodeWithText(context.getString(CoreUiR.string.search_web_suggestions_unavailable)).assertExists()
+        composeRule.onNodeWithText(context.getString(CoreUiR.string.search_web_suggestions)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `opens the Search settings screen from the last sheet row`() {
+        var actualOpenedSettings: Boolean = false
+        setSearchContent(
+            query = mutableStateOf(""),
+            searchOptionsActions = defaultSearchOptionsActions.copy(onOpenSearchSettings = { actualOpenedSettings = true })
+        )
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.search_settings)).performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertTrue(actualOpenedSettings) }
+    }
+
+    @Test
+    fun `keeps the query and focus after the Search options sheet closes`() {
+        setSearchContent(query = mutableStateOf(QUERY))
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+        composeRule.onNodeWithText(context.getString(R.string.search_settings)).performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(QUERY, queryFieldText())
+        queryField().assertIsFocused()
+    }
+
+    @Test
+    fun `keeps the query and focus after Back closes the Search options sheet`() {
+        setSearchContent(query = mutableStateOf(QUERY))
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+        composeRule.runOnIdle { requireNotNull(ShadowDialog.getLatestDialog()).onBackPressed() }
+        composeRule.waitForIdle()
+
+        assertEquals(QUERY, queryFieldText())
+        queryField().assertIsFocused()
+    }
+
+    @Test
+    fun `keeps the query and focus after a tap outside closes the Search options sheet`() {
+        setSearchContent(query = mutableStateOf(QUERY))
+
+        composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
+        composeRule.onNodeWithContentDescription(CLOSE_SHEET).performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(QUERY, queryFieldText())
+        queryField().assertIsFocused()
+    }
+
     private fun TextFieldColors.containerColors(): List<Color> = listOf(
         focusedContainerColor,
         unfocusedContainerColor,
@@ -528,6 +650,9 @@ class LauncherSearchTest {
         onOpenSearchRow: (SearchResult.ExternalRow) -> Unit = {},
         onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { _, _ -> },
         query: MutableState<String> = mutableStateOf(QUERY),
+        options: SearchOptions = defaultSearchOptions,
+        contactsEvents: Flow<SearchContactsUiEvent> = emptyFlow(),
+        searchOptionsActions: SearchOptionsActions = defaultSearchOptionsActions,
         onQueryChange: (String) -> Unit = { text -> query.value = text },
         onSearchGo: (String) -> SearchResult? = { null }
     ) {
@@ -541,10 +666,13 @@ class LauncherSearchTest {
                     topResult = inputResults.firstOrNull(),
                     isShowingSuggestions = false,
                     isBottomAnchored = isBottomAnchored,
-                    autoLaunchResult = autoLaunchResult
+                    autoLaunchResult = autoLaunchResult,
+                    options = options
                 ),
                 shouldAutoLaunch = { true },
                 itemActions = itemActions,
+                contactsEvents = contactsEvents,
+                searchOptionsActions = searchOptionsActions,
                 onQueryChange = onQueryChange,
                 onSearchGo = onSearchGo,
                 onCopyCalculatorRow = {},
