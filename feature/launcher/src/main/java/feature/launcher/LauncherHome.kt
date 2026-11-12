@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -76,6 +75,7 @@ fun LauncherHome(
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
     onSwipeUp: () -> Unit,
+    isSwipeUpEnabled: Boolean,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     isPopupSwipeEnabled: Boolean,
@@ -97,7 +97,7 @@ fun LauncherHome(
             .fillMaxSize()
             .safeDrawingPadding()
             .swipeUpToSearch(
-                canScrollForward = { home.lazyListState.canScrollForward },
+                enabled = isSwipeUpEnabled,
                 widgetSwipeState = widgetSwipeState,
                 onSwipeUp = onSwipeUp
             )
@@ -256,9 +256,7 @@ private fun FavoritesBottomArea(
     ) {
         LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .align(Alignment.TopCenter)
+                .fillMaxSize()
                 .alpha(if (interaction.isResizing || interaction.isEditingWidgets) RESIZE_DIMMED_ALPHA else 1f)
                 .testTag(LAUNCHER_HOME_TEST_TAG),
             state = home.lazyListState,

@@ -77,6 +77,3 @@ internal suspend fun AwaitPointerEventScope.trackDrag(
 
 /** Whether [dx] dominates [dy], so the drag is a sideways gesture. */
 internal fun isHorizontalDominant(dx: Float, dy: Float): Boolean = abs(dx) > abs(dy)
-
-/** Whether [dy] dominates [dx], so the drag is a vertical gesture. */
-internal fun isVerticalDominant(dx: Float, dy: Float): Boolean = abs(dy) > abs(dx)

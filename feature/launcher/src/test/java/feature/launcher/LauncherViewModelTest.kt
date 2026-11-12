@@ -3288,6 +3288,15 @@ class LauncherViewModelTest {
         }
     }
 
+    @Test
+    fun `Home exposes the Swipe up entry`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnSwipeUp = false))
+
+        viewModel.uiState.test {
+            assertFalse(expectHome().isSwipeUpEnabled)
+        }
+    }
+
     // Creates the ViewModel and lets its eager settings subscription read the saved entries.
     private fun TestScope.createViewModelWithSettings(
         settings: Settings,
