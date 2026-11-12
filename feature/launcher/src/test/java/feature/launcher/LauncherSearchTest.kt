@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -22,14 +23,20 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
+import core.data.profiles.ProfileKind
 import core.data.search.SearchResult
+import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_WEB_SUGGESTION
 import core.data.testing.TEST_WEB_SUGGESTION_URL
+import core.data.testing.WORK_USER_ID
+import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
+import core.data.testing.createShortcut
 import core.data.testing.createWebSuggestionRow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -155,6 +162,95 @@ class LauncherSearchTest {
         val actualSecondBottom: Float = composeRule.onAllNodesWithText(inputSecond.name).onFirst().fetchSemanticsNode().boundsInRoot.bottom
 
         assertTrue(actualTopBottom > actualSecondBottom)
+    }
+
+    @Test
+    fun `hints that Search covers more than apps and folders`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        composeRule
+            .onNodeWithText("Search apps, folders, Shortcuts and more", useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `announces the Top result row with the Enter-opens marker`() {
+        val inputLaunchable: Launchable = createRailLaunchable("Alpha")
+        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputLaunchable)))
+
+        assertRowDescription(
+            rowText = inputLaunchable.name,
+            expectedDescription = "Alpha, Top result, Enter opens"
+        )
+        composeRule.onNodeWithText("Top result").assertDoesNotExist()
+    }
+
+    @Test
+    fun `announces a Shortcut Top result with its publisher and Work name`() {
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.gmail",
+            shortLabel = "Mail",
+            profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        ).copy(publisherName = "Gmail", badgedLabel = "Work Mail")
+        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputShortcut)))
+
+        assertRowDescription(
+            rowText = inputShortcut.name,
+            expectedDescription = "Work Mail, Gmail, Top result, Enter opens"
+        )
+    }
+
+    @Test
+    fun `announces a non-Top Shortcut with its publisher and Work name`() {
+        val inputTop: Launchable = createRailLaunchable("Alpha")
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.gmail",
+            shortLabel = "Mail",
+            profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        ).copy(publisherName = "Gmail", badgedLabel = "Work Mail")
+        setSearchContent(
+            results = listOf(
+                SearchResult.LaunchableResult(inputTop),
+                SearchResult.LaunchableResult(inputShortcut)
+            )
+        )
+
+        assertRowDescription(
+            rowText = inputShortcut.name,
+            expectedDescription = "Work Mail, Gmail"
+        )
+    }
+
+    @Test
+    fun `announces a Folder Top result with the Enter-opens marker`() {
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Games")
+        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputFolder)))
+
+        assertRowDescription(
+            rowText = inputFolder.name,
+            expectedDescription = "Games, Top result, Enter opens"
+        )
+    }
+
+    @Test
+    fun `announces a Web search Top result with the Enter-opens marker`() {
+        setSearchContent(results = listOf(SearchResult.WebSearchRow(url = INPUT_WEB_URL)))
+
+        assertRowDescription(
+            rowText = "Search the web",
+            expectedDescription = "Search the web, Top result, Enter opens"
+        )
+    }
+
+    @Test
+    fun `announces a Calculator Top result as copied by Enter`() {
+        val inputRow: SearchResult.CalculatorRow = SearchResult.CalculatorRow(expression = "12*7", value = "84")
+        setSearchContent(results = listOf(inputRow))
+
+        assertRowDescription(
+            rowText = "12*7 = 84",
+            expectedDescription = "12*7 = 84, Top result, Enter copies"
+        )
     }
 
     @Test
@@ -323,6 +419,12 @@ class LauncherSearchTest {
         queryField().performImeAction()
 
         composeRule.runOnIdle { assertEquals("a", actualGoQuery) }
+    }
+
+    private fun assertRowDescription(rowText: String, expectedDescription: String) {
+        val actualNode: SemanticsNode = composeRule.onNodeWithText(rowText).fetchSemanticsNode()
+        val actualDescriptions: List<String> = actualNode.config[SemanticsProperties.ContentDescription]
+        assertEquals(listOf(expectedDescription), actualDescriptions)
     }
 
     private fun contactRow(): SearchResult.ContactRow = SearchResult.ContactRow(contact = createSearchContact())
