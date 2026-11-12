@@ -3,6 +3,7 @@ package feature.launcher
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -13,11 +14,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
-import androidx.compose.ui.unit.width
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
-import core.ui.layout.compactIconSize
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -38,10 +36,7 @@ class LauncherAppListTest {
     fun `sizes the Search icon to the shared compact icon size`() {
         setAppListContent()
 
-        val actualBounds: DpRect = searchIconBounds()
-
-        assertEquals(compactIconSize, actualBounds.width)
-        assertEquals(compactIconSize, actualBounds.height)
+        assertCompactIconSize(searchIcon())
     }
 
     @Test
@@ -54,7 +49,7 @@ class LauncherAppListTest {
         )
         actualLabel.assertIsDisplayed()
         val actualLabelBounds: DpRect = actualLabel.getUnclippedBoundsInRoot()
-        val actualIconBounds: DpRect = searchIconBounds()
+        val actualIconBounds: DpRect = searchIcon().getUnclippedBoundsInRoot()
         val actualScreenBounds: DpRect = composeRule.screenBounds()
 
         assertHorizontallyInsideScreen(actualLabelBounds, actualScreenBounds, "Search label must be inside the screen")
@@ -66,8 +61,7 @@ class LauncherAppListTest {
         )
     }
 
-    private fun searchIconBounds(): DpRect =
-        composeRule.onNodeWithTag(SEARCH_BUTTON_ICON_TEST_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
+    private fun searchIcon(): SemanticsNodeInteraction = composeRule.onNodeWithTag(SEARCH_BUTTON_ICON_TEST_TAG, useUnmergedTree = true)
 
     private fun setAppListContent() {
         composeRule.setContent {

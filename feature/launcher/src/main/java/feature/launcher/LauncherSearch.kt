@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -51,7 +52,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calculator
 import compose.icons.fontawesomeicons.solid.Comment
-import compose.icons.fontawesomeicons.solid.EllipsisH
+import compose.icons.fontawesomeicons.solid.EllipsisV
 import compose.icons.fontawesomeicons.solid.Globe
 import compose.icons.fontawesomeicons.solid.Phone
 import compose.icons.fontawesomeicons.solid.Search
@@ -64,6 +65,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestFocusedWindow
 import core.ui.composables.RequestKeyboardFocus
 import core.ui.composables.toTextFieldValueAtEnd
+import core.ui.layout.compactIconSize
 import core.ui.layout.homeRailContentPaddingValues
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
@@ -244,7 +246,8 @@ internal fun LauncherSearch(
                         ) {
                             Icon(
                                 imageVector = FontAwesomeIcons.Solid.TimesCircle,
-                                contentDescription = stringResource(R.string.clear_search)
+                                contentDescription = stringResource(R.string.clear_search),
+                                modifier = Modifier.size(compactIconSize)
                             )
                         }
                     }
@@ -255,8 +258,9 @@ internal fun LauncherSearch(
                         }
                     ) {
                         Icon(
-                            imageVector = FontAwesomeIcons.Solid.EllipsisH,
-                            contentDescription = stringResource(R.string.search_options)
+                            imageVector = FontAwesomeIcons.Solid.EllipsisV,
+                            contentDescription = stringResource(R.string.search_options),
+                            modifier = Modifier.size(compactIconSize)
                         )
                     }
                 }

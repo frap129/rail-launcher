@@ -1,6 +1,7 @@
 package feature.launcher
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +17,8 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTouchHeightIsEqualTo
+import androidx.compose.ui.test.assertTouchWidthIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -54,6 +57,7 @@ import core.data.testing.createWebSuggestionRow
 import core.ui.R as CoreUiR
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailStartInset
+import core.ui.layout.minTouchTargetSize
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -483,6 +487,34 @@ class LauncherSearchTest {
     }
 
     @Test
+    fun `sizes the clear Search icon to the shared compact icon size`() {
+        setSearchContent(query = mutableStateOf(QUERY))
+
+        assertCompactIconSize(searchFieldControl(contentDescriptionResId = R.string.clear_search, useUnmergedTree = true))
+    }
+
+    @Test
+    fun `keeps the clear Search button at the shared touch target size`() {
+        setSearchContent(query = mutableStateOf(QUERY))
+
+        assertSearchFieldTouchTarget(searchFieldControl(contentDescriptionResId = R.string.clear_search))
+    }
+
+    @Test
+    fun `sizes the Search options icon to the shared compact icon size`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        assertCompactIconSize(searchFieldControl(contentDescriptionResId = R.string.search_options, useUnmergedTree = true))
+    }
+
+    @Test
+    fun `keeps the Search options button at the shared touch target size`() {
+        setSearchContent(query = mutableStateOf(""))
+
+        assertSearchFieldTouchTarget(searchFieldControl(contentDescriptionResId = R.string.search_options))
+    }
+
+    @Test
     fun `keeps the query field at the search bar height with and without text`() {
         setSearchContent(query = mutableStateOf(""))
 
@@ -648,6 +680,17 @@ class LauncherSearchTest {
         val actualNode: SemanticsNode = composeRule.onNodeWithText(rowText).fetchSemanticsNode()
         val actualDescriptions: List<String> = actualNode.config[SemanticsProperties.ContentDescription]
         assertEquals(listOf(expectedDescription), actualDescriptions)
+    }
+
+    private fun searchFieldControl(@StringRes contentDescriptionResId: Int, useUnmergedTree: Boolean = false): SemanticsNodeInteraction =
+        composeRule.onNodeWithContentDescription(
+            context.getString(contentDescriptionResId),
+            useUnmergedTree = useUnmergedTree
+        )
+
+    private fun assertSearchFieldTouchTarget(control: SemanticsNodeInteraction) {
+        control.assertTouchWidthIsEqualTo(minTouchTargetSize)
+        control.assertTouchHeightIsEqualTo(minTouchTargetSize)
     }
 
     private fun assertResultRowHorizontalInset(railSide: RailSide) {
