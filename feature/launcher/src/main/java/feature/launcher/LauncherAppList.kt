@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -37,10 +38,13 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableGroupHeader
+import core.ui.layout.compactIconSize
 import kotlinx.coroutines.flow.StateFlow
 
 private val searchButtonHorizontalPadding: Dp = 16.dp
 private val searchButtonIconPadding: Dp = 8.dp
+
+internal const val SEARCH_BUTTON_ICON_TEST_TAG: String = "searchButtonIcon"
 
 @Immutable
 data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
@@ -123,7 +127,11 @@ private fun SearchButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
         onClick = onClick,
         modifier = modifier.padding(horizontal = searchButtonHorizontalPadding)
     ) {
-        Icon(imageVector = FontAwesomeIcons.Solid.Search, contentDescription = null)
+        Icon(
+            imageVector = FontAwesomeIcons.Solid.Search,
+            contentDescription = null,
+            modifier = Modifier.size(compactIconSize).testTag(SEARCH_BUTTON_ICON_TEST_TAG)
+        )
         Text(text = stringResource(CoreUiR.string.search), modifier = Modifier.padding(start = searchButtonIconPadding))
     }
 }
