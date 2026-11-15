@@ -20,7 +20,7 @@ enum class SwipeClaim {
     Rejected
 }
 
-/** The pure thresholds, offsets and gestures behind the Pop-up row swipe and the swipe up to Search. */
+/** The pure thresholds, offsets and gestures behind the Pop-up row swipe and the Home swipes. */
 object SwipeToOpen {
     const val OPEN_THRESHOLD_DP: Float = 48f
     const val MAX_OFFSET_DP: Float = 72f
@@ -70,25 +70,25 @@ object SwipeToOpen {
     fun hasReachedRail(wasReached: Boolean, fingerInRoot: Offset, railBounds: Rect?): Boolean =
         wasReached || (railBounds?.contains(fingerInRoot) == true)
 
-    /** How far Home moves up at the end of its rubber band. */
-    const val SWIPE_UP_MAX_OFFSET_DP: Float = 64f
+    /** How far Home moves at the end of its rubber band. */
+    const val HOME_PULL_MAX_OFFSET_DP: Float = 64f
 
-    /** How far the finger must pull Home up past its end to reach the end of the rubber band and arm Search. */
-    const val SWIPE_UP_ARM_PULL_DP: Float = 180f
+    /** How far the finger must pull Home past the edge of its content to reach the end of the rubber band and arm the swipe. */
+    const val HOME_PULL_ARM_DP: Float = 180f
 
     /**
-     * The upward offset Home shows for a finger [pullPx] past the end of its content: it moves
-     * less than the finger, resists more the further it is pulled, and stops at
-     * [SWIPE_UP_MAX_OFFSET_DP] exactly when the pull arms Search.
+     * The offset Home shows for a finger [pullPx] past the edge of its content: it moves less
+     * than the finger, resists more the further it is pulled, and stops at
+     * [HOME_PULL_MAX_OFFSET_DP] exactly when the pull arms the swipe.
      */
     fun rubberBandOffset(pullPx: Float, density: Float): Float {
-        val progress: Float = (pullPx / (SWIPE_UP_ARM_PULL_DP * density)).coerceIn(0f, 1f)
+        val progress: Float = (pullPx / (HOME_PULL_ARM_DP * density)).coerceIn(0f, 1f)
         val remaining: Float = 1f - progress
-        return SWIPE_UP_MAX_OFFSET_DP * density * (1f - remaining * remaining)
+        return HOME_PULL_MAX_OFFSET_DP * density * (1f - remaining * remaining)
     }
 
-    /** Whether a pull of [pullPx] past the end of Home arms opening Search on release. */
-    fun isSwipeUpArmed(pullPx: Float, density: Float): Boolean = pullPx >= SWIPE_UP_ARM_PULL_DP * density
+    /** Whether a pull of [pullPx] past the edge of Home arms the swipe on release. */
+    fun isHomePullArmed(pullPx: Float, density: Float): Boolean = pullPx >= HOME_PULL_ARM_DP * density
 
     /** The release distance threshold in pixels. */
     fun thresholdPx(density: Float): Float = OPEN_THRESHOLD_DP * density

@@ -151,6 +151,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setExpandNotificationsOnSwipeDown(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(expandNotificationsOnSwipeDown = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnHomePress(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnHomePress = enabled) }

@@ -37,7 +37,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "None")
     val searchEngine: SearchEngine = SearchEngine.None,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE_TEMPLATE)
-    val searchEngineTemplate: String? = null
+    val searchEngineTemplate: String? = null,
+    @ColumnInfo(name = Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN, defaultValue = "1")
+    val expandNotificationsOnSwipeDown: Boolean = true
 ) {
     companion object {
         const val COLUMN_ICON_PACK: String = "icon_pack"
@@ -56,5 +58,6 @@ data class Settings(
         const val COLUMN_SEARCH_CONTACTS: String = "search_contacts"
         const val COLUMN_SEARCH_ENGINE: String = "search_engine"
         const val COLUMN_SEARCH_ENGINE_TEMPLATE: String = "search_engine_template"
+        const val COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN: String = "expand_notifications_on_swipe_down"
     }
 }

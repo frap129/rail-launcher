@@ -18,7 +18,7 @@ fun HapticFeedback.performRailTickHaptic() {
     performHapticFeedback(HapticFeedbackType.TextHandleMove)
 }
 
-/** Performs the firm haptic that confirms a swipe up to Search. */
-fun HapticFeedback.performSearchSwipeHaptic() {
+/** Performs the firm haptic that confirms a Home swipe has armed its action. */
+fun HapticFeedback.performHomeSwipeHaptic() {
     performHapticFeedback(HapticFeedbackType.Confirm)
 }

@@ -53,6 +53,8 @@ import core.data.media.MediaArtworkKeyer
 import core.data.media.MediaArtworkStore
 import core.data.notifications.INotificationListenerRelay
 import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationShade
+import core.data.notifications.INotificationShadeImpl
 import core.data.notifications.INotificationSource
 import core.data.notifications.INotificationSourceImpl
 import core.data.popups.IPopupRepository
@@ -350,6 +352,7 @@ class MainApplication :
             )
         }
         single<INotificationListenerRelay> { INotificationListenerRelayImpl() }
+        single<INotificationShade> { INotificationShadeImpl(androidContext()) }
         single<INotificationSource> {
             INotificationSourceImpl(
                 context = androidContext(),
@@ -474,6 +477,7 @@ class MainApplication :
                 folderRepo = get(),
                 popupRepo = get(),
                 notificationSource = get(),
+                notificationShade = get(),
                 homeEditState = get(),
                 profileSource = get(),
                 privateSpaceStatus = get(),

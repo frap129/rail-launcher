@@ -18,8 +18,8 @@ const val SEARCH_SETTINGS_KEY: String = "search"
 /** The Search settings screen. */
 const val SEARCH_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/$SEARCH_SETTINGS_KEY"
 
-/** The Pop-ups and Folders screen key under [SETTINGS_ROUTE]. */
+/** The Gestures and Pop-ups screen key under [SETTINGS_ROUTE]. */
 const val POPUPS_SETTINGS_KEY: String = "popups"
 
-/** The Pop-ups and Folders settings screen. */
+/** The Gestures and Pop-ups settings screen. */
 const val POPUPS_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/$POPUPS_SETTINGS_KEY"

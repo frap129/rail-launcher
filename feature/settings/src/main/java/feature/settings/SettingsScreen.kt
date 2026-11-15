@@ -91,7 +91,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
-import compose.icons.fontawesomeicons.solid.Folder
+import compose.icons.fontawesomeicons.solid.HandPointer
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
 import compose.icons.fontawesomeicons.solid.Search
@@ -221,7 +221,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         SettingsScreen.Main -> stringResource(CoreUiR.string.settings)
                         SettingsScreen.Appearance -> stringResource(R.string.appearance)
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
-                        SettingsScreen.Popups -> stringResource(R.string.popups_and_folders)
+                        SettingsScreen.Popups -> stringResource(R.string.gestures_and_popups)
                         SettingsScreen.Search -> stringResource(CoreUiR.string.search)
                     }
 
@@ -312,9 +312,9 @@ fun SettingsMainScreen(
         }
         item {
             SettingsNavigationRow(
-                title = R.string.popups_and_folders,
-                summary = R.string.popups_and_folders_summary,
-                icon = FontAwesomeIcons.Solid.Folder,
+                title = R.string.gestures_and_popups,
+                summary = R.string.gestures_and_popups_summary,
+                icon = FontAwesomeIcons.Solid.HandPointer,
                 onClick = toPopups
             )
         }

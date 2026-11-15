@@ -216,6 +216,10 @@ _Avoid_: Home tap, re-selection
 An upward drag on Home past the end of its lists. The swipe-up entry in Rail Settings opens Search on it.
 _Avoid_: Upward swipe, flick
 
+**Swipe down**:
+A downward drag on Home past the start of its lists. The swipe-down entry in Rail Settings expands the notification shade on it.
+_Avoid_: Pull down, downward swipe
+
 **Search result**:
 One row of Search results: a Launchable or Shortcut match, or a row Search adds such as the Calculator row.
 _Avoid_: Match, hit

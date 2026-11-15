@@ -29,6 +29,7 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setScrubEdges(any()) } just Runs
     every { mockPreferencesRepository.setRailSide(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnSwipeUp(any()) } just Runs
+    every { mockPreferencesRepository.setExpandNotificationsOnSwipeDown(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnHomePress(any()) } just Runs
     every { mockPreferencesRepository.setSearchSuggestions(any()) } just Runs
     every { mockPreferencesRepository.setSearchAutoLaunch(any()) } just Runs

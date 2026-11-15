@@ -167,6 +167,17 @@ val MIGRATION_22_23: Migration = object : Migration(22, 23) {
     }
 }
 
+/**
+ * Adds the Swipe down on Home switch, defaulting to on, and keeps every other setting.
+ */
+val MIGRATION_23_24: Migration = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} INTEGER NOT NULL DEFAULT 1"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -180,5 +191,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_19_20,
     MIGRATION_20_21,
     MIGRATION_21_22,
-    MIGRATION_22_23
+    MIGRATION_22_23,
+    MIGRATION_23_24
 )

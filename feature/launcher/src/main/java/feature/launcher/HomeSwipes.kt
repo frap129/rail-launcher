@@ -29,27 +29,31 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import core.ui.util.performSearchSwipeHaptic
+import core.ui.util.performHomeSwipeHaptic
+import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /**
- * The rubber band Home pulls up on once its lists reach their end. It collects the upward drag
- * the lists leave unconsumed, plays a firm haptic when the pull arms Search, opens Search on a
- * release while armed, and springs back otherwise.
+ * The rubber band Home pulls on once its lists reach an edge. It collects the vertical drag the
+ * lists leave unconsumed as a signed pull (negative is up), plays a firm haptic when the pull arms
+ * its swipe, runs the swipe on a release while armed, and springs back otherwise.
  */
 @Stable
-private class SwipeUpRubberBand(
+private class HomeRubberBand(
     private val coroutineScope: CoroutineScope,
     private val density: () -> Float,
-    private val isEnabled: () -> Boolean,
+    private val isSwipeUpEnabled: () -> Boolean,
+    private val isSwipeDownEnabled: () -> Boolean,
     private val isWidgetTakenSwipe: () -> Boolean,
     private val onArmed: () -> Unit,
-    private val onSwipeUp: () -> Unit
+    private val onSwipeUp: () -> Unit,
+    private val onSwipeDown: () -> Unit
 ) : NestedScrollConnection {
     var pullPx: Float by mutableFloatStateOf(0f)
         private set
@@ -60,35 +64,40 @@ private class SwipeUpRubberBand(
 
     private var isGestureCancelled: Boolean = false
 
-    private val isArmed: Boolean get() = SwipeToOpen.isSwipeUpArmed(pullPx = pullPx, density = density())
+    private val isArmed: Boolean get() = SwipeToOpen.isHomePullArmed(pullPx = abs(pullPx), density = density())
 
-    val offsetPx: Float get() = SwipeToOpen.rubberBandOffset(pullPx = pullPx, density = density())
+    val offsetPx: Float get() = sign(pullPx) * SwipeToOpen.rubberBandOffset(pullPx = abs(pullPx), density = density())
+
+    /** Whether the swipe toward [towardPx]'s direction is on. */
+    fun isEnabled(towardPx: Float): Boolean = if (towardPx < 0f) isSwipeUpEnabled() else isSwipeDownEnabled()
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        if (source != NestedScrollSource.UserInput || pullPx <= 0f || available.y <= 0f) {
+        if (source != NestedScrollSource.UserInput || pullPx == 0f || sign(available.y) != -sign(pullPx)) {
             return Offset.Zero
         }
-        val releasedPx: Float = min(available.y, pullPx)
-        pull(toPx = pullPx - releasedPx)
+        val releasedPx: Float = sign(available.y) * min(abs(available.y), abs(pullPx))
+        pull(toPx = pullPx + releasedPx)
         return Offset(x = 0f, y = releasedPx)
     }
 
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-        if (source != NestedScrollSource.UserInput || available.y >= 0f || !isEnabled() || isWidgetTakenSwipe()) {
+        if (source != NestedScrollSource.UserInput || available.y == 0f || !isEnabled(available.y) || isWidgetTakenSwipe()) {
             return Offset.Zero
         }
-        // The band stops at its end; extra upward drag is held, so dragging back responds at once.
-        pull(toPx = min(pullPx - available.y, SwipeToOpen.SWIPE_UP_ARM_PULL_DP * density()))
+        // The band stops at its end; extra drag is held, so dragging back responds at once.
+        val maxPullPx: Float = SwipeToOpen.HOME_PULL_ARM_DP * density()
+        pull(toPx = (pullPx + available.y).coerceIn(-maxPullPx, maxPullPx))
         return Offset(x = 0f, y = available.y)
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
-        if (pullPx <= 0f) {
+        if (pullPx == 0f) {
             return Velocity.Zero
         }
-        if (isArmed && isEnabled() && !isWidgetTakenSwipe() && !isGestureCancelled) {
+        if (isArmed && isEnabled(pullPx) && !isWidgetTakenSwipe() && !isGestureCancelled) {
+            val wasPulledUp: Boolean = pullPx < 0f
             reset()
-            onSwipeUp()
+            if (wasPulledUp) onSwipeUp() else onSwipeDown()
         } else {
             settle()
         }
@@ -103,7 +112,7 @@ private class SwipeUpRubberBand(
     }
 
     /**
-     * Ends the gesture [catch] started. A cancelled gesture never opens Search, and a gesture
+     * Ends the gesture [catch] started. A cancelled gesture never runs the swipe, and a gesture
      * that never pulled Home, such as a tap during a settle, springs Home back itself because no
      * fling follows it.
      */
@@ -141,31 +150,42 @@ private class SwipeUpRubberBand(
 }
 
 /**
- * Opens Search on a swipe up past the end of Home. Home's lists keep their normal scroll; the
- * upward drag they leave once they reach their end pulls Home up on a rubber band, a firm haptic
- * confirms the pull has armed Search, and releasing while armed opens it. An App Widget that
- * takes the drag never pulls Home. A hidden Home whose touches are consumed never reacts.
+ * Runs a swipe past the edges of Home: up past its end opens Search, down past its start expands
+ * the notification shade. Home's lists keep their normal scroll; the drag they leave once they
+ * reach an edge pulls Home on a rubber band, a firm haptic confirms the pull has armed the swipe,
+ * and releasing while armed runs it. An App Widget that takes the drag never pulls Home. A hidden
+ * Home whose touches are consumed never reacts.
  */
 @Composable
-internal fun Modifier.swipeUpToSearch(enabled: Boolean, widgetSwipeState: WidgetSwipeState, onSwipeUp: () -> Unit): Modifier {
+internal fun Modifier.homeSwipes(
+    isSwipeUpEnabled: Boolean,
+    isSwipeDownEnabled: Boolean,
+    widgetSwipeState: WidgetSwipeState,
+    onSwipeUp: () -> Unit,
+    onSwipeDown: () -> Unit
+): Modifier {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val density: Float = LocalDensity.current.density
     val currentDensity: Float by rememberUpdatedState(density)
-    val currentEnabled: Boolean by rememberUpdatedState(enabled)
+    val currentIsSwipeUpEnabled: Boolean by rememberUpdatedState(isSwipeUpEnabled)
+    val currentIsSwipeDownEnabled: Boolean by rememberUpdatedState(isSwipeDownEnabled)
     val currentOnSwipeUp: () -> Unit by rememberUpdatedState(onSwipeUp)
+    val currentOnSwipeDown: () -> Unit by rememberUpdatedState(onSwipeDown)
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
-    val rubberBand: SwipeUpRubberBand = remember(widgetSwipeState) {
-        SwipeUpRubberBand(
+    val rubberBand: HomeRubberBand = remember(widgetSwipeState) {
+        HomeRubberBand(
             coroutineScope = coroutineScope,
             density = { currentDensity },
-            isEnabled = { currentEnabled },
+            isSwipeUpEnabled = { currentIsSwipeUpEnabled },
+            isSwipeDownEnabled = { currentIsSwipeDownEnabled },
             isWidgetTakenSwipe = { widgetSwipeState.isWidgetTakenSwipe },
-            onArmed = { hapticFeedback.performSearchSwipeHaptic() },
-            onSwipeUp = { currentOnSwipeUp() }
+            onArmed = { hapticFeedback.performHomeSwipeHaptic() },
+            onSwipeUp = { currentOnSwipeUp() },
+            onSwipeDown = { currentOnSwipeDown() }
         )
     }
-    LaunchedEffect(enabled) {
-        if (!enabled) {
+    LaunchedEffect(isSwipeUpEnabled, isSwipeDownEnabled) {
+        if (!rubberBand.isEnabled(rubberBand.pullPx)) {
             rubberBand.reset()
         }
     }
@@ -175,7 +195,7 @@ internal fun Modifier.swipeUpToSearch(enabled: Boolean, widgetSwipeState: Widget
             .collect { rubberBand.settle() }
     }
     return this
-        .offset { IntOffset(x = 0, y = -rubberBand.offsetPx.roundToInt()) }
+        .offset { IntOffset(x = 0, y = rubberBand.offsetPx.roundToInt()) }
         .pointerInput(rubberBand) {
             awaitEachGesture {
                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)

@@ -27,21 +27,13 @@ import core.util.SEARCH_TEMPLATE_PLACEHOLDER
 import core.util.isValidSearchTemplate
 import org.koin.androidx.compose.koinViewModel
 
-/** The Search settings screen: how Search opens, its rows, Search suggestions and the Search engine. */
+/** The Search settings screen: how a Home press opens Search, its rows, Search suggestions and the Search engine. */
 @Composable
 fun SearchSettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
     val uiState: SettingsUiState by viewModel.uiState.collectAsState()
     var isChoosingEngine: Boolean by remember { mutableStateOf(false) }
     var isEditingCustomEngine: Boolean by remember { mutableStateOf(false) }
     LazyColumn {
-        item {
-            SettingsSwitchRow(
-                title = stringResource(CoreUiR.string.search_swipe_up),
-                checked = uiState.openSearchOnSwipeUp,
-                supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
-                onCheckedChange = viewModel::setOpenSearchOnSwipeUp
-            )
-        }
         item {
             SettingsSwitchRow(
                 title = stringResource(R.string.search_home_press),

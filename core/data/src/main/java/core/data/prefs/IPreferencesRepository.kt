@@ -38,6 +38,9 @@ interface IPreferencesRepository {
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 
+    /** Sets whether swiping down on Home expands the notification shade. */
+    fun setExpandNotificationsOnSwipeDown(enabled: Boolean)
+
     /** Sets whether pressing Home on Home opens Search. */
     fun setOpenSearchOnHomePress(enabled: Boolean)
 

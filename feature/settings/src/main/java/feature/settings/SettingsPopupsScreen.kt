@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -63,9 +64,9 @@ private val folderIconSize: Dp = 32.dp
 private val emptyStateGap: Dp = 16.dp
 private val createButtonPadding: Dp = 16.dp
 
-/** Lists every Folder, with the actions sheet and dialogs that manage it. */
+/** Lists the Home swipes, the Pop-up notification switches and every Folder, with the actions sheet and dialogs that manage it. */
 @Composable
-fun SettingsPopupsScreen() {
+fun SettingsPopupsScreen(settingsViewModel: SettingsViewModel = koinViewModel()) {
     // One session per Pop-up host; the settings ViewModel owns the collaborators it was created with.
     val popupSession: IPopupSession = koinInject()
     val viewModel: PopupSettingsViewModel = koinViewModel { parametersOf(popupSession) }
@@ -74,6 +75,7 @@ fun SettingsPopupsScreen() {
     val popupIconPicker: IIconPicker = viewModel.collaborators.iconPicker
     val popupFolderActions: IPopupFolderActions = viewModel.collaborators.folder
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
+    val settingsUiState: SettingsUiState by settingsViewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
@@ -99,6 +101,12 @@ fun SettingsPopupsScreen() {
     Box(modifier = Modifier.fillMaxSize()) {
         PopupSettingsList(
             uiState = uiState,
+            gestures = GestureSettings(
+                openSearchOnSwipeUp = settingsUiState.openSearchOnSwipeUp,
+                expandNotificationsOnSwipeDown = settingsUiState.expandNotificationsOnSwipeDown,
+                onOpenSearchOnSwipeUpChange = settingsViewModel::setOpenSearchOnSwipeUp,
+                onExpandNotificationsOnSwipeDownChange = settingsViewModel::setExpandNotificationsOnSwipeDown
+            ),
             onFolderClick = viewModel::openActions,
             onCreateClick = viewModel::openNewFolderDialog,
             onNotificationsChange = viewModel::setNotificationsEnabled,
@@ -138,15 +146,45 @@ fun SettingsPopupsScreen() {
     IconPickerHost(iconPicker = popupIconPicker)
 }
 
+/** The Home swipe switches and their changes. */
+private data class GestureSettings(
+    val openSearchOnSwipeUp: Boolean,
+    val expandNotificationsOnSwipeDown: Boolean,
+    val onOpenSearchOnSwipeUpChange: (Boolean) -> Unit,
+    val onExpandNotificationsOnSwipeDownChange: (Boolean) -> Unit
+)
+
+private fun LazyListScope.gestureSettingsRows(gestures: GestureSettings) {
+    item { SettingsSectionTitle(R.string.gestures) }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(CoreUiR.string.search_swipe_up),
+            checked = gestures.openSearchOnSwipeUp,
+            supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
+            onCheckedChange = gestures.onOpenSearchOnSwipeUpChange
+        )
+    }
+    item {
+        SettingsSwitchRow(
+            title = stringResource(R.string.swipe_down_notifications),
+            checked = gestures.expandNotificationsOnSwipeDown,
+            supportingText = stringResource(R.string.swipe_down_notifications_summary),
+            onCheckedChange = gestures.onExpandNotificationsOnSwipeDownChange
+        )
+    }
+}
+
 @Composable
 private fun PopupSettingsList(
     uiState: PopupSettingsUiState,
+    gestures: GestureSettings,
     onFolderClick: (Folder) -> Unit,
     onCreateClick: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
     onNotificationAccessClick: () -> Unit
 ) {
     LazyColumn {
+        gestureSettingsRows(gestures = gestures)
         item { SettingsSectionTitle(R.string.notifications) }
         item {
             SettingsSwitchRow(
