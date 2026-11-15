@@ -5,6 +5,10 @@ plugins {
 
 android {
     namespace = "core.util"
+
+    defaultConfig {
+        consumerProguardFiles("consumer-rules.pro")
+    }
 }
 
 dependencies {

@@ -17,6 +17,7 @@
 import com.android.build.api.dsl.ApplicationExtension
 import dev.maples.build.configureAndroid
 import dev.maples.build.configureAndroidBase
+import dev.maples.build.configureAndroidSigning
 import dev.maples.build.implementation
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -34,7 +35,9 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             }
 
             configureAndroidBase()
-            configureAndroid(target, extensions.getByType<ApplicationExtension>())
+            val applicationExtension: ApplicationExtension = extensions.getByType<ApplicationExtension>()
+            configureAndroid(target, applicationExtension)
+            configureAndroidSigning(target, applicationExtension)
 
             val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
             dependencies {

@@ -1,6 +1,7 @@
 package dev.maples.build
 
 import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
+import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.CommonExtension
 import java.io.FileInputStream
 import java.util.Properties
@@ -70,32 +71,28 @@ internal fun configureAndroid(target: Project, commonExtension: CommonExtension)
                 jvmTarget.set(JvmTarget.JVM_17)
             }
         }
+    }
+}
 
-        try {
-            val keystorePropertiesFile = target.rootProject.file("keystore.properties")
-            val keystoreProperties = Properties()
-            if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-                signingConfigs.apply {
-                    buildTypes.names.forEach { variant ->
-                        val prefix = if (keystoreProperties.keys.any { (it as String).contains(variant) }) "$variant." else ""
-                        val config = when (variant) {
-                            "debug" -> getByName(variant)
-                            else -> create(variant)
-                        }
-
-                        config.apply {
-                            keyAlias = keystoreProperties["${prefix}keyAlias"] as String
-                            keyPassword = keystoreProperties["${prefix}keyPassword"] as String
-                            storeFile = target.rootProject.file(keystoreProperties["${prefix}storeFile"] as String)
-                            storePassword = keystoreProperties["${prefix}storePassword"] as String
-                        }
-                    }
-                }
+internal fun configureAndroidSigning(target: Project, applicationExtension: ApplicationExtension) {
+    val keystorePropertiesFile = target.rootProject.file("keystore.properties")
+    if (!keystorePropertiesFile.exists()) {
+        return
+    }
+    try {
+        val keystoreProperties = Properties().apply { load(FileInputStream(keystorePropertiesFile)) }
+        applicationExtension.buildTypes.names.forEach { variant ->
+            val prefix = if (keystoreProperties.keys.any { (it as String).contains(variant) }) "$variant." else ""
+            val config = applicationExtension.signingConfigs.maybeCreate(variant).apply {
+                keyAlias = keystoreProperties["${prefix}keyAlias"] as String
+                keyPassword = keystoreProperties["${prefix}keyPassword"] as String
+                storeFile = target.rootProject.file(keystoreProperties["${prefix}storeFile"] as String)
+                storePassword = keystoreProperties["${prefix}storePassword"] as String
             }
-        } catch (exception: Exception) {
-            target.logger.log(LogLevel.WARN, "Failed to read keystore.properties, using default signing config", exception)
+            applicationExtension.buildTypes.getByName(variant).signingConfig = config
         }
+    } catch (exception: Exception) {
+        target.logger.log(LogLevel.WARN, "Failed to read keystore.properties, using default signing config", exception)
     }
 }
 

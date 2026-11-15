@@ -9,8 +9,8 @@ android {
 
     defaultConfig {
         applicationId = "dev.maples.rail"
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(1)
+        versionName = providers.gradleProperty("versionName").getOrElse("0.1")
         targetSdk = 37
     }
 
