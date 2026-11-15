@@ -440,6 +440,18 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores the Swipe down entry without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setExpandNotificationsOnSwipeDown(false)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> !stored.expandNotificationsOnSwipeDown }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, expandNotificationsOnSwipeDown = false), actualSettings)
+    }
+
+    @Test
     fun `stores the Search Home-press entry without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -577,6 +589,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setScrubEdges(edges = ScrubEdges.START) },
             { repository.setRailSide(side = RailSide.START) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
+            { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
             { repository.setSearchAutoLaunch(enabled = true) },
             { repository.setSearchBottomAnchoredResults(enabled = true) },
@@ -603,6 +616,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,
+                expandNotificationsOnSwipeDown = false,
                 searchBottomAnchoredResults = true,
                 searchCalculatorRow = false,
                 searchWebRow = false,

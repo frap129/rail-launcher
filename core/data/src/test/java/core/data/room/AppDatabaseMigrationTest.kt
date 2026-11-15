@@ -47,6 +47,8 @@ private const val CONTACTS_DATABASE_NAME: String = "contacts-migration-test"
 private const val CONTACTS_DATABASE_VERSION: Int = 21
 private const val WEB_SUGGESTIONS_DATABASE_NAME: String = "web-suggestions-migration-test"
 private const val WEB_SUGGESTIONS_DATABASE_VERSION: Int = 22
+private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
+private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
@@ -499,6 +501,38 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Swipe down on Home switch defaulting on and keeps the settings row`() {
+        withDatabase(
+            name = SWIPE_DOWN_DATABASE_NAME,
+            version = SWIPE_DOWN_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    openSearchOnSwipeUp = false,
+                    searchWebSuggestions = true
+                )
+            }
+        ) { db ->
+            MIGRATION_23_24.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_SEARCH_WEB_SUGGESTIONS,
+                    Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(true, db.expandNotificationsOnSwipeDown())
+            assertEquals(true, db.searchWebSuggestions())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -655,6 +689,7 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     searchAutoLaunch: Boolean? = null,
     searchBottomAnchoredResults: Boolean? = null,
     searchContacts: Boolean? = null,
+    searchWebSuggestions: Boolean? = null,
     searchEngine: SearchEngine? = null,
     searchEngineTemplate: String? = null
 ) {
@@ -700,6 +735,9 @@ private fun SupportSQLiteDatabase.createSettingsRow(
         },
         searchContacts?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_CONTACTS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
+        },
+        searchWebSuggestions?.let { value ->
+            SettingsColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
         }
     )
     val definitions: String = columns.joinToString(separator = "") { column -> ", ${column.name} ${column.definition}" }
@@ -815,6 +853,12 @@ private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean =
     query("SELECT ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)) != 0
+    }
+
+private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
+    query("SELECT ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchEngine(): String =

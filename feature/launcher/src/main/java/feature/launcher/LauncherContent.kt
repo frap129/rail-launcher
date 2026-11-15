@@ -151,6 +151,7 @@ internal fun LauncherContent(
     val isHomeVisible: Boolean = uiState is LauncherUiState.Home
     val isEditingHome: Boolean = homeEditMode != HomeEditMode.None
     val isSwipeUpEnabled: Boolean = isHomeVisible && home?.isSwipeUpEnabled == true && !isEditingHome
+    val isSwipeDownEnabled: Boolean = isHomeVisible && home?.isSwipeDownEnabled == true && !isEditingHome
     val homeAlpha: State<Float> = animateFloatAsState(
         targetValue = if (isHomeVisible) 1f else 0f,
         animationSpec = if (isHomeVisible) {
@@ -203,6 +204,8 @@ internal fun LauncherContent(
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 onSwipeUp = viewModel::onHomeSwipeUp,
                 isSwipeUpEnabled = isSwipeUpEnabled,
+                onSwipeDown = viewModel::onHomeSwipeDown,
+                isSwipeDownEnabled = isSwipeDownEnabled,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
                 isPopupSwipeEnabled = !isEditingHome,

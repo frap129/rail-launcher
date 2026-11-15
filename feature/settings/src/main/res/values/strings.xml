@@ -95,8 +95,9 @@
     </plurals>
     <string name="search_apps">Search apps</string>
     <string name="no_apps_found">No apps found</string>
-    <string name="popups_and_folders">Pop-ups and Folders</string>
-    <string name="popups_and_folders_summary">Manage your Folders</string>
+    <string name="gestures_and_popups">Gestures and Pop-ups</string>
+    <string name="gestures_and_popups_summary">Swipes, Pop-ups and Folders</string>
+    <string name="gestures">Gestures</string>
     <string name="search_summary">Choose how Search opens</string>
     <string name="search_home_press">Press Home on Home</string>
     <string name="search_home_press_summary">Open Search instead of staying on Home</string>
@@ -124,6 +125,8 @@
     <string name="search_custom_engine_help">Use an http or https web address with %1$s where the query goes</string>
     <string name="search_custom_engine_invalid">Use an http or https web address with %1$s after the domain</string>
     <string name="save">Save</string>
+    <string name="swipe_down_notifications">Swipe down on Home</string>
+    <string name="swipe_down_notifications_summary">Open notifications with a swipe down</string>
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
     <string name="notifications">Notifications</string>

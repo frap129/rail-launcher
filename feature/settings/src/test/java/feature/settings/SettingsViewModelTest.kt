@@ -142,6 +142,29 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Swipe down entry`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                settings = Settings(expandNotificationsOnSwipeDown = false)
+            )
+        )
+
+        viewModel.uiState.test {
+            assertFalse(expectMostRecentItem().expandNotificationsOnSwipeDown)
+        }
+    }
+
+    @Test
+    fun `persists the Swipe down entry`() = runTest {
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+        viewModel.setExpandNotificationsOnSwipeDown(false)
+
+        verify(exactly = 1) { mockPreferencesRepository.setExpandNotificationsOnSwipeDown(false) }
+    }
+
+    @Test
     fun `exposes the stored Search swipe-up entry`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

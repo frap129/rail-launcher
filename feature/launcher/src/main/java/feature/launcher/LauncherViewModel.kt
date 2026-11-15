@@ -11,6 +11,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationSnapshot
 import core.data.popups.IPopupRepository
@@ -86,6 +87,7 @@ sealed class LauncherUiState {
         val lazyListState: LazyListState,
         val favorites: List<Launchable>,
         val isSwipeUpEnabled: Boolean,
+        val isSwipeDownEnabled: Boolean,
         val isEditingFavorites: Boolean = false
     ) : LauncherUiState()
 
@@ -276,6 +278,7 @@ private fun toUiState(
             lazyListState = navigation.homeListState,
             favorites = favorites,
             isSwipeUpEnabled = searchData.settings.openSearchOnSwipeUp,
+            isSwipeDownEnabled = searchData.settings.expandNotificationsOnSwipeDown,
             isEditingFavorites = isEditingFavorites
         )
     }
@@ -311,6 +314,7 @@ class LauncherViewModel(
     private val folderRepo: IFolderRepository,
     private val popupRepo: IPopupRepository,
     private val notificationSource: INotificationSource,
+    private val notificationShade: INotificationShade,
     private val homeEditState: HomeEditState,
     private val profileSource: IProfileSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
@@ -903,6 +907,13 @@ class LauncherViewModel(
     fun onHomeSwipeUp() {
         if (currentSettings.value.openSearchOnSwipeUp) {
             openSearch()
+        }
+    }
+
+    /** Expands the notification shade on a swipe down on Home, when the swipe-down entry is on outside Home edit modes. */
+    fun onHomeSwipeDown() {
+        if (currentSettings.value.expandNotificationsOnSwipeDown && homeEditState.mode.value == HomeEditMode.None) {
+            notificationShade.expand()
         }
     }
 

@@ -40,6 +40,7 @@ data class SettingsUiState(
     val isPrivateSpaceAvailable: Boolean,
     val scrubEdges: ScrubEdges,
     val railSide: RailSide,
+    val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
     val searchSuggestions: Boolean,
@@ -67,6 +68,7 @@ private fun Settings.toSettingsUiState(
     isPrivateSpaceAvailable = isPrivateSpaceAvailable,
     scrubEdges = scrubEdges,
     railSide = railSide,
+    expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
     searchSuggestions = searchSuggestions,
@@ -133,6 +135,9 @@ class SettingsViewModel(
 
     /** Persists the screen side where the Rail is drawn. */
     fun setRailSide(side: RailSide) = prefsRepo.setRailSide(side)
+
+    /** Persists whether swiping down on Home expands the notification shade. */
+    fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)
 
     /** Persists whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean) = searchSettings.setOpenSearchOnSwipeUp(enabled)

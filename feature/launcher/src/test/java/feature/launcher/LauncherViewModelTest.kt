@@ -12,6 +12,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.notifications.INotificationListenerRelayImpl
+import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
@@ -74,6 +75,7 @@ import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createNotificationHandle
 import core.data.testing.createNotificationRecord
+import core.data.testing.createNotificationShadeMock
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
@@ -3297,13 +3299,66 @@ class LauncherViewModelTest {
         }
     }
 
+    @Test
+    fun `Home exposes the Swipe down entry`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(expandNotificationsOnSwipeDown = false))
+
+        viewModel.uiState.test {
+            assertFalse(expectHome().isSwipeDownEnabled)
+        }
+    }
+
+    @Test
+    fun `Swipe down expands the notification shade when its entry is on`() = runTest {
+        val mockNotificationShade: INotificationShade = createNotificationShadeMock()
+        val viewModel: LauncherViewModel = createViewModelWithSettings(
+            settings = Settings(expandNotificationsOnSwipeDown = true),
+            mockNotificationShade = mockNotificationShade
+        )
+
+        viewModel.onHomeSwipeDown()
+
+        verify(exactly = 1) { mockNotificationShade.expand() }
+    }
+
+    @Test
+    fun `Swipe down does not expand the notification shade when its entry is off`() = runTest {
+        val mockNotificationShade: INotificationShade = createNotificationShadeMock()
+        val viewModel: LauncherViewModel = createViewModelWithSettings(
+            settings = Settings(expandNotificationsOnSwipeDown = false),
+            mockNotificationShade = mockNotificationShade
+        )
+
+        viewModel.onHomeSwipeDown()
+
+        verify(exactly = 0) { mockNotificationShade.expand() }
+    }
+
+    @Test
+    fun `Swipe down during a Home edit mode does not expand the notification shade`() = runTest {
+        val mockNotificationShade: INotificationShade = createNotificationShadeMock()
+        val inputHomeEditState: HomeEditState = HomeEditState()
+        inputHomeEditState.tryEnter(HomeEditMode.Widgets)
+        val viewModel: LauncherViewModel = createViewModelWithSettings(
+            settings = Settings(expandNotificationsOnSwipeDown = true),
+            inputHomeEditState = inputHomeEditState,
+            mockNotificationShade = mockNotificationShade
+        )
+
+        viewModel.onHomeSwipeDown()
+
+        verify(exactly = 0) { mockNotificationShade.expand() }
+    }
+
     // Creates the ViewModel and lets its eager settings subscription read the saved entries.
     private fun TestScope.createViewModelWithSettings(
         settings: Settings,
-        inputHomeEditState: HomeEditState = HomeEditState()
+        inputHomeEditState: HomeEditState = HomeEditState(),
+        mockNotificationShade: INotificationShade = createNotificationShadeMock()
     ): LauncherViewModel = createViewModel(
         mockPreferencesRepository = createPreferencesRepositoryMock(settings = settings),
-        inputHomeEditState = inputHomeEditState
+        inputHomeEditState = inputHomeEditState,
+        mockNotificationShade = mockNotificationShade
     ).also { advanceUntilIdle() }
 
     private fun TestScope.createSuggestionFixture(settings: Settings = Settings()): SuggestionFixture {
@@ -3357,7 +3412,8 @@ class LauncherViewModelTest {
             mockPreferencesRepository = mockPreferencesRepository,
             mockContactSearchSource = mockContactSearchSource
         ),
-        mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock()
+        mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock(),
+        mockNotificationShade: INotificationShade = createNotificationShadeMock()
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -3366,6 +3422,7 @@ class LauncherViewModelTest {
         folderRepo = mockFolderRepository,
         popupRepo = mockPopupRepository,
         notificationSource = createNotificationSource(mockPopupRepository = mockPopupRepository),
+        notificationShade = mockNotificationShade,
         homeEditState = inputHomeEditState,
         profileSource = mockProfileSource,
         privateSpaceStatus = mockPrivateSpaceStatus,

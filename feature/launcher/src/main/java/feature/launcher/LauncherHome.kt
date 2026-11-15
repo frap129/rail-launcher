@@ -76,6 +76,8 @@ fun LauncherHome(
     onEmptyAreaLongPress: () -> Unit,
     onSwipeUp: () -> Unit,
     isSwipeUpEnabled: Boolean,
+    onSwipeDown: () -> Unit,
+    isSwipeDownEnabled: Boolean,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     isPopupSwipeEnabled: Boolean,
@@ -96,10 +98,12 @@ fun LauncherHome(
         modifier = modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .swipeUpToSearch(
-                enabled = isSwipeUpEnabled,
+            .homeSwipes(
+                isSwipeUpEnabled = isSwipeUpEnabled,
+                isSwipeDownEnabled = isSwipeDownEnabled,
                 widgetSwipeState = widgetSwipeState,
-                onSwipeUp = onSwipeUp
+                onSwipeUp = onSwipeUp,
+                onSwipeDown = onSwipeDown
             )
     ) {
         val homeHeightDp: Int = maxHeight.value.roundToInt()
