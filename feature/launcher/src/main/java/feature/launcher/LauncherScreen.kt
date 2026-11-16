@@ -184,33 +184,28 @@ fun LauncherScreen(
     val openContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { row, action ->
         attemptSearchRowOpen { openContactRow(context = context, contact = row.contact, action = action) }
     }
-    val launchItem: (Launchable) -> Unit = launchItem@{ launchable ->
-        if (launchable is Folder) {
-            return@launchItem
-        }
-        if (viewModel.isSearchOpen()) {
-            keyboardController?.hide()
-        }
-        if (launchable.isDisabled) {
-            coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenShortcutMessage)
-            return@launchItem
-        }
-        if (!viewModel.requestLaunch(launchable)) {
-            return@launchItem
-        }
-        popupCardViewModel.onLaunched()
-        val didLaunch: Boolean = if (launchable is ShortcutLaunchable) {
-            launchShortcut(shortcut = launchable, context = context) {
-                coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenShortcutMessage)
-            }
-        } else {
-            launchable.launch(context)
-            true
-        }
-        if (didLaunch) {
-            viewModel.onLaunched(launchable)
-            widgetViewModel.onHomeIntent()
-        }
+    val launchItem: (Launchable) -> Unit = { launchable ->
+        launchLauncherItem(
+            launchable = launchable,
+            context = context,
+            viewModel = viewModel,
+            effects = LaunchItemEffects(
+                onHideKeyboard = { keyboardController?.hide() },
+                onDisabledLaunch = {
+                    coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenShortcutMessage)
+                },
+                onPopupLaunched = popupCardViewModel::onLaunched,
+                onLaunchFailed = { failedLaunchable ->
+                    val message: String = if (failedLaunchable is ShortcutLaunchable) {
+                        couldntOpenShortcutMessage
+                    } else {
+                        context.getString(R.string.cannot_open_launchable, failedLaunchable.name)
+                    }
+                    coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = message)
+                },
+                onHomeIntent = widgetViewModel::onHomeIntent
+            )
+        )
     }
     DisposableEffect(lifecycleOwner, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
@@ -488,12 +483,47 @@ fun LauncherScreen(
     }
 }
 
-private fun launchShortcut(context: Context, shortcut: ShortcutLaunchable, onFailure: () -> Unit): Boolean {
-    val didLaunch: Boolean = attemptLaunch { shortcut.launch(context) }
-    if (!didLaunch) {
-        onFailure()
+/** The UI effects the launcher's single launch path runs around a launch. */
+internal class LaunchItemEffects(
+    val onHideKeyboard: () -> Unit,
+    val onDisabledLaunch: () -> Unit,
+    val onPopupLaunched: () -> Unit,
+    val onLaunchFailed: (Launchable) -> Unit,
+    val onHomeIntent: () -> Unit
+)
+
+/**
+ * The launcher's single launch path, shared by rows, Favorites, Pop-ups and Tap actions.
+ * Reports whether [launchable] opened, so only a launch that happened reaches onLaunched.
+ */
+internal fun launchLauncherItem(
+    launchable: Launchable,
+    context: Context,
+    viewModel: LauncherViewModel,
+    effects: LaunchItemEffects
+): Boolean {
+    if (launchable is Folder) {
+        return false
     }
-    return didLaunch
+    if (viewModel.isSearchOpen()) {
+        effects.onHideKeyboard()
+    }
+    if (launchable.isDisabled) {
+        effects.onDisabledLaunch()
+        return false
+    }
+    if (!viewModel.requestLaunch(launchable)) {
+        return false
+    }
+    effects.onPopupLaunched()
+    val didLaunch: Boolean = attemptLaunch { launchable.launch(context) }
+    if (!didLaunch) {
+        effects.onLaunchFailed(launchable)
+        return false
+    }
+    viewModel.onLaunched(launchable)
+    effects.onHomeIntent()
+    return true
 }
 
 private class WidgetEventCallbacks(

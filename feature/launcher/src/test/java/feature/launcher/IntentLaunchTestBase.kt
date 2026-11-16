@@ -24,12 +24,12 @@ abstract class IntentLaunchTestBase {
         shadowContext.clearNextStartedActivities()
     }
 
-    /** Registers an Activity that handles [action] for [dataScheme], with the default category and any extra [categories]. */
+    /** Registers an Activity that handles [action] for any scheme, or only for [dataScheme] when given, with the default category and any extra [categories]. */
     protected fun registerIntentHandler(
         packageName: String,
         className: String,
         action: String,
-        dataScheme: String,
+        dataScheme: String? = null,
         categories: List<String> = emptyList()
     ) {
         val manager: ShadowPackageManager = shadowOf(context.packageManager)
@@ -40,7 +40,7 @@ abstract class IntentLaunchTestBase {
             IntentFilter(action).apply {
                 addCategory(Intent.CATEGORY_DEFAULT)
                 categories.forEach { category -> addCategory(category) }
-                addDataScheme(dataScheme)
+                dataScheme?.let { scheme -> addDataScheme(scheme) }
             }
         )
     }
