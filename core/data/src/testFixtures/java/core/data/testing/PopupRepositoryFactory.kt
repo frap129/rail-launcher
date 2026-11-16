@@ -1,7 +1,7 @@
 package core.data.testing
 
-import core.data.cleanup.PopupItemCleanupRow
 import core.data.cleanup.PopupOwnerCleanupRow
+import core.data.cleanup.popupItemCleanupRow
 import core.data.launchables.ILaunchableRepository
 import core.data.popups.IPopupRepositoryImpl
 import core.data.profiles.IPrivateSpaceStatus
@@ -45,7 +45,7 @@ fun createPopupRepository(
         classifier = storedKeyClassifier,
         rows = listOf(
             PopupOwnerCleanupRow(popupDao = popupDao, widgetAreaRepository = widgetAreaRepository, popupRepository = popupRepository),
-            PopupItemCleanupRow(popupDao = popupDao, popupRepository = popupRepository)
+            popupItemCleanupRow(popupDao = popupDao, popupRepository = popupRepository)
         ),
         scope = scope
     )

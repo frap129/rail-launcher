@@ -17,7 +17,7 @@ class LaunchableCustomizationCleanupRowTest : InMemoryDatabaseTest() {
         val inputImageStore: IIconImageStore = createImageStoreWithFiles(STALE_IMAGE_FILE_NAME)
         database.getLaunchableCustomizationDao().setIcon(key = STALE_KEY, icon = CustomIcon.Image(fileName = STALE_IMAGE_FILE_NAME))
         val repository: IPreferencesRepository = createPreferencesRepository(iconImageStore = inputImageStore)
-        val row: IStaleKeyRow = LaunchableCustomizationCleanupRow(preferencesRepository = repository)
+        val row: IStaleKeyRow = launchableCustomizationCleanupRow(preferencesRepository = repository)
 
         row.delete(keys = setOf(STALE_KEY))
 

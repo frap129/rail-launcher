@@ -5,9 +5,12 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.launches.LaunchCountRecord
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
+import core.data.testing.TEST_FOURTEEN_DAYS_MS
+import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createBuiltinGroup
@@ -221,6 +224,142 @@ class LaunchableGroupsTest {
         assertFalse(actualLabel in inputOtherLabels)
         assertFalse(actualLabel.first().isLetterOrDigit())
     }
+
+    @Test
+    fun `Alphabetical keeps the input order`() {
+        val inputZulu: Launchable = createLaunchable("Zulu")
+        val inputZebra: Launchable = createLaunchable("Zebra")
+
+        val actualGroup: LaunchableGroup = listOf(inputZulu, inputZebra).toLaunchableGroups(builtinGroup = inputBuiltinGroup)[1]
+
+        assertEquals(LaunchableGroup.InitialGroup(label = "Z", items = listOf(inputZulu, inputZebra)), actualGroup)
+    }
+
+    @Test
+    fun `Most used orders by Launch count with case-insensitive A-Z ties and never-launched items last`() {
+        val inputAlpine: Launchable = createLaunchable("Alpine")
+        val inputAlfred: Launchable = createLaunchable("alfred")
+        val inputAmber: Launchable = createLaunchable("Amber")
+        val inputAzure: Launchable = createLaunchable("azure")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputAlpine.key to createLaunchCount(key = inputAlpine.key, launchCount = 3),
+            inputAlfred.key to createLaunchCount(key = inputAlfred.key, launchCount = 3)
+        )
+
+        val actualGroup: LaunchableGroup = listOf(inputAzure, inputAmber, inputAlpine, inputAlfred).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+        )[1]
+
+        assertEquals(
+            LaunchableGroup.InitialGroup(
+                label = "A",
+                items = listOf(inputAlfred, inputAlpine, inputAmber, inputAzure)
+            ),
+            actualGroup
+        )
+    }
+
+    @Test
+    fun `Recently used ranks a recent launch above an older larger total`() {
+        val inputOlder: Launchable = createLaunchable("Once")
+        val inputRecent: Launchable = createLaunchable("Only")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputOlder.key to createLaunchCount(
+                key = inputOlder.key,
+                launchCount = 10,
+                recentUseScore = 10.0,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
+            ),
+            inputRecent.key to createLaunchCount(
+                key = inputRecent.key,
+                launchCount = 3,
+                recentUseScore = 3.0,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS
+            )
+        )
+
+        val actualGroup: LaunchableGroup = listOf(inputOlder, inputRecent).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = AppListRanking.RecentlyUsed(launchCountsByKey = inputCounts, nowEpochMs = TEST_NOW_EPOCH_MS)
+        )[1]
+
+        assertEquals(LaunchableGroup.InitialGroup(label = "O", items = listOf(inputRecent, inputOlder)), actualGroup)
+    }
+
+    @Test
+    fun `Most used keeps Folders last in their current order`() {
+        val inputApp: Launchable = createLaunchable("Beta")
+        val inputOtherApp: Launchable = createLaunchable("Bouncer")
+        val inputFirstFolder: Folder = Folder(folderId = 1L, name = "Bravo folder")
+        val inputSecondFolder: Folder = Folder(folderId = 2L, name = "Boulder folder")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputApp.key to createLaunchCount(key = inputApp.key, launchCount = 1),
+            inputOtherApp.key to createLaunchCount(key = inputOtherApp.key, launchCount = 2),
+            inputFirstFolder.key to createLaunchCount(key = inputFirstFolder.key, launchCount = 99),
+            inputSecondFolder.key to createLaunchCount(key = inputSecondFolder.key, launchCount = 98)
+        )
+
+        val actualGroup: LaunchableGroup = listOf(inputFirstFolder, inputSecondFolder, inputApp, inputOtherApp).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+        )[1]
+
+        assertEquals(
+            LaunchableGroup.InitialGroup(
+                label = "B",
+                items = listOf(inputOtherApp, inputApp, inputFirstFolder, inputSecondFolder)
+            ),
+            actualGroup
+        )
+    }
+
+    @Test
+    fun `Most used ranks the Unlocked Private Space group`() {
+        val inputZulu: Launchable = createPrivateApp(name = "Zulu", packageName = "com.example.zulu")
+        val inputAlpha: Launchable = createPrivateApp(name = "alpha", packageName = "com.example.alpha")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputZulu.key to createLaunchCount(key = inputZulu.key, launchCount = 5),
+            inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 1)
+        )
+
+        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputAlpha, inputZulu).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true),
+            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+        ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
+
+        assertEquals(listOf(inputZulu, inputAlpha), actualGroup.items)
+    }
+
+    @Test
+    fun `keeps the group order and the Builtin group while ranking by use`() {
+        val inputZulu: Launchable = createLaunchable("Zulu")
+        val inputAlpha: Launchable = createLaunchable("Alpha")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 3)
+        )
+
+        val actualGroups: List<LaunchableGroup> = listOf(inputZulu, inputAlpha).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+        )
+
+        assertEquals(listOf("★", "A", "Z", "⌂"), actualGroups.map { group -> group.label })
+        assertEquals(inputBuiltinGroup, actualGroups.last())
+    }
+
+    private fun createLaunchCount(
+        key: String,
+        launchCount: Int,
+        recentUseScore: Double = launchCount.toDouble(),
+        scoreUpdatedAt: Long = TEST_NOW_EPOCH_MS
+    ): LaunchCountRecord = LaunchCountRecord(
+        key = key,
+        launchCount = launchCount,
+        recentUseScore = recentUseScore,
+        scoreUpdatedAt = scoreUpdatedAt
+    )
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(
         defaultName = name,

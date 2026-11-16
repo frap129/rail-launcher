@@ -11,6 +11,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launches.ILaunchCountRepository
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
@@ -55,6 +56,7 @@ import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_GOOGLE_PLAY_STORE_SETTINGS
 import core.data.testing.TEST_GOOGLE_SETTINGS
 import core.data.testing.TEST_NOTIFICATION_KEY
+import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.TEST_PLAY_STORE_SETTINGS
 import core.data.testing.TEST_SDK
 import core.data.testing.TEST_WEB_SUGGESTION
@@ -100,6 +102,7 @@ import core.ui.layout.HomeEditState
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.verify
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -138,7 +141,6 @@ private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
 private const val FAVORITE_FOLDER_ID: Long = 42L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
-private const val TEST_NOW_EPOCH_MS: Long = 1_791_720_000_000L
 
 // The matching tests assert only the rows they are about; the row tests give Search a Google
 // engine so its web rows show, and the production defaults have no engine.
@@ -183,6 +185,8 @@ class LauncherViewModelTest {
 
     private val mockSearchHistoryRepository: ISearchHistoryRepository
         get() = searchHistoryRepository.value
+
+    private val mockLaunchCountRepository: ILaunchCountRepository = mockk(relaxed = true)
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(settings = inputSearchRowsOff)
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
@@ -2861,6 +2865,50 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `a launch from Home records a Launch count`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+        }
+        viewModel.onLaunched(inputItem)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockLaunchCountRepository.recordLaunch(inputItem.key) }
+    }
+
+    @Test
+    fun `a launch from the App List records a Launch count`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+        }
+        viewModel.onLaunched(inputItem)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockLaunchCountRepository.recordLaunch(inputItem.key) }
+    }
+
+    @Test
+    fun `a launch from Search records a Launch count`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("al")
+            expectSearch()
+        }
+        viewModel.onLaunched(inputItem)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockLaunchCountRepository.recordLaunch(inputItem.key) }
+    }
+
+    @Test
     fun `Go does nothing while Search suggestions are shown`() = runTest {
         val fixture: SuggestionFixture = createSuggestionFixture()
 
@@ -3405,6 +3453,7 @@ class LauncherViewModelTest {
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
         mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
         mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
+        mockLaunchCountRepository: ILaunchCountRepository = this@LauncherViewModelTest.mockLaunchCountRepository,
         mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
         mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock(),
         mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock(),
@@ -3429,6 +3478,7 @@ class LauncherViewModelTest {
         privateSpaceLock = privateSpaceLock,
         standaloneShortcutRepository = mockStandaloneShortcutRepository,
         searchHistoryRepository = mockSearchHistoryRepository,
+        launchCountRepository = mockLaunchCountRepository,
         clockSource = mockClockSource,
         shortcutSearchSource = mockShortcutSearchSource,
         contactSearchSource = mockContactSearchSource,

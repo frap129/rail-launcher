@@ -1,5 +1,6 @@
 package core.data.room
 
+import core.data.prefs.AppListOrder
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
@@ -121,6 +122,18 @@ class ConvertersTest {
     @Test
     fun `falls back to the layout end for an unknown Rail side value`() {
         assertEquals(RailSide.END, converters.fromStringToRailSide("UNKNOWN"))
+    }
+
+    @Test
+    fun `round trips App List orders by name`() {
+        AppListOrder.entries.forEach { order ->
+            assertEquals(order, converters.fromStringToAppListOrder(converters.fromAppListOrderToString(order)))
+        }
+    }
+
+    @Test
+    fun `falls back to Recently used for an unknown App List order value`() {
+        assertEquals(AppListOrder.RECENTLY_USED, converters.fromStringToAppListOrder("UNKNOWN"))
     }
 
     @Test

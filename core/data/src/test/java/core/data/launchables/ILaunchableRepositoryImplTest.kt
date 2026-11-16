@@ -5,7 +5,7 @@ import android.os.UserHandle
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.cleanup.HeaderTapTargetCleanupRow
-import core.data.cleanup.LaunchableCustomizationCleanupRow
+import core.data.cleanup.launchableCustomizationCleanupRow
 import core.data.favorites.FavoriteRecord
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.Folder
@@ -17,6 +17,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
+import core.data.launches.ILaunchCountRepository
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.popups.PopupItemRecord
@@ -57,14 +58,19 @@ import core.data.testing.SECOND_ICON_PACK_PACKAGE
 import core.data.testing.SECOND_POSITION
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_CUSTOM_ICON_DRAWABLE_NAME
+import core.data.testing.TEST_FOURTEEN_DAYS_MS
 import core.data.testing.TEST_ICON_PACK_PACKAGE
+import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.WORK_USER_ID
 import core.data.testing.addIconPackActivity
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createClockReading
+import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLaunchCountRepository
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -80,12 +86,14 @@ import core.data.testing.createUserHandle
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnRequest
 import core.data.testing.packageLevelKey
+import core.data.time.IClockSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -757,6 +765,34 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertTrue(actualBuiltinItems.isNotEmpty())
         assertTrue(actualState.launchables.containsAll(actualBuiltinItems))
+    }
+
+    @Test
+    fun `ranks a recent launch above an older larger total and reorders the emitted groups`() = databaseTest {
+        val inputAlpha: App = createApp(name = "Alpha", packageName = "com.example.alpha")
+        val inputAlpine: App = createApp(name = "Alpine", packageName = "com.example.alpine")
+        var inputNow: Instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS)
+        val mockClockSource: IClockSource = createClockSourceMock(
+            readings = MutableStateFlow(createClockReading(instant = inputNow)),
+            now = { inputNow }
+        )
+        val launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
+            launchCountDao = database.getLaunchCountDao(),
+            clockSource = mockClockSource,
+            dispatcher = databaseDispatcher
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputAlpha, inputAlpine)),
+            launchCountRepository = launchCountRepository,
+            clockSource = mockClockSource
+        )
+        repeat(3) { launchCountRepository.recordLaunch(key = inputAlpha.key) }
+        assertEquals(listOf(inputAlpha.key, inputAlpine.key), appListKeys(repository))
+
+        inputNow = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS)
+        launchCountRepository.recordLaunch(key = inputAlpine.key)
+
+        assertEquals(listOf(inputAlpine.key, inputAlpha.key), appListKeys(repository))
     }
 
     @Test
@@ -1926,6 +1962,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             .filterIsInstance<PopupItem.Launchable>()
             .map { item -> item.launchable.key }
 
+    private suspend fun TestScope.appListKeys(repository: ILaunchableRepository): List<String> = loadedState(repository).listedGroups
+        .flatMap { group -> group.items }
+        .filterIsInstance<App>()
+        .map { app -> app.key }
+
     private suspend fun TestScope.loadedState(repository: ILaunchableRepository): LaunchableState {
         val collection: Job = backgroundScope.launch { repository.launchableState.collect { } }
         try {
@@ -2055,6 +2096,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profileSource = mockProfileSource
         ),
         cleanupShortcutSource: IShortcutSource = createShortcutSourceMock(),
+        clockSource: IClockSource = createClockSourceMock(reading = createClockReading(instant = Instant.ofEpochMilli(0L))),
+        launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
+            launchCountDao = database.getLaunchCountDao(),
+            clockSource = clockSource,
+            dispatcher = databaseDispatcher
+        ),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository {
         val launchableRepository: ILaunchableRepository = ILaunchableRepositoryImpl(
@@ -2066,12 +2113,14 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             popupDao = popupDao,
             standaloneShortcutSource = standaloneShortcutSource,
             privateSpaceStatus = privateSpaceStatus,
+            launchCountRepository = launchCountRepository,
+            clockSource = clockSource,
             scope = scope
         )
         createStaleKeyCleanup(
             launchableRepository = launchableRepository,
             shortcutSource = cleanupShortcutSource,
-            rows = listOf(LaunchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)),
+            rows = listOf(launchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)),
             scope = backgroundScope
         )
         return launchableRepository

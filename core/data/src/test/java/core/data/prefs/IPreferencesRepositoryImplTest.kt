@@ -417,6 +417,27 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults the App List order to Recently used`() = databaseTest {
+        val repository: IPreferencesRepository = createPreferencesRepository()
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertEquals(AppListOrder.RECENTLY_USED, actualSettings.appListOrder)
+    }
+
+    @Test
+    fun `stores the App List order without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setAppListOrder(AppListOrder.MOST_USED)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.appListOrder == AppListOrder.MOST_USED }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, appListOrder = AppListOrder.MOST_USED), actualSettings)
+    }
+
+    @Test
     fun `stores the Search swipe-up entry without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -588,6 +609,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setHidePrivateSpaceWhenLocked(hide = true) },
             { repository.setScrubEdges(edges = ScrubEdges.START) },
             { repository.setRailSide(side = RailSide.START) },
+            { repository.setAppListOrder(order = AppListOrder.MOST_USED) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -613,6 +635,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 hidePrivateSpaceWhenLocked = true,
                 scrubEdges = ScrubEdges.START,
                 railSide = RailSide.START,
+                appListOrder = AppListOrder.MOST_USED,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,

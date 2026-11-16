@@ -145,6 +145,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setAppListOrder(order: AppListOrder) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(appListOrder = order) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

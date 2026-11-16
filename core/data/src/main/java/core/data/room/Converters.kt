@@ -4,6 +4,7 @@ import android.content.ComponentName
 import androidx.room.TypeConverter
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
+import core.data.prefs.AppListOrder
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.DateFormatPreset
@@ -130,6 +131,13 @@ class Converters {
 
     @TypeConverter
     fun fromStringToRailSide(side: String): RailSide = RailSide.entries.firstOrNull { entry -> entry.name == side } ?: RailSide.DEFAULT
+
+    @TypeConverter
+    fun fromAppListOrderToString(order: AppListOrder): String = order.name
+
+    @TypeConverter
+    fun fromStringToAppListOrder(order: String): AppListOrder =
+        AppListOrder.entries.firstOrNull { entry -> entry.name == order } ?: AppListOrder.DEFAULT
 
     @TypeConverter
     fun fromSearchEngineToString(engine: SearchEngine): String = engine.name

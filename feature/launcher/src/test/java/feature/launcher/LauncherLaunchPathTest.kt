@@ -46,7 +46,7 @@ class LauncherLaunchPathTest {
     }
 
     @Test
-    fun `a disabled Launchable does not launch`() {
+    fun `a disabled Launchable neither launches nor records a Launch count`() {
         every { mockLaunchable.isDisabled } returns true
 
         val actualLaunched: Boolean = launch(launchable = mockLaunchable)
@@ -55,7 +55,7 @@ class LauncherLaunchPathTest {
     }
 
     @Test
-    fun `a declined Paused prompt does not launch`() {
+    fun `a declined Paused prompt neither launches nor records a Launch count`() {
         every { mockViewModel.requestLaunch(mockLaunchable) } returns false
 
         val actualLaunched: Boolean = launch(launchable = mockLaunchable)
@@ -100,7 +100,7 @@ class LauncherLaunchPathTest {
     private fun launch(launchable: Launchable, context: Context = mockContext, effects: LaunchItemEffects = effects()): Boolean =
         launchLauncherItem(launchable = launchable, context = context, viewModel = mockViewModel, effects = effects)
 
-    /** Asserts a launch that did not happen neither opened nor reached onLaunched. */
+    /** Asserts a launch that did not happen neither opened nor reached onLaunched, so it records no Launch count. */
     private fun assertNotLaunched(actualLaunched: Boolean) {
         assertFalse(actualLaunched)
         verify(exactly = 0) { mockLaunchable.launch(any()) }

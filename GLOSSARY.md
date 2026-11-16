@@ -181,8 +181,20 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
-The launcher state showing every Launchable grouped alphabetically, then the Private Space group last. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
+The launcher state showing every Launchable grouped by initial, then the Private Space group last. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
+
+**App List order**:
+The setting choosing how the App List orders the Launchables inside each group: Alphabetical, Most used or Recently used. It defaults to Recently used.
+_Avoid_: Sort order, app order
+
+**Launch count**:
+The all-time number of launches Rail recorded for a Launchable or Shortcut key.
+_Avoid_: Usage count, launch tally
+
+**Recent use score**:
+A launch score that decays exponentially, so a recent launch weighs more than an older one.
+_Avoid_: Recency score, usage score
 
 **Search**:
 The launcher state for typing a query, which shows the matching Launchables and Shortcuts as Search results, followed by every other Search result such as the Calculator row.

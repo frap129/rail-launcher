@@ -2,9 +2,9 @@ package core.data.shortcuts
 
 import android.os.UserHandle
 import core.data.apps.model.App
-import core.data.cleanup.FavoriteCleanupRow
 import core.data.cleanup.HeaderTapTargetCleanupRow
-import core.data.cleanup.StandaloneShortcutCleanupRow
+import core.data.cleanup.favoriteCleanupRow
+import core.data.cleanup.standaloneShortcutCleanupRow
 import core.data.favorites.FavoriteRecord
 import core.data.icons.model.CustomIcon
 import core.data.launchables.ILaunchableRepository
@@ -390,11 +390,11 @@ class IStandaloneShortcutRepositoryImplTest : InMemoryDatabaseTest() {
             launchableRepository = repositories.launchables,
             shortcutSource = mockShortcutSource,
             rows = listOf(
-                StandaloneShortcutCleanupRow(
+                standaloneShortcutCleanupRow(
                     standaloneShortcutDao = database.getStandaloneShortcutDao(),
                     standaloneShortcutRepository = repositories.standaloneShortcuts
                 ),
-                FavoriteCleanupRow(favoriteDao = database.getFavoriteDao()),
+                favoriteCleanupRow(favoriteDao = database.getFavoriteDao()),
                 HeaderTapTargetCleanupRow(headerSettingsDao = database.getHeaderSettingsDao())
             ),
             scope = backgroundScope

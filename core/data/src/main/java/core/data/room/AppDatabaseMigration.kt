@@ -2,6 +2,7 @@ package core.data.room
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import core.data.prefs.AppListOrder
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
@@ -178,6 +179,26 @@ val MIGRATION_23_24: Migration = object : Migration(23, 24) {
     }
 }
 
+private const val LAUNCH_COUNTS_TABLE: String = "launch_counts"
+
+/**
+ * Adds the table that stores Launch counts and the App List order, defaulting to Recently used,
+ * keeping every other setting.
+ */
+val MIGRATION_24_25: Migration = object : Migration(24, 25) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS $LAUNCH_COUNTS_TABLE " +
+                "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, recent_use_score REAL NOT NULL, " +
+                "score_updated_at INTEGER NOT NULL, PRIMARY KEY(key))"
+        )
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_APP_LIST_ORDER} TEXT NOT NULL " +
+                "DEFAULT '${AppListOrder.DEFAULT.name}'"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -192,5 +213,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_20_21,
     MIGRATION_21_22,
     MIGRATION_22_23,
-    MIGRATION_23_24
+    MIGRATION_23_24,
+    MIGRATION_24_25
 )
