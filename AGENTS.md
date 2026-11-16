@@ -40,6 +40,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - Conventional Commits with module scopes, e.g. `feat(core:data): ...`, `refactor(launcher): ...`.
 - PRs are squash-merged; PR title becomes the commit subject: allowed types `build ci docs feat fix perf refactor style test chore revert`, max 50 chars (72 with `allow-long-subject` label), no trailing punctuation.
 - PR body above `****` becomes the commit body: lines <= 72 chars and must contain a `ticket: ` trailer (see `.github/pull_request_template.md`).
+- PR bodies always follow `.github/pull_request_template.md`: keep its Testing Steps, Visuals and Reviewer Section below `****`, and never replace them with other sections.
 - Commit scopes name a real module (`core:ui`, `launcher`), never a feature area such as `widgets`.
 
 ### Ticket delivery
