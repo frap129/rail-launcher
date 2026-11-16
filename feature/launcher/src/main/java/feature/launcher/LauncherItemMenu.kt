@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.EyeSlash
 import compose.icons.fontawesomeicons.solid.FolderPlus
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
@@ -111,6 +112,13 @@ internal fun LauncherItemMenu(menu: LauncherMenuState.Menu, viewModel: LauncherV
             imageVector = FontAwesomeIcons.Solid.TimesCircle,
             label = stringResource(R.string.remove_from_suggestions),
             onClick = { viewModel.removeSearchSuggestion(item) }
+        )
+    }
+    if (menu.canHide) {
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.EyeSlash,
+            label = stringResource(R.string.hide_from_app_list),
+            onClick = { viewModel.hideFromAppList(item) }
         )
     }
     when (item) {

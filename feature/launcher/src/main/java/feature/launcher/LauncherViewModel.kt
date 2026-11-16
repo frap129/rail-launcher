@@ -133,8 +133,16 @@ private enum class LauncherMode {
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
 
-    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean, val isStandaloneShortcut: Boolean, val canUninstall: Boolean) :
-        LauncherMenuState()
+    data class Menu(
+        val item: Launchable,
+        val isSearchSuggestion: Boolean,
+        val isStandaloneShortcut: Boolean,
+        val canUninstall: Boolean,
+        val isHidden: Boolean
+    ) : LauncherMenuState() {
+        /** Whether the menu offers hiding [item] from the App List: Apps and Standalone shortcuts that are not Hidden apps yet. */
+        val canHide: Boolean get() = !isHidden && (isStandaloneShortcut || item is App)
+    }
 
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
@@ -275,7 +283,7 @@ private fun toUiState(
     if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
-    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroups
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroupsFor(includeHidden = isEditingFavorites)
     navigation.search?.let { search ->
         return toSearchUiState(search = search, state = state, searchData = searchData)
     }
@@ -350,14 +358,23 @@ class LauncherViewModel(
 
     private val launchableState: StateFlow<LaunchableState> = launcherItemRepo.launchableState
 
-    /** The Rail items in index order, shared with the Rail. */
-    val railItems: StateFlow<List<GroupMark>> = launchableState
-        .map { state -> state.groups.map { group -> group.toGroupMark() } }
+    /** Whether the Favorites are being edited, shared with the Done button and the Rail and App List. */
+    val isEditingFavorites: StateFlow<Boolean> = homeEditState.mode
+        .map { mode -> mode == HomeEditMode.Favorites }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-            initialValue = emptyList()
+            initialValue = false
         )
+
+    /** The Rail items in index order, shared with the Rail. Edit Favorites lists Hidden apps so they can be favorited. */
+    val railItems: StateFlow<List<GroupMark>> = combine(launchableState, isEditingFavorites) { state, isEditing ->
+        state.groupsFor(includeHidden = isEditing).map { group -> group.toGroupMark() }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = emptyList()
+    )
 
     // Kept current so gesture callbacks can read saved settings without a UI collector.
     private val currentSettings: StateFlow<Settings> = prefsRepo.settings.stateIn(
@@ -480,15 +497,6 @@ class LauncherViewModel(
     /** The active Home edit mode; any mode except Edit Favorites disables the Rail's Scrub edges. */
     val homeEditMode: StateFlow<HomeEditMode> = homeEditState.mode
 
-    /** Whether the Favorites are being edited, shared with the Done button. */
-    val isEditingFavorites: StateFlow<Boolean> = homeEditState.mode
-        .map { mode -> mode == HomeEditMode.Favorites }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-            initialValue = false
-        )
-
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
 
@@ -573,11 +581,11 @@ class LauncherViewModel(
 
     private val resolvedMenuItem: Flow<LauncherMenuState.Menu?> = combine(
         requestedMenuItem,
-        launcherItemRepo.launchables,
+        launchableState,
         shortcutSearchState
-    ) { requestedItem, allItems, shortcutState ->
+    ) { requestedItem, state, shortcutState ->
         requestedItem?.let { request ->
-            val launchable: Launchable? = allItems.find { item -> item.key == request.launchable.key }
+            val launchable: Launchable? = state.launchableFor(key = request.launchable.key)
             val resolvedItem: Launchable = launchable
                 ?: shortcutState.shortcuts
                     .find { searchShortcut -> searchShortcut.shortcut.key == request.launchable.key }
@@ -587,7 +595,8 @@ class LauncherViewModel(
                 item = resolvedItem,
                 isSearchSuggestion = request.isSearchSuggestion,
                 isStandaloneShortcut = launchable is ShortcutLaunchable,
-                canUninstall = (resolvedItem as? App)?.canUninstall(profileSource) == true
+                canUninstall = (resolvedItem as? App)?.canUninstall(profileSource) == true,
+                isHidden = request.launchable.key in state.hiddenKeys
             )
         }
     }
@@ -871,7 +880,8 @@ class LauncherViewModel(
 
     // Reads the shared state before update so a retried update cannot build a second scroll state.
     private fun createAppListState(group: LaunchableGroup.Listed): LazyListState {
-        val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.groups.filterIsInstance<LaunchableGroup.Listed>()
+        val listedGroups: List<LaunchableGroup.Listed> =
+            launchableState.value.listedGroupsFor(includeHidden = isEditingFavorites.value)
         return createReleasedAppListState(
             groupIndex = listedGroups.indexOfFirst { listed -> listed == group },
             listStartOffsetPx = listStartOffsetPx
@@ -892,7 +902,7 @@ class LauncherViewModel(
     )
 
     private fun findRailGroup(index: Int): LaunchableGroup? {
-        val groups: List<LaunchableGroup> = launchableState.value.groups
+        val groups: List<LaunchableGroup> = launchableState.value.groupsFor(includeHidden = isEditingFavorites.value)
         val group: LaunchableGroup? = groups.getOrNull(index)
         if (group == null) {
             Timber.w("Ignoring Rail index %d outside %d groups", index, groups.size)
@@ -1003,6 +1013,14 @@ class LauncherViewModel(
         closeItemMenu()
         viewModelScope.launchLogged(message = "Failed to remove a Standalone shortcut") {
             standaloneShortcutRepository.remove(keys = listOf(shortcut.key))
+        }
+    }
+
+    /** Hides [launchable] from the App List, keeping its places, and closes its menu. */
+    fun hideFromAppList(launchable: Launchable) {
+        closeItemMenu()
+        viewModelScope.launchLogged(message = "Failed to hide a Launchable") {
+            prefsRepo.setHidden(item = launchable, hidden = true)
         }
     }
 

@@ -22,6 +22,9 @@ interface IPreferencesRepository {
     /** Removes every Custom icon, keeping custom names, and deletes every stored image. */
     fun resetCustomIcons()
 
+    /** Hides [item] from the App List, or shows it there again, keeping its name and Custom icon. */
+    fun setHidden(item: Launchable, hidden: Boolean)
+
     /** Removes the stored customizations for [keys]. */
     suspend fun removeLaunchableCustomizations(keys: List<String>)
     fun setIconPack(iconPack: IconPack)

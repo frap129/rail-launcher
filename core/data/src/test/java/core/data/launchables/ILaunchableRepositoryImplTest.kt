@@ -1289,6 +1289,191 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `leaves a Hidden app out of the App List and Rail marks but keeps it launchable and in the pickers`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setName(key = inputApp.key, name = RENAMED_NAME)
+        inputCustomizationDao.setIcon(key = inputApp.key, icon = inputCustomIcon)
+        inputCustomizationDao.setHidden(key = inputApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockIconRepository = createIconRepositoryMock(
+                inputIcon = Icon.ActivityIcon(inputComponentName),
+                customIcon = expectedCustomIcon
+            )
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualApp: Launchable = actualState.launchableFor(inputApp.key) ?: throw AssertionError("Missing App")
+
+        assertEquals(setOf(inputApp.key), actualState.hiddenKeys)
+        assertEquals(listOf("★", "⌂"), actualState.groupsFor(includeHidden = false).map { group -> group.label })
+        assertEquals(listOf("★", "R", "⌂"), actualState.groupsFor(includeHidden = true).map { group -> group.label })
+        assertTrue(
+            actualState.listedGroupsFor(includeHidden = true).any { group -> group.items.any { item -> item.key == inputApp.key } }
+        )
+        assertTrue(actualState.pickerGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
+        assertEquals(RENAMED_NAME, actualApp.name)
+        assertEquals(expectedCustomIcon, actualApp.icon)
+    }
+
+    @Test
+    fun `keeps a Hidden app's Favorite, Folder membership and Added item in place`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputOwner: App = createApp(name = "Owner", packageName = "com.example.owner")
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getFolderDao().insert(FolderRecord(id = FOLDER_ID))
+        database.getPopupDao().insertItems(
+            listOf(
+                PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputApp.key, position = FIRST_POSITION),
+                PopupItemRecord(ownerKey = inputOwner.key, itemKey = inputApp.key, position = FIRST_POSITION)
+            )
+        )
+        seedFavorite(key = inputApp.key, position = FIRST_POSITION)
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp, inputOwner)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            folderDao = database.getFolderDao(),
+            popupDao = database.getPopupDao()
+        )
+        val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
+            favoriteDao = database.getFavoriteDao(),
+            launchableRepository = repository
+        )
+        val popups: IPopupRepository = createPopupRepository(
+            popupDao = database.getPopupDao(),
+            launchableRepository = repository,
+            scope = backgroundScope,
+            shortcutSource = createShortcutSourceMock(),
+            widgetAreaRepository = createWidgetAreaRepositoryMock(),
+            appWidgetHost = createAppWidgetHostMock()
+        )
+        val collection: Job = backgroundScope.launch { repository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualState: LaunchableState = repository.launchableState.first()
+
+            assertTrue(actualState.launchables.any { launchable -> launchable.key == inputApp.key })
+            assertEquals(listOf(inputApp), favoritesRepository.favorites.first())
+            assertEquals(listOf(inputApp.key), visiblePopupItemKeys(popups = popups, owner = inputFolder))
+            assertEquals(listOf(inputApp.key), visiblePopupItemKeys(popups = popups, owner = inputOwner))
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `hides a work App's copy only`() = databaseTest {
+        val inputPersonalProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputPersonalApp: App = createApp(
+            name = "Personal",
+            packageName = APP_PACKAGE_NAME,
+            profileInfo = inputPersonalProfile
+        )
+        val inputWorkApp: App = createApp(name = "Work", packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputWorkApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPersonalApp, inputWorkApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockProfileSource = createProfileSourceMock(
+                state = ProfileSourceState(profiles = listOf(inputPersonalProfile, inputWorkProfile))
+            )
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualAppListKeys: List<String> = actualState.listedGroups
+            .flatMap { group -> group.items }
+            .filterIsInstance<App>()
+            .map { app -> app.key }
+
+        assertEquals(listOf(inputPersonalApp.key), actualAppListKeys)
+        assertEquals(setOf(inputWorkApp.key), actualState.hiddenKeys)
+        assertTrue(actualState.launchables.any { launchable -> launchable.key == inputWorkApp.key })
+    }
+
+    @Test
+    fun `keeps a Hidden private App hidden across the Private Space Lock and Unlock`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
+        val inputPrivateApp: App = createApp(
+            name = "Secret",
+            packageName = PRIVATE_PACKAGE_NAME,
+            profileInfo = inputPrivateProfile
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile))
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputPrivateApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+
+        val actualUnlockedState: LaunchableState = loadedState(repository)
+        assertTrue(actualUnlockedState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
+        assertTrue(actualUnlockedState.listedGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        val actualLockedState: LaunchableState = loadedState(repository)
+        assertFalse(actualLockedState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        val actualRestoredState: LaunchableState = loadedState(repository)
+        assertTrue(actualRestoredState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
+        assertTrue(actualRestoredState.listedGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+    }
+
+    @Test
+    fun `keeps a Hidden work App hidden while its Profile is Paused`() = databaseTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
+        val inputWorkApp: App = createApp(name = "Work", packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputWorkApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputWorkApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockProfileSource = createProfileSourceMock(profile = inputWorkProfile)
+        )
+
+        val actualState: LaunchableState = loadedState(repository)
+        val actualApp: Launchable = actualState.launchableFor(inputWorkApp.key) ?: throw AssertionError("Missing App")
+
+        assertEquals(listOf("★", "⌂"), actualState.groupsFor(includeHidden = false).map { group -> group.label })
+        assertTrue(actualState.listedGroupsFor(includeHidden = true).any { group -> group.items.contains(actualApp) })
+        assertTrue(actualApp.isPaused)
+    }
+
+    @Test
+    fun `removes a Hidden app's customization once the App is uninstalled`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputApp.key, hidden = true)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao)
+        )
+        val collection: Job = backgroundScope.launch { repository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            assertEquals(1, inputCustomizationDao.observeAll().first().size)
+
+            inputAppState.value = emptyList()
+            finishPendingWork()
+
+            assertTrue(inputCustomizationDao.observeAll().first().isEmpty())
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
     fun `ignores and removes a name customization stored under a package-level key`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputPackageKey: String = inputApp.packageLevelKey()
@@ -2050,7 +2235,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         database.getPopupDao().getItems(folder.key).sortedBy { item -> item.position }.map { item -> item.itemKey }
 
     private suspend fun actualVisiblePopupItemKeys(repositories: PrivateSpaceRepositories, folder: Folder): List<String> =
-        repositories.popups.items(folder.key).first()
+        visiblePopupItemKeys(popups = repositories.popups, owner = folder)
+
+    private suspend fun visiblePopupItemKeys(popups: IPopupRepository, owner: Launchable): List<String> =
+        popups.items(ownerKey = owner.key).first()
             .filterIsInstance<PopupItem.Launchable>()
             .map { item -> item.launchable.key }
 
