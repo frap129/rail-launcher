@@ -198,14 +198,19 @@ val MIGRATION_24_25: Migration = object : Migration(24, 25) {
 }
 
 /**
- * Adds the Hidden flag to every stored Launchable customization, defaulting to not hidden, and
- * keeps every custom name and Custom icon.
+ * Adds the Hidden flag to every stored Launchable customization, defaulting to not hidden, and the
+ * Show hidden apps Search setting, defaulting to on so Hidden apps stay searchable, keeping every
+ * custom name, Custom icon and other setting.
  */
 val MIGRATION_25_26: Migration = object : Migration(25, 26) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
             "ALTER TABLE ${LaunchableCustomization.TABLE_NAME} ADD COLUMN ${LaunchableCustomization.COLUMN_HIDDEN} " +
                 "INTEGER NOT NULL DEFAULT 0"
+        )
+        db.execSQL(
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS} " +
+                "INTEGER NOT NULL DEFAULT 1"
         )
     }
 }

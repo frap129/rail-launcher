@@ -34,6 +34,8 @@ data class Settings(
     val searchWebSuggestions: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_CONTACTS, defaultValue = "0")
     val searchContacts: Boolean = false,
+    @ColumnInfo(name = Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS, defaultValue = "1")
+    val searchShowHiddenApps: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE, defaultValue = "None")
     val searchEngine: SearchEngine = SearchEngine.None,
     @ColumnInfo(name = Settings.COLUMN_SEARCH_ENGINE_TEMPLATE)
@@ -61,6 +63,7 @@ data class Settings(
         const val COLUMN_SEARCH_PLAY_STORE_ROW: String = "search_play_store_row"
         const val COLUMN_SEARCH_WEB_SUGGESTIONS: String = "search_web_suggestions"
         const val COLUMN_SEARCH_CONTACTS: String = "search_contacts"
+        const val COLUMN_SEARCH_SHOW_HIDDEN_APPS: String = "search_show_hidden_apps"
         const val COLUMN_SEARCH_ENGINE: String = "search_engine"
         const val COLUMN_SEARCH_ENGINE_TEMPLATE: String = "search_engine_template"
         const val COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN: String = "expand_notifications_on_swipe_down"

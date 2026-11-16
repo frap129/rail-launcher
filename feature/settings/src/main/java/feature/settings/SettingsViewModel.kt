@@ -51,6 +51,7 @@ data class SettingsUiState(
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
     val searchSuggestions: Boolean,
+    val searchShowHiddenApps: Boolean,
     val searchAutoLaunch: Boolean,
     val searchBottomAnchoredResults: Boolean,
     val searchCalculatorRow: Boolean,
@@ -81,6 +82,7 @@ private fun Settings.toSettingsUiState(
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
     searchSuggestions = searchSuggestions,
+    searchShowHiddenApps = searchShowHiddenApps,
     searchAutoLaunch = searchAutoLaunch,
     searchBottomAnchoredResults = searchBottomAnchoredResults,
     searchCalculatorRow = searchCalculatorRow,
@@ -175,6 +177,9 @@ class SettingsViewModel(
 
     /** Persists whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean) = searchSettings.setSearchSuggestions(enabled)
+
+    /** Persists whether Search shows Hidden apps in its results. */
+    fun setSearchShowHiddenApps(enabled: Boolean) = searchSettings.setSearchShowHiddenApps(enabled)
 
     /** Persists whether Auto-launch opens the only matching Launchable. */
     fun setSearchAutoLaunch(enabled: Boolean) = prefsRepo.setSearchAutoLaunch(enabled)

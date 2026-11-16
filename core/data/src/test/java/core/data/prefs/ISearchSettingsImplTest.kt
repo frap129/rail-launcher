@@ -21,12 +21,14 @@ class ISearchSettingsImplTest {
 
         searchSettings.setOpenSearchOnSwipeUp(false)
         searchSettings.setSearchSuggestions(false)
+        searchSettings.setSearchShowHiddenApps(false)
         searchSettings.setSearchWebSuggestions(true)
         searchSettings.setSearchCalculatorRow(false)
         searchSettings.setSearchContacts(true)
 
         verify(exactly = 1) { mockPreferencesRepository.setOpenSearchOnSwipeUp(false) }
         verify(exactly = 1) { mockPreferencesRepository.setSearchSuggestions(false) }
+        verify(exactly = 1) { mockPreferencesRepository.setSearchShowHiddenApps(false) }
         verify(exactly = 1) { mockPreferencesRepository.setSearchWebSuggestions(true) }
         verify(exactly = 1) { mockPreferencesRepository.setSearchCalculatorRow(false) }
         verify(exactly = 1) { mockPreferencesRepository.setSearchContacts(true) }

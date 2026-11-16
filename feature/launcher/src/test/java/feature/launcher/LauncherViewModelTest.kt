@@ -3298,42 +3298,74 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `marks a Hidden app result as Hidden`() = runTest {
-        val inputHiddenApp: App = createApp(name = "Zulu", packageName = "com.example.zulu")
-        inputLaunchableState.value = createLoadedLaunchableState(
-            launchables = listOf(inputHiddenApp),
-            hiddenKeys = setOf(inputHiddenApp.key)
+    fun `marks a Hidden app result as Hidden when Show hidden apps is on`() = runTest {
+        val fixture: HiddenSearchFixture = createHiddenSearchFixture(
+            launchable = createApp(name = "Zulu", packageName = "com.example.zulu"),
+            query = "zul"
         )
-        val viewModel: LauncherViewModel = createViewModel()
 
-        viewModel.uiState.test {
+        fixture.viewModel.uiState.test {
             expectHome()
-            viewModel.openSearch(startingQuery = "zul")
+            fixture.viewModel.openSearch(startingQuery = fixture.query)
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
-            assertEquals(launchableResults(inputHiddenApp, isHidden = true), actualSearch.results)
+            assertEquals(launchableResults(fixture.launchable, isHidden = true), actualSearch.results)
         }
     }
 
     @Test
-    fun `marks a Hidden Standalone shortcut result as Hidden`() = runTest {
-        val inputHiddenShortcut: ShortcutLaunchable = createShortcut(
-            packageName = "com.example.messages",
-            shortLabel = "New message",
-            longLabel = "New message"
+    fun `leaves a Hidden app out of the Search results when Show hidden apps is off`() = runTest {
+        val fixture: HiddenSearchFixture = createHiddenSearchFixture(
+            launchable = createApp(name = "Zulu", packageName = "com.example.zulu"),
+            query = "zul",
+            settings = Settings(searchShowHiddenApps = false)
         )
-        inputLaunchableState.value = createLoadedLaunchableState(
-            launchables = listOf(inputHiddenShortcut),
-            hiddenKeys = setOf(inputHiddenShortcut.key)
-        )
-        val viewModel: LauncherViewModel = createViewModel()
 
-        viewModel.uiState.test {
+        fixture.viewModel.uiState.test {
             expectHome()
-            viewModel.openSearch(startingQuery = "new")
+            fixture.viewModel.openSearch(startingQuery = fixture.query)
+
+            assertTrue(awaitFirstSearch().results.isEmpty())
+        }
+    }
+
+    @Test
+    fun `marks a Hidden Standalone shortcut result as Hidden when Show hidden apps is on`() = runTest {
+        val fixture: HiddenSearchFixture = createHiddenSearchFixture(
+            launchable = createShortcut(
+                packageName = "com.example.messages",
+                shortLabel = "New message",
+                longLabel = "New message"
+            ),
+            query = "new"
+        )
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = fixture.query)
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
-            assertEquals(launchableResults(inputHiddenShortcut, isHidden = true), actualSearch.results)
+            assertEquals(launchableResults(fixture.launchable, isHidden = true), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `leaves a Hidden Standalone shortcut out of the Search results when Show hidden apps is off`() = runTest {
+        val fixture: HiddenSearchFixture = createHiddenSearchFixture(
+            launchable = createShortcut(
+                packageName = "com.example.messages",
+                shortLabel = "New message",
+                longLabel = "New message"
+            ),
+            query = "new",
+            settings = Settings(searchShowHiddenApps = false)
+        )
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = fixture.query)
+
+            assertTrue(awaitFirstSearch().results.isEmpty())
         }
     }
 
@@ -3630,6 +3662,22 @@ class LauncherViewModelTest {
         mockNotificationShade = mockNotificationShade
     ).also { advanceUntilIdle() }
 
+    private fun TestScope.createHiddenSearchFixture(
+        launchable: Launchable,
+        query: String,
+        settings: Settings = Settings()
+    ): HiddenSearchFixture {
+        inputLaunchableState.value = createLoadedLaunchableState(
+            launchables = listOf(launchable),
+            hiddenKeys = setOf(launchable.key)
+        )
+        return HiddenSearchFixture(
+            launchable = launchable,
+            query = query,
+            viewModel = createViewModelWithSettings(settings = settings)
+        )
+    }
+
     private fun TestScope.createSuggestionFixture(settings: Settings = Settings(), isHidden: Boolean = false): SuggestionFixture {
         val inputRecentApp: App = createApp(
             name = "Recent",
@@ -3866,6 +3914,8 @@ class LauncherViewModelTest {
 }
 
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)
+
+private data class HiddenSearchFixture(val launchable: Launchable, val query: String, val viewModel: LauncherViewModel)
 
 private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)
 

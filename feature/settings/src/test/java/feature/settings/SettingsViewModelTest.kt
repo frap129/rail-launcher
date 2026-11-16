@@ -346,6 +346,23 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `exposes the stored Show hidden apps switch`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(searchShowHiddenApps = false),
+            read = { searchShowHiddenApps }
+        )
+    }
+
+    @Test
+    fun `persists the Show hidden apps switch`() = runTest {
+        assertPersists(
+            persist = { setSearchShowHiddenApps(false) },
+            verifyCall = { setSearchShowHiddenApps(false) }
+        )
+    }
+
+    @Test
     fun `exposes no Search engine by default`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel()
 
@@ -370,6 +387,7 @@ class SettingsViewModelTest {
         assertEquals(inputDefaults.searchWebRow, actualState.searchWebRow)
         assertEquals(inputDefaults.searchPlayStoreRow, actualState.searchPlayStoreRow)
         assertEquals(inputDefaults.searchWebSuggestions, actualState.searchWebSuggestions)
+        assertEquals(inputDefaults.searchShowHiddenApps, actualState.searchShowHiddenApps)
         assertEquals(inputDefaults.searchContacts, actualState.searchContacts)
         assertEquals(inputDefaults.searchEngine, actualState.searchEngine)
         assertEquals(inputDefaults.searchEngineTemplate, actualState.searchEngineTemplate)

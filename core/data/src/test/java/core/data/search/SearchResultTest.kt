@@ -49,19 +49,23 @@ class SearchResultTest {
     }
 
     @Test
-    fun `marks a Hidden app result as Hidden`() {
-        val inputHiddenApp: App = createApp(name = "Hidden", packageName = "com.example.hidden")
-        val inputState: LaunchableState = createLoadedLaunchableState(
-            launchables = listOf(inputHiddenApp),
-            hiddenKeys = setOf(inputHiddenApp.key)
-        )
+    fun `marks a Hidden app result as Hidden when Show hidden apps is on`() {
+        val inputFixture: HiddenAppSearchResults = searchHiddenApp()
 
-        val actualResults: List<SearchResult> = searchRows(state = inputState, query = "hidden")
+        val actualResults: List<SearchResult> = inputFixture.results
 
         assertEquals(
-            listOf(createLaunchableResult(launchable = inputHiddenApp, isHidden = true)),
+            listOf(createLaunchableResult(launchable = inputFixture.app, isHidden = true)),
             actualResults
         )
+    }
+
+    @Test
+    fun `leaves a Hidden app out of the results when Show hidden apps is off`() {
+        val actualResults: List<SearchResult> =
+            searchHiddenApp(settings = Settings(searchShowHiddenApps = false)).results
+
+        assertEquals(emptyList<SearchResult>(), actualResults)
     }
 
     @Test
@@ -526,6 +530,18 @@ class SearchResultTest {
         )
     }
 
+    private fun searchHiddenApp(settings: Settings = Settings()): HiddenAppSearchResults {
+        val inputHiddenApp: App = createApp(name = "Hidden", packageName = "com.example.hidden")
+        val inputState: LaunchableState = createLoadedLaunchableState(
+            launchables = listOf(inputHiddenApp),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+        return HiddenAppSearchResults(
+            app = inputHiddenApp,
+            results = searchRows(state = inputState, query = "hidden", settings = settings)
+        )
+    }
+
     private fun searchRows(
         state: LaunchableState,
         query: String,
@@ -543,3 +559,5 @@ class SearchResultTest {
         settings = settings
     )
 }
+
+private data class HiddenAppSearchResults(val app: App, val results: List<SearchResult>)

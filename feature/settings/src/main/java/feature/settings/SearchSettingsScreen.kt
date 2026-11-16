@@ -27,7 +27,7 @@ import core.util.SEARCH_TEMPLATE_PLACEHOLDER
 import core.util.isValidSearchTemplate
 import org.koin.androidx.compose.koinViewModel
 
-/** The Search settings screen: how a Home press opens Search, its rows, Search suggestions and the Search engine. */
+/** The Search settings screen: how a Home press opens Search, its rows, Search suggestions, Hidden apps and the Search engine. */
 @Composable
 fun SearchSettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
     val uiState: SettingsUiState by viewModel.uiState.collectAsState()
@@ -48,6 +48,14 @@ fun SearchSettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
                 checked = uiState.searchSuggestions,
                 supportingText = stringResource(CoreUiR.string.search_suggestions_summary),
                 onCheckedChange = viewModel::setSearchSuggestions
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.search_show_hidden_apps),
+                checked = uiState.searchShowHiddenApps,
+                supportingText = stringResource(R.string.search_show_hidden_apps_summary),
+                onCheckedChange = viewModel::setSearchShowHiddenApps
             )
         }
         item {

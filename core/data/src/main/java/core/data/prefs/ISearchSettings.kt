@@ -23,6 +23,8 @@ interface ISearchSettings {
 
     fun setSearchSuggestions(enabled: Boolean)
 
+    fun setSearchShowHiddenApps(enabled: Boolean)
+
     fun setSearchWebSuggestions(enabled: Boolean)
 
     fun setSearchCalculatorRow(enabled: Boolean)
