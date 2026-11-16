@@ -199,6 +199,18 @@ val MIGRATION_24_25: Migration = object : Migration(24, 25) {
     }
 }
 
+/**
+ * Adds the Rank Folders by use switch, defaulting to on so Folders rank like the other
+ * Launchables, and keeps every other setting.
+ */
+val MIGRATION_25_26: Migration = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_RANK_FOLDERS_BY_USE} INTEGER NOT NULL DEFAULT 1"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -214,5 +226,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_21_22,
     MIGRATION_22_23,
     MIGRATION_23_24,
-    MIGRATION_24_25
+    MIGRATION_24_25,
+    MIGRATION_25_26
 )

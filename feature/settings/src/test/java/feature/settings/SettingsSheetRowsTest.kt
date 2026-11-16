@@ -147,22 +147,10 @@ class SettingsSheetRowsTest {
     fun `shows the App List order choices and reports the chosen order`() {
         val expectedOrder: AppListOrder = AppListOrder.ALPHABETICAL
         var actualOrder: AppListOrder? = null
-        composeRule.setContent {
-            SettingsAppearanceScreen(
-                iconPacks = setOf(IconPack.SystemIconPack),
-                selectedIconPack = IconPack.SystemIconPack,
-                railSide = RailSide.DEFAULT,
-                scrubEdges = ScrubEdges.DEFAULT,
-                appListOrder = AppListOrder.MOST_USED,
-                actions = SettingsAppearanceActions(
-                    onIconPackSelected = {},
-                    onResetCustomIcons = {},
-                    onAppListOrderSelected = { order -> actualOrder = order },
-                    onRailSideSelected = {},
-                    onScrubEdgesSelected = {}
-                )
-            )
-        }
+        setAppearanceContent(
+            appListOrder = AppListOrder.MOST_USED,
+            onAppListOrderSelected = { order -> actualOrder = order }
+        )
 
         composeRule.onNodeWithText(getString(R.string.app_list_order_alphabetical)).assertIsDisplayed()
         composeRule.onNodeWithText(getString(R.string.app_list_order_most_used)).assertIsDisplayed().assertIsSelected()
@@ -171,6 +159,54 @@ class SettingsSheetRowsTest {
         composeRule.onNodeWithText(getString(R.string.app_list_order_alphabetical)).performClick()
 
         composeRule.runOnIdle { assertEquals(expectedOrder, actualOrder) }
+    }
+
+    @Test
+    fun `hides Rank Folders by use while the App List order is Alphabetical`() {
+        setAppearanceContent(appListOrder = AppListOrder.ALPHABETICAL)
+
+        composeRule.onNodeWithText(getString(R.string.rank_folders_by_use)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `shows Rank Folders by use for a usage mode and reports its change`() {
+        var actualRankFoldersByUse: Boolean? = null
+        setAppearanceContent(
+            appListOrder = AppListOrder.RECENTLY_USED,
+            rankFoldersByUse = true,
+            onRankFoldersByUseChange = { enabled -> actualRankFoldersByUse = enabled }
+        )
+
+        composeRule.onNodeWithText(getString(R.string.rank_folders_by_use)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.rank_folders_by_use)).performClick()
+
+        composeRule.runOnIdle { assertEquals(false, actualRankFoldersByUse) }
+    }
+
+    private fun setAppearanceContent(
+        appListOrder: AppListOrder,
+        rankFoldersByUse: Boolean = true,
+        onAppListOrderSelected: (AppListOrder) -> Unit = {},
+        onRankFoldersByUseChange: (Boolean) -> Unit = {}
+    ) {
+        composeRule.setContent {
+            SettingsAppearanceScreen(
+                iconPacks = setOf(IconPack.SystemIconPack),
+                selectedIconPack = IconPack.SystemIconPack,
+                railSide = RailSide.DEFAULT,
+                scrubEdges = ScrubEdges.DEFAULT,
+                appListOrder = appListOrder,
+                rankFoldersByUse = rankFoldersByUse,
+                actions = SettingsAppearanceActions(
+                    onIconPackSelected = {},
+                    onResetCustomIcons = {},
+                    onAppListOrderSelected = onAppListOrderSelected,
+                    onRankFoldersByUseChange = onRankFoldersByUseChange,
+                    onRailSideSelected = {},
+                    onScrubEdgesSelected = {}
+                )
+            )
+        }
     }
 
     private fun setFolderActionsContent() {

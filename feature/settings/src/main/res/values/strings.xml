@@ -6,6 +6,7 @@
     <string name="app_list_order_alphabetical">Alphabetical</string>
     <string name="app_list_order_most_used">Most used</string>
     <string name="app_list_order_recently_used">Recently used</string>
+    <string name="rank_folders_by_use">Rank Folders by use</string>
     <string name="rail">Rail</string>
     <string name="show_rail_on_left">Show Rail on left</string>
     <string name="icon_pack">Icon Pack</string>

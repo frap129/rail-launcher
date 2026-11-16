@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
+import core.data.folders.Folder
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
@@ -804,15 +805,24 @@ class LauncherViewModel(
 
     /** A Launchable was launched, so Rail counts it, Search records it when it was open, and Search closes and resets. */
     fun onLaunched(launchable: Launchable) {
-        viewModelScope.launchLogged(message = "Failed to record a Launch count") {
-            launchCountRepository.recordLaunch(key = launchable.key)
-        }
+        recordLaunchCount(launchable = launchable)
         if (isShowingSearch) {
             viewModelScope.launchLogged(message = "Failed to record a Search launch") {
                 searchHistoryRepository.recordLaunch(key = launchable.key)
             }
         }
         closeSearch()
+    }
+
+    /** A Folder's Pop-up opened, so Rail counts the open toward the Folder's App List order. */
+    fun onFolderPopupOpened(folder: Folder) {
+        recordLaunchCount(launchable = folder)
+    }
+
+    private fun recordLaunchCount(launchable: Launchable) {
+        viewModelScope.launchLogged(message = "Failed to record a Launch count") {
+            launchCountRepository.recordLaunch(key = launchable.key)
+        }
     }
 
     /** Removes [launchable] from Search suggestions; its launches keep counting toward ranking. */

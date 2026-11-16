@@ -2946,6 +2946,17 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `opening a Folder Pop-up records a Launch count for the Folder`() = runTest {
+        val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.onFolderPopupOpened(inputFolder)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockLaunchCountRepository.recordLaunch(inputFolder.key) }
+    }
+
+    @Test
     fun `Go does nothing while Search suggestions are shown`() = runTest {
         val fixture: SuggestionFixture = createSuggestionFixture()
 

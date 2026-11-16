@@ -266,10 +266,12 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     railSide = uiState.railSide,
                     scrubEdges = uiState.scrubEdges,
                     appListOrder = uiState.appListOrder,
+                    rankFoldersByUse = uiState.rankFoldersByUse,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
                         onAppListOrderSelected = viewModel::setAppListOrder,
+                        onRankFoldersByUseChange = viewModel::setRankFoldersByUse,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1415,6 +1417,7 @@ data class SettingsAppearanceActions(
     val onIconPackSelected: (IconPack) -> Unit,
     val onResetCustomIcons: () -> Unit,
     val onAppListOrderSelected: (AppListOrder) -> Unit,
+    val onRankFoldersByUseChange: (Boolean) -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1426,6 +1429,7 @@ fun SettingsAppearanceScreen(
     railSide: RailSide,
     scrubEdges: ScrubEdges,
     appListOrder: AppListOrder,
+    rankFoldersByUse: Boolean,
     actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
@@ -1451,6 +1455,15 @@ fun SettingsAppearanceScreen(
                 onSelect = actions.onAppListOrderSelected,
                 label = { option -> stringResource(option.labelResource()) }
             )
+        }
+        if (appListOrder != AppListOrder.ALPHABETICAL) {
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.rank_folders_by_use),
+                    checked = rankFoldersByUse,
+                    onCheckedChange = actions.onRankFoldersByUseChange
+                )
+            }
         }
         item { SettingsSectionTitle(R.string.rail) }
         item {

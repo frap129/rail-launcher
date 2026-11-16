@@ -185,7 +185,10 @@ class ILaunchableRepositoryImpl(
             builtinGroup = resolvedBuiltinGroup,
             privateSpaceStatus = appState.privateSpaceStatus,
             ranking = settings.appListOrder.toAppListRanking(
-                launchCountsByKey = appListSources.launchCounts.associateBy { record -> record.key },
+                usage = AppListUsage(
+                    launchCountsByKey = appListSources.launchCounts.associateBy { record -> record.key },
+                    rankFoldersByUse = settings.rankFoldersByUse
+                ),
                 nowEpochMs = clockSource.now().toEpochMilli()
             )
         )
@@ -295,9 +298,10 @@ private val INPUT_ORDER: Comparator<Launchable> = Comparator { _, _ -> 0 }
  * container is listed, Hidden or Locked.
  *
  * [ranking] orders the items of each Initial group and of the Unlocked Private
- * Space group: by use, highest first, with A-Z ties, never-launched keys last
- * and Folders left unranked after the others. [AppListRanking.Alphabetical]
- * keeps the grouped order, or the A-Z order of the Private Space group.
+ * Space group: by use, highest first, with A-Z ties and never-launched keys last.
+ * Folders rank with the others while Rank Folders by use is on, and stay last in
+ * their current order while it is off. [AppListRanking.Alphabetical] keeps the
+ * grouped order, or the A-Z order of the Private Space group.
  */
 internal fun List<Launchable>.toLaunchableGroups(
     builtinGroup: LaunchableGroup.Builtin,
@@ -324,8 +328,8 @@ internal fun List<Launchable>.toLaunchableGroups(
 }
 
 /**
- * Orders [this] for [ranking]: by use, highest first with Folders last, or by
- * [alphabeticalOrder], which defaults to the input order.
+ * Orders [this] for [ranking]: by use, highest first, or by [alphabeticalOrder],
+ * which defaults to the input order.
  */
 private fun List<Launchable>.inAppListOrder(
     ranking: AppListRanking,
@@ -333,25 +337,34 @@ private fun List<Launchable>.inAppListOrder(
 ): List<Launchable> = when (ranking) {
     AppListRanking.Alphabetical -> sortedWith(alphabeticalOrder)
 
-    is AppListRanking.MostUsed -> rankedByUsage(launchCountsByKey = ranking.launchCountsByKey) { record ->
+    is AppListRanking.MostUsed -> rankedByUsage(usage = ranking.usage) { record ->
         record.launchCount.toDouble()
     }
 
-    is AppListRanking.RecentlyUsed -> rankedByUsage(launchCountsByKey = ranking.launchCountsByKey) { record ->
+    is AppListRanking.RecentlyUsed -> rankedByUsage(usage = ranking.usage) { record ->
         record.recentUseScoreAt(nowEpochMs = ranking.nowEpochMs)
     }
 }
 
-/** Ranks the non-Folder Launchables by [rankingValue], highest first, and keeps the Folders last in their current order. */
-private fun List<Launchable>.rankedByUsage(
-    launchCountsByKey: Map<String, LaunchCountRecord>,
-    rankingValue: (LaunchCountRecord) -> Double
-): List<Launchable> {
-    val (folders, rankedItems) = partition { launchable -> launchable is Folder }
-    return rankedItems.sortedWith(
-        compareByDescending<Launchable> { launchable -> launchCountsByKey[launchable.key]?.let(rankingValue) ?: 0.0 }
+/**
+ * Ranks the Launchables by [rankingValue], highest first. While [AppListUsage.rankFoldersByUse]
+ * is off, Folders stay last in their current order instead of taking part.
+ */
+private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (LaunchCountRecord) -> Double): List<Launchable> {
+    val rankableItems: List<Launchable>
+    val lastItems: List<Launchable>
+    if (usage.rankFoldersByUse) {
+        rankableItems = this
+        lastItems = emptyList()
+    } else {
+        val (folders, others) = partition { launchable -> launchable is Folder }
+        rankableItems = others
+        lastItems = folders
+    }
+    return rankableItems.sortedWith(
+        compareByDescending<Launchable> { launchable -> usage.launchCountsByKey[launchable.key]?.let(rankingValue) ?: 0.0 }
             .then(BY_NAME)
-    ) + folders
+    ) + lastItems
 }
 
 private fun Launchable.groupLabel(): String {

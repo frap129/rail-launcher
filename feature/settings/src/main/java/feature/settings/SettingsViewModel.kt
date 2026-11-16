@@ -42,6 +42,7 @@ data class SettingsUiState(
     val scrubEdges: ScrubEdges,
     val railSide: RailSide,
     val appListOrder: AppListOrder,
+    val rankFoldersByUse: Boolean,
     val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
@@ -71,6 +72,7 @@ private fun Settings.toSettingsUiState(
     scrubEdges = scrubEdges,
     railSide = railSide,
     appListOrder = appListOrder,
+    rankFoldersByUse = rankFoldersByUse,
     expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
@@ -141,6 +143,9 @@ class SettingsViewModel(
 
     /** Persists how the App List orders the Launchables inside each group. */
     fun setAppListOrder(order: AppListOrder) = prefsRepo.setAppListOrder(order)
+
+    /** Persists whether the App List ranks Folders by use instead of keeping them last in their group. */
+    fun setRankFoldersByUse(enabled: Boolean) = prefsRepo.setRankFoldersByUse(enabled)
 
     /** Persists whether swiping down on Home expands the notification shade. */
     fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)
