@@ -99,6 +99,7 @@ import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.calendar.CalendarInfo
 import core.data.icons.model.IconPack
+import core.data.prefs.AppListOrder
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderAlignment
@@ -264,10 +265,14 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     selectedIconPack = uiState.selectedIconPack,
                     railSide = uiState.railSide,
                     scrubEdges = uiState.scrubEdges,
-                    onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
-                    onRailSideSelected = viewModel::setRailSide,
-                    onScrubEdgesSelected = viewModel::setScrubEdges,
-                    onResetCustomIcons = viewModel::resetCustomIcons
+                    appListOrder = uiState.appListOrder,
+                    actions = SettingsAppearanceActions(
+                        onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
+                        onResetCustomIcons = viewModel::resetCustomIcons,
+                        onAppListOrderSelected = viewModel::setAppListOrder,
+                        onRailSideSelected = viewModel::setRailSide,
+                        onScrubEdgesSelected = viewModel::setScrubEdges
+                    )
                 )
 
                 SettingsScreen.Widgets -> SettingsWidgetsScreen(
@@ -1405,16 +1410,23 @@ private fun displayMaxOffsetDp(context: Context): Int {
     return WidgetAreaSettings.maxOffsetDp(homeHeightDp = safeHeightDp)
 }
 
+/** What the Appearance screen asks its host to change. */
+data class SettingsAppearanceActions(
+    val onIconPackSelected: (IconPack) -> Unit,
+    val onResetCustomIcons: () -> Unit,
+    val onAppListOrderSelected: (AppListOrder) -> Unit,
+    val onRailSideSelected: (RailSide) -> Unit,
+    val onScrubEdgesSelected: (ScrubEdges) -> Unit
+)
+
 @Composable
 fun SettingsAppearanceScreen(
     iconPacks: Set<IconPack>,
     selectedIconPack: IconPack,
     railSide: RailSide,
     scrubEdges: ScrubEdges,
-    onIconPackSelected: (IconPack) -> Unit,
-    onRailSideSelected: (RailSide) -> Unit,
-    onScrubEdgesSelected: (ScrubEdges) -> Unit,
-    onResetCustomIcons: () -> Unit
+    appListOrder: AppListOrder,
+    actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -1422,7 +1434,7 @@ fun SettingsAppearanceScreen(
             IconPackRow(
                 iconPacks = iconPacks,
                 selectedIconPack = selectedIconPack,
-                onIconPackSelected = onIconPackSelected
+                onIconPackSelected = actions.onIconPackSelected
             )
         }
         item {
@@ -1431,17 +1443,26 @@ fun SettingsAppearanceScreen(
                 onClick = { showResetCustomIconsConfirmation = true }
             )
         }
+        item {
+            SettingsSegmentedRow(
+                title = stringResource(R.string.app_list_order),
+                options = AppListOrder.entries,
+                selected = appListOrder,
+                onSelect = actions.onAppListOrderSelected,
+                label = { option -> stringResource(option.labelResource()) }
+            )
+        }
         item { SettingsSectionTitle(R.string.rail) }
         item {
             RailSideRow(
                 railSide = railSide,
-                onRailSideSelected = onRailSideSelected
+                onRailSideSelected = actions.onRailSideSelected
             )
         }
         item {
             ScrubEdgesRow(
                 scrubEdges = scrubEdges,
-                onScrubEdgesSelected = onScrubEdgesSelected
+                onScrubEdgesSelected = actions.onScrubEdgesSelected
             )
         }
     }
@@ -1451,7 +1472,7 @@ fun SettingsAppearanceScreen(
             body = stringResource(R.string.reset_custom_icons_body),
             confirmLabel = stringResource(R.string.reset_custom_icons),
             onConfirm = {
-                onResetCustomIcons()
+                actions.onResetCustomIcons()
                 showResetCustomIconsConfirmation = false
             },
             onDismiss = { showResetCustomIconsConfirmation = false }
@@ -1533,6 +1554,13 @@ private fun ScrubEdgesRow(scrubEdges: ScrubEdges, onScrubEdgesSelected: (ScrubEd
         label = { option -> stringResource(option.labelResource(isRtl = isRtl)) },
         supportingText = stringResource(R.string.scrub_edges_summary)
     )
+}
+
+@StringRes
+private fun AppListOrder.labelResource(): Int = when (this) {
+    AppListOrder.ALPHABETICAL -> R.string.app_list_order_alphabetical
+    AppListOrder.MOST_USED -> R.string.app_list_order_most_used
+    AppListOrder.RECENTLY_USED -> R.string.app_list_order_recently_used
 }
 
 @StringRes

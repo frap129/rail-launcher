@@ -2,16 +2,23 @@ package feature.settings
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import core.data.folders.Folder
 import core.data.icons.model.Icon
+import core.data.icons.model.IconPack
+import core.data.prefs.AppListOrder
 import core.data.prefs.HeaderTapSetting
+import core.data.prefs.RailSide
+import core.data.prefs.ScrubEdges
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
@@ -24,6 +31,7 @@ import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesRowContent
 import core.ui.composables.getString
 import core.ui.composables.rowTestBackgroundColor
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -133,6 +141,36 @@ class SettingsSheetRowsTest {
                 )
             }
         )
+    }
+
+    @Test
+    fun `shows the App List order choices and reports the chosen order`() {
+        val expectedOrder: AppListOrder = AppListOrder.ALPHABETICAL
+        var actualOrder: AppListOrder? = null
+        composeRule.setContent {
+            SettingsAppearanceScreen(
+                iconPacks = setOf(IconPack.SystemIconPack),
+                selectedIconPack = IconPack.SystemIconPack,
+                railSide = RailSide.DEFAULT,
+                scrubEdges = ScrubEdges.DEFAULT,
+                appListOrder = AppListOrder.MOST_USED,
+                actions = SettingsAppearanceActions(
+                    onIconPackSelected = {},
+                    onResetCustomIcons = {},
+                    onAppListOrderSelected = { order -> actualOrder = order },
+                    onRailSideSelected = {},
+                    onScrubEdgesSelected = {}
+                )
+            )
+        }
+
+        composeRule.onNodeWithText(getString(R.string.app_list_order_alphabetical)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.app_list_order_most_used)).assertIsDisplayed().assertIsSelected()
+        composeRule.onNodeWithText(getString(R.string.app_list_order_recently_used)).assertIsDisplayed()
+
+        composeRule.onNodeWithText(getString(R.string.app_list_order_alphabetical)).performClick()
+
+        composeRule.runOnIdle { assertEquals(expectedOrder, actualOrder) }
     }
 
     private fun setFolderActionsContent() {

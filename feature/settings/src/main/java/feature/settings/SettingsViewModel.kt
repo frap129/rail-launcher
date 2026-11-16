@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
+import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.ISearchSettings
 import core.data.prefs.RailSide
@@ -40,6 +41,7 @@ data class SettingsUiState(
     val isPrivateSpaceAvailable: Boolean,
     val scrubEdges: ScrubEdges,
     val railSide: RailSide,
+    val appListOrder: AppListOrder,
     val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
@@ -68,6 +70,7 @@ private fun Settings.toSettingsUiState(
     isPrivateSpaceAvailable = isPrivateSpaceAvailable,
     scrubEdges = scrubEdges,
     railSide = railSide,
+    appListOrder = appListOrder,
     expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
@@ -135,6 +138,9 @@ class SettingsViewModel(
 
     /** Persists the screen side where the Rail is drawn. */
     fun setRailSide(side: RailSide) = prefsRepo.setRailSide(side)
+
+    /** Persists how the App List orders the Launchables inside each group. */
+    fun setAppListOrder(order: AppListOrder) = prefsRepo.setAppListOrder(order)
 
     /** Persists whether swiping down on Home expands the notification shade. */
     fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)

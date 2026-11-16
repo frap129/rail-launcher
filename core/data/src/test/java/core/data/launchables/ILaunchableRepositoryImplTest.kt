@@ -21,6 +21,7 @@ import core.data.launches.ILaunchCountRepository
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.popups.PopupItemRecord
+import core.data.prefs.AppListOrder
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
@@ -769,30 +770,44 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `ranks a recent launch above an older larger total and reorders the emitted groups`() = databaseTest {
-        val inputAlpha: App = createApp(name = "Alpha", packageName = "com.example.alpha")
-        val inputAlpine: App = createApp(name = "Alpine", packageName = "com.example.alpine")
         var inputNow: Instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS)
         val mockClockSource: IClockSource = createClockSourceMock(
             readings = MutableStateFlow(createClockReading(instant = inputNow)),
             now = { inputNow }
         )
-        val launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
-            launchCountDao = database.getLaunchCountDao(),
-            clockSource = mockClockSource,
-            dispatcher = databaseDispatcher
-        )
-        val repository: ILaunchableRepository = createRepository(
-            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputAlpha, inputAlpine)),
-            launchCountRepository = launchCountRepository,
-            clockSource = mockClockSource
-        )
-        repeat(3) { launchCountRepository.recordLaunch(key = inputAlpha.key) }
-        assertEquals(listOf(inputAlpha.key, inputAlpine.key), appListKeys(repository))
+        val fixture: AppListRankingFixture = createAppListRankingFixture(mockClockSource = mockClockSource)
+        repeat(3) { fixture.launchCountRepository.recordLaunch(key = fixture.alpha.key) }
+        assertEquals(listOf(fixture.alpha.key, fixture.alpine.key), appListKeys(fixture.repository))
 
         inputNow = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS)
-        launchCountRepository.recordLaunch(key = inputAlpine.key)
+        fixture.launchCountRepository.recordLaunch(key = fixture.alpine.key)
 
-        assertEquals(listOf(inputAlpine.key, inputAlpha.key), appListKeys(repository))
+        assertEquals(listOf(fixture.alpine.key, fixture.alpha.key), appListKeys(fixture.repository))
+    }
+
+    @Test
+    fun `follows the stored App List order through the settings flow`() = databaseTest {
+        val inputSettings: MutableStateFlow<Settings> =
+            MutableStateFlow(Settings(appListOrder = AppListOrder.MOST_USED))
+        val mockClockSource: IClockSource = createClockSourceMock(
+            reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
+        )
+        val fixture: AppListRankingFixture = createAppListRankingFixture(
+            mockClockSource = mockClockSource,
+            mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings)
+        )
+        repeat(3) { fixture.launchCountRepository.recordLaunch(key = fixture.alpine.key) }
+        val actualMostUsedKeys: List<String> = appListKeys(fixture.repository)
+
+        inputSettings.value = Settings(appListOrder = AppListOrder.ALPHABETICAL)
+        val actualAlphabeticalKeys: List<String> = appListKeys(fixture.repository)
+
+        inputSettings.value = Settings(appListOrder = AppListOrder.MOST_USED)
+        val actualRestoredMostUsedKeys: List<String> = appListKeys(fixture.repository)
+
+        assertEquals(listOf(fixture.alpine.key, fixture.alpha.key), actualMostUsedKeys)
+        assertEquals(listOf(fixture.alpha.key, fixture.alpine.key), actualAlphabeticalKeys)
+        assertEquals(listOf(fixture.alpine.key, fixture.alpha.key), actualRestoredMostUsedKeys)
     }
 
     @Test
@@ -2037,6 +2052,31 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
     }
 
+    private fun TestScope.createAppListRankingFixture(
+        mockClockSource: IClockSource,
+        mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+    ): AppListRankingFixture {
+        val inputAlpha: App = createApp(name = "Alpha", packageName = "com.example.alpha")
+        val inputAlpine: App = createApp(name = "Alpine", packageName = "com.example.alpine")
+        val launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
+            launchCountDao = database.getLaunchCountDao(),
+            clockSource = mockClockSource,
+            dispatcher = databaseDispatcher
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputAlpha, inputAlpine)),
+            mockPreferencesRepository = mockPreferencesRepository,
+            launchCountRepository = launchCountRepository,
+            clockSource = mockClockSource
+        )
+        return AppListRankingFixture(
+            alpha = inputAlpha,
+            alpine = inputAlpine,
+            launchCountRepository = launchCountRepository,
+            repository = repository
+        )
+    }
+
     private fun createPausedStandaloneShortcutInputs(): PausedStandaloneShortcutInputs {
         val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
         return PausedStandaloneShortcutInputs(
@@ -2181,6 +2221,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     /** The loaded App with [key], failing the test when it is missing. */
     private fun LaunchableState.app(key: String): App = launchables.filterIsInstance<App>().single { app -> app.key == key }
 }
+
+private data class AppListRankingFixture(
+    val alpha: App,
+    val alpine: App,
+    val launchCountRepository: ILaunchCountRepository,
+    val repository: ILaunchableRepository
+)
 
 private data class CustomIconFixture(
     val customApp: App,
