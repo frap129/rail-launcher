@@ -6,6 +6,7 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.launches.LaunchCountRecord
+import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.PRIVATE_USER_ID
@@ -18,6 +19,7 @@ import core.data.testing.createFixedPrivateSpaceStatus
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
+import core.util.MILLIS_PER_DAY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -160,8 +162,8 @@ class LaunchableGroupsTest {
         val inputZulu: Launchable = createPrivateApp(name = "Zulu", packageName = "com.example.zulu")
         val inputAlpha: Launchable = createPrivateApp(name = "alpha", packageName = "com.example.alpha")
 
-        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputZulu, inputAlpha).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputZulu, inputAlpha).toAppListGroups(
+            ranking = AppListRanking.Alphabetical,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 
@@ -226,13 +228,19 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `Alphabetical keeps the input order`() {
+    fun `Alphabetical keeps the order the items arrive in`() {
+        val inputZeta: Launchable = createLaunchable("Zeta")
         val inputZulu: Launchable = createLaunchable("Zulu")
         val inputZebra: Launchable = createLaunchable("Zebra")
 
-        val actualGroup: LaunchableGroup = listOf(inputZulu, inputZebra).toLaunchableGroups(builtinGroup = inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputZeta, inputZulu, inputZebra).toAppListGroups(
+            ranking = AppListRanking.Alphabetical
+        )[1]
 
-        assertEquals(LaunchableGroup.InitialGroup(label = "Z", items = listOf(inputZulu, inputZebra)), actualGroup)
+        assertEquals(
+            LaunchableGroup.InitialGroup(label = "Z", items = listOf(inputZeta, inputZulu, inputZebra)),
+            actualGroup
+        )
     }
 
     @Test
@@ -246,8 +254,7 @@ class LaunchableGroupsTest {
             inputAlfred.key to createLaunchCount(key = inputAlfred.key, launchCount = 3)
         )
 
-        val actualGroup: LaunchableGroup = listOf(inputAzure, inputAmber, inputAlpine, inputAlfred).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroup: LaunchableGroup = listOf(inputAzure, inputAmber, inputAlpine, inputAlfred).toAppListGroups(
             ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
         )[1]
 
@@ -264,30 +271,53 @@ class LaunchableGroupsTest {
     fun `Recently used ranks a recent launch above an older larger total`() {
         val inputOlder: Launchable = createLaunchable("Once")
         val inputRecent: Launchable = createLaunchable("Only")
-        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputOlder.key to createLaunchCount(
-                key = inputOlder.key,
-                launchCount = 10,
-                recentUseScore = 10.0,
-                scoreUpdatedAt = TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
-            ),
-            inputRecent.key to createLaunchCount(
-                key = inputRecent.key,
-                launchCount = 3,
-                recentUseScore = 3.0,
-                scoreUpdatedAt = TEST_NOW_EPOCH_MS
-            )
+
+        val actualItems: List<Launchable> = recentlyUsedItems(
+            inputOlder = inputOlder,
+            inputOlderScore = 10.0,
+            inputOlderAgeMs = TEST_FOURTEEN_DAYS_MS,
+            inputRecent = inputRecent,
+            inputRecentScore = 3.0
         )
 
-        val actualGroup: LaunchableGroup = listOf(inputOlder, inputRecent).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        assertEquals(listOf(inputRecent, inputOlder), actualItems)
+    }
+
+    @Test
+    fun `Recently used keeps a day-old larger total above a newer smaller score`() {
+        val inputOlder: Launchable = createLaunchable("Once")
+        val inputRecent: Launchable = createLaunchable("Only")
+
+        val actualItems: List<Launchable> = recentlyUsedItems(
+            inputOlder = inputOlder,
+            inputOlderScore = 10.0,
+            inputOlderAgeMs = MILLIS_PER_DAY,
+            inputRecent = inputRecent,
+            inputRecentScore = 1.0
+        )
+
+        assertEquals(listOf(inputOlder, inputRecent), actualItems)
+    }
+
+    @Test
+    fun `Recently used keeps never-launched items last and A-Z`() {
+        val inputZulu: Launchable = createLaunchable("Zulu")
+        val inputZebra: Launchable = createLaunchable("Zebra")
+        val inputZanzibar: Launchable = createLaunchable("zanzibar")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputZulu.key to createLaunchCount(key = inputZulu.key, launchCount = 1, recentUseScore = 1.0)
+        )
+
+        val actualGroup: LaunchableGroup = listOf(inputZebra, inputZanzibar, inputZulu).toAppListGroups(
             ranking = AppListRanking.RecentlyUsed(
-                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false),
-                nowEpochMs = TEST_NOW_EPOCH_MS
+                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false)
             )
         )[1]
 
-        assertEquals(LaunchableGroup.InitialGroup(label = "O", items = listOf(inputRecent, inputOlder)), actualGroup)
+        assertEquals(
+            LaunchableGroup.InitialGroup(label = "Z", items = listOf(inputZulu, inputZanzibar, inputZebra)),
+            actualGroup
+        )
     }
 
     @Test
@@ -297,15 +327,14 @@ class LaunchableGroupsTest {
 
     @Test
     fun `Recently used keeps Folders last when Rank Folders by use is off`() {
-        assertFoldersLast { usage -> AppListRanking.RecentlyUsed(usage = usage, nowEpochMs = TEST_NOW_EPOCH_MS) }
+        assertFoldersLast { usage -> AppListRanking.RecentlyUsed(usage = usage) }
     }
 
     @Test
     fun `Most used ranks Folders by their Launch count when Rank Folders by use is on`() {
         val inputFixture: FolderRankingFixture = createFolderRankingFixture()
 
-        val actualGroup: LaunchableGroup = inputFixture.items.toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroup: LaunchableGroup = inputFixture.items.toAppListGroups(
             ranking = AppListRanking.MostUsed(
                 usage = inputFixture.createUsage(
                     firstFolderCount = 3,
@@ -343,11 +372,9 @@ class LaunchableGroupsTest {
             )
         )
 
-        val actualGroup: LaunchableGroup = listOf(inputApp, inputFolder).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroup: LaunchableGroup = listOf(inputApp, inputFolder).toAppListGroups(
             ranking = AppListRanking.RecentlyUsed(
-                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = true),
-                nowEpochMs = TEST_NOW_EPOCH_MS
+                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = true)
             )
         )[1]
 
@@ -363,10 +390,9 @@ class LaunchableGroupsTest {
             inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 1)
         )
 
-        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputAlpha, inputZulu).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
-            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true),
-            ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
+        val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputAlpha, inputZulu).toAppListGroups(
+            ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false)),
+            privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 
         assertEquals(listOf(inputZulu, inputAlpha), actualGroup.items)
@@ -380,8 +406,7 @@ class LaunchableGroupsTest {
             inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 3)
         )
 
-        val actualGroups: List<LaunchableGroup> = listOf(inputZulu, inputAlpha).toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroups: List<LaunchableGroup> = listOf(inputZulu, inputAlpha).toAppListGroups(
             ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
         )
 
@@ -392,8 +417,7 @@ class LaunchableGroupsTest {
     private fun assertFoldersLast(ranking: (AppListUsage) -> AppListRanking) {
         val inputFixture: FolderRankingFixture = createFolderRankingFixture()
 
-        val actualGroup: LaunchableGroup = inputFixture.items.toLaunchableGroups(
-            builtinGroup = inputBuiltinGroup,
+        val actualGroup: LaunchableGroup = inputFixture.items.toAppListGroups(
             ranking = ranking(
                 inputFixture.createUsage(
                     firstFolderCount = 99,
@@ -411,6 +435,46 @@ class LaunchableGroupsTest {
             actualGroup
         )
     }
+
+    /**
+     * The Recently used order of [inputOlder], scored [inputOlderScore] [inputOlderAgeMs] ago,
+     * and [inputRecent], scored [inputRecentScore] now.
+     */
+    private fun recentlyUsedItems(
+        inputOlder: Launchable,
+        inputOlderScore: Double,
+        inputOlderAgeMs: Long,
+        inputRecent: Launchable,
+        inputRecentScore: Double
+    ): List<Launchable> {
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputOlder.key to createLaunchCount(
+                key = inputOlder.key,
+                launchCount = 10,
+                recentUseScore = inputOlderScore,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS - inputOlderAgeMs
+            ),
+            inputRecent.key to createLaunchCount(
+                key = inputRecent.key,
+                launchCount = 3,
+                recentUseScore = inputRecentScore,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS
+            )
+        )
+        return listOf(inputOlder, inputRecent).toAppListGroups(
+            ranking = AppListRanking.RecentlyUsed(
+                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false)
+            )
+        ).filterIsInstance<LaunchableGroup.InitialGroup>().single().items
+    }
+
+    private fun List<Launchable>.toAppListGroups(
+        ranking: AppListRanking,
+        privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus()
+    ): List<LaunchableGroup> = toLaunchableGroups(
+        builtinGroup = inputBuiltinGroup,
+        privateSpaceStatus = privateSpaceStatus
+    ).withAppListOrder(ranking = ranking)
 
     private fun createFolderRankingFixture(): FolderRankingFixture = FolderRankingFixture(
         app = createLaunchable("Beta"),

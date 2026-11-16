@@ -23,6 +23,8 @@ import core.data.launchables.model.resolveCustomIcon
 import core.data.launchables.model.toPickerGroups
 import core.data.launches.ILaunchCountRepository
 import core.data.launches.LaunchCountRecord
+import core.data.launches.recentUseRank
+import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
@@ -39,7 +41,6 @@ import core.data.shortcuts.IStandaloneShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.StandaloneShortcuts
-import core.data.time.IClockSource
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -52,13 +53,16 @@ import kotlinx.coroutines.flow.stateIn
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
-private data class AppListSources(
-    val folderAppList: FolderAppList,
-    val standaloneShortcuts: StandaloneShortcuts,
-    val launchCounts: List<LaunchCountRecord>
-)
+private data class AppListSources(val folderAppList: FolderAppList, val standaloneShortcuts: StandaloneShortcuts)
 
 private data class AppState(val appsOrNull: List<App>?, val privateSpaceStatus: PrivateSpaceStatus)
+
+/**
+ * The Launchable State before the App List order applies, whose Initial groups hold the order
+ * their items resolved in, plus the settings that choose the order to apply whenever a Launch
+ * count changes.
+ */
+private data class UnorderedLaunchableState(val state: LaunchableState, val appListOrder: AppListOrder, val rankFoldersByUse: Boolean)
 
 class ILaunchableRepositoryImpl(
     appRepository: IAppRepository,
@@ -69,8 +73,7 @@ class ILaunchableRepositoryImpl(
     popupDao: PopupDao,
     standaloneShortcutSource: IStandaloneShortcutSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
-    launchCountRepository: ILaunchCountRepository,
-    private val clockSource: IClockSource,
+    private val launchCountRepository: ILaunchCountRepository,
     private val scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -99,10 +102,9 @@ class ILaunchableRepositoryImpl(
 
     private val appListSources: Flow<AppListSources> = combine(
         folderAppList,
-        standaloneShortcutSource.shortcuts,
-        launchCountRepository.counts
-    ) { folders, shortcuts, launchCounts ->
-        AppListSources(folderAppList = folders, standaloneShortcuts = shortcuts, launchCounts = launchCounts)
+        standaloneShortcutSource.shortcuts
+    ) { folders, shortcuts ->
+        AppListSources(folderAppList = folders, standaloneShortcuts = shortcuts)
     }
 
     // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
@@ -114,20 +116,27 @@ class ILaunchableRepositoryImpl(
         AppState(appsOrNull = appsOrNull, privateSpaceStatus = status)
     }
 
-    override val launchableState: StateFlow<LaunchableState> = combine(
+    private val unorderedLaunchableState: Flow<UnorderedLaunchableState> = combine(
         appState,
         preferencesRepository.launchableCustomizations,
         preferencesRepository.settings,
         profileSource.profiles,
         appListSources
     ) { apps, customizations, settings, profiles, sources ->
-        resolveState(
+        resolve(
             appState = apps,
             customizations = customizations,
             settings = settings,
             profiles = profiles,
             appListSources = sources
         )
+    }
+
+    override val launchableState: StateFlow<LaunchableState> = combine(
+        unorderedLaunchableState,
+        launchCountRepository.counts
+    ) { unorderedState, launchCounts ->
+        unorderedState.toLaunchableState(launchCounts = launchCounts)
     }
         .retryWithExponentialBackoff()
         .stateIn(
@@ -142,13 +151,23 @@ class ILaunchableRepositoryImpl(
 
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
 
-    private suspend fun resolveState(
+    private fun UnorderedLaunchableState.toLaunchableState(launchCounts: List<LaunchCountRecord>): LaunchableState {
+        val ranking: AppListRanking = appListOrder.toAppListRanking(
+            usage = AppListUsage(
+                launchCountsByKey = launchCounts.associateBy { record -> record.key },
+                rankFoldersByUse = rankFoldersByUse
+            )
+        )
+        return state.copy(groups = state.groups.withAppListOrder(ranking = ranking))
+    }
+
+    private suspend fun resolve(
         appState: AppState,
         customizations: List<LaunchableCustomization>,
         settings: Settings,
         profiles: List<ProfileInfo>,
         appListSources: AppListSources
-    ): LaunchableState {
+    ): UnorderedLaunchableState {
         val apps: List<App> = appState.appsOrNull.orEmpty()
         val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
@@ -183,14 +202,7 @@ class ILaunchableRepositoryImpl(
             .filterNot { launchable -> launchable.key in appListSources.folderAppList.memberKeys } + folders
         val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
             builtinGroup = resolvedBuiltinGroup,
-            privateSpaceStatus = appState.privateSpaceStatus,
-            ranking = settings.appListOrder.toAppListRanking(
-                usage = AppListUsage(
-                    launchCountsByKey = appListSources.launchCounts.associateBy { record -> record.key },
-                    rankFoldersByUse = settings.rankFoldersByUse
-                ),
-                nowEpochMs = clockSource.now().toEpochMilli()
-            )
+            privateSpaceStatus = appState.privateSpaceStatus
         )
         val pickerGroups: List<LaunchableGroup.Listed> = (resolvedLaunchables + folders)
             .toLaunchableGroups(
@@ -198,16 +210,20 @@ class ILaunchableRepositoryImpl(
                 privateSpaceStatus = appState.privateSpaceStatus
             )
             .toPickerGroups()
-        return LaunchableState(
-            groups = groups,
-            // Folder members stay reachable through their Folder, pickers and the Favorites.
-            launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
-            isLoaded = appState.appsOrNull != null,
-            keptKeys = appState.privateSpaceStatus.keptKeys,
-            retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
-                ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
-            },
-            pickerGroups = pickerGroups
+        return UnorderedLaunchableState(
+            state = LaunchableState(
+                groups = groups,
+                // Folder members stay reachable through their Folder, pickers and the Favorites.
+                launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
+                isLoaded = appState.appsOrNull != null,
+                keptKeys = appState.privateSpaceStatus.keptKeys,
+                retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
+                    ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
+                },
+                pickerGroups = pickerGroups
+            ),
+            appListOrder = settings.appListOrder,
+            rankFoldersByUse = settings.rankFoldersByUse
         )
     }
 
@@ -283,9 +299,6 @@ private const val DIGIT_GROUP_LABEL: String = "#"
 
 private val BY_NAME: Comparator<Launchable> = compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name }
 
-/** Treats every Launchable as equal, so the stable sort behind it keeps the input order. */
-private val INPUT_ORDER: Comparator<Launchable> = Comparator { _, _ -> 0 }
-
 /**
  * Orders the Rail: the Star, then Initial groups sorted by label, then
  * [builtinGroup], then the Private Space container. Names starting with a
@@ -297,60 +310,66 @@ private val INPUT_ORDER: Comparator<Launchable> = Comparator { _, _ -> 0 }
  * [privateSpaceStatus] supplies the Private Space's Profile and whether its
  * container is listed, Hidden or Locked.
  *
- * [ranking] orders the items of each Initial group and of the Unlocked Private
- * Space group: by use, highest first, with A-Z ties and never-launched keys last.
- * Folders rank with the others while Rank Folders by use is on, and stay last in
- * their current order while it is off. [AppListRanking.Alphabetical] keeps the
- * grouped order, or the A-Z order of the Private Space group.
+ * An Initial group keeps the order its items arrive in, and the Unlocked Private
+ * Space group lists its items A-Z. [withAppListOrder] applies the App List order.
  */
 internal fun List<Launchable>.toLaunchableGroups(
     builtinGroup: LaunchableGroup.Builtin,
-    privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus(),
-    ranking: AppListRanking = AppListRanking.Alphabetical
+    privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus()
 ): List<LaunchableGroup> {
     val privateSpace: ProfileInfo? = privateSpaceStatus.profile
     val (privateItems, otherItems) = partition { launchable -> launchable.isPrivateIn(privateSpace = privateSpace) }
     val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { it.groupLabel() }
-        .map { (label: String, items: List<Launchable>) ->
-            LaunchableGroup.InitialGroup(label = label, items = items.inAppListOrder(ranking = ranking))
-        }
+        .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
         .sortedBy { it.label }
     val privateSpaceGroup: LaunchableGroup.PrivateSpace? = when {
         !privateSpaceStatus.isContainerListed -> null
-
         privateSpaceStatus.isLocked -> LaunchableGroup.PrivateSpace.Locked
-
-        else -> LaunchableGroup.PrivateSpace.Unlocked(
-            items = privateItems.inAppListOrder(ranking = ranking, alphabeticalOrder = BY_NAME)
-        )
+        else -> LaunchableGroup.PrivateSpace.Unlocked(items = privateItems.sortedWith(BY_NAME))
     }
     return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
 
 /**
- * Orders [this] for [ranking]: by use, highest first, or by [alphabeticalOrder],
- * which defaults to the input order.
+ * Applies [ranking] to the items of each Initial group and of the Unlocked Private Space
+ * group, highest first. [AppListRanking.Alphabetical] returns [this] untouched: the Initial
+ * groups already hold the grouped order, and the Unlocked Private Space group its A-Z order.
  */
-private fun List<Launchable>.inAppListOrder(
-    ranking: AppListRanking,
-    alphabeticalOrder: Comparator<Launchable> = INPUT_ORDER
-): List<Launchable> = when (ranking) {
-    AppListRanking.Alphabetical -> sortedWith(alphabeticalOrder)
+internal fun List<LaunchableGroup>.withAppListOrder(ranking: AppListRanking): List<LaunchableGroup> = when (ranking) {
+    AppListRanking.Alphabetical -> this
 
-    is AppListRanking.MostUsed -> rankedByUsage(usage = ranking.usage) { record ->
-        record.launchCount.toDouble()
+    is AppListRanking.MostUsed -> orderedByUse(usage = ranking.usage) { record ->
+        record?.launchCount?.toDouble() ?: 0.0
     }
 
-    is AppListRanking.RecentlyUsed -> rankedByUsage(usage = ranking.usage) { record ->
-        record.recentUseScoreAt(nowEpochMs = ranking.nowEpochMs)
+    is AppListRanking.RecentlyUsed -> orderedByUse(usage = ranking.usage) { record ->
+        record?.recentUseRank ?: Double.NEGATIVE_INFINITY
     }
 }
 
+/** A copy of [this] with each Initial group's and the Unlocked Private Space group's items ranked by use. */
+private fun List<LaunchableGroup>.orderedByUse(usage: AppListUsage, rankingValue: (LaunchCountRecord?) -> Double): List<LaunchableGroup> =
+    map { group ->
+        when (group) {
+            is LaunchableGroup.InitialGroup, is LaunchableGroup.PrivateSpace.Unlocked ->
+                group.withRankedItems(usage = usage, rankingValue = rankingValue)
+
+            else -> group
+        }
+    }
+
+/** A copy of [this] holding its items ranked by use. */
+private fun LaunchableGroup.Listed.withRankedItems(
+    usage: AppListUsage,
+    rankingValue: (LaunchCountRecord?) -> Double
+): LaunchableGroup.Listed = withItems(items = items.rankedByUsage(usage = usage, rankingValue = rankingValue))
+
 /**
- * Ranks the Launchables by [rankingValue], highest first. While [AppListUsage.rankFoldersByUse]
- * is off, Folders stay last in their current order instead of taking part.
+ * Ranks the Launchables by [rankingValue], highest first, with A-Z ties. While
+ * [AppListUsage.rankFoldersByUse] is off, Folders stay last in their current order instead
+ * of taking part.
  */
-private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (LaunchCountRecord) -> Double): List<Launchable> {
+private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (LaunchCountRecord?) -> Double): List<Launchable> {
     val rankableItems: List<Launchable>
     val lastItems: List<Launchable>
     if (usage.rankFoldersByUse) {
@@ -362,7 +381,7 @@ private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (L
         lastItems = folders
     }
     return rankableItems.sortedWith(
-        compareByDescending<Launchable> { launchable -> usage.launchCountsByKey[launchable.key]?.let(rankingValue) ?: 0.0 }
+        compareByDescending<Launchable> { launchable -> rankingValue(usage.launchCountsByKey[launchable.key]) }
             .then(BY_NAME)
     ) + lastItems
 }
