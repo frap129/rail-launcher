@@ -145,7 +145,7 @@ A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays
 _Avoid_: Disabled shortcut, removed shortcut
 
 **Hidden app**:
-An App or Standalone shortcut the user hid from the App List with the long-press menu's Hide from App List action. It leaves the App List groups, including the Private Space group, and the Rail marks, while keeping its Favorite, Folder and Added item places, its custom name and Custom icon, and its row in every picker. The user unhides it on the Hidden apps screen in Rail Settings. Hiding only tidies the App List; it is not private, because Private Space covers privacy.
+An App or Standalone shortcut the user hid from the App List with the long-press menu's Hide from App List action. It leaves the App List groups, including the Private Space group, and the Rail marks, while keeping its Favorite, Folder and Added item places, its custom name and Custom icon, and its row in every picker. It still matches Search queries, marked Hidden, but is never a Search suggestion. The user unhides it on the Hidden apps screen in Rail Settings. Hiding only tidies the App List; it is not private, because Private Space covers privacy.
 _Avoid_: Hidden Launchable, archived app
 
 **Hidden apps screen**:

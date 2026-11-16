@@ -596,7 +596,7 @@ class LauncherViewModel(
                 isSearchSuggestion = request.isSearchSuggestion,
                 isStandaloneShortcut = launchable is ShortcutLaunchable,
                 canUninstall = (resolvedItem as? App)?.canUninstall(profileSource) == true,
-                isHidden = request.launchable.key in state.hiddenKeys
+                isHidden = state.isHidden(launchable = resolvedItem)
             )
         }
     }

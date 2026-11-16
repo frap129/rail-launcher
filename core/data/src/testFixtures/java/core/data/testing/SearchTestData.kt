@@ -1,5 +1,6 @@
 package core.data.testing
 
+import core.data.launchables.model.Launchable
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.search.IContactSearchSource
@@ -48,6 +49,10 @@ const val TEST_BETA_WEB_SUGGESTION_URL: String = "https://www.google.com/search?
 /** A Web suggestion row for [suggestion], which opens [url]. */
 fun createWebSuggestionRow(suggestion: String, url: String): SearchResult.WebSuggestionRow =
     SearchResult.WebSuggestionRow(suggestion = suggestion, url = url)
+
+/** A Launchable or Shortcut Search result, marked Hidden when [isHidden]. */
+fun createLaunchableResult(launchable: Launchable, isHidden: Boolean = false): SearchResult.LaunchableResult =
+    SearchResult.LaunchableResult(launchable = launchable, isHidden = isHidden)
 
 /** A contact with the Search test defaults. */
 fun createSearchContact(

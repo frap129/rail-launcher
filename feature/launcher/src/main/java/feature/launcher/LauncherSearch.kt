@@ -307,6 +307,7 @@ private fun LauncherSearchResults(
 ) {
     val listState: LazyListState = rememberLazyListState()
     val topResultLabel: String = stringResource(R.string.top_result)
+    val hiddenLabel: String = stringResource(R.string.hidden)
     // Only a new query or anchoring resets the list, so rows appended after it stay in place.
     LaunchedEffect(query, isBottomAnchored) {
         if (results.isNotEmpty()) {
@@ -348,7 +349,7 @@ private fun LauncherSearchResults(
                     isFavorite = false,
                     isPopupSwipeEnabled = true,
                     itemActions = itemActions,
-                    secondaryText = (result.launchable as? ShortcutLaunchable)?.publisherName,
+                    secondaryText = if (result.isHidden) hiddenLabel else (result.launchable as? ShortcutLaunchable)?.publisherName,
                     accessibilityAnnouncement = accessibilityAnnouncement
                 )
 

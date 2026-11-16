@@ -1,5 +1,6 @@
 package core.data.search
 
+import core.data.apps.model.App
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.prefs.SearchEngine
@@ -16,6 +17,8 @@ import core.data.testing.TEST_SECOND_WEB_SUGGESTION_URL
 import core.data.testing.TEST_TYPED_URL_QUERY
 import core.data.testing.TEST_WEB_SUGGESTION
 import core.data.testing.TEST_WEB_SUGGESTION_URL
+import core.data.testing.createApp
+import core.data.testing.createLaunchableResult
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
@@ -42,7 +45,23 @@ class SearchResultTest {
 
         val actualResults: List<SearchResult> = searchRows(state = inputState, query = "99")
 
-        assertEquals(SearchResult.LaunchableResult(inputApp), actualResults.firstOrNull())
+        assertEquals(createLaunchableResult(inputApp), actualResults.firstOrNull())
+    }
+
+    @Test
+    fun `marks a Hidden app result as Hidden`() {
+        val inputHiddenApp: App = createApp(name = "Hidden", packageName = "com.example.hidden")
+        val inputState: LaunchableState = createLoadedLaunchableState(
+            launchables = listOf(inputHiddenApp),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+
+        val actualResults: List<SearchResult> = searchRows(state = inputState, query = "hidden")
+
+        assertEquals(
+            listOf(createLaunchableResult(launchable = inputHiddenApp, isHidden = true)),
+            actualResults
+        )
     }
 
     @Test
@@ -59,8 +78,8 @@ class SearchResultTest {
         val expectedShortcut: ShortcutLaunchable = inputShortcut.copy(publisherName = "Calculator")
         assertEquals(
             listOf(
-                SearchResult.LaunchableResult(inputApp),
-                SearchResult.LaunchableResult(expectedShortcut)
+                createLaunchableResult(inputApp),
+                createLaunchableResult(expectedShortcut)
             ),
             actualResults.take(n = 2)
         )
@@ -356,8 +375,8 @@ class SearchResultTest {
 
         assertEquals(
             listOf(
-                SearchResult.LaunchableResult(inputApp),
-                SearchResult.LaunchableResult(inputShortcut.copy(publisherName = "Messages")),
+                createLaunchableResult(inputApp),
+                createLaunchableResult(inputShortcut.copy(publisherName = "Messages")),
                 SearchResult.ContactRow(contact = inputContacts.single()),
                 SearchResult.WebSearchRow(url = "https://www.google.com/search?q=al"),
                 SearchResult.PlayStoreRow(
@@ -500,7 +519,7 @@ class SearchResultTest {
             settings = TEST_GOOGLE_SETTINGS
         )
 
-        assertEquals(SearchResult.LaunchableResult(inputApp), actualResults.first())
+        assertEquals(createLaunchableResult(inputApp), actualResults.first())
         assertEquals(
             createWebSuggestionRow(suggestion = TEST_WEB_SUGGESTION, url = TEST_WEB_SUGGESTION_URL),
             actualResults.last()

@@ -98,6 +98,20 @@ class LaunchableSearchTest {
     }
 
     @Test
+    fun `ranks a Hidden app where it would rank if visible`() {
+        val inputHiddenApp: App = createApp(name = "Alps", packageName = "com.example.alps")
+        val inputVisibleApp: App = createApp(name = "Alpha", packageName = "com.example.alpha")
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputHiddenApp, inputVisibleApp))),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+
+        val actualResults: List<Launchable> = inputState.searchResults(query = "al")
+
+        assertEquals(listOf(inputHiddenApp, inputVisibleApp), actualResults)
+    }
+
+    @Test
     fun `ranks a more used Launchable above an equally strong match`() {
         val inputAlpine: Launchable = createRailLaunchable("Alpine")
         val inputAlpha: Launchable = createRailLaunchable("Alpha")

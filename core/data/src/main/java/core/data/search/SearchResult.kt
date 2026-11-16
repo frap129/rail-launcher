@@ -17,8 +17,8 @@ sealed interface SearchResult {
     /** A Search result that opens outside Rail, in the default browser or the Play Store. */
     sealed interface ExternalRow : SearchResult
 
-    /** A Launchable or Shortcut result. */
-    data class LaunchableResult(val launchable: Launchable) : SearchResult {
+    /** A Launchable or Shortcut result, marked when it is a Hidden app. */
+    data class LaunchableResult(val launchable: Launchable, val isHidden: Boolean) : SearchResult {
         override val key: String = launchable.key
     }
 
@@ -62,8 +62,10 @@ private const val PLAY_STORE_ROW_KEY: String = "search-result:play-store"
 private const val PLAY_STORE_MARKET_SEARCH_TEMPLATE: String = "market://search?q=%s"
 private const val PLAY_STORE_WEB_SEARCH_TEMPLATE: String = "https://play.google.com/store/search?q=%s&c=apps"
 
-/** These Launchables as Search results, in order. */
-fun List<Launchable>.toSearchResults(): List<SearchResult> = map { launchable -> SearchResult.LaunchableResult(launchable) }
+/** These Launchables as Search results, in order, marking as Hidden the ones [isHidden] accepts, none by default. */
+fun List<Launchable>.toSearchResults(isHidden: (Launchable) -> Boolean = { false }): List<SearchResult> = map { launchable ->
+    SearchResult.LaunchableResult(launchable = launchable, isHidden = isHidden(launchable))
+}
 
 /**
  * The Search rows for [query]: the Launchable and Shortcut matches, then the Calculator row when
@@ -73,8 +75,8 @@ fun List<Launchable>.toSearchResults(): List<SearchResult> = map { launchable ->
  * apps, so they follow the Calculator row and precede the rows that leave Rail; all of them
  * always follow the Launchable results in that fixed order. [webSuggestions] become Web suggestion
  * rows after the Play Store row, so they never move a row above them. [settings] turns each row
- * kind on or off; the web switch covers both the typed-URL and Web search rows. A blank query has
- * no rows.
+ * kind on or off; the web switch covers both the typed-URL and Web search rows. A Launchable
+ * result whose key is a Hidden app is marked Hidden. A blank query has no rows.
  */
 fun LaunchableState.searchResultRows(
     query: String,
@@ -92,7 +94,7 @@ fun LaunchableState.searchResultRows(
         query = query,
         launchCounts = launchCounts,
         shortcuts = shortcuts
-    ).toSearchResults()
+    ).toSearchResults(isHidden = { launchable -> isHidden(launchable) })
     val dedicatedRows: DedicatedSearchRows = settings.dedicatedSearchRows(query = query, locale = locale)
     val webSearchRow: SearchResult.WebSearchRow? = if (settings.searchWebRow) {
         settings.searchEngine.searchUrl(query = query, customTemplate = settings.searchEngineTemplate)

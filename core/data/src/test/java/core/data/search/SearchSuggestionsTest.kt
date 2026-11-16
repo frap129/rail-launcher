@@ -141,6 +141,47 @@ class SearchSuggestionsTest {
     }
 
     @Test
+    fun `leaves a Hidden recently installed App out and fills its slot`() {
+        val inputApps: List<App> = (1..6).map { index ->
+            createApp(
+                name = "App $index",
+                packageName = "com.example.app$index",
+                firstInstallTime = TEST_NOW_EPOCH_MS - index * MILLIS_PER_MINUTE
+            )
+        }
+        val inputHiddenApp: App = inputApps.first()
+        val inputState: LaunchableState = createHiddenAppState(hiddenApp = inputHiddenApp, otherLaunchables = inputApps.drop(1))
+
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = emptyList(), nowEpochMs = TEST_NOW_EPOCH_MS)
+
+        assertEquals(inputApps.drop(1), actualSuggestions)
+    }
+
+    @Test
+    fun `leaves a Hidden app out of the frequently opened suggestions`() {
+        val inputHiddenApp: App = createApp(name = "Frequent", packageName = "com.example.frequent")
+        val inputState: LaunchableState = createHiddenAppState(hiddenApp = inputHiddenApp)
+        val inputHistory: List<SearchHistoryRecord> = listOf(historyRecord(key = inputHiddenApp.key, launchCount = 5))
+
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `leaves a Hidden app that was the last opened out of the suggestions`() {
+        val inputHiddenApp: App = createApp(name = "Last", packageName = "com.example.last")
+        val inputState: LaunchableState = createHiddenAppState(hiddenApp = inputHiddenApp)
+        val inputHistory: List<SearchHistoryRecord> = listOf(
+            historyRecord(key = inputHiddenApp.key, launchCount = 0, lastLaunchedAt = TEST_NOW_EPOCH_MS)
+        )
+
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
     fun `leaves out a removed recently installed App`() {
         val inputApp: App = createApp(
             name = "Recent",
@@ -212,6 +253,12 @@ class SearchSuggestionsTest {
 
         assertEquals(listOf<Launchable>(inputApp), actualSuggestions)
     }
+
+    private fun createHiddenAppState(hiddenApp: App, otherLaunchables: List<Launchable> = emptyList()): LaunchableState =
+        createLoadedLaunchableState(
+            launchables = listOf(hiddenApp) + otherLaunchables,
+            hiddenKeys = setOf(hiddenApp.key)
+        )
 
     private fun historyRecord(key: String, launchCount: Int, lastLaunchedAt: Long = 0, isRemoved: Boolean = false): SearchHistoryRecord =
         SearchHistoryRecord(

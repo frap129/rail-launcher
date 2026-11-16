@@ -39,7 +39,9 @@ data class LaunchableState(
     val pickerGroups: List<LaunchableGroup.Listed> = groups.toPickerGroups()
 ) {
     private val launchablesByKey: Map<String, Launchable> by lazy { launchables.associateBy { launchable -> launchable.key } }
-    private val groupsWithoutHidden: List<LaunchableGroup> by lazy { groups.withoutHiddenApps(hiddenKeys = hiddenKeys) }
+    private val groupsWithoutHidden: List<LaunchableGroup> by lazy {
+        groups.withoutHiddenApps(isHidden = { launchable -> isHidden(launchable) })
+    }
 
     /** The groups shown in the App List, in Rail order. */
     val listedGroups: List<LaunchableGroup.Listed> by lazy { listedGroupsFor(includeHidden = false) }
@@ -54,32 +56,36 @@ data class LaunchableState(
     fun listedGroupsFor(includeHidden: Boolean): List<LaunchableGroup.Listed> =
         groupsFor(includeHidden = includeHidden).filterIsInstance<LaunchableGroup.Listed>()
 
+    /** Whether the user hid [launchable] from the App List. */
+    fun isHidden(launchable: Launchable): Boolean = launchable.key in hiddenKeys
+
     /**
      * The Hidden apps, by resolved name. A Locked Private Space leaves its private Apps out,
      * because resolution already does.
      */
-    val hiddenApps: List<Launchable> by lazy {
-        launchables.filter { launchable -> launchable.key in hiddenKeys }.sortedWith(launchableNameOrder)
-    }
+    val hiddenApps: List<Launchable> by lazy { launchables.filter { launchable -> isHidden(launchable) }.sortedWith(launchableNameOrder) }
 
     /** The Launchable stored under [key], or null when it is gone. */
     fun launchableFor(key: String): Launchable? = launchablesByKey[key]
+
+    /** The Launchable stored under [key] unless it is a Hidden app, or null when it is gone. */
+    fun visibleLaunchableFor(key: String): Launchable? = launchableFor(key = key)?.takeUnless { launchable -> isHidden(launchable) }
 }
 
 /** Orders Launchables by their resolved names, ignoring case. */
 internal val launchableNameOrder: Comparator<Launchable> = compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name }
 
 /** A copy of [this] leaving out the Hidden apps, dropping an Initial group left empty by them. */
-private fun List<LaunchableGroup>.withoutHiddenApps(hiddenKeys: Set<String>): List<LaunchableGroup> = mapNotNull { group ->
+private fun List<LaunchableGroup>.withoutHiddenApps(isHidden: (Launchable) -> Boolean): List<LaunchableGroup> = mapNotNull { group ->
     when (group) {
         LaunchableGroup.Star -> group
-        is LaunchableGroup.InitialGroup -> group.withItems(items = group.itemsWithoutHidden(hiddenKeys)).takeIf { it.items.isNotEmpty() }
-        is LaunchableGroup.Listed -> group.withItems(items = group.itemsWithoutHidden(hiddenKeys))
+        is LaunchableGroup.InitialGroup -> group.withItems(items = group.itemsWithoutHidden(isHidden)).takeIf { it.items.isNotEmpty() }
+        is LaunchableGroup.Listed -> group.withItems(items = group.itemsWithoutHidden(isHidden))
     }
 }
 
-private fun LaunchableGroup.Listed.itemsWithoutHidden(hiddenKeys: Set<String>): List<Launchable> =
-    items.filterNot { launchable -> launchable.key in hiddenKeys }
+private fun LaunchableGroup.Listed.itemsWithoutHidden(isHidden: (Launchable) -> Boolean): List<Launchable> =
+    items.filterNot { launchable -> isHidden(launchable) }
 
 interface ILaunchableRepository {
     /** Every Launchable, including apps, Rail entries and Folders, with customizations applied. */
