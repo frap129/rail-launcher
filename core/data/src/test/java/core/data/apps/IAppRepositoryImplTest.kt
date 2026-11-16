@@ -663,7 +663,6 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                 clockSource = mockClockSource,
                 dispatcher = databaseDispatcher
             ),
-            clockSource = mockClockSource,
             scope = backgroundScope
         )
         return LaunchableRepositories(

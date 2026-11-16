@@ -14,13 +14,17 @@ internal sealed interface AppListRanking {
     /** Ranks by the all-time Launch count, highest first. */
     data class MostUsed(val usage: AppListUsage) : AppListRanking
 
-    /** Ranks by the Recent use score decayed to [nowEpochMs], highest first. */
-    data class RecentlyUsed(val usage: AppListUsage, val nowEpochMs: Long) : AppListRanking
+    /**
+     * Ranks by [core.data.launches.recentUseRank], highest first: a later update outranks an
+     * earlier one at the same score, and the order equals ranking the scores decayed to any
+     * common moment.
+     */
+    data class RecentlyUsed(val usage: AppListUsage) : AppListRanking
 }
 
-/** The ranking [this] App List order chooses over [usage] at [nowEpochMs]. */
-internal fun AppListOrder.toAppListRanking(usage: AppListUsage, nowEpochMs: Long): AppListRanking = when (this) {
+/** The ranking [this] App List order chooses over [usage]. */
+internal fun AppListOrder.toAppListRanking(usage: AppListUsage): AppListRanking = when (this) {
     AppListOrder.ALPHABETICAL -> AppListRanking.Alphabetical
     AppListOrder.MOST_USED -> AppListRanking.MostUsed(usage = usage)
-    AppListOrder.RECENTLY_USED -> AppListRanking.RecentlyUsed(usage = usage, nowEpochMs = nowEpochMs)
+    AppListOrder.RECENTLY_USED -> AppListRanking.RecentlyUsed(usage = usage)
 }

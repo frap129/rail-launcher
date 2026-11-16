@@ -29,3 +29,7 @@ fun createClockSourceMock(readings: Flow<ClockReading>, now: () -> Instant = { I
 /** A MockK [IClockSource] reading a single [reading], which tests can hold still. */
 fun createClockSourceMock(reading: ClockReading): IClockSource =
     createClockSourceMock(readings = MutableStateFlow(reading), now = { reading.instant })
+
+/** A MockK [IClockSource] held at [TEST_NOW_EPOCH_MS]. */
+fun createTestClockSourceMock(): IClockSource =
+    createClockSourceMock(reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS)))

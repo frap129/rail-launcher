@@ -4,10 +4,8 @@ import core.data.cleanup.searchHistoryCleanupRow
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.StaleKeyCleanupOutcome
 import core.data.testing.TEST_NOW_EPOCH_MS
-import core.data.testing.createClockReading
-import core.data.testing.createClockSourceMock
+import core.data.testing.createTestClockSourceMock
 import core.data.testing.staleKeyCleanupOutcome
-import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
@@ -86,7 +84,7 @@ class ISearchHistoryRepositoryImplTest : InMemoryDatabaseTest() {
 
     private fun createRepository(): ISearchHistoryRepository = ISearchHistoryRepositoryImpl(
         searchHistoryDao = database.getSearchHistoryDao(),
-        clockSource = createClockSourceMock(reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
+        clockSource = createTestClockSourceMock(),
         dispatcher = databaseDispatcher
     )
 }

@@ -296,7 +296,6 @@ class MainApplication :
                 standaloneShortcutSource = get(),
                 privateSpaceStatus = get(),
                 launchCountRepository = get(),
-                clockSource = get(),
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
         }

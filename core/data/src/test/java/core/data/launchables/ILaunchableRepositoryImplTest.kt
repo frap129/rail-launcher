@@ -83,6 +83,7 @@ import core.data.testing.createShortcutPinCoordinator
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createStaleKeyCleanup
 import core.data.testing.createStandaloneShortcutSource
+import core.data.testing.createTestClockSourceMock
 import core.data.testing.createUserHandle
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.failOnRequest
@@ -129,6 +130,14 @@ private const val CURRENT_NAME: String = "Current"
 private const val INITIAL_RETRY_DELAY_MS: Long = 1_000L
 private const val FOLDER_ID: Long = 1L
 private const val PLAIN_APP_PACKAGE_NAME: String = "com.example.plain"
+
+/** A pack Custom icon as stored, [customIcon], and the icon it resolves to, [resolvedIcon]. */
+private data class PackCustomIcon(val customIcon: CustomIcon, val resolvedIcon: Icon)
+
+private val PACK_CUSTOM_ICON: PackCustomIcon = PackCustomIcon(
+    customIcon = CustomIcon.PackDrawable(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME),
+    resolvedIcon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME)
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
@@ -272,14 +281,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile.user,
             longLabel = "Example site"
         )
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
             inputIcon = inputShortcut.defaultIcon,
             customIcon = expectedCustomIcon
@@ -789,13 +792,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `follows the stored App List order through the settings flow`() = databaseTest {
         val inputSettings: MutableStateFlow<Settings> =
             MutableStateFlow(Settings(appListOrder = AppListOrder.MOST_USED))
-        val mockClockSource: IClockSource = createClockSourceMock(
-            reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
-        )
-        val fixture: AppListRankingFixture = createAppListRankingFixture(
-            mockClockSource = mockClockSource,
-            inputSettings = inputSettings
-        )
+        val fixture: AppListRankingFixture = createAppListRankingFixture(inputSettings = inputSettings)
         repeat(3) { fixture.launchCountRepository.recordLaunch(key = fixture.secondApp.key) }
         val actualMostUsedKeys: List<String> = appListKeys(fixture.repository)
 
@@ -812,14 +809,10 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `ranks a Folder by use when Rank Folders by use is on and keeps it last when off`() = databaseTest {
-        val mockClockSource: IClockSource = createClockSourceMock(
-            reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
-        )
         val inputFolder: Folder = Folder(folderId = 1L)
         val inputSettings: MutableStateFlow<Settings> =
             MutableStateFlow(Settings(appListOrder = AppListOrder.MOST_USED, rankFoldersByUse = true))
         val fixture: AppListRankingFixture = createAppListRankingFixture(
-            mockClockSource = mockClockSource,
             inputFirstApp = createApp(name = "Falcon", packageName = "com.example.falcon"),
             inputSecondApp = createApp(name = "Ferret", packageName = "com.example.ferret"),
             inputFolders = listOf(inputFolder),
@@ -840,6 +833,78 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             listOf(fixture.firstApp.key, fixture.secondApp.key, inputFolder.key),
             actualUnrankedKeys
         )
+    }
+
+    @Test
+    fun `does not resolve Launchables again when a Launch count changes`() = databaseTest {
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
+        val mockIconRepository: IIconRepository = createIconRepositoryMock(
+            inputIcon = Icon.ActivityIcon(inputComponentName),
+            customIcon = expectedCustomIcon
+        )
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(
+            Settings(appListOrder = AppListOrder.MOST_USED, iconPack = TEST_ICON_PACK_PACKAGE)
+        )
+        val fixture: AppListRankingFixture = createAppListRankingFixture(
+            inputFolders = listOf(inputFolder),
+            inputCustomizations = listOf(LaunchableCustomization(key = inputFolder.key, icon = inputCustomIcon)),
+            inputSettings = inputSettings,
+            mockIconRepository = mockIconRepository
+        )
+        val collection: Job = backgroundScope.launch { fixture.repository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualBeforeKeys: List<String> = appListKeys(fixture.repository)
+
+            fixture.launchCountRepository.recordLaunch(key = fixture.secondApp.key)
+            finishPendingWork()
+
+            val actualAfterKeys: List<String> = appListKeys(fixture.repository)
+
+            assertEquals(listOf(fixture.firstApp.key, fixture.secondApp.key), actualBeforeKeys)
+            assertEquals(listOf(fixture.secondApp.key, fixture.firstApp.key), actualAfterKeys)
+            coVerify(exactly = 1) {
+                mockIconRepository.getIcon(
+                    packPackageName = TEST_ICON_PACK_PACKAGE,
+                    componentName = fixture.firstApp.componentName,
+                    profile = fixture.firstApp.profileInfo
+                )
+            }
+            coVerify(exactly = 1) {
+                mockIconRepository.getIcon(
+                    packPackageName = TEST_ICON_PACK_PACKAGE,
+                    componentName = fixture.secondApp.componentName,
+                    profile = fixture.secondApp.profileInfo
+                )
+            }
+            coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, profile = null) }
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `emits no new App List order when a Launch count changes in Alphabetical mode`() = databaseTest {
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings(appListOrder = AppListOrder.ALPHABETICAL))
+        val fixture: AppListRankingFixture = createAppListRankingFixture(inputSettings = inputSettings)
+        val actualStates: MutableList<LaunchableState> = mutableListOf()
+        val collection: Job = backgroundScope.launch {
+            fixture.repository.launchableState.collect { state -> actualStates += state }
+        }
+        try {
+            finishPendingWork()
+            val actualStateCountBeforeLaunch: Int = actualStates.size
+
+            fixture.launchCountRepository.recordLaunch(key = fixture.secondApp.key)
+            finishPendingWork()
+
+            assertEquals(actualStateCountBeforeLaunch, actualStates.size)
+            assertEquals(listOf(fixture.firstApp.key, fixture.secondApp.key), appListKeys(fixture.repository))
+        } finally {
+            collection.cancel()
+        }
     }
 
     @Test
@@ -982,10 +1047,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `falls back to the global icon pack when the Custom icon's drawable is gone and keeps it stored`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val expectedGlobalIcon: Icon = Icon.PackIcon(
             componentName = inputComponentName,
             packPackageName = TEST_ICON_PACK_PACKAGE,
@@ -1013,10 +1075,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `falls back to the default icon when the Custom icon's drawable and the global pack are gone`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
             inputIcon = Icon.ActivityIcon(inputComponentName),
             customIcon = null
@@ -1052,14 +1111,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             )
         )
         val inputFolder: Folder = Folder(folderId = FOLDER_ID)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
         val mockProfileSource: IProfileSource = createProfileSourceMock(state = inputProfileState)
         val expectedGlobalIcon: Icon.PackIcon = Icon.PackIcon(
@@ -1147,12 +1200,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `keeps the Profile badge on a Custom icon`() = databaseTest {
         val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val expectedCustomIcon: Icon = Icon.ProfileIcon(
-            icon = Icon.PackDrawableIcon(packPackageName = TEST_ICON_PACK_PACKAGE, drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME),
+            icon = PACK_CUSTOM_ICON.resolvedIcon,
             profile = inputWorkProfile.user
         )
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
@@ -1360,14 +1410,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `resolves a Folder's Custom icon ahead of its tile`() = databaseTest {
         val folderDao: FolderDao = database.getFolderDao()
         folderDao.insert(FolderRecord(id = 1L))
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
             inputIcon = Icon.FolderIcon(shade = 1),
             customIcon = expectedCustomIcon
@@ -2037,14 +2081,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private fun TestScope.createCustomIconFixture(): CustomIconFixture {
         val inputCustomApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputPlainApp: App = createApp(packageName = PLAIN_APP_PACKAGE_NAME)
-        val inputCustomIcon: CustomIcon = CustomIcon.PackDrawable(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
-        val expectedCustomIcon: Icon = Icon.PackDrawableIcon(
-            packPackageName = TEST_ICON_PACK_PACKAGE,
-            drawableName = TEST_CUSTOM_ICON_DRAWABLE_NAME
-        )
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
         val expectedFirstPackCustomIcon: Icon.PackIcon = Icon.PackIcon(
             componentName = inputCustomApp.componentName,
             packPackageName = TEST_ICON_PACK_PACKAGE,
@@ -2092,11 +2130,13 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     private suspend fun TestScope.createAppListRankingFixture(
-        mockClockSource: IClockSource,
+        mockClockSource: IClockSource = createTestClockSourceMock(),
         inputFirstApp: App = createApp(name = "Alpha", packageName = "com.example.alpha"),
         inputSecondApp: App = createApp(name = "Alpine", packageName = "com.example.alpine"),
         inputFolders: List<Folder> = emptyList(),
-        inputSettings: MutableStateFlow<Settings>? = null
+        inputCustomizations: List<LaunchableCustomization> = emptyList(),
+        inputSettings: MutableStateFlow<Settings>? = null,
+        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
     ): AppListRankingFixture {
         inputFolders.forEach { folder -> database.getFolderDao().insert(FolderRecord(id = folder.folderId)) }
         val launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
@@ -2106,10 +2146,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputFirstApp, inputSecondApp)),
-            mockPreferencesRepository = inputSettings?.let { settings -> createPreferencesRepositoryMock(settingsFlow = settings) }
-                ?: createPreferencesRepositoryMock(),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = inputCustomizations,
+                settingsFlow = inputSettings ?: MutableStateFlow(Settings())
+            ),
             launchCountRepository = launchCountRepository,
-            clockSource = mockClockSource
+            mockIconRepository = mockIconRepository
         )
         return AppListRankingFixture(
             firstApp = inputFirstApp,
@@ -2179,10 +2221,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profileSource = mockProfileSource
         ),
         cleanupShortcutSource: IShortcutSource = createShortcutSourceMock(),
-        clockSource: IClockSource = createClockSourceMock(reading = createClockReading(instant = Instant.ofEpochMilli(0L))),
         launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
             launchCountDao = database.getLaunchCountDao(),
-            clockSource = clockSource,
+            clockSource = createTestClockSourceMock(),
             dispatcher = databaseDispatcher
         ),
         scope: CoroutineScope = backgroundScope
@@ -2197,7 +2238,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             standaloneShortcutSource = standaloneShortcutSource,
             privateSpaceStatus = privateSpaceStatus,
             launchCountRepository = launchCountRepository,
-            clockSource = clockSource,
             scope = scope
         )
         createStaleKeyCleanup(
