@@ -6,8 +6,12 @@ import core.data.icons.model.CustomIcon
 import core.data.launchables.model.LaunchableIcons
 import core.data.launchables.model.LaunchableNames
 
-@Entity(tableName = "launchable_customizations")
-data class LaunchableCustomization(@PrimaryKey val key: String, val name: String? = null, val icon: CustomIcon? = null)
+@Entity(tableName = LaunchableCustomization.TABLE_NAME)
+data class LaunchableCustomization(@PrimaryKey val key: String, val name: String? = null, val icon: CustomIcon? = null) {
+    companion object {
+        const val TABLE_NAME: String = "launchable_customizations"
+    }
+}
 
 /** The customized names by Launchable key. */
 internal fun List<LaunchableCustomization>.toLaunchableNames(): LaunchableNames = LaunchableNames(

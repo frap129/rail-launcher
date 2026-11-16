@@ -4,7 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "settings")
+@Entity(tableName = Settings.TABLE_NAME)
 data class Settings(
     @PrimaryKey val id: Int = 0,
     @ColumnInfo(name = Settings.COLUMN_ICON_PACK) val iconPack: String? = null,
@@ -46,6 +46,7 @@ data class Settings(
     val rankFoldersByUse: Boolean = true
 ) {
     companion object {
+        const val TABLE_NAME: String = "settings"
         const val COLUMN_ICON_PACK: String = "icon_pack"
         const val COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED: String = "hide_private_space_when_locked"
         const val COLUMN_SCRUB_EDGES: String = "scrub_edges"

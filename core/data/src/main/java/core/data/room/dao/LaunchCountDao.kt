@@ -10,16 +10,16 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 abstract class LaunchCountDao {
-    @Query("SELECT * FROM launch_counts")
+    @Query("SELECT * FROM ${LaunchCountRecord.TABLE_NAME}")
     abstract fun observeAll(): Flow<List<LaunchCountRecord>>
 
-    @Query("SELECT * FROM launch_counts WHERE key = :key")
+    @Query("SELECT * FROM ${LaunchCountRecord.TABLE_NAME} WHERE key = :key")
     abstract suspend fun get(key: String): LaunchCountRecord?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun upsert(record: LaunchCountRecord)
 
-    @Query("DELETE FROM launch_counts WHERE key IN (:keys)")
+    @Query("DELETE FROM ${LaunchCountRecord.TABLE_NAME} WHERE key IN (:keys)")
     abstract suspend fun remove(keys: List<String>)
 
     /** Counts a launch of [key] at [launchedAt], decaying its stored score to that time and adding this launch. */

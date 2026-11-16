@@ -5,11 +5,17 @@ import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import core.data.favorites.FavoriteRecord
+import core.data.folders.FolderRecord
+import core.data.launches.LaunchCountRecord
 import core.data.prefs.AppListOrder
+import core.data.prefs.LaunchableCustomization
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
+import core.data.search.SearchHistoryRecord
+import core.data.shortcuts.StandaloneShortcutRecord
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import core.data.testing.TEST_SDK
@@ -50,20 +56,12 @@ private const val WEB_SUGGESTIONS_DATABASE_NAME: String = "web-suggestions-migra
 private const val WEB_SUGGESTIONS_DATABASE_VERSION: Int = 22
 private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
 private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
-private const val APP_LIST_ORDER_DATABASE_NAME: String = "app-list-order-migration-test"
-private const val APP_LIST_ORDER_DATABASE_VERSION: Int = 24
-private const val RANK_FOLDERS_BY_USE_DATABASE_NAME: String = "rank-folders-by-use-migration-test"
-private const val RANK_FOLDERS_BY_USE_DATABASE_VERSION: Int = 25
+private const val MIGRATION_24_25_DATABASE_NAME: String = "migration-24-25-test"
+private const val MIGRATION_24_25_DATABASE_VERSION: Int = 24
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
-private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
 private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
-private const val SETTINGS_TABLE: String = "settings"
-private const val SEARCH_HISTORY_TABLE: String = "search_history"
-private const val LAUNCH_COUNTS_TABLE: String = "launch_counts"
-private const val STANDALONE_SHORTCUTS_TABLE: String = "standalone_shortcuts"
-private const val FAVORITES_TABLE: String = "favorites"
 private const val FAVORITE_KEY: String = "com.example.app/.MainActivity_UserHandle{0}"
 
 @RunWith(RobolectricTestRunner::class)
@@ -75,14 +73,16 @@ class AppDatabaseMigrationTest {
             name = FOLDER_DATABASE_NAME,
             version = MIGRATION_START_DATABASE_VERSION,
             createTables = { db ->
-                db.execSQL("CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, show_in_app_list INTEGER NOT NULL)")
-                db.execSQL("INSERT INTO folders (id, show_in_app_list) VALUES ($FIRST_FOLDER_ID, 1)")
-                db.execSQL("INSERT INTO folders (id, show_in_app_list) VALUES ($SECOND_FOLDER_ID, 0)")
+                db.execSQL(
+                    "CREATE TABLE ${FolderRecord.TABLE_NAME} (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, show_in_app_list INTEGER NOT NULL)"
+                )
+                db.execSQL("INSERT INTO ${FolderRecord.TABLE_NAME} (id, show_in_app_list) VALUES ($FIRST_FOLDER_ID, 1)")
+                db.execSQL("INSERT INTO ${FolderRecord.TABLE_NAME} (id, show_in_app_list) VALUES ($SECOND_FOLDER_ID, 0)")
             }
         ) { db ->
             MIGRATION_11_12.migrate(db)
 
-            val actualColumns: List<String> = db.columnNames(table = "folders")
+            val actualColumns: List<String> = db.columnNames(table = FolderRecord.TABLE_NAME)
             val actualIds: List<Long> = db.folderIds()
 
             assertEquals(listOf("id"), actualColumns)
@@ -101,7 +101,7 @@ class AppDatabaseMigrationTest {
         ) { db ->
             MIGRATION_12_13.migrate(db)
 
-            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
             val actualSwitch: Boolean = db.hidePrivateSpaceWhenLocked()
             val actualIconPack: String? = db.iconPack()
 
@@ -118,14 +118,14 @@ class AppDatabaseMigrationTest {
             version = STANDALONE_SHORTCUTS_DATABASE_VERSION,
             createTables = { db ->
                 db.execSQL(
-                    "CREATE TABLE $FAVORITES_TABLE (key TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(key))"
+                    "CREATE TABLE ${FavoriteRecord.TABLE_NAME} (key TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(key))"
                 )
-                db.execSQL("INSERT INTO $FAVORITES_TABLE (key, position) VALUES ('$FAVORITE_KEY', 0)")
+                db.execSQL("INSERT INTO ${FavoriteRecord.TABLE_NAME} (key, position) VALUES ('$FAVORITE_KEY', 0)")
             }
         ) { db ->
             MIGRATION_13_14.migrate(db)
 
-            assertEquals(listOf("key", "added_at"), db.columnNames(table = STANDALONE_SHORTCUTS_TABLE))
+            assertEquals(listOf("key", "added_at"), db.columnNames(table = StandaloneShortcutRecord.TABLE_NAME))
             assertEquals(listOf(FAVORITE_KEY), db.favoriteKeys())
         }
     }
@@ -141,7 +141,7 @@ class AppDatabaseMigrationTest {
         ) { db ->
             MIGRATION_14_15.migrate(db)
 
-            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
             val actualScrubEdges: String = db.scrubEdges()
             val actualIconPack: String? = db.iconPack()
             val actualSwitch: Boolean = db.hidePrivateSpaceWhenLocked()
@@ -162,13 +162,13 @@ class AppDatabaseMigrationTest {
             name = LAUNCHABLE_CUSTOMIZATIONS_DATABASE_NAME,
             version = LAUNCHABLE_CUSTOMIZATIONS_DATABASE_VERSION,
             createTables = { db ->
-                db.execSQL("CREATE TABLE $LAUNCHABLE_CUSTOMIZATIONS_TABLE (key TEXT NOT NULL, name TEXT, PRIMARY KEY(key))")
-                db.execSQL("INSERT INTO $LAUNCHABLE_CUSTOMIZATIONS_TABLE (key, name) VALUES ('$FAVORITE_KEY', 'Renamed')")
+                db.execSQL("CREATE TABLE ${LaunchableCustomization.TABLE_NAME} (key TEXT NOT NULL, name TEXT, PRIMARY KEY(key))")
+                db.execSQL("INSERT INTO ${LaunchableCustomization.TABLE_NAME} (key, name) VALUES ('$FAVORITE_KEY', 'Renamed')")
             }
         ) { db ->
             MIGRATION_16_17.migrate(db)
 
-            assertEquals(listOf("key", "name", "icon"), db.columnNames(table = LAUNCHABLE_CUSTOMIZATIONS_TABLE))
+            assertEquals(listOf("key", "name", "icon"), db.columnNames(table = LaunchableCustomization.TABLE_NAME))
             assertEquals("Renamed", db.launchableCustomizationName())
             assertEquals(null, db.launchableCustomizationIcon())
         }
@@ -190,7 +190,7 @@ class AppDatabaseMigrationTest {
         ) { db ->
             MIGRATION_17_18.migrate(db)
 
-            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
             val actualSwipeUp: Boolean = db.openSearchOnSwipeUp()
             val actualHomePress: Boolean = db.openSearchOnHomePress()
 
@@ -244,7 +244,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS,
                     Settings.COLUMN_SEARCH_SUGGESTIONS
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(true, db.searchSuggestions())
             assertEquals(false, db.openSearchOnSwipeUp())
@@ -255,7 +255,7 @@ class AppDatabaseMigrationTest {
             assertEquals("START", db.railSide())
             assertEquals(
                 listOf("key", "launch_count", "last_launched_at", "removed"),
-                db.columnNames(table = SEARCH_HISTORY_TABLE)
+                db.columnNames(table = SearchHistoryRecord.TABLE_NAME)
             )
         }
     }
@@ -295,7 +295,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_SEARCH_ENGINE,
                     Settings.COLUMN_SEARCH_ENGINE_TEMPLATE
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(true, db.searchCalculatorRow())
             assertEquals(true, db.searchWebRow())
@@ -354,7 +354,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_SEARCH_AUTO_LAUNCH,
                     Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(false, db.searchAutoLaunch())
             assertEquals(false, db.searchBottomAnchoredResults())
@@ -418,7 +418,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS,
                     Settings.COLUMN_SEARCH_CONTACTS
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(false, db.searchContacts())
             assertEquals(true, db.searchAutoLaunch())
@@ -485,7 +485,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_SEARCH_CONTACTS,
                     Settings.COLUMN_SEARCH_WEB_SUGGESTIONS
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(false, db.searchWebSuggestions())
             assertEquals(true, db.searchContacts())
@@ -529,7 +529,7 @@ class AppDatabaseMigrationTest {
                     Settings.COLUMN_SEARCH_WEB_SUGGESTIONS,
                     Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
             assertEquals(true, db.expandNotificationsOnSwipeDown())
             assertEquals(true, db.searchWebSuggestions())
@@ -539,10 +539,10 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun `adds the Launch count table and the App List order defaulting to Recently used and keeps the settings row`() {
+    fun `adds the Launch count table, the App List order defaulting to Recently used and Rank Folders by use defaulting to on`() {
         withDatabase(
-            name = APP_LIST_ORDER_DATABASE_NAME,
-            version = APP_LIST_ORDER_DATABASE_VERSION,
+            name = MIGRATION_24_25_DATABASE_NAME,
+            version = MIGRATION_24_25_DATABASE_VERSION,
             createTables = { db ->
                 db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, openSearchOnSwipeUp = false)
             }
@@ -554,49 +554,24 @@ class AppDatabaseMigrationTest {
                     "id",
                     "icon_pack",
                     Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
-                    Settings.COLUMN_APP_LIST_ORDER
-                ),
-                db.columnNames(table = SETTINGS_TABLE)
-            )
-            assertEquals(AppListOrder.DEFAULT.name, db.appListOrder())
-            assertEquals(false, db.openSearchOnSwipeUp())
-            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
-            assertEquals(
-                listOf("key", "launch_count", "recent_use_score", "score_updated_at"),
-                db.columnNames(table = LAUNCH_COUNTS_TABLE)
-            )
-        }
-    }
-
-    @Test
-    fun `adds the Rank Folders by use switch defaulting on and keeps the settings row`() {
-        withDatabase(
-            name = RANK_FOLDERS_BY_USE_DATABASE_NAME,
-            version = RANK_FOLDERS_BY_USE_DATABASE_VERSION,
-            createTables = { db ->
-                db.createSettingsRow(
-                    iconPack = TEST_ICON_PACK_PACKAGE,
-                    openSearchOnSwipeUp = false,
-                    appListOrder = AppListOrder.MOST_USED
-                )
-            }
-        ) { db ->
-            MIGRATION_25_26.migrate(db)
-
-            assertEquals(
-                listOf(
-                    "id",
-                    "icon_pack",
-                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
                     Settings.COLUMN_APP_LIST_ORDER,
                     Settings.COLUMN_RANK_FOLDERS_BY_USE
                 ),
-                db.columnNames(table = SETTINGS_TABLE)
+                db.columnNames(table = Settings.TABLE_NAME)
             )
+            assertEquals("RECENTLY_USED", db.appListOrder())
             assertEquals(true, db.rankFoldersByUse())
-            assertEquals(AppListOrder.MOST_USED.name, db.appListOrder())
             assertEquals(false, db.openSearchOnSwipeUp())
             assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(
+                listOf(
+                    TableColumn(name = "key", type = "TEXT", isNotNull = true, isPrimaryKey = true),
+                    TableColumn(name = "launch_count", type = "INTEGER", isNotNull = true, isPrimaryKey = false),
+                    TableColumn(name = "recent_use_score", type = "REAL", isNotNull = true, isPrimaryKey = false),
+                    TableColumn(name = "score_updated_at", type = "INTEGER", isNotNull = true, isPrimaryKey = false)
+                ),
+                db.tableColumns(table = LaunchCountRecord.TABLE_NAME)
+            )
         }
     }
 
@@ -615,7 +590,7 @@ class AppDatabaseMigrationTest {
         ) { db ->
             MIGRATION_15_16.migrate(db)
 
-            val actualColumns: List<String> = db.columnNames(table = SETTINGS_TABLE)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
             val actualRailSide: String = db.railSide()
             val actualScrubEdges: String = db.scrubEdges()
             val actualIconPack: String? = db.iconPack()
@@ -721,14 +696,14 @@ private fun assertOpensAfterMigration(version: Int) {
     val inputContext: Context = RuntimeEnvironment.getApplication()
     val inputDatabaseName: String = "$ROOM_OPEN_DATABASE_NAME-$version"
     createSchemaDatabase(name = inputDatabaseName, version = version) { db ->
-        db.execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack) VALUES (0, '$TEST_ICON_PACK_PACKAGE')")
+        db.execSQL("INSERT INTO ${Settings.TABLE_NAME} (id, icon_pack) VALUES (0, '$TEST_ICON_PACK_PACKAGE')")
     }
     val actualDatabase: AppDatabase = Room.databaseBuilder(inputContext, AppDatabase::class.java, inputDatabaseName)
         .addMigrations(*APP_DATABASE_MIGRATIONS)
         .build()
     try {
         val actualSettings: Triple<String?, String, String> = actualDatabase.openHelper.writableDatabase
-            .query("SELECT icon_pack, ${Settings.COLUMN_SEARCH_ENGINE}, ${Settings.COLUMN_APP_LIST_ORDER} FROM $SETTINGS_TABLE")
+            .query("SELECT icon_pack, ${Settings.COLUMN_SEARCH_ENGINE}, ${Settings.COLUMN_APP_LIST_ORDER} FROM ${Settings.TABLE_NAME}")
             .use { cursor ->
                 cursor.moveToFirst()
                 Triple(
@@ -763,8 +738,7 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     searchContacts: Boolean? = null,
     searchWebSuggestions: Boolean? = null,
     searchEngine: SearchEngine? = null,
-    searchEngineTemplate: String? = null,
-    appListOrder: AppListOrder? = null
+    searchEngineTemplate: String? = null
 ) {
     val columns: List<SettingsColumn> = listOfNotNull(
         hidePrivateSpaceWhenLocked?.let { value ->
@@ -811,45 +785,51 @@ private fun SupportSQLiteDatabase.createSettingsRow(
         },
         searchWebSuggestions?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
-        },
-        appListOrder?.let { value ->
-            SettingsColumn(
-                Settings.COLUMN_APP_LIST_ORDER,
-                "TEXT NOT NULL DEFAULT '${AppListOrder.DEFAULT.name}'",
-                "'${value.name}'"
-            )
         }
     )
     val definitions: String = columns.joinToString(separator = "") { column -> ", ${column.name} ${column.definition}" }
     val columnNames: String = columns.joinToString(separator = "") { column -> ", ${column.name}" }
     val values: String = columns.joinToString(separator = "") { column -> ", ${column.value}" }
-    execSQL("CREATE TABLE $SETTINGS_TABLE (id INTEGER NOT NULL, icon_pack TEXT$definitions, PRIMARY KEY(id))")
-    execSQL("INSERT INTO $SETTINGS_TABLE (id, icon_pack$columnNames) VALUES (0, '$iconPack'$values)")
+    execSQL("CREATE TABLE ${Settings.TABLE_NAME} (id INTEGER NOT NULL, icon_pack TEXT$definitions, PRIMARY KEY(id))")
+    execSQL("INSERT INTO ${Settings.TABLE_NAME} (id, icon_pack$columnNames) VALUES (0, '$iconPack'$values)")
 }
 
 private fun Boolean.toSql(): String = if (this) "1" else "0"
 
-private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = query("PRAGMA table_info($table)").use { cursor ->
+/** A table column a migration test reads, with the shape SQLite reports for it. */
+private data class TableColumn(val name: String, val type: String, val isNotNull: Boolean, val isPrimaryKey: Boolean)
+
+private fun SupportSQLiteDatabase.tableColumns(table: String): List<TableColumn> = query("PRAGMA table_info($table)").use { cursor ->
     cursor.moveToFirst()
     buildList {
         while (!cursor.isAfterLast) {
-            add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            add(
+                TableColumn(
+                    name = cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                    type = cursor.getString(cursor.getColumnIndexOrThrow("type")),
+                    isNotNull = cursor.getInt(cursor.getColumnIndexOrThrow("notnull")) != 0,
+                    isPrimaryKey = cursor.getInt(cursor.getColumnIndexOrThrow("pk")) != 0
+                )
+            )
             cursor.moveToNext()
         }
     }
 }
 
-private fun SupportSQLiteDatabase.favoriteKeys(): List<String> = query("SELECT key FROM $FAVORITES_TABLE ORDER BY position").use { cursor ->
-    cursor.moveToFirst()
-    buildList {
-        while (!cursor.isAfterLast) {
-            add(cursor.getString(cursor.getColumnIndexOrThrow("key")))
-            cursor.moveToNext()
+private fun SupportSQLiteDatabase.columnNames(table: String): List<String> = tableColumns(table).map { column -> column.name }
+
+private fun SupportSQLiteDatabase.favoriteKeys(): List<String> =
+    query("SELECT key FROM ${FavoriteRecord.TABLE_NAME} ORDER BY position").use { cursor ->
+        cursor.moveToFirst()
+        buildList {
+            while (!cursor.isAfterLast) {
+                add(cursor.getString(cursor.getColumnIndexOrThrow("key")))
+                cursor.moveToNext()
+            }
         }
     }
-}
 
-private fun SupportSQLiteDatabase.folderIds(): List<Long> = query("SELECT id FROM folders ORDER BY id").use { cursor ->
+private fun SupportSQLiteDatabase.folderIds(): List<Long> = query("SELECT id FROM ${FolderRecord.TABLE_NAME} ORDER BY id").use { cursor ->
     cursor.moveToFirst()
     buildList {
         while (!cursor.isAfterLast) {
@@ -860,124 +840,126 @@ private fun SupportSQLiteDatabase.folderIds(): List<Long> = query("SELECT id FRO
 }
 
 private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean =
-    query("SELECT ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED)) != 0
     }
 
-private fun SupportSQLiteDatabase.scrubEdges(): String = query("SELECT ${Settings.COLUMN_SCRUB_EDGES} FROM $SETTINGS_TABLE").use { cursor ->
-    cursor.moveToFirst()
-    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SCRUB_EDGES))
-}
+private fun SupportSQLiteDatabase.scrubEdges(): String =
+    query("SELECT ${Settings.COLUMN_SCRUB_EDGES} FROM ${Settings.TABLE_NAME}").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SCRUB_EDGES))
+    }
 
-private fun SupportSQLiteDatabase.railSide(): String = query("SELECT ${Settings.COLUMN_RAIL_SIDE} FROM $SETTINGS_TABLE").use { cursor ->
-    cursor.moveToFirst()
-    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_RAIL_SIDE))
-}
+private fun SupportSQLiteDatabase.railSide(): String =
+    query("SELECT ${Settings.COLUMN_RAIL_SIDE} FROM ${Settings.TABLE_NAME}").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_RAIL_SIDE))
+    }
 
 private fun SupportSQLiteDatabase.appListOrder(): String =
-    query("SELECT ${Settings.COLUMN_APP_LIST_ORDER} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_APP_LIST_ORDER} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_APP_LIST_ORDER))
     }
 
 private fun SupportSQLiteDatabase.rankFoldersByUse(): Boolean =
-    query("SELECT ${Settings.COLUMN_RANK_FOLDERS_BY_USE} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_RANK_FOLDERS_BY_USE} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_RANK_FOLDERS_BY_USE)) != 0
     }
 
 private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean =
-    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP)) != 0
     }
 
 private fun SupportSQLiteDatabase.openSearchOnHomePress(): Boolean =
-    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchSuggestions(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_SUGGESTIONS} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_SUGGESTIONS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchAutoLaunch(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_AUTO_LAUNCH)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchBottomAnchoredResults(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchCalculatorRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CALCULATOR_ROW)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchWebRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_WEB_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_WEB_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_ROW)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchPlayStoreRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_PLAY_STORE_ROW)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchContacts(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_CONTACTS} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_CONTACTS} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CONTACTS)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)) != 0
     }
 
 private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
-    query("SELECT ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)) != 0
     }
 
 private fun SupportSQLiteDatabase.searchEngine(): String =
-    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE))
     }
 
 private fun SupportSQLiteDatabase.searchEngineTemplate(): String? =
-    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} FROM $SETTINGS_TABLE").use { cursor ->
+    query("SELECT ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} FROM ${Settings.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE_TEMPLATE))
     }
 
-private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM $SETTINGS_TABLE").use { cursor ->
+private fun SupportSQLiteDatabase.iconPack(): String? = query("SELECT icon_pack FROM ${Settings.TABLE_NAME}").use { cursor ->
     cursor.moveToFirst()
     cursor.getString(cursor.getColumnIndexOrThrow("icon_pack"))
 }
 
 private fun SupportSQLiteDatabase.launchableCustomizationName(): String? =
-    query("SELECT name FROM $LAUNCHABLE_CUSTOMIZATIONS_TABLE").use { cursor ->
+    query("SELECT name FROM ${LaunchableCustomization.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow("name"))
     }
 
 private fun SupportSQLiteDatabase.launchableCustomizationIcon(): String? =
-    query("SELECT icon FROM $LAUNCHABLE_CUSTOMIZATIONS_TABLE").use { cursor ->
+    query("SELECT icon FROM ${LaunchableCustomization.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow("icon"))
     }

@@ -2,43 +2,43 @@ package core.data.room
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import core.data.folders.FolderRecord
+import core.data.launches.LaunchCountRecord
 import core.data.prefs.AppListOrder
+import core.data.prefs.LaunchableCustomization
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
+import core.data.search.SearchHistoryRecord
+import core.data.shortcuts.StandaloneShortcutRecord
 
-private const val FOLDERS_TABLE: String = "folders"
 private const val REBUILT_FOLDERS_TABLE: String = "folders_rebuilt"
 
 /** Removes the retired App List placement flag while keeping every Folder. */
 val MIGRATION_11_12: Migration = object : Migration(11, 12) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("CREATE TABLE $REBUILT_FOLDERS_TABLE (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL)")
-        db.execSQL("INSERT INTO $REBUILT_FOLDERS_TABLE (id) SELECT id FROM $FOLDERS_TABLE")
-        db.execSQL("DROP TABLE $FOLDERS_TABLE")
-        db.execSQL("ALTER TABLE $REBUILT_FOLDERS_TABLE RENAME TO $FOLDERS_TABLE")
+        db.execSQL("INSERT INTO $REBUILT_FOLDERS_TABLE (id) SELECT id FROM ${FolderRecord.TABLE_NAME}")
+        db.execSQL("DROP TABLE ${FolderRecord.TABLE_NAME}")
+        db.execSQL("ALTER TABLE $REBUILT_FOLDERS_TABLE RENAME TO ${FolderRecord.TABLE_NAME}")
     }
 }
-
-private const val SETTINGS_TABLE: String = "settings"
 
 /** Adds the switch that hides a Locked Private Space, leaving every other setting in place. */
 val MIGRATION_12_13: Migration = object : Migration(12, 13) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
         )
     }
 }
-
-private const val STANDALONE_SHORTCUTS_TABLE: String = "standalone_shortcuts"
 
 /** Adds the table that stores Standalone shortcut keys and when each was added. */
 val MIGRATION_13_14: Migration = object : Migration(13, 14) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "CREATE TABLE IF NOT EXISTS $STANDALONE_SHORTCUTS_TABLE " +
+            "CREATE TABLE IF NOT EXISTS ${StandaloneShortcutRecord.TABLE_NAME} " +
                 "(key TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(key))"
         )
     }
@@ -48,7 +48,7 @@ val MIGRATION_13_14: Migration = object : Migration(13, 14) {
 val MIGRATION_14_15: Migration = object : Migration(14, 15) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SCRUB_EDGES} TEXT NOT NULL DEFAULT '${ScrubEdges.DEFAULT.name}'"
         )
     }
 }
@@ -57,17 +57,15 @@ val MIGRATION_14_15: Migration = object : Migration(14, 15) {
 val MIGRATION_15_16: Migration = object : Migration(15, 16) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_RAIL_SIDE} TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_RAIL_SIDE} TEXT NOT NULL DEFAULT '${RailSide.DEFAULT.name}'"
         )
     }
 }
 
-private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
-
 /** Adds the nullable Custom icon to every stored Launchable customization. */
 val MIGRATION_16_17: Migration = object : Migration(16, 17) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE $LAUNCHABLE_CUSTOMIZATIONS_TABLE ADD COLUMN icon TEXT")
+        db.execSQL("ALTER TABLE ${LaunchableCustomization.TABLE_NAME} ADD COLUMN icon TEXT")
     }
 }
 
@@ -78,15 +76,13 @@ val MIGRATION_16_17: Migration = object : Migration(16, 17) {
 val MIGRATION_17_18: Migration = object : Migration(17, 18) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} INTEGER NOT NULL DEFAULT 1"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
         )
     }
 }
-
-private const val SEARCH_HISTORY_TABLE: String = "search_history"
 
 /**
  * Adds the Search suggestions switch, defaulting to on, and the table that stores Search history,
@@ -95,10 +91,10 @@ private const val SEARCH_HISTORY_TABLE: String = "search_history"
 val MIGRATION_18_19: Migration = object : Migration(18, 19) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
         )
         db.execSQL(
-            "CREATE TABLE IF NOT EXISTS $SEARCH_HISTORY_TABLE " +
+            "CREATE TABLE IF NOT EXISTS ${SearchHistoryRecord.TABLE_NAME} " +
                 "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, last_launched_at INTEGER NOT NULL, " +
                 "removed INTEGER NOT NULL, PRIMARY KEY(key))"
         )
@@ -113,19 +109,19 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
 val MIGRATION_19_20: Migration = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} INTEGER NOT NULL DEFAULT 1"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_ROW} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_ROW} INTEGER NOT NULL DEFAULT 1"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 0"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +
                 "DEFAULT '${SearchEngine.None.name}'"
         )
-        db.execSQL("ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} TEXT")
+        db.execSQL("ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE_TEMPLATE} TEXT")
     }
 }
 
@@ -136,10 +132,10 @@ val MIGRATION_19_20: Migration = object : Migration(19, 20) {
 val MIGRATION_20_21: Migration = object : Migration(20, 21) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} INTEGER NOT NULL DEFAULT 0"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} INTEGER NOT NULL DEFAULT 0"
         )
     }
 }
@@ -151,7 +147,7 @@ val MIGRATION_20_21: Migration = object : Migration(20, 21) {
 val MIGRATION_21_22: Migration = object : Migration(21, 22) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_CONTACTS} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_CONTACTS} INTEGER NOT NULL DEFAULT 0"
         )
     }
 }
@@ -163,7 +159,7 @@ val MIGRATION_21_22: Migration = object : Migration(21, 22) {
 val MIGRATION_22_23: Migration = object : Migration(22, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} INTEGER NOT NULL DEFAULT 0"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} INTEGER NOT NULL DEFAULT 0"
         )
     }
 }
@@ -174,39 +170,29 @@ val MIGRATION_22_23: Migration = object : Migration(22, 23) {
 val MIGRATION_23_24: Migration = object : Migration(23, 24) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} INTEGER NOT NULL DEFAULT 1"
         )
     }
 }
 
-private const val LAUNCH_COUNTS_TABLE: String = "launch_counts"
-
 /**
- * Adds the table that stores Launch counts and the App List order, defaulting to Recently used,
- * keeping every other setting.
+ * Adds the table that stores Launch counts and the App List order setting, defaulting to Recently
+ * used. Adds the Rank Folders by use setting, defaulting to on so Folders rank like the other
+ * Launchables, and keeps every other setting.
  */
 val MIGRATION_24_25: Migration = object : Migration(24, 25) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "CREATE TABLE IF NOT EXISTS $LAUNCH_COUNTS_TABLE " +
+            "CREATE TABLE IF NOT EXISTS ${LaunchCountRecord.TABLE_NAME} " +
                 "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, recent_use_score REAL NOT NULL, " +
                 "score_updated_at INTEGER NOT NULL, PRIMARY KEY(key))"
         )
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_APP_LIST_ORDER} TEXT NOT NULL " +
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_APP_LIST_ORDER} TEXT NOT NULL " +
                 "DEFAULT '${AppListOrder.DEFAULT.name}'"
         )
-    }
-}
-
-/**
- * Adds the Rank Folders by use switch, defaulting to on so Folders rank like the other
- * Launchables, and keeps every other setting.
- */
-val MIGRATION_25_26: Migration = object : Migration(25, 26) {
-    override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
-            "ALTER TABLE $SETTINGS_TABLE ADD COLUMN ${Settings.COLUMN_RANK_FOLDERS_BY_USE} INTEGER NOT NULL DEFAULT 1"
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_RANK_FOLDERS_BY_USE} INTEGER NOT NULL DEFAULT 1"
         )
     }
 }
@@ -226,6 +212,5 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_21_22,
     MIGRATION_22_23,
     MIGRATION_23_24,
-    MIGRATION_24_25,
-    MIGRATION_25_26
+    MIGRATION_24_25
 )
