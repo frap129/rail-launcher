@@ -1413,7 +1413,7 @@ private fun displayMaxOffsetDp(context: Context): Int {
 }
 
 /** What the Appearance screen asks its host to change. */
-data class SettingsAppearanceActions(
+class SettingsAppearanceActions(
     val onIconPackSelected: (IconPack) -> Unit,
     val onResetCustomIcons: () -> Unit,
     val onAppListOrderSelected: (AppListOrder) -> Unit,

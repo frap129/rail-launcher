@@ -15,8 +15,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,9 +42,8 @@ class LauncherLaunchPathTest {
 
     @Test
     fun `a launch reaches onLaunched`() {
-        val actualLaunched: Boolean = launch(launchable = mockLaunchable)
+        launch(launchable = mockLaunchable)
 
-        assertTrue(actualLaunched)
         verify { mockViewModel.onLaunched(mockLaunchable) }
     }
 
@@ -54,18 +51,18 @@ class LauncherLaunchPathTest {
     fun `a disabled Launchable neither launches nor records a Launch count`() {
         every { mockLaunchable.isDisabled } returns true
 
-        val actualLaunched: Boolean = launch(launchable = mockLaunchable)
+        launch(launchable = mockLaunchable)
 
-        assertNotLaunched(actualLaunched = actualLaunched)
+        assertNotLaunched()
     }
 
     @Test
     fun `a declined Paused prompt neither launches nor records a Launch count`() {
         every { mockViewModel.requestLaunch(mockLaunchable) } returns false
 
-        val actualLaunched: Boolean = launch(launchable = mockLaunchable)
+        launch(launchable = mockLaunchable)
 
-        assertNotLaunched(actualLaunched = actualLaunched)
+        assertNotLaunched()
     }
 
     @Test
@@ -73,14 +70,20 @@ class LauncherLaunchPathTest {
         every { mockLaunchable.launch(any()) } throws ActivityNotFoundException()
         var actualFailed: Launchable? = null
 
-        val actualLaunched: Boolean = launch(
+        launch(
             launchable = mockLaunchable,
             effects = effects(onLaunchFailed = { launchable -> actualFailed = launchable })
         )
 
-        assertFalse(actualLaunched)
         assertEquals(mockLaunchable, actualFailed)
-        verify(exactly = 0) { mockViewModel.onLaunched(any()) }
+        assertNoLaunchRecorded()
+    }
+
+    @Test
+    fun `launching a Folder neither launches nor records a Launch count`() {
+        launch(launchable = inputFolder)
+
+        assertNotLaunched()
     }
 
     @Test
@@ -106,9 +109,8 @@ class LauncherLaunchPathTest {
     fun `opening a Folder's Pop-up records its Launch count once`() {
         every { mockPopupCard.open(inputFolder, TEST_INPUT_ANCHOR) } returns true
 
-        val actualOpened: Boolean = openPopup(launchable = inputFolder)
+        openPopup(launchable = inputFolder)
 
-        assertTrue(actualOpened)
         verify(exactly = 1) { mockViewModel.onFolderPopupOpened(inputFolder) }
     }
 
@@ -116,9 +118,8 @@ class LauncherLaunchPathTest {
     fun `a Folder Pop-up that does not open records no Launch count`() {
         every { mockPopupCard.open(inputFolder, TEST_INPUT_ANCHOR) } returns false
 
-        val actualOpened: Boolean = openPopup(launchable = inputFolder)
+        openPopup(launchable = inputFolder)
 
-        assertFalse(actualOpened)
         verify(exactly = 0) { mockViewModel.onFolderPopupOpened(any()) }
     }
 
@@ -126,26 +127,32 @@ class LauncherLaunchPathTest {
     fun `opening an App's Pop-up records no Launch count`() {
         every { mockPopupCard.open(inputApp, TEST_INPUT_ANCHOR) } returns true
 
-        val actualOpened: Boolean = openPopup(launchable = inputApp)
+        openPopup(launchable = inputApp)
 
-        assertTrue(actualOpened)
         verify(exactly = 0) { mockViewModel.onFolderPopupOpened(any()) }
     }
 
-    private fun launch(launchable: Launchable, context: Context = mockContext, effects: LaunchItemEffects = effects()): Boolean =
+    private fun launch(launchable: Launchable, context: Context = mockContext, effects: LaunchItemEffects = effects()) {
         launchLauncherItem(launchable = launchable, context = context, viewModel = mockViewModel, effects = effects)
+    }
 
-    private fun openPopup(launchable: Launchable): Boolean = openLauncherItemPopup(
-        launchable = launchable,
-        anchor = TEST_INPUT_ANCHOR,
-        popupCard = mockPopupCard,
-        viewModel = mockViewModel
-    )
+    private fun openPopup(launchable: Launchable) {
+        openLauncherItemPopup(
+            launchable = launchable,
+            anchor = TEST_INPUT_ANCHOR,
+            popupCard = mockPopupCard,
+            viewModel = mockViewModel
+        )
+    }
 
     /** Asserts a launch that did not happen neither opened nor reached onLaunched, so it records no Launch count. */
-    private fun assertNotLaunched(actualLaunched: Boolean) {
-        assertFalse(actualLaunched)
+    private fun assertNotLaunched() {
         verify(exactly = 0) { mockLaunchable.launch(any()) }
+        assertNoLaunchRecorded()
+    }
+
+    /** Asserts onLaunched was not reached, so no Launch count was recorded. */
+    private fun assertNoLaunchRecorded() {
         verify(exactly = 0) { mockViewModel.onLaunched(any()) }
     }
 

@@ -501,55 +501,48 @@ internal class LaunchItemEffects(
 
 /**
  * The launcher's single launch path, shared by rows, Favorites, Pop-ups and Tap actions.
- * Reports whether [launchable] opened, so only a launch that happened reaches onLaunched.
+ * Reaches onLaunched only when [launchable] opened.
  */
-internal fun launchLauncherItem(
-    launchable: Launchable,
-    context: Context,
-    viewModel: LauncherViewModel,
-    effects: LaunchItemEffects
-): Boolean {
+internal fun launchLauncherItem(launchable: Launchable, context: Context, viewModel: LauncherViewModel, effects: LaunchItemEffects) {
     if (launchable is Folder) {
-        return false
+        return
     }
     if (viewModel.isSearchOpen()) {
         effects.onHideKeyboard()
     }
     if (launchable.isDisabled) {
         effects.onDisabledLaunch()
-        return false
+        return
     }
     if (!viewModel.requestLaunch(launchable)) {
-        return false
+        return
     }
     effects.onPopupLaunched()
     val didLaunch: Boolean = attemptLaunch { launchable.launch(context) }
     if (!didLaunch) {
         effects.onLaunchFailed(launchable)
-        return false
+        return
     }
     viewModel.onLaunched(launchable)
     effects.onHomeIntent()
-    return true
 }
 
 /**
  * The launcher's single Pop-up open path, shared by rows, Favorites and Search results.
- * Records a Launch count only for a Folder's Pop-up that opened, and returns whether it opened.
+ * Records a Launch count only for a Folder's Pop-up that opened.
  */
 internal fun openLauncherItemPopup(
     launchable: Launchable,
     anchor: PopupAnchor?,
     popupCard: PopupCardViewModel,
     viewModel: LauncherViewModel
-): Boolean {
+) {
     if (!popupCard.open(owner = launchable, anchor = anchor)) {
-        return false
+        return
     }
     if (launchable is Folder) {
         viewModel.onFolderPopupOpened(folder = launchable)
     }
-    return true
 }
 
 private class WidgetEventCallbacks(
