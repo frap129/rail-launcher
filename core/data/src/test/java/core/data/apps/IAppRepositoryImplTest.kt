@@ -128,6 +128,23 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `carries each App's removability`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile)).apply {
+            setActivities(
+                user = personalUser,
+                activities = arrayOf(
+                    profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser, isRemovable = false)
+                )
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApp: App = loadApps(repository = repository).single()
+
+        assertFalse(actualApp.isRemovable)
+    }
+
+    @Test
     fun `marks Apps unavailable when their Profile pauses and available again when it resumes`() = databaseTest {
         val inputState: ProfileSourceState = baseState()
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
@@ -672,13 +689,15 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         label: String = packageName,
         badgedLabel: String = label,
         activityClass: String = "$packageName.MainActivity",
-        firstInstallTime: Long = 0
+        firstInstallTime: Long = 0,
+        isRemovable: Boolean = true
     ): ProfileActivity = ProfileActivity(
         componentName = ComponentName(packageName, activityClass),
         user = user,
         label = label,
         badgedLabel = badgedLabel,
-        firstInstallTime = firstInstallTime
+        firstInstallTime = firstInstallTime,
+        isRemovable = isRemovable
     )
 }
 

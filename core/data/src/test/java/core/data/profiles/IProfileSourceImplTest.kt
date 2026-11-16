@@ -3,6 +3,7 @@ package core.data.profiles
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.LauncherUserInfo
@@ -260,6 +261,53 @@ class IProfileSourceImplTest {
     }
 
     @Test
+    fun `marks Apps removable unless they are unmodified system Apps`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getActivityList(null, workUser) } returns listOf(
+            mockActivityInfo(applicationInfo = ApplicationInfo()),
+            mockActivityInfo(
+                applicationInfo = ApplicationInfo().apply {
+                    flags = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+                }
+            ),
+            mockActivityInfo(
+                applicationInfo = ApplicationInfo().apply {
+                    flags = ApplicationInfo.FLAG_SYSTEM
+                }
+            )
+        )
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualRemovability: List<Boolean> = source.activities(workUser).map { activity -> activity.isRemovable }
+
+        assertEquals(listOf(true, true, false), actualRemovability)
+    }
+
+    @Test
+    fun `hides uninstall when a Profile restricts it or its restrictions cannot be read`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.profiles } returns listOf(personalUser, workUser, privateUser, otherUser)
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val mockUserManager: UserManager = mockk(relaxed = true)
+        every { mockUserManager.getUserRestrictions(personalUser) } returns Bundle().apply {
+            putBoolean(UserManager.DISALLOW_APPS_CONTROL, true)
+        }
+        every { mockUserManager.getUserRestrictions(privateUser) } returns Bundle().apply {
+            putBoolean(UserManager.DISALLOW_UNINSTALL_APPS, true)
+        }
+        every { mockUserManager.getUserRestrictions(otherUser) } returns Bundle()
+        every { mockUserManager.getUserRestrictions(workUser) } throws SecurityException()
+        shadowOf(application).setSystemService(Context.USER_SERVICE, mockUserManager)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        assertTrue(source.canUninstall(otherUser))
+        assertFalse(source.canUninstall(personalUser))
+        assertFalse(source.canUninstall(privateUser))
+        assertFalse(source.canUninstall(workUser))
+    }
+
+    @Test
     fun `loads an application icon for a non-personal Profile`() {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.getApplicationInfo(APP_PACKAGE_NAME, 0, workUser) } returns application.applicationInfo
@@ -311,6 +359,12 @@ class IProfileSourceImplTest {
 
         every { mockUserManager.requestQuietModeEnabled(true, workUser) } throws IllegalArgumentException()
         assertEquals(QuietRequestResult.Failed, source.requestQuiet(user = workUser, quiet = true))
+    }
+
+    private fun mockActivityInfo(applicationInfo: ApplicationInfo): LauncherActivityInfo {
+        val mockActivityInfo: LauncherActivityInfo = mockk(relaxed = true)
+        every { mockActivityInfo.applicationInfo } returns applicationInfo
+        return mockActivityInfo
     }
 
     private fun launcherUserInfo(user: UserHandle, userType: String): LauncherUserInfo {

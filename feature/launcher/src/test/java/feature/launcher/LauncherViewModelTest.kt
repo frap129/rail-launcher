@@ -43,6 +43,7 @@ import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
+import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.PopupRepositoryState
 import core.data.testing.ProfileSourceState
@@ -622,12 +623,57 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(inputItem)
-                assertEquals(
-                    LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
-                    expectMostRecentItem()
-                )
+                assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
             }
         }
+    }
+
+    @Test
+    fun `offers uninstall for a removable App when its Profile allows it`() = runTest {
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+
+        assertCanUninstall(item = inputApp, expected = true)
+    }
+
+    @Test
+    fun `hides uninstall for a system App`() = runTest {
+        val inputApp: App = createApp(name = "Settings", packageName = "com.android.settings", isRemovable = false)
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+
+        assertCanUninstall(item = inputApp, expected = false)
+    }
+
+    @Test
+    fun `hides uninstall for an App whose Profile restricts it`() = runTest {
+        val inputProfile: ProfileInfo = createProfileInfo(userId = PERSONAL_USER_ID)
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app", profileInfo = inputProfile)
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile)).apply {
+            uninstallRestrictedUsers += inputProfile.user
+        }
+        val viewModel: LauncherViewModel = createViewModel(
+            mockProfileSource = createProfileSourceMock(state = inputProfileState)
+        )
+
+        assertCanUninstall(item = inputApp, expected = false, viewModel = viewModel)
+    }
+
+    @Test
+    fun `hides uninstall for a Shortcut`() = runTest {
+        val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
+
+        assertCanUninstall(item = fixture.shortcut, expected = false, viewModel = fixture.viewModel)
+    }
+
+    @Test
+    fun `hides uninstall for a Standalone shortcut or Folder`() = runTest {
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site")
+        val inputFolder: Folder = Folder(folderId = 1L)
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputShortcut, inputFolder))
+
+        assertCanUninstall(item = inputShortcut, expected = false)
+        assertCanUninstall(item = inputFolder, expected = false)
     }
 
     @Test
@@ -704,10 +750,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(inputItem, RENAMED_NAME)
-                assertEquals(
-                    LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
-                    expectMostRecentItem()
-                )
+                assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
             }
         }
     }
@@ -796,10 +839,7 @@ class LauncherViewModelTest {
                 expectAppList()
                 viewModel.menuState.test {
                     viewModel.openItemMenu(inputItem)
-                    assertEquals(
-                        LauncherMenuState.Menu(item = inputItem, isSearchSuggestion = false, isStandaloneShortcut = false),
-                        expectMostRecentItem()
-                    )
+                    assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
                 }
             }
         }
@@ -1218,10 +1258,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             viewModel.openItemMenu(inputPausedApp)
-            assertEquals(
-                LauncherMenuState.Menu(item = inputPausedApp, isSearchSuggestion = false, isStandaloneShortcut = false),
-                expectMostRecentItem()
-            )
+            assertEquals(menuStateOf(item = inputPausedApp, canUninstall = true), expectMostRecentItem())
         }
     }
 
@@ -3391,6 +3428,25 @@ class LauncherViewModelTest {
             mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
         )
         return ShortcutSearchFixture(publisher = inputPublisher, shortcut = inputShortcut, viewModel = viewModel)
+    }
+
+    private fun menuStateOf(item: Launchable, canUninstall: Boolean = false): LauncherMenuState.Menu = LauncherMenuState.Menu(
+        item = item,
+        isSearchSuggestion = false,
+        isStandaloneShortcut = false,
+        canUninstall = canUninstall
+    )
+
+    private suspend fun TestScope.assertCanUninstall(
+        item: Launchable,
+        expected: Boolean,
+        viewModel: LauncherViewModel = createViewModel()
+    ) {
+        viewModel.menuState.test {
+            viewModel.openItemMenu(item)
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertEquals(expected, actualMenu.canUninstall)
+        }
     }
 
     private fun TestScope.createViewModel(

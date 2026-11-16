@@ -13,6 +13,7 @@ import android.content.pm.LauncherUserInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -187,6 +188,14 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         }
     }
 
+    override fun canUninstall(user: UserHandle): Boolean = runCatching {
+        val restrictions: Bundle = userManager.getUserRestrictions(user)
+        !restrictions.getBoolean(UserManager.DISALLOW_UNINSTALL_APPS, false) &&
+            !restrictions.getBoolean(UserManager.DISALLOW_APPS_CONTROL, false)
+    }.onFailure { exception ->
+        Timber.w("Could not read uninstall restrictions for %s: %s", user, exception.logTypeName())
+    }.getOrDefault(false)
+
     private fun loadProfiles(): List<ProfileInfo>? {
         val users: List<UserHandle> = runCatching { launcherApps.profiles }
             .onFailure { exception -> Timber.w(exception, "Could not read the Profiles") }
@@ -245,7 +254,8 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
                 user = activity.user,
                 label = label,
                 badgedLabel = badgedLabel(label = label, user = activity.user),
-                firstInstallTime = activity.firstInstallTime
+                firstInstallTime = activity.firstInstallTime,
+                isRemovable = activity.applicationInfo.isRemovable()
             )
         }
     }
@@ -312,3 +322,7 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         const val PROFILE_CHANGE_BUFFER: Int = 64
     }
 }
+
+// An updated System App can be uninstalled back to its factory version; other System Apps cannot be removed.
+private fun ApplicationInfo.isRemovable(): Boolean =
+    flags and ApplicationInfo.FLAG_SYSTEM == 0 || flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0

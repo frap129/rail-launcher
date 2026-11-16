@@ -66,9 +66,7 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
     ) {
         when (val currentMenuState: LauncherMenuState = menuState) {
             is LauncherMenuState.Menu -> LauncherItemMenu(
-                item = currentMenuState.item,
-                isSearchSuggestion = currentMenuState.isSearchSuggestion,
-                isStandaloneShortcut = currentMenuState.isStandaloneShortcut,
+                menu = currentMenuState,
                 viewModel = viewModel,
                 collaborators = collaborators
             )
@@ -81,13 +79,8 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
 }
 
 @Composable
-internal fun LauncherItemMenu(
-    item: Launchable,
-    isSearchSuggestion: Boolean,
-    isStandaloneShortcut: Boolean,
-    viewModel: LauncherViewModel,
-    collaborators: IPopupCollaborators
-) {
+internal fun LauncherItemMenu(menu: LauncherMenuState.Menu, viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
+    val item: Launchable = menu.item
     val context: Context = LocalContext.current
     val editor: IPopupEditor = collaborators.editor
     val folderActions: IPopupFolderActions = collaborators.folder
@@ -113,7 +106,7 @@ internal fun LauncherItemMenu(
         label = stringResource(R.string.edit_favorites),
         onClick = { viewModel.editFavorites() }
     )
-    if (isSearchSuggestion) {
+    if (menu.isSearchSuggestion) {
         SheetActionRow(
             imageVector = FontAwesomeIcons.Solid.TimesCircle,
             label = stringResource(R.string.remove_from_suggestions),
@@ -124,6 +117,7 @@ internal fun LauncherItemMenu(
         is App -> AppMenuActions(
             item = item,
             context = context,
+            canUninstall = menu.canUninstall,
             viewModel = viewModel,
             editor = editor,
             folderActions = folderActions
@@ -141,7 +135,7 @@ internal fun LauncherItemMenu(
             context = context,
             viewModel = viewModel,
             folderActions = folderActions,
-            isStandalone = isStandaloneShortcut
+            isStandalone = menu.isStandaloneShortcut
         )
 
         else -> AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
@@ -152,6 +146,7 @@ internal fun LauncherItemMenu(
 private fun AppMenuActions(
     item: App,
     context: Context,
+    canUninstall: Boolean,
     viewModel: LauncherViewModel,
     editor: IPopupEditor,
     folderActions: IPopupFolderActions
@@ -170,6 +165,16 @@ private fun AppMenuActions(
         label = stringResource(CoreUiR.string.app_info),
         onClick = { item.openAppInfo(context) }
     )
+    if (canUninstall) {
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.TrashAlt,
+            label = stringResource(R.string.uninstall),
+            onClick = {
+                viewModel.closeItemMenu()
+                item.requestUninstall(context)
+            }
+        )
+    }
 }
 
 @Composable

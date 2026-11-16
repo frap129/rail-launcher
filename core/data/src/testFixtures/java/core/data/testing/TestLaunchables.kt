@@ -43,7 +43,8 @@ fun createApp(
     profileInfo: ProfileInfo = createProfileInfo(userId = TEST_APP_USER_ID),
     badgedLabel: String = name,
     customName: String = name,
-    firstInstallTime: Long = 0L
+    firstInstallTime: Long = 0L,
+    isRemovable: Boolean = true
 ): App = App(
     defaultName = name,
     profileInfo = profileInfo,
@@ -51,7 +52,8 @@ fun createApp(
     badgedLabel = badgedLabel,
     name = customName,
     isPackageRepresentative = true,
-    firstInstallTime = firstInstallTime
+    firstInstallTime = firstInstallTime,
+    isRemovable = isRemovable
 )
 
 /** The stored key format used before Apps were keyed by launcher activity: package name and Profile. */

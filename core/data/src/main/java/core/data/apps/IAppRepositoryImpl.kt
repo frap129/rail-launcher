@@ -152,6 +152,7 @@ class IAppRepositoryImpl(
         componentName = componentName,
         badgedLabel = badgedLabel,
         isPackageRepresentative = isPackageRepresentative,
-        firstInstallTime = firstInstallTime
+        firstInstallTime = firstInstallTime,
+        isRemovable = isRemovable
     )
 }

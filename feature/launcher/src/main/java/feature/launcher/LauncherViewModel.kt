@@ -5,6 +5,7 @@ import android.os.UserHandle
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.IFolderRepository
 import core.data.launchables.ILaunchableRepository
@@ -129,7 +130,10 @@ private enum class LauncherMode {
 
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
-    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean, val isStandaloneShortcut: Boolean) : LauncherMenuState()
+
+    data class Menu(val item: Launchable, val isSearchSuggestion: Boolean, val isStandaloneShortcut: Boolean, val canUninstall: Boolean) :
+        LauncherMenuState()
+
     data class Rename(val item: Launchable) : LauncherMenuState()
 }
 
@@ -579,7 +583,8 @@ class LauncherViewModel(
             LauncherMenuState.Menu(
                 item = resolvedItem,
                 isSearchSuggestion = request.isSearchSuggestion,
-                isStandaloneShortcut = launchable is ShortcutLaunchable
+                isStandaloneShortcut = launchable is ShortcutLaunchable,
+                canUninstall = (resolvedItem as? App)?.canUninstall(profileSource) == true
             )
         }
     }
