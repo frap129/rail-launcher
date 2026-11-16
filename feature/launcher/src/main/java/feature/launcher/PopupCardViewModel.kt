@@ -432,17 +432,19 @@ class PopupCardViewModel(
         )
     }
 
-    fun open(owner: Launchable, anchor: PopupAnchor?) {
+    /** Opens the card for [owner] at [anchor]; returns whether it opened. */
+    fun open(owner: Launchable, anchor: PopupAnchor?): Boolean {
         if (homeEditState.mode.value != HomeEditMode.None) {
-            return
+            return false
         }
-        val target: ShortcutTarget = targetFor(owner) ?: return
+        val target: ShortcutTarget = targetFor(owner) ?: return false
         menuTarget.value = null
         session.onCardOpened()
         notificationExpansion.value = emptyMap()
         sentNotifications.value = emptySet()
         cardShortcuts.value = EMPTY_SHORTCUTS
         openRequest.value = OpenRequest(target = target, anchor = anchor)
+        return true
     }
 
     override fun close() {

@@ -248,7 +248,7 @@ class LaunchableGroupsTest {
 
         val actualGroup: LaunchableGroup = listOf(inputAzure, inputAmber, inputAlpine, inputAlfred).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+            ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
         )[1]
 
         assertEquals(
@@ -281,37 +281,77 @@ class LaunchableGroupsTest {
 
         val actualGroup: LaunchableGroup = listOf(inputOlder, inputRecent).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            ranking = AppListRanking.RecentlyUsed(launchCountsByKey = inputCounts, nowEpochMs = TEST_NOW_EPOCH_MS)
+            ranking = AppListRanking.RecentlyUsed(
+                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false),
+                nowEpochMs = TEST_NOW_EPOCH_MS
+            )
         )[1]
 
         assertEquals(LaunchableGroup.InitialGroup(label = "O", items = listOf(inputRecent, inputOlder)), actualGroup)
     }
 
     @Test
-    fun `Most used keeps Folders last in their current order`() {
-        val inputApp: Launchable = createLaunchable("Beta")
-        val inputOtherApp: Launchable = createLaunchable("Bouncer")
-        val inputFirstFolder: Folder = Folder(folderId = 1L, name = "Bravo folder")
-        val inputSecondFolder: Folder = Folder(folderId = 2L, name = "Boulder folder")
-        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputApp.key to createLaunchCount(key = inputApp.key, launchCount = 1),
-            inputOtherApp.key to createLaunchCount(key = inputOtherApp.key, launchCount = 2),
-            inputFirstFolder.key to createLaunchCount(key = inputFirstFolder.key, launchCount = 99),
-            inputSecondFolder.key to createLaunchCount(key = inputSecondFolder.key, launchCount = 98)
-        )
+    fun `Most used keeps Folders last when Rank Folders by use is off`() {
+        assertFoldersLast { usage -> AppListRanking.MostUsed(usage = usage) }
+    }
 
-        val actualGroup: LaunchableGroup = listOf(inputFirstFolder, inputSecondFolder, inputApp, inputOtherApp).toLaunchableGroups(
+    @Test
+    fun `Recently used keeps Folders last when Rank Folders by use is off`() {
+        assertFoldersLast { usage -> AppListRanking.RecentlyUsed(usage = usage, nowEpochMs = TEST_NOW_EPOCH_MS) }
+    }
+
+    @Test
+    fun `Most used ranks Folders by their Launch count when Rank Folders by use is on`() {
+        val inputFixture: FolderRankingFixture = createFolderRankingFixture()
+
+        val actualGroup: LaunchableGroup = inputFixture.items.toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+            ranking = AppListRanking.MostUsed(
+                usage = inputFixture.createUsage(
+                    firstFolderCount = 3,
+                    secondFolderCount = 4,
+                    rankFoldersByUse = true
+                )
+            )
         )[1]
 
         assertEquals(
             LaunchableGroup.InitialGroup(
                 label = "B",
-                items = listOf(inputOtherApp, inputApp, inputFirstFolder, inputSecondFolder)
+                items = listOf(inputFixture.secondFolder, inputFixture.firstFolder, inputFixture.otherApp, inputFixture.app)
             ),
             actualGroup
         )
+    }
+
+    @Test
+    fun `Recently used ranks a Folder by its Recent use score when Rank Folders by use is on`() {
+        val inputApp: Launchable = createLaunchable("Beta")
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Boulder folder")
+        val inputCounts: Map<String, LaunchCountRecord> = mapOf(
+            inputApp.key to createLaunchCount(
+                key = inputApp.key,
+                launchCount = 10,
+                recentUseScore = 10.0,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
+            ),
+            inputFolder.key to createLaunchCount(
+                key = inputFolder.key,
+                launchCount = 1,
+                recentUseScore = 3.0,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS
+            )
+        )
+
+        val actualGroup: LaunchableGroup = listOf(inputApp, inputFolder).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = AppListRanking.RecentlyUsed(
+                usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = true),
+                nowEpochMs = TEST_NOW_EPOCH_MS
+            )
+        )[1]
+
+        assertEquals(LaunchableGroup.InitialGroup(label = "B", items = listOf(inputFolder, inputApp)), actualGroup)
     }
 
     @Test
@@ -326,7 +366,7 @@ class LaunchableGroupsTest {
         val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputAlpha, inputZulu).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true),
-            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+            ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
 
         assertEquals(listOf(inputZulu, inputAlpha), actualGroup.items)
@@ -342,12 +382,56 @@ class LaunchableGroupsTest {
 
         val actualGroups: List<LaunchableGroup> = listOf(inputZulu, inputAlpha).toLaunchableGroups(
             builtinGroup = inputBuiltinGroup,
-            ranking = AppListRanking.MostUsed(launchCountsByKey = inputCounts)
+            ranking = AppListRanking.MostUsed(usage = createUsage(launchCountsByKey = inputCounts, rankFoldersByUse = false))
         )
 
         assertEquals(listOf("★", "A", "Z", "⌂"), actualGroups.map { group -> group.label })
         assertEquals(inputBuiltinGroup, actualGroups.last())
     }
+
+    private fun assertFoldersLast(ranking: (AppListUsage) -> AppListRanking) {
+        val inputFixture: FolderRankingFixture = createFolderRankingFixture()
+
+        val actualGroup: LaunchableGroup = inputFixture.items.toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            ranking = ranking(
+                inputFixture.createUsage(
+                    firstFolderCount = 99,
+                    secondFolderCount = 98,
+                    rankFoldersByUse = false
+                )
+            )
+        )[1]
+
+        assertEquals(
+            LaunchableGroup.InitialGroup(
+                label = "B",
+                items = listOf(inputFixture.otherApp, inputFixture.app, inputFixture.firstFolder, inputFixture.secondFolder)
+            ),
+            actualGroup
+        )
+    }
+
+    private fun createFolderRankingFixture(): FolderRankingFixture = FolderRankingFixture(
+        app = createLaunchable("Beta"),
+        otherApp = createLaunchable("Bouncer"),
+        firstFolder = Folder(folderId = 1L, name = "Bravo folder"),
+        secondFolder = Folder(folderId = 2L, name = "Boulder folder")
+    )
+
+    private fun FolderRankingFixture.createUsage(firstFolderCount: Int, secondFolderCount: Int, rankFoldersByUse: Boolean): AppListUsage =
+        AppListUsage(
+            launchCountsByKey = mapOf(
+                app.key to createLaunchCount(key = app.key, launchCount = 1),
+                otherApp.key to createLaunchCount(key = otherApp.key, launchCount = 2),
+                firstFolder.key to createLaunchCount(key = firstFolder.key, launchCount = firstFolderCount),
+                secondFolder.key to createLaunchCount(key = secondFolder.key, launchCount = secondFolderCount)
+            ),
+            rankFoldersByUse = rankFoldersByUse
+        )
+
+    private fun createUsage(launchCountsByKey: Map<String, LaunchCountRecord>, rankFoldersByUse: Boolean): AppListUsage =
+        AppListUsage(launchCountsByKey = launchCountsByKey, rankFoldersByUse = rankFoldersByUse)
 
     private fun createLaunchCount(
         key: String,
@@ -366,4 +450,8 @@ class LaunchableGroupsTest {
         defaultIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID),
         deeplink = "rail-launcher://$name"
     )
+}
+
+private data class FolderRankingFixture(val app: Launchable, val otherApp: Launchable, val firstFolder: Folder, val secondFolder: Folder) {
+    val items: List<Launchable> get() = listOf(firstFolder, secondFolder, app, otherApp)
 }

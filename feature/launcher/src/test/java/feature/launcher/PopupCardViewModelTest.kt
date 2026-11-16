@@ -426,8 +426,9 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val viewModel: PopupCardViewModel = createCard()
         viewModel.popupState.test {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
-            viewModel.open(inputApp, TEST_INPUT_ANCHOR)
+            val actualOpened: Boolean = viewModel.open(inputApp, TEST_INPUT_ANCHOR)
             val actualState: PopupUiState.Open = expectMostRecentItem() as PopupUiState.Open
+            assertTrue(actualOpened)
             assertEquals(inputApp, actualState.owner)
             assertEquals(TEST_INPUT_ANCHOR, actualState.anchor)
             assertEquals(PopupEmptyReason.Empty, actualState.content.emptyReason)
@@ -472,7 +473,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val viewModel: PopupCardViewModel = createCard()
         viewModel.popupState.test {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
-            viewModel.open(inputRailLaunchable, TEST_INPUT_ANCHOR)
+            assertFalse(viewModel.open(inputRailLaunchable, TEST_INPUT_ANCHOR))
             runCurrent()
             expectNoEvents()
         }
@@ -484,7 +485,7 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
         val viewModel: PopupCardViewModel = createCard()
         viewModel.popupState.test {
             assertEquals(PopupUiState.Closed, expectMostRecentItem())
-            viewModel.open(inputApp, TEST_INPUT_ANCHOR)
+            assertFalse(viewModel.open(inputApp, TEST_INPUT_ANCHOR))
             runCurrent()
             expectNoEvents()
         }

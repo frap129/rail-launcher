@@ -4,7 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-/** The launches Rail recorded for one Launchable or Shortcut key. */
+/** The launches Rail recorded for one Launchable or Shortcut key, or Pop-up opens for a Folder key. */
 @Entity(tableName = "launch_counts")
 data class LaunchCountRecord(
     @PrimaryKey val key: String,

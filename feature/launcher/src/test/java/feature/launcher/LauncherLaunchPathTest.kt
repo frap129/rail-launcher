@@ -5,9 +5,11 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.pm.LauncherApps
 import core.data.apps.model.App
+import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
+import core.data.testing.createApp
 import core.data.testing.createPrivateApp
 import io.mockk.every
 import io.mockk.mockk
@@ -28,7 +30,10 @@ import org.robolectric.annotation.Config
 class LauncherLaunchPathTest {
     private val mockContext: Context = mockk(relaxed = true)
     private val mockViewModel: LauncherViewModel = mockk(relaxed = true)
+    private val mockPopupCard: PopupCardViewModel = mockk(relaxed = true)
     private val mockLaunchable: Launchable = mockk(relaxed = true)
+    private val inputFolder: Folder = Folder(folderId = 1L)
+    private val inputApp: App = createApp(name = "App", packageName = "com.example.app")
 
     @Before
     fun setUp() {
@@ -97,8 +102,45 @@ class LauncherLaunchPathTest {
         logRecorder.assertLoggedWithout(inputPrivateApp.name, inputPrivateApp.packageName, inputPrivateApp.key)
     }
 
+    @Test
+    fun `opening a Folder's Pop-up records its Launch count once`() {
+        every { mockPopupCard.open(inputFolder, TEST_INPUT_ANCHOR) } returns true
+
+        val actualOpened: Boolean = openPopup(launchable = inputFolder)
+
+        assertTrue(actualOpened)
+        verify(exactly = 1) { mockViewModel.onFolderPopupOpened(inputFolder) }
+    }
+
+    @Test
+    fun `a Folder Pop-up that does not open records no Launch count`() {
+        every { mockPopupCard.open(inputFolder, TEST_INPUT_ANCHOR) } returns false
+
+        val actualOpened: Boolean = openPopup(launchable = inputFolder)
+
+        assertFalse(actualOpened)
+        verify(exactly = 0) { mockViewModel.onFolderPopupOpened(any()) }
+    }
+
+    @Test
+    fun `opening an App's Pop-up records no Launch count`() {
+        every { mockPopupCard.open(inputApp, TEST_INPUT_ANCHOR) } returns true
+
+        val actualOpened: Boolean = openPopup(launchable = inputApp)
+
+        assertTrue(actualOpened)
+        verify(exactly = 0) { mockViewModel.onFolderPopupOpened(any()) }
+    }
+
     private fun launch(launchable: Launchable, context: Context = mockContext, effects: LaunchItemEffects = effects()): Boolean =
         launchLauncherItem(launchable = launchable, context = context, viewModel = mockViewModel, effects = effects)
+
+    private fun openPopup(launchable: Launchable): Boolean = openLauncherItemPopup(
+        launchable = launchable,
+        anchor = TEST_INPUT_ANCHOR,
+        popupCard = mockPopupCard,
+        viewModel = mockViewModel
+    )
 
     /** Asserts a launch that did not happen neither opened nor reached onLaunched, so it records no Launch count. */
     private fun assertNotLaunched(actualLaunched: Boolean) {

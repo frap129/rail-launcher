@@ -38,6 +38,9 @@ interface IPreferencesRepository {
     /** Sets how the App List orders the Launchables inside each group. */
     fun setAppListOrder(order: AppListOrder)
 
+    /** Sets whether the App List ranks Folders by use instead of keeping them last in their group. */
+    fun setRankFoldersByUse(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

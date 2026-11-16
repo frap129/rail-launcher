@@ -151,6 +151,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setRankFoldersByUse(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(rankFoldersByUse = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

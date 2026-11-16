@@ -52,6 +52,8 @@ private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
 private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
 private const val APP_LIST_ORDER_DATABASE_NAME: String = "app-list-order-migration-test"
 private const val APP_LIST_ORDER_DATABASE_VERSION: Int = 24
+private const val RANK_FOLDERS_BY_USE_DATABASE_NAME: String = "rank-folders-by-use-migration-test"
+private const val RANK_FOLDERS_BY_USE_DATABASE_VERSION: Int = 25
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
@@ -567,6 +569,38 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Rank Folders by use switch defaulting on and keeps the settings row`() {
+        withDatabase(
+            name = RANK_FOLDERS_BY_USE_DATABASE_NAME,
+            version = RANK_FOLDERS_BY_USE_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(
+                    iconPack = TEST_ICON_PACK_PACKAGE,
+                    openSearchOnSwipeUp = false,
+                    appListOrder = AppListOrder.MOST_USED
+                )
+            }
+        ) { db ->
+            MIGRATION_25_26.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_APP_LIST_ORDER,
+                    Settings.COLUMN_RANK_FOLDERS_BY_USE
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(true, db.rankFoldersByUse())
+            assertEquals(AppListOrder.MOST_USED.name, db.appListOrder())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -729,7 +763,8 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     searchContacts: Boolean? = null,
     searchWebSuggestions: Boolean? = null,
     searchEngine: SearchEngine? = null,
-    searchEngineTemplate: String? = null
+    searchEngineTemplate: String? = null,
+    appListOrder: AppListOrder? = null
 ) {
     val columns: List<SettingsColumn> = listOfNotNull(
         hidePrivateSpaceWhenLocked?.let { value ->
@@ -776,6 +811,13 @@ private fun SupportSQLiteDatabase.createSettingsRow(
         },
         searchWebSuggestions?.let { value ->
             SettingsColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, "INTEGER NOT NULL DEFAULT 0", value.toSql())
+        },
+        appListOrder?.let { value ->
+            SettingsColumn(
+                Settings.COLUMN_APP_LIST_ORDER,
+                "TEXT NOT NULL DEFAULT '${AppListOrder.DEFAULT.name}'",
+                "'${value.name}'"
+            )
         }
     )
     val definitions: String = columns.joinToString(separator = "") { column -> ", ${column.name} ${column.definition}" }
@@ -837,6 +879,12 @@ private fun SupportSQLiteDatabase.appListOrder(): String =
     query("SELECT ${Settings.COLUMN_APP_LIST_ORDER} FROM $SETTINGS_TABLE").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_APP_LIST_ORDER))
+    }
+
+private fun SupportSQLiteDatabase.rankFoldersByUse(): Boolean =
+    query("SELECT ${Settings.COLUMN_RANK_FOLDERS_BY_USE} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_RANK_FOLDERS_BY_USE)) != 0
     }
 
 private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean =

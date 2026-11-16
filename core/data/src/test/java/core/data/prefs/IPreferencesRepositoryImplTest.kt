@@ -438,6 +438,27 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults Rank Folders by use to on`() = databaseTest {
+        val repository: IPreferencesRepository = createPreferencesRepository()
+
+        val actualSettings: Settings = repository.settings.first()
+
+        assertTrue(actualSettings.rankFoldersByUse)
+    }
+
+    @Test
+    fun `stores Rank Folders by use without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setRankFoldersByUse(false)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> !stored.rankFoldersByUse }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, rankFoldersByUse = false), actualSettings)
+    }
+
+    @Test
     fun `stores the Search swipe-up entry without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -610,6 +631,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setScrubEdges(edges = ScrubEdges.START) },
             { repository.setRailSide(side = RailSide.START) },
             { repository.setAppListOrder(order = AppListOrder.MOST_USED) },
+            { repository.setRankFoldersByUse(enabled = false) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -636,6 +658,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 scrubEdges = ScrubEdges.START,
                 railSide = RailSide.START,
                 appListOrder = AppListOrder.MOST_USED,
+                rankFoldersByUse = false,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,

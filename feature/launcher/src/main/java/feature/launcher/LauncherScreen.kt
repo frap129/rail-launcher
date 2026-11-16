@@ -355,7 +355,14 @@ fun LauncherScreen(
             railBounds = railBounds,
             railSide = railSide,
             onItemLaunch = launchItem,
-            onItemOpenPopup = popupCardViewModel::open,
+            onItemOpenPopup = { launchable, anchor ->
+                openLauncherItemPopup(
+                    launchable = launchable,
+                    anchor = anchor,
+                    popupCard = popupCardViewModel,
+                    viewModel = viewModel
+                )
+            },
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
             onCopyCalculatorRow = { result ->
                 // Android 13 and later show the system's own clipboard confirmation.
@@ -523,6 +530,25 @@ internal fun launchLauncherItem(
     }
     viewModel.onLaunched(launchable)
     effects.onHomeIntent()
+    return true
+}
+
+/**
+ * The launcher's single Pop-up open path, shared by rows, Favorites and Search results.
+ * Records a Launch count only for a Folder's Pop-up that opened, and returns whether it opened.
+ */
+internal fun openLauncherItemPopup(
+    launchable: Launchable,
+    anchor: PopupAnchor?,
+    popupCard: PopupCardViewModel,
+    viewModel: LauncherViewModel
+): Boolean {
+    if (!popupCard.open(owner = launchable, anchor = anchor)) {
+        return false
+    }
+    if (launchable is Folder) {
+        viewModel.onFolderPopupOpened(folder = launchable)
+    }
     return true
 }
 

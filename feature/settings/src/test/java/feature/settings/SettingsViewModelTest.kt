@@ -153,6 +153,30 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `defaults Rank Folders by use to on`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel()
+
+        assertTrue(viewModel.uiState.value.rankFoldersByUse)
+    }
+
+    @Test
+    fun `exposes the stored Rank Folders by use`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(rankFoldersByUse = false),
+            read = { rankFoldersByUse }
+        )
+    }
+
+    @Test
+    fun `persists Rank Folders by use`() = runTest {
+        assertPersists(
+            persist = { setRankFoldersByUse(false) },
+            verifyCall = { setRankFoldersByUse(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

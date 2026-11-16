@@ -188,12 +188,16 @@ _Avoid_: Drawer, all-apps, launcher list
 The setting choosing how the App List orders the Launchables inside each group: Alphabetical, Most used or Recently used. It defaults to Recently used.
 _Avoid_: Sort order, app order
 
+**Rank Folders by use**:
+The setting choosing whether the App List ranks Folders by use alongside the other Launchables, or keeps them last in their group in their current relative order. It applies only to Most used and Recently used, and defaults to on.
+_Avoid_: Folder sort, folder ranking
+
 **Launch count**:
-The all-time number of launches Rail recorded for a Launchable or Shortcut key.
+The all-time number of launches Rail recorded for a Launchable or Shortcut key, or Pop-up opens for a Folder key.
 _Avoid_: Usage count, launch tally
 
 **Recent use score**:
-A launch score that decays exponentially, so a recent launch weighs more than an older one.
+A launch score that decays exponentially, so a recent launch, or a Folder Pop-up open, weighs more than an older one.
 _Avoid_: Recency score, usage score
 
 **Search**:
