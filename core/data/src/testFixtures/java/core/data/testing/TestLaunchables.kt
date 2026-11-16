@@ -92,11 +92,13 @@ fun createLoadedLaunchableState(
     label: String = "A",
     isLoaded: Boolean = true,
     keptKeys: Set<ProfileToken> = emptySet(),
-    retainedKeys: Set<String> = emptySet()
+    retainedKeys: Set<String> = emptySet(),
+    hiddenKeys: Set<String> = emptySet()
 ): LaunchableState = createLaunchableState(
     groups = listOf(LaunchableGroup.InitialGroup(label = label, items = launchables)),
     folders = folders,
     isLoaded = isLoaded,
     keptKeys = keptKeys,
-    retainedKeys = retainedKeys
+    retainedKeys = retainedKeys,
+    hiddenKeys = hiddenKeys
 )

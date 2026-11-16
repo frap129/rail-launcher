@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
@@ -34,6 +35,23 @@ import core.ui.composables.settingsRowContainerColor
 private val navigationIconSize: Dp = 64.dp
 private val navigationIconPadding: Dp = 16.dp
 private val snackbarPadding: Dp = 16.dp
+
+/** The padding around Settings content that is not a row, such as an empty state or a search field. */
+internal val settingsContentPadding: Dp = 16.dp
+
+/** The text a Settings list shows when it has no rows. */
+@Composable
+internal fun SettingsEmptyState(
+    @StringRes text: Int,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.bodyLarge
+) {
+    Text(
+        text = stringResource(text),
+        modifier = modifier.padding(settingsContentPadding),
+        style = style
+    )
+}
 
 /** The section title above a group of settings rows. */
 @Composable

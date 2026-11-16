@@ -54,9 +54,20 @@ data class LaunchableState(
     fun listedGroupsFor(includeHidden: Boolean): List<LaunchableGroup.Listed> =
         groupsFor(includeHidden = includeHidden).filterIsInstance<LaunchableGroup.Listed>()
 
+    /**
+     * The Hidden apps, by resolved name. A Locked Private Space leaves its private Apps out,
+     * because resolution already does.
+     */
+    val hiddenApps: List<Launchable> by lazy {
+        launchables.filter { launchable -> launchable.key in hiddenKeys }.sortedWith(launchableNameOrder)
+    }
+
     /** The Launchable stored under [key], or null when it is gone. */
     fun launchableFor(key: String): Launchable? = launchablesByKey[key]
 }
+
+/** Orders Launchables by their resolved names, ignoring case. */
+internal val launchableNameOrder: Comparator<Launchable> = compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name }
 
 /** A copy of [this] leaving out the Hidden apps, dropping an Initial group left empty by them. */
 private fun List<LaunchableGroup>.withoutHiddenApps(hiddenKeys: Set<String>): List<LaunchableGroup> = mapNotNull { group ->

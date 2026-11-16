@@ -4,10 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -61,8 +59,6 @@ import org.koin.compose.koinInject
 import org.koin.core.parameter.parametersOf
 
 private val folderIconSize: Dp = 32.dp
-private val emptyStateGap: Dp = 16.dp
-private val createButtonPadding: Dp = 16.dp
 
 /** Lists the Home swipes, the Pop-up notification switches and every Folder, with the actions sheet and dialogs that manage it. */
 @Composable
@@ -208,7 +204,7 @@ private fun PopupSettingsList(
             }
             item {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(createButtonPadding),
+                    modifier = Modifier.fillMaxWidth().padding(settingsContentPadding),
                     contentAlignment = Alignment.Center
                 ) {
                     CreateFolderButton(onClick = onCreateClick)
@@ -221,11 +217,10 @@ private fun PopupSettingsList(
 @Composable
 private fun EmptyFolderSettings(onCreateClick: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(createButtonPadding),
+        modifier = Modifier.fillMaxWidth().padding(bottom = settingsContentPadding),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = stringResource(R.string.no_folders_yet), style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(emptyStateGap))
+        SettingsEmptyState(text = R.string.no_folders_yet)
         CreateFolderButton(onClick = onCreateClick)
     }
 }

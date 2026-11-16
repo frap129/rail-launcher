@@ -1289,7 +1289,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `leaves a Hidden app out of the App List and Rail marks but keeps it launchable and in the pickers`() = databaseTest {
+    fun `hides and unhides an app from the App List and Rail marks while keeping it launchable and in the pickers`() = databaseTest {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
@@ -1318,6 +1318,14 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertTrue(actualState.pickerGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
         assertEquals(RENAMED_NAME, actualApp.name)
         assertEquals(expectedCustomIcon, actualApp.icon)
+        assertEquals(listOf(actualApp), actualState.hiddenApps)
+
+        inputCustomizationDao.setHidden(key = inputApp.key, hidden = false)
+
+        val actualUnhiddenState: LaunchableState = loadedState(repository)
+        assertEquals(emptyList<Launchable>(), actualUnhiddenState.hiddenApps)
+        assertEquals(listOf("★", "R", "⌂"), actualUnhiddenState.groupsFor(includeHidden = false).map { group -> group.label })
+        assertTrue(actualUnhiddenState.listedGroups.any { group -> group.items.any { item -> item.key == inputApp.key } })
     }
 
     @Test
@@ -1418,15 +1426,18 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualUnlockedState: LaunchableState = loadedState(repository)
         assertTrue(actualUnlockedState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
         assertTrue(actualUnlockedState.listedGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+        assertEquals(listOf(inputPrivateApp), actualUnlockedState.hiddenApps)
 
         inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
         val actualLockedState: LaunchableState = loadedState(repository)
         assertFalse(actualLockedState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
+        assertEquals(emptyList<Launchable>(), actualLockedState.hiddenApps)
 
         inputProfileState.profiles.value = listOf(inputPrivateProfile)
         val actualRestoredState: LaunchableState = loadedState(repository)
         assertTrue(actualRestoredState.launchables.any { launchable -> launchable.key == inputPrivateApp.key })
         assertTrue(actualRestoredState.listedGroups.none { group -> group.items.any { item -> item.key == inputPrivateApp.key } })
+        assertEquals(listOf(inputPrivateApp), actualRestoredState.hiddenApps)
     }
 
     @Test
@@ -1471,6 +1482,30 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         } finally {
             collection.cancel()
         }
+    }
+
+    @Test
+    fun `lists Hidden apps by resolved name with their resolved icons`() = databaseTest {
+        val inputApp: App = createApp(name = "Maps", packageName = APP_PACKAGE_NAME)
+        val inputRenamedApp: App = createApp(name = "Zeta", packageName = PLAIN_APP_PACKAGE_NAME)
+        val inputVisibleApp: App = createApp(name = "Visible", packageName = "com.example.visible")
+        val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
+        val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
+        val inputCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        inputCustomizationDao.setHidden(key = inputApp.key, hidden = true)
+        inputCustomizationDao.setHidden(key = inputRenamedApp.key, hidden = true)
+        inputCustomizationDao.setName(key = inputRenamedApp.key, name = "Alpha")
+        inputCustomizationDao.setIcon(key = inputApp.key, icon = inputCustomIcon)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp, inputRenamedApp, inputVisibleApp)),
+            mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
+            mockIconRepository = createIconRepositoryMock(inputIcon = inputRenamedApp.defaultIcon, customIcon = expectedCustomIcon)
+        )
+
+        val actualHiddenApps: List<Launchable> = loadedState(repository).hiddenApps
+
+        assertEquals(listOf("Alpha", "Maps"), actualHiddenApps.map { launchable -> launchable.name })
+        assertEquals(listOf(inputRenamedApp.defaultIcon, expectedCustomIcon), actualHiddenApps.map { launchable -> launchable.icon })
     }
 
     @Test
