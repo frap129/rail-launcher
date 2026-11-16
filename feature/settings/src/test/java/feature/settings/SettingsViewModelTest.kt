@@ -2,6 +2,7 @@ package feature.settings
 
 import app.cash.turbine.test
 import core.data.icons.model.Icon
+import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
@@ -93,52 +94,62 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Scrub edges`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(
-                settings = Settings(scrubEdges = ScrubEdges.START)
-            )
+        assertExposesSetting(
+            expected = ScrubEdges.START,
+            inputSettings = Settings(scrubEdges = ScrubEdges.START),
+            read = { scrubEdges }
         )
-
-        viewModel.uiState.test {
-            assertEquals(ScrubEdges.START, expectMostRecentItem().scrubEdges)
-        }
     }
 
     @Test
-    fun `persists the Scrub edges`() {
-        runTest {
-            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
-
-            viewModel.setScrubEdges(ScrubEdges.END)
-
-            verify(exactly = 1) { mockPreferencesRepository.setScrubEdges(ScrubEdges.END) }
-        }
+    fun `persists the Scrub edges`() = runTest {
+        assertPersists(
+            persist = { setScrubEdges(ScrubEdges.END) },
+            verifyCall = { setScrubEdges(ScrubEdges.END) }
+        )
     }
 
     @Test
     fun `exposes the stored Rail side`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
-            mockPreferencesRepository = createPreferencesRepositoryMock(
-                settings = Settings(railSide = RailSide.START)
-            )
+        assertExposesSetting(
+            expected = RailSide.START,
+            inputSettings = Settings(railSide = RailSide.START),
+            read = { railSide }
         )
-
-        viewModel.uiState.test {
-            assertEquals(RailSide.START, expectMostRecentItem().railSide)
-        }
     }
 
     @Test
-    fun `persists the Rail side`() {
-        runTest {
-            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+    fun `persists the Rail side`() = runTest {
+        assertPersists(
+            persist = { setRailSide(RailSide.START) },
+            verifyCall = { setRailSide(RailSide.START) }
+        )
+    }
 
-            viewModel.setRailSide(RailSide.START)
+    @Test
+    fun `defaults the App List order to Recently used`() = runTest {
+        val viewModel: SettingsViewModel = createViewModel()
 
-            verify(exactly = 1) { mockPreferencesRepository.setRailSide(RailSide.START) }
-        }
+        val actualState: SettingsUiState = viewModel.uiState.value
+
+        assertEquals(AppListOrder.RECENTLY_USED, actualState.appListOrder)
+    }
+
+    @Test
+    fun `exposes the stored App List order`() = runTest {
+        assertExposesSetting(
+            expected = AppListOrder.ALPHABETICAL,
+            inputSettings = Settings(appListOrder = AppListOrder.ALPHABETICAL),
+            read = { appListOrder }
+        )
+    }
+
+    @Test
+    fun `persists the App List order`() = runTest {
+        assertPersists(
+            persist = { setAppListOrder(AppListOrder.MOST_USED) },
+            verifyCall = { setAppListOrder(AppListOrder.MOST_USED) }
+        )
     }
 
     @Test
@@ -381,6 +392,25 @@ class SettingsViewModelTest {
             viewModel.resetCustomIcons()
             verify(exactly = 1) { mockPreferencesRepository.resetCustomIcons() }
         }
+    }
+
+    private suspend fun <T> TestScope.assertExposesSetting(expected: T, inputSettings: Settings, read: SettingsUiState.() -> T) {
+        val viewModel: SettingsViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
+        )
+
+        viewModel.uiState.test {
+            assertEquals(expected, expectMostRecentItem().read())
+        }
+    }
+
+    private fun TestScope.assertPersists(persist: SettingsViewModel.() -> Unit, verifyCall: IPreferencesRepository.() -> Unit) {
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+
+        viewModel.persist()
+
+        verify(exactly = 1) { mockPreferencesRepository.verifyCall() }
     }
 
     private fun TestScope.createViewModel(
