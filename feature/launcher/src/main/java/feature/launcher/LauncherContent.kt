@@ -254,8 +254,7 @@ internal fun LauncherContent(
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
-                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp,
-                        onSearchOpen = { viewModel.openSearch() }
+                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
                     )
                 }
 
