@@ -4,8 +4,10 @@ import core.data.favorites.FavoriteRecord
 import core.data.folders.Folder
 import core.data.launches.LaunchCountRecord
 import core.data.popups.IPopupRepository
+import core.data.popups.PopupItemRecord
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.IPreferencesRepository
+import core.data.prefs.LaunchableCustomization
 import core.data.prefs.withoutTapTargets
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.HeaderSettingsDao
@@ -32,7 +34,7 @@ class KeyedCleanupRow(override val keys: Flow<Set<String>>, private val deleteKe
 /** The customizations stored for Launchable keys. */
 fun launchableCustomizationCleanupRow(preferencesRepository: IPreferencesRepository): IStaleKeyRow = KeyedCleanupRow(
     keys = preferencesRepository.launchableCustomizations.map { customizations ->
-        customizations.mapTo(mutableSetOf()) { customization -> customization.key }
+        customizations.mapTo(mutableSetOf(), LaunchableCustomization::key)
     },
     deleteKeys = { keys -> preferencesRepository.removeLaunchableCustomizations(keys = keys.toList()) }
 )
@@ -54,7 +56,7 @@ class PopupOwnerCleanupRow(
         popupDao.observeAllItems(),
         widgetAreaRepository.popupOwnerKeys
     ) { hiddenOwnerKeys, itemRecords, widgetOwnerKeys ->
-        (hiddenOwnerKeys + itemRecords.map { record -> record.ownerKey } + widgetOwnerKeys).toSet()
+        (hiddenOwnerKeys + itemRecords.map(PopupItemRecord::ownerKey) + widgetOwnerKeys).toSet()
     }
 
     override suspend fun delete(keys: Set<String>) {
@@ -68,7 +70,7 @@ class PopupOwnerCleanupRow(
 
 /** The Pop-up items stored for Launchable and Shortcut keys. */
 fun popupItemCleanupRow(popupDao: PopupDao, popupRepository: IPopupRepository): IStaleKeyRow = KeyedCleanupRow(
-    keys = popupDao.observeAllItems().map { records -> records.mapTo(mutableSetOf()) { record -> record.itemKey } },
+    keys = popupDao.observeAllItems().map { records -> records.mapTo(mutableSetOf(), PopupItemRecord::itemKey) },
     deleteKeys = { keys -> popupRepository.deleteItemsByKey(itemKeys = keys.toList()) }
 )
 
