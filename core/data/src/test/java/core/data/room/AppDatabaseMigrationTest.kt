@@ -58,6 +58,8 @@ private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
 private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
 private const val MIGRATION_24_25_DATABASE_NAME: String = "migration-24-25-test"
 private const val MIGRATION_24_25_DATABASE_VERSION: Int = 24
+private const val HIDDEN_DATABASE_NAME: String = "hidden-migration-test"
+private const val HIDDEN_DATABASE_VERSION: Int = 25
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val FIRST_FOLDER_ID: Long = 1L
@@ -576,6 +578,32 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Hidden flag defaulting to not hidden and keeps every Launchable customization`() {
+        withDatabase(
+            name = HIDDEN_DATABASE_NAME,
+            version = HIDDEN_DATABASE_VERSION,
+            createTables = { db ->
+                db.execSQL(
+                    "CREATE TABLE ${LaunchableCustomization.TABLE_NAME} (key TEXT NOT NULL, name TEXT, icon TEXT, PRIMARY KEY(key))"
+                )
+                db.execSQL(
+                    "INSERT INTO ${LaunchableCustomization.TABLE_NAME} (key, name, icon) VALUES ('$FAVORITE_KEY', 'Renamed', 'icon')"
+                )
+            }
+        ) { db ->
+            MIGRATION_25_26.migrate(db)
+
+            assertEquals(
+                listOf("key", "name", "icon", LaunchableCustomization.COLUMN_HIDDEN),
+                db.columnNames(table = LaunchableCustomization.TABLE_NAME)
+            )
+            assertEquals("Renamed", db.launchableCustomizationName())
+            assertEquals("icon", db.launchableCustomizationIcon())
+            assertEquals(false, db.launchableCustomizationHidden())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -962,4 +990,10 @@ private fun SupportSQLiteDatabase.launchableCustomizationIcon(): String? =
     query("SELECT icon FROM ${LaunchableCustomization.TABLE_NAME}").use { cursor ->
         cursor.moveToFirst()
         cursor.getString(cursor.getColumnIndexOrThrow("icon"))
+    }
+
+private fun SupportSQLiteDatabase.launchableCustomizationHidden(): Boolean =
+    query("SELECT ${LaunchableCustomization.COLUMN_HIDDEN} FROM ${LaunchableCustomization.TABLE_NAME}").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getInt(cursor.getColumnIndexOrThrow(LaunchableCustomization.COLUMN_HIDDEN)) != 0
     }

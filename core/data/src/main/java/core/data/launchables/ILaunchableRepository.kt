@@ -8,7 +8,11 @@ import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
-/** The Rail groups, the App List groups, every Launchable, and whether the installed apps have loaded. */
+/**
+ * Every group in Rail order with Hidden apps included, every Launchable, and whether the
+ * installed apps have loaded; [listedGroups] and [groupsFor] leave Hidden apps out unless a
+ * caller asks to include them.
+ */
 data class LaunchableState(
     val groups: List<LaunchableGroup>,
     val launchables: List<Launchable>,
@@ -26,20 +30,45 @@ data class LaunchableState(
      * their Favorites, name customizations and other references until they resolve again.
      */
     val retainedKeys: Set<String> = emptySet(),
+    /** The keys of the Hidden apps: Apps and Standalone shortcuts the user hid from the App List. */
+    val hiddenKeys: Set<String> = emptySet(),
     /**
-     * The groups the pickers may list: the App List groups without the Locked Private Space
-     * container, so private Apps join the pickers while the Private Space is Unlocked.
+     * The groups the pickers may list: the groups without the Locked Private Space container,
+     * so private Apps join the pickers while the Private Space is Unlocked. Hidden apps stay listed.
      */
     val pickerGroups: List<LaunchableGroup.Listed> = groups.toPickerGroups()
 ) {
     private val launchablesByKey: Map<String, Launchable> by lazy { launchables.associateBy { launchable -> launchable.key } }
+    private val groupsWithoutHidden: List<LaunchableGroup> by lazy { groups.withoutHiddenApps(hiddenKeys = hiddenKeys) }
 
     /** The groups shown in the App List, in Rail order. */
-    val listedGroups: List<LaunchableGroup.Listed> = groups.filterIsInstance<LaunchableGroup.Listed>()
+    val listedGroups: List<LaunchableGroup.Listed> by lazy { listedGroupsFor(includeHidden = false) }
+
+    /**
+     * The Rail and App List groups, including the Hidden apps in their usual groups when
+     * [includeHidden] is true, so a caller can list them where they are needed.
+     */
+    fun groupsFor(includeHidden: Boolean): List<LaunchableGroup> = if (includeHidden) groups else groupsWithoutHidden
+
+    /** The [groupsFor] projection holding only the listed groups, in Rail order. */
+    fun listedGroupsFor(includeHidden: Boolean): List<LaunchableGroup.Listed> =
+        groupsFor(includeHidden = includeHidden).filterIsInstance<LaunchableGroup.Listed>()
 
     /** The Launchable stored under [key], or null when it is gone. */
     fun launchableFor(key: String): Launchable? = launchablesByKey[key]
 }
+
+/** A copy of [this] leaving out the Hidden apps, dropping an Initial group left empty by them. */
+private fun List<LaunchableGroup>.withoutHiddenApps(hiddenKeys: Set<String>): List<LaunchableGroup> = mapNotNull { group ->
+    when (group) {
+        LaunchableGroup.Star -> group
+        is LaunchableGroup.InitialGroup -> group.withItems(items = group.itemsWithoutHidden(hiddenKeys)).takeIf { it.items.isNotEmpty() }
+        is LaunchableGroup.Listed -> group.withItems(items = group.itemsWithoutHidden(hiddenKeys))
+    }
+}
+
+private fun LaunchableGroup.Listed.itemsWithoutHidden(hiddenKeys: Set<String>): List<Launchable> =
+    items.filterNot { launchable -> launchable.key in hiddenKeys }
 
 interface ILaunchableRepository {
     /** Every Launchable, including apps, Rail entries and Folders, with customizations applied. */

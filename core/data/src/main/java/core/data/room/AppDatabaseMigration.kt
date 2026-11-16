@@ -197,6 +197,19 @@ val MIGRATION_24_25: Migration = object : Migration(24, 25) {
     }
 }
 
+/**
+ * Adds the Hidden flag to every stored Launchable customization, defaulting to not hidden, and
+ * keeps every custom name and Custom icon.
+ */
+val MIGRATION_25_26: Migration = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE ${LaunchableCustomization.TABLE_NAME} ADD COLUMN ${LaunchableCustomization.COLUMN_HIDDEN} " +
+                "INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -212,5 +225,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_21_22,
     MIGRATION_22_23,
     MIGRATION_23_24,
-    MIGRATION_24_25
+    MIGRATION_24_25,
+    MIGRATION_25_26
 )

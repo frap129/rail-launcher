@@ -73,6 +73,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setHidden(item: Launchable, hidden: Boolean) {
+        scope.launch(dispatcher) {
+            launchableCustomizationDao.setHidden(key = item.key, hidden = hidden)
+        }
+    }
+
     override suspend fun removeLaunchableCustomizations(keys: List<String>) {
         if (keys.isEmpty()) {
             return

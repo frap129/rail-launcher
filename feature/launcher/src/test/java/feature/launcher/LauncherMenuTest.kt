@@ -59,6 +59,8 @@ class LauncherMenuTest {
         get() = getString(R.string.remove_shortcut)
     private val uninstallLabel: String
         get() = getString(R.string.uninstall)
+    private val hideLabel: String
+        get() = getString(R.string.hide_from_app_list)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -120,6 +122,31 @@ class LauncherMenuTest {
     }
 
     @Test
+    fun `shows the Hide from App List action for an App`() {
+        setItemMenuContent(item = createApp(name = APP_NAME))
+
+        composeRule.onNodeWithText(hideLabel)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun `hides the Hide from App List action for a Folder`() {
+        setItemMenuContent(item = Folder(folderId = FOLDER_ID, name = FOLDER_NAME))
+
+        composeRule.onNodeWithText(hideLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun `hides the Launchable when the Hide from App List action is tapped`() {
+        val item: App = createApp(name = APP_NAME)
+        setItemMenuContent(item = item)
+
+        composeRule.onNodeWithText(hideLabel).performClick()
+
+        verify(exactly = 1) { mockViewModel.hideFromAppList(item) }
+    }
+
+    @Test
     fun `shows the uninstall action for an App whose Profile allows it`() {
         setItemMenuContent(item = createApp(name = APP_NAME), canUninstall = true)
 
@@ -162,6 +189,7 @@ class LauncherMenuTest {
             labels = listOf(
                 R.string.edit_favorites,
                 R.string.remove_from_suggestions,
+                R.string.hide_from_app_list,
                 CoreUiR.string.edit_popup,
                 R.string.add_to_folder,
                 CoreUiR.string.app_info,
@@ -183,7 +211,13 @@ class LauncherMenuTest {
         assertRowsPaintSheetColor(
             item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME, shortLabel = SHORTCUT_NAME),
             isStandaloneShortcut = true,
-            labels = listOf(R.string.edit_favorites, R.string.add_to_folder, CoreUiR.string.app_info, R.string.remove_shortcut)
+            labels = listOf(
+                R.string.edit_favorites,
+                R.string.hide_from_app_list,
+                R.string.add_to_folder,
+                CoreUiR.string.app_info,
+                R.string.remove_shortcut
+            )
         )
     }
 
@@ -274,6 +308,7 @@ class LauncherMenuTest {
         item = item,
         isSearchSuggestion = isSearchSuggestion,
         isStandaloneShortcut = isStandaloneShortcut,
-        canUninstall = canUninstall
+        canUninstall = canUninstall,
+        isHidden = false
     )
 }

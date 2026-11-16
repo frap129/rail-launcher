@@ -633,6 +633,103 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `offers Hide from App List for an App and a Standalone shortcut`() = runTest {
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
+        val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp, inputShortcut))
+
+        assertCanHide(item = inputApp, expected = true)
+        assertCanHide(item = inputShortcut, expected = true)
+    }
+
+    @Test
+    fun `does not offer Hide from App List for a Hidden app`() = runTest {
+        val inputHiddenApp: App = createApp(name = "Example", packageName = "com.example.app")
+        inputLaunchableState.value = createLaunchableState(
+            groups = listOf(LaunchableGroup.InitialGroup(label = "E", items = listOf(inputHiddenApp))),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+
+        assertCanHide(item = inputHiddenApp, expected = false)
+    }
+
+    @Test
+    fun `does not offer Hide from App List for a Folder`() = runTest {
+        val inputFolder: Folder = Folder(folderId = 1L)
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputFolder))
+
+        assertCanHide(item = inputFolder, expected = false)
+    }
+
+    @Test
+    fun `does not offer Hide from App List for a Shortcut Search result`() = runTest {
+        val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
+        val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
+
+        assertCanHide(item = expectedResult, expected = false, viewModel = fixture.viewModel)
+    }
+
+    @Test
+    fun `does not offer Hide from App List for a Rail deeplink`() = runTest {
+        val inputRailLaunchable: Launchable = createRailLaunchable(name = "Rail Settings")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputRailLaunchable))
+
+        assertCanHide(item = inputRailLaunchable, expected = false)
+    }
+
+    @Test
+    fun `lists a Hidden app in the App List while editing Favorites`() = runTest {
+        val inputHiddenApp: App = createApp(name = "Zulu", packageName = "com.example.zulu")
+        val inputVisibleApp: App = createApp(name = "Alpha", packageName = "com.example.alpha")
+        inputLaunchableState.value = createLaunchableState(
+            groups = listOf(
+                LaunchableGroup.Star,
+                LaunchableGroup.InitialGroup(label = "A", items = listOf(inputVisibleApp)),
+                LaunchableGroup.InitialGroup(label = "Z", items = listOf(inputHiddenApp)),
+                inputBuiltinGroup
+            ),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.railItems.test {
+            assertEquals(listOf(GroupMark.Label("★"), GroupMark.Label("A"), GroupMark.Label("⌂")), expectMostRecentItem())
+            viewModel.editFavorites()
+            assertEquals(
+                listOf(GroupMark.Label("★"), GroupMark.Label("A"), GroupMark.Label("Z"), GroupMark.Label("⌂")),
+                expectMostRecentItem()
+            )
+        }
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = 2)
+            val actualHiddenGroup: LaunchableGroup.Listed = expectAppList().groups.single { group -> group.label == "Z" }
+            assertEquals(listOf(inputHiddenApp), actualHiddenGroup.items)
+        }
+        viewModel.toggleFavorite(inputHiddenApp)
+        advanceUntilIdle()
+        coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputHiddenApp) }
+    }
+
+    @Test
+    fun `hides a Launchable from the App List and closes its menu`() = runTest {
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.menuState.test {
+            viewModel.openItemMenu(inputApp)
+            assertTrue(expectMostRecentItem() is LauncherMenuState.Menu)
+
+            viewModel.hideFromAppList(inputApp)
+
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+        }
+        advanceUntilIdle()
+        verify(exactly = 1) { mockPreferencesRepository.setHidden(item = inputApp, hidden = true) }
+    }
+
+    @Test
     fun `offers uninstall for a removable App when its Profile allows it`() = runTest {
         val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
@@ -3493,8 +3590,17 @@ class LauncherViewModelTest {
         item = item,
         isSearchSuggestion = false,
         isStandaloneShortcut = false,
-        canUninstall = canUninstall
+        canUninstall = canUninstall,
+        isHidden = false
     )
+
+    private suspend fun TestScope.assertCanHide(item: Launchable, expected: Boolean, viewModel: LauncherViewModel = createViewModel()) {
+        viewModel.menuState.test {
+            viewModel.openItemMenu(item)
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertEquals(expected, actualMenu.canHide)
+        }
+    }
 
     private suspend fun TestScope.assertCanUninstall(
         item: Launchable,

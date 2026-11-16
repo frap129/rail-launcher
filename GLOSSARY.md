@@ -144,6 +144,10 @@ _Avoid_: Deep link, quick action
 A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays hidden if the app removes and later republishes the Shortcut.
 _Avoid_: Disabled shortcut, removed shortcut
 
+**Hidden app**:
+An App or Standalone shortcut the user hid from the App List with the long-press menu's Hide from App List action. It leaves the App List groups, including the Private Space group, and the Rail marks, while keeping its Favorite, Folder and Added item places, its custom name and Custom icon, and its row in every picker. Hiding only tidies the App List; it is not private, because Private Space covers privacy.
+_Avoid_: Hidden Launchable, archived app
+
 **Standalone shortcut**:
 A Shortcut another app asked Rail to add through a Pin request. Rail lists it in the App List and Favorites as its own Launchable instead of keeping it inside a Pop-up.
 _Avoid_: Pinned shortcut (when meaning a Standalone shortcut), home screen shortcut
@@ -189,7 +193,7 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **App List**:
-The launcher state showing every Launchable grouped by initial, then the Private Space group last. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
+The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
 **App List order**:

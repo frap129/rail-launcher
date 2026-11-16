@@ -112,9 +112,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.setItemName(item = inputItem, name = "   ")
 
-        val actualCustomizations: List<LaunchableCustomization> = customizations { stored ->
-            stored.none { customization -> customization.key == inputItem.key }
-        }
+        val actualCustomizations: List<LaunchableCustomization> = awaitNoCustomization(key = inputItem.key)
         assertEquals(listOf(OTHER_CUSTOMIZATION), actualCustomizations)
     }
 
@@ -182,7 +180,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.resetCustomIcon(item = inputItem)
 
-        assertTrue(customizations { stored -> stored.none { customization -> customization.key == inputItem.key } }.isEmpty())
+        assertTrue(awaitNoCustomization(key = inputItem.key).isEmpty())
     }
 
     @Test
@@ -240,7 +238,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.resetCustomIcon(item = inputItem)
 
-        assertTrue(customizations { stored -> stored.none { customization -> customization.key == inputItem.key } }.isEmpty())
+        assertTrue(awaitNoCustomization(key = inputItem.key).isEmpty())
         finishPendingWork()
         assertFalse(inputImageStore.hasImage(fileName = inputFileName))
     }
@@ -327,6 +325,60 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         val actualCustomization: LaunchableCustomization =
             awaitCustomization(key = inputItem.key) { customization -> customization.name == null }
         assertEquals(CUSTOM_ICON, actualCustomization.icon)
+    }
+
+    @Test
+    fun `stores a Hidden launchable through the DAO`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val repository: IPreferencesRepository = createPreferencesRepository()
+
+        repository.setHidden(item = inputItem, hidden = true)
+
+        val actualCustomization: LaunchableCustomization = awaitCustomization(key = inputItem.key)
+        assertEquals(LaunchableCustomization(key = inputItem.key, isHidden = true), actualCustomization)
+    }
+
+    @Test
+    fun `unhiding the only customization removes its row`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setHidden(key = inputItem.key, hidden = true)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setHidden(item = inputItem, hidden = false)
+
+        assertTrue(awaitNoCustomization(key = inputItem.key).isEmpty())
+    }
+
+    @Test
+    fun `unhiding keeps the stored name and Custom icon`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setName(key = inputItem.key, name = RENAMED_ITEM_NAME)
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        launchableCustomizationDao.setHidden(key = inputItem.key, hidden = true)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.setHidden(item = inputItem, hidden = false)
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> !customization.isHidden }
+        assertEquals(LaunchableCustomization(key = inputItem.key, name = RENAMED_ITEM_NAME, icon = CUSTOM_ICON), actualCustomization)
+    }
+
+    @Test
+    fun `resetting every Custom icon keeps a Hidden row`() = databaseTest {
+        val inputItem: Launchable = createLaunchable()
+        val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
+        launchableCustomizationDao.setIcon(key = inputItem.key, icon = CUSTOM_ICON)
+        launchableCustomizationDao.setHidden(key = inputItem.key, hidden = true)
+        val repository: IPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = launchableCustomizationDao)
+
+        repository.resetCustomIcons()
+
+        val actualCustomization: LaunchableCustomization =
+            awaitCustomization(key = inputItem.key) { customization -> customization.icon == null }
+        assertTrue(actualCustomization.isHidden)
     }
 
     @Test
@@ -626,6 +678,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setCustomIcon(item = inputLaunchable, icon = CUSTOM_ICON) },
             { repository.resetCustomIcon(item = inputLaunchable) },
             { repository.resetCustomIcons() },
+            { repository.setHidden(item = inputLaunchable, hidden = true) },
+            { repository.setHidden(item = inputLaunchable, hidden = false) },
             { repository.setIconPack(iconPack = createCustomIconPack()) },
             { repository.setHidePrivateSpaceWhenLocked(hide = true) },
             { repository.setScrubEdges(edges = ScrubEdges.START) },
@@ -676,16 +730,24 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
         )
     }
 
+    private fun List<LaunchableCustomization>.hasCustomization(
+        key: String,
+        predicate: (LaunchableCustomization) -> Boolean = { true }
+    ): Boolean = any { customization -> customization.key == key && predicate(customization) }
+
     private suspend fun awaitCustomization(
         key: String,
         predicate: (LaunchableCustomization) -> Boolean = { true }
     ): LaunchableCustomization = customizations { stored ->
-        stored.any { customization -> customization.key == key && predicate(customization) }
+        stored.hasCustomization(key = key, predicate = predicate)
     }.single { customization -> customization.key == key }
 
-    private suspend fun awaitRenamedCustomization(key: String, previousName: String): LaunchableCustomization = customizations { stored ->
-        stored.any { customization -> customization.key == key && customization.name != previousName }
-    }.single { customization -> customization.key == key }
+    private suspend fun awaitNoCustomization(key: String): List<LaunchableCustomization> = customizations { stored ->
+        !stored.hasCustomization(key = key)
+    }
+
+    private suspend fun awaitRenamedCustomization(key: String, previousName: String): LaunchableCustomization =
+        awaitCustomization(key = key) { customization -> customization.name != previousName }
 
     private suspend fun awaitSettings(settingsDao: SettingsDao, predicate: (Settings) -> Boolean = { true }): Settings =
         requireNotNull(settingsDao.observeRow().first { row -> row != null && predicate(row) })

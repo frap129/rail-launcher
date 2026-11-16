@@ -36,7 +36,13 @@ abstract class LaunchableCustomizationDao {
     @Query("UPDATE launchable_customizations SET icon = NULL WHERE key = :key")
     protected abstract suspend fun clearIcon(key: String)
 
-    @Query("DELETE FROM launchable_customizations WHERE key = :key AND name IS NULL AND icon IS NULL")
+    @Query(
+        "INSERT INTO launchable_customizations (key, hidden) VALUES (:key, :hidden) " +
+            "ON CONFLICT(key) DO UPDATE SET hidden = :hidden"
+    )
+    protected abstract suspend fun upsertHidden(key: String, hidden: Boolean)
+
+    @Query("DELETE FROM launchable_customizations WHERE key = :key AND name IS NULL AND icon IS NULL AND hidden = 0")
     protected abstract suspend fun deleteIfEmpty(key: String)
 
     @Transaction
@@ -51,10 +57,19 @@ abstract class LaunchableCustomizationDao {
         deleteIfEmpty(key = key)
     }
 
+    /** Stores [hidden] for [key], removing the row when nothing else is customized. */
+    @Transaction
+    open suspend fun setHidden(key: String, hidden: Boolean) {
+        upsertHidden(key = key, hidden = hidden)
+        if (!hidden) {
+            deleteIfEmpty(key = key)
+        }
+    }
+
     @Query("UPDATE launchable_customizations SET icon = NULL")
     protected abstract suspend fun clearIcons()
 
-    @Query("DELETE FROM launchable_customizations WHERE name IS NULL")
+    @Query("DELETE FROM launchable_customizations WHERE name IS NULL AND hidden = 0")
     protected abstract suspend fun deleteRowsWithoutName()
 
     @Transaction

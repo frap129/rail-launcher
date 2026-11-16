@@ -28,6 +28,7 @@ import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.LaunchableCustomization
 import core.data.prefs.Settings
+import core.data.prefs.toHiddenKeys
 import core.data.prefs.toLaunchableIcons
 import core.data.prefs.toLaunchableNames
 import core.data.profiles.IPrivateSpaceStatus
@@ -172,6 +173,7 @@ class ILaunchableRepositoryImpl(
         val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
         val icons: LaunchableIcons = customizations.toLaunchableIcons()
+        val hiddenKeys: Set<String> = customizations.toHiddenKeys()
         val packageRepresentativeNames: Map<AppProfile, String> = apps.packageRepresentativeNames()
         val listedLaunchables: List<Launchable> = apps
             .map { app -> app.resolve(names = names, icons = icons, settings = settings) } +
@@ -220,6 +222,7 @@ class ILaunchableRepositoryImpl(
                 retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
                     ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
                 },
+                hiddenKeys = hiddenKeys,
                 pickerGroups = pickerGroups
             ),
             appListOrder = settings.appListOrder,
