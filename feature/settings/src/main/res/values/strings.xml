@@ -134,6 +134,11 @@
     <string name="swipe_down_notifications_summary">Open notifications with a swipe down</string>
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
+    <string name="hidden_apps">Hidden apps</string>
+    <string name="hidden_apps_summary">Unhide apps you removed from the App List</string>
+    <string name="unhide">Unhide</string>
+    <string name="unhide_app">Unhide %1$s</string>
+    <string name="no_hidden_apps">No hidden apps</string>
     <string name="notifications">Notifications</string>
     <string name="show_notifications_in_popups">Show notifications in Pop-ups</string>
     <string name="folders">Folders</string>

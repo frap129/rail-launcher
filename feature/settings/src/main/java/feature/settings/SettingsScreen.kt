@@ -91,6 +91,7 @@ import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Calendar
 import compose.icons.fontawesomeicons.solid.Clock
+import compose.icons.fontawesomeicons.solid.EyeSlash
 import compose.icons.fontawesomeicons.solid.HandPointer
 import compose.icons.fontawesomeicons.solid.Icons
 import compose.icons.fontawesomeicons.solid.Palette
@@ -148,7 +149,6 @@ private const val EVENTS_SECTION_ROWS = 2
 private const val APP_WIDGET_HEADER_ROWS = 2
 private const val STACKS_SECTION_ROWS = 3
 
-private val exclusionsContentPadding: Dp = 16.dp
 private val exclusionsHeaderStartPadding: Dp = 4.dp
 private val exclusionsHeaderPadding: Dp = 8.dp
 private val exclusionsAppIconSize: Dp = 40.dp
@@ -224,6 +224,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         SettingsScreen.Widgets -> stringResource(R.string.widgets)
                         SettingsScreen.Popups -> stringResource(R.string.gestures_and_popups)
                         SettingsScreen.Search -> stringResource(CoreUiR.string.search)
+                        SettingsScreen.HiddenApps -> stringResource(R.string.hidden_apps)
                     }
 
                     Text(
@@ -257,6 +258,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toWidgets = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.Widgets.key}") },
                     toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
                     toSearch = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
+                    toHiddenApps = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.HiddenApps.key}") },
                     onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
                 )
 
@@ -285,6 +287,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                 SettingsScreen.Popups -> SettingsPopupsScreen()
 
                 SettingsScreen.Search -> SearchSettingsScreen()
+
+                SettingsScreen.HiddenApps -> HiddenAppsScreen(viewModel = viewModel)
             }
         }
     }
@@ -298,6 +302,7 @@ fun SettingsMainScreen(
     toWidgets: () -> Unit,
     toPopups: () -> Unit,
     toSearch: () -> Unit,
+    toHiddenApps: () -> Unit,
     onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit
 ) {
     LazyColumn {
@@ -331,6 +336,14 @@ fun SettingsMainScreen(
                 summary = R.string.search_summary,
                 icon = FontAwesomeIcons.Solid.Search,
                 onClick = toSearch
+            )
+        }
+        item {
+            SettingsNavigationRow(
+                title = R.string.hidden_apps,
+                summary = R.string.hidden_apps_summary,
+                icon = FontAwesomeIcons.Solid.EyeSlash,
+                onClick = toHiddenApps
             )
         }
         if (isPrivateSpaceAvailable) {
@@ -1134,7 +1147,7 @@ private fun MediaPlayerExclusionsDialog(
                     value = state.query,
                     onValueChange = onQueryChange,
                     modifier = Modifier.fillMaxWidth().padding(
-                        horizontal = exclusionsContentPadding,
+                        horizontal = settingsContentPadding,
                         vertical = exclusionsHeaderPadding
                     ),
                     placeholder = { Text(stringResource(R.string.search_apps)) },
@@ -1161,13 +1174,7 @@ private fun MediaPlayerExclusionsDialog(
                         )
                     }
                     if (state.isLoaded && state.apps.isEmpty()) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.no_apps_found),
-                                modifier = Modifier.padding(exclusionsContentPadding),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        item { SettingsEmptyState(text = R.string.no_apps_found, style = MaterialTheme.typography.bodyMedium) }
                     }
                 }
             }

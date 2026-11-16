@@ -1,28 +1,26 @@
 package feature.settings
 
 import app.cash.turbine.test
-import core.data.icons.model.Icon
+import core.data.apps.model.App
+import core.data.launchables.model.Launchable
 import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
-import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileKind
-import core.data.search.IContactSearchSource
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
-import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createContactSearchSourceMock
-import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
-import core.data.testing.createSearchSettings
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +28,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -47,7 +46,7 @@ class SettingsViewModelTest {
     @Test
     fun `offers the Private Space switch when a Private profile exists`() = runTest {
         val inputPrivateProfile = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
                 status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
             )
@@ -60,7 +59,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `leaves the Private Space switch off without a Private profile`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel()
+        val viewModel: SettingsViewModel = createSettingsViewModel()
 
         viewModel.uiState.test {
             assertFalse(expectMostRecentItem().isPrivateSpaceAvailable)
@@ -69,7 +68,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Private Space switch`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(hidePrivateSpaceWhenLocked = true)
             )
@@ -84,11 +83,65 @@ class SettingsViewModelTest {
     fun `persists the Private Space switch`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
             viewModel.setHidePrivateSpaceWhenLocked(true)
 
             verify(exactly = 1) { mockPreferencesRepository.setHidePrivateSpaceWhenLocked(true) }
+        }
+    }
+
+    @Test
+    fun `lists the Hidden apps the Hidden apps screen shows`() = runTest {
+        val inputHiddenApp: App = createApp(name = "Maps")
+        val viewModel: SettingsViewModel = createSettingsViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(
+                launchables = listOf(inputHiddenApp),
+                hiddenKeys = setOf(inputHiddenApp.key)
+            )
+        )
+
+        viewModel.hiddenApps.test {
+            assertEquals(listOf(inputHiddenApp), expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `shows no Hidden apps when nothing is Hidden`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+
+        viewModel.hiddenApps.test {
+            assertEquals(emptyList<Launchable>(), expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `shows no Hidden apps until the Launchable State loads`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(isLoaded = false)
+        )
+
+        viewModel.hiddenApps.test {
+            assertNull(expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `unhides a Hidden app`() {
+        runTest {
+            val inputHiddenApp: App = createApp(name = "Maps")
+            val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+            val viewModel: SettingsViewModel = createSettingsViewModel(
+                mockPreferencesRepository = mockPreferencesRepository,
+                mockLaunchableRepository = createLaunchableRepositoryMock(
+                    launchables = listOf(inputHiddenApp),
+                    hiddenKeys = setOf(inputHiddenApp.key)
+                )
+            )
+
+            viewModel.unhide(inputHiddenApp)
+
+            verify(exactly = 1) { mockPreferencesRepository.setHidden(inputHiddenApp, false) }
         }
     }
 
@@ -128,7 +181,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `defaults the App List order to Recently used`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel()
+        val viewModel: SettingsViewModel = createSettingsViewModel()
 
         val actualState: SettingsUiState = viewModel.uiState.value
 
@@ -154,7 +207,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `defaults Rank Folders by use to on`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel()
+        val viewModel: SettingsViewModel = createSettingsViewModel()
 
         assertTrue(viewModel.uiState.value.rankFoldersByUse)
     }
@@ -178,7 +231,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Swipe down entry`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(expandNotificationsOnSwipeDown = false)
             )
@@ -192,7 +245,7 @@ class SettingsViewModelTest {
     @Test
     fun `persists the Swipe down entry`() = runTest {
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+        val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
         viewModel.setExpandNotificationsOnSwipeDown(false)
 
@@ -201,7 +254,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Search swipe-up entry`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(openSearchOnSwipeUp = false)
             )
@@ -214,7 +267,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Search suggestions switch`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(searchSuggestions = false)
             )
@@ -227,7 +280,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Live web suggestions switch`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(searchWebSuggestions = true)
             )
@@ -240,7 +293,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Search Home-press entry`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(openSearchOnHomePress = true)
             )
@@ -255,7 +308,7 @@ class SettingsViewModelTest {
     fun `persists the Search Home-press entry`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
             viewModel.setOpenSearchOnHomePress(true)
 
@@ -265,7 +318,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Auto-launch and Bottom-anchored results`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
                 settings = Settings(searchAutoLaunch = true, searchBottomAnchoredResults = true)
             )
@@ -282,7 +335,7 @@ class SettingsViewModelTest {
     fun `persists Auto-launch and Bottom-anchored results`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
             viewModel.setSearchAutoLaunch(true)
             viewModel.setSearchBottomAnchoredResults(true)
@@ -294,7 +347,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes no Search engine by default`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel()
+        val viewModel: SettingsViewModel = createSettingsViewModel()
 
         viewModel.uiState.test {
             assertEquals(SearchEngine.None, expectMostRecentItem().searchEngine)
@@ -304,7 +357,7 @@ class SettingsViewModelTest {
     @Test
     fun `starts with the Search defaults before the stored settings load`() = runTest {
         val inputDefaults: Settings = Settings()
-        val viewModel: SettingsViewModel = createViewModel()
+        val viewModel: SettingsViewModel = createSettingsViewModel()
 
         val actualState: SettingsUiState = viewModel.uiState.value
 
@@ -331,7 +384,7 @@ class SettingsViewModelTest {
             searchEngine = SearchEngine.Kagi,
             searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
         )
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
         )
 
@@ -349,7 +402,7 @@ class SettingsViewModelTest {
     fun `persists the Web search and Play Store rows`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
             viewModel.setSearchWebRow(false)
             viewModel.setSearchPlayStoreRow(false)
@@ -361,7 +414,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `exposes the stored Contact results switch when the permission is granted`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
             mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(true))
         )
@@ -373,7 +426,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `hides the Contact results switch without the Contacts permission`() = runTest {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(searchContacts = true)),
             mockContactSearchSource = createContactSearchSourceMock(hasPermission = MutableStateFlow(false))
         )
@@ -387,7 +440,7 @@ class SettingsViewModelTest {
     fun `persists the Search engine`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
             viewModel.setSearchEngine(SearchEngine.Brave)
 
@@ -399,7 +452,7 @@ class SettingsViewModelTest {
     fun `persists the custom Search engine template`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
             val inputTemplate: String = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 
             viewModel.setCustomSearchEngineTemplate(inputTemplate)
@@ -412,14 +465,14 @@ class SettingsViewModelTest {
     fun `resets every Custom icon`() {
         runTest {
             val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-            val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+            val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
             viewModel.resetCustomIcons()
             verify(exactly = 1) { mockPreferencesRepository.resetCustomIcons() }
         }
     }
 
     private suspend fun <T> TestScope.assertExposesSetting(expected: T, inputSettings: Settings, read: SettingsUiState.() -> T) {
-        val viewModel: SettingsViewModel = createViewModel(
+        val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings)
         )
 
@@ -430,24 +483,10 @@ class SettingsViewModelTest {
 
     private fun TestScope.assertPersists(persist: SettingsViewModel.() -> Unit, verifyCall: IPreferencesRepository.() -> Unit) {
         val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
-        val viewModel: SettingsViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+        val viewModel: SettingsViewModel = createSettingsViewModel(mockPreferencesRepository = mockPreferencesRepository)
 
         viewModel.persist()
 
         verify(exactly = 1) { mockPreferencesRepository.verifyCall() }
     }
-
-    private fun TestScope.createViewModel(
-        mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
-        mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock()
-    ): SettingsViewModel = SettingsViewModel(
-        prefsRepo = mockPreferencesRepository,
-        iconRepo = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = TEST_RAIL_ICON_RES_ID)),
-        privateSpaceStatus = mockPrivateSpaceStatus,
-        searchSettings = createSearchSettings(
-            mockPreferencesRepository = mockPreferencesRepository,
-            mockContactSearchSource = mockContactSearchSource
-        )
-    )
 }

@@ -23,9 +23,18 @@ fun createLaunchableRepositoryMock(
     launchables: List<Launchable> = emptyList(),
     label: String = "A",
     folders: List<Launchable> = emptyList(),
-    isLoaded: Boolean = true
+    isLoaded: Boolean = true,
+    hiddenKeys: Set<String> = emptySet()
 ): ILaunchableRepository = createLaunchableRepositoryMock(
-    state = MutableStateFlow(createLoadedLaunchableState(launchables, folders, label, isLoaded))
+    state = MutableStateFlow(
+        createLoadedLaunchableState(
+            launchables = launchables,
+            folders = folders,
+            label = label,
+            isLoaded = isLoaded,
+            hiddenKeys = hiddenKeys
+        )
+    )
 )
 
 /** A MockK [ILaunchableRepository] loaded from [groups] and [folders]. */

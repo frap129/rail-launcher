@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.icons.IIconRepository
 import core.data.icons.model.IconPack
+import core.data.launchables.ILaunchableRepository
+import core.data.launchables.model.Launchable
 import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.ISearchSettings
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 private val defaultSettings: Settings = Settings()
@@ -31,7 +34,8 @@ enum class SettingsScreen(val key: String) {
     Appearance("appearance"),
     Widgets("widgets"),
     Popups(POPUPS_SETTINGS_KEY),
-    Search(SEARCH_SETTINGS_KEY)
+    Search(SEARCH_SETTINGS_KEY),
+    HiddenApps("hidden_apps")
 }
 
 data class SettingsUiState(
@@ -92,12 +96,22 @@ class SettingsViewModel(
     private val prefsRepo: IPreferencesRepository,
     private val iconRepo: IIconRepository,
     private val privateSpaceStatus: IPrivateSpaceStatus,
-    private val searchSettings: ISearchSettings
+    private val searchSettings: ISearchSettings,
+    private val launchableRepo: ILaunchableRepository
 ) : ViewModel() {
     private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
     /** The permission prompts and denials the Contact results row must show. */
     val events: Flow<SearchContactsUiEvent> = searchContactsUiEvents.events
+
+    /** The Hidden apps the Hidden apps screen lists, by resolved name, or null until the Launchable State loads. */
+    val hiddenApps: StateFlow<List<Launchable>?> = launchableRepo.launchableState
+        .map { state -> state.takeIf { current -> current.isLoaded }?.hiddenApps }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            null
+        )
 
     private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.settings) { iconPacks, settings ->
         iconPacks.find { it is IconPack.CustomIconPack && it.packageName == settings.iconPack } ?: IconPack.SystemIconPack
@@ -131,6 +145,9 @@ class SettingsViewModel(
 
     /** Clears every Custom icon while keeping custom names. */
     fun resetCustomIcons() = prefsRepo.resetCustomIcons()
+
+    /** Shows [item] in the App List again, keeping its custom name and Custom icon. */
+    fun unhide(item: Launchable) = prefsRepo.setHidden(item = item, hidden = false)
 
     /** Persists whether Rail hides a Locked Private Space container. */
     fun setHidePrivateSpaceWhenLocked(hide: Boolean) = prefsRepo.setHidePrivateSpaceWhenLocked(hide)

@@ -300,8 +300,6 @@ class ILaunchableRepositoryImpl(
 
 private const val DIGIT_GROUP_LABEL: String = "#"
 
-private val BY_NAME: Comparator<Launchable> = compareBy(String.CASE_INSENSITIVE_ORDER) { launchable -> launchable.name }
-
 /**
  * Orders the Rail: the Star, then Initial groups sorted by label, then
  * [builtinGroup], then the Private Space container. Names starting with a
@@ -328,7 +326,7 @@ internal fun List<Launchable>.toLaunchableGroups(
     val privateSpaceGroup: LaunchableGroup.PrivateSpace? = when {
         !privateSpaceStatus.isContainerListed -> null
         privateSpaceStatus.isLocked -> LaunchableGroup.PrivateSpace.Locked
-        else -> LaunchableGroup.PrivateSpace.Unlocked(items = privateItems.sortedWith(BY_NAME))
+        else -> LaunchableGroup.PrivateSpace.Unlocked(items = privateItems.sortedWith(launchableNameOrder))
     }
     return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
@@ -385,7 +383,7 @@ private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (L
     }
     return rankableItems.sortedWith(
         compareByDescending<Launchable> { launchable -> rankingValue(usage.launchCountsByKey[launchable.key]) }
-            .then(BY_NAME)
+            .then(launchableNameOrder)
     ) + lastItems
 }
 

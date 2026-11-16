@@ -520,7 +520,15 @@ class MainApplication :
                 collaborators = get { parametersOf(session) }
             )
         }
-        viewModel { SettingsViewModel(get(), get(), get(), get()) }
+        viewModel {
+            SettingsViewModel(
+                prefsRepo = get(),
+                iconRepo = get(),
+                privateSpaceStatus = get(),
+                searchSettings = get(),
+                launchableRepo = get()
+            )
+        }
         viewModel { (session: IPopupSession) ->
             PopupSettingsViewModel(
                 folderRepository = get(),
