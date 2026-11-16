@@ -40,6 +40,9 @@ class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
 
     /** The system Private Space settings screen; null unless a test provides one. */
     var privateSpaceSettingsIntent: IntentSender? = null
+
+    /** The Profiles whose user restrictions forbid uninstalling Apps. */
+    val uninstallRestrictedUsers: MutableSet<UserHandle> = mutableSetOf()
 }
 
 /** A MockK [IProfileSource] whose only listed Profile is [profile]. */
@@ -78,5 +81,6 @@ fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): I
     every { mockProfileSource.userForSerial(any()) } answers { state.usersBySerial[firstArg<Long>()] }
     every { mockProfileSource.serialForUser(any()) } answers { state.serialsByUser[firstArg<UserHandle>()] }
     coEvery { mockProfileSource.privateSpaceSettingsIntent() } answers { state.privateSpaceSettingsIntent }
+    every { mockProfileSource.canUninstall(any()) } answers { firstArg<UserHandle>() !in state.uninstallRestrictedUsers }
     return mockProfileSource
 }

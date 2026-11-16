@@ -44,7 +44,9 @@ data class ProfileActivity(
     val label: String,
     val badgedLabel: String,
     /** When the activity's package was first installed, in epoch milliseconds, or 0 when unknown. */
-    val firstInstallTime: Long
+    val firstInstallTime: Long,
+    /** Whether the system lets the user uninstall the activity's package from [user]'s Profile. */
+    val isRemovable: Boolean
 )
 
 /** A package or Profile change Rail must react to. */
@@ -119,6 +121,9 @@ interface IProfileSource {
 
     /** The system's Private Space settings screen, or null when the system does not offer one (API 36+). */
     suspend fun privateSpaceSettingsIntent(): IntentSender?
+
+    /** Whether [user]'s Profile allows the user to uninstall its Apps, or false when its restrictions cannot be read. */
+    fun canUninstall(user: UserHandle): Boolean
 
     /** The Profile whose serial number is [serial], or null when no Profile matches. */
     fun userForSerial(serial: Long): UserHandle?

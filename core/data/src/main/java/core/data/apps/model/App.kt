@@ -8,9 +8,11 @@ import core.data.icons.model.Icon
 import core.data.icons.model.badgedFor
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
+import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.util.openApplicationDetailsSettings
+import core.util.requestUninstall
 
 data class App(
     override val defaultName: String,
@@ -26,7 +28,9 @@ data class App(
      */
     val isPackageRepresentative: Boolean,
     /** When the App's package was first installed, in epoch milliseconds, or 0 when unknown. */
-    val firstInstallTime: Long
+    val firstInstallTime: Long,
+    /** Whether the system lets the user uninstall the App's package from its Profile. */
+    val isRemovable: Boolean
 ) : Launchable() {
     override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind
@@ -48,6 +52,13 @@ data class App(
 
     fun openAppInfo(context: Context) {
         context.openApplicationDetailsSettings(componentName = componentName, profile = profile)
+    }
+
+    /** Whether the user may uninstall the App from its Profile. */
+    fun canUninstall(profileSource: IProfileSource): Boolean = isRemovable && profileSource.canUninstall(user = profile)
+
+    fun requestUninstall(context: Context) {
+        context.requestUninstall(packageName = packageName, profile = profile)
     }
 }
 

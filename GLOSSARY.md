@@ -44,6 +44,14 @@ _Avoid_: Component key, activity key, package key
 The App whose launcher activity is the alphabetically first in its package and Profile. It owns the package's Shortcuts and notifications.
 _Avoid_: Main app, primary activity
 
+**System App**:
+An App preinstalled on the system image; an updated one can be uninstalled back to its factory version.
+_Avoid_: Preinstalled app, bundled app
+
+**Removable App**:
+A downloaded App or an updated System App, whose package the system lets the user uninstall.
+_Avoid_: Downloaded app, uninstallable app
+
 **Profile**:
 The personal, work or Private Space profile an App belongs to. Every App belongs to exactly one Profile.
 _Avoid_: User, space, account

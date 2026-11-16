@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -58,6 +57,8 @@ class LauncherMenuTest {
         get() = getString(R.string.remove_from_suggestions)
     private val removeShortcutLabel: String
         get() = getString(R.string.remove_shortcut)
+    private val uninstallLabel: String
+        get() = getString(R.string.uninstall)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -119,16 +120,52 @@ class LauncherMenuTest {
     }
 
     @Test
+    fun `shows the uninstall action for an App whose Profile allows it`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), canUninstall = true)
+
+        composeRule.onNodeWithText(uninstallLabel).assertExists()
+    }
+
+    @Test
+    fun `closes the sheet when the uninstall action is tapped`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), canUninstall = true)
+
+        composeRule.onNodeWithText(uninstallLabel).performClick()
+
+        verify(exactly = 1) { mockViewModel.closeItemMenu() }
+    }
+
+    @Test
+    fun `hides the uninstall action for an App that cannot be uninstalled`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), canUninstall = false)
+
+        composeRule.onNodeWithText(uninstallLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun `hides the uninstall action for a Standalone shortcut`() {
+        setItemMenuContent(
+            item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME, shortLabel = SHORTCUT_NAME),
+            isStandaloneShortcut = true,
+            canUninstall = true
+        )
+
+        composeRule.onNodeWithText(uninstallLabel).assertDoesNotExist()
+    }
+
+    @Test
     fun `paints the App menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             item = createApp(name = APP_NAME),
             isSearchSuggestion = true,
+            canUninstall = true,
             labels = listOf(
                 R.string.edit_favorites,
                 R.string.remove_from_suggestions,
                 CoreUiR.string.edit_popup,
                 R.string.add_to_folder,
-                CoreUiR.string.app_info
+                CoreUiR.string.app_info,
+                R.string.uninstall
             )
         )
     }
@@ -163,10 +200,17 @@ class LauncherMenuTest {
         item: Launchable,
         labels: List<Int>,
         isSearchSuggestion: Boolean = false,
-        isStandaloneShortcut: Boolean = false
+        isStandaloneShortcut: Boolean = false,
+        canUninstall: Boolean = false
     ) {
+        val menu: LauncherMenuState.Menu = itemMenu(
+            item = item,
+            isSearchSuggestion = isSearchSuggestion,
+            isStandaloneShortcut = isStandaloneShortcut,
+            canUninstall = canUninstall
+        )
         composeRule.assertSheetRowsPaintSheetColor(
-            content = { ItemMenuContent(item, isSearchSuggestion, isStandaloneShortcut) },
+            content = { LauncherItemMenu(menu = menu, viewModel = mockViewModel, collaborators = mockCollaborators) },
             labels = labels
         )
     }
@@ -182,31 +226,37 @@ class LauncherMenuTest {
         verify(exactly = 1) { mockIconPicker.startPicking(item) }
     }
 
-    private fun setItemMenuContent(item: Launchable, isSearchSuggestion: Boolean = false, isStandaloneShortcut: Boolean = false) {
+    private fun setItemMenuContent(
+        item: Launchable,
+        isSearchSuggestion: Boolean = false,
+        isStandaloneShortcut: Boolean = false,
+        canUninstall: Boolean = false
+    ) {
+        val menu: LauncherMenuState.Menu = itemMenu(
+            item = item,
+            isSearchSuggestion = isSearchSuggestion,
+            isStandaloneShortcut = isStandaloneShortcut,
+            canUninstall = canUninstall
+        )
         composeRule.setContent {
             RowTestContent {
-                ItemMenuContent(item = item, isSearchSuggestion = isSearchSuggestion, isStandaloneShortcut = isStandaloneShortcut)
+                LauncherItemMenu(menu = menu, viewModel = mockViewModel, collaborators = mockCollaborators)
             }
         }
     }
 
-    @Composable
-    private fun ItemMenuContent(item: Launchable, isSearchSuggestion: Boolean, isStandaloneShortcut: Boolean) {
-        LauncherItemMenu(
-            item = item,
-            isSearchSuggestion = isSearchSuggestion,
-            isStandaloneShortcut = isStandaloneShortcut,
-            viewModel = mockViewModel,
-            collaborators = mockCollaborators
-        )
-    }
-
-    private fun setMenuContent(item: Launchable, isSearchSuggestion: Boolean = false, isStandaloneShortcut: Boolean = false) {
+    private fun setMenuContent(
+        item: Launchable,
+        isSearchSuggestion: Boolean = false,
+        isStandaloneShortcut: Boolean = false,
+        canUninstall: Boolean = false
+    ) {
         every { mockViewModel.menuState } returns MutableStateFlow(
-            LauncherMenuState.Menu(
+            itemMenu(
                 item = item,
                 isSearchSuggestion = isSearchSuggestion,
-                isStandaloneShortcut = isStandaloneShortcut
+                isStandaloneShortcut = isStandaloneShortcut,
+                canUninstall = canUninstall
             )
         )
         every { mockCollaborators.iconPicker } returns mockIconPicker
@@ -214,4 +264,16 @@ class LauncherMenuTest {
             LauncherMenu(viewModel = mockViewModel, collaborators = mockCollaborators)
         }
     }
+
+    private fun itemMenu(
+        item: Launchable,
+        isSearchSuggestion: Boolean = false,
+        isStandaloneShortcut: Boolean = false,
+        canUninstall: Boolean = false
+    ): LauncherMenuState.Menu = LauncherMenuState.Menu(
+        item = item,
+        isSearchSuggestion = isSearchSuggestion,
+        isStandaloneShortcut = isStandaloneShortcut,
+        canUninstall = canUninstall
+    )
 }
