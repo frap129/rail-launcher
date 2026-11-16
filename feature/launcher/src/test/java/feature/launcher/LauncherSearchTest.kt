@@ -38,6 +38,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
@@ -49,6 +50,8 @@ import core.data.testing.TEST_SDK
 import core.data.testing.TEST_WEB_SUGGESTION
 import core.data.testing.TEST_WEB_SUGGESTION_URL
 import core.data.testing.WORK_USER_ID
+import core.data.testing.createApp
+import core.data.testing.createLaunchableResult
 import core.data.testing.createProfileInfo
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
@@ -131,7 +134,7 @@ class LauncherSearchTest {
     @Test
     fun `keeps the scroll position when Web suggestions arrive`() {
         val inputResults: MutableState<List<SearchResult>> = mutableStateOf(
-            (1..20).map { index -> SearchResult.LaunchableResult(createRailLaunchable("Item $index")) }
+            (1..20).map { index -> createLaunchableResult(createRailLaunchable("Item $index")) }
         )
         setSearchContent(resultsState = inputResults, query = mutableStateOf("item"))
 
@@ -169,8 +172,8 @@ class LauncherSearchTest {
         val inputSecond: Launchable = createRailLaunchable("Beta")
         setSearchContent(
             results = listOf(
-                SearchResult.LaunchableResult(inputFirst),
-                SearchResult.LaunchableResult(inputSecond)
+                createLaunchableResult(inputFirst),
+                createLaunchableResult(inputSecond)
             ),
             isBottomAnchored = true
         )
@@ -193,7 +196,7 @@ class LauncherSearchTest {
     @Test
     fun `announces the Top result row with the Enter-opens marker`() {
         val inputLaunchable: Launchable = createRailLaunchable("Alpha")
-        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputLaunchable)))
+        setSearchContent(results = listOf(createLaunchableResult(inputLaunchable)))
 
         assertRowDescription(
             rowText = inputLaunchable.name,
@@ -209,7 +212,7 @@ class LauncherSearchTest {
             shortLabel = "Mail",
             profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
         ).copy(publisherName = "Gmail", badgedLabel = "Work Mail")
-        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputShortcut)))
+        setSearchContent(results = listOf(createLaunchableResult(inputShortcut)))
 
         assertRowDescription(
             rowText = inputShortcut.name,
@@ -227,8 +230,8 @@ class LauncherSearchTest {
         ).copy(publisherName = "Gmail", badgedLabel = "Work Mail")
         setSearchContent(
             results = listOf(
-                SearchResult.LaunchableResult(inputTop),
-                SearchResult.LaunchableResult(inputShortcut)
+                createLaunchableResult(inputTop),
+                createLaunchableResult(inputShortcut)
             )
         )
 
@@ -239,9 +242,47 @@ class LauncherSearchTest {
     }
 
     @Test
+    fun `announces a Hidden result as Hidden`() {
+        val inputTop: Launchable = createRailLaunchable("Alpha")
+        val inputHiddenApp: App = createApp(name = "Zulu", packageName = "com.example.zulu")
+        setSearchContent(
+            results = listOf(
+                createLaunchableResult(inputTop),
+                createLaunchableResult(launchable = inputHiddenApp, isHidden = true)
+            )
+        )
+
+        assertRowDescription(
+            rowText = inputHiddenApp.name,
+            expectedDescription = "Zulu, Hidden"
+        )
+        composeRule.onNodeWithText(context.getString(R.string.hidden)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `announces a Hidden Standalone shortcut as Hidden instead of its publisher`() {
+        val inputTop: Launchable = createRailLaunchable("Alpha")
+        val inputHiddenShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.gmail",
+            shortLabel = "Mail"
+        ).copy(publisherName = "Gmail")
+        setSearchContent(
+            results = listOf(
+                createLaunchableResult(inputTop),
+                createLaunchableResult(launchable = inputHiddenShortcut, isHidden = true)
+            )
+        )
+
+        assertRowDescription(
+            rowText = inputHiddenShortcut.name,
+            expectedDescription = "Mail, Hidden"
+        )
+    }
+
+    @Test
     fun `announces a Folder Top result with the Enter-opens marker`() {
         val inputFolder: Folder = Folder(folderId = 1L, name = "Games")
-        setSearchContent(results = listOf(SearchResult.LaunchableResult(inputFolder)))
+        setSearchContent(results = listOf(createLaunchableResult(inputFolder)))
 
         assertRowDescription(
             rowText = inputFolder.name,
@@ -273,7 +314,7 @@ class LauncherSearchTest {
     @Test
     fun `opens an Auto-launch result through its row tap`() {
         val inputLaunchable: Launchable = createRailLaunchable("Alpha")
-        val inputResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputLaunchable)
+        val inputResult: SearchResult.LaunchableResult = createLaunchableResult(inputLaunchable)
         var actualTapCount: Int = 0
         val inputItemActions: LauncherItemActions = itemActions.copy(onItemTap = { _, _ -> actualTapCount++ })
         setSearchContent(
@@ -676,7 +717,7 @@ class LauncherSearchTest {
     private fun assertResultRowHorizontalInset(railSide: RailSide) {
         val inputLaunchable: Launchable = createRailLaunchable("Alpha")
         setSearchContent(
-            results = listOf(SearchResult.LaunchableResult(inputLaunchable)),
+            results = listOf(createLaunchableResult(inputLaunchable)),
             itemActions = createLauncherItemActions(railSide = railSide)
         )
 

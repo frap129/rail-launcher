@@ -74,6 +74,7 @@ import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createInMemoryDatabase
 import core.data.testing.createIntentSender
 import core.data.testing.createLaunchableRepositoryMock
+import core.data.testing.createLaunchableResult
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createNotificationHandle
@@ -2154,7 +2155,7 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 openSearchFor(viewModel = viewModel, query = "al")
                 val actualSearch: LauncherUiState.Search = expectSearch()
-                assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
+                assertEquals(createLaunchableResult(inputItem), actualSearch.topResult)
 
                 // The query field is a keystroke ahead: navigation has "alp" while the shown
                 // results, and so uiState, still belong to "al".
@@ -2177,10 +2178,10 @@ class LauncherViewModelTest {
             openSearchFor(viewModel = viewModel, query = "al")
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals(launchableResults(inputItem), actualSearch.results)
-            assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
+            assertEquals(createLaunchableResult(inputItem), actualSearch.topResult)
 
             val actualTopResult: SearchResult? = viewModel.onSearchGo("al")
-            assertEquals(SearchResult.LaunchableResult(inputItem), actualTopResult)
+            assertEquals(createLaunchableResult(inputItem), actualTopResult)
             assertTrue(viewModel.requestLaunch(inputItem))
 
             viewModel.onLaunched(inputItem)
@@ -2220,7 +2221,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("99")
 
             val actualSearch: LauncherUiState.Search = expectSearch()
-            val expectedTopResult: SearchResult = SearchResult.LaunchableResult(inputApp)
+            val expectedTopResult: SearchResult = createLaunchableResult(inputApp)
             assertEquals(listOf(expectedTopResult), actualSearch.results)
             assertEquals(expectedTopResult, actualSearch.topResult)
         }
@@ -2312,7 +2313,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("al")
 
             val actualResult: SearchResult.LaunchableResult = requireNotNull(expectSearch().autoLaunchResult)
-            assertEquals(SearchResult.LaunchableResult(inputItem), actualResult)
+            assertEquals(createLaunchableResult(inputItem), actualResult)
             assertTrue(viewModel.shouldAutoLaunch(actualResult))
         }
     }
@@ -2403,7 +2404,7 @@ class LauncherViewModelTest {
 
             inputShortcuts.emit(emptyList())
 
-            assertEquals(SearchResult.LaunchableResult(inputItem), awaitAutoLaunch())
+            assertEquals(createLaunchableResult(inputItem), awaitAutoLaunch())
         }
     }
 
@@ -2571,7 +2572,7 @@ class LauncherViewModelTest {
             viewModel.openSearch()
             viewModel.setSearchQuery("al")
 
-            assertEquals(SearchResult.LaunchableResult(inputItem), awaitAutoLaunch())
+            assertEquals(createLaunchableResult(inputItem), awaitAutoLaunch())
         }
     }
 
@@ -2657,7 +2658,7 @@ class LauncherViewModelTest {
                 ),
                 actualSearch.results
             )
-            assertEquals(SearchResult.LaunchableResult(inputItem), actualSearch.topResult)
+            assertEquals(createLaunchableResult(inputItem), actualSearch.topResult)
         }
     }
 
@@ -2787,7 +2788,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("al")
             advanceUntilIdle()
 
-            assertEquals(SearchResult.LaunchableResult(inputItem), expectSearch().autoLaunchResult)
+            assertEquals(createLaunchableResult(inputItem), expectSearch().autoLaunchResult)
         }
     }
 
@@ -2804,7 +2805,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("alp")
 
             val actualResult: SearchResult.LaunchableResult = requireNotNull(awaitAutoLaunch())
-            assertEquals(SearchResult.LaunchableResult(inputItem), actualResult)
+            assertEquals(createLaunchableResult(inputItem), actualResult)
             assertTrue(viewModel.shouldAutoLaunch(actualResult))
         }
     }
@@ -2812,7 +2813,7 @@ class LauncherViewModelTest {
     @Test
     fun `does not auto-launch the same result again after a recreation`() = runTest {
         val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(searchAutoLaunch = true))
-        val expectedResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputItem)
+        val expectedResult: SearchResult.LaunchableResult = createLaunchableResult(inputItem)
 
         viewModel.uiState.test {
             expectHome()
@@ -2835,7 +2836,7 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = inputSettings, settingsFlow = inputSettingsFlow)
         )
-        val expectedResult: SearchResult.LaunchableResult = SearchResult.LaunchableResult(inputItem)
+        val expectedResult: SearchResult.LaunchableResult = createLaunchableResult(inputItem)
 
         viewModel.uiState.test {
             expectHome()
@@ -3043,6 +3044,27 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `a launch of a Hidden app from Search records a Launch count`() = runTest {
+        val inputHiddenApp: App = createApp(name = "Zulu", packageName = "com.example.zulu")
+        inputLaunchableState.value = createLoadedLaunchableState(
+            launchables = listOf(inputHiddenApp),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            viewModel.setSearchQuery("zul")
+            assertEquals(launchableResults(inputHiddenApp, isHidden = true), expectSearch().results)
+        }
+        viewModel.onLaunched(inputHiddenApp)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { mockLaunchCountRepository.recordLaunch(inputHiddenApp.key) }
+    }
+
+    @Test
     fun `opening a Folder Pop-up records a Launch count for the Folder`() = runTest {
         val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
         val viewModel: LauncherViewModel = createViewModel()
@@ -3132,6 +3154,20 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `leaves a Hidden app out of the Search suggestions`() = runTest {
+        val fixture: SuggestionFixture = createSuggestionFixture(isHidden = true)
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+
+            val actualSearch: LauncherUiState.Search = expectSearch()
+            assertTrue(actualSearch.isShowingSuggestions)
+            assertTrue(actualSearch.results.isEmpty())
+        }
+    }
+
+    @Test
     fun `hides Search suggestions when the setting is off`() = runTest {
         val fixture: SuggestionFixture = createSuggestionFixture(settings = Settings(searchSuggestions = false))
 
@@ -3194,7 +3230,7 @@ class LauncherViewModelTest {
             assertEquals(launchableResults(inputPausedApp), expectSearch().results)
 
             val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo("gmail")).launchableResult()
-            assertEquals(SearchResult.LaunchableResult(inputPausedApp), actualTopResult)
+            assertEquals(createLaunchableResult(inputPausedApp), actualTopResult)
             assertFalse(viewModel.requestLaunch(actualTopResult.launchable))
             val actualRemainingSearch: LauncherUiState.Search = checkState(viewModel.uiState.value)
             assertEquals("gmail", actualRemainingSearch.query)
@@ -3214,7 +3250,7 @@ class LauncherViewModelTest {
             assertEquals(launchableResults(inputDisabledShortcut), expectSearch().results)
 
             val actualTopResult: SearchResult.LaunchableResult = requireNotNull(viewModel.onSearchGo("shortcut")).launchableResult()
-            assertEquals(SearchResult.LaunchableResult(inputDisabledShortcut), actualTopResult)
+            assertEquals(createLaunchableResult(inputDisabledShortcut), actualTopResult)
             assertTrue(actualTopResult.launchable.isDisabled)
         }
     }
@@ -3230,7 +3266,7 @@ class LauncherViewModelTest {
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
             val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
             assertEquals(launchableResults(expectedResult), actualSearch.results)
-            assertEquals(SearchResult.LaunchableResult(expectedResult), actualSearch.topResult)
+            assertEquals(createLaunchableResult(expectedResult), actualSearch.topResult)
         }
     }
 
@@ -3245,10 +3281,10 @@ class LauncherViewModelTest {
 
             val actualSearch: LauncherUiState.Search = awaitFirstSearch()
             assertEquals(launchableResults(expectedResult), actualSearch.results)
-            assertEquals(SearchResult.LaunchableResult(expectedResult), actualSearch.topResult)
+            assertEquals(createLaunchableResult(expectedResult), actualSearch.topResult)
 
             val actualTopResult: SearchResult? = fixture.viewModel.onSearchGo("new")
-            assertEquals(SearchResult.LaunchableResult(expectedResult), actualTopResult)
+            assertEquals(createLaunchableResult(expectedResult), actualTopResult)
             assertTrue(fixture.viewModel.requestLaunch(expectedResult))
             fixture.viewModel.onLaunched(expectedResult)
 
@@ -3259,6 +3295,46 @@ class LauncherViewModelTest {
         val actualRecord: SearchHistoryRecord? = mockSearchHistoryRepository.history.first()
             .singleOrNull { record -> record.key == fixture.shortcut.key }
         assertEquals(1, actualRecord?.launchCount)
+    }
+
+    @Test
+    fun `marks a Hidden app result as Hidden`() = runTest {
+        val inputHiddenApp: App = createApp(name = "Zulu", packageName = "com.example.zulu")
+        inputLaunchableState.value = createLoadedLaunchableState(
+            launchables = listOf(inputHiddenApp),
+            hiddenKeys = setOf(inputHiddenApp.key)
+        )
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch(startingQuery = "zul")
+
+            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            assertEquals(launchableResults(inputHiddenApp, isHidden = true), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `marks a Hidden Standalone shortcut result as Hidden`() = runTest {
+        val inputHiddenShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(
+            launchables = listOf(inputHiddenShortcut),
+            hiddenKeys = setOf(inputHiddenShortcut.key)
+        )
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch(startingQuery = "new")
+
+            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            assertEquals(launchableResults(inputHiddenShortcut, isHidden = true), actualSearch.results)
+        }
     }
 
     @Test
@@ -3554,7 +3630,7 @@ class LauncherViewModelTest {
         mockNotificationShade = mockNotificationShade
     ).also { advanceUntilIdle() }
 
-    private fun TestScope.createSuggestionFixture(settings: Settings = Settings()): SuggestionFixture {
+    private fun TestScope.createSuggestionFixture(settings: Settings = Settings(), isHidden: Boolean = false): SuggestionFixture {
         val inputRecentApp: App = createApp(
             name = "Recent",
             packageName = "com.example.recent",
@@ -3562,7 +3638,12 @@ class LauncherViewModelTest {
         )
         val viewModel: LauncherViewModel = createViewModel(
             mockLaunchableRepository = createLaunchableRepositoryMock(
-                state = MutableStateFlow(createLoadedLaunchableState(launchables = listOf(inputRecentApp)))
+                state = MutableStateFlow(
+                    createLoadedLaunchableState(
+                        launchables = listOf(inputRecentApp),
+                        hiddenKeys = if (isHidden) setOf(inputRecentApp.key) else emptySet()
+                    )
+                )
             ),
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = settings)
         )
@@ -3773,8 +3854,8 @@ class LauncherViewModelTest {
 
     private fun railIndex(group: LaunchableGroup): Int = inputGroups.indexOf(group)
 
-    private fun launchableResults(vararg launchables: Launchable): List<SearchResult> =
-        launchables.map { launchable -> SearchResult.LaunchableResult(launchable) }
+    private fun launchableResults(vararg launchables: Launchable, isHidden: Boolean = false): List<SearchResult> =
+        launchables.map { launchable -> createLaunchableResult(launchable = launchable, isHidden = isHidden) }
 
     private fun SearchResult.launchableResult(): SearchResult.LaunchableResult {
         assertTrue("Expected a Launchable result but was $this", this is SearchResult.LaunchableResult)

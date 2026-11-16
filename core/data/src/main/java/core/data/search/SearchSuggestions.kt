@@ -22,15 +22,16 @@ private const val FREQUENT_SUGGESTION_LIMIT: Int = 5
  * The Search suggestions shown before typing: up to [RECENT_INSTALL_LIMIT] Apps installed in the
  * last [RECENT_INSTALL_WINDOW_MS], the last Launchable opened from Search within
  * [LAST_OPENED_WINDOW_MS], then up to [FREQUENT_SUGGESTION_LIMIT] Launchables opened most often
- * from Search. Launchables removed from Search suggestions are left out, history keys with no
- * Launchable are skipped, and a Launchable is listed once, under the first group it belongs to.
+ * from Search. Launchables removed from Search suggestions and Hidden apps are left out, history
+ * keys with no Launchable are skipped, and a Launchable is listed once, under the first group it
+ * belongs to.
  */
 fun LaunchableState.searchSuggestions(history: List<SearchHistoryRecord>, nowEpochMs: Long): List<Launchable> {
     val removedKeys: Set<String> = history
         .filter { record -> record.isRemoved }
         .mapTo(mutableSetOf()) { record -> record.key }
     val visibleHistory: List<SearchHistoryRecord> = history.filterNot { record -> record.isRemoved }
-    val candidates: List<Launchable> = searchCandidates()
+    val candidates: List<Launchable> = searchCandidates().filterNot { launchable -> isHidden(launchable) }
     val appListOrder: Map<String, Int> = candidates.withIndex().associate { (index, launchable) -> launchable.key to index }
     val recentlyInstalled: List<Launchable> = candidates
         .filterIsInstance<App>()
@@ -40,14 +41,14 @@ fun LaunchableState.searchSuggestions(history: List<SearchHistoryRecord>, nowEpo
     val lastOpened: Launchable? = visibleHistory
         .filter { record -> nowEpochMs - record.lastLaunchedAt <= LAST_OPENED_WINDOW_MS }
         .sortedByDescending { record -> record.lastLaunchedAt }
-        .firstNotNullOfOrNull { record -> launchableFor(key = record.key) }
+        .firstNotNullOfOrNull { record -> visibleLaunchableFor(key = record.key) }
     val mostOpened: List<Launchable> = visibleHistory
         .filter { record -> record.launchCount > 0 }
         .sortedWith(
             compareByDescending<SearchHistoryRecord> { record -> record.launchCount }
                 .thenBy { record -> appListOrder[record.key] ?: Int.MAX_VALUE }
         )
-        .mapNotNull { record -> launchableFor(key = record.key) }
+        .mapNotNull { record -> visibleLaunchableFor(key = record.key) }
         .take(FREQUENT_SUGGESTION_LIMIT)
     return (recentlyInstalled + listOfNotNull(lastOpened) + mostOpened).distinctBy { launchable -> launchable.key }
 }

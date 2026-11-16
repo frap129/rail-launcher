@@ -144,9 +144,10 @@ private fun Launchable.isPrivateLaunchable(): Boolean = isPrivateApp || (this is
 
 private fun LaunchableState.isSearchable(launchable: Launchable): Boolean = !launchable.isPrivateLaunchable() || hasUnlockedPrivateSpace()
 
-// App List order, then the Launchables kept out of it, such as Apps held in a Folder.
+// App List order, Hidden apps included where they would rank if visible, then the Launchables kept out of it,
+// such as Apps held in a Folder.
 internal fun LaunchableState.searchCandidates(): List<Launchable> {
-    val listedLaunchables: List<Launchable> = listedGroups.flatMap { group -> group.items }
+    val listedLaunchables: List<Launchable> = listedGroupsFor(includeHidden = true).flatMap { group -> group.items }
     val listedKeys: Set<String> = listedLaunchables.mapTo(mutableSetOf()) { launchable -> launchable.key }
     return (listedLaunchables + launchables.filterNot { launchable -> launchable.key in listedKeys })
         .filter { launchable -> isSearchable(launchable = launchable) }

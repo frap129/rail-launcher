@@ -6,6 +6,7 @@ import core.data.prefs.Settings
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_CALCULATOR_QUERY
 import core.data.testing.TEST_SDK
+import core.data.testing.createLaunchableResult
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createRailLaunchable
 import core.data.testing.createSearchContact
@@ -29,18 +30,18 @@ class AutoLaunchTest {
         val cases: List<AutoLaunchCase> = listOf(
             AutoLaunchCase(
                 description = "a Launchable",
-                results = listOf(SearchResult.LaunchableResult(inputLaunchable)),
-                expectedResult = SearchResult.LaunchableResult(inputLaunchable)
+                results = listOf(createLaunchableResult(inputLaunchable)),
+                expectedResult = createLaunchableResult(inputLaunchable)
             ),
             AutoLaunchCase(
                 description = "a Shortcut",
-                results = listOf(SearchResult.LaunchableResult(inputShortcut)),
-                expectedResult = SearchResult.LaunchableResult(inputShortcut)
+                results = listOf(createLaunchableResult(inputShortcut)),
+                expectedResult = createLaunchableResult(inputShortcut)
             ),
             AutoLaunchCase(
                 description = "a Launchable followed by the external rows",
                 results = listOf(
-                    SearchResult.LaunchableResult(inputLaunchable),
+                    createLaunchableResult(inputLaunchable),
                     SearchResult.TypedUrlRow(url = "https://alpha.example"),
                     SearchResult.WebSearchRow(url = "https://www.google.com/search?q=alpha"),
                     SearchResult.PlayStoreRow(
@@ -48,7 +49,7 @@ class AutoLaunchTest {
                         webUrl = "https://play.google.com/store/search?q=alpha"
                     )
                 ),
-                expectedResult = SearchResult.LaunchableResult(inputLaunchable)
+                expectedResult = createLaunchableResult(inputLaunchable)
             )
         )
 
@@ -65,15 +66,15 @@ class AutoLaunchTest {
             AutoLaunchCase(
                 description = "two Launchables",
                 results = listOf(
-                    SearchResult.LaunchableResult(inputLaunchable),
-                    SearchResult.LaunchableResult(createRailLaunchable("Alfred"))
+                    createLaunchableResult(inputLaunchable),
+                    createLaunchableResult(createRailLaunchable("Alfred"))
                 ),
                 expectedResult = null
             ),
             AutoLaunchCase(
                 description = "a Calculator row",
                 results = listOf(
-                    SearchResult.LaunchableResult(inputCalculatorQuery),
+                    createLaunchableResult(inputCalculatorQuery),
                     SearchResult.CalculatorRow(expression = TEST_CALCULATOR_QUERY, value = "84")
                 ),
                 expectedResult = null
@@ -81,26 +82,26 @@ class AutoLaunchTest {
             AutoLaunchCase(
                 description = "a Contact row",
                 results = listOf(
-                    SearchResult.LaunchableResult(inputLaunchable),
+                    createLaunchableResult(inputLaunchable),
                     SearchResult.ContactRow(contact = createSearchContact())
                 ),
                 expectedResult = null
             ),
             AutoLaunchCase(
                 description = "a Paused result",
-                results = listOf(SearchResult.LaunchableResult(createPausedWorkApp())),
+                results = listOf(createLaunchableResult(createPausedWorkApp())),
                 expectedResult = null
             ),
             AutoLaunchCase(
                 description = "a disabled Shortcut",
                 results = listOf(
-                    SearchResult.LaunchableResult(createShortcut(packageName = "com.example.site", isEnabled = false))
+                    createLaunchableResult(createShortcut(packageName = "com.example.site", isEnabled = false))
                 ),
                 expectedResult = null
             ),
             AutoLaunchCase(
                 description = "a Folder",
-                results = listOf(SearchResult.LaunchableResult(Folder(folderId = 1L, name = "Games"))),
+                results = listOf(createLaunchableResult(Folder(folderId = 1L, name = "Games"))),
                 expectedResult = null
             ),
             AutoLaunchCase(
@@ -117,7 +118,7 @@ class AutoLaunchTest {
 
     @Test
     fun `does not open a result when Auto-launch is off`() {
-        val inputResults: List<SearchResult> = listOf(SearchResult.LaunchableResult(createRailLaunchable("Alpha")))
+        val inputResults: List<SearchResult> = listOf(createLaunchableResult(createRailLaunchable("Alpha")))
 
         val actualResult: SearchResult.LaunchableResult? = inputResults.autoLaunchResult(settings = Settings())
 
