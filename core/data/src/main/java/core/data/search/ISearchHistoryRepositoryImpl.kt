@@ -2,6 +2,7 @@ package core.data.search
 
 import core.data.room.dao.SearchHistoryDao
 import core.data.time.IClockSource
+import core.data.time.withClockNow
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -15,8 +16,8 @@ class ISearchHistoryRepositoryImpl(
     override val history: Flow<List<SearchHistoryRecord>> = searchHistoryDao.observeAll()
 
     override suspend fun recordLaunch(key: String) {
-        withContext(dispatcher) {
-            searchHistoryDao.record(key = key, launchedAt = clockSource.now().toEpochMilli())
+        withClockNow(clockSource = clockSource, dispatcher = dispatcher) { launchedAt ->
+            searchHistoryDao.record(key = key, launchedAt = launchedAt)
         }
     }
 
