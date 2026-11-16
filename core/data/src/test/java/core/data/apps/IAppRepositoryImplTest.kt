@@ -20,10 +20,14 @@ import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.SECOND_POSITION
+import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
+import core.data.testing.createClockReading
+import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createLaunchCountRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
 import core.data.testing.createPrivateSpaceStatus
@@ -33,6 +37,8 @@ import core.data.testing.createShortcutSourceMock
 import core.data.testing.createStandaloneShortcutSource
 import core.data.testing.createUserHandle
 import core.data.testing.packageLevelKey
+import core.data.time.IClockSource
+import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -107,7 +113,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `carries each App's first install time`() = databaseTest {
-        val inputFirstInstallTime: Long = 1_791_720_000_000L
+        val inputFirstInstallTime: Long = TEST_NOW_EPOCH_MS
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile)).apply {
             setActivities(
                 user = personalUser,
@@ -654,6 +660,9 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         customizations: List<LaunchableCustomization> = emptyList()
     ): LaunchableRepositories {
         val mockProfileSource: IProfileSource = createProfileSourceMock(state = profileState)
+        val mockClockSource: IClockSource = createClockSourceMock(
+            reading = createClockReading(instant = Instant.ofEpochMilli(0L))
+        )
         val launchableRepository: ILaunchableRepositoryImpl = ILaunchableRepositoryImpl(
             appRepository = appRepository,
             iconRepository = createIconRepositoryMock(inputIcon = Icon.RailIcon(resId = 0)),
@@ -666,6 +675,12 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                 shortcutSource = createShortcutSourceMock()
             ),
             privateSpaceStatus = privateSpaceStatus,
+            launchCountRepository = createLaunchCountRepository(
+                launchCountDao = database.getLaunchCountDao(),
+                clockSource = mockClockSource,
+                dispatcher = databaseDispatcher
+            ),
+            clockSource = mockClockSource,
             scope = backgroundScope
         )
         return LaunchableRepositories(

@@ -35,6 +35,9 @@ interface IPreferencesRepository {
     /** Sets the screen side where the Rail is drawn. */
     fun setRailSide(side: RailSide)
 
+    /** Sets how the App List orders the Launchables inside each group. */
+    fun setAppListOrder(order: AppListOrder)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

@@ -19,17 +19,18 @@ import core.data.calendar.ICalendarEventSource
 import core.data.calendar.ICalendarEventSourceImpl
 import core.data.calendar.ICalendarPermissionGate
 import core.data.calendar.ICalendarPermissionGateImpl
-import core.data.cleanup.FavoriteCleanupRow
 import core.data.cleanup.HeaderTapTargetCleanupRow
 import core.data.cleanup.IStaleKeyCleanup
 import core.data.cleanup.IStaleKeyCleanupImpl
 import core.data.cleanup.IStoredKeyClassifier
 import core.data.cleanup.IStoredKeyClassifierImpl
-import core.data.cleanup.LaunchableCustomizationCleanupRow
-import core.data.cleanup.PopupItemCleanupRow
 import core.data.cleanup.PopupOwnerCleanupRow
-import core.data.cleanup.SearchHistoryCleanupRow
-import core.data.cleanup.StandaloneShortcutCleanupRow
+import core.data.cleanup.favoriteCleanupRow
+import core.data.cleanup.launchCountCleanupRow
+import core.data.cleanup.launchableCustomizationCleanupRow
+import core.data.cleanup.popupItemCleanupRow
+import core.data.cleanup.searchHistoryCleanupRow
+import core.data.cleanup.standaloneShortcutCleanupRow
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
@@ -46,6 +47,8 @@ import core.data.icons.IconFetcher
 import core.data.icons.IconKeyer
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.ILaunchableRepositoryImpl
+import core.data.launches.ILaunchCountRepository
+import core.data.launches.ILaunchCountRepositoryImpl
 import core.data.media.IMediaSessionSource
 import core.data.media.IMediaSessionSourceImpl
 import core.data.media.MediaArtworkFetcher
@@ -76,6 +79,7 @@ import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
 import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.LaunchCountDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
@@ -244,6 +248,7 @@ class MainApplication :
         single<FolderDao> { database.getFolderDao() }
         single<StandaloneShortcutDao> { database.getStandaloneShortcutDao() }
         single<SearchHistoryDao> { database.getSearchHistoryDao() }
+        single<LaunchCountDao> { database.getLaunchCountDao() }
     }
 
     /**
@@ -290,11 +295,14 @@ class MainApplication :
                 popupDao = get(),
                 standaloneShortcutSource = get(),
                 privateSpaceStatus = get(),
+                launchCountRepository = get(),
+                clockSource = get(),
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
         }
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ISearchHistoryRepository> { ISearchHistoryRepositoryImpl(searchHistoryDao = get(), clockSource = get()) }
+        single<ILaunchCountRepository> { ILaunchCountRepositoryImpl(launchCountDao = get(), clockSource = get()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
         single<IShortcutSearchSource> { IShortcutSearchSourceImpl(shortcutPickerSource = get(), popupRepository = get()) }
         single<IContactSearchSource> {
@@ -484,6 +492,7 @@ class MainApplication :
                 privateSpaceLock = get(),
                 standaloneShortcutRepository = get(),
                 searchHistoryRepository = get(),
+                launchCountRepository = get(),
                 clockSource = get(),
                 shortcutSearchSource = get(),
                 contactSearchSource = get(),
@@ -586,8 +595,8 @@ class MainApplication :
 
     private fun startStaleKeyCleanup() {
         val cleanup: IStaleKeyCleanup = get()
-        cleanup.register(LaunchableCustomizationCleanupRow(preferencesRepository = get()))
-        cleanup.register(FavoriteCleanupRow(favoriteDao = get()))
+        cleanup.register(launchableCustomizationCleanupRow(preferencesRepository = get()))
+        cleanup.register(favoriteCleanupRow(favoriteDao = get()))
         cleanup.register(
             PopupOwnerCleanupRow(
                 popupDao = get(),
@@ -595,11 +604,12 @@ class MainApplication :
                 popupRepository = get()
             )
         )
-        cleanup.register(PopupItemCleanupRow(popupDao = get(), popupRepository = get()))
+        cleanup.register(popupItemCleanupRow(popupDao = get(), popupRepository = get()))
         cleanup.register(HeaderTapTargetCleanupRow(headerSettingsDao = get()))
-        cleanup.register(SearchHistoryCleanupRow(searchHistoryDao = get()))
+        cleanup.register(searchHistoryCleanupRow(searchHistoryDao = get()))
+        cleanup.register(launchCountCleanupRow(launchCountDao = get()))
         cleanup.register(
-            StandaloneShortcutCleanupRow(
+            standaloneShortcutCleanupRow(
                 standaloneShortcutDao = get(),
                 standaloneShortcutRepository = get()
             )

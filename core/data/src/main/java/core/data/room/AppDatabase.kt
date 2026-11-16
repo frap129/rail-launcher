@@ -7,6 +7,7 @@ import core.data.favorites.FavoriteRecord
 import core.data.folders.FolderRecord
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
+import core.data.launches.LaunchCountRecord
 import core.data.popups.PopupHiddenShortcut
 import core.data.popups.PopupItemRecord
 import core.data.popups.PopupSettingsRecord
@@ -19,6 +20,7 @@ import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
 import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.LaunchCountDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
 import core.data.room.dao.PackIconDao
@@ -56,9 +58,10 @@ import core.data.widgets.WidgetRecord
         PopupSettingsRecord::class,
         FolderRecord::class,
         StandaloneShortcutRecord::class,
-        SearchHistoryRecord::class
+        SearchHistoryRecord::class,
+        LaunchCountRecord::class
     ],
-    version = 24
+    version = 25
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -77,4 +80,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getFolderDao(): FolderDao
     abstract fun getStandaloneShortcutDao(): StandaloneShortcutDao
     abstract fun getSearchHistoryDao(): SearchHistoryDao
+    abstract fun getLaunchCountDao(): LaunchCountDao
 }

@@ -12,6 +12,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launches.ILaunchCountRepository
 import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
 import core.data.notifications.NotificationSnapshot
@@ -331,6 +332,7 @@ class LauncherViewModel(
     private val privateSpaceLock: IPrivateSpaceLock,
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
+    private val launchCountRepository: ILaunchCountRepository,
     private val clockSource: IClockSource,
     private val shortcutSearchSource: IShortcutSearchSource,
     private val contactSearchSource: IContactSearchSource,
@@ -800,8 +802,11 @@ class LauncherViewModel(
      */
     fun onSearchGo(query: String): SearchResult? = (uiState.value as? LauncherUiState.Search)?.topResultFor(query)
 
-    /** A Launchable was launched, so Search records it and then closes and resets. */
+    /** A Launchable was launched, so Rail counts it, Search records it when it was open, and Search closes and resets. */
     fun onLaunched(launchable: Launchable) {
+        viewModelScope.launchLogged(message = "Failed to record a Launch count") {
+            launchCountRepository.recordLaunch(key = launchable.key)
+        }
         if (isShowingSearch) {
             viewModelScope.launchLogged(message = "Failed to record a Search launch") {
                 searchHistoryRepository.recordLaunch(key = launchable.key)

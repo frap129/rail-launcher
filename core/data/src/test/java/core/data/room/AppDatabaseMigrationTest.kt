@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import core.data.prefs.AppListOrder
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
@@ -49,6 +50,8 @@ private const val WEB_SUGGESTIONS_DATABASE_NAME: String = "web-suggestions-migra
 private const val WEB_SUGGESTIONS_DATABASE_VERSION: Int = 22
 private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
 private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
+private const val APP_LIST_ORDER_DATABASE_NAME: String = "app-list-order-migration-test"
+private const val APP_LIST_ORDER_DATABASE_VERSION: Int = 24
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val LAUNCHABLE_CUSTOMIZATIONS_TABLE: String = "launchable_customizations"
@@ -56,6 +59,7 @@ private const val FIRST_FOLDER_ID: Long = 1L
 private const val SECOND_FOLDER_ID: Long = 2L
 private const val SETTINGS_TABLE: String = "settings"
 private const val SEARCH_HISTORY_TABLE: String = "search_history"
+private const val LAUNCH_COUNTS_TABLE: String = "launch_counts"
 private const val STANDALONE_SHORTCUTS_TABLE: String = "standalone_shortcuts"
 private const val FAVORITES_TABLE: String = "favorites"
 private const val FAVORITE_KEY: String = "com.example.app/.MainActivity_UserHandle{0}"
@@ -533,6 +537,36 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the Launch count table and the App List order defaulting to Recently used and keeps the settings row`() {
+        withDatabase(
+            name = APP_LIST_ORDER_DATABASE_NAME,
+            version = APP_LIST_ORDER_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, openSearchOnSwipeUp = false)
+            }
+        ) { db ->
+            MIGRATION_24_25.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP,
+                    Settings.COLUMN_APP_LIST_ORDER
+                ),
+                db.columnNames(table = SETTINGS_TABLE)
+            )
+            assertEquals(AppListOrder.DEFAULT.name, db.appListOrder())
+            assertEquals(false, db.openSearchOnSwipeUp())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+            assertEquals(
+                listOf("key", "launch_count", "recent_use_score", "score_updated_at"),
+                db.columnNames(table = LAUNCH_COUNTS_TABLE)
+            )
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -659,15 +693,19 @@ private fun assertOpensAfterMigration(version: Int) {
         .addMigrations(*APP_DATABASE_MIGRATIONS)
         .build()
     try {
-        val actualSettings: Pair<String?, String> = actualDatabase.openHelper.writableDatabase
-            .query("SELECT icon_pack, ${Settings.COLUMN_SEARCH_ENGINE} FROM $SETTINGS_TABLE")
+        val actualSettings: Triple<String?, String, String> = actualDatabase.openHelper.writableDatabase
+            .query("SELECT icon_pack, ${Settings.COLUMN_SEARCH_ENGINE}, ${Settings.COLUMN_APP_LIST_ORDER} FROM $SETTINGS_TABLE")
             .use { cursor ->
                 cursor.moveToFirst()
-                cursor.getString(cursor.getColumnIndexOrThrow("icon_pack")) to
-                    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE))
+                Triple(
+                    cursor.getString(cursor.getColumnIndexOrThrow("icon_pack")),
+                    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_ENGINE)),
+                    cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_APP_LIST_ORDER))
+                )
             }
         assertEquals("Version $version kept its settings", TEST_ICON_PACK_PACKAGE, actualSettings.first)
         assertEquals("Version $version chose no engine", SearchEngine.None.name, actualSettings.second)
+        assertEquals("Version $version chose Recently used", AppListOrder.DEFAULT.name, actualSettings.third)
     } finally {
         actualDatabase.close()
         inputContext.deleteDatabase(inputDatabaseName)
@@ -794,6 +832,12 @@ private fun SupportSQLiteDatabase.railSide(): String = query("SELECT ${Settings.
     cursor.moveToFirst()
     cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_RAIL_SIDE))
 }
+
+private fun SupportSQLiteDatabase.appListOrder(): String =
+    query("SELECT ${Settings.COLUMN_APP_LIST_ORDER} FROM $SETTINGS_TABLE").use { cursor ->
+        cursor.moveToFirst()
+        cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_APP_LIST_ORDER))
+    }
 
 private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean =
     query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} FROM $SETTINGS_TABLE").use { cursor ->

@@ -37,7 +37,7 @@ class StaleKeyRowsTest {
         every { mockPreferencesRepository.launchableCustomizations } returns MutableStateFlow(
             listOf(LaunchableCustomization(key = "first"), LaunchableCustomization(key = "second"))
         )
-        val row = LaunchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)
+        val row = launchableCustomizationCleanupRow(preferencesRepository = mockPreferencesRepository)
 
         assertEquals(setOf("first", "second"), row.keys.first())
         row.delete(setOf("second"))
@@ -51,7 +51,7 @@ class StaleKeyRowsTest {
         every { mockFavoriteDao.observeAll() } returns MutableStateFlow(
             listOf(FavoriteRecord(key = "first", position = 0), FavoriteRecord(key = "second", position = 1))
         )
-        val row = FavoriteCleanupRow(favoriteDao = mockFavoriteDao)
+        val row = favoriteCleanupRow(favoriteDao = mockFavoriteDao)
 
         assertEquals(setOf("first", "second"), row.keys.first())
         row.delete(setOf("second"))
@@ -93,7 +93,7 @@ class StaleKeyRowsTest {
                 PopupItemRecord(ownerKey = "owner", itemKey = "second", position = 1)
             )
         )
-        val row = PopupItemCleanupRow(popupDao = mockPopupDao, popupRepository = mockPopupRepository)
+        val row = popupItemCleanupRow(popupDao = mockPopupDao, popupRepository = mockPopupRepository)
 
         assertEquals(setOf("first", "second"), row.keys.first())
         row.delete(setOf("second"))
@@ -135,7 +135,7 @@ class StaleKeyRowsTest {
         every { mockStandaloneShortcutDao.observeAll() } returns MutableStateFlow(
             listOf(StandaloneShortcutRecord(key = "first", addedAt = 1L), StandaloneShortcutRecord(key = "second", addedAt = 2L))
         )
-        val row = StandaloneShortcutCleanupRow(
+        val row = standaloneShortcutCleanupRow(
             standaloneShortcutDao = mockStandaloneShortcutDao,
             standaloneShortcutRepository = mockStandaloneShortcutRepository
         )

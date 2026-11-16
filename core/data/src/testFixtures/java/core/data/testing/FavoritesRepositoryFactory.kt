@@ -1,6 +1,6 @@
 package core.data.testing
 
-import core.data.cleanup.FavoriteCleanupRow
+import core.data.cleanup.favoriteCleanupRow
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.launchables.ILaunchableRepository
 import core.data.room.dao.FavoriteDao
@@ -16,7 +16,7 @@ fun TestScope.createFavoritesRepository(
     createStaleKeyCleanup(
         launchableRepository = launchableRepository,
         shortcutSource = shortcutSource,
-        rows = listOf(FavoriteCleanupRow(favoriteDao = favoriteDao)),
+        rows = listOf(favoriteCleanupRow(favoriteDao = favoriteDao)),
         scope = backgroundScope
     )
     return IFavoritesRepositoryImpl(

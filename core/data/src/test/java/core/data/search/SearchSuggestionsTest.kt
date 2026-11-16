@@ -3,6 +3,7 @@ package core.data.search
 import core.data.apps.model.App
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
+import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createLoadedLaunchableState
@@ -14,7 +15,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private const val NOW_EPOCH_MS: Long = 1_791_720_000_000L
 private const val THREE_DAYS_MS: Long = 3L * MILLIS_PER_DAY
 private const val FIFTEEN_MINUTES_MS: Long = 15L * MILLIS_PER_MINUTE
 
@@ -26,16 +26,16 @@ class SearchSuggestionsTest {
         val inputBoundary: App = createApp(
             name = "Boundary",
             packageName = "com.example.boundary",
-            firstInstallTime = NOW_EPOCH_MS - THREE_DAYS_MS
+            firstInstallTime = TEST_NOW_EPOCH_MS - THREE_DAYS_MS
         )
         val inputOlder: App = createApp(
             name = "Older",
             packageName = "com.example.older",
-            firstInstallTime = NOW_EPOCH_MS - THREE_DAYS_MS - 1
+            firstInstallTime = TEST_NOW_EPOCH_MS - THREE_DAYS_MS - 1
         )
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOlder, inputBoundary))
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = emptyList(), nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = emptyList(), nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(listOf<Launchable>(inputBoundary), actualSuggestions)
     }
@@ -46,7 +46,7 @@ class SearchSuggestionsTest {
             createApp(
                 name = "App $index",
                 packageName = "com.example.app$index",
-                firstInstallTime = NOW_EPOCH_MS - index * MILLIS_PER_MINUTE
+                firstInstallTime = TEST_NOW_EPOCH_MS - index * MILLIS_PER_MINUTE
             )
         }
         val inputApps: List<App> = listOf(
@@ -60,7 +60,7 @@ class SearchSuggestionsTest {
         val expectedApps: List<App> = (1..5).map { index -> inputAppByIndex.getValue(index) }
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputApps)
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = emptyList(), nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = emptyList(), nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(expectedApps, actualSuggestions)
     }
@@ -73,11 +73,11 @@ class SearchSuggestionsTest {
             historyRecord(
                 key = inputApp.key,
                 launchCount = 1,
-                lastLaunchedAt = NOW_EPOCH_MS - FIFTEEN_MINUTES_MS
+                lastLaunchedAt = TEST_NOW_EPOCH_MS - FIFTEEN_MINUTES_MS
             )
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(listOf<Launchable>(inputApp), actualSuggestions)
     }
@@ -90,11 +90,11 @@ class SearchSuggestionsTest {
             historyRecord(
                 key = inputApp.key,
                 launchCount = 0,
-                lastLaunchedAt = NOW_EPOCH_MS - FIFTEEN_MINUTES_MS - 1
+                lastLaunchedAt = TEST_NOW_EPOCH_MS - FIFTEEN_MINUTES_MS - 1
             )
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -111,7 +111,7 @@ class SearchSuggestionsTest {
             historyRecord(key = inputGamma.key, launchCount = 5)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(listOf(inputGamma, inputAlpha, inputBeta), actualSuggestions)
     }
@@ -122,7 +122,7 @@ class SearchSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputApps)
         val inputHistory: List<SearchHistoryRecord> = inputApps.map { app -> historyRecord(key = app.key, launchCount = 1) }
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(inputApps, actualSuggestions)
     }
@@ -135,7 +135,7 @@ class SearchSuggestionsTest {
             historyRecord(key = app.key, launchCount = inputApps.size - index)
         }
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(inputApps.take(5), actualSuggestions)
     }
@@ -145,14 +145,14 @@ class SearchSuggestionsTest {
         val inputApp: App = createApp(
             name = "Recent",
             packageName = "com.example.recent",
-            firstInstallTime = NOW_EPOCH_MS - MILLIS_PER_MINUTE
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
         )
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputApp))
         val inputHistory: List<SearchHistoryRecord> = listOf(
-            historyRecord(key = inputApp.key, launchCount = 1, lastLaunchedAt = NOW_EPOCH_MS, isRemoved = true)
+            historyRecord(key = inputApp.key, launchCount = 1, lastLaunchedAt = TEST_NOW_EPOCH_MS, isRemoved = true)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -165,7 +165,7 @@ class SearchSuggestionsTest {
             historyRecord(key = inputApp.key, launchCount = 5, isRemoved = true)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -175,10 +175,10 @@ class SearchSuggestionsTest {
         val inputApp: App = createApp(name = "Last", packageName = "com.example.last")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputApp))
         val inputHistory: List<SearchHistoryRecord> = listOf(
-            historyRecord(key = inputApp.key, launchCount = 1, lastLaunchedAt = NOW_EPOCH_MS, isRemoved = true)
+            historyRecord(key = inputApp.key, launchCount = 1, lastLaunchedAt = TEST_NOW_EPOCH_MS, isRemoved = true)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -188,10 +188,10 @@ class SearchSuggestionsTest {
         val inputApp: App = createApp(name = "Present", packageName = "com.example.present")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputApp))
         val inputHistory: List<SearchHistoryRecord> = listOf(
-            historyRecord(key = "com.example.gone/.MainActivity_UserHandle{0}", launchCount = 9, lastLaunchedAt = NOW_EPOCH_MS)
+            historyRecord(key = "com.example.gone/.MainActivity_UserHandle{0}", launchCount = 9, lastLaunchedAt = TEST_NOW_EPOCH_MS)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -201,14 +201,14 @@ class SearchSuggestionsTest {
         val inputApp: App = createApp(
             name = "Popular",
             packageName = "com.example.popular",
-            firstInstallTime = NOW_EPOCH_MS - MILLIS_PER_MINUTE
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
         )
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputApp))
         val inputHistory: List<SearchHistoryRecord> = listOf(
-            historyRecord(key = inputApp.key, launchCount = 9, lastLaunchedAt = NOW_EPOCH_MS - MILLIS_PER_MINUTE)
+            historyRecord(key = inputApp.key, launchCount = 9, lastLaunchedAt = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = NOW_EPOCH_MS)
+        val actualSuggestions: List<Launchable> = inputState.searchSuggestions(history = inputHistory, nowEpochMs = TEST_NOW_EPOCH_MS)
 
         assertEquals(listOf<Launchable>(inputApp), actualSuggestions)
     }
