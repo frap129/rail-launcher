@@ -3,20 +3,12 @@ package feature.launcher
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,24 +20,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Search
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
-import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableGroupHeader
-import core.ui.layout.compactIconSize
 import kotlinx.coroutines.flow.StateFlow
-
-private val searchButtonHorizontalPadding: Dp = 16.dp
-private val searchButtonIconPadding: Dp = 8.dp
-
-internal const val SEARCH_BUTTON_ICON_TEST_TAG: String = "searchButtonIcon"
 
 @Immutable
 data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
@@ -75,8 +56,7 @@ fun LauncherAppList(
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
     topOffset: Dp,
-    bottomOffset: Dp,
-    onSearchOpen: () -> Unit
+    bottomOffset: Dp
 ) {
     val defaultBuffer: Dp = 100.dp
     var animated: Boolean by remember { mutableStateOf(false) }
@@ -88,53 +68,29 @@ fun LauncherAppList(
         targetValue = if (animated) defaultBuffer else bottomOffset,
         animationSpec = tween(durationMillis = 400, delayMillis = 275)
     )
-    // The Search button overlays the list so released Rail groups keep their scrub position.
-    Box(modifier = modifier) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().testTag("launcherList"),
-            state = lazyListState,
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Top
-        ) {
-            item {
-                Spacer(Modifier.height(topSpacerHeightAnimator))
-            }
-            items(appList, key = { itemGroup -> itemGroup.appListKey() }) { itemGroup ->
-                LauncherItemGroup(
-                    group = itemGroup,
-                    rowState = rowState,
-                    itemActions = itemActions,
-                    folderSummaries = folderSummaries
-                )
-            }
-            item {
-                Spacer(Modifier.height(bottomSpacerHeightAnimator))
-            }
+    LazyColumn(
+        modifier = modifier.testTag("launcherList"),
+        state = lazyListState,
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top
+    ) {
+        item {
+            Spacer(Modifier.height(topSpacerHeightAnimator))
         }
-        if (!rowState.isEditingFavorites) {
-            SearchButton(
-                modifier = Modifier.statusBarsPadding(),
-                onClick = onSearchOpen
+        items(appList, key = { itemGroup -> itemGroup.appListKey() }) { itemGroup ->
+            LauncherItemGroup(
+                group = itemGroup,
+                rowState = rowState,
+                itemActions = itemActions,
+                folderSummaries = folderSummaries
             )
+        }
+        item {
+            Spacer(Modifier.height(bottomSpacerHeightAnimator))
         }
     }
     LaunchedEffect(Unit) {
         animated = true
-    }
-}
-
-@Composable
-private fun SearchButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = modifier.padding(horizontal = searchButtonHorizontalPadding)
-    ) {
-        Icon(
-            imageVector = FontAwesomeIcons.Solid.Search,
-            contentDescription = null,
-            modifier = Modifier.size(compactIconSize).testTag(SEARCH_BUTTON_ICON_TEST_TAG)
-        )
-        Text(text = stringResource(CoreUiR.string.search), modifier = Modifier.padding(start = searchButtonIconPadding))
     }
 }
 
