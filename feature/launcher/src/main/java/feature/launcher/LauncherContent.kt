@@ -174,6 +174,7 @@ internal fun LauncherContent(
         if (home != null) {
             val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
                 viewModel = widgetViewModel,
+                onLaunch = onItemLaunch,
                 menuEnabled = !isEditingHome
             )
             LauncherHome(

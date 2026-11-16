@@ -84,7 +84,6 @@ import core.ui.widgets.HeaderContent
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.WidgetModel
-import core.util.logTypeName
 import feature.launcher.HomeReorder
 import feature.launcher.R
 import feature.launcher.ReorderRow
@@ -149,7 +148,7 @@ class WidgetAreaUi(
 
 /** Collects the Widget Area and builds its Home actions. */
 @Composable
-fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = true): WidgetAreaUi {
+fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, onLaunch: (Launchable) -> Unit, menuEnabled: Boolean = true): WidgetAreaUi {
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
@@ -157,12 +156,12 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, menuEnabled: Boolean = 
     val scrollToPlaceId: Long? by viewModel.scrollToPlaceId.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    val actions: WidgetAreaActions = remember(viewModel, menuEnabled, context, hapticFeedback) {
+    val actions: WidgetAreaActions = remember(viewModel, onLaunch, menuEnabled, context, hapticFeedback) {
         WidgetAreaActions(
             menuEnabled = menuEnabled,
             onHomeHeight = viewModel::setHomeHeight,
             onWidgetAreaWidth = viewModel::setWidgetAreaWidth,
-            onTapTarget = context::openHeaderTapTarget,
+            onTapTarget = { target -> context.runHeaderTapAction(target = target, onLaunch = onLaunch) },
             onHeaderLongPress = { widgetId ->
                 if (menuEnabled) {
                     hapticFeedback.performLongPressHaptic()
@@ -788,11 +787,12 @@ internal fun WidgetWidth.contentPadding(railSide: RailSide): PaddingValues = whe
     WidgetWidth.UnderRail -> PaddingValues()
 }
 
-private fun Context.openHeaderTapTarget(target: HeaderTapTarget) {
+/** Runs a Tap action: a Launchable goes through [onLaunch], while every other target opens itself. */
+internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -> Unit) {
     when (target) {
         HeaderTapTarget.None -> Unit
 
-        is HeaderTapTarget.LaunchLaunchable -> openLaunchable(target.launchable)
+        is HeaderTapTarget.LaunchLaunchable -> onLaunch(target.launchable)
 
         HeaderTapTarget.SystemAlarms -> openSystemIntent(
             intent = Intent(AlarmClock.ACTION_SHOW_ALARMS),
@@ -841,21 +841,6 @@ private fun Context.openEvent(target: HeaderTapTarget.OpenEvent) {
         .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, target.beginMillis)
         .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, target.endMillis)
     openSystemIntent(intent = intent, target = target, messageResource = R.string.no_calendar_app)
-}
-
-internal fun Context.openLaunchable(launchable: Launchable) {
-    try {
-        launchable.launch(this)
-    } catch (exception: SecurityException) {
-        showLaunchFailure(launchable = launchable, exception = exception)
-    } catch (exception: ActivityNotFoundException) {
-        showLaunchFailure(launchable = launchable, exception = exception)
-    }
-}
-
-private fun Context.showLaunchFailure(launchable: Launchable, exception: Exception) {
-    Toast.makeText(this, getString(R.string.cannot_open_launchable, launchable.name), Toast.LENGTH_SHORT).show()
-    Timber.w("Could not open a Launchable: %s", exception.logTypeName())
 }
 
 private fun Context.openSystemIntent(intent: Intent, target: HeaderTapTarget, messageResource: Int) {

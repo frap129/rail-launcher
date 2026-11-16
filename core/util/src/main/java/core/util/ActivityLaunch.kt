@@ -14,7 +14,7 @@ fun attemptLaunch(launch: () -> Unit): Boolean = runCatching { launch() }.fold(
     onSuccess = { true },
     onFailure = { exception ->
         if (exception is ActivityNotFoundException || exception is SecurityException || exception is IllegalStateException) {
-            Timber.w(exception, "Could not open the target")
+            Timber.w("Could not open the target: %s", exception.logTypeName())
             false
         } else {
             throw exception
