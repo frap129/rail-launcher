@@ -3,9 +3,10 @@ package feature.launcher
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -87,15 +88,10 @@ fun LauncherAppList(
         targetValue = if (animated) defaultBuffer else bottomOffset,
         animationSpec = tween(durationMillis = 400, delayMillis = 275)
     )
-    Column(modifier = modifier) {
-        if (!rowState.isEditingFavorites) {
-            SearchButton(
-                modifier = Modifier.statusBarsPadding(),
-                onClick = onSearchOpen
-            )
-        }
+    // The Search button overlays the list so released Rail groups keep their scrub position.
+    Box(modifier = modifier) {
         LazyColumn(
-            modifier = Modifier.fillMaxWidth().weight(1f).testTag("launcherList"),
+            modifier = Modifier.fillMaxSize().testTag("launcherList"),
             state = lazyListState,
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Top
@@ -114,6 +110,12 @@ fun LauncherAppList(
             item {
                 Spacer(Modifier.height(bottomSpacerHeightAnimator))
             }
+        }
+        if (!rowState.isEditingFavorites) {
+            SearchButton(
+                modifier = Modifier.statusBarsPadding(),
+                onClick = onSearchOpen
+            )
         }
     }
     LaunchedEffect(Unit) {

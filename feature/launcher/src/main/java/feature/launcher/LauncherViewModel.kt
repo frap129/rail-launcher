@@ -298,6 +298,12 @@ private fun toUiState(
     )
 }
 
+/** The App List scroll state that shows the group at [groupIndex] where the Rail scrub showed it, past the top spacer. */
+internal fun createReleasedAppListState(groupIndex: Int, listStartOffsetPx: Int): LazyListState = LazyListState(
+    firstVisibleItemIndex = groupIndex + 1,
+    firstVisibleItemScrollOffset = -listStartOffsetPx
+)
+
 private enum class MenuRequest {
     Closed,
     Menu,
@@ -846,9 +852,9 @@ class LauncherViewModel(
     // Reads the shared state before update so a retried update cannot build a second scroll state.
     private fun createAppListState(group: LaunchableGroup.Listed): LazyListState {
         val listedGroups: List<LaunchableGroup.Listed> = launchableState.value.groups.filterIsInstance<LaunchableGroup.Listed>()
-        return LazyListState(
-            firstVisibleItemIndex = listedGroups.indexOfFirst { listed -> listed == group } + 1,
-            firstVisibleItemScrollOffset = -listStartOffsetPx
+        return createReleasedAppListState(
+            groupIndex = listedGroups.indexOfFirst { listed -> listed == group },
+            listStartOffsetPx = listStartOffsetPx
         )
     }
 
