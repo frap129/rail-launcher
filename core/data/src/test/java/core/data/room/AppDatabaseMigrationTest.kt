@@ -58,8 +58,8 @@ private const val SWIPE_DOWN_DATABASE_NAME: String = "swipe-down-migration-test"
 private const val SWIPE_DOWN_DATABASE_VERSION: Int = 23
 private const val MIGRATION_24_25_DATABASE_NAME: String = "migration-24-25-test"
 private const val MIGRATION_24_25_DATABASE_VERSION: Int = 24
-private const val HIDDEN_DATABASE_NAME: String = "hidden-migration-test"
-private const val HIDDEN_DATABASE_VERSION: Int = 25
+private const val MIGRATION_25_26_DATABASE_NAME: String = "migration-25-26-test"
+private const val MIGRATION_25_26_DATABASE_VERSION: Int = 25
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val FIRST_FOLDER_ID: Long = 1L
@@ -578,10 +578,10 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun `adds the Hidden flag defaulting to not hidden and keeps every Launchable customization`() {
+    fun `adds the Hidden flag and Show hidden apps with their defaults and keeps every customization and setting`() {
         withDatabase(
-            name = HIDDEN_DATABASE_NAME,
-            version = HIDDEN_DATABASE_VERSION,
+            name = MIGRATION_25_26_DATABASE_NAME,
+            version = MIGRATION_25_26_DATABASE_VERSION,
             createTables = { db ->
                 db.execSQL(
                     "CREATE TABLE ${LaunchableCustomization.TABLE_NAME} (key TEXT NOT NULL, name TEXT, icon TEXT, PRIMARY KEY(key))"
@@ -589,6 +589,7 @@ class AppDatabaseMigrationTest {
                 db.execSQL(
                     "INSERT INTO ${LaunchableCustomization.TABLE_NAME} (key, name, icon) VALUES ('$FAVORITE_KEY', 'Renamed', 'icon')"
                 )
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
             }
         ) { db ->
             MIGRATION_25_26.migrate(db)
@@ -600,6 +601,18 @@ class AppDatabaseMigrationTest {
             assertEquals("Renamed", db.launchableCustomizationName())
             assertEquals("icon", db.launchableCustomizationIcon())
             assertEquals(false, db.launchableCustomizationHidden())
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS
+                ),
+                db.columnNames(table = Settings.TABLE_NAME)
+            )
+            assertEquals(true, db.searchShowHiddenApps())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
         }
     }
 
@@ -867,11 +880,13 @@ private fun SupportSQLiteDatabase.folderIds(): List<Long> = query("SELECT id FRO
     }
 }
 
-private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean =
-    query("SELECT ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} FROM ${Settings.TABLE_NAME}").use { cursor ->
+private fun SupportSQLiteDatabase.booleanColumn(columnName: String, table: String = Settings.TABLE_NAME): Boolean =
+    query("SELECT $columnName FROM $table").use { cursor ->
         cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED)) != 0
+        cursor.getInt(cursor.getColumnIndexOrThrow(columnName)) != 0
     }
+
+private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean = booleanColumn(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED)
 
 private fun SupportSQLiteDatabase.scrubEdges(): String =
     query("SELECT ${Settings.COLUMN_SCRUB_EDGES} FROM ${Settings.TABLE_NAME}").use { cursor ->
@@ -891,77 +906,32 @@ private fun SupportSQLiteDatabase.appListOrder(): String =
         cursor.getString(cursor.getColumnIndexOrThrow(Settings.COLUMN_APP_LIST_ORDER))
     }
 
-private fun SupportSQLiteDatabase.rankFoldersByUse(): Boolean =
-    query("SELECT ${Settings.COLUMN_RANK_FOLDERS_BY_USE} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_RANK_FOLDERS_BY_USE)) != 0
-    }
+private fun SupportSQLiteDatabase.rankFoldersByUse(): Boolean = booleanColumn(Settings.COLUMN_RANK_FOLDERS_BY_USE)
 
-private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean =
-    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP)) != 0
-    }
+private fun SupportSQLiteDatabase.openSearchOnSwipeUp(): Boolean = booleanColumn(Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP)
 
-private fun SupportSQLiteDatabase.openSearchOnHomePress(): Boolean =
-    query("SELECT ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS)) != 0
-    }
+private fun SupportSQLiteDatabase.openSearchOnHomePress(): Boolean = booleanColumn(Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS)
 
-private fun SupportSQLiteDatabase.searchSuggestions(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_SUGGESTIONS} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_SUGGESTIONS)) != 0
-    }
+private fun SupportSQLiteDatabase.searchSuggestions(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_SUGGESTIONS)
 
-private fun SupportSQLiteDatabase.searchAutoLaunch(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_AUTO_LAUNCH)) != 0
-    }
+private fun SupportSQLiteDatabase.searchAutoLaunch(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_AUTO_LAUNCH)
 
-private fun SupportSQLiteDatabase.searchBottomAnchoredResults(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS)) != 0
-    }
+private fun SupportSQLiteDatabase.searchBottomAnchoredResults(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS)
 
-private fun SupportSQLiteDatabase.searchCalculatorRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CALCULATOR_ROW)) != 0
-    }
+private fun SupportSQLiteDatabase.searchCalculatorRow(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_CALCULATOR_ROW)
 
-private fun SupportSQLiteDatabase.searchWebRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_WEB_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_ROW)) != 0
-    }
+private fun SupportSQLiteDatabase.searchWebRow(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_WEB_ROW)
 
-private fun SupportSQLiteDatabase.searchPlayStoreRow(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_PLAY_STORE_ROW)) != 0
-    }
+private fun SupportSQLiteDatabase.searchPlayStoreRow(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_PLAY_STORE_ROW)
 
-private fun SupportSQLiteDatabase.searchContacts(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_CONTACTS} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_CONTACTS)) != 0
-    }
+private fun SupportSQLiteDatabase.searchContacts(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_CONTACTS)
 
-private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean =
-    query("SELECT ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)) != 0
-    }
+private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)
+
+private fun SupportSQLiteDatabase.searchShowHiddenApps(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS)
 
 private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
-    query("SELECT ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} FROM ${Settings.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)) != 0
-    }
+    booleanColumn(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)
 
 private fun SupportSQLiteDatabase.searchEngine(): String =
     query("SELECT ${Settings.COLUMN_SEARCH_ENGINE} FROM ${Settings.TABLE_NAME}").use { cursor ->
@@ -993,7 +963,4 @@ private fun SupportSQLiteDatabase.launchableCustomizationIcon(): String? =
     }
 
 private fun SupportSQLiteDatabase.launchableCustomizationHidden(): Boolean =
-    query("SELECT ${LaunchableCustomization.COLUMN_HIDDEN} FROM ${LaunchableCustomization.TABLE_NAME}").use { cursor ->
-        cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(LaunchableCustomization.COLUMN_HIDDEN)) != 0
-    }
+    booleanColumn(columnName = LaunchableCustomization.COLUMN_HIDDEN, table = LaunchableCustomization.TABLE_NAME)

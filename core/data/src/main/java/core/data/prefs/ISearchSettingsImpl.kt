@@ -14,6 +14,8 @@ class ISearchSettingsImpl(
 
     override fun setSearchSuggestions(enabled: Boolean) = preferencesRepository.setSearchSuggestions(enabled)
 
+    override fun setSearchShowHiddenApps(enabled: Boolean) = preferencesRepository.setSearchShowHiddenApps(enabled)
+
     override fun setSearchWebSuggestions(enabled: Boolean) = preferencesRepository.setSearchWebSuggestions(enabled)
 
     override fun setSearchCalculatorRow(enabled: Boolean) = preferencesRepository.setSearchCalculatorRow(enabled)

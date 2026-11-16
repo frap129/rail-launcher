@@ -187,6 +187,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setSearchShowHiddenApps(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(searchShowHiddenApps = enabled) }
+        }
+    }
+
     override fun setSearchAutoLaunch(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(searchAutoLaunch = enabled) }

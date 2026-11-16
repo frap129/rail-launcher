@@ -56,6 +56,9 @@ interface IPreferencesRepository {
     /** Sets whether Search shows Search suggestions before typing. */
     fun setSearchSuggestions(enabled: Boolean)
 
+    /** Sets whether Search shows Hidden apps in its results. */
+    fun setSearchShowHiddenApps(enabled: Boolean)
+
     /** Sets whether Auto-launch opens the only matching Launchable. */
     fun setSearchAutoLaunch(enabled: Boolean)
 

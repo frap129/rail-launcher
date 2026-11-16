@@ -19,6 +19,7 @@ import core.data.testing.createCustomIconPack
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -470,11 +471,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `defaults the App List order to Recently used`() = databaseTest {
-        val repository: IPreferencesRepository = createPreferencesRepository()
-
-        val actualSettings: Settings = repository.settings.first()
-
-        assertEquals(AppListOrder.RECENTLY_USED, actualSettings.appListOrder)
+        assertEquals(AppListOrder.RECENTLY_USED, defaultSettings().appListOrder)
     }
 
     @Test
@@ -491,11 +488,12 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `defaults Rank Folders by use to on`() = databaseTest {
-        val repository: IPreferencesRepository = createPreferencesRepository()
+        assertTrue(defaultSettings().rankFoldersByUse)
+    }
 
-        val actualSettings: Settings = repository.settings.first()
-
-        assertTrue(actualSettings.rankFoldersByUse)
+    @Test
+    fun `defaults Show hidden apps to on`() = databaseTest {
+        assertTrue(defaultSettings().searchShowHiddenApps)
     }
 
     @Test
@@ -695,6 +693,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setSearchWebRow(enabled = false) },
             { repository.setSearchPlayStoreRow(enabled = false) },
             { repository.setSearchWebSuggestions(enabled = true) },
+            { repository.setSearchShowHiddenApps(enabled = false) },
             { repository.setSearchContacts(enabled = true) },
             { repository.setSearchEngine(engine = SearchEngine.Kagi) },
             { repository.setCustomSearchEngineTemplate(template = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE) }
@@ -722,6 +721,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 searchWebRow = false,
                 searchPlayStoreRow = false,
                 searchWebSuggestions = true,
+                searchShowHiddenApps = false,
                 searchContacts = true,
                 searchEngine = SearchEngine.Custom,
                 searchEngineTemplate = TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
@@ -748,6 +748,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
 
     private suspend fun awaitRenamedCustomization(key: String, previousName: String): LaunchableCustomization =
         awaitCustomization(key = key) { customization -> customization.name != previousName }
+
+    private suspend fun TestScope.defaultSettings(): Settings = createPreferencesRepository().settings.first()
 
     private suspend fun awaitSettings(settingsDao: SettingsDao, predicate: (Settings) -> Boolean = { true }): Settings =
         requireNotNull(settingsDao.observeRow().first { row -> row != null && predicate(row) })

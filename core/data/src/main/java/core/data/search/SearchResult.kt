@@ -76,7 +76,8 @@ fun List<Launchable>.toSearchResults(isHidden: (Launchable) -> Boolean = { false
  * always follow the Launchable results in that fixed order. [webSuggestions] become Web suggestion
  * rows after the Play Store row, so they never move a row above them. [settings] turns each row
  * kind on or off; the web switch covers both the typed-URL and Web search rows. A Launchable
- * result whose key is a Hidden app is marked Hidden. A blank query has no rows.
+ * result whose key is a Hidden app is marked Hidden, and Hidden app results are left out while
+ * [Settings.searchShowHiddenApps] is off. A blank query has no rows.
  */
 fun LaunchableState.searchResultRows(
     query: String,
@@ -90,11 +91,17 @@ fun LaunchableState.searchResultRows(
     if (query.isBlank()) {
         return emptyList()
     }
-    val launchableResults: List<SearchResult> = searchResults(
+    val launchableMatches: List<Launchable> = searchResults(
         query = query,
         launchCounts = launchCounts,
         shortcuts = shortcuts
-    ).toSearchResults(isHidden = { launchable -> isHidden(launchable) })
+    )
+    val visibleMatches: List<Launchable> = if (settings.searchShowHiddenApps) {
+        launchableMatches
+    } else {
+        launchableMatches.filterNot { launchable -> isHidden(launchable) }
+    }
+    val launchableResults: List<SearchResult> = visibleMatches.toSearchResults(isHidden = { launchable -> isHidden(launchable) })
     val dedicatedRows: DedicatedSearchRows = settings.dedicatedSearchRows(query = query, locale = locale)
     val webSearchRow: SearchResult.WebSearchRow? = if (settings.searchWebRow) {
         settings.searchEngine.searchUrl(query = query, customTemplate = settings.searchEngineTemplate)
