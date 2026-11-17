@@ -3,6 +3,7 @@ package core.data.testing
 import android.content.ComponentName
 import core.data.apps.model.App
 import core.data.icons.model.Icon
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -74,32 +75,32 @@ fun createPrivateApp(name: String = "Secret", packageName: String = PRIVATE_PACK
 fun createLaunchableState(
     groups: List<LaunchableGroup>,
     folders: List<Launchable> = emptyList(),
-    isLoaded: Boolean = true,
+    readiness: LaunchableReadiness = LaunchableReadiness.AppListReady,
     keptKeys: Set<ProfileToken> = emptySet(),
     retainedKeys: Set<String> = emptySet(),
     hiddenKeys: Set<String> = emptySet()
 ): LaunchableState = LaunchableState(
     groups = groups,
     launchables = groups.filterIsInstance<LaunchableGroup.Listed>().flatMap { group -> group.items } + folders,
-    isLoaded = isLoaded,
+    readiness = readiness,
     keptKeys = keptKeys,
     retainedKeys = retainedKeys,
     hiddenKeys = hiddenKeys
 )
 
-/** A loaded Launchable State holding [launchables] in one Initial group, plus [folders]. */
+/** A Launchable State holding [launchables] in one Initial group, plus [folders]. */
 fun createLoadedLaunchableState(
     launchables: List<Launchable>,
     folders: List<Launchable> = emptyList(),
     label: String = "A",
-    isLoaded: Boolean = true,
+    readiness: LaunchableReadiness = LaunchableReadiness.AppListReady,
     keptKeys: Set<ProfileToken> = emptySet(),
     retainedKeys: Set<String> = emptySet(),
     hiddenKeys: Set<String> = emptySet()
 ): LaunchableState = createLaunchableState(
     groups = listOf(LaunchableGroup.InitialGroup(label = label, items = launchables)),
     folders = folders,
-    isLoaded = isLoaded,
+    readiness = readiness,
     keptKeys = keptKeys,
     retainedKeys = retainedKeys,
     hiddenKeys = hiddenKeys

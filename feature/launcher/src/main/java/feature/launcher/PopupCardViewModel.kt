@@ -926,7 +926,7 @@ class PopupCardViewModel(
         val ownerKey: String = savedStateHandle.get<String>(POPUP_REOPEN_OWNER_KEY) ?: return
         viewModelScope.launch {
             val launchables: List<Launchable> = launchableRepository.launchableState
-                .filter { state -> state.isLoaded }
+                .filter { state -> state.isAppListReady }
                 .first()
                 .launchables
             val owner: Launchable = launchables.findLaunchable(key = ownerKey) ?: run {

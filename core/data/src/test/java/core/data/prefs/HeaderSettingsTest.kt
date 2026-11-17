@@ -2,6 +2,7 @@ package core.data.prefs
 
 import core.data.apps.model.App
 import core.data.folders.Folder
+import core.data.launchables.LaunchableReadiness
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createLaunchableState
@@ -115,7 +116,7 @@ class HeaderSettingsTest {
         val inputState = createLoadedLaunchableState(launchables = listOf(createRailLaunchable(name = "Maps", deeplink = "rail://maps")))
         val inputFolder: Folder = Folder(folderId = 1L)
         val inputFolderState = createLaunchableState(groups = emptyList(), folders = listOf(inputFolder))
-        val inputLoadingState = createLaunchableState(groups = emptyList(), isLoaded = false)
+        val inputLoadingState = createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         assertTrue(HeaderTapSetting.Launchable(key = "rail://maps").isDisplayable(state = inputState))
         assertFalse(HeaderTapSetting.Launchable(key = "rail://uninstalled").isDisplayable(state = inputState))
         assertFalse(HeaderTapSetting.Launchable(key = inputFolder.key).isDisplayable(state = inputFolderState))

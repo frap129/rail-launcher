@@ -66,7 +66,7 @@ fun HeaderSettings.withDateVisible(visible: Boolean): HeaderSettings = if (!visi
 /** Reports whether this Tap action points at a Launchable the Header can open now. */
 fun HeaderTapSetting?.isDisplayable(state: LaunchableState): Boolean = when {
     this !is HeaderTapSetting.Launchable -> true
-    !state.isLoaded -> true
+    !state.isAppListReady -> true
     else -> state.launchableFor(key)?.let { launchable -> launchable !is Folder } == true
 }
 

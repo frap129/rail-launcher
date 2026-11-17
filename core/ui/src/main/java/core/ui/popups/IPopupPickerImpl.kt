@@ -72,7 +72,7 @@ class IPopupPickerImpl(
         launchableRepository.launchableState,
         pickerItems
     ) { request, picking, launchableState, items ->
-        if (request == null || !picking || !launchableState.isLoaded || items.ownerKey != request.ownerKey) {
+        if (request == null || !picking || !launchableState.isAppListReady || items.ownerKey != request.ownerKey) {
             PopupPickerState.Closed
         } else {
             PopupPickerState.Picking(
@@ -103,7 +103,7 @@ class IPopupPickerImpl(
             val request: ShortcutTarget? = pickerRequest.request
             if (request == null ||
                 !pickerRequest.isPicking ||
-                !pickerRequest.launchableState.isLoaded ||
+                !pickerRequest.launchableState.isAppListReady ||
                 pickerRequest.items.ownerKey != request.ownerKey
             ) {
                 flowOf(ShortcutPickerState.Closed)

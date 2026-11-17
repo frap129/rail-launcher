@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
@@ -280,7 +281,7 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         val inputRecords: List<FavoriteRecord> = listOf(FavoriteRecord(key = inputLaunchable.key, position = FIRST_POSITION))
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(favoriteDao = database.getFavoriteDao(), mockLaunchableRepository = mockLaunchableRepository)
@@ -290,6 +291,42 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
         launchableState.value = createLoadedLaunchableState(listOf(inputLaunchable))
         finishPendingWork()
         assertEquals(inputRecords, favoriteRecords())
+    }
+
+    @Test
+    fun `resolves Favorites while the App List is not ready`() = databaseTest {
+        seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputLaunchable), readiness = LaunchableReadiness.HomeReady)
+        )
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        finishPendingWork()
+
+        assertEquals(
+            FavoritesState(favorites = listOf(inputLaunchable), isLoaded = true),
+            repository.state.first()
+        )
+        assertEquals(listOf(inputLaunchable), repository.favorites.first())
+    }
+
+    @Test
+    fun `reports unloaded Favorites while Home's Launchables are not ready`() = databaseTest {
+        seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
+        val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(launchables = listOf(inputLaunchable), readiness = LaunchableReadiness.Loading)
+        )
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(launchableState)
+        )
+
+        finishPendingWork()
+
+        assertEquals(FavoritesState(favorites = emptyList(), isLoaded = false), repository.state.first())
     }
 
     @Test

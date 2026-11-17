@@ -208,6 +208,18 @@ _Avoid_: Pin, starred app, dock
 The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
+**Home readiness**:
+The first Launchable readiness stage: the installed Apps have loaded, so Home resolves its Favorites with Launchable customizations, Folder membership and Private Space rules. Only Favorites wait for this stage; every other Launchable consumer waits for App List readiness.
+_Avoid_: Home loaded, Favorites loaded (when meaning readiness)
+
+**App List readiness**:
+The Launchable readiness stage after Home readiness: the Launch counts that order the App List groups have loaded, so every group is complete and ordered. The App List, Rail, Search and every non-Home Launchable consumer wait for this stage.
+_Avoid_: Launchables loaded, App List loaded
+
+**Home fully drawn**:
+The point when Home has been drawn with its Header, Widget Area and Favorites loaded, and Rail has reported it through the activity's fully-drawn reporter; an empty Home counts.
+_Avoid_: Home ready (when meaning drawn)
+
 **App List**:
 The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list

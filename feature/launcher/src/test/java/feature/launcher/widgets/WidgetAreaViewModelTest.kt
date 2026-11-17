@@ -10,6 +10,7 @@ import core.data.calendar.MAX_EVENT_LOOKAHEAD_HOURS
 import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -299,7 +300,7 @@ class WidgetAreaViewModelTest {
     @Test
     fun `resolves stale Launchables to the system default before and after loading`() = runTest {
         val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
@@ -331,7 +332,7 @@ class WidgetAreaViewModelTest {
     fun `resolves a chosen Launchable once it loads`() = runTest {
         val inputLaunchable: RailLaunchable = testLaunchable(name = "Maps", deeplink = "rail://maps")
         val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(

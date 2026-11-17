@@ -339,7 +339,7 @@ class WidgetSettingsViewModel(
             TapActionPickerState(
                 part = it,
                 query = query,
-                isLoaded = launchableState.isLoaded,
+                isLoaded = launchableState.isAppListReady,
                 launchables = filterLaunchables(
                     launchables = launchableState.launchables,
                     query = query
@@ -369,7 +369,7 @@ class WidgetSettingsViewModel(
         } else {
             MediaPlayerExclusionsState(
                 query = query,
-                isLoaded = launchableState.isLoaded,
+                isLoaded = launchableState.isAppListReady,
                 apps = excludableApps(
                     launchables = launchableState.launchables,
                     excludedPackages = settings.excludedPackages,

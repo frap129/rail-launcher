@@ -2,6 +2,7 @@ package core.data.cleanup
 
 import app.cash.turbine.test
 import core.data.icons.model.Icon
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
@@ -45,7 +46,8 @@ class IStoredKeyClassifierImplTest {
 
     @Test
     fun `emits null until the Launchables load`() = runTest {
-        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = emptyList(), isLoaded = false))
+        val inputState: MutableStateFlow<LaunchableState> =
+            MutableStateFlow(createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading))
         val classifier: IStoredKeyClassifier = createClassifier(state = inputState)
 
         val actualStates: Map<String, StoredKeyState>? = classifier.observe(flowOf(setOf("key"))).first()

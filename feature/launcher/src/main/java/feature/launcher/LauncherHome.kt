@@ -304,6 +304,10 @@ private fun LazyListScope.favoriteItems(
     blockInteraction: Boolean = false,
     onBlockedGestureEnd: (() -> Unit)? = null
 ) {
+    if (!home.isFavoritesLoaded) {
+        // Home is waiting for its Favorites, so it shows no hint that could flash before they arrive.
+        return
+    }
     if (home.favorites.isEmpty()) {
         item(key = FAVORITES_EMPTY_HINT_KEY) {
             OutlinedText(

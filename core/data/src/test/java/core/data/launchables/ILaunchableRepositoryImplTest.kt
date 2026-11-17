@@ -2,6 +2,7 @@ package core.data.launchables
 
 import android.content.ComponentName
 import android.os.UserHandle
+import app.cash.turbine.test
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.cleanup.HeaderTapTargetCleanupRow
@@ -18,6 +19,7 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
 import core.data.launches.ILaunchCountRepository
+import core.data.launches.LaunchCountRecord
 import core.data.popups.IPopupRepository
 import core.data.popups.PopupItem
 import core.data.popups.PopupItemRecord
@@ -72,6 +74,7 @@ import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchCountRepository
+import core.data.testing.createLaunchCountRepositoryMock
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -670,7 +673,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertEquals(1, inputAppState.subscriptionCount.value)
         coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
-        assertTrue(actualState.isLoaded)
+        assertTrue(actualState.isAppListReady)
         assertEquals(listOf("O", "⌂"), actualState.listedGroups.map { group -> group.label })
         assertTrue(actualMenuItems.isNotEmpty())
         assertTrue(actualFavorites.isNotEmpty())
@@ -738,15 +741,71 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val collection: Job = launch { repository.launchableState.collect { } }
         try {
-            assertFalse(repository.launchableState.value.isLoaded)
+            assertFalse(repository.launchableState.value.isAppListReady)
             coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
 
             advanceUntilIdle()
             assertEquals(1, inputAppState.subscriptionCount.value)
-            assertTrue(repository.launchableState.value.isLoaded)
+            assertTrue(repository.launchableState.value.isAppListReady)
             coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
         } finally {
             collection.cancel()
+        }
+    }
+
+    @Test
+    fun `reports Home ready before the App List while the Launch counts load`() = databaseTest {
+        val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputCounts: MutableSharedFlow<List<LaunchCountRecord>> = MutableSharedFlow()
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            launchCountRepository = createLaunchCountRepositoryMock(counts = inputCounts)
+        )
+        repository.launchableState.test {
+            finishPendingWork()
+            val actualHomeState: LaunchableState = expectMostRecentItem()
+            assertEquals(LaunchableReadiness.HomeReady, actualHomeState.readiness)
+            assertFalse(actualHomeState.isAppListReady)
+            assertEquals(ORIGINAL_NAME, actualHomeState.singleAppName())
+
+            inputCounts.emit(emptyList())
+            finishPendingWork()
+
+            assertEquals(LaunchableReadiness.AppListReady, expectMostRecentItem().readiness)
+        }
+    }
+
+    @Test
+    fun `resolves a Home-ready state with customizations, Folders and the Locked Private Space applied`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private, isQuiet = true)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputCustomApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputFolderMember: App = createApp(name = "Member", packageName = "com.example.member")
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getLaunchableCustomizationDao().setName(key = inputCustomApp.key, name = RENAMED_NAME)
+        database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
+        database.getPopupDao().insertItems(
+            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputFolderMember.key, position = FIRST_POSITION))
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputPrivateApp, inputCustomApp, inputFolderMember)),
+            mockPreferencesRepository = createPreferencesRepository(
+                launchableCustomizationDao = database.getLaunchableCustomizationDao()
+            ),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile),
+            launchCountRepository = createLaunchCountRepositoryMock(counts = MutableSharedFlow())
+        )
+        repository.launchableState.test {
+            finishPendingWork()
+            val actualHomeState: LaunchableState = expectMostRecentItem()
+
+            assertEquals(LaunchableReadiness.HomeReady, actualHomeState.readiness)
+            assertFalse(actualHomeState.isAppListReady)
+            assertEquals(RENAMED_NAME, actualHomeState.app(key = inputCustomApp.key).name)
+            assertTrue(actualHomeState.listedGroups.flatMap { group -> group.items }.none { item -> item.key == inputFolderMember.key })
+            assertTrue(actualHomeState.listedGroups.flatMap { group -> group.items }.any { item -> item.key == inputFolder.key })
+            assertTrue(actualHomeState.launchableFor(key = inputFolderMember.key) != null)
+            assertNull(actualHomeState.launchableFor(key = inputPrivateApp.key))
         }
     }
 
@@ -1725,7 +1784,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             finishPendingWork()
 
             assertTrue(privateSpaceStatus.status.value.isHidden)
-            assertTrue(actualStates.any { state -> state.isLoaded })
+            assertTrue(actualStates.any { state -> state.isAppListReady })
             assertTrue(actualStates.none { state -> state.groups.any { group -> group is LaunchableGroup.PrivateSpace } })
         } finally {
             collection.cancel()
@@ -2295,7 +2354,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         try {
             finishPendingWork()
             val actualState: LaunchableState = repository.launchableState.first()
-            assertTrue(actualState.isLoaded)
+            assertTrue(actualState.isAppListReady)
             return actualState
         } finally {
             collection.cancel()

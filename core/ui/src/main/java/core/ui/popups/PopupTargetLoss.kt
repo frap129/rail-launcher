@@ -32,7 +32,7 @@ fun observeTargetLoss(
                         return@collect
                     }
                     val isOwnerMissing: Boolean =
-                        launchableState.isLoaded &&
+                        launchableState.isAppListReady &&
                             launchableState.launchables.none { launchable -> launchable.key == targetKey }
                     if (isOwnerMissing || isClosedByMode(mode)) {
                         onTargetLost()
@@ -61,7 +61,7 @@ fun observeLockedContent(
         combine(contentKeys, launchableRepository.launchableState) { keys, state -> keys to state }
             .collect { (keys, state) ->
                 try {
-                    val isContentLocked: Boolean = state.isLoaded && previousKeys.any { key -> state.isKeptKey(key) }
+                    val isContentLocked: Boolean = state.isAppListReady && previousKeys.any { key -> state.isKeptKey(key) }
                     if (isContentLocked) {
                         onContentLocked()
                     }

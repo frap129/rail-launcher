@@ -2,6 +2,7 @@ package feature.settings
 
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.model.Launchable
 import core.data.prefs.AppListOrder
 import core.data.prefs.IPreferencesRepository
@@ -118,7 +119,7 @@ class SettingsViewModelTest {
     @Test
     fun `shows no Hidden apps until the Launchable State loads`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
-            mockLaunchableRepository = createLaunchableRepositoryMock(isLoaded = false)
+            mockLaunchableRepository = createLaunchableRepositoryMock(readiness = LaunchableReadiness.Loading)
         )
 
         viewModel.hiddenApps.test {

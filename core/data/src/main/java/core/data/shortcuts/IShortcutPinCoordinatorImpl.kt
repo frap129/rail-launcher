@@ -37,10 +37,10 @@ class IShortcutPinCoordinatorImpl(
         }
         scope.launch {
             combine(
-                launchableRepository.launchableState.map { state -> state.isLoaded },
+                launchableRepository.launchableState.map { state -> state.isAppListReady },
                 privateSpaceStatus.status
-            ) { isLoaded, status -> isLoaded to status }
-                .filter { (isLoaded, _) -> isLoaded }
+            ) { isAppListReady, status -> isAppListReady to status }
+                .filter { (isAppListReady, _) -> isAppListReady }
                 .map { (_, status) -> status.enumeratedKeys }
                 .distinctUntilChanged()
                 .collect { tokens ->
@@ -73,7 +73,7 @@ class IShortcutPinCoordinatorImpl(
 
     /** Reapplies every merged pin set once the Launchables load, skipping Kept Profiles. */
     private suspend fun reapplyAllPins() {
-        launchableRepository.launchableState.filter { current -> current.isLoaded }.first()
+        launchableRepository.launchableState.filter { current -> current.isAppListReady }.first()
         val status: PrivateSpaceStatus = privateSpaceStatus.currentStatus()
         reapplyPinsWhere { profile -> profile.profile.toProfileToken() !in status.keptKeys }
     }

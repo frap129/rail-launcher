@@ -9,14 +9,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Every group in Rail order with Hidden apps included, every Launchable, and whether the
- * installed apps have loaded; [listedGroups] and [groupsFor] leave Hidden apps out unless a
- * caller asks to include them.
+ * Every group in Rail order with Hidden apps included, every Launchable, how far its
+ * resolution has got, and the keys the cleanups keep; [listedGroups] and [groupsFor] leave
+ * Hidden apps out unless a caller asks to include them.
  */
 data class LaunchableState(
     val groups: List<LaunchableGroup>,
     val launchables: List<Launchable>,
-    val isLoaded: Boolean,
+    /** How far the Launchables have resolved: no Apps yet, Home-ready, or App List-ready. */
+    val readiness: LaunchableReadiness,
     /**
      * The Profile tokens of every Private Space whose Launchable and Shortcut keys Rail keeps:
      * a Locked one, a Lock requested one, or one whose Apps are not listed yet. The Apps
@@ -38,6 +39,12 @@ data class LaunchableState(
      */
     val pickerGroups: List<LaunchableGroup.Listed> = groups.toPickerGroups()
 ) {
+    /** Whether Home's Launchables can be resolved. */
+    val isHomeReady: Boolean get() = readiness.isHomeReady
+
+    /** Whether the App List groups are complete and ordered. */
+    val isAppListReady: Boolean get() = readiness.isAppListReady
+
     private val launchablesByKey: Map<String, Launchable> by lazy { launchables.associateBy { launchable -> launchable.key } }
     private val groupsWithoutHidden: List<LaunchableGroup> by lazy {
         groups.withoutHiddenApps(isHidden = { launchable -> isHidden(launchable) })
@@ -92,8 +99,10 @@ interface ILaunchableRepository {
     val launchables: Flow<List<Launchable>>
 
     /**
-     * The shared Launchable State, computed off the main thread. Starts with
-     * [LaunchableState.isLoaded] false and keeps its upstream subscription for
+     * The shared Launchable State, computed off the main thread. Starts
+     * [LaunchableReadiness.Loading], becomes [LaunchableReadiness.HomeReady] once the installed
+     * Apps have resolved, and [LaunchableReadiness.AppListReady] once the Launch counts that
+     * order its groups arrive. Keeps its upstream subscription for
      * [WHILE_SUBSCRIBED_TIMEOUT_MS] after the last collector leaves.
      */
     val launchableState: StateFlow<LaunchableState>

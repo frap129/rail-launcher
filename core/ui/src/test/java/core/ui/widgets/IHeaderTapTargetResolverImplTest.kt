@@ -2,6 +2,7 @@ package core.ui.widgets
 
 import core.data.folders.Folder
 import core.data.icons.model.Icon
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.HeaderSettings
@@ -158,7 +159,7 @@ class IHeaderTapTargetResolverImplTest {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "rail://uninstalled")
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = inputSetting,
-            launchableState = createLaunchableState(groups = emptyList(), isLoaded = false)
+            launchableState = createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         assertEquals(inputSetting, actualSetting)
     }

@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
@@ -57,6 +58,13 @@ private data class FolderAppList(val records: List<FolderRecord>, val memberKeys
 private data class AppListSources(val folderAppList: FolderAppList, val standaloneShortcuts: StandaloneShortcuts)
 
 private data class AppState(val appsOrNull: List<App>?, val privateSpaceStatus: PrivateSpaceStatus)
+
+/** The Launch counts the App List order needs, or that they have not loaded yet. */
+private sealed interface LaunchCounts {
+    data object Loading : LaunchCounts
+
+    data class Loaded(val records: List<LaunchCountRecord>) : LaunchCounts
+}
 
 /**
  * The Launchable State before the App List order applies, whose Initial groups hold the order
@@ -133,11 +141,15 @@ class ILaunchableRepositoryImpl(
         )
     }
 
+    private val launchCounts: Flow<LaunchCounts> = launchCountRepository.counts
+        .map<List<LaunchCountRecord>, LaunchCounts> { records -> LaunchCounts.Loaded(records = records) }
+        .onStart { emit(LaunchCounts.Loading) }
+
     override val launchableState: StateFlow<LaunchableState> = combine(
         unorderedLaunchableState,
-        launchCountRepository.counts
-    ) { unorderedState, launchCounts ->
-        unorderedState.toLaunchableState(launchCounts = launchCounts)
+        launchCounts
+    ) { unorderedState, counts ->
+        unorderedState.toLaunchableState(launchCounts = counts)
     }
         .retryWithExponentialBackoff()
         .stateIn(
@@ -146,20 +158,27 @@ class ILaunchableRepositoryImpl(
             initialValue = LaunchableState(
                 groups = emptyList(),
                 launchables = emptyList(),
-                isLoaded = false
+                readiness = LaunchableReadiness.Loading
             )
         )
 
     override val launchables: Flow<List<Launchable>> = launchableState.map { state -> state.launchables }
 
-    private fun UnorderedLaunchableState.toLaunchableState(launchCounts: List<LaunchCountRecord>): LaunchableState {
-        val ranking: AppListRanking = appListOrder.toAppListRanking(
-            usage = AppListUsage(
-                launchCountsByKey = launchCounts.associateBy { record -> record.key },
-                rankFoldersByUse = rankFoldersByUse
+    private fun UnorderedLaunchableState.toLaunchableState(launchCounts: LaunchCounts): LaunchableState = when (launchCounts) {
+        LaunchCounts.Loading -> state
+
+        is LaunchCounts.Loaded -> {
+            val ranking: AppListRanking = appListOrder.toAppListRanking(
+                usage = AppListUsage(
+                    launchCountsByKey = launchCounts.records.associateBy { record -> record.key },
+                    rankFoldersByUse = rankFoldersByUse
+                )
             )
-        )
-        return state.copy(groups = state.groups.withAppListOrder(ranking = ranking))
+            state.copy(
+                groups = state.groups.withAppListOrder(ranking = ranking),
+                readiness = if (state.readiness.isHomeReady) LaunchableReadiness.AppListReady else LaunchableReadiness.Loading
+            )
+        }
     }
 
     private suspend fun resolve(
@@ -217,7 +236,7 @@ class ILaunchableRepositoryImpl(
                 groups = groups,
                 // Folder members stay reachable through their Folder, pickers and the Favorites.
                 launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
-                isLoaded = appState.appsOrNull != null,
+                readiness = if (appState.appsOrNull != null) LaunchableReadiness.HomeReady else LaunchableReadiness.Loading,
                 keptKeys = appState.privateSpaceStatus.keptKeys,
                 retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
                     ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
