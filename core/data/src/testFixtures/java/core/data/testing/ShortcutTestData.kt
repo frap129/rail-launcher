@@ -6,6 +6,9 @@ import core.data.shortcuts.ShortcutLaunchable
 
 const val FIRST_SHORTCUT_ID: String = "first"
 const val SECOND_SHORTCUT_ID: String = "second"
+const val FIRST_PACKAGE_NAME: String = "com.example.first"
+const val SECOND_PACKAGE_NAME: String = "com.example.second"
+const val THIRD_PACKAGE_NAME: String = "com.example.third"
 
 /** A Shortcut with test labels and [profile]. */
 fun createShortcut(

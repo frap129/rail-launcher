@@ -5,21 +5,40 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
+import core.data.testing.FIRST_PACKAGE_NAME
 import core.data.testing.FIRST_SHORTCUT_ID
+import core.data.testing.PERSONAL_USER_ID
+import core.data.testing.SECOND_PACKAGE_NAME
 import core.data.testing.SECOND_SHORTCUT_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.THIRD_PACKAGE_NAME
 import core.data.testing.TimberLogRecorder
+import core.data.testing.WORK_USER_ID
 import core.data.testing.createPrivateApp
+import core.data.testing.createUserHandle
+import io.mockk.CapturingSlot
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,7 +55,9 @@ class IShortcutSourceImplTest {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val shadowLauncherApps: ShadowLauncherApps = Shadow.extract(launcherApps)
     private val profile: UserHandle = Process.myUserHandle()
-    private val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
+    private val source: IShortcutSourceImpl = createShortcutSource()
+    private val firstApp: AppProfile = AppProfile(packageName = FIRST_PACKAGE_NAME, profile = profile)
+    private val secondApp: AppProfile = AppProfile(packageName = SECOND_PACKAGE_NAME, profile = profile)
 
     @Test
     fun `resolve returns the shortcuts the package holds and reports the rest gone`() = runTest {
@@ -102,8 +123,8 @@ class IShortcutSourceImplTest {
         every {
             mockLauncherApps.getShortcuts(any(), any())
         } throws SecurityException("No permission to resolve shortcuts for ${inputPrivateApp.packageName}")
-        shadowOf(context).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
-        val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
+        useLauncherApps(mockLauncherApps = mockLauncherApps)
+        val source: IShortcutSourceImpl = createShortcutSource()
         val inputKey: ShortcutKey = ShortcutKey(
             packageName = inputPrivateApp.packageName,
             id = FIRST_SHORTCUT_ID,
@@ -132,19 +153,166 @@ class IShortcutSourceImplTest {
         every {
             mockLauncherApps.getActivityList(inputPrivateApp.packageName, inputPrivateApp.profile)
         } throws SecurityException("No permission to read ${inputPrivateApp.packageName}")
-        shadowOf(context).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
-        val source: IShortcutSourceImpl = IShortcutSourceImpl(context = context)
+        useLauncherApps(mockLauncherApps = mockLauncherApps)
+        val source: IShortcutSourceImpl = createShortcutSource()
+        val inputApp: AppProfile = AppProfile(packageName = inputPrivateApp.packageName, profile = inputPrivateApp.profile)
         val logRecorder: TimberLogRecorder = TimberLogRecorder()
 
         logRecorder.recordSuspending {
-            val actualResult: ShortcutsResult = source.shortcuts(
-                packageName = inputPrivateApp.packageName,
-                profile = inputPrivateApp.profile
-            ).first()
+            val actualResult: ShortcutsResult = source.shortcuts(app = inputApp).first()
             assertEquals(ShortcutsResult.Unavailable, actualResult)
         }
 
         logRecorder.assertLoggedWithout(inputPrivateApp.packageName, inputPrivateApp.key)
+    }
+
+    @Test
+    fun `listening to many apps registers one callback and unregisters it once when the last stops`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps)
+        val inputThirdApp: AppProfile = AppProfile(packageName = THIRD_PACKAGE_NAME, profile = profile)
+        val inputKeys: Set<ShortcutKey> = setOf(ShortcutKey(packageName = THIRD_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile))
+
+        source.shortcuts(app = firstApp).test {
+            awaitItem()
+            source.shortcuts(app = secondApp).test {
+                awaitItem()
+                source.shortcuts(app = inputThirdApp).test {
+                    awaitItem()
+                    source.resolve(keys = inputKeys).test {
+                        awaitItem()
+                        verify(exactly = 1) { mockLauncherApps.registerCallback(any(), any()) }
+                    }
+                    verify(exactly = 0) { mockLauncherApps.unregisterCallback(any()) }
+                }
+                verify(exactly = 0) { mockLauncherApps.unregisterCallback(any()) }
+            }
+            verify(exactly = 0) { mockLauncherApps.unregisterCallback(any()) }
+        }
+        verify(exactly = 1) { mockLauncherApps.unregisterCallback(any()) }
+    }
+
+    @Test
+    fun `registers the listener with the main looper`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val handlerSlot: CapturingSlot<Handler> = slot()
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps, handlerSlot = handlerSlot)
+
+        source.shortcuts(app = firstApp).test { awaitItem() }
+
+        assertSame(Looper.getMainLooper(), handlerSlot.captured.looper)
+    }
+
+    @Test
+    fun `refreshes only the app a package is added to`() = runTest {
+        assertRefreshesOnlyChangedApp { callback -> callback.onPackageAdded(SECOND_PACKAGE_NAME, profile) }
+    }
+
+    @Test
+    fun `refreshes only the app a package is removed from`() = runTest {
+        assertRefreshesOnlyChangedApp { callback -> callback.onPackageRemoved(SECOND_PACKAGE_NAME, profile) }
+    }
+
+    @Test
+    fun `refreshes only the app a package change names`() = runTest {
+        assertRefreshesOnlyChangedApp { callback -> callback.onPackageChanged(SECOND_PACKAGE_NAME, profile) }
+    }
+
+    @Test
+    fun `refreshes only the app whose packages become available`() = runTest {
+        assertRefreshesOnlyChangedApp { callback ->
+            callback.onPackagesAvailable(arrayOf(SECOND_PACKAGE_NAME), profile, true)
+        }
+    }
+
+    @Test
+    fun `refreshes only the app whose packages become unavailable`() = runTest {
+        assertRefreshesOnlyChangedApp { callback ->
+            callback.onPackagesUnavailable(arrayOf(SECOND_PACKAGE_NAME), profile, true)
+        }
+    }
+
+    @Test
+    fun `refreshes only the app whose Shortcuts changed`() = runTest {
+        assertRefreshesOnlyChangedApp { callback -> callback.onShortcutsChanged(SECOND_PACKAGE_NAME, emptyList(), profile) }
+    }
+
+    @Test
+    fun `refreshes only the app whose Profile a change names`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps, callbackSlot = callbackSlot)
+        val inputPersonalApp: AppProfile = AppProfile(
+            packageName = FIRST_PACKAGE_NAME,
+            profile = createUserHandle(userId = PERSONAL_USER_ID)
+        )
+        val inputWorkApp: AppProfile = AppProfile(
+            packageName = FIRST_PACKAGE_NAME,
+            profile = createUserHandle(userId = WORK_USER_ID)
+        )
+
+        source.shortcuts(app = inputPersonalApp).test {
+            awaitItem()
+            source.shortcuts(app = inputWorkApp).test {
+                awaitItem()
+
+                callbackSlot.captured.onShortcutsChanged(FIRST_PACKAGE_NAME, emptyList(), inputWorkApp.profile)
+                awaitItem()
+                verify(exactly = 1) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, inputPersonalApp.profile) }
+                verify(exactly = 2) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, inputWorkApp.profile) }
+                expectNoEvents()
+            }
+            expectNoEvents()
+
+            callbackSlot.captured.onShortcutsChanged(FIRST_PACKAGE_NAME, emptyList(), inputPersonalApp.profile)
+            awaitItem()
+            verify(exactly = 2) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, inputPersonalApp.profile) }
+            verify(exactly = 2) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, inputWorkApp.profile) }
+            expectNoEvents()
+        }
+        verify(exactly = 1) { mockLauncherApps.unregisterCallback(any()) }
+    }
+
+    @Test
+    fun `resolve refreshes on a change for its app and not another`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps, callbackSlot = callbackSlot)
+        val inputKeys: Set<ShortcutKey> = setOf(ShortcutKey(packageName = FIRST_PACKAGE_NAME, id = FIRST_SHORTCUT_ID, profile = profile))
+
+        source.resolve(keys = inputKeys).test {
+            awaitItem()
+            callbackSlot.captured.onShortcutsChanged(THIRD_PACKAGE_NAME, emptyList(), profile)
+            expectNoEvents()
+
+            callbackSlot.captured.onShortcutsChanged(FIRST_PACKAGE_NAME, emptyList(), profile)
+            awaitItem()
+            verify(exactly = 2) { mockLauncherApps.getShortcuts(any(), profile) }
+        }
+    }
+
+    @Test
+    fun `registers again after a failed unregister`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps)
+        every { mockLauncherApps.unregisterCallback(any()) } throws IllegalStateException("No listener")
+
+        source.shortcuts(app = firstApp).test { awaitItem() }
+        source.shortcuts(app = secondApp).test { awaitItem() }
+
+        verify(exactly = 2) { mockLauncherApps.registerCallback(any(), any()) }
+    }
+
+    @Test
+    fun `reports shortcuts unavailable when the listener cannot be registered`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps)
+        every { mockLauncherApps.registerCallback(any(), any()) } throws IllegalStateException("No listener")
+
+        val actualResult: ShortcutsResult = source.shortcuts(app = firstApp).first()
+
+        assertEquals(ShortcutsResult.Unavailable, actualResult)
+        verify(exactly = 0) { mockLauncherApps.unregisterCallback(any()) }
     }
 
     private fun addShortcut(id: String, disabled: Boolean = false) {
@@ -161,4 +329,48 @@ class IShortcutSourceImplTest {
     }
 
     private fun shortcutKey(id: String): ShortcutKey = ShortcutKey(packageName = context.packageName, id = id, profile = profile)
+
+    private suspend fun TestScope.assertRefreshesOnlyChangedApp(change: (LauncherApps.Callback) -> Unit) {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        val source: IShortcutSourceImpl = createListeningSource(mockLauncherApps = mockLauncherApps, callbackSlot = callbackSlot)
+
+        source.shortcuts(app = firstApp).test {
+            awaitItem()
+            source.shortcuts(app = secondApp).test {
+                awaitItem()
+                change(callbackSlot.captured)
+                awaitItem()
+                verify(exactly = 1) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, profile) }
+                verify(exactly = 2) { mockLauncherApps.getActivityList(SECOND_PACKAGE_NAME, profile) }
+                expectNoEvents()
+            }
+            expectNoEvents()
+        }
+    }
+
+    private fun createShortcutSource(
+        shortcutListener: IShortcutListener = IShortcutListenerImpl(context = context),
+        dispatcher: CoroutineDispatcher = Dispatchers.IO
+    ): IShortcutSourceImpl = IShortcutSourceImpl(
+        context = context,
+        shortcutListener = shortcutListener,
+        dispatcher = dispatcher
+    )
+
+    private fun TestScope.createListeningSource(
+        mockLauncherApps: LauncherApps,
+        callbackSlot: CapturingSlot<LauncherApps.Callback> = slot(),
+        handlerSlot: CapturingSlot<Handler> = slot()
+    ): IShortcutSourceImpl {
+        every { mockLauncherApps.hasShortcutHostPermission() } returns true
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), capture(handlerSlot)) } just Runs
+        every { mockLauncherApps.unregisterCallback(any()) } just Runs
+        useLauncherApps(mockLauncherApps = mockLauncherApps)
+        return createShortcutSource(dispatcher = StandardTestDispatcher(testScheduler))
+    }
+
+    private fun useLauncherApps(mockLauncherApps: LauncherApps) {
+        shadowOf(context).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+    }
 }

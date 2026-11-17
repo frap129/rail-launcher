@@ -11,6 +11,7 @@ import core.data.prefs.IPreferencesRepository
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.search.IShortcutSearchSource
 import core.data.shortcuts.IPopupShortcutPinSource
+import core.data.shortcuts.IShortcutListener
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IStandaloneShortcutPinSource
@@ -43,6 +44,7 @@ class MainApplicationModulesTest {
         assertNotNull(koin.get<IIconImageImporter>())
         assertNotNull(koin.get<IPrivateSpaceStatus>())
         assertNotNull(koin.get<ILaunchableRepository>())
+        assertNotNull(koin.get<IShortcutListener>())
         assertNotNull(koin.get<IShortcutPickerSource>())
         assertNotNull(koin.get<IShortcutSearchSource>())
         assertNotNull(koin.get<IPopupShortcutPinSource>())

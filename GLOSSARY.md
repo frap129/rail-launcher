@@ -144,6 +144,10 @@ _Avoid_: Pop-up ViewModel, popup component
 A quick action published by an app, shown in a Pop-up and run without opening the app's main screen.
 _Avoid_: Deep link, quick action
 
+**Shortcut listener**:
+The single LauncherApps callback Rail keeps registered while it listens for the Shortcuts of any App, which refreshes only the App whose Shortcuts or package changed.
+_Avoid_: Shortcut observer, shortcut callback
+
 **Hidden shortcut**:
 A Shortcut the user hid from one App's Pop-up in the Edit Pop-up sheet. It stays hidden if the app removes and later republishes the Shortcut.
 _Avoid_: Disabled shortcut, removed shortcut

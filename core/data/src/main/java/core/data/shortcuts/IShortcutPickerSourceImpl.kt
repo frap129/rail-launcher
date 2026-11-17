@@ -1,6 +1,7 @@
 package core.data.shortcuts
 
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
 import core.data.launchables.ILaunchableRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -20,7 +21,7 @@ class IShortcutPickerSourceImpl(private val shortcutSource: IShortcutSource, pri
                 flowOf(emptyList())
             } else {
                 val appFlows: List<Flow<AppShortcuts>> = apps.map { app ->
-                    shortcutSource.shortcuts(packageName = app.packageName, profile = app.profile)
+                    shortcutSource.shortcuts(app = AppProfile(packageName = app.packageName, profile = app.profile))
                         .map { result -> AppShortcuts(app = app, result = result) }
                 }
                 combine(appFlows) { results -> results.toList() }
