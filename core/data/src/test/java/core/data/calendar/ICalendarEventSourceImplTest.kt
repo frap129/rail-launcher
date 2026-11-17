@@ -7,7 +7,11 @@ import android.net.Uri
 import android.os.Looper
 import android.provider.CalendarContract
 import app.cash.turbine.test
+import core.data.profiles.IProfileSource
+import core.data.testing.PERSONAL_USER_ID
+import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_SDK
+import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
 import io.mockk.every
 import io.mockk.mockk
@@ -20,6 +24,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -137,14 +143,55 @@ class ICalendarEventSourceImplTest {
         }
     }
 
-    private fun createSource(context: Context, time: MutableTime, scheduler: TestCoroutineScheduler): ICalendarEventSourceImpl =
-        ICalendarEventSourceImpl(
-            context = context,
-            profileSource = createProfileSourceMock(),
-            now = { time.current },
-            zoneId = { time.zone },
-            queryDispatcher = StandardTestDispatcher(scheduler)
+    @Test
+    fun `rechecks cross-profile access once the Profiles load`() = runTest {
+        val inputContext: Context = RuntimeEnvironment.getApplication()
+        val actualQueriedUris: MutableList<Uri> = mutableListOf()
+        val mockProvider: ContentProvider = createCalendarProviderMock(
+            queriedWindows = mutableListOf(),
+            queriedUris = actualQueriedUris
         )
+        ShadowContentResolver.registerProviderInternal(CalendarContract.AUTHORITY, mockProvider)
+        val mockTime: MutableTime = MutableTime(
+            current = Instant.parse("2026-10-22T23:50:00Z"),
+            zone = ZoneId.of("UTC")
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = emptyList(), isLoaded = false)
+        val source: ICalendarEventSourceImpl = createSource(
+            context = inputContext,
+            time = mockTime,
+            scheduler = testScheduler,
+            profileSource = createProfileSourceMock(state = inputProfileState)
+        )
+
+        source.events(lookaheadHours = LOOKAHEAD_HOURS).test {
+            runCurrent()
+            assertEquals(emptyList<UpcomingEvent>(), awaitItem())
+            assertTrue(CalendarContract.Instances.ENTERPRISE_CONTENT_URI in actualQueriedUris)
+
+            actualQueriedUris.clear()
+            inputProfileState.profiles.value = listOf(createProfileInfo(userId = PERSONAL_USER_ID))
+            inputProfileState.isLoaded.value = true
+            runCurrent()
+
+            assertTrue(actualQueriedUris.isNotEmpty())
+            assertFalse(CalendarContract.Instances.ENTERPRISE_CONTENT_URI in actualQueriedUris)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun createSource(
+        context: Context,
+        time: MutableTime,
+        scheduler: TestCoroutineScheduler,
+        profileSource: IProfileSource = createProfileSourceMock()
+    ): ICalendarEventSourceImpl = ICalendarEventSourceImpl(
+        context = context,
+        profileSource = profileSource,
+        now = { time.current },
+        zoneId = { time.zone },
+        queryDispatcher = StandardTestDispatcher(scheduler)
+    )
 
     private fun window(start: String, end: String): EventQueryWindow = EventQueryWindow(
         startMillis = Instant.parse(start).toEpochMilli(),
@@ -166,7 +213,8 @@ class ICalendarEventSourceImplTest {
 
     private fun createCalendarProviderMock(
         events: List<UpcomingEvent> = emptyList(),
-        queriedWindows: MutableList<EventQueryWindow>
+        queriedWindows: MutableList<EventQueryWindow>,
+        queriedUris: MutableList<Uri> = mutableListOf()
     ): ContentProvider {
         val mockProvider: ContentProvider = mockk(relaxed = true)
         every {
@@ -175,6 +223,7 @@ class ICalendarEventSourceImplTest {
             val columns: Array<String> = secondArg<Array<out String>?>()?.map { column -> column }?.toTypedArray() ?: emptyArray()
             val cursor: MatrixCursor = MatrixCursor(columns)
             val uri: Uri = firstArg()
+            queriedUris.add(uri)
             if (uri != CalendarContract.Instances.CONTENT_URI) return@answers cursor
             val arguments: List<String> = arg<Array<out String>?>(3)?.toList().orEmpty()
             val window: EventQueryWindow = EventQueryWindow(

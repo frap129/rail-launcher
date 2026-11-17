@@ -8,6 +8,7 @@ import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.configureForTest
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createProfileSourceMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
@@ -49,7 +50,8 @@ class WidgetAreaSeedCallbackTest : InMemoryDatabaseTest() {
     private suspend fun assertSingleSeededHeader(database: AppDatabase) {
         val dao: WidgetAreaDao = database.getWidgetAreaDao()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         val actualPlaces: List<WidgetPlace> = IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,

@@ -13,13 +13,14 @@ import android.os.Looper
 import android.provider.CalendarContract
 import core.data.permissions.PermissionState
 import core.data.profiles.IProfileSource
-import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.profiles.awaitLoaded
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -84,6 +85,7 @@ class ICalendarEventSourceImpl(
         }
         val registeredUris: List<android.net.Uri> = registerObservers(observer = observer, uris = eventUris())
         recheck()
+        val profileObserver: Job = recheckWhenProfilesLoad(recheck = ::recheck)
         val ticker: Job = launch {
             while (isActive) {
                 delay(EVENT_RECHECK_INTERVAL_MS)
@@ -91,6 +93,7 @@ class ICalendarEventSourceImpl(
             }
         }
         awaitClose {
+            profileObserver.cancel()
             ticker.cancel()
             registeredUris.forEach { uri -> appContext.contentResolver.unregisterContentObserver(observer) }
         }
@@ -102,11 +105,10 @@ class ICalendarEventSourceImpl(
 
     /** Whether a Profile other than the personal one exists; null when the Profiles are unknown. */
     private fun hasSecondaryProfile(): Boolean? {
-        val profiles: List<ProfileInfo> = profileSource.profiles.value
-        if (profiles.isEmpty()) {
+        if (!profileSource.isLoaded.value) {
             return null
         }
-        return profiles.any { profile -> profile.kind == ProfileKind.Work || profile.kind == ProfileKind.Other }
+        return profileSource.profiles.value.any { profile -> profile.kind == ProfileKind.Work || profile.kind == ProfileKind.Other }
     }
 
     @Suppress("DEPRECATION")
@@ -299,10 +301,25 @@ class ICalendarEventSourceImpl(
         flowScope.launch(queryDispatcher) {
             trySend(query())
         }
+        val profileObserver: Job = recheckWhenProfilesLoad {
+            flowScope.launch(queryDispatcher) {
+                trySend(query())
+            }
+        }
         awaitClose {
+            profileObserver.cancel()
             registeredUris.forEach { uri -> appContext.contentResolver.unregisterContentObserver(observer) }
         }
     }.distinctUntilChanged()
+
+    /** Re-runs [recheck] once if the Profiles were still loading when the flow started. */
+    private fun CoroutineScope.recheckWhenProfilesLoad(recheck: () -> Unit): Job = launch {
+        if (profileSource.isLoaded.value) {
+            return@launch
+        }
+        profileSource.awaitLoaded()
+        recheck()
+    }
 
     private fun registerObservers(observer: ContentObserver, uris: List<android.net.Uri>): List<android.net.Uri> = buildList {
         val resolver: ContentResolver = appContext.contentResolver

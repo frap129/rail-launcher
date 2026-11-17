@@ -21,7 +21,8 @@ internal fun <T> Flow<T>.retryWithExponentialBackoff(): Flow<T> = retryWhen { ca
     true
 }
 
-private fun retryDelayMillis(attempt: Long): Long {
+/** The delay before retry [attempt] (0-based): doubling from [RETRY_INITIAL_DELAY_MS] up to [RETRY_MAX_DELAY_MS]. */
+internal fun retryDelayMillis(attempt: Long): Long {
     // Cap the shift so a long outage cannot overflow the delay.
     val shift: Int = attempt.coerceAtMost(MAX_BACKOFF_SHIFT).toInt()
     return (RETRY_INITIAL_DELAY_MS shl shift).coerceAtMost(RETRY_MAX_DELAY_MS)

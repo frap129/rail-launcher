@@ -1,5 +1,7 @@
 package core.data.widgets
 
+import core.data.profiles.IProfileSource
+import core.data.profiles.awaitLoaded
 import core.data.room.dao.WidgetAreaDao
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +14,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Keeps Rail's App Widget database in step with the ids and providers the system knows. */
-class IWidgetLifecycleReconcilerImpl(private val dao: WidgetAreaDao, private val host: IAppWidgetHostSource) : IWidgetLifecycleReconciler {
+class IWidgetLifecycleReconcilerImpl(
+    private val dao: WidgetAreaDao,
+    private val host: IAppWidgetHostSource,
+    private val profileSource: IProfileSource
+) : IWidgetLifecycleReconciler {
     private val mutex: Mutex = Mutex()
     private val startupReconciled: MutableStateFlow<Boolean> = MutableStateFlow(false)
     private val removed: MutableSharedFlow<AppWidgetId> = MutableSharedFlow(
@@ -25,6 +31,7 @@ class IWidgetLifecycleReconcilerImpl(private val dao: WidgetAreaDao, private val
     override val removedIds: Flow<AppWidgetId> = removed.asSharedFlow()
 
     override suspend fun reconcileAtStartup(pendingIds: Set<AppWidgetId>) {
+        profileSource.awaitLoaded()
         mutex.withLock {
             if (startupReconciled.value) {
                 return
@@ -55,6 +62,7 @@ class IWidgetLifecycleReconcilerImpl(private val dao: WidgetAreaDao, private val
     }
 
     override suspend fun removeGoneProviders() {
+        profileSource.awaitLoaded()
         mutex.withLock {
             val gone: List<WidgetRecord> = dao.getAppWidgets().filter { widget ->
                 widget.availability(host = host) == WidgetAvailability.Gone

@@ -21,6 +21,7 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.profiles.awaitLoaded
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineDispatcher
@@ -139,6 +140,7 @@ class IAppWidgetHostSourceImpl(
     }
 
     private suspend fun loadProviders(): List<WidgetProviderInfo> {
+        profileSource.awaitLoaded()
         val iconPack: String = preferencesRepository.settings.first().iconPack ?: SYSTEM_ICON_PACK_NAME
         return profileSource.profiles.value.filter { profile: ProfileInfo ->
             privateSpaceStatus.canListApps(profile = profile)
