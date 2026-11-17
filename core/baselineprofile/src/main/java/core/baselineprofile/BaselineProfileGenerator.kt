@@ -41,6 +41,8 @@ private const val POPUP_SWIPE_STEPS = 10
 private const val POPUP_SCROLL_STEPS = 20
 private const val POPUP_OPEN_REPEATS = 2
 private const val STATUS_BAR_HEIGHT_FRACTION = 0.05f
+private const val NAVIGATION_BAR_HEIGHT_FRACTION = 0.06f
+private const val REVEAL_SCROLL_PERCENT = 0.2f
 private const val MIN_LAUNCHABLE_NAME_LENGTH = 2
 private const val ROW_CENTER_SLOP_FRACTION = 0.02f
 private const val RAIL_SETTINGS_NAME = "Rail Settings"
@@ -101,69 +103,80 @@ class BaselineProfileGenerator {
     }
 
     @Test
-    fun generate() {
+    fun generateStartupProfile() {
+        withPreviousHomeRestored(device = device) {
+            rule.collect(packageName = APP_PACKAGE, includeInStartupProfile = true) {
+                collectStartupJourney()
+            }
+        }
+    }
+
+    @Test
+    fun generateBaselineProfile() {
         withPreviousHomeRestored(device = device) {
             try {
                 val testProfiles: TestProfiles = setUpTestProfiles()
-                rule.collect(
-                    packageName = APP_PACKAGE,
-                    includeInStartupProfile = true
-                ) {
-                    // Make Rail the default Home so pressHome() always returns to it.
-                    setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
-
-                    // Start default activity
-                    pressHome()
-                    startActivityAndWait()
-
-                    // Create a known Favorite, open it, exercise the card and return Home.
-                    findOrThrow(By.res("launcherHome"), "Home not found")
-                    val favoriteName: String = addFavoriteFromAppList()
-                    openFavoritePopup(favoriteName = favoriteName)
-
-                    // Scroll launcher
-                    val launcherList = openAppList()
-                    launcherList.fling(Direction.DOWN, FLING_SPEED)
-                    launcherList.fling(Direction.UP, FLING_SPEED)
-
-                    // Interact with the ScrollRail
-                    dragScrollRail()
-                    dragMirrorStrip()
-
-                    // Rail Settings > Widgets.
-                    setHeightLimit(row = openWidgetsSettings(), enabled = true)
-
-                    // Home with the widget height limit on: the Header renders inside the cap.
-                    returnHome()
-                    findOrThrow(HEADER_TIME_SELECTOR, "Header time not found in the capped Widget Area").longClick()
-                    findOrThrow(By.text(appString("clock_style")), "Header menu not found")
-                    device.pressBack()
-                    check(device.wait(Until.gone(By.text(appString("clock_style"))), WAIT_TIMEOUT_MS)) {
-                        "Header menu did not close"
-                    }
-                    dragScrollRail()
-
-                    // Home with the widget height limit off.
-                    setHeightLimit(row = openWidgetsSettings(), enabled = false)
-                    returnHome()
-                    check(scrollHomeToTop()) { "Header time not found on uncapped Home" }
-
-                    // Media Player is hidden by default; exercise Home with no media player.
-                    check(device.wait(Until.gone(By.desc(appString("media_player_menu"))), WAIT_TIMEOUT_MS)) {
-                        "Media Player unexpectedly visible; disable it in Widgets settings"
-                    }
-                    dragScrollRail()
-
-                    testProfiles.workUserId?.let { workUserId ->
-                        exerciseWorkProfile(workUserId = workUserId)
-                    }
-                    testProfiles.privateSpaceUserId?.let { privateSpaceUserId ->
-                        exercisePrivateSpace(privateSpaceUserId = privateSpaceUserId, favoriteName = favoriteName)
-                    }
+                rule.collect(packageName = APP_PACKAGE, includeInStartupProfile = false) {
+                    collectBroaderJourneys(testProfiles = testProfiles)
                 }
             } finally {
                 removeTestProfiles()
             }
+        }
+    }
+
+    /** Covers the cold path to a usable Home, the only journey in the startup profile. */
+    private fun MacrobenchmarkScope.collectStartupJourney() {
+        // Make Rail the default Home so pressHome() always returns to it.
+        setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
+        check(resolveDefaultHome(device = device) == APP_HOME_ACTIVITY) { "Rail did not become the default Home" }
+        pressHome()
+        waitForHomeFullyDrawn(device = device)
+    }
+
+    /** Covers the rest of the launcher for the full Baseline Profile. */
+    private fun MacrobenchmarkScope.collectBroaderJourneys(testProfiles: TestProfiles) {
+        // Make Rail the default Home so pressHome() always returns to it.
+        setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
+        // Start default activity
+        pressHome()
+        startActivityAndWait()
+        // Create a known Favorite, open it, exercise the card and return Home.
+        findOrThrow(By.res("launcherHome"), "Home not found")
+        val favoriteName: String = addFavoriteFromAppList()
+        openFavoritePopup(favoriteName = favoriteName)
+        // Scroll launcher
+        val launcherList = openAppList()
+        launcherList.fling(Direction.DOWN, FLING_SPEED)
+        launcherList.fling(Direction.UP, FLING_SPEED)
+        // Interact with the ScrollRail
+        dragScrollRail()
+        dragMirrorStrip()
+        // Rail Settings > Widgets.
+        setHeightLimit(row = openWidgetsSettings(), enabled = true)
+        // Home with the widget height limit on: the Header renders inside the cap.
+        returnHome()
+        findOrThrow(HEADER_TIME_SELECTOR, "Header time not found in the capped Widget Area").longClick()
+        findOrThrow(By.text(appString("clock_style")), "Header menu not found")
+        device.pressBack()
+        check(device.wait(Until.gone(By.text(appString("clock_style"))), WAIT_TIMEOUT_MS)) {
+            "Header menu did not close"
+        }
+        dragScrollRail()
+        // Home with the widget height limit off.
+        setHeightLimit(row = openWidgetsSettings(), enabled = false)
+        returnHome()
+        check(scrollHomeToTop()) { "Header time not found on uncapped Home" }
+        // Media Player is hidden by default; exercise Home with no media player.
+        check(device.wait(Until.gone(By.desc(appString("media_player_menu"))), WAIT_TIMEOUT_MS)) {
+            "Media Player unexpectedly visible; disable it in Widgets settings"
+        }
+        dragScrollRail()
+        testProfiles.workUserId?.let { workUserId ->
+            exerciseWorkProfile(workUserId = workUserId)
+        }
+        testProfiles.privateSpaceUserId?.let { privateSpaceUserId ->
+            exercisePrivateSpace(privateSpaceUserId = privateSpaceUserId, favoriteName = favoriteName)
         }
     }
 
@@ -316,15 +329,11 @@ class BaselineProfileGenerator {
         returnHome()
     }
 
-    private fun MacrobenchmarkScope.findWorkRow(): UiObject2 {
-        val selector: BySelector = By.descStartsWith("${appString("work")} ")
-        val launcherList = findOrThrow(By.res("launcherList"), "App List not found")
-        scrollToStart(container = launcherList)
-        check(scrollUntil(container = launcherList, selector = selector, direction = Direction.DOWN)) {
-            "No badged work row in the App List"
-        }
-        return findOrThrow(selector, "No badged work row in the App List")
-    }
+    private fun MacrobenchmarkScope.findWorkRow(): UiObject2 = findListRow(
+        container = findOrThrow(By.res("launcherList"), "App List not found"),
+        selector = By.descStartsWith("${appString("work")} "),
+        rowName = "Badged work row"
+    )
 
     /**
      * Unlocks the Private Space through the system credential prompt, asserts the private Apps in
@@ -333,11 +342,13 @@ class BaselineProfileGenerator {
     private fun MacrobenchmarkScope.exercisePrivateSpace(privateSpaceUserId: Int, favoriteName: String) {
         val launcherList = openAppList()
         scrollToEnd(container = launcherList)
-        val privateSpaceSelector: BySelector = By.desc(appString("private_space")).clickable(true)
-        val lockSelector: BySelector = By.desc(appString("lock_private_space"))
+        val privateSpaceRowSelector: BySelector = By.text(appString("private_space"))
+        val lockSelector: BySelector = By.text(appString("lock_private_space"))
         if (!device.hasObject(lockSelector)) {
-            findOrThrow(privateSpaceSelector, "Private Space row not found").click()
+            findOrThrow(privateSpaceRowSelector, "Private Space row not found").click()
             check(confirmPrivateSpaceCredential()) { "Private Space credential prompt did not close" }
+            // Unlocking inserts the private Apps above the actions, which pushes them below the fold.
+            scrollToEnd(container = launcherList)
         }
         check(device.wait(Until.hasObject(lockSelector), PRIVATE_UNLOCK_TIMEOUT_MS)) { "Private Space did not unlock" }
         val privateBadgePrefix: String = privateAppBadgePrefix(privateSpaceUserId = privateSpaceUserId)
@@ -438,11 +449,13 @@ class BaselineProfileGenerator {
         return badgedName.substring(startIndex = 0, endIndex = appNameIndex)
     }
 
-    private fun MacrobenchmarkScope.findPrivateAppDescriptions(badgePrefix: String): Set<String> =
-        device.findObjects(By.clazz("android.widget.ImageView"))
+    private fun MacrobenchmarkScope.findPrivateAppDescriptions(badgePrefix: String): Set<String> {
+        val containerLabel: String = appString("private_space")
+        return device.findObjects(By.clazz("android.widget.ImageView"))
             .mapNotNull { node -> node.contentDescription }
-            .filter { description -> description.startsWith(badgePrefix) }
+            .filter { description -> description.startsWith(badgePrefix) && description != containerLabel }
             .toSet()
+    }
 
     private fun MacrobenchmarkScope.isPrivateAppInPicker(descriptions: Set<String>): Boolean {
         device.findObject(By.scrollable(true))?.let { pickerList ->
@@ -610,31 +623,58 @@ class BaselineProfileGenerator {
         scrollToEdge(container = container, direction = Direction.DOWN)
     }
 
+    // Stops at the edge, where a fling leaves the shown rows unchanged, instead of waiting out the
+    // scroll-event timeout on every remaining attempt. fling()'s own result is not used: on a busy
+    // device it misses the scroll event and reports the edge while the list is still moving.
     private fun MacrobenchmarkScope.scrollToEdge(container: UiObject2, direction: Direction) {
         repeat(SCROLL_ATTEMPTS) {
+            val shownBefore: List<String> = shownRows(container = container)
             container.fling(direction, FLING_SPEED)
             device.waitForIdle()
+            if (shownRows(container = container) == shownBefore) {
+                return
+            }
         }
     }
+
+    private fun shownRows(container: UiObject2): List<String> =
+        container.findObjects(By.clazz("android.widget.TextView")).map { node -> "${node.text}@${node.visibleBounds}" }
 
     /** Finds the built-in Rail Settings row by name, wherever the App List is scrolled. */
-    private fun MacrobenchmarkScope.railSettingsEntry(container: UiObject2): UiObject2 {
-        val selector: BySelector = By.desc(RAIL_SETTINGS_NAME)
+    private fun MacrobenchmarkScope.railSettingsEntry(container: UiObject2): UiObject2 = findListRow(
+        container = container,
+        selector = By.desc(RAIL_SETTINGS_NAME),
+        rowName = "Rail Settings entry"
+    )
+
+    /**
+     * Scrolls [container] from its start to the row matching [selector] and returns it once the
+     * row's center is between the system bars: the App List draws under both bars, which take a
+     * touch meant for a row there, so one short scroll toward the row brings it in first.
+     */
+    private fun MacrobenchmarkScope.findListRow(container: UiObject2, selector: BySelector, rowName: String): UiObject2 {
         scrollToStart(container = container)
-        check(scrollUntil(container = container, selector = selector, direction = Direction.DOWN)) {
-            "Rail Settings entry not found"
+        check(scrollUntil(container = container, selector = selector, direction = Direction.DOWN)) { "$rowName not found" }
+        if (findTouchableRow(selector = selector) == null) {
+            val isUnderStatusBar: Boolean = findOrThrow(selector, "$rowName not found").visibleBounds.centerY() < statusBarBottom()
+            container.scroll(if (isUnderStatusBar) Direction.UP else Direction.DOWN, REVEAL_SCROLL_PERCENT)
+            device.waitForIdle()
         }
-        return findOrThrow(selector, "Rail Settings entry not found")
+        return checkNotNull(findTouchableRow(selector = selector)) { "$rowName is under a system bar" }
     }
 
-    private fun MacrobenchmarkScope.firstLaunchableNameNode(container: UiObject2): UiObject2 {
-        val statusBarBottom: Int = (device.displayHeight * STATUS_BAR_HEIGHT_FRACTION).toInt()
-        return checkNotNull(
-            container.findObjects(By.clazz("android.widget.TextView"))
-                .filter { node -> isLaunchableName(text = node.text) && node.visibleBounds.top >= statusBarBottom }
-                .minByOrNull { node -> node.visibleBounds.top }
-        ) { "App List row not found" }
+    private fun MacrobenchmarkScope.findTouchableRow(selector: BySelector): UiObject2? {
+        val navigationBarTop: Int = (device.displayHeight * (1 - NAVIGATION_BAR_HEIGHT_FRACTION)).toInt()
+        return device.findObjects(selector).firstOrNull { node -> node.visibleBounds.centerY() in statusBarBottom()..navigationBarTop }
     }
+
+    private fun MacrobenchmarkScope.statusBarBottom(): Int = (device.displayHeight * STATUS_BAR_HEIGHT_FRACTION).toInt()
+
+    private fun MacrobenchmarkScope.firstLaunchableNameNode(container: UiObject2): UiObject2 = checkNotNull(
+        container.findObjects(By.clazz("android.widget.TextView"))
+            .filter { node -> isLaunchableName(text = node.text) && node.visibleBounds.top >= statusBarBottom() }
+            .minByOrNull { node -> node.visibleBounds.top }
+    ) { "App List row not found" }
 
     private fun MacrobenchmarkScope.setHeightLimit(row: UiObject2, enabled: Boolean) {
         val onText: String = appString("widget_area_scrolls_when_needed")
