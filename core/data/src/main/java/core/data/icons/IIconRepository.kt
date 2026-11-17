@@ -1,6 +1,7 @@
 package core.data.icons
 
 import android.content.ComponentName
+import core.data.apps.model.App
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
@@ -17,6 +18,13 @@ interface IIconRepository {
     val iconPacks: Flow<Set<IconPack>>
 
     suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon
+
+    /**
+     * The pack icons [packPackageName] provides for [apps], keyed by App key, in one read of the
+     * pack's cached icons regardless of the number of Apps. An App the pack does not map is
+     * absent, so its default icon applies; every mapped icon is badged for the App's Profile.
+     */
+    suspend fun getAppIcons(packPackageName: String, apps: List<App>): Map<String, Icon>
 
     /** The icon [customIcon] resolves to, badged for [profile] when it is not null, or null when it is gone. */
     suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo? = null): Icon?

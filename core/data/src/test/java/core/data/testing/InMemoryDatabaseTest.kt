@@ -13,6 +13,7 @@ import core.data.prefs.LaunchableCustomization
 import core.data.profiles.IProfileSource
 import core.data.room.AppDatabase
 import core.data.room.dao.LaunchableCustomizationDao
+import core.data.room.dao.PackIconDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.finishPendingWork as finishAllPendingWork
@@ -99,12 +100,13 @@ abstract class InMemoryDatabaseTest {
     fun TestScope.createIconRepository(
         iconPackSource: IIconPackSource,
         profileSource: IProfileSource = createProfileSourceMock(),
+        packIconDao: PackIconDao = database.getPackIconDao(),
         scope: CoroutineScope = backgroundScope,
         dispatcher: CoroutineDispatcher = databaseDispatcher
     ): IIconRepositoryImpl = IIconRepositoryImpl(
         context = RuntimeEnvironment.getApplication(),
         iconPackDao = database.getCachedIconPackDao(),
-        iconDao = database.getPackIconDao(),
+        iconDao = packIconDao,
         iconPackSource = iconPackSource,
         imageStore = createIconImageStore(),
         profileSource = profileSource,

@@ -38,6 +38,7 @@ import core.data.profiles.ProfileKind
 import core.data.profiles.toProfileToken
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
+import core.data.room.dao.PackIconDao
 import core.data.room.dao.PopupDao
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.IStandaloneShortcutPinSourceImpl
@@ -98,6 +99,7 @@ import core.data.widgets.IWidgetSettingsRepositoryImpl
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -338,7 +340,6 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
                 .launchableFor(inputKey.format()) ?: throw AssertionError("Missing shortcut")
 
             assertEquals(inputShortcut.defaultIcon, actualShortcut.icon)
-            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
             coVerify(exactly = 0) { mockIconRepository.getCustomIcon(any(), any()) }
         } finally {
             collection.cancel()
@@ -672,7 +673,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val actualFavorites: List<Launchable> = favoritesRepository.favorites.first()
 
         assertEquals(1, inputAppState.subscriptionCount.value)
-        coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
+        coVerify(exactly = 1) { mockIconRepository.getAppIcons(any(), any()) }
         assertTrue(actualState.isAppListReady)
         assertEquals(listOf("O", "⌂"), actualState.listedGroups.map { group -> group.label })
         assertTrue(actualMenuItems.isNotEmpty())
@@ -742,12 +743,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val collection: Job = launch { repository.launchableState.collect { } }
         try {
             assertFalse(repository.launchableState.value.isAppListReady)
-            coVerify(exactly = 0) { mockIconRepository.getIcon(any(), any(), any()) }
+            coVerify(exactly = 0) { mockIconRepository.getAppIcons(any(), any()) }
 
             advanceUntilIdle()
             assertEquals(1, inputAppState.subscriptionCount.value)
             assertTrue(repository.launchableState.value.isAppListReady)
-            coVerify(exactly = 1) { mockIconRepository.getIcon(any(), any(), any()) }
+            coVerify(exactly = 1) { mockIconRepository.getAppIcons(any(), any()) }
         } finally {
             collection.cancel()
         }
@@ -925,17 +926,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals(listOf(fixture.firstApp.key, fixture.secondApp.key), actualBeforeKeys)
             assertEquals(listOf(fixture.secondApp.key, fixture.firstApp.key), actualAfterKeys)
             coVerify(exactly = 1) {
-                mockIconRepository.getIcon(
+                mockIconRepository.getAppIcons(
                     packPackageName = TEST_ICON_PACK_PACKAGE,
-                    componentName = fixture.firstApp.componentName,
-                    profile = fixture.firstApp.profileInfo
-                )
-            }
-            coVerify(exactly = 1) {
-                mockIconRepository.getIcon(
-                    packPackageName = TEST_ICON_PACK_PACKAGE,
-                    componentName = fixture.secondApp.componentName,
-                    profile = fixture.secondApp.profileInfo
+                    apps = listOf(fixture.firstApp, fixture.secondApp)
                 )
             }
             coVerify(exactly = 1) { mockIconRepository.getCustomIcon(inputCustomIcon, profile = null) }
@@ -1063,11 +1056,65 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(expectedIcon, actualApp.icon)
         assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
         coVerify(exactly = 1) {
-            mockIconRepository.getIcon(
-                packPackageName = TEST_ICON_PACK_PACKAGE,
-                componentName = inputComponentName,
-                profile = inputApp.profileInfo
+            mockIconRepository.getAppIcons(packPackageName = TEST_ICON_PACK_PACKAGE, apps = listOf(inputApp))
+        }
+    }
+
+    @Test
+    fun `resolves every App icon from one pack read per resolution and keeps Custom icons ahead of the pack`() = databaseTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputMappedApp: App = createApp(name = "Mapped", packageName = APP_PACKAGE_NAME)
+        val inputMappedWorkApp: App = createApp(name = "Mapped work", packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
+        val inputUnmappedApp: App = createApp(name = "Unmapped", packageName = "com.example.unmapped")
+        val inputCustomApp: App = createApp(name = "Custom", packageName = "com.example.custom")
+        val inputAppState: MutableStateFlow<List<App>?> =
+            MutableStateFlow(listOf(inputMappedApp, inputMappedWorkApp, inputUnmappedApp, inputCustomApp))
+        val expectedPackIcon: Icon.PackIcon = Icon.PackIcon(
+            componentName = inputMappedApp.componentName,
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            resId = ICON_PACK_RES_ID
+        )
+        val mockIconPackSource: IIconPackSource = createIconPackSourceMock(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            icons = setOf(expectedPackIcon),
+            drawableNames = setOf(TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        )
+        database.getPackIconDao().insert(expectedPackIcon)
+        val mockPackIconDao: PackIconDao = spyk(database.getPackIconDao())
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
+            mockPreferencesRepository = createPreferencesRepositoryMock(
+                customizations = listOf(LaunchableCustomization(key = inputCustomApp.key, icon = PACK_CUSTOM_ICON.customIcon)),
+                settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)
+            ),
+            mockIconRepository = createIconRepository(iconPackSource = mockIconPackSource, packIconDao = mockPackIconDao)
+        )
+        val collection: Job = backgroundScope.launch { repository.launchableState.collect() }
+        try {
+            finishPendingWork()
+            val actualState: LaunchableState = repository.launchableState.first()
+            assertTrue(actualState.isAppListReady)
+            assertEquals(expectedPackIcon, actualState.app(key = inputMappedApp.key).icon)
+            assertEquals(
+                Icon.ProfileIcon(icon = expectedPackIcon, profile = inputWorkProfile.user),
+                actualState.app(key = inputMappedWorkApp.key).icon
             )
+            assertEquals(inputUnmappedApp.defaultIcon, actualState.app(key = inputUnmappedApp.key).icon)
+            assertEquals(PACK_CUSTOM_ICON.resolvedIcon, actualState.app(key = inputCustomApp.key).icon)
+            coVerify(exactly = 1) { mockPackIconDao.getAllFromPack(any(), TEST_ICON_PACK_PACKAGE) }
+
+            val inputExtraApps: List<App> = listOf(
+                createApp(name = "Extra", packageName = "com.example.extra"),
+                createApp(name = "More", packageName = "com.example.more")
+            )
+            inputAppState.value = inputAppState.value.orEmpty() + inputExtraApps
+            finishPendingWork()
+
+            assertEquals(6, repository.launchableState.first().launchables.count { launchable -> launchable is App })
+            coVerify(exactly = 2) { mockPackIconDao.getAllFromPack(any(), TEST_ICON_PACK_PACKAGE) }
+            coVerify(exactly = 0) { mockPackIconDao.getIcon(any(), any()) }
+        } finally {
+            collection.cancel()
         }
     }
 
@@ -1180,12 +1227,11 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             packPackageName = TEST_ICON_PACK_PACKAGE,
             resId = ICON_PACK_RES_ID
         )
-        val mockIconPackSource: IIconPackSource = mockk()
-        every {
-            mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
-        } returns true
-        every { mockIconPackSource.appIcons(packPackageName = TEST_ICON_PACK_PACKAGE) } returns setOf(expectedGlobalIcon)
-        addIconPackActivity(packageName = TEST_ICON_PACK_PACKAGE, label = "Icon pack")
+        val mockIconPackSource: IIconPackSource = createIconPackSourceMock(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            icons = setOf(expectedGlobalIcon),
+            drawableNames = setOf(TEST_CUSTOM_ICON_DRAWABLE_NAME)
+        )
         val iconRepository: IIconRepository = createIconRepository(
             iconPackSource = mockIconPackSource,
             profileSource = mockProfileSource
@@ -2381,17 +2427,15 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             packPackageName = SECOND_ICON_PACK_PACKAGE,
             resId = ICON_PACK_RES_ID
         )
-        val mockIconPackSource: IIconPackSource = mockk()
-        every {
-            mockIconPackSource.hasDrawable(TEST_ICON_PACK_PACKAGE, TEST_CUSTOM_ICON_DRAWABLE_NAME)
-        } returns true
-        every { mockIconPackSource.appIcons(TEST_ICON_PACK_PACKAGE) } returns setOf(
-            expectedFirstPackCustomIcon,
-            expectedFirstPackPlainIcon
+        val mockIconPackSource: IIconPackSource = createIconPackSourceMock(
+            packPackageName = TEST_ICON_PACK_PACKAGE,
+            icons = setOf(expectedFirstPackCustomIcon, expectedFirstPackPlainIcon),
+            drawableNames = setOf(TEST_CUSTOM_ICON_DRAWABLE_NAME)
         )
-        every { mockIconPackSource.appIcons(SECOND_ICON_PACK_PACKAGE) } returns setOf(expectedSecondPackPlainIcon)
-        addIconPackActivity(packageName = TEST_ICON_PACK_PACKAGE, label = TEST_ICON_PACK_PACKAGE)
-        addIconPackActivity(packageName = SECOND_ICON_PACK_PACKAGE, label = SECOND_ICON_PACK_PACKAGE)
+        mockIconPackSource.provideIconPack(
+            packPackageName = SECOND_ICON_PACK_PACKAGE,
+            icons = setOf(expectedSecondPackPlainIcon)
+        )
         val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputCustomApp, inputPlainApp)),
@@ -2585,6 +2629,27 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
     /** The loaded App with [key], failing the test when it is missing. */
     private fun LaunchableState.app(key: String): App = launchables.filterIsInstance<App>().single { app -> app.key == key }
+}
+
+/** A mock [IIconPackSource] providing the installed pack [packPackageName], which maps [icons] and provides [drawableNames]. */
+private fun createIconPackSourceMock(
+    packPackageName: String,
+    icons: Set<Icon.PackIcon> = emptySet(),
+    drawableNames: Set<String> = emptySet()
+): IIconPackSource = mockk<IIconPackSource>().apply {
+    provideIconPack(packPackageName = packPackageName, icons = icons, drawableNames = drawableNames)
+}
+
+/** Stubs [this] mock to provide the installed pack [packPackageName], which maps [icons] and provides [drawableNames]. */
+private fun IIconPackSource.provideIconPack(
+    packPackageName: String,
+    icons: Set<Icon.PackIcon> = emptySet(),
+    drawableNames: Set<String> = emptySet(),
+    label: String = "Icon pack"
+) {
+    every { appIcons(packPackageName = packPackageName) } returns icons
+    drawableNames.forEach { drawableName -> every { hasDrawable(packPackageName, drawableName) } returns true }
+    addIconPackActivity(packageName = packPackageName, label = label)
 }
 
 private data class AppListRankingFixture(

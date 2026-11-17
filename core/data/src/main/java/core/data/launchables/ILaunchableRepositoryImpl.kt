@@ -194,8 +194,12 @@ class ILaunchableRepositoryImpl(
         val icons: LaunchableIcons = customizations.toLaunchableIcons()
         val hiddenKeys: Set<String> = customizations.toHiddenKeys()
         val packageRepresentativeNames: Map<AppProfile, String> = apps.packageRepresentativeNames()
+        // One read of the selected pack's icons, instead of one per App.
+        val packIcons: Map<String, Icon> = settings.iconPack
+            ?.let { packPackageName -> iconRepository.getAppIcons(packPackageName = packPackageName, apps = apps) }
+            .orEmpty()
         val listedLaunchables: List<Launchable> = apps
-            .map { app -> app.resolve(names = names, icons = icons, settings = settings) } +
+            .map { app -> app.resolve(names = names, icons = icons, packIcons = packIcons) } +
             appListSources.standaloneShortcuts.launchables.mapNotNull { shortcut ->
                 profilesByUser[shortcut.profile]?.let { profile ->
                     shortcut.resolve(
@@ -212,7 +216,7 @@ class ILaunchableRepositoryImpl(
                     launchable.isPrivateIn(privateSpace = appState.privateSpaceStatus.profile)
             }
         val resolvedBuiltinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
-            items = builtinGroup.items.map { item -> item.resolve(names = names, icons = icons, settings = settings) }
+            items = builtinGroup.items.map { item -> item.resolve(names = names, icons = icons, packIcons = packIcons) }
         )
         val folders: List<Folder> = appListSources.folderAppList.records.resolveFolders(
             names = names,
@@ -249,9 +253,9 @@ class ILaunchableRepositoryImpl(
         )
     }
 
-    private suspend fun Launchable.resolve(names: LaunchableNames, icons: LaunchableIcons, settings: Settings): Launchable {
+    private suspend fun Launchable.resolve(names: LaunchableNames, icons: LaunchableIcons, packIcons: Map<String, Icon>): Launchable {
         val name: String = resolveName(names)
-        val icon: Icon = if (this is App) resolveIcon(icons = icons, settings = settings) else defaultIcon
+        val icon: Icon = if (this is App) resolveIcon(icons = icons, packIcons = packIcons) else defaultIcon
         return if (this is App) {
             copy(name = name, icon = icon, badgedLabel = badgedLabel(name = name))
         } else {
@@ -259,17 +263,9 @@ class ILaunchableRepositoryImpl(
         }
     }
 
-    private suspend fun App.resolveIcon(icons: LaunchableIcons, settings: Settings): Icon {
+    private suspend fun App.resolveIcon(icons: LaunchableIcons, packIcons: Map<String, Icon>): Icon {
         val customIcon: Icon? = icons.resolveCustomIcon(key = key, iconRepository = iconRepository, profile = profileInfo)
-        if (customIcon != null) {
-            return customIcon
-        }
-        val iconPack: String? = settings.iconPack
-        return if (iconPack != null) {
-            iconRepository.getIcon(packPackageName = iconPack, componentName = componentName, profile = profileInfo)
-        } else {
-            defaultIcon
-        }
+        return customIcon ?: packIcons[key] ?: defaultIcon
     }
 
     private suspend fun ShortcutLaunchable.resolve(
