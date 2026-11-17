@@ -12,18 +12,31 @@ import android.provider.Settings
 import android.text.format.DateFormat
 import androidx.core.content.ContextCompat
 import core.util.MILLIS_PER_MINUTE
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-class IClockSourceImpl(private val context: Context) : IClockSource {
+class IClockSourceImpl(
+    context: Context,
+    scope: CoroutineScope,
+    private val currentInstant: () -> Instant = Instant::now,
+    private val currentZone: () -> ZoneId = ZoneId::systemDefault,
+    private val currentLocale: () -> Locale = Locale::getDefault
+) : IClockSource {
+    private val appContext: Context = context.applicationContext
+
     override val readings: Flow<ClockReading> = channelFlow {
         fun emitReading() {
             trySend(readClock())
@@ -47,39 +60,42 @@ class IClockSourceImpl(private val context: Context) : IClockSource {
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
             addAction(Intent.ACTION_LOCALE_CHANGED)
         }
-        ContextCompat.registerReceiver(context, timeReceiver, timeFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(appContext, timeReceiver, timeFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         val formatObserver: ContentObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean, uri: Uri?) {
                 emitReading()
             }
         }
-        context.contentResolver.registerContentObserver(
+        appContext.contentResolver.registerContentObserver(
             Settings.System.getUriFor(Settings.System.TIME_12_24),
             false,
             formatObserver
         )
 
-        emitReading()
-
         awaitClose {
             minuteTicker.cancel()
-            context.unregisterReceiver(timeReceiver)
-            context.contentResolver.unregisterContentObserver(formatObserver)
+            appContext.unregisterReceiver(timeReceiver)
+            appContext.contentResolver.unregisterContentObserver(formatObserver)
         }
     }
+        .shareIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS)
+        )
+        .onStart { emit(readClock()) }
 
-    override fun now(): Instant = Instant.now()
+    override fun now(): Instant = currentInstant()
 
     private fun readClock(): ClockReading = ClockReading(
         instant = now(),
-        zoneId = ZoneId.systemDefault(),
-        locale = Locale.getDefault(),
-        isSystem24Hour = DateFormat.is24HourFormat(context)
+        zoneId = currentZone(),
+        locale = currentLocale(),
+        isSystem24Hour = DateFormat.is24HourFormat(appContext)
     )
 
     private fun millisUntilNextMinute(): Long {
-        val remainder: Long = System.currentTimeMillis() % MILLIS_PER_MINUTE
+        val remainder: Long = now().toEpochMilli() % MILLIS_PER_MINUTE
         return MILLIS_PER_MINUTE - remainder
     }
 }
