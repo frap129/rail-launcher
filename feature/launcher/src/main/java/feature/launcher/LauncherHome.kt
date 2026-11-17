@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.ui.composables.OutlinedText
 import core.ui.layout.DragHandlePlacement
@@ -72,6 +73,7 @@ fun LauncherHome(
     railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
+    onFavoriteIconSettled: (Launchable) -> Unit,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
     onSwipeUp: () -> Unit,
@@ -132,6 +134,7 @@ fun LauncherHome(
                             railSide = railSide,
                             itemActions = itemActions,
                             folderSummaries = folderSummaries,
+                            onFavoriteIconSettled = onFavoriteIconSettled,
                             onFavoriteMoved = onFavoriteMoved,
                             onEmptyAreaLongPress = onEmptyAreaLongPress,
                             isPopupSwipeEnabled = isPopupSwipeEnabled,
@@ -194,6 +197,7 @@ fun LauncherHome(
                             itemActions = itemActions,
                             folderSummaries = folderSummaries,
                             reorderableState = reorderState,
+                            onFavoriteIconSettled = onFavoriteIconSettled,
                             blockInteraction = interaction.isResizing || interaction.isEditingWidgets,
                             onBlockedGestureEnd = if (interaction.isResizing) interaction.onResizeOutsideTap else null,
                             isPopupSwipeEnabled = isPopupSwipeEnabled
@@ -229,6 +233,7 @@ private fun FavoritesBottomArea(
     railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
+    onFavoriteIconSettled: (Launchable) -> Unit,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
     isPopupSwipeEnabled: Boolean,
@@ -273,6 +278,7 @@ private fun FavoritesBottomArea(
                 itemActions = itemActions,
                 folderSummaries = folderSummaries,
                 reorderableState = reorderState,
+                onFavoriteIconSettled = onFavoriteIconSettled,
                 isPopupSwipeEnabled = isPopupSwipeEnabled
             )
         }
@@ -300,6 +306,7 @@ private fun LazyListScope.favoriteItems(
     itemActions: LauncherItemActions,
     reorderableState: ReorderableLazyListState,
     folderSummaries: Map<String, String>,
+    onFavoriteIconSettled: (Launchable) -> Unit,
     isPopupSwipeEnabled: Boolean,
     blockInteraction: Boolean = false,
     onBlockedGestureEnd: (() -> Unit)? = null
@@ -348,6 +355,7 @@ private fun LazyListScope.favoriteItems(
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
                         secondaryText = folderSummaries[favorite.key],
+                        onIconSettled = { onFavoriteIconSettled(favorite) },
                         modifier = Modifier
                             .weight(1f)
                             .then(

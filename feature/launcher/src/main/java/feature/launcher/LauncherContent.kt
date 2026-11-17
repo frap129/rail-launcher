@@ -55,6 +55,8 @@ import core.data.prefs.ScrubEdges
 import core.data.search.SearchResult
 import core.ui.GroupMark
 import core.ui.HOME_FULLY_DRAWN_TEST_TAG
+import core.ui.HOME_ICONS_DRAWN_TEST_TAG
+import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.RailScrubState
@@ -107,6 +109,7 @@ internal fun LauncherContent(
     onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit,
     onOpenSearchSettings: () -> Unit,
+    homeIconsDrawn: IHomeIconsDrawn,
     isResizing: Boolean,
     isEditingWidgets: Boolean,
     homeEditMode: HomeEditMode
@@ -173,8 +176,9 @@ internal fun LauncherContent(
             .consumeTouches()
     }
     val homePaint: Paint = remember { Paint() }
+    val homeIconsDrawnReport: HomeIconsDrawnReport = remember(homeIconsDrawn) { HomeIconsDrawnReport(homeIconsDrawn = homeIconsDrawn) }
 
-    Box(modifier) {
+    Box(modifier.testTagWhen(isTagged = homeIconsDrawnReport.isReported, tag = HOME_ICONS_DRAWN_TEST_TAG)) {
         // Kept composed under the App List so returning to Home never rebuilds it.
         if (home != null) {
             val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
@@ -184,10 +188,11 @@ internal fun LauncherContent(
             )
             val isHomeDrawable: Boolean = isHomeVisible && home.isFavoritesLoaded && widgetArea.state.isLoaded
             val isHomeFullyDrawn: Boolean = rememberHomeFullyDrawn(isHomeDrawable = isHomeDrawable)
+            HomeIconsDrawnEffect(home = home, isHomeDrawable = isHomeDrawable, report = homeIconsDrawnReport)
             LauncherHome(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (isHomeFullyDrawn) Modifier.testTag(HOME_FULLY_DRAWN_TEST_TAG) else Modifier)
+                    .testTagWhen(isTagged = isHomeFullyDrawn, tag = HOME_FULLY_DRAWN_TEST_TAG)
                     .drawWithContent {
                         val alpha: Float = homeAlpha.value
                         when {
@@ -209,6 +214,7 @@ internal fun LauncherContent(
                 railSide = railSide,
                 itemActions = itemActions,
                 folderSummaries = folderSummaries,
+                onFavoriteIconSettled = homeIconsDrawnReport.settledIcons::settle,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,
                 onSwipeUp = viewModel::onHomeSwipeUp,
@@ -339,6 +345,9 @@ private fun rememberHomeFullyDrawn(isHomeDrawable: Boolean): Boolean {
     }
     return isReported
 }
+
+/** Applies [tag] to this modifier only while [isTagged], so the benchmark can wait for the milestone. */
+private fun Modifier.testTagWhen(isTagged: Boolean, tag: String): Modifier = then(if (isTagged) Modifier.testTag(tag) else Modifier)
 
 @Composable
 internal fun BoxScope.LauncherRail(

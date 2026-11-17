@@ -220,6 +220,10 @@ _Avoid_: Launchables loaded, App List loaded
 The point when Home has been drawn with its Header, Widget Area and Favorites loaded, and Rail has reported it through the activity's fully-drawn reporter; an empty Home counts.
 _Avoid_: Home ready (when meaning drawn)
 
+**Home icons drawn**:
+The point when Home has drawn every Favorite icon it shows, or failed to draw one, so the startup benchmark can time Home icons apart from Home fully drawn; a Home with no visible Favorite icon reaches it as soon as it is shown.
+_Avoid_: Icons loaded, icons ready
+
 **App List**:
 The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list

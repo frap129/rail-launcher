@@ -125,6 +125,7 @@ fun LauncherItem(
     itemActions: LauncherItemActions,
     secondaryText: String? = null,
     accessibilityAnnouncement: String? = null,
+    onIconSettled: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
@@ -222,7 +223,8 @@ fun LauncherItem(
             }
             LaunchableIcon(
                 launchable = item,
-                contentDescription = if (rowDescription == null) item.accessibilityName else null
+                contentDescription = if (rowDescription == null) item.accessibilityName else null,
+                onIconSettled = onIconSettled
             )
             Column(modifier = Modifier.weight(1f)) {
                 OutlinedText(

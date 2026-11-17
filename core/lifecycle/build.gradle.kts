@@ -13,4 +13,5 @@ dependencies {
     implementation(project(":feature:settings"))
     implementation(libs.coil)
     implementation(libs.androidx.room.ktx)
+    testImplementation(testFixtures(project(":core:data")))
 }

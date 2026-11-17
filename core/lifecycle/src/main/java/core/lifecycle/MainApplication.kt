@@ -138,8 +138,10 @@ import core.data.widgets.IWidgetLifecycleReconcilerImpl
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
 import core.data.widgets.WidgetAreaSeedCallback
+import core.lifecycle.startup.IHomeIconsDrawnImpl
 import core.lifecycle.widgets.IAppWidgetViewCacheImpl
 import core.lifecycle.widgets.RailAppWidgetHost
+import core.ui.IHomeIconsDrawn
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.ui.model.data.LauncherTypingState
@@ -477,6 +479,7 @@ class MainApplication :
         single<IBatterySource> { IBatterySourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IDatePatternSource> { IDatePatternSourceImpl() }
         single { HeaderFormatter(get(), androidContext().resources) }
+        single<IHomeIconsDrawn> { IHomeIconsDrawnImpl() }
     }
 
     /**
@@ -606,6 +609,10 @@ class MainApplication :
 
     override fun onCreate() {
         super.onCreate()
+
+        // The startup benchmark times Home icons from Application creation to the frame that
+        // draws them; the reporter closes the section at most once per process.
+        get<IHomeIconsDrawn>().start()
 
         // Set up Timber
         when (BuildConfig.DEBUG) {

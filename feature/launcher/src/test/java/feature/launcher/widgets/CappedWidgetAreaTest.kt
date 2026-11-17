@@ -92,33 +92,6 @@ class CappedWidgetAreaTest {
         widgets = listOf(createHeaderModel(id = id, timeText = timeText))
     )
 
-    private fun widgetAreaActions(): WidgetAreaActions = WidgetAreaActions(
-        menuEnabled = true,
-        onHomeHeight = {},
-        onWidgetAreaWidth = {},
-        onTapTarget = {},
-        onHeaderLongPress = {},
-        onHeaderHeight = {},
-        onAppWidgetLongPress = {},
-        onAppWidgetUnpause = {},
-        onPageSettled = { _, _ -> },
-        onEmptyAreaLongPress = {},
-        onFinishResize = {},
-        onDragResize = {},
-        onResetResize = {},
-        onMovePlace = { _, _ -> },
-        onRemovePlace = {},
-        onToggleExpand = {},
-        onMovePage = { _, _, _ -> },
-        onRemovePage = { _, _ -> },
-        onSplitPage = { _, _, _ -> },
-        onMergePlace = { _, _ -> },
-        onMediaPlayerOpen = {},
-        onMediaPlayerLongPress = {},
-        onMediaCommand = {},
-        onScrolledToPlace = {}
-    )
-
     private companion object {
         const val PLACE_ID: Long = 1L
         const val HEADER_TIME_TEXT: String = "12:34"

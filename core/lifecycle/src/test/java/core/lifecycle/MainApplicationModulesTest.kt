@@ -17,6 +17,7 @@ import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.IStandaloneShortcutPinSource
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.IStandaloneShortcutSource
+import core.ui.IHomeIconsDrawn
 import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -55,5 +56,6 @@ class MainApplicationModulesTest {
         assertNotNull(koin.get<IPopupRepository>())
         assertNotNull(koin.get<IStoredKeyClassifier>())
         assertNotNull(koin.get<IStaleKeyCleanup>())
+        assertNotNull(koin.get<IHomeIconsDrawn>())
     }
 }
