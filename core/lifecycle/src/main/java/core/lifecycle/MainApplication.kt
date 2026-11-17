@@ -461,7 +461,7 @@ class MainApplication :
         }
         single { HomeEditState() }
         single { HomeHeightState() }
-        single<IClockSource> { IClockSourceImpl(androidContext()) }
+        single<IClockSource> { IClockSourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IBatterySource> { IBatterySourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IDatePatternSource> { IDatePatternSourceImpl() }
         single { HeaderFormatter(get(), androidContext().resources) }
