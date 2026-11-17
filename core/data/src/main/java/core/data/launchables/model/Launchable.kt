@@ -26,6 +26,9 @@ abstract class Launchable {
     /** Whether this Launchable's publisher currently disables it, so tapping it cannot open it. */
     open val isDisabled: Boolean get() = false
 
+    /** Whether the system has suspended this Launchable's App package, so its icon is greyed. */
+    open val isSuspended: Boolean get() = false
+
     /** Whether the user can choose a Custom icon for this Launchable. */
     open val supportsCustomIcon: Boolean get() = false
 

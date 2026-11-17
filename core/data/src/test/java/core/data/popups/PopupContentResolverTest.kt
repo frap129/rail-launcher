@@ -49,7 +49,26 @@ class PopupContentResolverTest {
             hiddenShortcutIds = emptySet(),
             items = emptyList()
         )
-        assertEquals(PopupHeader(name = OWNER_NAME, icon = inputOwner.defaultIcon), actualContent.header)
+        assertEquals(PopupHeader(name = OWNER_NAME, icon = inputOwner.defaultIcon, isSuspended = false), actualContent.header)
+    }
+
+    @Test
+    fun `marks the header of a Suspended App`() {
+        val inputSuspendedApp: App = createApp(
+            name = OWNER_NAME,
+            packageName = TEST_NOTIFICATION_PACKAGE_NAME,
+            isSuspended = true
+        )
+        val actualContent: PopupContent = PopupContentResolver.resolve(
+            owner = inputSuspendedApp,
+            shortcuts = ShortcutsResult.Available(shortcuts = emptyList()),
+            hiddenShortcutIds = emptySet(),
+            items = emptyList()
+        )
+        assertEquals(
+            PopupHeader(name = OWNER_NAME, icon = inputSuspendedApp.icon, isSuspended = true),
+            actualContent.header
+        )
     }
 
     @Test
@@ -202,7 +221,7 @@ class PopupContentResolverTest {
             hiddenShortcutIds = emptySet(),
             items = emptyList()
         )
-        assertEquals(PopupHeader(name = Folder.DEFAULT_NAME, icon = folder.icon), actualContent.header)
+        assertEquals(PopupHeader(name = Folder.DEFAULT_NAME, icon = folder.icon, isSuspended = false), actualContent.header)
         assertEquals(PopupEmptyReason.FolderEmpty, actualContent.emptyReason)
     }
 

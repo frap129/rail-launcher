@@ -285,6 +285,43 @@ class IProfileSourceImplTest {
     }
 
     @Test
+    fun `carries each activity's package suspension state`() {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getActivityList(null, workUser) } returns listOf(
+            mockActivityInfo(applicationInfo = ApplicationInfo().apply { flags = ApplicationInfo.FLAG_SUSPENDED }),
+            mockActivityInfo(applicationInfo = ApplicationInfo())
+        )
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        val actualSuspension: List<Boolean> = source.activities(workUser).map { activity -> activity.isSuspended }
+
+        assertEquals(listOf(true, false), actualSuspension)
+    }
+
+    @Test
+    fun `publishes package suspension changes`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val callbackSlot: CapturingSlot<LauncherApps.Callback> = slot()
+        every { mockLauncherApps.registerCallback(capture(callbackSlot), any()) } just Runs
+        shadowOf(application).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        val source: IProfileSourceImpl = IProfileSourceImpl(application)
+
+        source.changes.test {
+            callbackSlot.captured.onPackagesSuspended(arrayOf(APP_PACKAGE_NAME), workUser)
+            assertEquals(
+                ProfileChange.PackagesSuspended(user = workUser, packageNames = listOf(APP_PACKAGE_NAME), isSuspended = true),
+                awaitItem()
+            )
+            callbackSlot.captured.onPackagesUnsuspended(arrayOf(APP_PACKAGE_NAME), workUser)
+            assertEquals(
+                ProfileChange.PackagesSuspended(user = workUser, packageNames = listOf(APP_PACKAGE_NAME), isSuspended = false),
+                awaitItem()
+            )
+        }
+    }
+
+    @Test
     fun `hides uninstall when a Profile restricts it or its restrictions cannot be read`() {
         val mockLauncherApps: LauncherApps = mockk(relaxed = true)
         every { mockLauncherApps.profiles } returns listOf(personalUser, workUser, privateUser, otherUser)

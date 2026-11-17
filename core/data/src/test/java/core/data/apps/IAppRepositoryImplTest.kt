@@ -315,6 +315,44 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `carries each App's package suspension state`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile)).apply {
+            setActivities(
+                user = personalUser,
+                activities = arrayOf(
+                    profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser, isSuspended = true),
+                    profileActivity(packageName = SECOND_PERSONAL_PACKAGE, user = personalUser)
+                )
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        assertEquals(
+            mapOf(PERSONAL_PACKAGE to true, SECOND_PERSONAL_PACKAGE to false),
+            actualApps.associate { app -> app.packageName to app.isSuspended }
+        )
+    }
+
+    @Test
+    fun `marks suspended Apps and clears the mark when they are unsuspended`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+
+        inputState.changes.emit(
+            ProfileChange.PackagesSuspended(user = workUser, packageNames = listOf(WORK_PACKAGE), isSuspended = true)
+        )
+        assertTrue(loadApps(repository = repository).single { app -> app.profile == workUser }.isSuspended)
+
+        inputState.changes.emit(
+            ProfileChange.PackagesSuspended(user = workUser, packageNames = listOf(WORK_PACKAGE), isSuspended = false)
+        )
+        assertFalse(loadApps(repository = repository).single { app -> app.profile == workUser }.isSuspended)
+    }
+
+    @Test
     fun `gives one App installed in two Profiles a key per Profile`() = databaseTest {
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, workProfile))
         inputState.setActivities(
@@ -704,14 +742,16 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         badgedLabel: String = label,
         activityClass: String = "$packageName.MainActivity",
         firstInstallTime: Long = 0,
-        isRemovable: Boolean = true
+        isRemovable: Boolean = true,
+        isSuspended: Boolean = false
     ): ProfileActivity = ProfileActivity(
         componentName = ComponentName(packageName, activityClass),
         user = user,
         label = label,
         badgedLabel = badgedLabel,
         firstInstallTime = firstInstallTime,
-        isRemovable = isRemovable
+        isRemovable = isRemovable,
+        isSuspended = isSuspended
     )
 }
 

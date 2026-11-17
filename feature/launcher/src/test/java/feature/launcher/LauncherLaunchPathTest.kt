@@ -57,6 +57,22 @@ class LauncherLaunchPathTest {
     }
 
     @Test
+    fun `a Suspended App launches through the system`() {
+        val inputContext: Application = RuntimeEnvironment.getApplication()
+        val inputSuspendedApp: App = createApp(name = "App", packageName = "com.example.app", isSuspended = true)
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        shadowOf(inputContext).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        every { mockViewModel.requestLaunch(inputSuspendedApp) } returns true
+
+        launch(launchable = inputSuspendedApp, context = inputContext)
+
+        verify(exactly = 1) {
+            mockLauncherApps.startMainActivity(inputSuspendedApp.componentName, inputSuspendedApp.profile, null, null)
+        }
+        verify { mockViewModel.onLaunched(inputSuspendedApp) }
+    }
+
+    @Test
     fun `a declined Paused prompt neither launches nor records a Launch count`() {
         every { mockViewModel.requestLaunch(mockLaunchable) } returns false
 

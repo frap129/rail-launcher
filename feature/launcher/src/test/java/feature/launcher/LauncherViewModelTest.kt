@@ -1293,6 +1293,30 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `tapping a suspended App launches it without a prompt`() = runTest {
+        val inputApp: App = createApp(name = "Gmail", packageName = "com.example.gmail", isSuspended = true)
+        val viewModel: LauncherViewModel = createViewModel()
+
+        assertTrue(viewModel.requestLaunch(inputApp))
+        assertNull(viewModel.pausedPrompt.value)
+    }
+
+    @Test
+    fun `long-pressing a suspended App still opens its menu`() = runTest {
+        val inputApp: App = createApp(name = "Gmail", packageName = "com.example.gmail", isSuspended = true)
+        val inputState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLoadedLaunchableState(listOf(inputApp)))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputState)
+        )
+
+        viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+            viewModel.openItemMenu(inputApp)
+            assertEquals(menuStateOf(item = inputApp, canUninstall = true), expectMostRecentItem())
+        }
+    }
+
+    @Test
     fun `tapping a paused work Shortcut opens the paused prompt and turns work apps on`() = runTest {
         val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = true)
         val inputShortcut: ShortcutLaunchable = createShortcut(

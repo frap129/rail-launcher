@@ -61,6 +61,7 @@ class IAppRepositoryImpl(
             is ProfileChange.ProfileRemoved -> removeProfile(user = change.user)
             is ProfileChange.ProfileAvailable, is ProfileChange.ProfileUnavailable -> refreshProfile(user = change.user)
             is ProfileChange.PackagesUnavailable -> Unit
+            is ProfileChange.PackagesSuspended -> updateSuspendedState(change = change)
         }
     }
 
@@ -104,11 +105,20 @@ class IAppRepositoryImpl(
         }
     }
 
+    private fun updateSuspendedState(change: ProfileChange.PackagesSuspended) {
+        val packageNames: Set<String> = change.packageNames.toSet()
+        updateApps(user = change.user) { app ->
+            if (app.packageName in packageNames) app.copy(isSuspended = change.isSuspended) else app
+        }
+    }
+
     private fun updatePausedState(profile: ProfileInfo) {
+        updateApps(user = profile.user) { app -> app.copy(profileInfo = app.profileInfo.copy(isQuiet = profile.isQuiet)) }
+    }
+
+    private fun updateApps(user: UserHandle, transform: (App) -> App) {
         _apps.update { current ->
-            current?.map { app ->
-                if (app.profileInfo.user == profile.user) app.copy(profileInfo = app.profileInfo.copy(isQuiet = profile.isQuiet)) else app
-            }
+            current?.map { app -> if (app.profile == user) transform(app) else app }
         }
     }
 
@@ -153,6 +163,7 @@ class IAppRepositoryImpl(
         badgedLabel = badgedLabel,
         isPackageRepresentative = isPackageRepresentative,
         firstInstallTime = firstInstallTime,
-        isRemovable = isRemovable
+        isRemovable = isRemovable,
+        isSuspended = isSuspended
     )
 }

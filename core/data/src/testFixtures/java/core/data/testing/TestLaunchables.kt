@@ -44,7 +44,8 @@ fun createApp(
     badgedLabel: String = name,
     customName: String = name,
     firstInstallTime: Long = 0L,
-    isRemovable: Boolean = true
+    isRemovable: Boolean = true,
+    isSuspended: Boolean = false
 ): App = App(
     defaultName = name,
     profileInfo = profileInfo,
@@ -53,7 +54,8 @@ fun createApp(
     name = customName,
     isPackageRepresentative = true,
     firstInstallTime = firstInstallTime,
-    isRemovable = isRemovable
+    isRemovable = isRemovable,
+    isSuspended = isSuspended
 )
 
 /** The stored key format used before Apps were keyed by launcher activity: package name and Profile. */
