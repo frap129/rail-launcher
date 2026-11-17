@@ -29,6 +29,8 @@ data class App(
     val isPackageRepresentative: Boolean,
     /** When the App's package was first installed, in epoch milliseconds, or 0 when unknown. */
     val firstInstallTime: Long,
+    /** When the App's package was last installed or updated, in epoch milliseconds, or 0 when unknown. */
+    val lastUpdateTime: Long,
     /** Whether the system lets the user uninstall the App's package from its Profile. */
     val isRemovable: Boolean,
     /** Whether the system has suspended the App's package, as Digital Wellbeing or a freezer app does. */

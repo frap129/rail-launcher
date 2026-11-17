@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Android 11 and lower use this file for full backup. With no rules, the
-   default includes the whole database directory: the Room database, its
-   private-profile rows and the SQLite WAL and -shm files. See ADR 0004.
+   Android 11 and lower use this file for full backup. The AppDatabase keeps its
+   default include: the Room database, its private-profile rows and the SQLite
+   WAL and -shm files. See ADR 0004.
+
+   The Last-known App list is derived, rebuildable data that must be rebuilt on
+   the device, not restored, so its separate database is excluded. See ADR
+   0005.
 -->
-<full-backup-content />
+<full-backup-content>
+    <exclude domain="database" path="last-known-apps" />
+    <exclude domain="database" path="last-known-apps-wal" />
+    <exclude domain="database" path="last-known-apps-shm" />
+    <exclude domain="database" path="last-known-apps-journal" />
+</full-backup-content>

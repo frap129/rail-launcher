@@ -13,6 +13,8 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import core.data.apps.IAppRepository
 import core.data.apps.IAppRepositoryImpl
+import core.data.apps.ILastKnownAppStore
+import core.data.apps.ILastKnownAppStoreImpl
 import core.data.battery.IBatterySource
 import core.data.battery.IBatterySourceImpl
 import core.data.calendar.ICalendarEventSource
@@ -74,11 +76,13 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.IProfileSourceImpl
 import core.data.room.APP_DATABASE_MIGRATIONS
 import core.data.room.AppDatabase
+import core.data.room.LastKnownAppDatabase
 import core.data.room.dao.CustomIconPackDao
 import core.data.room.dao.EventSettingsDao
 import core.data.room.dao.FavoriteDao
 import core.data.room.dao.FolderDao
 import core.data.room.dao.HeaderSettingsDao
+import core.data.room.dao.LastKnownAppDao
 import core.data.room.dao.LaunchCountDao
 import core.data.room.dao.LaunchableCustomizationDao
 import core.data.room.dao.MediaPlayerSettingsDao
@@ -222,6 +226,17 @@ class MainApplication :
             .build()
     }
 
+    private val lastKnownAppDatabase by lazy {
+        Room.databaseBuilder(
+            applicationContext,
+            LastKnownAppDatabase::class.java,
+            LastKnownAppDatabase.DATABASE_NAME
+        )
+            // The Last-known App list is fully rebuildable, so a schema change drops and rebuilds it.
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
+    }
+
     /**
      * A Koin module containing a reference to the MainApplication class.
      *
@@ -246,6 +261,7 @@ class MainApplication :
         single<HeaderSettingsDao> { database.getHeaderSettingsDao() }
         single<EventSettingsDao> { database.getEventSettingsDao() }
         single<FavoriteDao> { database.getFavoriteDao() }
+        single<LastKnownAppDao> { lastKnownAppDatabase.getLastKnownAppDao() }
         single<WidgetAreaDao> { database.getWidgetAreaDao() }
         single<WidgetAreaSettingsDao> { database.getWidgetAreaSettingsDao() }
         single<MediaPlayerSettingsDao> { database.getMediaPlayerSettingsDao() }
@@ -276,7 +292,10 @@ class MainApplication :
                 scope = get(named(APP_SCOPE_QUALIFIER))
             )
         }
-        single<IAppRepository> { IAppRepositoryImpl(androidContext(), get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
+        single<ILastKnownAppStore> { ILastKnownAppStoreImpl(lastKnownAppDao = get()) }
+        single<IAppRepository> {
+            IAppRepositoryImpl(androidContext(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IIconPackSource> { IIconPackSourceImpl(context = androidContext()) }
         single<IIconImageStore> { IIconImageStoreImpl(context = androidContext()) }
         single<IIconImageImporter> { IIconImageImporterImpl(context = androidContext(), imageStore = get()) }

@@ -15,7 +15,7 @@ import core.data.room.dao.LaunchCountDao
 import core.data.room.dao.PopupDao
 import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.StandaloneShortcutDao
-import core.data.runCleanup
+import core.data.runContained
 import core.data.search.SearchHistoryRecord
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.StandaloneShortcutRecord
@@ -61,7 +61,7 @@ class PopupOwnerCleanupRow(
 
     override suspend fun delete(keys: Set<String>) {
         for (key in keys) {
-            runCleanup(message = "Failed to remove a stale Pop-up owner") {
+            runContained(message = "Failed to remove a stale Pop-up owner") {
                 popupRepository.deleteOwner(ownerKey = key)
             }
         }

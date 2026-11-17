@@ -46,6 +46,8 @@ data class ProfileActivity(
     val badgedLabel: String,
     /** When the activity's package was first installed, in epoch milliseconds, or 0 when unknown. */
     val firstInstallTime: Long,
+    /** When the App's package was last installed or updated, in epoch milliseconds, or 0 when unknown. */
+    val lastUpdateTime: Long,
     /** Whether the system lets the user uninstall the activity's package from [user]'s Profile. */
     val isRemovable: Boolean,
     /** Whether the system has suspended the activity's package, as Digital Wellbeing or a freezer app does. */

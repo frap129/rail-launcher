@@ -9,7 +9,7 @@ import core.data.prefs.toLaunchableNames
 import core.data.room.TransactionEffects
 import core.data.room.dao.FolderDao
 import core.data.room.dao.LaunchableCustomizationDao
-import core.data.runCleanup
+import core.data.runContained
 import core.data.widgets.AppWidgetId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -99,7 +99,7 @@ class IFolderRepositoryImpl(
     /** Undoes a failed [create]; a failure in one step does not skip the remaining steps. */
     private suspend fun discardFolder(folder: Folder) {
         deleteFolderRows(folder = folder, tolerateFailures = true)
-        runCleanup(message = "Failed to delete the customization of a failed create") { removeCustomization(folder) }
+        runContained(message = "Failed to delete the customization of a failed create") { removeCustomization(folder) }
         removeFavorite(folder)
         // The Folder row is what the caller sees, so try its delete once more after the purgeable rows.
         deleteStep(tolerateFailures = true, message = "Failed to delete the Folder of a failed create") {
@@ -129,7 +129,7 @@ class IFolderRepositoryImpl(
 
     private suspend fun deleteStep(tolerateFailures: Boolean, message: String, action: suspend () -> Unit) {
         if (tolerateFailures) {
-            runCleanup(message = message, action = action)
+            runContained(message = message, action = action)
         } else {
             action()
         }
@@ -137,6 +137,6 @@ class IFolderRepositoryImpl(
 
     /** Removes the Folder's Favorite after commit; the stale Favorites purge is the fallback. */
     private suspend fun removeFavorite(folder: Folder) {
-        runCleanup(message = "Failed to remove ${folder.key} from the Favorites") { favoritesRepository.remove(folder) }
+        runContained(message = "Failed to remove ${folder.key} from the Favorites") { favoritesRepository.remove(folder) }
     }
 }

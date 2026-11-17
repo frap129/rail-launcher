@@ -224,6 +224,10 @@ _Avoid_: Home ready (when meaning drawn)
 The point when Home has drawn every Favorite icon it shows, or failed to draw one, so the startup benchmark can time Home icons apart from Home fully drawn; a Home with no visible Favorite icon reaches it as soon as it is shown.
 _Avoid_: Icons loaded, icons ready
 
+**Last-known App list**:
+The installed App list Rail saves after each live App load in its own Room database outside the backed-up AppDatabase and Android backup, so Home can resolve Favorites before the live LauncherApps load finishes. It carries each App's component, Profile serial, label, badged label, flags and install and update times, never holds Private Space Apps, and every live change replaces it.
+_Avoid_: App cache, saved App list, app snapshot
+
 **App List**:
 The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list

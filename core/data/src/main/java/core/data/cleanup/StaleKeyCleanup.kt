@@ -1,7 +1,7 @@
 package core.data.cleanup
 
 import core.data.retryWithExponentialBackoff
-import core.data.runCleanup
+import core.data.runContained
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
@@ -82,7 +82,7 @@ class IStaleKeyCleanupImpl(private val classifier: IStoredKeyClassifier, scope: 
             if (staleKeys.isEmpty()) {
                 continue
             }
-            runCleanup(message = "Failed to remove ${staleKeys.size} stale stored keys") {
+            runContained(message = "Failed to remove ${staleKeys.size} stale stored keys") {
                 row.delete(staleKeys)
             }
         }

@@ -14,19 +14,24 @@ import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.profiles.isPrivate
+import core.data.room.LastKnownAppDatabase
 import core.data.testing.FIRST_POSITION
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.MISSING_WORK_USER_ID
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.ProfileSourceState
 import core.data.testing.SECOND_POSITION
 import core.data.testing.TEST_NOW_EPOCH_MS
+import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
 import core.data.testing.createApp
 import core.data.testing.createClockReading
 import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
+import core.data.testing.createInMemoryDatabase
 import core.data.testing.createLaunchCountRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -38,16 +43,22 @@ import core.data.testing.createStandaloneShortcutSource
 import core.data.testing.createUserHandle
 import core.data.testing.packageLevelKey
 import core.data.time.IClockSource
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
 import java.time.Instant
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.robolectric.RuntimeEnvironment
 
@@ -55,6 +66,7 @@ private const val PERSONAL_PACKAGE: String = "com.example.personal"
 private const val SECOND_PERSONAL_PACKAGE: String = "com.example.second"
 private const val WORK_PACKAGE: String = "com.example.work"
 private const val NEW_WORK_PACKAGE: String = "com.example.new.work"
+private const val ADDED_PROFILE_PACKAGE: String = "com.example.added.profile"
 private const val SHARED_PACKAGE: String = "com.example.shared"
 private const val PRIVATE_PACKAGE: String = "com.example.private"
 private const val NEW_PRIVATE_PACKAGE: String = "com.example.new.private"
@@ -81,6 +93,20 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         kind = ProfileKind.Work,
         isQuiet = false
     )
+    private lateinit var lastKnownAppDatabase: LastKnownAppDatabase
+
+    @Before
+    fun createLastKnownAppDatabase() {
+        lastKnownAppDatabase = createInMemoryDatabase(
+            context = RuntimeEnvironment.getApplication(),
+            queryContext = databaseDispatcher
+        )
+    }
+
+    @After
+    fun closeLastKnownAppDatabase() {
+        lastKnownAppDatabase.close()
+    }
 
     @Test
     fun `carries each App's Profile kind, badged label and availability`() = databaseTest {
@@ -141,8 +167,9 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `carries each App's first install time`() = databaseTest {
+    fun `carries each App's first install and last update times`() = databaseTest {
         val inputFirstInstallTime: Long = TEST_NOW_EPOCH_MS
+        val inputLastUpdateTime: Long = TEST_NOW_EPOCH_MS + 1L
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile)).apply {
             setActivities(
                 user = personalUser,
@@ -150,7 +177,8 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                     profileActivity(
                         packageName = PERSONAL_PACKAGE,
                         user = personalUser,
-                        firstInstallTime = inputFirstInstallTime
+                        firstInstallTime = inputFirstInstallTime,
+                        lastUpdateTime = inputLastUpdateTime
                     )
                 )
             )
@@ -160,6 +188,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val actualApp: App = loadApps(repository = repository).single()
 
         assertEquals(inputFirstInstallTime, actualApp.firstInstallTime)
+        assertEquals(inputLastUpdateTime, actualApp.lastUpdateTime)
     }
 
     @Test
@@ -689,6 +718,240 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(2, favoriteRecords().size)
     }
 
+    @Test
+    fun `saves the live App list after it loads`() = databaseTest {
+        val inputLastUpdateTime: Long = TEST_NOW_EPOCH_MS + 1L
+        val inputState: ProfileSourceState = baseState().apply {
+            setActivities(
+                user = personalUser,
+                activities = arrayOf(
+                    profileActivity(
+                        packageName = PERSONAL_PACKAGE,
+                        user = personalUser,
+                        label = "Personal",
+                        badgedLabel = "Personal badge",
+                        firstInstallTime = TEST_NOW_EPOCH_MS,
+                        lastUpdateTime = inputLastUpdateTime,
+                        isRemovable = false,
+                        isSuspended = true
+                    )
+                )
+            )
+            setActivities(
+                user = workUser,
+                activities = arrayOf(
+                    profileActivity(packageName = WORK_PACKAGE, user = workUser, label = "Work", badgedLabel = "Work badge")
+                )
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+        val actualRecords: List<LastKnownAppRecord> = lastKnownAppRecords()
+
+        val expectedRecords: Set<LastKnownAppRecord> = setOf(
+            LastKnownAppRecord(
+                componentName = ComponentName(PERSONAL_PACKAGE, "$PERSONAL_PACKAGE.MainActivity"),
+                profileSerial = PERSONAL_USER_ID.toLong(),
+                label = "Personal",
+                badgedLabel = "Personal badge",
+                isPackageRepresentative = true,
+                firstInstallTime = TEST_NOW_EPOCH_MS,
+                lastUpdateTime = inputLastUpdateTime,
+                isRemovable = false,
+                isSuspended = true
+            ),
+            LastKnownAppRecord(
+                componentName = ComponentName(WORK_PACKAGE, "$WORK_PACKAGE.MainActivity"),
+                profileSerial = WORK_USER_ID.toLong(),
+                label = "Work",
+                badgedLabel = "Work badge",
+                isPackageRepresentative = true,
+                firstInstallTime = 0L,
+                lastUpdateTime = 0L,
+                isRemovable = true,
+                isSuspended = false
+            )
+        )
+        assertEquals(expectedRecords, actualRecords.toSet())
+        assertEquals(actualApps.size, actualRecords.size)
+    }
+
+    @Test
+    fun `never saves Private Space Apps whether the Space is locked or unlocked`() = databaseTest {
+        val inputLockedPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = true
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputLockedPrivateProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        inputState.setActivities(
+            user = privateUser,
+            activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        assertFalse(loadApps(repository = repository).any { app -> app.profile == privateUser })
+        assertFalse(lastKnownAppRecords().any { record -> record.profileSerial == PRIVATE_USER_ID.toLong() })
+
+        inputState.profiles.value = listOf(personalProfile, inputLockedPrivateProfile.copy(isQuiet = false))
+        inputState.changes.emit(ProfileChange.ProfileAvailable(user = privateUser))
+        val actualUnlockedApps: List<App> = loadApps(repository = repository)
+        assertTrue(actualUnlockedApps.any { app -> app.profile == privateUser })
+        assertFalse(lastKnownAppRecords().any { record -> record.profileSerial == PRIVATE_USER_ID.toLong() })
+
+        inputState.profiles.value = listOf(personalProfile, inputLockedPrivateProfile)
+        inputState.changes.emit(ProfileChange.ProfileUnavailable(user = privateUser))
+        finishPendingWork()
+        assertFalse(lastKnownAppRecords().any { record -> record.profileSerial == PRIVATE_USER_ID.toLong() })
+    }
+
+    @Test
+    fun `never saves Apps from an Other Profile`() = databaseTest {
+        val inputOtherUser: UserHandle = createUserHandle(userId = MISSING_WORK_USER_ID)
+        val inputOtherProfile: ProfileInfo = createProfileInfo(userId = MISSING_WORK_USER_ID, kind = ProfileKind.Other)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, inputOtherProfile))
+        inputState.setActivities(
+            user = personalUser,
+            activities = arrayOf(profileActivity(packageName = PERSONAL_PACKAGE, user = personalUser))
+        )
+        inputState.setActivities(
+            user = inputOtherUser,
+            activities = arrayOf(profileActivity(packageName = ADDED_PROFILE_PACKAGE, user = inputOtherUser))
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        val actualApps: List<App> = loadApps(repository = repository)
+
+        assertTrue(actualApps.any { app -> app.profile == inputOtherUser })
+        assertFalse(lastKnownAppRecords().any { record -> record.profileSerial == inputOtherProfile.serial })
+    }
+
+    @Test
+    fun `rewrites the Last-known App list after every live change`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+
+        inputState.setActivities(
+            user = workUser,
+            activities = arrayOf(
+                profileActivity(packageName = WORK_PACKAGE, user = workUser),
+                profileActivity(packageName = NEW_WORK_PACKAGE, user = workUser)
+            )
+        )
+        inputState.changes.emit(ProfileChange.PackageAdded(user = workUser, packageName = NEW_WORK_PACKAGE))
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+
+        inputState.setActivities(
+            user = workUser,
+            activities = arrayOf(
+                profileActivity(packageName = WORK_PACKAGE, user = workUser, label = RENAMED_NAME),
+                profileActivity(packageName = NEW_WORK_PACKAGE, user = workUser)
+            )
+        )
+        inputState.changes.emit(ProfileChange.PackageChanged(user = workUser, packageName = WORK_PACKAGE))
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+        assertTrue(lastKnownAppRecords().any { record -> record.label == RENAMED_NAME })
+
+        inputState.setActivities(
+            user = workUser,
+            activities = arrayOf(profileActivity(packageName = WORK_PACKAGE, user = workUser))
+        )
+        inputState.changes.emit(ProfileChange.PackageRemoved(user = workUser, packageName = NEW_WORK_PACKAGE))
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+
+        val inputAddedUser: UserHandle = createUserHandle(userId = MISSING_WORK_USER_ID)
+        val inputAddedProfile: ProfileInfo = createProfileInfo(userId = MISSING_WORK_USER_ID, kind = ProfileKind.Work)
+        inputState.usersBySerial[inputAddedProfile.serial] = inputAddedUser
+        inputState.serialsByUser[inputAddedUser] = inputAddedProfile.serial
+        inputState.profiles.value = inputState.profiles.value + inputAddedProfile
+        inputState.setActivities(
+            user = inputAddedUser,
+            activities = arrayOf(profileActivity(packageName = ADDED_PROFILE_PACKAGE, user = inputAddedUser))
+        )
+        inputState.changes.emit(ProfileChange.ProfileAdded(user = inputAddedUser))
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+
+        inputState.profiles.value = inputState.profiles.value - inputAddedProfile
+        inputState.changes.emit(ProfileChange.ProfileRemoved(user = inputAddedUser))
+        finishPendingWork()
+        assertLastKnownAppListMatchesLive(repository = repository)
+    }
+
+    @Test
+    fun `publishes the live App list before saving finishes`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val saveGate: CompletableDeferred<Unit> = CompletableDeferred()
+        val mockLastKnownAppStore: ILastKnownAppStore = mockk()
+        coEvery { mockLastKnownAppStore.save(any()) } coAnswers { saveGate.await() }
+        val repository: IAppRepositoryImpl = createRepository(
+            state = inputState,
+            lastKnownAppStore = mockLastKnownAppStore
+        )
+
+        finishPendingWork()
+
+        assertEquals(2, repository.apps.value.orEmpty().size)
+        coVerify(exactly = 1) { mockLastKnownAppStore.save(any()) }
+
+        saveGate.complete(Unit)
+        finishPendingWork()
+    }
+
+    @Test
+    fun `publishes the live App list when saving fails`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val mockLastKnownAppStore: ILastKnownAppStore = mockk()
+        coEvery { mockLastKnownAppStore.save(any()) } throws IllegalStateException("Last-known App list write failed")
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+        val repository: IAppRepositoryImpl = createRepository(
+            state = inputState,
+            lastKnownAppStore = mockLastKnownAppStore
+        )
+
+        logRecorder.recordSuspending {
+            finishPendingWork()
+            assertEquals(2, repository.apps.value.orEmpty().size)
+
+            inputState.setActivities(
+                user = workUser,
+                activities = arrayOf(
+                    profileActivity(packageName = WORK_PACKAGE, user = workUser),
+                    profileActivity(packageName = NEW_WORK_PACKAGE, user = workUser)
+                )
+            )
+            inputState.changes.emit(ProfileChange.PackageAdded(user = workUser, packageName = NEW_WORK_PACKAGE))
+            finishPendingWork()
+        }
+
+        assertEquals(3, repository.apps.value.orEmpty().size)
+        coVerify(exactly = 2) { mockLastKnownAppStore.save(any()) }
+        logRecorder.assertLoggedWithout()
+    }
+
+    private suspend fun lastKnownAppRecords(): List<LastKnownAppRecord> = lastKnownAppDatabase.getLastKnownAppDao().getAll()
+
+    private suspend fun assertLastKnownAppListMatchesLive(repository: IAppRepository) {
+        val expectedKeys: Set<Pair<ComponentName, Long>> = repository.apps.value.orEmpty()
+            .filterNot { app -> app.profileInfo.isPrivate }
+            .map { app -> app.componentName to app.profileInfo.serial }
+            .toSet()
+        val actualKeys: Set<Pair<ComponentName, Long>> = lastKnownAppRecords()
+            .map { record -> record.componentName to record.profileSerial }
+            .toSet()
+        assertEquals(expectedKeys, actualKeys)
+    }
+
     private fun baseState(): ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile, workProfile)).apply {
         setActivities(
             user = personalUser,
@@ -700,7 +963,10 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
     }
 
-    private fun TestScope.createRepository(state: ProfileSourceState): IAppRepositoryImpl {
+    private fun TestScope.createRepository(
+        state: ProfileSourceState,
+        lastKnownAppStore: ILastKnownAppStore = ILastKnownAppStoreImpl(lastKnownAppDao = lastKnownAppDatabase.getLastKnownAppDao())
+    ): IAppRepositoryImpl {
         val mockProfileSource: IProfileSource = createProfileSourceMock(state = state)
         privateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource)
         privateSpaceStatus = createPrivateSpaceStatus(
@@ -711,6 +977,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             context = RuntimeEnvironment.getApplication(),
             profileSource = mockProfileSource,
             privateSpaceStatus = privateSpaceStatus,
+            lastKnownAppStore = lastKnownAppStore,
             scope = backgroundScope,
             dispatcher = databaseDispatcher
         )
@@ -771,6 +1038,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         badgedLabel: String = label,
         activityClass: String = "$packageName.MainActivity",
         firstInstallTime: Long = 0,
+        lastUpdateTime: Long = 0,
         isRemovable: Boolean = true,
         isSuspended: Boolean = false
     ): ProfileActivity = ProfileActivity(
@@ -779,6 +1047,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         label = label,
         badgedLabel = badgedLabel,
         firstInstallTime = firstInstallTime,
+        lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
         isSuspended = isSuspended
     )

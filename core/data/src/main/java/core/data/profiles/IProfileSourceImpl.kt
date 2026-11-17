@@ -23,6 +23,7 @@ import android.os.UserManager
 import androidx.core.content.ContextCompat
 import core.data.retryDelayMillis
 import core.util.logTypeName
+import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -305,10 +306,25 @@ class IProfileSourceImpl(
                 label = label,
                 badgedLabel = badgedLabel(label = label, user = activity.user),
                 firstInstallTime = activity.firstInstallTime,
+                lastUpdateTime = updateTimeFor(activity = activity),
                 isRemovable = activity.applicationInfo.isRemovable(),
                 isSuspended = activity.applicationInfo.isSuspended()
             )
         }
+    }
+
+    private fun updateTimeFor(activity: LauncherActivityInfo): Long {
+        val sourceDir: String = activity.applicationInfo.sourceDir ?: run {
+            Timber.w("No APK path for %s", activity.componentName)
+            return 0L
+        }
+        val lastModified: Long = runCatching { File(sourceDir).lastModified() }
+            .onFailure { exception -> Timber.w(exception, "Could not read the update time of %s", activity.componentName) }
+            .getOrDefault(0L)
+        if (lastModified == 0L) {
+            Timber.w("No update time for %s", activity.componentName)
+        }
+        return lastModified
     }
 
     private fun logQuietFailure(user: UserHandle, exception: RuntimeException) {
