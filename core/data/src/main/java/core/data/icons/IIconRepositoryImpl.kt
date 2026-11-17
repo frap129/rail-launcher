@@ -10,6 +10,7 @@ import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
+import core.data.icons.model.activityIconFor
 import core.data.icons.model.badgedFor
 import core.data.icons.model.sortedCustomIconPacks
 import core.data.launchables.model.Launchable
@@ -128,8 +129,22 @@ class IIconRepositoryImpl(
     }
 
     override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {
-        val baseIcon: Icon = iconDao.getIcon(componentName, packPackageName) ?: Icon.ActivityIcon(componentName)
-        return baseIcon.badgedFor(profile = profile)
+        val packIcon: Icon.PackIcon? = iconDao.getIcon(componentName, packPackageName)
+        return packIcon?.badgedFor(profile = profile) ?: activityIconFor(componentName = componentName, profile = profile)
+    }
+
+    override suspend fun getAppIcons(packPackageName: String, apps: List<App>): Map<String, Icon> {
+        if (apps.isEmpty()) {
+            return emptyMap()
+        }
+        val packIcons: Map<ComponentName, Icon.PackIcon> = iconDao.getAllFromPack(
+            componentNames = apps.map { app -> app.componentName },
+            packPackageName = packPackageName
+        )
+            .associateBy { icon -> icon.componentName }
+        return apps.mapNotNull { app ->
+            packIcons[app.componentName]?.let { packIcon -> app.key to packIcon.badgedFor(profile = app.profileInfo) }
+        }.toMap()
     }
 
     override suspend fun getCustomIcon(customIcon: CustomIcon, profile: ProfileInfo?): Icon? = withContext(dispatcher) {

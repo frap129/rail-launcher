@@ -1,5 +1,6 @@
 package core.data.testing
 
+import core.data.apps.model.App
 import core.data.icons.IIconRepository
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
@@ -21,6 +22,9 @@ fun createIconRepositoryMock(
     val mockIconRepository: IIconRepository = mockk()
     every { mockIconRepository.iconPacks } returns iconPacks
     coEvery { mockIconRepository.getIcon(any(), any(), any()) } returns inputIcon
+    coEvery { mockIconRepository.getAppIcons(any(), any()) } answers {
+        secondArg<List<App>>().associate { app -> app.key to inputIcon }
+    }
     coEvery { mockIconRepository.getCustomIcon(any(), any()) } returns customIcon
     coEvery { mockIconRepository.getPackCategories(any()) } returns packCategories
     every { mockIconRepository.getSuggestedIcons(any()) } returns suggestedIcons

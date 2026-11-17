@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.UserHandle
 import core.data.icons.model.Icon
-import core.data.icons.model.badgedFor
+import core.data.icons.model.activityIconFor
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableAppearance
 import core.data.profiles.IProfileSource
@@ -20,7 +20,7 @@ data class App(
     val componentName: ComponentName,
     val badgedLabel: String = defaultName,
     override val name: String = defaultName,
-    override val defaultIcon: Icon = Icon.ActivityIcon(componentName).badgedFor(profile = profileInfo),
+    override val defaultIcon: Icon = activityIconFor(componentName = componentName, profile = profileInfo),
     override val icon: Icon = defaultIcon,
     /**
      * Whether this App is its package's representative in its Profile: the alphabetically first

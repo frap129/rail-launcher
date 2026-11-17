@@ -47,3 +47,7 @@ sealed class Icon {
 /** The system-badged form of this icon for [profile], or this icon for the personal Profile. */
 fun Icon.badgedFor(profile: ProfileInfo): Icon =
     if (profile.kind.isPersonal) this else Icon.ProfileIcon(icon = this, profile = profile.user)
+
+/** The Activity icon of [componentName], badged for [profile]: what an App without a pack or Custom icon shows. */
+fun activityIconFor(componentName: ComponentName, profile: ProfileInfo): Icon =
+    Icon.ActivityIcon(componentName).badgedFor(profile = profile)

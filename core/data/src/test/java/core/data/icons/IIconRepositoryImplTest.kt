@@ -50,6 +50,13 @@ private const val APP_ACTIVITY_NAME: String = "com.example.app.MainActivity"
 private const val PACK_ICON_RES_ID: Int = 42
 private const val OTHER_PACK_ICON_RES_ID: Int = 43
 
+/** The cached icon [ICON_PACK_PACKAGE_NAME] holds for [ComponentName] [APP_PACKAGE_NAME]/[APP_ACTIVITY_NAME]. */
+private val PACK_ICON: Icon.PackIcon = Icon.PackIcon(
+    componentName = ComponentName(APP_PACKAGE_NAME, APP_ACTIVITY_NAME),
+    packPackageName = ICON_PACK_PACKAGE_NAME,
+    resId = PACK_ICON_RES_ID
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     private val inputPersonalUser: UserHandle = createUserHandle(userId = PERSONAL_USER_ID)
@@ -110,14 +117,9 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `wraps a Private Space Profile's pack icon`() = databaseTest {
         val inputProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
-        val inputBaseIcon: Icon.PackIcon = Icon.PackIcon(
-            componentName = inputComponentName,
-            packPackageName = ICON_PACK_PACKAGE_NAME,
-            resId = PACK_ICON_RES_ID
-        )
         val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile))
         val repository: IIconRepositoryImpl = createRepository(state = inputState)
-        database.getPackIconDao().insert(inputBaseIcon)
+        database.getPackIconDao().insert(PACK_ICON)
 
         val actualIcon: Icon = repository.getIcon(
             packPackageName = ICON_PACK_PACKAGE_NAME,
@@ -125,7 +127,28 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile
         )
 
-        assertEquals(Icon.ProfileIcon(icon = inputBaseIcon, profile = inputPrivateUser), actualIcon)
+        assertEquals(Icon.ProfileIcon(icon = PACK_ICON, profile = inputPrivateUser), actualIcon)
+    }
+
+    @Test
+    fun `maps every App the pack has an icon for and badges it for the App's Profile`() = databaseTest {
+        val inputWorkProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
+        val inputMappedApp: App = createApp(name = "Mapped", packageName = APP_PACKAGE_NAME)
+        val inputMappedWorkApp: App = createApp(name = "Mapped work", packageName = APP_PACKAGE_NAME, profileInfo = inputWorkProfile)
+        val inputUnmappedApp: App = createApp(name = "Unmapped", packageName = "com.example.unmapped")
+        addIconPackActivity(packageName = ICON_PACK_PACKAGE_NAME, label = ICON_PACK_LABEL)
+        every { mockIconPackSource.appIcons(ICON_PACK_PACKAGE_NAME) } returns setOf(PACK_ICON)
+        database.getPackIconDao().insert(PACK_ICON)
+        val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
+
+        val actualIcons: Map<String, Icon> = repository.getAppIcons(
+            packPackageName = ICON_PACK_PACKAGE_NAME,
+            apps = listOf(inputMappedApp, inputMappedWorkApp, inputUnmappedApp)
+        )
+
+        assertEquals(setOf(inputMappedApp.key, inputMappedWorkApp.key), actualIcons.keys)
+        assertEquals(PACK_ICON, actualIcons[inputMappedApp.key])
+        assertEquals(Icon.ProfileIcon(icon = PACK_ICON, profile = inputWorkUser), actualIcons[inputMappedWorkApp.key])
     }
 
     @Test
@@ -168,9 +191,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             createApp(name = "Example", packageName = APP_PACKAGE_NAME, profileInfo = createProfileInfo(userId = PERSONAL_USER_ID))
         val repository: IIconRepositoryImpl = createRepository(state = ProfileSourceState())
         finishPendingWork()
-        database.getPackIconDao().insert(
-            Icon.PackIcon(componentName = inputComponentName, packPackageName = ICON_PACK_PACKAGE_NAME, resId = PACK_ICON_RES_ID)
-        )
+        database.getPackIconDao().insert(PACK_ICON)
         database.getPackIconDao().insert(
             Icon.PackIcon(
                 componentName = inputComponentName,
