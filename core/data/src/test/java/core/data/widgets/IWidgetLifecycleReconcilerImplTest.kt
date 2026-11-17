@@ -1,23 +1,34 @@
 package core.data.widgets
 
 import app.cash.turbine.test
+import core.data.icons.model.Icon
 import core.data.room.dao.WidgetAreaDao
+import core.data.testing.AppWidgetHostState
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.ProfileSourceState
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createProfileSourceMock
 import io.mockk.verify
 import io.mockk.verifyOrder
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     @Test
     fun `frees system ids with no stored row`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(7), AppWidgetId(8))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
 
@@ -34,7 +45,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(7))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(7)))
 
@@ -49,7 +61,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
             widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.removedIds.test {
             reconciler.reconcileAtStartup(pendingIds = emptySet())
@@ -69,7 +82,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
             widgets = listOf(appWidget(appWidgetId = 42))
         )
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.reconcileAtStartup(pendingIds = setOf(AppWidgetId(42)))
 
@@ -86,7 +100,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             availabilityProvider = { WidgetAvailability.Gone }
         )
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.removedIds.test {
             reconciler.removeGoneProviders()
@@ -109,7 +124,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             availabilityProvider = { WidgetAvailability.Updating }
         )
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.removeGoneProviders()
 
@@ -126,7 +142,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         )
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(42))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
 
@@ -144,7 +161,8 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
             availabilityProvider = { WidgetAvailability.Gone }
         )
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.removeGoneProviders()
 
@@ -154,11 +172,49 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `waits for the Profiles before reconciling the stored layout`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0, heightDp = 20)),
+            widgets = listOf(appWidget(appWidgetId = 42), appWidget(appWidgetId = 43))
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(isLoaded = false)
+        val inputHostState: AppWidgetHostState = AppWidgetHostState().apply {
+            providerInfoById[AppWidgetId(43)] = providerInfo(minHeightDp = 300)
+        }
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
+            state = inputHostState,
+            boundIdsProvider = { setOf(AppWidgetId(43)) }
+        )
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(
+            dao = dao,
+            host = mockHost,
+            profileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        val startupReconciliation: Deferred<Unit> = async { reconciler.reconcileAtStartup(pendingIds = emptySet()) }
+        runCurrent()
+
+        assertFalse(reconciler.isStartupReconciled.value)
+        assertEquals(20, dao.getPlace(placeId = 1L)?.heightDp)
+        assertEquals(2, dao.getAppWidgets().size)
+        verify(exactly = 0) { mockHost.providerInfo(AppWidgetId(43)) }
+
+        inputProfileState.isLoaded.value = true
+        runCurrent()
+        startupReconciliation.await()
+
+        assertTrue(reconciler.isStartupReconciled.value)
+        assertEquals(300, dao.getPlace(placeId = 1L)?.heightDp)
+        assertEquals(1, dao.getAppWidgets().size)
+    }
+
+    @Test
     fun `reconciles at startup only once`() = databaseTest {
         val dao: WidgetAreaDao = widgetAreaDao()
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf()
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
 
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         boundIds += AppWidgetId(9)
@@ -175,5 +231,24 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         appWidgetId = appWidgetId,
         provider = "com.example/ExampleWidget",
         profileSerial = 0L
+    )
+
+    private fun providerInfo(minHeightDp: Int): WidgetProviderInfo = WidgetProviderInfo(
+        provider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
+        profileSerial = 0L,
+        appPackageName = "com.example",
+        appLabel = "Example",
+        appIcon = Icon.RailIcon(resId = 1),
+        label = "Widget",
+        description = null,
+        defaultSize = WidgetSize(widthDp = 100, heightDp = 80),
+        cellSize = null,
+        minHeightDp = minHeightDp,
+        minResizeHeightDp = 0,
+        maxResizeHeightDp = null,
+        needsConfiguration = false,
+        isReconfigurable = false,
+        hasConfigureActivity = false,
+        isWorkProfile = false
     )
 }

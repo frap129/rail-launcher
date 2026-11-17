@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.RuntimeEnvironment
@@ -109,6 +110,34 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         assertEquals(ProfileKind.Work, actualWorkApp.kind)
         assertEquals("Work Gmail", actualWorkApp.badgedLabel)
         assertTrue(actualWorkApp.isPaused)
+    }
+
+    @Test
+    fun `publishes Apps only after the Profiles have loaded`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private
+        )
+        val inputState: ProfileSourceState = baseState().apply {
+            profiles.value = listOf(personalProfile, workProfile, inputPrivateProfile)
+            isLoaded.value = false
+            setActivities(
+                user = privateUser,
+                activities = arrayOf(profileActivity(packageName = PRIVATE_PACKAGE, user = privateUser))
+            )
+        }
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+        finishPendingWork()
+
+        assertNull(repository.apps.value)
+
+        inputState.isLoaded.value = true
+        finishPendingWork()
+
+        assertEquals(
+            setOf(personalUser, workUser, privateUser),
+            repository.apps.value.orEmpty().mapTo(mutableSetOf()) { app -> app.profile }
+        )
     }
 
     @Test

@@ -29,7 +29,9 @@ import core.data.testing.createProfileSourceMock
 import core.data.testing.createUserHandle
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
@@ -39,6 +41,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -117,6 +120,28 @@ class IAppWidgetHostSourceImplTest {
         val actualProviders: List<WidgetProviderInfo> = source.providers.first()
 
         assertEquals(listOf(PERSONAL_PACKAGE, WORK_PACKAGE), actualProviders.map { provider -> provider.provider.packageName })
+    }
+
+    @Test
+    fun `waits for the Profiles before scanning providers`() = runTest {
+        val inputState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(personalProfile, workProfile),
+            isLoaded = false
+        )
+        val source: IAppWidgetHostSourceImpl = createSourceWithAllProviders(state = inputState)
+
+        val actualProviders: Deferred<List<WidgetProviderInfo>> = async { source.providers.first() }
+        runCurrent()
+
+        assertFalse(actualProviders.isCompleted)
+
+        inputState.isLoaded.value = true
+        runCurrent()
+
+        assertEquals(
+            listOf(PERSONAL_PACKAGE, WORK_PACKAGE),
+            actualProviders.await().map { provider -> provider.provider.packageName }
+        )
     }
 
     @Test

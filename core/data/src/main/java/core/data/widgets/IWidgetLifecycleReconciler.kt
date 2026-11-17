@@ -13,6 +13,7 @@ interface IWidgetLifecycleReconciler {
 
     /**
      * Frees system ids Rail has no row for and drops rows whose system id is gone.
+     * Waits for the Profiles, so provider lookups see every Profile.
      * Ids in [pendingIds] belong to an add flow that is still completing and are kept.
      */
     suspend fun reconcileAtStartup(pendingIds: Set<AppWidgetId>)

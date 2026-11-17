@@ -31,6 +31,7 @@ import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
 import core.data.testing.createPopupRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
+import core.data.testing.createProfileSourceMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createWidgetAreaRepositoryMock
@@ -449,7 +450,11 @@ class IFolderRepositoryImplAtomicityTest : InMemoryDatabaseTest() {
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = database.getWidgetAreaDao(),
             appWidgetHost = mockAppWidgetHost,
-            lifecycleReconciler = IWidgetLifecycleReconcilerImpl(dao = database.getWidgetAreaDao(), host = mockAppWidgetHost),
+            lifecycleReconciler = IWidgetLifecycleReconcilerImpl(
+                dao = database.getWidgetAreaDao(),
+                host = mockAppWidgetHost,
+                profileSource = createProfileSourceMock()
+            ),
             settingsRepository = createWidgetSettingsRepositoryMock()
         )
     }

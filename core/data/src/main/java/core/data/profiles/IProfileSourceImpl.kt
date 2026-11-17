@@ -17,28 +17,43 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.os.SystemClock
 import android.os.UserHandle
 import android.os.UserManager
 import androidx.core.content.ContextCompat
+import core.data.retryDelayMillis
 import core.util.logTypeName
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
-class IProfileSourceImpl(context: Context) : IProfileSource {
+class IProfileSourceImpl(
+    context: Context,
+    scope: CoroutineScope,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val elapsedRealtime: () -> Long = SystemClock::elapsedRealtime
+) : IProfileSource {
     private val appContext: Context = context.applicationContext
-    private val launcherApps: LauncherApps = appContext.getSystemService(LauncherApps::class.java)
-    private val userManager: UserManager = appContext.getSystemService(UserManager::class.java)
-    private val packageManager: PackageManager = appContext.packageManager
-    private val _profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(loadProfiles().orEmpty())
+    private val launcherApps: LauncherApps by lazy { appContext.getSystemService(LauncherApps::class.java) }
+    private val userManager: UserManager by lazy { appContext.getSystemService(UserManager::class.java) }
+    private val packageManager: PackageManager by lazy { appContext.packageManager }
+    private val _profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(emptyList())
     override val profiles: StateFlow<List<ProfileInfo>> = _profiles.asStateFlow()
+    private val _isLoaded: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    override val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
+    private var loadedAtElapsedRealtime: Long = 0L
     private val _changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(
         extraBufferCapacity = PROFILE_CHANGE_BUFFER,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -95,14 +110,23 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
         }
     }
 
-    init {
+    private val initialLoad: Job = scope.launch(dispatcher) {
         runCatching { launcherApps.registerCallback(launcherCallback, Handler(Looper.getMainLooper())) }
             .onFailure { exception -> Timber.w(exception, "Could not listen for package changes") }
-        ContextCompat.registerReceiver(appContext, receiver, profileIntentFilter(), ContextCompat.RECEIVER_NOT_EXPORTED)
+        runCatching {
+            ContextCompat.registerReceiver(appContext, receiver, profileIntentFilter(), ContextCompat.RECEIVER_NOT_EXPORTED)
+        }.onFailure { exception -> Timber.w(exception, "Could not listen for Profile changes") }
+        _profiles.value = loadInitialProfiles()
+        loadedAtElapsedRealtime = elapsedRealtime()
+        _isLoaded.value = true
     }
 
     override suspend fun refreshProfiles() {
-        withContext(Dispatchers.IO) {
+        initialLoad.join()
+        if (elapsedRealtime() - loadedAtElapsedRealtime <= STARTUP_RESUME_WINDOW_MS) {
+            return
+        }
+        withContext(dispatcher) {
             val previousProfiles: List<ProfileInfo> = _profiles.value
             val profiles: List<ProfileInfo> = loadProfiles() ?: return@withContext
             if (!_profiles.compareAndSet(expect = previousProfiles, update = profiles)) {
@@ -203,6 +227,24 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
     }.onFailure { exception ->
         Timber.w("Could not read uninstall restrictions for %s: %s", user, exception.logTypeName())
     }.getOrDefault(false)
+
+    /**
+     * Reads the Profiles until the system answers, backing off as long-lived flows do. It never
+     * publishes an empty list instead: App List readiness without Apps would let the stale-key
+     * cleanups delete every stored Favorite and customization.
+     */
+    private suspend fun loadInitialProfiles(): List<ProfileInfo> {
+        var attempt: Long = 0L
+        var profiles: List<ProfileInfo>? = loadProfiles()
+        while (profiles == null) {
+            val delayMs: Long = retryDelayMillis(attempt = attempt)
+            Timber.w("Initial Profile load failed %d times; retrying in %d ms", attempt + 1, delayMs)
+            delay(delayMs)
+            attempt++
+            profiles = loadProfiles()
+        }
+        return profiles
+    }
 
     private fun loadProfiles(): List<ProfileInfo>? {
         val users: List<UserHandle> = runCatching { launcherApps.profiles }
@@ -329,6 +371,9 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
 
     private companion object {
         const val PROFILE_CHANGE_BUFFER: Int = 64
+
+        /** The first activity resume follows the initial load within this window on a cold start. */
+        const val STARTUP_RESUME_WINDOW_MS: Long = 2_000L
     }
 }
 

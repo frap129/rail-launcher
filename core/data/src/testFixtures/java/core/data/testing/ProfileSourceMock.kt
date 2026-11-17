@@ -19,8 +19,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /** The mutable state behind a [createProfileSourceMock] source. */
-class ProfileSourceState(profiles: List<ProfileInfo> = emptyList()) {
+class ProfileSourceState(profiles: List<ProfileInfo> = emptyList(), isLoaded: Boolean = true) {
     val profiles: MutableStateFlow<List<ProfileInfo>> = MutableStateFlow(profiles)
+    val isLoaded: MutableStateFlow<Boolean> = MutableStateFlow(isLoaded)
     val changes: MutableSharedFlow<ProfileChange> = MutableSharedFlow(extraBufferCapacity = 32)
     val activitiesByUser: MutableMap<UserHandle, List<ProfileActivity>> = mutableMapOf()
     val usersBySerial: MutableMap<Long, UserHandle> = profiles.associate { profile -> profile.serial to profile.user }.toMutableMap()
@@ -53,6 +54,7 @@ fun createProfileSourceMock(profile: ProfileInfo): IProfileSource =
 fun createProfileSourceMock(state: ProfileSourceState = ProfileSourceState()): IProfileSource {
     val mockProfileSource: IProfileSource = mockk()
     every { mockProfileSource.profiles } returns state.profiles
+    every { mockProfileSource.isLoaded } returns state.isLoaded
     every { mockProfileSource.changes } returns state.changes
     coEvery { mockProfileSource.refreshProfiles() } just Runs
     every { mockProfileSource.profileFor(any()) } answers {

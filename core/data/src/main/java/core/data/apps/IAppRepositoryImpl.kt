@@ -9,7 +9,9 @@ import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
+import core.data.profiles.awaitLoaded
 import core.data.profiles.isPrivate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class IAppRepositoryImpl(
     context: Context,
@@ -34,8 +37,19 @@ class IAppRepositoryImpl(
     init {
         scope.launch(dispatcher) {
             profileSource.changes
-                .onSubscription { publishAllProfiles() }
-                .collect { change -> applyChange(change = change) }
+                .onSubscription {
+                    profileSource.awaitLoaded()
+                    publishAllProfiles()
+                }
+                .collect { change ->
+                    try {
+                        applyChange(change = change)
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (exception: Exception) {
+                        Timber.e(exception, "Could not apply a Profile change")
+                    }
+                }
         }
     }
 

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +53,25 @@ class IPrivateSpaceStatusImplTest {
         inputSettings.emit(Settings(hidePrivateSpaceWhenLocked = true))
         finishPendingWork()
         assertFalse(privateSpaceStatus.status.value.isContainerListed)
+    }
+
+    @Test
+    fun `waits for the Profiles before deriving the Private Space`() = runTest {
+        val inputProfileState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(inputLockedPrivateProfile),
+            isLoaded = false
+        )
+        val privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(
+            profileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        finishPendingWork()
+
+        assertNull(privateSpaceStatus.currentStatus().profile)
+
+        inputProfileState.isLoaded.value = true
+        finishPendingWork()
+
+        assertEquals(inputLockedPrivateProfile, privateSpaceStatus.currentStatus().profile)
     }
 
     @Test

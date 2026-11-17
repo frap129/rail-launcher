@@ -6,6 +6,7 @@ import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 
 /** The kind of Profile an App belongs to. */
 enum class ProfileKind {
@@ -89,14 +90,20 @@ sealed interface QuietRequestResult {
 
 /** The only source that enumerates Profiles and reads their launchable activities. */
 interface IProfileSource {
+    /** The system Profiles, empty until the first load completes. */
     val profiles: StateFlow<List<ProfileInfo>>
+
+    /** Whether [profiles] holds the system Profiles; false until the first load completes. */
+    val isLoaded: StateFlow<Boolean>
 
     /** Package and Profile changes, emitted for the lifetime of the process. */
     val changes: SharedFlow<ProfileChange>
 
     /**
-     * Re-reads the system Profiles, so a Profile the platform started reporting is listed without a restart.
-     * Availability changes are published through [changes].
+     * Reads the system Profiles again, so a Profile the platform started reporting is listed
+     * without a restart. A call made while the initial load is in flight, or within the short
+     * window after it completes, is the activity's resume at startup and returns without reading;
+     * every later call re-reads. Availability changes are published through [changes].
      */
     suspend fun refreshProfiles()
 
@@ -135,4 +142,9 @@ interface IProfileSource {
 
     /** The serial number of [user], or null when the Profile no longer exists. */
     fun serialForUser(user: UserHandle): Long?
+}
+
+/** Suspends until [IProfileSource.isLoaded] reports that the initial load finished. */
+suspend fun IProfileSource.awaitLoaded() {
+    isLoaded.first { isLoaded -> isLoaded }
 }

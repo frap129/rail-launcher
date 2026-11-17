@@ -63,6 +63,31 @@ class PrivateSpaceLockTest {
         assertFalse(lock.isLockRequested.value)
     }
 
+    @Test
+    fun `keeps a Lock request until the Profiles have loaded`() = runTest {
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = emptyList(), isLoaded = false)
+        val lock: IPrivateSpaceLock = createLock(profileState = inputProfileState)
+
+        lock.requestLock()
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(lock.isLockRequested.value)
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile)
+        inputProfileState.isLoaded.value = true
+        advanceUntilIdle()
+        runCurrent()
+
+        assertTrue(lock.isLockRequested.value)
+
+        inputProfileState.profiles.value = listOf(inputPrivateProfile.copy(isQuiet = true))
+        advanceUntilIdle()
+        runCurrent()
+
+        assertFalse(lock.isLockRequested.value)
+    }
+
     private fun TestScope.createLock(profileState: ProfileSourceState): IPrivateSpaceLock =
         createPrivateSpaceLock(profileSource = createProfileSourceMock(state = profileState))
 }

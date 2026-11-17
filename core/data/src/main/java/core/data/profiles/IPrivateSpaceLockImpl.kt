@@ -17,6 +17,7 @@ class IPrivateSpaceLockImpl(profileSource: IProfileSource, scope: CoroutineScope
 
     init {
         scope.launch {
+            profileSource.awaitLoaded()
             profileSource.profiles
                 .map { profiles ->
                     val status: PrivateSpaceStatus = derivePrivateSpaceStatus(PrivateSpaceInputs(profiles = profiles))

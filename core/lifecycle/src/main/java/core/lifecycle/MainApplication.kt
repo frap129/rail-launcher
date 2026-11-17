@@ -258,7 +258,9 @@ class MainApplication :
      * @property repoModule Koin Module for Repositories
      */
     private val repoModule = module {
-        single<IProfileSource> { IProfileSourceImpl(androidContext()) }
+        single<IProfileSource> {
+            IProfileSourceImpl(context = androidContext(), scope = get(named(APP_SCOPE_QUALIFIER)))
+        }
         single<IPrivateSpaceLock> { IPrivateSpaceLockImpl(profileSource = get(), scope = get(named(APP_SCOPE_QUALIFIER))) }
         single<IPrivateSpaceStatus> {
             IPrivateSpaceStatusImpl(
@@ -372,7 +374,9 @@ class MainApplication :
         single<AppWidgetHost> { RailAppWidgetHost(androidContext(), IAppWidgetHostSource.HOST_ID, get()) }
         single<AppWidgetResults> { AppWidgetResults() }
         single<IAddFlowPendingIds> { IAddFlowPendingIdsImpl(get()) }
-        single<IWidgetLifecycleReconciler> { IWidgetLifecycleReconcilerImpl(get(), get()) }
+        single<IWidgetLifecycleReconciler> {
+            IWidgetLifecycleReconcilerImpl(dao = get(), host = get(), profileSource = get())
+        }
         single<IAppWidgetHostSource> { IAppWidgetHostSourceImpl(androidContext(), get(), get(), get(), get(), get(), get()) }
         single<IAppWidgetViewCache> { IAppWidgetViewCacheImpl(androidContext(), get()) }
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }

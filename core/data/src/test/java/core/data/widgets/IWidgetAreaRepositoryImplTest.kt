@@ -4,20 +4,26 @@ import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.InMemoryDatabaseTest
+import core.data.testing.ProfileSourceState
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createProfileSourceMock
 import core.data.testing.createWidgetSettingsRepositoryMock
 import core.data.testing.packageLevelKey
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `orders places by position and widgets by page position`() = databaseTest {
@@ -257,7 +263,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val boundIds: MutableSet<AppWidgetId> = mutableSetOf(AppWidgetId(42))
         val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(boundIdsProvider = { boundIds })
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
         val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
             appWidgetHost = mockHost,
@@ -268,6 +275,51 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals(emptyList<WidgetPlace>(), awaitItem())
             reconciler.reconcileAtStartup(pendingIds = emptySet())
             assertEquals(listOf(1L), awaitItem().map { place -> place.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `waits for the Profiles before loading Widget Area places`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(place(id = 1L, position = 0)),
+            widgets = listOf(appWidget(id = 10L, placeId = 1L))
+        )
+        val inputProfileState: ProfileSourceState = ProfileSourceState(isLoaded = false)
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
+            boundIdsProvider = { setOf(AppWidgetId(42)) },
+            availabilityProvider = {
+                if (inputProfileState.isLoaded.value) WidgetAvailability.Available else WidgetAvailability.Gone
+            }
+        )
+        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(
+            dao = dao,
+            host = mockHost,
+            profileSource = createProfileSourceMock(state = inputProfileState)
+        )
+        val repository: IWidgetAreaRepository = IWidgetAreaRepositoryImpl(
+            widgetAreaDao = dao,
+            appWidgetHost = mockHost,
+            lifecycleReconciler = reconciler,
+            settingsRepository = createWidgetSettingsRepositoryMock()
+        )
+        backgroundScope.launch { reconciler.reconcileAtStartup(pendingIds = emptySet()) }
+
+        repository.placesState.test {
+            val actualInitialState: WidgetAreaPlaces = awaitItem()
+            assertFalse(actualInitialState.isLoaded)
+            runCurrent()
+            assertFalse(reconciler.isStartupReconciled.value)
+
+            inputProfileState.isLoaded.value = true
+            runCurrent()
+
+            val actualLoadedState: WidgetAreaPlaces = awaitItem()
+            assertTrue(actualLoadedState.isLoaded)
+            assertEquals(listOf(1L), actualLoadedState.places.map { widgetPlace -> widgetPlace.id })
+            val actualWidget: PlacedWidget.AppWidget = actualLoadedState.places.single().widgets.single() as PlacedWidget.AppWidget
+            assertEquals(WidgetAvailability.Available, actualWidget.availability)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -979,7 +1031,8 @@ class IWidgetAreaRepositoryImplTest : InMemoryDatabaseTest() {
             availabilityProvider = availabilityProvider,
             providerChangesFlow = providerChangesFlow
         )
-        val reconciler: IWidgetLifecycleReconcilerImpl = IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost)
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
         reconciler.reconcileAtStartup(pendingIds = emptySet())
         return IWidgetAreaRepositoryImpl(
             widgetAreaDao = dao,
