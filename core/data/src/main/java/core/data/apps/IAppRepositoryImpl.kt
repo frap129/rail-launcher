@@ -11,22 +11,23 @@ import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
 import core.data.profiles.awaitLoaded
 import core.data.profiles.isPrivate
-import kotlinx.coroutines.CancellationException
+import core.data.runContained
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 class IAppRepositoryImpl(
     context: Context,
     private val profileSource: IProfileSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
+    private val lastKnownAppStore: ILastKnownAppStore,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IAppRepository {
@@ -36,18 +37,21 @@ class IAppRepositoryImpl(
 
     init {
         scope.launch(dispatcher) {
+            _apps.filterNotNull().collect { apps ->
+                runContained(message = "Could not save the Last-known App list") {
+                    lastKnownAppStore.save(apps = apps)
+                }
+            }
+        }
+        scope.launch(dispatcher) {
             profileSource.changes
                 .onSubscription {
                     profileSource.awaitLoaded()
                     publishAllProfiles()
                 }
                 .collect { change ->
-                    try {
+                    runContained(message = "Could not apply a Profile change") {
                         applyChange(change = change)
-                    } catch (exception: CancellationException) {
-                        throw exception
-                    } catch (exception: Exception) {
-                        Timber.e(exception, "Could not apply a Profile change")
                     }
                 }
         }
@@ -177,6 +181,7 @@ class IAppRepositoryImpl(
         badgedLabel = badgedLabel,
         isPackageRepresentative = isPackageRepresentative,
         firstInstallTime = firstInstallTime,
+        lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
         isSuspended = isSuspended
     )

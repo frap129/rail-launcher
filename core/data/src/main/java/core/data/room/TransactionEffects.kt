@@ -1,6 +1,6 @@
 package core.data.room
 
-import core.data.runCleanup
+import core.data.runContained
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -15,7 +15,7 @@ internal class TransactionEffects : AbstractCoroutineContextElement(Key) {
 
     /** Runs the queued actions best-effort, so one failure cannot skip the rest. */
     suspend fun run() {
-        actions.forEach { action -> runCleanup(message = "Failed to run a post-commit action", action = action) }
+        actions.forEach { action -> runContained(message = "Failed to run a post-commit action", action = action) }
         actions.clear()
     }
 

@@ -45,6 +45,7 @@ fun createApp(
     badgedLabel: String = name,
     customName: String = name,
     firstInstallTime: Long = 0L,
+    lastUpdateTime: Long = 0L,
     isRemovable: Boolean = true,
     isSuspended: Boolean = false
 ): App = App(
@@ -55,6 +56,7 @@ fun createApp(
     name = customName,
     isPackageRepresentative = true,
     firstInstallTime = firstInstallTime,
+    lastUpdateTime = lastUpdateTime,
     isRemovable = isRemovable,
     isSuspended = isSuspended
 )

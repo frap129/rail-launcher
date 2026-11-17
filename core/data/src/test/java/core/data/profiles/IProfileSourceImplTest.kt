@@ -31,6 +31,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -426,6 +427,38 @@ class IProfileSourceImplTest {
         val actualSuspension: List<Boolean> = source.activities(workUser).map { activity -> activity.isSuspended }
 
         assertEquals(listOf(true, false), actualSuspension)
+    }
+
+    @Test
+    fun `carries each App's APK update time`() = runTest {
+        val inputApkFile: File = File(application.cacheDir, "package.apk").apply { writeText("apk") }
+        val mockLauncherApps: LauncherApps = installLauncherApps()
+        every { mockLauncherApps.getActivityList(null, workUser) } returns listOf(
+            mockActivityInfo(applicationInfo = ApplicationInfo().apply { sourceDir = inputApkFile.absolutePath })
+        )
+        val source: IProfileSourceImpl = createSource()
+
+        val actualUpdateTime: Long = source.activities(workUser).single().lastUpdateTime
+
+        assertEquals(inputApkFile.lastModified(), actualUpdateTime)
+    }
+
+    @Test
+    fun `reports no update time when the App's APK path is missing`() = runTest {
+        val mockLauncherApps: LauncherApps = installLauncherApps()
+        every { mockLauncherApps.getActivityList(null, workUser) } returns listOf(
+            mockActivityInfo(applicationInfo = ApplicationInfo())
+        )
+        val source: IProfileSourceImpl = createSource()
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+        lateinit var actualActivities: List<ProfileActivity>
+
+        logRecorder.record {
+            actualActivities = source.activities(workUser)
+        }
+
+        assertEquals(0L, actualActivities.single().lastUpdateTime)
+        logRecorder.assertLoggedWithout()
     }
 
     @Test

@@ -25,9 +25,10 @@ Keep all Rail state in `AppDatabase` and include the whole database in Android
 cloud backup and device transfer. Gallery Custom icons are PNGs in Rail's
 private `icons` directory, which the default file rules include without naming
 it. `app/src/main/res/xml/backup_rules.xml` and
-`app/src/main/res/xml/data_extraction_rules.xml` contain no database exclude;
-the default rules include every file in the database directory, including the
-SQLite `-wal` and `-shm` sidecars.
+`app/src/main/res/xml/data_extraction_rules.xml` contain no `AppDatabase`
+exclude; the default rules include every file in the database directory,
+including the SQLite `-wal` and `-shm` sidecars. They exclude only the
+Last-known App list database, which ADR 0005 covers.
 
 No checkpoint or custom `BackupAgent` is needed. Auto Backup stops the app
 before it copies app data, and the default file backup includes the database
@@ -64,3 +65,11 @@ Restored keys follow the existing resolution and stale-key cleanup:
   match, while personal data survives and current work and private data
   resolves.
 - Rail still has no backup/restore feature of its own; it relies on Android.
+
+## Scope note
+
+ADR 0005 (2026-11-17) adds a separate `LastKnownAppDatabase` and excludes it
+from Android cloud backup and device transfer. That database holds the
+Last-known App list, derived and rebuildable data rather than Rail state, so
+this record's decision still covers all Rail state in `AppDatabase` and its
+backup scope does not grow.

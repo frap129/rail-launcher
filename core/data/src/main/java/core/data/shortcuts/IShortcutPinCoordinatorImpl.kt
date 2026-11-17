@@ -7,7 +7,7 @@ import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileToken
 import core.data.profiles.toProfileToken
 import core.data.room.TransactionEffects
-import core.data.runCleanup
+import core.data.runContained
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
@@ -33,7 +33,7 @@ class IShortcutPinCoordinatorImpl(
 
     init {
         scope.launch {
-            runCleanup(message = "Failed to reapply Shortcut pins on startup") { reapplyAllPins() }
+            runContained(message = "Failed to reapply Shortcut pins on startup") { reapplyAllPins() }
         }
         scope.launch {
             combine(
@@ -44,7 +44,7 @@ class IShortcutPinCoordinatorImpl(
                 .map { (_, status) -> status.enumeratedKeys }
                 .distinctUntilChanged()
                 .collect { tokens ->
-                    runCleanup(message = "Failed to reapply Shortcut pins after a Private Space lists its Apps") {
+                    runContained(message = "Failed to reapply Shortcut pins after a Private Space lists its Apps") {
                         reapplyPinsForProfiles(tokens = tokens)
                     }
                 }
