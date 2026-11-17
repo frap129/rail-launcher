@@ -7,6 +7,7 @@ import core.data.calendar.ICalendarEventSource
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -384,7 +385,7 @@ class WidgetSettingsViewModelTest {
     fun `exposes picker rows once the Launchables load`() = runTest {
         val inputLaunchable: RailLaunchable = createRailLaunchable(name = "Maps")
         val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
         val viewModel: WidgetSettingsViewModel = createViewModel(mockLaunchableRepository = mockLaunchableRepository)

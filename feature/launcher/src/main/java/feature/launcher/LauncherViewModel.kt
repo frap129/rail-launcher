@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
+import core.data.favorites.FavoritesState
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
@@ -168,12 +169,6 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
-/**
- * The Favorites Home shows, whether they have loaded and whether they are being edited; a loaded
- * empty Home has no Favorites.
- */
-private data class FavoritesState(val favorites: List<Launchable>, val isFavoritesLoaded: Boolean, val isEditingFavorites: Boolean)
-
 /** Whether this Search row may be the Top result: Contact, Web suggestion and Play Store rows never are. */
 private fun SearchResult.canBeTopResult(): Boolean =
     this !is SearchResult.ContactRow && this !is SearchResult.WebSuggestionRow && this !is SearchResult.PlayStoreRow
@@ -194,6 +189,13 @@ private fun LaunchableGroup.Listed.refresh(groups: List<LaunchableGroup.Listed>)
     } else {
         this
     }
+
+/**
+ * The groups the Rail shows: every group once the App List is ready, otherwise only the Star,
+ * so a Rail action can only reach a group the Rail shows.
+ */
+private fun LaunchableState.railGroups(includeHidden: Boolean): List<LaunchableGroup> =
+    if (isAppListReady) groupsFor(includeHidden = includeHidden) else listOf(LaunchableGroup.Star)
 
 private fun Settings.toSearchOptions(hasContactsPermission: Boolean): SearchOptions = SearchOptions(
     openSearchOnSwipeUp = openSearchOnSwipeUp,
@@ -257,35 +259,36 @@ private fun toLauncherUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favoritesState: FavoritesState,
+    isEditingFavorites: Boolean,
     settings: Settings
 ): LauncherUiState {
-    if (!state.isLoaded) {
-        return LauncherUiState.Loading
-    }
-    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroupsFor(includeHidden = favoritesState.isEditingFavorites)
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
             favorites = favoritesState.favorites,
-            isFavoritesLoaded = favoritesState.isFavoritesLoaded,
+            isFavoritesLoaded = favoritesState.isLoaded,
             isSwipeUpEnabled = settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
-            isEditingFavorites = favoritesState.isEditingFavorites
+            isEditingFavorites = isEditingFavorites
         )
     }
+    if (!state.isAppListReady) {
+        return LauncherUiState.Loading
+    }
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroupsFor(includeHidden = isEditingFavorites)
     val selected: LaunchableGroup.Listed? = navigation.selected?.refresh(groups = listedGroups)
     if (navigation.isScrolling) {
         return if (selected == null) {
             LauncherUiState.Loading
         } else {
-            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = favoritesState.isEditingFavorites)
+            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = isEditingFavorites)
         }
     }
     val appListState: LazyListState = navigation.appListState ?: return LauncherUiState.Loading
     return LauncherUiState.AppList.Browsing(
         groups = listedGroups,
         lazyListState = appListState,
-        isEditingFavorites = favoritesState.isEditingFavorites
+        isEditingFavorites = isEditingFavorites
     )
 }
 
@@ -358,9 +361,12 @@ class LauncherViewModel(
             initialValue = false
         )
 
-    /** The Rail items in index order, shared with the Rail. Edit Favorites lists Hidden apps so they can be favorited. */
+    /**
+     * The Rail items in index order, shared with the Rail. Edit Favorites lists Hidden apps so
+     * they can be favorited. Before the App List is ready the Rail shows only the Star.
+     */
     val railItems: StateFlow<List<GroupMark>> = combine(launchableState, isEditingFavorites) { state, isEditing ->
-        state.groupsFor(includeHidden = isEditing).map { group -> group.toGroupMark() }
+        state.railGroups(includeHidden = isEditing).map { group -> group.toGroupMark() }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -439,42 +445,39 @@ class LauncherViewModel(
     // Serializes star toggles and Done so a rapid second tap cannot read a stale favorite state.
     private val favoritesMutex: Mutex = Mutex()
 
-    /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
-    val favorites: StateFlow<List<Launchable>> = combine(
-        favoritesRepo.favorites,
+    // The Favorites and their readiness share one emission, so Home never shows the empty hint
+    // for a stale empty list after the Favorites have resolved.
+    internal val favoritesState: StateFlow<FavoritesState> = combine(
+        favoritesRepo.state,
         editedFavoriteKeys
-    ) { favorites, editedKeys ->
-        if (editedKeys == null) favorites else favorites.sortedInOrderOf(editedKeys)
+    ) { state, editedKeys ->
+        FavoritesState(
+            favorites = if (editedKeys == null) state.favorites else state.favorites.sortedInOrderOf(editedKeys),
+            isLoaded = state.isLoaded
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = emptyList()
+        initialValue = FavoritesState(favorites = emptyList(), isLoaded = false)
     )
 
-    private val favoritesState: Flow<FavoritesState> = combine(
-        favorites,
-        favoritesRepo.isLoaded,
-        isEditingFavorites
-    ) { favorites, isFavoritesLoaded, isEditingFavorites ->
-        FavoritesState(
-            favorites = favorites,
-            isFavoritesLoaded = isFavoritesLoaded,
-            isEditingFavorites = isEditingFavorites
-        )
-    }
+    /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
+    val favorites: Flow<List<Launchable>> = favoritesState.map { state -> state.favorites }
 
     // Home and the App List never read the Search projection; only the Search state collects it.
     private val launcherUiState: Flow<LauncherUiState> = combine(
         navigation,
         launchableState,
         favoritesState,
+        isEditingFavorites,
         currentSettings
-    ) { navigation, state, favoritesState, settings ->
+    ) { navigation, state, favoritesState, isEditingFavorites, settings ->
         if (navigation.search == null) {
             toLauncherUiState(
                 navigation = navigation,
                 state = state,
                 favoritesState = favoritesState,
+                isEditingFavorites = isEditingFavorites,
                 settings = settings
             )
         } else {
@@ -490,7 +493,7 @@ class LauncherViewModel(
                 flowOf(null)
             } else {
                 combine(launchableState, currentSettings, searchProjection) { state, settings, projection ->
-                    if (state.isLoaded) {
+                    if (state.isAppListReady) {
                         toSearchUiState(search = search, state = state, settings = settings, projection = projection)
                     } else {
                         LauncherUiState.Loading
@@ -1029,11 +1032,15 @@ class LauncherViewModel(
     }
 
     fun editFavorites() {
+        if (!favoritesRepo.state.value.isLoaded) {
+            Timber.w("Ignoring Edit Favorites before the Favorites are loaded")
+            return
+        }
         if (!homeEditState.tryEnter(HomeEditMode.Favorites)) {
             return
         }
         closeSearch()
-        editedFavoriteKeys.value = favorites.value.map { it.key }
+        editedFavoriteKeys.value = favoritesState.value.favorites.map { it.key }
         closeItemMenu()
     }
 
@@ -1041,7 +1048,7 @@ class LauncherViewModel(
         if (editedFavoriteKeys.value == null) {
             return
         }
-        val shownFavorites: List<Launchable> = favorites.value
+        val shownFavorites: List<Launchable> = favoritesState.value.favorites
         if (fromIndex !in shownFavorites.indices || toIndex !in shownFavorites.indices) {
             Timber.w("Ignoring Favorite move from %d to %d outside %d Favorites", fromIndex, toIndex, shownFavorites.size)
             return

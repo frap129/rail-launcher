@@ -7,6 +7,7 @@ import core.data.apps.model.AppProfile
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -156,7 +157,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         popupDao.insertHiddenShortcut(ownerKey = inputOwner.key, shortcutId = FIRST_SHORTCUT_ID)
         popupDao.insertHiddenShortcut(ownerKey = GONE_OWNER_KEY, shortcutId = SECOND_SHORTCUT_ID)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(popupDao = popupDao, mockLaunchableRepository = mockLaunchableRepository)
@@ -178,7 +179,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             mockPopupDao.deleteHiddenForOwner(inputPrivateApp.key)
         } throws RuntimeException("Could not remove Pop-up preferences")
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         createRepository(
             popupDao = mockPopupDao,
@@ -336,7 +337,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         val repository: IPopupRepositoryImpl = createRepository(
@@ -384,7 +385,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val mockAppWidgetHost: IAppWidgetHostSource = createAppWidgetHostMock()
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         val repository: IPopupRepositoryImpl = createRepository(
@@ -592,7 +593,7 @@ class IPopupRepositoryImplTest : InMemoryDatabaseTest() {
             )
         )
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchableRepository: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         createRepository(popupDao = popupDao, mockLaunchableRepository = mockLaunchableRepository)

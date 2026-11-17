@@ -26,7 +26,7 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
 import core.ui.composables.LaunchableGroupHeader
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 
 @Immutable
 data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
@@ -35,10 +35,10 @@ data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Se
 @Composable
 internal fun rememberAppListRowState(
     isEditingFavorites: Boolean,
-    favorites: StateFlow<List<Launchable>>,
+    favorites: Flow<List<Launchable>>,
     isPopupSwipeEnabled: Boolean
 ): AppListRowState {
-    val favoriteList: List<Launchable> by favorites.collectAsState()
+    val favoriteList: List<Launchable> by favorites.collectAsState(initial = emptyList())
     val favoriteKeys: Set<String> = if (isEditingFavorites) rememberFavoriteKeySet(favoriteList) else emptySet()
     return AppListRowState(
         isEditingFavorites = isEditingFavorites,

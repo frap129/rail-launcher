@@ -11,6 +11,7 @@ import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createRailLaunchable
 import core.data.testing.createTestNotificationSource
+import core.data.testing.setFavorites
 import core.ui.popups.PopupTestBase
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,7 +51,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
         val inputOtherItem: Launchable = createRailLaunchable(name = "Second")
         setFolders(inputFolders)
         setPopupLaunchables(ownerKey = inputHomeFolder.key, launchables = listOf(inputItem, inputOtherItem))
-        mockFavoritesFixture.state.favorites.value = listOf(inputHomeFolder, inputTravelFolder)
+        mockFavoritesFixture.state.setFavorites(listOf(inputHomeFolder, inputTravelFolder))
         val viewModel: PopupSettingsViewModel = createViewModel()
 
         viewModel.uiState.test {
@@ -103,7 +104,7 @@ class PopupSettingsViewModelTest : PopupTestBase() {
             viewModel.openActions(inputFolder)
             viewModel.setOnHome(true)
             advanceUntilIdle()
-            mockFavoritesFixture.state.favorites.value = listOf(inputFolder)
+            mockFavoritesFixture.state.setFavorites(listOf(inputFolder))
             assertEquals(FolderLocation.HomeAndAppList, expectMostRecentItem().selectedFolder?.location)
         }
         coVerify(exactly = 1) { mockFavoritesFixture.mockFavoritesRepository.add(inputFolder) }

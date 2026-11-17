@@ -3,6 +3,7 @@ package core.data.shortcuts
 import android.os.UserHandle
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.popups.PopupItemRecord
 import core.data.profiles.IPrivateSpaceStatus
@@ -60,7 +61,7 @@ class IShortcutPinCoordinatorImplTest : InMemoryDatabaseTest() {
     fun `pins stored Shortcuts after the Launchables load`() = databaseTest {
         insertPopupShortcut(ownerKey = inputOwner.key, key = shortcutKey())
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val pinCalls: MutableStateFlow<List<PinCall>> = MutableStateFlow(emptyList())
         createCoordinator(

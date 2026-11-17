@@ -3,6 +3,7 @@ package core.data.widgets
 import core.data.apps.model.App
 import core.data.cleanup.HeaderTapTargetCleanupRow
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -247,7 +248,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     fun `setBatteryVisibility never re-enables a hidden clock`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(clockVisible = false, dateVisible = true, batteryVisibility = BatteryVisibility.ALWAYS),
-            isLoaded = true
+            readiness = LaunchableReadiness.AppListReady
         )
 
         repository.setBatteryVisibility(BatteryVisibility.NEVER)
@@ -266,7 +267,8 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
             dateTapTarget = HeaderTapSetting.SystemDefault,
             batteryVisibility = BatteryVisibility.ALWAYS
         )
-        val repository: IWidgetSettingsRepository = createRepository(headerSettings = inputSettings, isLoaded = true)
+        val repository: IWidgetSettingsRepository =
+            createRepository(headerSettings = inputSettings, readiness = LaunchableReadiness.AppListReady)
 
         repository.setBatteryVisibility(BatteryVisibility.NEVER)
 
@@ -278,7 +280,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = inputSetting),
-            isLoaded = true
+            readiness = LaunchableReadiness.AppListReady
         )
 
         assertEquals(inputSetting, repository.headerSettings.first().timeTapTarget)
@@ -311,7 +313,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = inputStaleSetting),
-            isLoaded = false
+            readiness = LaunchableReadiness.Loading
         )
 
         assertEquals(inputStaleSetting, repository.headerSettings.first().timeTapTarget)
@@ -323,7 +325,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         val inputStaleSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = "uninstalled")
         val inputKeptSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputKeptLaunchable.key)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
-            createLaunchableState(groups = emptyList(), isLoaded = false)
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading)
         )
         val mockLaunchables: ILaunchableRepository = createLaunchableRepositoryMock(launchableState)
         val repository: IWidgetSettingsRepository = createRepository(
@@ -372,7 +374,7 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
     fun `does not clear Nothing or the system default`() = databaseTest {
         val repository: IWidgetSettingsRepository = createRepository(
             headerSettings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = null),
-            isLoaded = true
+            readiness = LaunchableReadiness.AppListReady
         )
 
         val actualSettings: HeaderSettings = repository.headerSettings.first()
@@ -403,10 +405,10 @@ class IWidgetSettingsRepositoryImplTest : InMemoryDatabaseTest() {
         headerSettings: HeaderSettings? = null,
         eventSettings: EventSettings? = null,
         headerSettingsDao: HeaderSettingsDao = database.getHeaderSettingsDao(),
-        isLoaded: Boolean = true,
+        readiness: LaunchableReadiness = LaunchableReadiness.AppListReady,
         mockLaunchables: ILaunchableRepository = createLaunchableRepositoryMock(
             groups = listOf(LaunchableGroup.Builtin(items = listOf(inputKeptLaunchable))),
-            isLoaded = isLoaded
+            readiness = readiness
         )
     ): IWidgetSettingsRepository {
         headerSettings?.let { settings -> headerSettingsDao.upsert(settings) }

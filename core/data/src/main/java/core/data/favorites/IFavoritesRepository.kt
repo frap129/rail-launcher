@@ -2,6 +2,10 @@ package core.data.favorites
 
 import core.data.launchables.model.Launchable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+
+/** The Favorites in the user's order and whether they have resolved; a loaded empty list is a Home with no Favorites. */
+data class FavoritesState(val favorites: List<Launchable>, val isLoaded: Boolean)
 
 interface IFavoritesRepository {
     /**
@@ -12,10 +16,11 @@ interface IFavoritesRepository {
     val favorites: Flow<List<Launchable>>
 
     /**
-     * Whether [favorites] reflects the stored Favorites. False until the Launchables load and the
+     * [favorites] with whether they reflect the stored Favorites, emitted together so a reader
+     * never pairs a stale list with a ready state. False until Home's Launchables load and the
      * stored records resolve; after that, an empty list is a loaded Home with no Favorites.
      */
-    val isLoaded: Flow<Boolean>
+    val state: StateFlow<FavoritesState>
 
     /**
      * Whether [launchable] is a Favorite. False while the Launchables have not loaded,

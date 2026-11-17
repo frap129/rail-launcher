@@ -25,6 +25,8 @@ private data class FavoriteResolution(val favorites: List<Launchable>, val launc
     val favoriteKeys: Set<String> = favorites.mapTo(mutableSetOf()) { favorite -> favorite.key }
 }
 
+private val UNLOADED_FAVORITES_STATE: FavoritesState = FavoritesState(favorites = emptyList(), isLoaded = false)
+
 private val UNLOADED_RESOLUTION: FavoriteResolution = FavoriteResolution(
     favorites = emptyList(),
     launchableKeys = emptySet(),
@@ -40,7 +42,7 @@ class IFavoritesRepositoryImpl(
         favoriteDao.observeAll(),
         launchableRepository.launchableState
     ) { records, state ->
-        if (state.isLoaded) {
+        if (state.isHomeReady) {
             resolveFavorites(records, state)
         } else {
             UNLOADED_RESOLUTION
@@ -49,12 +51,12 @@ class IFavoritesRepositoryImpl(
         .retryWithExponentialBackoff()
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_RESOLUTION)
 
-    override val favorites: Flow<List<Launchable>> = resolution
-        .map { resolved -> resolved.favorites }
-        .distinctUntilChanged()
+    override val state: StateFlow<FavoritesState> = resolution
+        .map { resolved -> FavoritesState(favorites = resolved.favorites, isLoaded = resolved.isLoaded) }
+        .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = UNLOADED_FAVORITES_STATE)
 
-    override val isLoaded: Flow<Boolean> = resolution
-        .map { resolved -> resolved.isLoaded }
+    override val favorites: Flow<List<Launchable>> = state
+        .map { resolved -> resolved.favorites }
         .distinctUntilChanged()
 
     override fun isFavorite(launchable: Launchable): Flow<Boolean> = resolution

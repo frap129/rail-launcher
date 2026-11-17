@@ -677,8 +677,8 @@ class MainApplication :
             combine(
                 launchableRepository.launchableState,
                 hostSource.providerChanges.onStart { emit(Unit) }
-            ) { state, _ -> state.isLoaded }
-                .filter { isLoaded -> isLoaded }
+            ) { state, _ -> state.isAppListReady }
+                .filter { isAppListReady -> isAppListReady }
                 .collect { reconciler.removeGoneProviders() }
         }
     }

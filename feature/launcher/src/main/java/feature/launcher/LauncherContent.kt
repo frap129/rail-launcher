@@ -182,8 +182,8 @@ internal fun LauncherContent(
                 onLaunch = onItemLaunch,
                 menuEnabled = !isEditingHome
             )
-            val isHomeReady: Boolean = isHomeVisible && home.isFavoritesLoaded && widgetArea.state.isLoaded
-            val isHomeFullyDrawn: Boolean = rememberHomeFullyDrawn(isHomeReady = isHomeReady)
+            val isHomeDrawable: Boolean = isHomeVisible && home.isFavoritesLoaded && widgetArea.state.isLoaded
+            val isHomeFullyDrawn: Boolean = rememberHomeFullyDrawn(isHomeDrawable = isHomeDrawable)
             LauncherHome(
                 modifier = Modifier
                     .fillMaxSize()
@@ -303,7 +303,8 @@ internal fun LauncherContent(
     }
 }
 
-// Keeps the latest Home state while the App List or Search covers Home.
+// Keeps the latest Home state while the App List, Search or a loading state covers Home, so
+// returning to Home never rebuilds it.
 @Composable
 private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
     var retained: LauncherUiState.Home? by remember { mutableStateOf<LauncherUiState.Home?>(null) }
@@ -314,19 +315,18 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
     }
     return when (uiState) {
         is LauncherUiState.Home -> uiState
-        is LauncherUiState.AppList, is LauncherUiState.Search -> retained
-        LauncherUiState.Loading -> null
+        is LauncherUiState.AppList, is LauncherUiState.Search, LauncherUiState.Loading -> retained
     }
 }
 
 /**
- * Reports the activity fully drawn once Home is ready, and returns whether it has reported.
- * Home is ready when it is shown with its Header, Widget Area and Favorites loaded; a loaded
+ * Reports the activity fully drawn once Home can be drawn, and returns whether it has reported.
+ * Home can be drawn when it is shown with its Header, Widget Area and Favorites loaded; a loaded
  * empty Home counts. The activity's fully-drawn reporter fires at most once per cold start,
  * after the first frame.
  */
 @Composable
-private fun rememberHomeFullyDrawn(isHomeReady: Boolean): Boolean {
+private fun rememberHomeFullyDrawn(isHomeDrawable: Boolean): Boolean {
     var isReported: Boolean by remember { mutableStateOf(false) }
     val fullyDrawnReporter: FullyDrawnReporter? = LocalFullyDrawnReporterOwner.current?.fullyDrawnReporter
     DisposableEffect(fullyDrawnReporter) {
@@ -334,7 +334,7 @@ private fun rememberHomeFullyDrawn(isHomeReady: Boolean): Boolean {
         fullyDrawnReporter?.addOnReportDrawnListener(onReported)
         onDispose { fullyDrawnReporter?.removeOnReportDrawnListener(onReported) }
     }
-    if (isHomeReady) {
+    if (isHomeDrawable) {
         ReportDrawnWhen { true }
     }
     return isReported

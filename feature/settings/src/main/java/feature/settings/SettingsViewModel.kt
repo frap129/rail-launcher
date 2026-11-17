@@ -108,7 +108,7 @@ class SettingsViewModel(
 
     /** The Hidden apps the Hidden apps screen lists, by resolved name, or null until the Launchable State loads. */
     val hiddenApps: StateFlow<List<Launchable>?> = launchableRepo.launchableState
-        .map { state -> state.takeIf { current -> current.isLoaded }?.hiddenApps }
+        .map { state -> state.takeIf { current -> current.isAppListReady }?.hiddenApps }
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),

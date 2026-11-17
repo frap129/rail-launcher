@@ -65,7 +65,7 @@ class IStoredKeyClassifierImpl(private val launchableRepository: ILaunchableRepo
                             requestedKeys,
                             shortcutSource.resolve(shortcutKeys)
                         ) { state, currentKeys, resolution ->
-                            if (state.isLoaded) classify(state = state, keys = currentKeys, resolution = resolution) else null
+                            if (state.isAppListReady) classify(state = state, keys = currentKeys, resolution = resolution) else null
                         }
                     }
                     .distinctUntilChanged()

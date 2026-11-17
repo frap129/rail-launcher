@@ -1,6 +1,7 @@
 package core.data.testing
 
 import core.data.launchables.ILaunchableRepository
+import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
@@ -18,12 +19,12 @@ fun createLaunchableRepositoryMock(state: StateFlow<LaunchableState>): ILaunchab
     return mockLaunchableRepository
 }
 
-/** A MockK [ILaunchableRepository] loaded with [launchables] in one Initial group, plus [folders]. */
+/** A MockK [ILaunchableRepository] holding [launchables] in one Initial group, plus [folders], at [readiness]. */
 fun createLaunchableRepositoryMock(
     launchables: List<Launchable> = emptyList(),
     label: String = "A",
     folders: List<Launchable> = emptyList(),
-    isLoaded: Boolean = true,
+    readiness: LaunchableReadiness = LaunchableReadiness.AppListReady,
     hiddenKeys: Set<String> = emptySet()
 ): ILaunchableRepository = createLaunchableRepositoryMock(
     state = MutableStateFlow(
@@ -31,17 +32,17 @@ fun createLaunchableRepositoryMock(
             launchables = launchables,
             folders = folders,
             label = label,
-            isLoaded = isLoaded,
+            readiness = readiness,
             hiddenKeys = hiddenKeys
         )
     )
 )
 
-/** A MockK [ILaunchableRepository] loaded from [groups] and [folders]. */
+/** A MockK [ILaunchableRepository] resolved from [groups] and [folders] at [readiness]. */
 fun createLaunchableRepositoryMock(
     groups: List<LaunchableGroup>,
     folders: List<Launchable> = emptyList(),
-    isLoaded: Boolean = true
+    readiness: LaunchableReadiness = LaunchableReadiness.AppListReady
 ): ILaunchableRepository = createLaunchableRepositoryMock(
-    state = MutableStateFlow(createLaunchableState(groups, folders, isLoaded))
+    state = MutableStateFlow(createLaunchableState(groups = groups, folders = folders, readiness = readiness))
 )
