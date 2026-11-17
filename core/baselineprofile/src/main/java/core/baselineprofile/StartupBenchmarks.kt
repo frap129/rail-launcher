@@ -2,13 +2,16 @@ package core.baselineprofile
 
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
+import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
+import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import core.ui.HOME_ICONS_DRAWN_TRACE_SECTION
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +25,10 @@ private const val ITERATIONS = 10
  * Each run compares [CompilationMode.None], which represents the app with no Baseline Profile
  * optimizations, with [CompilationMode.Partial], which uses Baseline Profiles. The
  * [StartupTimingMetric] records the time to initial display (TTID) and the time to full display
- * (TTFD); the latter only exists because Rail reports Home fully drawn.
+ * (TTFD); the latter only exists because Rail reports Home fully drawn. The [TraceSectionMetric]
+ * records the time to Home icons drawn, from Application creation until Home has drawn the
+ * Favorite icons it shows; its window opens a little after TTID and TTFD's, so compare it across
+ * builds rather than against them.
  *
  * Run it on a physical device, not an Android emulator, because the emulator doesn't represent
  * real world performance. Run both variants with this Gradle task:
@@ -35,6 +41,7 @@ private const val ITERATIONS = 10
  **/
 @RunWith(AndroidJUnit4::class)
 @LargeTest
+@OptIn(ExperimentalMetricApi::class)
 class StartupBenchmarks {
 
     @get:Rule
@@ -56,7 +63,7 @@ class StartupBenchmarks {
         }
         rule.measureRepeated(
             packageName = APP_PACKAGE,
-            metrics = listOf(StartupTimingMetric()),
+            metrics = listOf(StartupTimingMetric(), TraceSectionMetric(sectionName = HOME_ICONS_DRAWN_TRACE_SECTION)),
             compilationMode = compilationMode,
             startupMode = StartupMode.COLD,
             iterations = ITERATIONS,
@@ -69,6 +76,7 @@ class StartupBenchmarks {
                 setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
                 pressHome()
                 waitForHomeFullyDrawn(device = device)
+                waitForHomeIconsDrawn(device = device)
             }
         )
     }

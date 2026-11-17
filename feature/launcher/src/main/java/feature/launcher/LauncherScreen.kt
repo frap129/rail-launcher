@@ -56,6 +56,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.ui.GroupMark
+import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
@@ -146,6 +147,7 @@ fun LauncherScreen(
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val profileSource: IProfileSource = koinInject()
     val launcherTypingState: LauncherTypingState = koinInject()
+    val homeIconsDrawn: IHomeIconsDrawn = koinInject()
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val isPopupOpen: Boolean by popupCardViewModel.isCardOpen.collectAsState()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
@@ -373,6 +375,7 @@ fun LauncherScreen(
             onOpenSearchRow = openSearchRow,
             onContactRowAction = openContactRowAction,
             onOpenSearchSettings = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
+            homeIconsDrawn = homeIconsDrawn,
             isResizing = isResizing,
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode
