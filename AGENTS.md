@@ -11,7 +11,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - Lint: run `nix develop --command ./gradlew ktlintFormat` before `nix develop --command ./gradlew ktlintCheck` so autofixable formatting issues are resolved first (CI runs `ktlintFormat` on push to `main` and auto-commits `ci(autoformat): ktlint`).
 - No `androidTest` in app/feature/core modules (only `core:baselineprofile`'s benchmark harness); verification = tests + build + ktlint.
 - Docs: `nix develop --command ./gradlew generateDocs` regenerates Dokka output into `docs/html` and `docs/markdown`. These are generated (and currently stale); never hand-edit them.
-- Baseline profiles: `nix develop --command ./gradlew :app:generateBaselineProfile` (Gradle managed device `pixel6Api36`, needs emulator support). Output is saved into `src/main/generated/baselineProfiles/` per module and `app/src/main/generated/baselineProfiles/`; do not hand-edit.
+- Baseline profiles: `nix develop .#emulator --command ./gradlew generateBaselineProfile` (Gradle managed device `pixel6Api36`; only the `.#emulator` shell's SDK has the emulator and system image it needs). Use the root task: it regenerates `app/src/main/generated/baselineProfiles/` and every module's `src/main/generated/baselineProfiles/`, while `:app:generateBaselineProfile` refreshes only the app's files. Do not hand-edit them.
 - Emulators: the Android MCP's `start_emulator` tool is denied in `opencode.json`. Start an AVD manually with `nix develop .#emulator --command emulator -avd <name>` only when no physical device is in use.
 
 ## Module layout

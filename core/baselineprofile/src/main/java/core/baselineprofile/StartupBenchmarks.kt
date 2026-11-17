@@ -8,20 +8,12 @@ import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
-import core.ui.HOME_FULLY_DRAWN_TEST_TAG
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 private const val ITERATIONS = 10
-private const val FULLY_DRAWN_TIMEOUT_MS = 10_000L
-
-// Compose test tags keep the package out of the resource id, so the node's package pins it to Rail.
-private val HOME_FULLY_DRAWN_SELECTOR: BySelector = By.res(HOME_FULLY_DRAWN_TEST_TAG).pkg(APP_PACKAGE)
 
 /**
  * Benchmarks the cold start to a usable Home: from a HOME press with Rail as the default Home
@@ -76,9 +68,7 @@ class StartupBenchmarks {
                 // Rail is the default Home for a real HOME press, which starts it cold.
                 setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
                 pressHome()
-                check(device.wait(Until.hasObject(HOME_FULLY_DRAWN_SELECTOR), FULLY_DRAWN_TIMEOUT_MS)) {
-                    "Rail did not report Home fully drawn"
-                }
+                waitForHomeFullyDrawn(device = device)
             }
         )
     }
