@@ -3527,18 +3527,34 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `Home intent from another app does not open Search`() = runTest {
+    fun `Home intent from another app keeps Home without opening Search`() = runTest {
         val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
 
         viewModel.uiState.test {
-            val actualFirstHome: LauncherUiState.Home = expectHome()
+            val actualHome: LauncherUiState.Home = expectHome()
 
             viewModel.onHomeIntent(wasResumed = false)
 
-            val actualSecondHome: LauncherUiState.Home = expectHome()
-            assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
             runCurrent()
             expectNoEvents()
+            assertSame(actualHome.lazyListState, (viewModel.uiState.value as LauncherUiState.Home).lazyListState)
+        }
+    }
+
+    @Test
+    fun `Home intent from another app keeps the App List where it was left`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(railIndex(inputListedGroups[1]))
+            val actualAppList: LauncherUiState.AppList.Browsing = expectAppList()
+
+            viewModel.onHomeIntent(wasResumed = false)
+
+            runCurrent()
+            expectNoEvents()
+            assertAppListStateRetained(before = actualAppList, after = viewModel.uiState.value)
         }
     }
 

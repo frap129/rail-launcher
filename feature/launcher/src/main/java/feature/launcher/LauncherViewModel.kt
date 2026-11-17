@@ -954,18 +954,21 @@ class LauncherViewModel(
     }
 
     /**
-     * The launcher was re-selected through the HOME category. A Home press on Home opens Search
-     * when its entry is on; any other press shows Home scrolled to the top.
+     * The launcher was re-selected through the HOME category. A HOME intent that returns to Rail
+     * from another app keeps the App List or Home where it was left. A Home press on Home opens
+     * Search when its entry is on; any other press while Rail is resumed shows Home scrolled to the top.
      */
     fun onHomeIntent(wasResumed: Boolean) {
-        if (isHomePressOnHome(wasResumed = wasResumed) && openSearch()) {
+        if (!wasResumed) {
+            return
+        }
+        if (isHomePressOnHome() && openSearch()) {
             return
         }
         showHome(resetScroll = true)
     }
 
-    private fun isHomePressOnHome(wasResumed: Boolean): Boolean = wasResumed &&
-        navigation.value.mode == LauncherMode.Home &&
+    private fun isHomePressOnHome(): Boolean = navigation.value.mode == LauncherMode.Home &&
         currentSettings.value.openSearchOnHomePress
 
     private fun showHome(resetScroll: Boolean) {
