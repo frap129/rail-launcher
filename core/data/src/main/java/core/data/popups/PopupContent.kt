@@ -11,7 +11,7 @@ import core.data.shortcuts.ShortcutsResult
 import core.data.shortcuts.shortcutsOrEmpty
 
 /** The owner shown at the top of a Pop-up. */
-data class PopupHeader(val name: String, val icon: Icon)
+data class PopupHeader(val name: String, val icon: Icon, val isSuspended: Boolean)
 
 /** Why a Pop-up has no shortcut or item rows. */
 enum class PopupEmptyReason {
@@ -56,7 +56,7 @@ object PopupContentResolver {
         val hasShortcuts: Boolean = shownShortcuts.isNotEmpty()
         val hasItems: Boolean = shownItems.isNotEmpty()
         return PopupContent(
-            header = PopupHeader(name = owner.name, icon = owner.icon),
+            header = PopupHeader(name = owner.name, icon = owner.icon, isSuspended = owner.isSuspended),
             shortcuts = shownShortcuts,
             items = shownItems,
             ownerNotifications = shownNotifications,

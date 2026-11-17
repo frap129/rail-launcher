@@ -76,6 +76,10 @@ _Avoid_: Off, disabled, stopped
 A Launchable its publisher currently disables, so it cannot open.
 _Avoid_: Off, removed
 
+**Suspended**:
+An App whose package the system has suspended, as Digital Wellbeing's "Pause app" or a freezer app does. Rail greys its icon, including any Custom icon and Profile badge, while its label, row and place stay as usual, and tapping it still asks the system to launch it, which shows the system's own paused dialog.
+_Avoid_: Paused, Disabled, frozen app
+
 **Private Space**:
 The hidden Profile Android 15+ provides for Apps the user keeps private, unlocked with the system credential and locked again by the system.
 _Avoid_: Private profile, vault, space

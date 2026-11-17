@@ -46,7 +46,9 @@ data class ProfileActivity(
     /** When the activity's package was first installed, in epoch milliseconds, or 0 when unknown. */
     val firstInstallTime: Long,
     /** Whether the system lets the user uninstall the activity's package from [user]'s Profile. */
-    val isRemovable: Boolean
+    val isRemovable: Boolean,
+    /** Whether the system has suspended the activity's package, as Digital Wellbeing or a freezer app does. */
+    val isSuspended: Boolean
 )
 
 /** A package or Profile change Rail must react to. */
@@ -60,6 +62,9 @@ sealed interface ProfileChange {
     data class PackageChanged(override val user: UserHandle, val packageName: String) : ProfileChange
 
     data class PackagesUnavailable(override val user: UserHandle, val packageNames: List<String>, val replacing: Boolean) : ProfileChange
+
+    /** The system suspended [packageNames] or lifted their suspension, in [user]'s Profile. */
+    data class PackagesSuspended(override val user: UserHandle, val packageNames: List<String>, val isSuspended: Boolean) : ProfileChange
 
     data class ProfileAdded(override val user: UserHandle) : ProfileChange
 

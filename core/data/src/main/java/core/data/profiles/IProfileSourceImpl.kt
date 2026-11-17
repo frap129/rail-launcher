@@ -63,6 +63,14 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
             _changes.tryEmit(ProfileChange.PackagesUnavailable(user = user, packageNames = packageNames.toList(), replacing = replacing))
         }
 
+        override fun onPackagesSuspended(packageNames: Array<String>, user: UserHandle) {
+            _changes.tryEmit(ProfileChange.PackagesSuspended(user = user, packageNames = packageNames.toList(), isSuspended = true))
+        }
+
+        override fun onPackagesUnsuspended(packageNames: Array<String>, user: UserHandle) {
+            _changes.tryEmit(ProfileChange.PackagesSuspended(user = user, packageNames = packageNames.toList(), isSuspended = false))
+        }
+
         override fun onUserConfigChanged(userInfo: LauncherUserInfo) {
             reloadProfiles()
         }
@@ -255,7 +263,8 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
                 label = label,
                 badgedLabel = badgedLabel(label = label, user = activity.user),
                 firstInstallTime = activity.firstInstallTime,
-                isRemovable = activity.applicationInfo.isRemovable()
+                isRemovable = activity.applicationInfo.isRemovable(),
+                isSuspended = activity.applicationInfo.isSuspended()
             )
         }
     }
@@ -326,3 +335,5 @@ class IProfileSourceImpl(context: Context) : IProfileSource {
 // An updated System App can be uninstalled back to its factory version; other System Apps cannot be removed.
 private fun ApplicationInfo.isRemovable(): Boolean =
     flags and ApplicationInfo.FLAG_SYSTEM == 0 || flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+
+private fun ApplicationInfo.isSuspended(): Boolean = flags and ApplicationInfo.FLAG_SUSPENDED != 0

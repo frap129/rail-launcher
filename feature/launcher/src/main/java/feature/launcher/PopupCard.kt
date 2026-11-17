@@ -78,6 +78,8 @@ import core.data.popups.PopupItem
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
+import core.ui.composables.iconColorFilter
+import core.ui.composables.suspendedIconColorFilter
 import core.ui.layout.compactIconSize
 import core.ui.layout.minTouchTargetSize
 import core.ui.popups.PopupEmptyState
@@ -125,6 +127,7 @@ private data class NotificationRowsUi(
     val notifications: List<NotificationSnapshot>,
     val appName: String,
     val icon: Icon,
+    val isSuspended: Boolean,
     val isIndented: Boolean
 )
 
@@ -133,6 +136,7 @@ private data class NotificationRowUi(
     val snapshot: NotificationSnapshot,
     val appName: String,
     val icon: Icon,
+    val isSuspended: Boolean,
     val nowMillis: Long,
     val isExpanded: Boolean,
     val isReplySent: Boolean,
@@ -252,6 +256,7 @@ fun PopupCard(
                             notifications = content.ownerNotifications,
                             appName = content.header.name,
                             icon = content.header.icon,
+                            isSuspended = content.header.isSuspended,
                             isIndented = false
                         ),
                         nowMillis = nowMillis,
@@ -279,6 +284,7 @@ fun PopupCard(
                                 notifications = content.itemNotifications[item.launchable.key].orEmpty(),
                                 appName = item.launchable.name,
                                 icon = item.launchable.icon,
+                                isSuspended = item.launchable.isSuspended,
                                 isIndented = true
                             ),
                             nowMillis = nowMillis,
@@ -392,7 +398,8 @@ private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onC
         AsyncImage(
             modifier = Modifier.size(headerIconSize),
             model = header.icon,
-            contentDescription = null
+            contentDescription = null,
+            colorFilter = suspendedIconColorFilter(isSuspended = header.isSuspended)
         )
         Spacer(Modifier.width(headerIconGap))
         Text(
@@ -429,6 +436,7 @@ private fun NotificationRows(
                     snapshot = snapshot,
                     appName = ui.appName,
                     icon = ui.icon,
+                    isSuspended = ui.isSuspended,
                     nowMillis = nowMillis,
                     isExpanded = snapshot.key in expandedNotificationKeys,
                     isReplySent = snapshot.key in sentNotificationKeys,
@@ -526,7 +534,8 @@ private fun NotificationRowContent(row: NotificationRowUi) {
             AsyncImage(
                 modifier = Modifier.size(notificationIconSize),
                 model = row.icon,
-                contentDescription = null
+                contentDescription = null,
+                colorFilter = suspendedIconColorFilter(isSuspended = row.isSuspended)
             )
             Spacer(Modifier.width(notificationIconGap))
             Column(modifier = Modifier.weight(1f)) {
@@ -740,7 +749,8 @@ internal fun PopupItemRow(item: PopupItem, onClick: () -> Unit, onLongClick: () 
         AsyncImage(
             modifier = Modifier.size(if (shortcut != null) compactIconSize else itemIconSize),
             model = item.launchable.icon,
-            contentDescription = item.launchable.accessibilityName
+            contentDescription = item.launchable.accessibilityName,
+            colorFilter = item.launchable.iconColorFilter
         )
         Spacer(Modifier.width(if (shortcut != null) shortcutIconGap else itemIconGap))
         if (shortcut != null) {

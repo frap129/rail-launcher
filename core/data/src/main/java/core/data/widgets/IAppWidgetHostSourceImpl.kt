@@ -188,7 +188,8 @@ class IAppWidgetHostSourceImpl(
             is ProfileChange.ProfileAdded,
             is ProfileChange.ProfileRemoved,
             is ProfileChange.ProfileAvailable,
-            is ProfileChange.ProfileUnavailable -> Unit
+            is ProfileChange.ProfileUnavailable,
+            is ProfileChange.PackagesSuspended -> Unit
         }
     }
 

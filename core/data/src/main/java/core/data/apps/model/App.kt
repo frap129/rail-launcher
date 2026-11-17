@@ -30,7 +30,9 @@ data class App(
     /** When the App's package was first installed, in epoch milliseconds, or 0 when unknown. */
     val firstInstallTime: Long,
     /** Whether the system lets the user uninstall the App's package from its Profile. */
-    val isRemovable: Boolean
+    val isRemovable: Boolean,
+    /** Whether the system has suspended the App's package, as Digital Wellbeing or a freezer app does. */
+    override val isSuspended: Boolean = false
 ) : Launchable() {
     override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind
