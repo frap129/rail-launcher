@@ -31,21 +31,20 @@ import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.QuietRequestResult
-import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
+import core.data.search.ISearchProjectionSource
 import core.data.search.IShortcutSearchSource
-import core.data.search.IWebSuggestionSource
-import core.data.search.SearchContact
-import core.data.search.SearchHistoryRecord
+import core.data.search.SearchProjection
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
+import core.data.search.SearchSuggestionSources
+import core.data.search.SearchTypedSources
 import core.data.search.autoLaunchResult
 import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
 import core.data.search.toSearchResults
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
-import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -55,13 +54,13 @@ import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import java.util.Locale
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -169,43 +168,11 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
-/** The Favorites Home shows, and whether they have loaded; a loaded empty Home has no Favorites. */
-private data class FavoritesState(val favorites: List<Launchable>, val isLoaded: Boolean)
-
-/** The Shortcuts Search may match, and whether their source has emitted them yet. */
-private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
-
-/** The contacts Search may match, whether their source has emitted them yet and whether Rail may read them. */
-private data class ContactSearchState(
-    val contacts: List<SearchContact> = emptyList(),
-    val isLoaded: Boolean = false,
-    val hasPermission: Boolean = false
-)
-
 /**
- * The Search history, clock, Shortcuts, contacts and Web suggestions a Search projection reads,
- * with the setting that shows Search suggestions.
+ * The Favorites Home shows, whether they have loaded and whether they are being edited; a loaded
+ * empty Home has no Favorites.
  */
-private data class SearchData(
-    val history: List<SearchHistoryRecord>,
-    val nowEpochMs: Long,
-    val settings: Settings,
-    val shortcuts: List<SearchShortcut>,
-    val areShortcutsLoaded: Boolean,
-    val contacts: List<SearchContact>,
-    val areContactsLoaded: Boolean,
-    val hasContactsPermission: Boolean,
-    val webSuggestions: WebSuggestions
-) {
-    /** Typed results wait for both sources, so no row is ever shown before all of them are known. */
-    val areSearchSourcesLoaded: Boolean get() = areShortcutsLoaded && areContactsLoaded
-}
-
-/** The Web suggestions fetched for [query], so a new query never shows an older query's rows. */
-private data class WebSuggestions(val query: String, val suggestions: List<String>) {
-    /** These suggestions when they belong to [query], or none when they belong to an older query. */
-    fun forQuery(query: String): List<String> = if (this.query == query) suggestions else emptyList()
-}
+private data class FavoritesState(val favorites: List<Launchable>, val isFavoritesLoaded: Boolean, val isEditingFavorites: Boolean)
 
 /** Whether this Search row may be the Top result: Contact, Web suggestion and Play Store rows never are. */
 private fun SearchResult.canBeTopResult(): Boolean =
@@ -237,28 +204,37 @@ private fun Settings.toSearchOptions(hasContactsPermission: Boolean): SearchOpti
     searchEngine = searchEngine
 )
 
-private fun toSearchUiState(search: SearchState, state: LaunchableState, searchData: SearchData): LauncherUiState.Search {
-    val isShowingSuggestions: Boolean = search.query.isEmpty() && searchData.settings.searchSuggestions
+private fun toSearchUiState(
+    search: SearchState,
+    state: LaunchableState,
+    settings: Settings,
+    projection: SearchProjection
+): LauncherUiState.Search {
+    val isShowingSuggestions: Boolean = search.query.isEmpty() && settings.searchSuggestions
+    val suggestions: SearchSuggestionSources? = projection.suggestions
+    val typed: SearchTypedSources? = projection.typed
     // Typed results wait for the first emission of every source, so no row is inserted above one
     // already shown and Go never opens a target from a list that is still changing.
     val results: List<SearchResult> = when {
-        isShowingSuggestions -> state.searchSuggestions(
-            history = searchData.history,
-            nowEpochMs = searchData.nowEpochMs
-        ).toSearchResults()
+        isShowingSuggestions -> suggestions?.let { sources ->
+            state.searchSuggestions(
+                history = sources.history,
+                nowEpochMs = sources.reading.instant.toEpochMilli()
+            ).toSearchResults()
+        }.orEmpty()
 
-        search.query.isEmpty() || !searchData.areSearchSourcesLoaded -> emptyList()
+        search.query.isEmpty() || suggestions == null || typed == null -> emptyList()
 
         else -> {
-            val launchCounts: Map<String, Int> = searchData.history.associate { record -> record.key to record.launchCount }
+            val launchCounts: Map<String, Int> = suggestions.history.associate { record -> record.key to record.launchCount }
             state.searchResultRows(
                 query = search.query,
                 launchCounts = launchCounts,
-                shortcuts = searchData.shortcuts,
-                contacts = searchData.contacts,
-                webSuggestions = searchData.webSuggestions.forQuery(query = search.query),
+                shortcuts = typed.shortcuts,
+                contacts = typed.contacts,
+                webSuggestions = projection.webSuggestions.forQuery(query = search.query),
                 locale = Locale.getDefault(),
-                settings = searchData.settings
+                settings = settings
             )
         }
     }
@@ -267,38 +243,34 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
         results = results,
         topResult = if (isShowingSuggestions) null else results.firstOrNull { result -> result.canBeTopResult() },
         isShowingSuggestions = isShowingSuggestions,
-        isBottomAnchored = searchData.settings.searchBottomAnchoredResults,
+        isBottomAnchored = settings.searchBottomAnchoredResults,
         autoLaunchResult = if (isShowingSuggestions || !search.isForwardTyping) {
             null
         } else {
-            results.autoLaunchResult(settings = searchData.settings)
+            results.autoLaunchResult(settings = settings)
         },
-        options = searchData.settings.toSearchOptions(hasContactsPermission = searchData.hasContactsPermission)
+        options = settings.toSearchOptions(hasContactsPermission = typed?.hasContactsPermission == true)
     )
 }
 
-private fun toUiState(
+private fun toLauncherUiState(
     navigation: RailNavigation,
     state: LaunchableState,
     favoritesState: FavoritesState,
-    isEditingFavorites: Boolean,
-    searchData: SearchData
+    settings: Settings
 ): LauncherUiState {
     if (!state.isLoaded) {
         return LauncherUiState.Loading
     }
-    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroupsFor(includeHidden = isEditingFavorites)
-    navigation.search?.let { search ->
-        return toSearchUiState(search = search, state = state, searchData = searchData)
-    }
+    val listedGroups: List<LaunchableGroup.Listed> = state.listedGroupsFor(includeHidden = favoritesState.isEditingFavorites)
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
             favorites = favoritesState.favorites,
-            isFavoritesLoaded = favoritesState.isLoaded,
-            isSwipeUpEnabled = searchData.settings.openSearchOnSwipeUp,
-            isSwipeDownEnabled = searchData.settings.expandNotificationsOnSwipeDown,
-            isEditingFavorites = isEditingFavorites
+            isFavoritesLoaded = favoritesState.isFavoritesLoaded,
+            isSwipeUpEnabled = settings.openSearchOnSwipeUp,
+            isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
+            isEditingFavorites = favoritesState.isEditingFavorites
         )
     }
     val selected: LaunchableGroup.Listed? = navigation.selected?.refresh(groups = listedGroups)
@@ -306,14 +278,14 @@ private fun toUiState(
         return if (selected == null) {
             LauncherUiState.Loading
         } else {
-            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = isEditingFavorites)
+            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = favoritesState.isEditingFavorites)
         }
     }
     val appListState: LazyListState = navigation.appListState ?: return LauncherUiState.Loading
     return LauncherUiState.AppList.Browsing(
         groups = listedGroups,
         lazyListState = appListState,
-        isEditingFavorites = isEditingFavorites
+        isEditingFavorites = favoritesState.isEditingFavorites
     )
 }
 
@@ -331,6 +303,22 @@ private enum class MenuRequest {
 
 private data class MenuItemRequest(val launchable: Launchable, val isSearchSuggestion: Boolean)
 
+/** A menu request and the Launchable State it resolves against. */
+private data class MenuLookup(val request: MenuItemRequest, val state: LaunchableState)
+
+/** The menu of [launchable], resolved from [request] and the Launchable State it came from. */
+private fun LaunchableState.toMenu(
+    request: MenuItemRequest,
+    launchable: Launchable,
+    profileSource: IProfileSource
+): LauncherMenuState.Menu = LauncherMenuState.Menu(
+    item = launchable,
+    isSearchSuggestion = request.isSearchSuggestion,
+    isStandaloneShortcut = launchableFor(key = launchable.key) is ShortcutLaunchable,
+    canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
+    isHidden = isHidden(launchable = launchable)
+)
+
 class LauncherViewModel(
     listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
@@ -347,11 +335,9 @@ class LauncherViewModel(
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
     private val launchCountRepository: ILaunchCountRepository,
-    private val clockSource: IClockSource,
+    private val searchProjectionSource: ISearchProjectionSource,
     private val shortcutSearchSource: IShortcutSearchSource,
-    private val contactSearchSource: IContactSearchSource,
-    private val searchSettings: ISearchSettings,
-    private val webSuggestionSource: IWebSuggestionSource
+    private val searchSettings: ISearchSettings
 ) : ViewModel() {
     private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
@@ -409,67 +395,15 @@ class LauncherViewModel(
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 
-    // Contacts load with the launcher and stay warm across Search sessions, like the Shortcuts, so
-    // a keystroke only re-reads state.
-    private val contactSearchState: StateFlow<ContactSearchState> = combine(
-        contactSearchSource.contacts,
-        searchSettings.hasContactsPermission
-    ) { contacts, hasPermission ->
-        ContactSearchState(contacts = contacts, isLoaded = true, hasPermission = hasPermission)
-    }.stateIn(
+    private val searchQuery: Flow<String> = navigation.map { navigation -> navigation.search?.query.orEmpty() }
+
+    // The projection Search shows. Only the Search UI state collects it, so its sources start when
+    // Search opens and stop after the shared timeout once it closes, and every session that starts
+    // after that timeout starts unloaded.
+    private val searchProjection: StateFlow<SearchProjection> = searchProjectionSource.projection(
         scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = ContactSearchState()
+        query = searchQuery
     )
-
-    // Shortcuts load with the launcher and stay warm across Search sessions, so a keystroke only re-reads state.
-    private val shortcutSearchState: StateFlow<ShortcutSearchState> = shortcutSearchSource.shortcuts
-        .map { shortcuts -> ShortcutSearchState(shortcuts = shortcuts, isLoaded = true) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = ShortcutSearchState()
-        )
-
-    // Web suggestions follow the live query; flatMapLatest cancels the previous query's request,
-    // and the source debounces the new one. A blank query has none.
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val webSuggestions: Flow<WebSuggestions> = navigation
-        .map { navigation -> navigation.search?.query.orEmpty() }
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            if (query.isBlank()) {
-                flowOf(WebSuggestions(query = query, suggestions = emptyList()))
-            } else {
-                webSuggestionSource.suggestions(query = query, locale = Locale.getDefault())
-                    .map { suggestions -> WebSuggestions(query = query, suggestions = suggestions) }
-            }
-        }
-
-    // Search reads its history, Shortcuts and contacts from state and re-derives suggestions as the clock ticks, never on a keystroke.
-    private val searchData: Flow<SearchData> = combine(
-        searchHistoryRepository.history,
-        clockSource.readings,
-        currentSettings,
-        shortcutSearchState,
-        contactSearchState
-    ) { history, reading, settings, shortcutState, contactState ->
-        SearchData(
-            history = history,
-            nowEpochMs = reading.instant.toEpochMilli(),
-            settings = settings,
-            shortcuts = shortcutState.shortcuts,
-            areShortcutsLoaded = shortcutState.isLoaded,
-            contacts = contactState.contacts,
-            areContactsLoaded = contactState.isLoaded,
-            hasContactsPermission = contactState.hasPermission,
-            webSuggestions = WebSuggestions(query = "", suggestions = emptyList())
-        )
-    }
-
-    private val searchDataWithWebSuggestions: Flow<SearchData> = combine(searchData, webSuggestions) { data, suggestions ->
-        data.copy(webSuggestions = suggestions)
-    }
 
     // Auto-launch derives from the Search state the screen shows, so the gates that build the rows
     // stay in toSearchUiState. The screen asks shouldAutoLaunch before opening a result; the guard
@@ -519,30 +453,64 @@ class LauncherViewModel(
 
     private val favoritesState: Flow<FavoritesState> = combine(
         favorites,
-        favoritesRepo.isLoaded
-    ) { favorites, isLoaded ->
-        FavoritesState(favorites = favorites, isLoaded = isLoaded)
+        favoritesRepo.isLoaded,
+        isEditingFavorites
+    ) { favorites, isFavoritesLoaded, isEditingFavorites ->
+        FavoritesState(
+            favorites = favorites,
+            isFavoritesLoaded = isFavoritesLoaded,
+            isEditingFavorites = isEditingFavorites
+        )
     }
 
-    val uiState: StateFlow<LauncherUiState> = combine(
+    // Home and the App List never read the Search projection; only the Search state collects it.
+    private val launcherUiState: Flow<LauncherUiState> = combine(
         navigation,
         launchableState,
         favoritesState,
-        isEditingFavorites,
-        searchDataWithWebSuggestions
-    ) { navigation, state, favoritesState, isEditingFavorites, searchData ->
-        toUiState(
-            navigation = navigation,
-            state = state,
-            favoritesState = favoritesState,
-            isEditingFavorites = isEditingFavorites,
-            searchData = searchData
+        currentSettings
+    ) { navigation, state, favoritesState, settings ->
+        if (navigation.search == null) {
+            toLauncherUiState(
+                navigation = navigation,
+                state = state,
+                favoritesState = favoritesState,
+                settings = settings
+            )
+        } else {
+            null
+        }
+    }.filterNotNull()
+
+    private val searchUiState: Flow<LauncherUiState> = navigation
+        .map { navigation -> navigation.search }
+        .distinctUntilChanged()
+        .flatMapLatest { search ->
+            if (search == null) {
+                flowOf(null)
+            } else {
+                combine(launchableState, currentSettings, searchProjection) { state, settings, projection ->
+                    if (state.isLoaded) {
+                        toSearchUiState(search = search, state = state, settings = settings, projection = projection)
+                    } else {
+                        LauncherUiState.Loading
+                    }
+                }
+            }
+        }
+        .filterNotNull()
+
+    private val isSearchOpen: Flow<Boolean> = navigation
+        .map { navigation -> navigation.search != null }
+        .distinctUntilChanged()
+
+    val uiState: StateFlow<LauncherUiState> = isSearchOpen
+        .flatMapLatest { isOpen -> if (isOpen) searchUiState else launcherUiState }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            initialValue = LauncherUiState.Loading
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-        initialValue = LauncherUiState.Loading
-    )
 
     /** The items of every Folder, keyed by the Folder key. */
     private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
@@ -591,25 +559,32 @@ class LauncherViewModel(
     private val requestedMenuState: MutableStateFlow<MenuRequest> = MutableStateFlow(MenuRequest.Closed)
     private val requestedMenuItem: MutableStateFlow<MenuItemRequest?> = MutableStateFlow(null)
 
+    // A Shortcut Search result is not in the Launchable State, so its menu resolves it from the
+    // Shortcut search source only while the menu is shown, never from a warm Search state.
     private val resolvedMenuItem: Flow<LauncherMenuState.Menu?> = combine(
         requestedMenuItem,
-        launchableState,
-        shortcutSearchState
-    ) { requestedItem, state, shortcutState ->
-        requestedItem?.let { request ->
-            val launchable: Launchable? = state.launchableFor(key = request.launchable.key)
-            val resolvedItem: Launchable = launchable
-                ?: shortcutState.shortcuts
-                    .find { searchShortcut -> searchShortcut.shortcut.key == request.launchable.key }
-                    ?.shortcut
-                ?: return@combine null
-            LauncherMenuState.Menu(
-                item = resolvedItem,
-                isSearchSuggestion = request.isSearchSuggestion,
-                isStandaloneShortcut = launchable is ShortcutLaunchable,
-                canUninstall = (resolvedItem as? App)?.canUninstall(profileSource) == true,
-                isHidden = state.isHidden(launchable = resolvedItem)
-            )
+        launchableState
+    ) { request, state ->
+        request?.let { requested -> MenuLookup(request = requested, state = state) }
+    }.flatMapLatest { lookup ->
+        if (lookup == null) {
+            flowOf(null)
+        } else {
+            val launchable: Launchable? = lookup.state.launchableFor(key = lookup.request.launchable.key)
+            if (launchable != null) {
+                flowOf(lookup.state.toMenu(request = lookup.request, launchable = launchable, profileSource = profileSource))
+            } else {
+                shortcutSearchSource.shortcuts.map { shortcuts ->
+                    val resolvedShortcut: SearchShortcut? = shortcuts
+                        .find { searchShortcut -> searchShortcut.shortcut.key == lookup.request.launchable.key }
+                    if (resolvedShortcut == null) {
+                        Timber.w("Requested Shortcut is missing from the Shortcut search source")
+                    }
+                    resolvedShortcut?.let { searchShortcut ->
+                        lookup.state.toMenu(request = lookup.request, launchable = searchShortcut.shortcut, profileSource = profileSource)
+                    }
+                }
+            }
         }
     }
 
