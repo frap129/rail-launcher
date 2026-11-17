@@ -2,6 +2,7 @@ package core.data.shortcuts
 
 import android.content.pm.LauncherApps
 import android.os.UserHandle
+import core.data.apps.model.AppProfile
 import kotlinx.coroutines.flow.Flow
 
 internal const val SHORTCUT_QUERY_FLAGS: Int =
@@ -22,7 +23,8 @@ sealed interface ShortcutsResult {
 
 /** A live source of the shortcuts published by an app in one user profile. */
 interface IShortcutSource {
-    fun shortcuts(packageName: String, profile: UserHandle): Flow<ShortcutsResult>
+    /** The Shortcuts [app] publishes, refreshed while collected. */
+    fun shortcuts(app: AppProfile): Flow<ShortcutsResult>
 
     /**
      * The Shortcuts this source could account for among [keys].

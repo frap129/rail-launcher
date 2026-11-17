@@ -2,6 +2,7 @@ package core.data.popups
 
 import android.os.UserHandle
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.shortcuts.IShortcutSource
@@ -131,7 +132,7 @@ fun collectShortcuts(
 private fun shortcutsFor(target: ShortcutTarget, shortcutSource: IShortcutSource): Flow<ShortcutsResult> {
     val packageName: String = target.packageName ?: return flowOf(EMPTY_SHORTCUTS)
     val profile: UserHandle = target.profile ?: return flowOf(EMPTY_SHORTCUTS)
-    return shortcutSource.shortcuts(packageName = packageName, profile = profile)
+    return shortcutSource.shortcuts(app = AppProfile(packageName = packageName, profile = profile))
         .catch { exception ->
             if (exception is CancellationException) {
                 throw exception

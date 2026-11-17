@@ -3,13 +3,13 @@ package core.data.shortcuts
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.content.pm.ShortcutInfo
-import android.os.Handler
-import android.os.Looper
 import android.os.UserHandle
 import android.os.UserManager
 import core.data.apps.model.AppProfile
 import core.util.logTypeName
+import java.io.Closeable
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
@@ -21,55 +21,27 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 /** Reads an app's launcher shortcuts from [LauncherApps] and refreshes while collected. */
-class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
+class IShortcutSourceImpl(
+    context: Context,
+    private val shortcutListener: IShortcutListener,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
+) : IShortcutSource {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager: UserManager = context.getSystemService(UserManager::class.java)
 
-    override fun shortcuts(packageName: String, profile: UserHandle): Flow<ShortcutsResult> = callbackFlow {
-        val owner: AppProfile = AppProfile(packageName = packageName, profile = profile)
-        val refresh: Channel<Unit> = Channel(Channel.CONFLATED)
-        val callback: LauncherApps.Callback = createCallback(owners = setOf(owner), refresh = refresh)
-        if (!registerCallback(callback)) {
-            trySend(ShortcutsResult.Unavailable)
-            close()
-            awaitClose { }
-            return@callbackFlow
-        }
-        launch {
-            for (ignored: Unit in refresh) {
-                trySend(loadShortcuts(owner = owner))
-            }
-        }
-        trySend(loadShortcuts(owner = owner))
-        awaitClose { launcherApps.unregisterCallback(callback) }
-    }
+    override fun shortcuts(app: AppProfile): Flow<ShortcutsResult> =
+        liveFlow(apps = setOf(app), unavailable = ShortcutsResult.Unavailable) { loadShortcuts(app = app) }
 
     override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> {
         if (keys.isEmpty()) {
             return flowOf(ShortcutResolution())
         }
-        val owners: Map<AppProfile, List<ShortcutKey>> = keys.groupBy { key -> key.toAppProfile() }
-        return callbackFlow {
-            val refresh: Channel<Unit> = Channel(Channel.CONFLATED)
-            val callback: LauncherApps.Callback = createCallback(owners = owners.keys, refresh = refresh)
-            if (!registerCallback(callback)) {
-                trySend(ShortcutResolution())
-                close()
-                awaitClose { }
-                return@callbackFlow
-            }
-            launch {
-                for (ignored: Unit in refresh) {
-                    trySend(loadResolution(owners = owners))
-                }
-            }
-            trySend(loadResolution(owners = owners))
-            awaitClose { launcherApps.unregisterCallback(callback) }
-        }
+        val keysByApp: Map<AppProfile, List<ShortcutKey>> = keys.groupBy { key -> key.toAppProfile() }
+        return liveFlow(apps = keysByApp.keys, unavailable = ShortcutResolution()) { loadResolution(keysByApp = keysByApp) }
     }
 
     override suspend fun pin(packageName: String, profile: UserHandle, ids: Set<String>) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatcher) {
             try {
                 launcherApps.pinShortcuts(packageName, ids.toList(), profile)
             } catch (exception: CancellationException) {
@@ -84,92 +56,72 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         }
     }
 
-    private fun createCallback(owners: Set<AppProfile>, refresh: Channel<Unit>): LauncherApps.Callback = object : LauncherApps.Callback() {
-        override fun onPackageAdded(packageName: String, user: UserHandle) {
-            refreshIfMatches(owners = owners, changedPackage = packageName, changedProfile = user, refresh = refresh)
+    /** Emits [load] now and whenever the Shortcut listener reports a change for one of [apps]. */
+    private fun <T> liveFlow(apps: Collection<AppProfile>, unavailable: T, load: suspend () -> T): Flow<T> = callbackFlow {
+        val refresh: Channel<Unit> = Channel(Channel.CONFLATED)
+        val registration: Closeable? = shortcutListener.listen(apps = apps) { refresh.trySend(Unit) }
+        if (registration == null) {
+            trySend(unavailable)
+            close()
+            return@callbackFlow
         }
-        override fun onPackageRemoved(packageName: String, user: UserHandle) {
-            refreshIfMatches(owners = owners, changedPackage = packageName, changedProfile = user, refresh = refresh)
-        }
-        override fun onPackageChanged(packageName: String, user: UserHandle) {
-            refreshIfMatches(owners = owners, changedPackage = packageName, changedProfile = user, refresh = refresh)
-        }
-        override fun onPackagesAvailable(packageNames: Array<String>, user: UserHandle, replacing: Boolean) {
-            refreshIfPresent(owners = owners, changedPackages = packageNames, changedProfile = user, refresh = refresh)
-        }
-        override fun onPackagesUnavailable(packageNames: Array<String>, user: UserHandle, replacing: Boolean) {
-            refreshIfPresent(owners = owners, changedPackages = packageNames, changedProfile = user, refresh = refresh)
-        }
-        override fun onShortcutsChanged(packageName: String, shortcuts: List<ShortcutInfo>, user: UserHandle) {
-            refreshIfMatches(owners = owners, changedPackage = packageName, changedProfile = user, refresh = refresh)
-        }
-    }
-
-    private fun refreshIfMatches(owners: Set<AppProfile>, changedPackage: String, changedProfile: UserHandle, refresh: Channel<Unit>) {
-        if (owners.any { owner -> owner.packageName == changedPackage && owner.profile == changedProfile }) {
-            refresh.trySend(Unit)
+        try {
+            launch {
+                for (ignored: Unit in refresh) {
+                    trySend(load())
+                }
+            }
+            trySend(load())
+            awaitClose()
+        } finally {
+            registration.close()
         }
     }
 
-    private fun refreshIfPresent(
-        owners: Set<AppProfile>,
-        changedPackages: Array<String>,
-        changedProfile: UserHandle,
-        refresh: Channel<Unit>
-    ) {
-        if (owners.any { owner -> owner.profile == changedProfile && owner.packageName in changedPackages }) {
-            refresh.trySend(Unit)
-        }
-    }
-
-    private fun registerCallback(callback: LauncherApps.Callback): Boolean = runCatching {
-        launcherApps.registerCallback(callback, Handler(Looper.getMainLooper()))
-    }.onFailure { exception -> Timber.w(exception, "Could not listen for shortcut changes") }.isSuccess
-
-    private suspend fun loadShortcuts(owner: AppProfile): ShortcutsResult = withContext(Dispatchers.IO) {
+    private suspend fun loadShortcuts(app: AppProfile): ShortcutsResult = withContext(dispatcher) {
         try {
             if (!launcherApps.hasShortcutHostPermission()) {
                 return@withContext ShortcutsResult.Unavailable
             }
-            when (isQuietModeEnabled(profile = owner.profile)) {
+            when (isQuietModeEnabled(profile = app.profile)) {
                 true -> return@withContext ShortcutsResult.ProfilePaused
                 null -> return@withContext ShortcutsResult.Unavailable
                 false -> Unit
             }
-            val shortcuts: List<ShortcutLaunchable> = readShortcuts(owner = owner)
+            val shortcuts: List<ShortcutLaunchable> = readShortcuts(app = app)
             ShortcutsResult.Available(shortcuts = shortcuts)
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: SecurityException) {
-            Timber.w("No permission to read shortcuts for %s: %s", owner.profile, exception.logTypeName())
+            Timber.w("No permission to read shortcuts for %s: %s", app.profile, exception.logTypeName())
             ShortcutsResult.Unavailable
         } catch (exception: IllegalStateException) {
-            Timber.w("Could not read shortcuts for %s: %s", owner.profile, exception.logTypeName())
+            Timber.w("Could not read shortcuts for %s: %s", app.profile, exception.logTypeName())
             ShortcutsResult.Unavailable
         }
     }
 
-    private suspend fun loadResolution(owners: Map<AppProfile, List<ShortcutKey>>): ShortcutResolution = withContext(Dispatchers.IO) {
+    private suspend fun loadResolution(keysByApp: Map<AppProfile, List<ShortcutKey>>): ShortcutResolution = withContext(dispatcher) {
         if (!launcherApps.hasShortcutHostPermission()) {
             return@withContext ShortcutResolution()
         }
         val shortcuts: MutableMap<ShortcutKey, ShortcutLaunchable> = mutableMapOf()
         val goneKeys: MutableSet<ShortcutKey> = mutableSetOf()
-        for ((owner: AppProfile, keys: List<ShortcutKey>) in owners) {
-            if (isQuietModeEnabled(profile = owner.profile) != false) {
+        for ((app: AppProfile, keys: List<ShortcutKey>) in keysByApp) {
+            if (isQuietModeEnabled(profile = app.profile) != false) {
                 continue
             }
-            val shortcutsById: Map<String, ShortcutInfo> = readResolvedShortcuts(owner = owner) ?: continue
+            val shortcutsById: Map<String, ShortcutInfo> = readResolvedShortcuts(app = app) ?: continue
             // An empty result can be a package that is mid-update, so only an App that still
             // publishes Shortcuts can vouch that a requested one is gone.
             if (shortcutsById.isEmpty()) {
-                Timber.w("No shortcuts published by an App in %s; keeping requested shortcuts unresolved", owner.profile)
+                Timber.w("No shortcuts published by an App in %s; keeping requested shortcuts unresolved", app.profile)
                 continue
             }
             keys.forEach { key ->
                 val shortcut: ShortcutInfo? = shortcutsById[key.id]
                 if (shortcut != null) {
-                    shortcuts[key] = shortcut.toShortcutLaunchable(owner = owner)
+                    shortcuts[key] = shortcut.toShortcutLaunchable(owner = app)
                 } else {
                     goneKeys += key
                 }
@@ -189,15 +141,15 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         null
     }
 
-    private fun readShortcuts(owner: AppProfile): List<ShortcutLaunchable> {
+    private fun readShortcuts(app: AppProfile): List<ShortcutLaunchable> {
         val query: LauncherApps.ShortcutQuery = LauncherApps.ShortcutQuery().apply {
-            setPackage(owner.packageName)
+            setPackage(app.packageName)
             setQueryFlags(SHORTCUT_QUERY_FLAGS)
         }
         val shortcutsById: LinkedHashMap<String, ShortcutInfo> = LinkedHashMap()
-        launcherApps.getActivityList(owner.packageName, owner.profile).forEach { activity ->
+        launcherApps.getActivityList(app.packageName, app.profile).forEach { activity ->
             query.setActivity(activity.componentName)
-            launcherApps.getShortcuts(query, owner.profile).orEmpty().forEach { shortcut ->
+            launcherApps.getShortcuts(query, app.profile).orEmpty().forEach { shortcut ->
                 if (shortcut.isEnabled && (shortcut.isDeclaredInManifest || shortcut.isDynamic)) {
                     shortcutsById.putIfAbsent(shortcut.id, shortcut)
                 }
@@ -205,28 +157,28 @@ class IShortcutSourceImpl(private val context: Context) : IShortcutSource {
         }
         return shortcutsById.values
             .sortedWith(compareBy({ shortcut -> if (shortcut.isDeclaredInManifest) 0 else 1 }, { shortcut -> shortcut.rank }))
-            .map { shortcut -> shortcut.toShortcutLaunchable(owner = owner) }
+            .map { shortcut -> shortcut.toShortcutLaunchable(owner = app) }
     }
 
-    private fun readResolvedShortcuts(owner: AppProfile): Map<String, ShortcutInfo>? = try {
-        readPackageShortcuts(owner = owner)
+    private fun readResolvedShortcuts(app: AppProfile): Map<String, ShortcutInfo>? = try {
+        readPackageShortcuts(app = app)
     } catch (exception: SecurityException) {
-        Timber.w("No permission to resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
+        Timber.w("No permission to resolve shortcuts for %s: %s", app.profile, exception.logTypeName())
         null
     } catch (exception: IllegalStateException) {
-        Timber.w("Could not resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
+        Timber.w("Could not resolve shortcuts for %s: %s", app.profile, exception.logTypeName())
         null
     } catch (exception: IllegalArgumentException) {
-        Timber.w("No Profile to resolve shortcuts for %s: %s", owner.profile, exception.logTypeName())
+        Timber.w("No Profile to resolve shortcuts for %s: %s", app.profile, exception.logTypeName())
         null
     }
 
-    private fun readPackageShortcuts(owner: AppProfile): Map<String, ShortcutInfo> {
+    private fun readPackageShortcuts(app: AppProfile): Map<String, ShortcutInfo> {
         val query: LauncherApps.ShortcutQuery = LauncherApps.ShortcutQuery().apply {
-            setPackage(owner.packageName)
+            setPackage(app.packageName)
             setQueryFlags(SHORTCUT_RESOLVE_FLAGS)
         }
-        return launcherApps.getShortcuts(query, owner.profile).orEmpty().associateBy { shortcut -> shortcut.id }
+        return launcherApps.getShortcuts(query, app.profile).orEmpty().associateBy { shortcut -> shortcut.id }
     }
 
     private fun logPinFailure(profile: UserHandle, ids: Set<String>, exception: Exception) {

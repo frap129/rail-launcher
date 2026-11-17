@@ -24,7 +24,7 @@ fun createShortcutSourceMock(
     shortcutsResult: StateFlow<ShortcutsResult> = MutableStateFlow(ShortcutsResult.Available(shortcuts = emptyList()))
 ): IShortcutSource {
     val mockShortcutSource: IShortcutSource = mockk()
-    every { mockShortcutSource.shortcuts(any(), any()) } returns shortcutsResult
+    every { mockShortcutSource.shortcuts(any()) } returns shortcutsResult
     every { mockShortcutSource.resolve(any()) } answers {
         val keys: Set<ShortcutKey> = firstArg()
         resolution.map { current -> current.filterToKeys(keys = keys) }

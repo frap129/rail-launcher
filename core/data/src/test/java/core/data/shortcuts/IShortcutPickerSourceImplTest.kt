@@ -28,7 +28,10 @@ class IShortcutPickerSourceImplTest {
     private val context: Application = RuntimeEnvironment.getApplication()
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val shadowLauncherApps: ShadowLauncherApps = Shadow.extract(launcherApps)
-    private val shortcutSource: IShortcutSource = IShortcutSourceImpl(context = context)
+    private val shortcutSource: IShortcutSource = IShortcutSourceImpl(
+        context = context,
+        shortcutListener = IShortcutListenerImpl(context = context)
+    )
 
     @Before
     fun grantShortcutHostPermission() {

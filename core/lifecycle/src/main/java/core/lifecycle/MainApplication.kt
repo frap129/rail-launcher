@@ -100,6 +100,8 @@ import core.data.search.IWebSuggestionSource
 import core.data.search.IWebSuggestionSourceImpl
 import core.data.shortcuts.IPopupShortcutPinSource
 import core.data.shortcuts.IPopupShortcutPinSourceImpl
+import core.data.shortcuts.IShortcutListener
+import core.data.shortcuts.IShortcutListenerImpl
 import core.data.shortcuts.IShortcutPickerSource
 import core.data.shortcuts.IShortcutPickerSourceImpl
 import core.data.shortcuts.IShortcutPinCoordinator
@@ -280,7 +282,8 @@ class MainApplication :
         single<IPreferencesRepository> {
             IPreferencesRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
-        single<IShortcutSource> { IShortcutSourceImpl(androidContext()) }
+        single<IShortcutListener> { IShortcutListenerImpl(context = androidContext()) }
+        single<IShortcutSource> { IShortcutSourceImpl(context = androidContext(), shortcutListener = get()) }
         single<IStoredKeyClassifier> {
             IStoredKeyClassifierImpl(launchableRepository = get(), shortcutSource = get())
         }

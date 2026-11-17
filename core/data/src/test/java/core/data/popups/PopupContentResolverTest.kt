@@ -9,6 +9,7 @@ import core.data.launchables.model.RailLaunchable
 import core.data.notifications.NotificationSnapshot
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.ShortcutsResult
+import core.data.testing.SECOND_PACKAGE_NAME
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
@@ -26,7 +27,6 @@ import org.robolectric.annotation.Config
 private const val OWNER_NAME: String = "Example"
 private const val FIRST_SHORTCUT_ID: String = "first"
 private const val SECOND_SHORTCUT_ID: String = "second"
-private const val SECOND_PACKAGE_NAME: String = "com.example.second"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])

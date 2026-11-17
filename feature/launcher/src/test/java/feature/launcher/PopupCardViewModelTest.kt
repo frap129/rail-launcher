@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import app.cash.turbine.test
 import core.data.apps.model.App
+import core.data.apps.model.AppProfile
 import core.data.icons.IIconImageImporter
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
@@ -1502,12 +1503,14 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
 
     /** Verifies [app]'s Shortcut source was queried exactly [count] times. */
     private fun verifyShortcutRequests(app: App, count: Int) {
-        verify(exactly = count) { mockShortcutSource.shortcuts(any(), any()) }
-        verify(exactly = count) { mockShortcutSource.shortcuts(app.packageName, app.profile) }
+        verify(exactly = count) { mockShortcutSource.shortcuts(any()) }
+        verify(exactly = count) {
+            mockShortcutSource.shortcuts(app = AppProfile(packageName = app.packageName, profile = app.profile))
+        }
     }
 
     private fun verifyNoShortcutRequests() {
-        verify(exactly = 0) { mockShortcutSource.shortcuts(any(), any()) }
+        verify(exactly = 0) { mockShortcutSource.shortcuts(any()) }
     }
 
     private fun TestScope.createWidgetViewModel(
