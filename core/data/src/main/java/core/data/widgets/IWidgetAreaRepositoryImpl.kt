@@ -16,20 +16,28 @@ class IWidgetAreaRepositoryImpl(
     private val lifecycleReconciler: IWidgetLifecycleReconciler,
     private val settingsRepository: IWidgetSettingsRepository
 ) : IWidgetAreaRepository {
-    override val places: Flow<List<WidgetPlace>> = placesFor(ownerKey = null)
+    override val placesState: Flow<WidgetAreaPlaces> = placesStateFor(ownerKey = null)
+
+    override val places: Flow<List<WidgetPlace>> = placesState
+        .map { state -> state.places }
+        .distinctUntilChanged()
 
     override val popupOwnerKeys: Flow<List<String>> = widgetAreaDao.observePopupOwnerKeys()
         .map { ownerKeys -> ownerKeys.distinct() }
         .distinctUntilChanged()
 
-    override fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> = combine(
+    override fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> = placesStateFor(ownerKey = ownerKey)
+        .map { state -> state.places }
+        .distinctUntilChanged()
+
+    private fun placesStateFor(ownerKey: String?): Flow<WidgetAreaPlaces> = combine(
         widgetAreaDao.observePlaces(),
         widgetAreaDao.observeWidgets(),
         appWidgetHost.providerChanges.onStart { emit(Unit) },
         lifecycleReconciler.isStartupReconciled
     ) { places, widgets, _, startupReconciled ->
         if (!startupReconciled) {
-            emptyList()
+            WidgetAreaPlaces(places = emptyList(), isLoaded = false)
         } else {
             val ownedPlaces: List<WidgetPlaceRecord> = places.filter { place -> place.ownerKey == ownerKey }
             val ownedPlaceIds: Set<Long> = ownedPlaces.mapTo(mutableSetOf()) { place -> place.id }
@@ -40,7 +48,7 @@ class IWidgetAreaRepositoryImpl(
             if (ownerKey == null) {
                 deleteDuplicateHeaders(ids = resolution.duplicateHeaderIds)
             }
-            resolution.places
+            WidgetAreaPlaces(places = resolution.places, isLoaded = true)
         }
     }.flowOn(Dispatchers.IO)
         .distinctUntilChanged()

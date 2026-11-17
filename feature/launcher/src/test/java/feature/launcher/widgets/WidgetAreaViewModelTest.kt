@@ -30,6 +30,7 @@ import core.data.prefs.TimeFormat
 import core.data.testing.AppWidgetHostFixture
 import core.data.testing.MainDispatcherRule
 import core.data.testing.WidgetAreaRepositoryFixture
+import core.data.testing.WidgetAreaRepositoryState
 import core.data.testing.appWidgetPlace
 import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock
@@ -84,6 +85,7 @@ import core.ui.widgets.HeaderModel
 import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.IHeaderTapTargetResolverImpl
 import feature.launcher.R
+import feature.launcher.awaitFirstMatching
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.verify
@@ -129,6 +131,35 @@ class WidgetAreaViewModelTest {
             assertEquals("Tuesday, October 20, 2026", actualHeader.date?.spokenText)
             assertEquals(CoreUiR.string.open_alarms, actualHeader.time?.clickLabel)
             assertEquals(CoreUiR.string.open_calendar, actualHeader.date?.clickLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `does not report the Widget Area as loaded before its places load`() = runTest {
+        val state: WidgetAreaRepositoryState = WidgetAreaRepositoryState(
+            initialPlacesByOwner = mapOf(null to listOf(headerPlace)),
+            initialIsLoaded = false
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(state = state))
+        viewModel.widgetAreaState.test {
+            val actualUnloaded: WidgetAreaState = expectMostRecentItem()
+            assertFalse(actualUnloaded.isLoaded)
+            assertTrue(actualUnloaded.places.isEmpty())
+            state.isLoaded.value = true
+            val actualLoaded: WidgetAreaState = awaitFirstMatching { widgetAreaState -> widgetAreaState.isLoaded }
+            assertTrue(actualLoaded.places.isNotEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `reports a loaded Widget Area with no places`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel(mockRepository = createWidgetAreaRepositoryMock(places = emptyList()))
+        viewModel.widgetAreaState.test {
+            val actualLoaded: WidgetAreaState = expectMostRecentItem()
+            assertTrue(actualLoaded.isLoaded)
+            assertTrue(actualLoaded.places.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

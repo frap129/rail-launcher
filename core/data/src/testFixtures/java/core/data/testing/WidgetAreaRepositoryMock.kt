@@ -3,6 +3,7 @@ package core.data.testing
 import core.data.widgets.AddedAppWidget
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.WidgetAreaPlaces
 import core.data.widgets.WidgetPlace
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -11,16 +12,25 @@ import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /** The places a [createWidgetAreaRepositoryMock] repository reports, keyed by Pop-up owner key; null is the Widget Area. */
-class WidgetAreaRepositoryState(initialPlacesByOwner: Map<String?, List<WidgetPlace>> = emptyMap()) {
+class WidgetAreaRepositoryState(initialPlacesByOwner: Map<String?, List<WidgetPlace>> = emptyMap(), initialIsLoaded: Boolean = true) {
     /** The places each owner holds, partitioned before the mock reports them. */
     val placesByOwner: MutableStateFlow<Map<String?, List<WidgetPlace>>> = MutableStateFlow(initialPlacesByOwner)
 
+    /** Whether the stored places have loaded; true so a fixture is loaded unless a test changes it. */
+    val isLoaded: MutableStateFlow<Boolean> = MutableStateFlow(initialIsLoaded)
+
     /** The Widget Area places. */
     val areaPlaces: Flow<List<WidgetPlace>> = placesByOwner.map { places -> places[null].orEmpty() }.distinctUntilChanged()
+
+    /** The Widget Area places with the loaded flag the production repository reports. */
+    val areaPlacesState: Flow<WidgetAreaPlaces> = combine(placesByOwner, isLoaded) { places, isLoaded ->
+        WidgetAreaPlaces(places = if (isLoaded) places[null].orEmpty() else emptyList(), isLoaded = isLoaded)
+    }.distinctUntilChanged()
 
     /** The places owned by [ownerKey], or the Widget Area when it is null. */
     fun placesFor(ownerKey: String?): Flow<List<WidgetPlace>> =
@@ -56,6 +66,7 @@ fun createWidgetAreaRepositoryMock(
 ): IWidgetAreaRepository {
     val mockWidgetAreaRepository: IWidgetAreaRepository = mockk()
     every { mockWidgetAreaRepository.places } returns state.areaPlaces
+    every { mockWidgetAreaRepository.placesState } returns state.areaPlacesState
     every { mockWidgetAreaRepository.popupOwnerKeys } returns popupOwnerKeysFlow
     every { mockWidgetAreaRepository.placesFor(any()) } answers { state.placesFor(ownerKey = firstArg()) }
     every { mockWidgetAreaRepository.popupPlace(any()) } answers { state.popupPlace(ownerKey = firstArg()) }

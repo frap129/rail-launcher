@@ -12,6 +12,12 @@ interface IFavoritesRepository {
     val favorites: Flow<List<Launchable>>
 
     /**
+     * Whether [favorites] reflects the stored Favorites. False until the Launchables load and the
+     * stored records resolve; after that, an empty list is a loaded Home with no Favorites.
+     */
+    val isLoaded: Flow<Boolean>
+
+    /**
      * Whether [launchable] is a Favorite. False while the Launchables have not loaded,
      * and false for a stored record whose Launchable cannot currently be resolved.
      */

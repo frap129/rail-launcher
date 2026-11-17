@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FavoritesRepositoryState {
     val favorites: MutableStateFlow<List<Launchable>> = MutableStateFlow(emptyList())
 
+    /** Whether the stored Favorites have loaded; true so a fixture is loaded unless a test says otherwise. */
+    val isLoaded: MutableStateFlow<Boolean> = MutableStateFlow(true)
+
     /** Whether an `isFavorite` read answers true. */
     val isFavorite: MutableStateFlow<Boolean> = MutableStateFlow(false)
 }
@@ -21,6 +24,7 @@ class FavoritesRepositoryState {
 fun createFavoritesRepositoryMock(state: FavoritesRepositoryState = FavoritesRepositoryState()): IFavoritesRepository {
     val mockFavoritesRepository: IFavoritesRepository = mockk()
     every { mockFavoritesRepository.favorites } returns state.favorites
+    every { mockFavoritesRepository.isLoaded } returns state.isLoaded
     every { mockFavoritesRepository.isFavorite(any()) } returns state.isFavorite
     coEvery { mockFavoritesRepository.add(any()) } just Runs
     coEvery { mockFavoritesRepository.remove(any()) } just Runs

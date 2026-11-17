@@ -201,6 +201,7 @@ private data class MenuContext(val target: WidgetMenuTarget?, val expandedChoice
 
 private data class WidgetAreaContent(
     val places: List<WidgetPlace>,
+    val arePlacesLoaded: Boolean,
     val reading: ClockReading,
     val settings: HeaderSettings,
     val battery: BatteryStatus?,
@@ -315,6 +316,7 @@ class WidgetAreaViewModel(
 
     private data class WidgetAreaContentBase(
         val places: List<WidgetPlace>,
+        val arePlacesLoaded: Boolean,
         val reading: ClockReading,
         val settingsAndBattery: HeaderSettingsAndBattery,
         val launchableState: LaunchableState,
@@ -322,14 +324,15 @@ class WidgetAreaViewModel(
     )
 
     private val widgetAreaContentBase: Flow<WidgetAreaContentBase> = combine(
-        repository.places,
+        repository.placesState,
         clockSource.readings,
         settingsAndBattery,
         launchableRepository.launchableState,
         eventData
-    ) { places, reading, settingsAndBattery, launchableState, events ->
+    ) { placesState, reading, settingsAndBattery, launchableState, events ->
         WidgetAreaContentBase(
-            places = places,
+            places = placesState.places,
+            arePlacesLoaded = placesState.isLoaded,
             reading = reading,
             settingsAndBattery = settingsAndBattery,
             launchableState = launchableState,
@@ -343,6 +346,7 @@ class WidgetAreaViewModel(
     ) { base, widgetAreaSettings ->
         WidgetAreaContent(
             places = base.places,
+            arePlacesLoaded = base.arePlacesLoaded,
             reading = base.reading,
             settings = base.settingsAndBattery.settings,
             battery = base.settingsAndBattery.battery,
@@ -400,6 +404,7 @@ class WidgetAreaViewModel(
                     headerHeightDp = presentation.headerHeightDp
                 )
             },
+            isLoaded = content.arePlacesLoaded,
             hasWidgets = orderedPlaces.isNotEmpty(),
             isEditing = draft != null,
             stackIndicatorVisible = content.widgetAreaSettings.stackIndicatorVisible,
