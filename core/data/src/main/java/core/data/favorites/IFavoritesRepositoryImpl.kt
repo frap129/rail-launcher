@@ -53,6 +53,10 @@ class IFavoritesRepositoryImpl(
         .map { resolved -> resolved.favorites }
         .distinctUntilChanged()
 
+    override val isLoaded: Flow<Boolean> = resolution
+        .map { resolved -> resolved.isLoaded }
+        .distinctUntilChanged()
+
     override fun isFavorite(launchable: Launchable): Flow<Boolean> = resolution
         .map { resolved -> launchable.key in resolved.favoriteKeys }
         .distinctUntilChanged()

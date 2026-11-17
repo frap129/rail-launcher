@@ -4,6 +4,9 @@ import android.app.ActivityOptions
 import android.content.Context
 import android.content.IntentSender
 import android.os.Build
+import androidx.activity.FullyDrawnReporter
+import androidx.activity.compose.LocalFullyDrawnReporterOwner
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
@@ -50,6 +54,7 @@ import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.search.SearchResult
 import core.ui.GroupMark
+import core.ui.HOME_FULLY_DRAWN_TEST_TAG
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.RailScrubState
@@ -177,9 +182,12 @@ internal fun LauncherContent(
                 onLaunch = onItemLaunch,
                 menuEnabled = !isEditingHome
             )
+            val isHomeReady: Boolean = isHomeVisible && home.isFavoritesLoaded && widgetArea.state.isLoaded
+            val isHomeFullyDrawn: Boolean = rememberHomeFullyDrawn(isHomeReady = isHomeReady)
             LauncherHome(
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(if (isHomeFullyDrawn) Modifier.testTag(HOME_FULLY_DRAWN_TEST_TAG) else Modifier)
                     .drawWithContent {
                         val alpha: Float = homeAlpha.value
                         when {
@@ -309,6 +317,27 @@ private fun retainedHomeState(uiState: LauncherUiState): LauncherUiState.Home? {
         is LauncherUiState.AppList, is LauncherUiState.Search -> retained
         LauncherUiState.Loading -> null
     }
+}
+
+/**
+ * Reports the activity fully drawn once Home is ready, and returns whether it has reported.
+ * Home is ready when it is shown with its Header, Widget Area and Favorites loaded; a loaded
+ * empty Home counts. The activity's fully-drawn reporter fires at most once per cold start,
+ * after the first frame.
+ */
+@Composable
+private fun rememberHomeFullyDrawn(isHomeReady: Boolean): Boolean {
+    var isReported: Boolean by remember { mutableStateOf(false) }
+    val fullyDrawnReporter: FullyDrawnReporter? = LocalFullyDrawnReporterOwner.current?.fullyDrawnReporter
+    DisposableEffect(fullyDrawnReporter) {
+        val onReported: () -> Unit = { isReported = true }
+        fullyDrawnReporter?.addOnReportDrawnListener(onReported)
+        onDispose { fullyDrawnReporter?.removeOnReportDrawnListener(onReported) }
+    }
+    if (isHomeReady) {
+        ReportDrawnWhen { true }
+    }
+    return isReported
 }
 
 @Composable

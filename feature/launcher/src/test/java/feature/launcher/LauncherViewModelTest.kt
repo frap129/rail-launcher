@@ -226,6 +226,25 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `reports Home Favorites as loaded only once they resolve`() {
+        runTest {
+            mockFavoritesFixture.state.isLoaded.value = false
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                val actualUnloaded: LauncherUiState.Home = expectHome()
+                assertFalse(actualUnloaded.isFavoritesLoaded)
+                assertTrue(actualUnloaded.favorites.isEmpty())
+                mockFavoritesFixture.state.isLoaded.value = true
+                val actualLoaded: LauncherUiState.Home = awaitFirstMatching { state ->
+                    state is LauncherUiState.Home && state.isFavoritesLoaded
+                } as LauncherUiState.Home
+                assertTrue(actualLoaded.favorites.isEmpty())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
     fun `shows Home when the Launchables are loaded and there are none`() {
         runTest {
             inputLaunchableState.value = createLaunchableState(groups = emptyList())
@@ -3858,15 +3877,6 @@ class LauncherViewModelTest {
             val actualState: LauncherUiState = awaitItem()
             if (actualState is LauncherUiState.AppList.Browsing && predicate(actualState.groups)) {
                 return actualState
-            }
-        }
-    }
-
-    private suspend fun <T> TurbineTestContext<T>.awaitFirstMatching(predicate: (T) -> Boolean): T {
-        while (true) {
-            val actualItem: T = awaitItem()
-            if (predicate(actualItem)) {
-                return actualItem
             }
         }
     }

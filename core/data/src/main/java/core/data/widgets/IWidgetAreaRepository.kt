@@ -61,9 +61,18 @@ data class ReplaceHeaderUndo(
     val widgetCurrentPage: Int
 )
 
+/** The Widget Area places and whether the stored layout has loaded; a loaded empty area has no places. */
+data class WidgetAreaPlaces(val places: List<WidgetPlace>, val isLoaded: Boolean)
+
 interface IWidgetAreaRepository {
     /** The Widget Area places in display order. Places owned by a Pop-up are excluded. */
     val places: Flow<List<WidgetPlace>>
+
+    /**
+     * [places] with an explicit loaded flag. False until startup reconciliation finishes, so a
+     * Widget Area without places is not mistaken for one that has not loaded.
+     */
+    val placesState: Flow<WidgetAreaPlaces>
 
     /** The place owned by the Pop-up [ownerKey], if it has one. */
     fun popupPlace(ownerKey: String): Flow<WidgetPlace?> = placesFor(ownerKey = ownerKey)

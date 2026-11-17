@@ -22,6 +22,7 @@ internal fun WidgetAreaSettings.toLayout(): WidgetAreaLayout =
 /** What the Widget Area shows once the first clock reading has arrived. */
 data class WidgetAreaState(
     val places: List<WidgetPlaceModel> = emptyList(),
+    val isLoaded: Boolean = false,
     val hasWidgets: Boolean = places.isNotEmpty(),
     val isEditing: Boolean = false,
     val stackIndicatorVisible: Boolean = true,

@@ -24,7 +24,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import timber.log.Timber
 
-private const val APP_PACKAGE = "dev.maples.rail"
 private const val WAIT_TIMEOUT_MS = 5_000L
 private const val FLING_SPEED = 10_000
 private const val DRAG_SPEED = 1_000
@@ -103,81 +102,68 @@ class BaselineProfileGenerator {
 
     @Test
     fun generate() {
-        val previousHome: String = previousHomeActivity()
-        try {
-            val testProfiles: TestProfiles = setUpTestProfiles()
-            rule.collect(
-                packageName = APP_PACKAGE,
-                includeInStartupProfile = true
-            ) {
-                // Make Rail the default Home so pressHome() always returns to it.
-                device.executeShellCommand("cmd package set-home-activity $APP_PACKAGE/.MainActivity")
+        withPreviousHomeRestored(device = device) {
+            try {
+                val testProfiles: TestProfiles = setUpTestProfiles()
+                rule.collect(
+                    packageName = APP_PACKAGE,
+                    includeInStartupProfile = true
+                ) {
+                    // Make Rail the default Home so pressHome() always returns to it.
+                    setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
 
-                // Start default activity
-                pressHome()
-                startActivityAndWait()
+                    // Start default activity
+                    pressHome()
+                    startActivityAndWait()
 
-                // Create a known Favorite, open it, exercise the card and return Home.
-                findOrThrow(By.res("launcherHome"), "Home not found")
-                val favoriteName: String = addFavoriteFromAppList()
-                openFavoritePopup(favoriteName = favoriteName)
+                    // Create a known Favorite, open it, exercise the card and return Home.
+                    findOrThrow(By.res("launcherHome"), "Home not found")
+                    val favoriteName: String = addFavoriteFromAppList()
+                    openFavoritePopup(favoriteName = favoriteName)
 
-                // Scroll launcher
-                val launcherList = openAppList()
-                launcherList.fling(Direction.DOWN, FLING_SPEED)
-                launcherList.fling(Direction.UP, FLING_SPEED)
+                    // Scroll launcher
+                    val launcherList = openAppList()
+                    launcherList.fling(Direction.DOWN, FLING_SPEED)
+                    launcherList.fling(Direction.UP, FLING_SPEED)
 
-                // Interact with the ScrollRail
-                dragScrollRail()
-                dragMirrorStrip()
+                    // Interact with the ScrollRail
+                    dragScrollRail()
+                    dragMirrorStrip()
 
-                // Rail Settings > Widgets.
-                setHeightLimit(row = openWidgetsSettings(), enabled = true)
+                    // Rail Settings > Widgets.
+                    setHeightLimit(row = openWidgetsSettings(), enabled = true)
 
-                // Home with the widget height limit on: the Header renders inside the cap.
-                returnHome()
-                findOrThrow(HEADER_TIME_SELECTOR, "Header time not found in the capped Widget Area").longClick()
-                findOrThrow(By.text(appString("clock_style")), "Header menu not found")
-                device.pressBack()
-                check(device.wait(Until.gone(By.text(appString("clock_style"))), WAIT_TIMEOUT_MS)) {
-                    "Header menu did not close"
+                    // Home with the widget height limit on: the Header renders inside the cap.
+                    returnHome()
+                    findOrThrow(HEADER_TIME_SELECTOR, "Header time not found in the capped Widget Area").longClick()
+                    findOrThrow(By.text(appString("clock_style")), "Header menu not found")
+                    device.pressBack()
+                    check(device.wait(Until.gone(By.text(appString("clock_style"))), WAIT_TIMEOUT_MS)) {
+                        "Header menu did not close"
+                    }
+                    dragScrollRail()
+
+                    // Home with the widget height limit off.
+                    setHeightLimit(row = openWidgetsSettings(), enabled = false)
+                    returnHome()
+                    check(scrollHomeToTop()) { "Header time not found on uncapped Home" }
+
+                    // Media Player is hidden by default; exercise Home with no media player.
+                    check(device.wait(Until.gone(By.desc(appString("media_player_menu"))), WAIT_TIMEOUT_MS)) {
+                        "Media Player unexpectedly visible; disable it in Widgets settings"
+                    }
+                    dragScrollRail()
+
+                    testProfiles.workUserId?.let { workUserId ->
+                        exerciseWorkProfile(workUserId = workUserId)
+                    }
+                    testProfiles.privateSpaceUserId?.let { privateSpaceUserId ->
+                        exercisePrivateSpace(privateSpaceUserId = privateSpaceUserId, favoriteName = favoriteName)
+                    }
                 }
-                dragScrollRail()
-
-                // Home with the widget height limit off.
-                setHeightLimit(row = openWidgetsSettings(), enabled = false)
-                returnHome()
-                check(scrollHomeToTop()) { "Header time not found on uncapped Home" }
-
-                // Media Player is hidden by default; exercise Home with no media player.
-                check(device.wait(Until.gone(By.desc(appString("media_player_menu"))), WAIT_TIMEOUT_MS)) {
-                    "Media Player unexpectedly visible; disable it in Widgets settings"
-                }
-                dragScrollRail()
-
-                testProfiles.workUserId?.let { workUserId ->
-                    exerciseWorkProfile(workUserId = workUserId)
-                }
-                testProfiles.privateSpaceUserId?.let { privateSpaceUserId ->
-                    exercisePrivateSpace(privateSpaceUserId = privateSpaceUserId, favoriteName = favoriteName)
-                }
+            } finally {
+                removeTestProfiles()
             }
-        } finally {
-            removeTestProfiles()
-            restoreHome(previousHome = previousHome)
-        }
-    }
-
-    private fun previousHomeActivity(): String = device.executeShellCommand(
-        "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME"
-    ).lineSequence()
-        .map(String::trim)
-        .lastOrNull { line -> line.count { character -> character == '/' } == 1 && !line.startsWith("/") }
-        .orEmpty()
-
-    private fun restoreHome(previousHome: String) {
-        if (previousHome.isNotBlank() && !previousHome.contains(APP_PACKAGE)) {
-            device.executeShellCommand("cmd package set-home-activity $previousHome")
         }
     }
 

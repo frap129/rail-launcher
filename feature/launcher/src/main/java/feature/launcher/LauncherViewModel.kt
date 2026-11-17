@@ -89,6 +89,7 @@ sealed class LauncherUiState {
     data class Home(
         val lazyListState: LazyListState,
         val favorites: List<Launchable>,
+        val isFavoritesLoaded: Boolean,
         val isSwipeUpEnabled: Boolean,
         val isSwipeDownEnabled: Boolean,
         val isEditingFavorites: Boolean = false
@@ -167,6 +168,9 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
 }
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
+
+/** The Favorites Home shows, and whether they have loaded; a loaded empty Home has no Favorites. */
+private data class FavoritesState(val favorites: List<Launchable>, val isLoaded: Boolean)
 
 /** The Shortcuts Search may match, and whether their source has emitted them yet. */
 private data class ShortcutSearchState(val shortcuts: List<SearchShortcut> = emptyList(), val isLoaded: Boolean = false)
@@ -276,7 +280,7 @@ private fun toSearchUiState(search: SearchState, state: LaunchableState, searchD
 private fun toUiState(
     navigation: RailNavigation,
     state: LaunchableState,
-    favorites: List<Launchable>,
+    favoritesState: FavoritesState,
     isEditingFavorites: Boolean,
     searchData: SearchData
 ): LauncherUiState {
@@ -290,7 +294,8 @@ private fun toUiState(
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
-            favorites = favorites,
+            favorites = favoritesState.favorites,
+            isFavoritesLoaded = favoritesState.isLoaded,
             isSwipeUpEnabled = searchData.settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = searchData.settings.expandNotificationsOnSwipeDown,
             isEditingFavorites = isEditingFavorites
@@ -512,17 +517,24 @@ class LauncherViewModel(
         initialValue = emptyList()
     )
 
+    private val favoritesState: Flow<FavoritesState> = combine(
+        favorites,
+        favoritesRepo.isLoaded
+    ) { favorites, isLoaded ->
+        FavoritesState(favorites = favorites, isLoaded = isLoaded)
+    }
+
     val uiState: StateFlow<LauncherUiState> = combine(
         navigation,
         launchableState,
-        favorites,
+        favoritesState,
         isEditingFavorites,
         searchDataWithWebSuggestions
-    ) { navigation, state, favorites, isEditingFavorites, searchData ->
+    ) { navigation, state, favoritesState, isEditingFavorites, searchData ->
         toUiState(
             navigation = navigation,
             state = state,
-            favorites = favorites,
+            favoritesState = favoritesState,
             isEditingFavorites = isEditingFavorites,
             searchData = searchData
         )
