@@ -34,6 +34,8 @@ import core.data.room.AppDatabase
 import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
+import core.data.search.ISearchProjectionSource
+import core.data.search.ISearchProjectionSourceImpl
 import core.data.search.IShortcutSearchSource
 import core.data.search.IWebSuggestionSource
 import core.data.search.SearchContact
@@ -97,10 +99,12 @@ import core.data.testing.createStandaloneShortcutRepositoryMock
 import core.data.testing.createTestNotificationSource
 import core.data.testing.createWebSuggestionRow
 import core.data.testing.createWebSuggestionSourceMock
+import core.data.time.ClockReading
 import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
@@ -119,6 +123,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -143,6 +148,7 @@ private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
 private const val FAVORITE_FOLDER_ID: Long = 42L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
+private const val MESSAGES_PUBLISHER: String = "Messages"
 
 // The matching tests assert only the rows they are about; the row tests give Search a Google
 // engine so its web rows show, and the production defaults have no engine.
@@ -180,6 +186,19 @@ class LauncherViewModelTest {
 
     @get:Rule
     val mainDispatcherRule: MainDispatcherRule = MainDispatcherRule()
+
+    // A blank starting query asks the Search engine for no Web suggestions, so only a Typed
+    // character queries the source when Search opens.
+    private val searchEntryCases: List<SearchEntryCase> = listOf(
+        SearchEntryCase(name = "the Search entry", suggestionsQueried = 0, open = { viewModel -> viewModel.openSearch() }),
+        SearchEntryCase(
+            name = "a Typed character",
+            suggestionsQueried = 1,
+            open = { viewModel -> viewModel.onTypedCharacter(character = "a", isPopupOpen = false) }
+        ),
+        SearchEntryCase(name = "Swipe up", suggestionsQueried = 0, open = { viewModel -> viewModel.onHomeSwipeUp() }),
+        SearchEntryCase(name = "a Home press", suggestionsQueried = 0, open = { viewModel -> viewModel.onHomeIntent(wasResumed = true) })
+    )
 
     private val mockClockSource: IClockSource = createClockSourceMock(
         reading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
@@ -1960,6 +1979,215 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `collects no Search source on Home or in the App List`() = runTest {
+        val fixture: SearchSourceFixture = createSearchSourceFixture()
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            runCurrent()
+            fixture.assertSearchSources(shownName = "Home", expectedSubscriptions = 0, expectedSuggestionCalls = 0)
+
+            fixture.viewModel.onRailReleased(railIndex(inputListedGroups[0]))
+            expectAppList()
+            runCurrent()
+            fixture.assertSearchSources(shownName = "the App List", expectedSubscriptions = 0, expectedSuggestionCalls = 0)
+        }
+    }
+
+    @Test
+    fun `starts the Search sources from every Search entry and stops them after the timeout once Search closes`() = runTest {
+        val fixture: SearchSourceFixture = createSearchSourceFixture(settings = Settings(openSearchOnHomePress = true))
+        var expectedSuggestionCalls: Int = 0
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            for (entry in searchEntryCases) {
+                entry.open(fixture.viewModel)
+                runCurrent()
+                expectedSuggestionCalls += entry.suggestionsQueried
+                fixture.assertSearchSources(
+                    shownName = entry.name,
+                    expectedSubscriptions = 1,
+                    expectedSuggestionCalls = expectedSuggestionCalls
+                )
+
+                fixture.viewModel.closeSearch()
+                advanceTimeBy(WHILE_SUBSCRIBED_TIMEOUT_MS - 1)
+                runCurrent()
+                fixture.assertSearchSources(
+                    shownName = entry.name,
+                    expectedSubscriptions = 1,
+                    expectedSuggestionCalls = expectedSuggestionCalls
+                )
+
+                advanceTimeBy(2)
+                runCurrent()
+                fixture.assertSearchSources(
+                    shownName = entry.name,
+                    expectedSubscriptions = 0,
+                    expectedSuggestionCalls = expectedSuggestionCalls
+                )
+            }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `starts the sources unloaded when Search reopens after the timeout`() = runTest {
+        val inputStaleShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        val inputFreshShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            shortcutId = SECOND_SHORTCUT_ID,
+            shortLabel = "New call",
+            longLabel = "New call"
+        )
+        val fixture: SearchSourceFixture = createSearchSourceFixture(settings = Settings(searchAutoLaunch = true))
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = "new")
+            fixture.emitSuggestionSources()
+            fixture.inputContacts.emit(emptyList())
+            fixture.inputShortcuts.emit(
+                listOf(SearchShortcut(shortcut = inputStaleShortcut, publisherName = MESSAGES_PUBLISHER, isHidden = false))
+            )
+            assertEquals(createLaunchableResult(inputStaleShortcut.copy(publisherName = MESSAGES_PUBLISHER)), awaitAutoLaunch())
+
+            fixture.viewModel.closeSearch()
+            advanceTimeBy(WHILE_SUBSCRIBED_TIMEOUT_MS + 1)
+            runCurrent()
+
+            fixture.viewModel.openSearch()
+            fixture.viewModel.setSearchQuery("new")
+            runCurrent()
+            val actualReopened: LauncherUiState.Search = expectSearch()
+            assertTrue(actualReopened.results.isEmpty())
+            assertNull(actualReopened.topResult)
+            assertNull(actualReopened.autoLaunchResult)
+
+            fixture.emitSuggestionSources()
+            fixture.inputContacts.emit(emptyList())
+            fixture.inputShortcuts.emit(
+                listOf(SearchShortcut(shortcut = inputFreshShortcut, publisherName = MESSAGES_PUBLISHER, isHidden = false))
+            )
+
+            val actualFreshResult: SearchResult.LaunchableResult = awaitAutoLaunch()
+            assertEquals(createLaunchableResult(inputFreshShortcut.copy(publisherName = MESSAGES_PUBLISHER)), actualFreshResult)
+            assertTrue(fixture.viewModel.shouldAutoLaunch(actualFreshResult))
+            assertFalse(fixture.viewModel.shouldAutoLaunch(actualFreshResult))
+        }
+    }
+
+    @Test
+    fun `shows Search suggestions before the Shortcuts and contacts load`() = runTest {
+        val inputRecentApp: App = createApp(
+            name = "Recent",
+            packageName = "com.example.recent",
+            firstInstallTime = TEST_NOW_EPOCH_MS - 60_000L
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputRecentApp))
+        val fixture: SearchSourceFixture = createSearchSourceFixture()
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch()
+            fixture.emitSuggestionSources()
+
+            val actualSearch: LauncherUiState.Search = awaitFirstMatching { state ->
+                state is LauncherUiState.Search && state.results.isNotEmpty()
+            } as LauncherUiState.Search
+            assertTrue(actualSearch.isShowingSuggestions)
+            assertEquals(launchableResults(inputRecentApp), actualSearch.results)
+        }
+    }
+
+    @Test
+    fun `waits for every source before showing a late Top result`() = runTest {
+        val inputApp: App = createApp(name = "New message", packageName = "com.example.messages")
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputApp))
+        val inputTopShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.tasks",
+            shortLabel = "New",
+            longLabel = "New"
+        )
+        val fixture: SearchSourceFixture = createSearchSourceFixture(settings = Settings(searchAutoLaunch = true))
+
+        fixture.viewModel.uiState.test {
+            expectHome()
+            fixture.viewModel.openSearch(startingQuery = "new")
+            fixture.emitSuggestionSources()
+            fixture.inputContacts.emit(emptyList())
+            runCurrent()
+
+            val actualWaiting: LauncherUiState.Search = expectSearch()
+            assertTrue(actualWaiting.results.isEmpty())
+            assertNull(actualWaiting.topResult)
+            assertNull(actualWaiting.autoLaunchResult)
+
+            fixture.inputShortcuts.emit(listOf(SearchShortcut(shortcut = inputTopShortcut, publisherName = "Tasks", isHidden = false)))
+
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
+            assertEquals(createLaunchableResult(inputTopShortcut.copy(publisherName = "Tasks")), actualSearch.topResult)
+            assertEquals(2, actualSearch.results.size)
+            assertNull(actualSearch.autoLaunchResult)
+        }
+    }
+
+    @Test
+    fun `opens the item menu of a Shortcut Search result while Search is closed`() = runTest {
+        val inputPublisher: App = createApp(name = "Messages", packageName = "com.example.messages")
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = inputPublisher.packageName,
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputPublisher))
+        val inputShortcuts: MutableStateFlow<List<SearchShortcut>> = MutableStateFlow(
+            listOf(SearchShortcut(shortcut = inputShortcut, publisherName = inputPublisher.name, isHidden = false))
+        )
+        val viewModel: LauncherViewModel = createViewModel(
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
+        )
+
+        viewModel.menuState.test {
+            assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
+
+            viewModel.openItemMenu(inputShortcut)
+
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertEquals(inputShortcut, actualMenu.item)
+            assertFalse(actualMenu.isStandaloneShortcut)
+        }
+    }
+
+    @Test
+    fun `opens the item menu of a Standalone shortcut while Search is closed`() = runTest {
+        val inputShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            shortLabel = "New message",
+            longLabel = "New message"
+        )
+        inputLaunchableState.value = createLoadedLaunchableState(listOf(inputShortcut))
+        val inputShortcuts: MutableSharedFlow<List<SearchShortcut>> = MutableSharedFlow()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
+        )
+
+        viewModel.menuState.test {
+            viewModel.openItemMenu(inputShortcut)
+
+            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+            assertEquals(inputShortcut, actualMenu.item)
+            assertTrue(actualMenu.isStandaloneShortcut)
+            assertEquals(0, inputShortcuts.subscriptionCount.value)
+        }
+    }
+
+    @Test
     fun `opens Search from the App List`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
 
@@ -3299,14 +3527,14 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `the first Search state for a two character query contains a Shortcut result`() = runTest {
+    fun `the first Search state with results contains a Shortcut result`() = runTest {
         val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
 
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = "ne")
 
-            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
             val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
             assertEquals(launchableResults(expectedResult), actualSearch.results)
             assertEquals(createLaunchableResult(expectedResult), actualSearch.topResult)
@@ -3322,7 +3550,7 @@ class LauncherViewModelTest {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = "new")
 
-            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
             assertEquals(launchableResults(expectedResult), actualSearch.results)
             assertEquals(createLaunchableResult(expectedResult), actualSearch.topResult)
 
@@ -3351,24 +3579,26 @@ class LauncherViewModelTest {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = fixture.query)
 
-            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
             assertEquals(launchableResults(fixture.launchable, isHidden = true), actualSearch.results)
         }
     }
 
     @Test
     fun `leaves a Hidden app out of the Search results when Show hidden apps is off`() = runTest {
+        val inputVisibleApp: App = createApp(name = "Zulu Two", packageName = "com.example.zulu-two")
         val fixture: HiddenSearchFixture = createHiddenSearchFixture(
             launchable = createApp(name = "Zulu", packageName = "com.example.zulu"),
             query = "zul",
-            settings = Settings(searchShowHiddenApps = false)
+            settings = Settings(searchShowHiddenApps = false),
+            visibleLaunchable = inputVisibleApp
         )
 
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = fixture.query)
 
-            assertTrue(awaitFirstSearch().results.isEmpty())
+            assertEquals(launchableResults(inputVisibleApp), awaitSearchWithResults().results)
         }
     }
 
@@ -3387,13 +3617,19 @@ class LauncherViewModelTest {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = fixture.query)
 
-            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
             assertEquals(launchableResults(fixture.launchable, isHidden = true), actualSearch.results)
         }
     }
 
     @Test
     fun `leaves a Hidden Standalone shortcut out of the Search results when Show hidden apps is off`() = runTest {
+        val inputVisibleShortcut: ShortcutLaunchable = createShortcut(
+            packageName = "com.example.messages",
+            shortcutId = SECOND_SHORTCUT_ID,
+            shortLabel = "New call",
+            longLabel = "New call"
+        )
         val fixture: HiddenSearchFixture = createHiddenSearchFixture(
             launchable = createShortcut(
                 packageName = "com.example.messages",
@@ -3401,14 +3637,15 @@ class LauncherViewModelTest {
                 longLabel = "New message"
             ),
             query = "new",
-            settings = Settings(searchShowHiddenApps = false)
+            settings = Settings(searchShowHiddenApps = false),
+            visibleLaunchable = inputVisibleShortcut
         )
 
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = fixture.query)
 
-            assertTrue(awaitFirstSearch().results.isEmpty())
+            assertEquals(launchableResults(inputVisibleShortcut), awaitSearchWithResults().results)
         }
     }
 
@@ -3441,7 +3678,7 @@ class LauncherViewModelTest {
             expectHome()
             viewModel.openSearch(startingQuery = "new")
 
-            val actualSearch: LauncherUiState.Search = awaitFirstSearch()
+            val actualSearch: LauncherUiState.Search = awaitSearchWithResults()
             val expectedResult: ShortcutLaunchable = inputVisibleShortcut.copy(publisherName = inputPublisher.name)
             assertEquals(launchableResults(expectedResult), actualSearch.results)
         }
@@ -3455,7 +3692,7 @@ class LauncherViewModelTest {
         fixture.viewModel.uiState.test {
             expectHome()
             fixture.viewModel.openSearch(startingQuery = "new")
-            assertEquals(launchableResults(expectedResult), awaitFirstSearch().results)
+            assertEquals(launchableResults(expectedResult), awaitSearchWithResults().results)
         }
 
         fixture.viewModel.menuState.test {
@@ -3724,10 +3961,11 @@ class LauncherViewModelTest {
     private fun TestScope.createHiddenSearchFixture(
         launchable: Launchable,
         query: String,
-        settings: Settings = Settings()
+        settings: Settings = Settings(),
+        visibleLaunchable: Launchable? = null
     ): HiddenSearchFixture {
         inputLaunchableState.value = createLoadedLaunchableState(
-            launchables = listOf(launchable),
+            launchables = listOfNotNull(launchable, visibleLaunchable),
             hiddenKeys = setOf(launchable.key)
         )
         return HiddenSearchFixture(
@@ -3772,6 +4010,48 @@ class LauncherViewModelTest {
             mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts)
         )
         return ShortcutSearchFixture(publisher = inputPublisher, shortcut = inputShortcut, viewModel = viewModel)
+    }
+
+    private fun TestScope.createSearchSourceFixture(settings: Settings = Settings()): SearchSourceFixture {
+        val inputHistory: MutableSharedFlow<List<SearchHistoryRecord>> = MutableSharedFlow()
+        val inputClockReadings: MutableSharedFlow<ClockReading> = MutableSharedFlow()
+        val inputShortcuts: MutableSharedFlow<List<SearchShortcut>> = MutableSharedFlow()
+        val inputContacts: MutableSharedFlow<List<SearchContact>> = MutableSharedFlow()
+        val mockSearchHistoryRepository: ISearchHistoryRepository = mockk()
+        every { mockSearchHistoryRepository.history } returns inputHistory
+        val mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = createPreferencesRepositoryMock(settings = settings),
+            mockSearchHistoryRepository = mockSearchHistoryRepository,
+            mockClockSource = createClockSourceMock(readings = inputClockReadings),
+            mockShortcutSearchSource = createShortcutSearchSourceMock(shortcuts = inputShortcuts),
+            mockContactSearchSource = createContactSearchSourceMock(contacts = inputContacts),
+            mockWebSuggestionSource = mockWebSuggestionSource
+        )
+        return SearchSourceFixture(
+            inputHistory = inputHistory,
+            inputClockReadings = inputClockReadings,
+            inputShortcuts = inputShortcuts,
+            inputContacts = inputContacts,
+            mockWebSuggestionSource = mockWebSuggestionSource,
+            viewModel = viewModel
+        )
+    }
+
+    private suspend fun SearchSourceFixture.emitSuggestionSources(
+        history: List<SearchHistoryRecord> = emptyList(),
+        reading: ClockReading = createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))
+    ) {
+        inputHistory.emit(history)
+        inputClockReadings.emit(reading)
+    }
+
+    private fun SearchSourceFixture.assertSearchSources(shownName: String, expectedSubscriptions: Int, expectedSuggestionCalls: Int) {
+        assertEquals("$shownName Search history subscribers", expectedSubscriptions, inputHistory.subscriptionCount.value)
+        assertEquals("$shownName clock reading subscribers", expectedSubscriptions, inputClockReadings.subscriptionCount.value)
+        assertEquals("$shownName Shortcut subscribers", expectedSubscriptions, inputShortcuts.subscriptionCount.value)
+        assertEquals("$shownName contact subscribers", expectedSubscriptions, inputContacts.subscriptionCount.value)
+        verify(exactly = expectedSuggestionCalls) { mockWebSuggestionSource.suggestions(any(), any()) }
     }
 
     private fun menuStateOf(item: Launchable, canUninstall: Boolean = false): LauncherMenuState.Menu = LauncherMenuState.Menu(
@@ -3823,7 +4103,15 @@ class LauncherViewModelTest {
             mockContactSearchSource = mockContactSearchSource
         ),
         mockWebSuggestionSource: IWebSuggestionSource = createWebSuggestionSourceMock(),
-        mockNotificationShade: INotificationShade = createNotificationShadeMock()
+        mockNotificationShade: INotificationShade = createNotificationShadeMock(),
+        mockSearchProjectionSource: ISearchProjectionSource = ISearchProjectionSourceImpl(
+            searchHistoryRepository = mockSearchHistoryRepository,
+            clockSource = mockClockSource,
+            shortcutSearchSource = mockShortcutSearchSource,
+            contactSearchSource = mockContactSearchSource,
+            searchSettings = mockSearchSettings,
+            webSuggestionSource = mockWebSuggestionSource
+        )
     ): LauncherViewModel = LauncherViewModel(
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
@@ -3840,11 +4128,9 @@ class LauncherViewModelTest {
         standaloneShortcutRepository = mockStandaloneShortcutRepository,
         searchHistoryRepository = mockSearchHistoryRepository,
         launchCountRepository = mockLaunchCountRepository,
-        clockSource = mockClockSource,
+        searchProjectionSource = mockSearchProjectionSource,
         shortcutSearchSource = mockShortcutSearchSource,
-        contactSearchSource = mockContactSearchSource,
-        searchSettings = mockSearchSettings,
-        webSuggestionSource = mockWebSuggestionSource
+        searchSettings = mockSearchSettings
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
@@ -3888,8 +4174,8 @@ class LauncherViewModelTest {
         return requireNotNull(actualState.autoLaunchResult)
     }
 
-    private suspend fun TurbineTestContext<LauncherUiState>.awaitFirstSearch(): LauncherUiState.Search =
-        awaitFirstMatching { state -> state is LauncherUiState.Search } as LauncherUiState.Search
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitSearchWithResults(): LauncherUiState.Search =
+        awaitFirstMatching { state -> state is LauncherUiState.Search && state.results.isNotEmpty() } as LauncherUiState.Search
 
     private suspend fun TurbineTestContext<List<GroupMark>>.awaitRailItems(expected: List<GroupMark>): List<GroupMark> {
         var actualRailItems: List<GroupMark> = awaitItem()
@@ -3970,3 +4256,15 @@ private data class HiddenSearchFixture(val launchable: Launchable, val query: St
 private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)
 
 private data class ShortcutSearchFixture(val publisher: App, val shortcut: ShortcutLaunchable, val viewModel: LauncherViewModel)
+
+private data class SearchSourceFixture(
+    val inputHistory: MutableSharedFlow<List<SearchHistoryRecord>>,
+    val inputClockReadings: MutableSharedFlow<ClockReading>,
+    val inputShortcuts: MutableSharedFlow<List<SearchShortcut>>,
+    val inputContacts: MutableSharedFlow<List<SearchContact>>,
+    val mockWebSuggestionSource: IWebSuggestionSource,
+    val viewModel: LauncherViewModel
+)
+
+/** One way into Search, and how many Web suggestion requests its starting query makes. */
+private class SearchEntryCase(val name: String, val suggestionsQueried: Int, val open: (LauncherViewModel) -> Unit)

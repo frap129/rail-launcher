@@ -339,6 +339,11 @@ _Avoid_: Recents, predictions, quick access
 **Search history**:
 The launches Rail records from Search, each with its launch count, last-launched time and whether the user removed it from Search suggestions.
 _Avoid_: Usage log, search log
+
+**Search projection**:
+The Search history, clock reading, Shortcuts, contacts and Web suggestions the Search rows and Search suggestions are built from. Its sources are read only while Search is open, and stop after the shared timeout once it closes, so Home and the App List never read them; a session that starts after that timeout starts unloaded.
+_Avoid_: Search data, Search cache
+
 **Group mark**:
 What a group shows on the Rail and above its App List section: its text label or, for Private Space, a shield.
 _Avoid_: Glyph, icon (when meaning a mark)

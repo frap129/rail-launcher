@@ -94,6 +94,8 @@ import core.data.search.IContactSearchSource
 import core.data.search.IContactSearchSourceImpl
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
+import core.data.search.ISearchProjectionSource
+import core.data.search.ISearchProjectionSourceImpl
 import core.data.search.IShortcutSearchSource
 import core.data.search.IShortcutSearchSourceImpl
 import core.data.search.IWebSuggestionSource
@@ -316,6 +318,16 @@ class MainApplication :
             ISearchSettingsImpl(preferencesRepository = get(), contactSearchSource = get())
         }
         single<IWebSuggestionSource> { IWebSuggestionSourceImpl(preferencesRepository = get()) }
+        single<ISearchProjectionSource> {
+            ISearchProjectionSourceImpl(
+                searchHistoryRepository = get(),
+                clockSource = get(),
+                shortcutSearchSource = get(),
+                contactSearchSource = get(),
+                searchSettings = get(),
+                webSuggestionSource = get()
+            )
+        }
         single<IPopupShortcutPinSource> { IPopupShortcutPinSourceImpl(popupDao = get()) }
         single<IStandaloneShortcutPinSource> { IStandaloneShortcutPinSourceImpl(standaloneShortcutDao = get()) }
         single<IShortcutPinCoordinator> {
@@ -499,11 +511,9 @@ class MainApplication :
                 standaloneShortcutRepository = get(),
                 searchHistoryRepository = get(),
                 launchCountRepository = get(),
-                clockSource = get(),
+                searchProjectionSource = get(),
                 shortcutSearchSource = get(),
-                contactSearchSource = get(),
-                searchSettings = get(),
-                webSuggestionSource = get()
+                searchSettings = get()
             )
         }
         viewModel { (session: IPopupSession) ->
