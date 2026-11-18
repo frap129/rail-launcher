@@ -11,6 +11,7 @@ import core.data.launches.LaunchCountRecord
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.testing.LocaleGroupingCase
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_FOURTEEN_DAYS_MS
 import core.data.testing.TEST_NOW_EPOCH_MS
@@ -24,10 +25,12 @@ import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
+import core.data.testing.localeGroupingCases
 import core.util.MILLIS_PER_DAY
 import core.util.MILLIS_PER_HOUR
 import core.util.MILLIS_PER_MINUTE
 import core.util.RECENT_INSTALL_WINDOW_MS
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -46,14 +49,14 @@ class LaunchableGroupsTest {
     @Test
     fun `places the Star above A`() {
         val inputItems: List<Launchable> = listOf(createLaunchable("Beta"), createLaunchable("Alpha"))
-        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup).map { it.label }
+        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = Locale.US).map { it.label }
         assertEquals(listOf("★", "A", "B", "⌂"), actualLabels)
     }
 
     @Test
     fun `places the Star above #`() {
         val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"), createLaunchable("1Password"))
-        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup).map { it.label }
+        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = Locale.US).map { it.label }
         assertEquals(listOf("★", "#", "A", "⌂"), actualLabels)
     }
 
@@ -62,21 +65,22 @@ class LaunchableGroupsTest {
         val inputZero: Launchable = createLaunchable("0xBench")
         val inputOne: Launchable = createLaunchable("1Password")
         val inputNine: Launchable = createLaunchable("9GAG")
-        val actualGroup: LaunchableGroup = listOf(inputZero, inputOne, inputNine).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputZero, inputOne, inputNine)
+            .toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputZero, inputOne, inputNine)), actualGroup)
     }
 
     @Test
     fun `groups names starting with a non-ASCII digit under #`() {
         val inputItem: Launchable = createLaunchable("１Password")
-        val actualGroup: LaunchableGroup = listOf(inputItem).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputItem).toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputItem)), actualGroup)
     }
 
     @Test
     fun `groups names with no initial character under #`() {
         val inputItem: Launchable = createLaunchable("")
-        val actualGroup: LaunchableGroup = listOf(inputItem).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputItem).toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputItem)), actualGroup)
     }
 
@@ -84,7 +88,7 @@ class LaunchableGroupsTest {
     fun `places a Folder in the alphabetical group for its resolved name`() {
         val inputFolder: Folder = Folder(folderId = 1L, name = "Zulu")
         val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"), inputFolder)
-        val actualGroups: List<LaunchableGroup> = inputItems.toLaunchableGroups(inputBuiltinGroup)
+        val actualGroups: List<LaunchableGroup> = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)
 
         assertEquals(listOf("★", "A", "Z", "⌂"), actualGroups.map { group -> group.label })
         assertEquals(
@@ -98,14 +102,14 @@ class LaunchableGroupsTest {
     @Test
     fun `groups a Folder with a digit name under #`() {
         val inputFolder: Folder = Folder(folderId = 1L, name = "1Games")
-        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputFolder)), actualGroup)
     }
 
     @Test
     fun `groups a Folder with no initial character under #`() {
         val inputFolder: Folder = Folder(folderId = 1L, name = "")
-        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputFolder).toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "#", items = listOf(inputFolder)), actualGroup)
     }
 
@@ -113,20 +117,53 @@ class LaunchableGroupsTest {
     fun `groups Launchables by first character`() {
         val inputAlpha: Launchable = createLaunchable("Alpha")
         val inputAnchor: Launchable = createLaunchable("anchor")
-        val actualGroup: LaunchableGroup = listOf(inputAlpha, inputAnchor).toLaunchableGroups(inputBuiltinGroup)[1]
+        val actualGroup: LaunchableGroup = listOf(inputAlpha, inputAnchor).toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)[1]
         assertEquals(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputAlpha, inputAnchor)), actualGroup)
+    }
+
+    @Test
+    fun `keys and orders the Initial groups as each locale defines them`() {
+        localeGroupingCases.forEach(::assertInitialGroupLabels)
+    }
+
+    @Test
+    fun `merges a variant letter into the locale's own letter`() {
+        val inputAeble: Launchable = createLaunchable("Æble")
+        val inputAebleUmlaut: Launchable = createLaunchable("Äble")
+
+        val actualGroup: LaunchableGroup = listOf(inputAebleUmlaut, inputAeble).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            locale = Locale.forLanguageTag("da")
+        )[1]
+
+        assertEquals(
+            LaunchableGroup.InitialGroup(label = "Æ", items = listOf(inputAebleUmlaut, inputAeble)),
+            actualGroup
+        )
+    }
+
+    @Test
+    fun `puts a folded accent in its base letter's Initial group`() {
+        val inputEcole: Launchable = createLaunchable("École")
+
+        val actualGroup: LaunchableGroup = listOf(inputEcole).toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            locale = Locale.FRENCH
+        )[1]
+
+        assertEquals(LaunchableGroup.InitialGroup(label = "E", items = listOf(inputEcole)), actualGroup)
     }
 
     @Test
     fun `keeps the Builtin group last`() {
         val inputItems: List<Launchable> = listOf(createLaunchable("Zulu"))
-        val actualGroup: LaunchableGroup = inputItems.toLaunchableGroups(inputBuiltinGroup).last()
+        val actualGroup: LaunchableGroup = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = Locale.US).last()
         assertEquals(inputBuiltinGroup, actualGroup)
     }
 
     @Test
     fun `keeps the Star and Builtin groups when there are no Launchables`() {
-        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(inputBuiltinGroup)
+        val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(inputBuiltinGroup, locale = Locale.US)
         assertEquals(listOf(LaunchableGroup.Star, inputBuiltinGroup), actualGroups)
     }
 
@@ -135,6 +172,7 @@ class LaunchableGroupsTest {
         val inputItems: List<Launchable> = listOf(createLaunchable("Alpha"))
 
         val actualLabels: List<String> = inputItems.toLaunchableGroups(
+            locale = Locale.US,
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         ).map { group -> group.label }
@@ -147,6 +185,7 @@ class LaunchableGroupsTest {
         val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
 
         val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputPrivateApp).toLaunchableGroups(
+            locale = Locale.US,
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true)
         ).filterIsInstance<LaunchableGroup.PrivateSpace>().single()
@@ -158,6 +197,7 @@ class LaunchableGroupsTest {
     @Test
     fun `leaves a Hidden Private Space off the groups`() {
         val actualGroups: List<LaunchableGroup> = emptyList<Launchable>().toLaunchableGroups(
+            locale = Locale.US,
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, isHidden = true, isLocked = true)
         )
@@ -184,7 +224,8 @@ class LaunchableGroupsTest {
     fun `leaves the Private Space group off without a Private Space`() {
         val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
 
-        val actualGroups: List<LaunchableGroup> = listOf(inputPrivateApp).toLaunchableGroups(builtinGroup = inputBuiltinGroup)
+        val actualGroups: List<LaunchableGroup> = listOf(inputPrivateApp)
+            .toLaunchableGroups(builtinGroup = inputBuiltinGroup, locale = Locale.US)
 
         assertEquals(listOf("★", "⌂"), actualGroups.map { group -> group.label })
         assertTrue(actualGroups.none { group -> group is LaunchableGroup.PrivateSpace })
@@ -195,6 +236,7 @@ class LaunchableGroupsTest {
         val inputPrivateApp: Launchable = createPrivateApp(name = "Secret")
 
         val actualGroups: List<LaunchableGroup> = listOf(inputPrivateApp, createLaunchable("Alpha")).toLaunchableGroups(
+            locale = Locale.US,
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         )
@@ -213,6 +255,7 @@ class LaunchableGroupsTest {
         )
 
         val actualGroups: List<LaunchableGroup> = listOf(inputPrivateShortcut).toLaunchableGroups(
+            locale = Locale.US,
             builtinGroup = inputBuiltinGroup,
             privateSpaceStatus = createFixedPrivateSpaceStatus(profile = inputPrivateProfile, hasListedApps = true)
         )
@@ -485,7 +528,7 @@ class LaunchableGroupsTest {
     }
 
     @Test
-    fun `keeps a section App in its letter group`() {
+    fun `keeps a section App in its Initial group`() {
         val inputRecentApp: App = createApp(name = "Alpha", packageName = "com.example.alpha", firstInstallTime = TEST_NOW_EPOCH_MS)
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputRecentApp))
 
@@ -585,10 +628,22 @@ class LaunchableGroupsTest {
         ).filterIsInstance<LaunchableGroup.InitialGroup>().single().items
     }
 
+    private fun assertInitialGroupLabels(inputCase: LocaleGroupingCase) {
+        val inputItems: List<Launchable> = inputCase.names.map { name -> createLaunchable(name) }
+
+        val actualLabels: List<String> = inputItems.toLaunchableGroups(
+            builtinGroup = inputBuiltinGroup,
+            locale = Locale.forLanguageTag(inputCase.localeTag)
+        ).filterIsInstance<LaunchableGroup.InitialGroup>().map { group -> group.label }
+
+        assertEquals(inputCase.toString(), inputCase.expectedLabels, actualLabels)
+    }
+
     private fun List<Launchable>.toAppListGroups(
         ranking: AppListRanking,
         privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus()
     ): List<LaunchableGroup> = toLaunchableGroups(
+        locale = Locale.US,
         builtinGroup = inputBuiltinGroup,
         privateSpaceStatus = privateSpaceStatus
     ).withAppListOrder(ranking = ranking)

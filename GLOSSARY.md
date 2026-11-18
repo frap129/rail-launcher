@@ -248,8 +248,16 @@ _Avoid_: Icons loaded, icons ready
 The installed App list Rail saves after each live App load in its own Room database outside the backed-up AppDatabase and Android backup, so Home can resolve Favorites before the live LauncherApps load finishes. It carries each App's component, Profile serial, label, badged label, flags and install and update times, never holds Private Space Apps, and every live change replaces it.
 _Avoid_: App cache, saved App list, app snapshot
 
+**Group key**:
+The key an App List group forms by, from a Launchable's resolved name in the device locale: its first letter uppercased, then replaced by the canonical letter its locale collates it as, which keeps letters the locale treats as its own (Æ, Ø and Å in Danish and Norwegian; Å, Ä and Ö in Swedish and Finnish; Ñ in Spanish) and folds every other accent into its base letter (É into E, Ü into U). Among the letters the locale collates as one, the canonical one is the letter the locale sorts first, drawn from A-Z and the letters the supported alphabets add (Æ, Ø, Å, Ä, Ö, Ñ, Œ), so Danish and Norwegian group Ä under Æ, Swedish and Finnish group it under Ä, and a ligature collated as no single letter, such as Œ, keys by itself. Digit-prefixed and empty names share the "#" key, which stays first.
+_Avoid_: First character, initial letter
+
+**Initial group**:
+The App List group and Rail mark for one Group key, ordered after the Star and before the Builtin group in the locale's collation order.
+_Avoid_: Letter group, alphabet group
+
 **App List**:
-The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. While Show Recently installed is on, the list ends with the Recently installed section. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
+The launcher state showing every Launchable grouped by Group key in the device locale's order, then the Private Space group last, leaving out Hidden apps. While Show Recently installed is on, the list ends with the Recently installed section. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
 **App List order**:
@@ -261,7 +269,7 @@ The setting choosing whether the App List ranks Folders by use alongside the oth
 _Avoid_: Folder sort, folder ranking
 
 **Recently installed**:
-The App List section after the Private Space group that lists the Apps first installed in the last 3 days, newest first, and an App leaves it once it is older than 3 days. Its Apps also stay in their letter groups; it is not a group of its own, so it has no Rail mark, and scrolling to the end of the App List reaches it. Hidden apps and the private Apps of a Locked Private Space are left out.
+The App List section after the Private Space group that lists the Apps first installed in the last 3 days, newest first, and an App leaves it once it is older than 3 days. Its Apps also stay in their Initial groups; it is not a group of its own, so it has no Rail mark, and scrolling to the end of the App List reaches it. Hidden apps and the private Apps of a Locked Private Space are left out.
 _Avoid_: New apps, recent installs
 
 **Show Recently installed**:
@@ -397,7 +405,7 @@ What a group shows on the Rail and above its App List section: its text label or
 _Avoid_: Glyph, icon (when meaning a mark)
 
 **Rail**:
-The index of marks along the screen edge used to jump through the App List; touching it or any Scrub edge from Home opens the App List. Its marks are the Star, which stands for Home, the letter groups, the Builtin group and, when a Private Space exists, its shield last. While Show Rail is off it draws no marks, and its Scrub edges still scrub the App List.
+The index of marks along the screen edge used to jump through the App List; touching it or any Scrub edge from Home opens the App List. Its marks are the Star, which stands for Home, the Initial groups, the Builtin group and, when a Private Space exists, its shield last. While Show Rail is off it draws no marks, and its Scrub edges still scrub the App List.
 _Avoid_: Scroll bar, alphabet, wave
 
 **Rail side**:

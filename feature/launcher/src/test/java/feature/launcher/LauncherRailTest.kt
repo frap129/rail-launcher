@@ -3,6 +3,7 @@ package feature.launcher
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -14,6 +15,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -21,13 +24,19 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
+import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
 import core.data.testing.TEST_SDK
+import core.data.testing.createAppListGroups
+import core.data.testing.createBuiltinGroup
+import core.data.testing.localeGroupingCases
 import core.ui.GroupMark
 import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.layout.HomeEditMode
+import core.ui.toGroupMark
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -289,6 +298,32 @@ class LauncherRailTest {
     }
 
     @Test
+    fun `draws the Rail's marks as the App List groups of every covered locale`() {
+        val railItems: MutableState<List<GroupMark>> = mutableStateOf(emptyList())
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            railItems = { railItems.value },
+            onRailPreview = {},
+            onRailReleased = {}
+        )
+
+        localeGroupingCases.forEach { inputCase ->
+            val inputGroups: List<LaunchableGroup> = createAppListGroups(
+                locale = Locale.forLanguageTag(inputCase.localeTag),
+                names = inputCase.names
+            )
+            composeRule.runOnIdle {
+                railItems.value = inputGroups.map { group -> group.toGroupMark() }
+            }
+            composeRule.waitForIdle()
+
+            val expectedMarkTexts: List<String> =
+                listOf(LaunchableGroup.Star.label) + inputCase.expectedLabels + createBuiltinGroup().label
+            assertEquals("${inputCase.localeTag} Rail marks", expectedMarkTexts, drawnMarkTexts())
+        }
+    }
+
+    @Test
     fun `hides the drawn Rail when Show Rail is off`() {
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
@@ -363,6 +398,7 @@ class LauncherRailTest {
 
     private fun setRailContent(
         scrubEdges: ScrubEdges,
+        railItems: () -> List<GroupMark> = { MARKS },
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
@@ -389,7 +425,7 @@ class LauncherRailTest {
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     LauncherRail(
-                        railItems = MARKS,
+                        railItems = railItems(),
                         railBounds = remember { railBounds },
                         railSide = railSide,
                         scrubEdges = scrubEdges,
@@ -495,6 +531,14 @@ class LauncherRailTest {
         }
         return MARKS.size
     }
+
+    /** The texts the Rail draws, top to bottom, one per mark. */
+    private fun drawnMarkTexts(): List<String> = composeRule
+        .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true)
+        .fetchSemanticsNodes()
+        .sortedBy { node -> node.boundsInRoot.top }
+        .map { node -> node.config[SemanticsProperties.Text].joinToString(separator = "") { text -> text.text } }
+        .distinct()
 
     private companion object {
         val MARKS: List<GroupMark> = listOf(

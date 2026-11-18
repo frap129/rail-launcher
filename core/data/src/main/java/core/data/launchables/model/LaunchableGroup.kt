@@ -17,7 +17,7 @@ sealed interface LaunchableGroup {
         fun withItems(items: List<Launchable>): Listed
     }
 
-    /** Launchables sharing a first character; digit-prefixed names share "#". */
+    /** Launchables sharing a Group key (see `GLOSSARY.md`); digit-prefixed names share "#". */
     data class InitialGroup(override val label: String, override val items: List<Launchable>) : Listed {
         override fun withItems(items: List<Launchable>): LaunchableGroup.Listed = copy(items = items)
     }

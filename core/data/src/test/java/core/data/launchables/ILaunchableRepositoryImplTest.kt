@@ -57,6 +57,7 @@ import core.data.testing.FIRST_SHORTCUT_ID
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.MISSING_PRIVATE_USER_ID
 import core.data.testing.MISSING_WORK_USER_ID
+import core.data.testing.MutableClockSource
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.PRIVATE_PACKAGE_NAME
 import core.data.testing.PRIVATE_USER_ID
@@ -73,13 +74,12 @@ import core.data.testing.addIconPackActivity
 import core.data.testing.createApp
 import core.data.testing.createAppRepositoryMock
 import core.data.testing.createAppWidgetHostMock
-import core.data.testing.createClockReading
-import core.data.testing.createClockSourceMock
 import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchCountRepository
 import core.data.testing.createLaunchCountRepositoryMock
 import core.data.testing.createLoadedLaunchableState
+import core.data.testing.createMutableClockSourceMock
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -108,6 +108,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import java.time.Instant
+import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -847,12 +848,9 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val inputStates: MutableStateFlow<LaunchableState> = MutableStateFlow(inputState)
         var currentEpochMs: Long = TEST_NOW_EPOCH_MS
-        val mockClockSource: IClockSource = createClockSourceMock(
-            readings = MutableStateFlow(createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
-            now = { Instant.ofEpochMilli(currentEpochMs) }
-        )
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock(now = { Instant.ofEpochMilli(currentEpochMs) })
 
-        inputStates.withRecentlyInstalledExpiry(clockSource = mockClockSource).test {
+        inputStates.withRecentlyInstalledExpiry(clockSource = mockClockSource.source).test {
             assertEquals(listOf(inputFreshApp.key, inputAgingApp.key), sectionAppKeys(expectMostRecentItem()))
 
             // The aging App's window ended at TEST_NOW, so two milliseconds later it must leave.
@@ -867,14 +865,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     fun `ages the section out once time passes the window without any other change`() = databaseTest {
         val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh", firstInstallTime = TEST_NOW_EPOCH_MS)
         database.getSettingsDao().upsert(Settings(showRecentlyInstalled = true))
-        val mockClockSource: IClockSource = createClockSourceMock(
-            readings = MutableStateFlow(createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
-            now = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + testScheduler.currentTime) }
-        )
+        val mockClockSource: MutableClockSource =
+            createMutableClockSourceMock(now = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + testScheduler.currentTime) })
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputFreshApp)),
             mockPreferencesRepository = createPreferencesRepository(),
-            clockSource = mockClockSource
+            clockSource = mockClockSource.source
         )
 
         repository.launchableState.test {
@@ -1028,6 +1024,32 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `re-keys the Initial groups when the locale changes`() = databaseTest {
+        val inputApp: App = createApp(name = "Öl", packageName = "com.example.ol")
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock()
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
+            clockSource = mockClockSource.source
+        )
+
+        repository.launchableState.test {
+            finishPendingWork()
+            assertEquals(
+                listOf("O"),
+                expectMostRecentItem().groups.filterIsInstance<LaunchableGroup.InitialGroup>().map { group -> group.label }
+            )
+
+            mockClockSource.readings.value = mockClockSource.readings.value.copy(locale = Locale.forLanguageTag("sv"))
+            finishPendingWork()
+
+            assertEquals(
+                listOf("Ö"),
+                expectMostRecentItem().groups.filterIsInstance<LaunchableGroup.InitialGroup>().map { group -> group.label }
+            )
+        }
+    }
+
+    @Test
     fun `resolves Builtin Launchables alongside Apps`() = databaseTest {
         val repository: ILaunchableRepository = createRepository(mockAppRepository = createAppRepositoryMock())
         val actualState: LaunchableState = loadedState(repository)
@@ -1042,11 +1064,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `ranks a recent launch above an older larger total and reorders the emitted groups`() = databaseTest {
         var inputNow: Instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS)
-        val mockClockSource: IClockSource = createClockSourceMock(
-            readings = MutableStateFlow(createClockReading(instant = inputNow)),
-            now = { inputNow }
-        )
-        val fixture: AppListRankingFixture = createAppListRankingFixture(mockClockSource = mockClockSource)
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock(now = { inputNow })
+        val fixture: AppListRankingFixture = createAppListRankingFixture(mockClockSource = mockClockSource.source)
         repeat(3) { fixture.launchCountRepository.recordLaunch(key = fixture.firstApp.key) }
         assertEquals(listOf(fixture.firstApp.key, fixture.secondApp.key), appListKeys(fixture.repository))
 
