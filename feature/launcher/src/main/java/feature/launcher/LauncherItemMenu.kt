@@ -35,11 +35,13 @@ import compose.icons.fontawesomeicons.solid.FolderPlus
 import compose.icons.fontawesomeicons.solid.GripVertical
 import compose.icons.fontawesomeicons.solid.InfoCircle
 import compose.icons.fontawesomeicons.solid.PencilAlt
+import compose.icons.fontawesomeicons.solid.Store
 import compose.icons.fontawesomeicons.solid.TimesCircle
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.profiles.ProfileInfo
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
@@ -126,6 +128,7 @@ internal fun LauncherItemMenu(menu: LauncherMenuState.Menu, viewModel: LauncherV
             item = item,
             context = context,
             canUninstall = menu.canUninstall,
+            privateSpaceProfile = menu.installInPrivateSpaceProfile,
             viewModel = viewModel,
             editor = editor,
             folderActions = folderActions
@@ -155,6 +158,7 @@ private fun AppMenuActions(
     item: App,
     context: Context,
     canUninstall: Boolean,
+    privateSpaceProfile: ProfileInfo?,
     viewModel: LauncherViewModel,
     editor: IPopupEditor,
     folderActions: IPopupFolderActions
@@ -168,6 +172,16 @@ private fun AppMenuActions(
         }
     )
     AddToFolderAction(item = item, viewModel = viewModel, folderActions = folderActions)
+    privateSpaceProfile?.let { profile ->
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.Store,
+            label = stringResource(R.string.install_in_private_space),
+            onClick = {
+                viewModel.closeItemMenu()
+                context.openStorePage(packageName = item.packageName, profile = profile.user)
+            }
+        )
+    }
     SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.InfoCircle,
         label = stringResource(CoreUiR.string.app_info),

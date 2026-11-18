@@ -11,11 +11,11 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
-class PrivateSpaceSettingsOptionsTest {
+class PrivateSpaceLaunchOptionsTest {
     @Test
     @Config(sdk = [Build.VERSION_CODES.BAKLAVA])
-    fun `opts the system screen into a visible background start on Android 16`() {
-        val actualOptions: ActivityOptions? = privateSpaceSettingsOptions()
+    fun `opts a system sender launch into a visible background start on Android 16`() {
+        val actualOptions: ActivityOptions? = privateSpaceLaunchOptions()
 
         assertEquals(
             ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE,
@@ -25,8 +25,8 @@ class PrivateSpaceSettingsOptionsTest {
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.VANILLA_ICE_CREAM])
-    fun `leaves the launch unchanged before the Private Space settings exist`() {
-        val actualOptions: ActivityOptions? = privateSpaceSettingsOptions()
+    fun `leaves the launch unchanged before the system offers the mode`() {
+        val actualOptions: ActivityOptions? = privateSpaceLaunchOptions()
 
         assertNull(actualOptions)
     }

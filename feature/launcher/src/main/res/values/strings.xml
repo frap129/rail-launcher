@@ -103,6 +103,7 @@
     <string name="unlock_private_space">Unlock</string>
     <string name="lock_private_space">Lock</string>
     <string name="private_space_settings">Private Space settings</string>
+    <string name="install_in_private_space">Install in Private Space</string>
     <string name="pin_shortcut_from">From %1$s</string>
     <string name="pin_shortcut_icon">Shortcut icon</string>
     <string name="couldnt_add_shortcut">Couldn\'t add shortcut</string>

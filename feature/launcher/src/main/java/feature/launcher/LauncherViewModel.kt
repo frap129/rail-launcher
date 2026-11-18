@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import core.data.apps.model.App
+import core.data.apps.model.isPrivateApp
 import core.data.favorites.FavoritesState
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
@@ -32,6 +33,8 @@ import core.data.prefs.isContactResultsEnabled
 import core.data.profiles.IPrivateSpaceLock
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
+import core.data.profiles.PrivateSpaceStatus
+import core.data.profiles.ProfileInfo
 import core.data.profiles.QuietRequestResult
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchProjectionSource
@@ -141,7 +144,12 @@ sealed class LauncherMenuState {
         val isSearchSuggestion: Boolean,
         val isStandaloneShortcut: Boolean,
         val canUninstall: Boolean,
-        val isHidden: Boolean
+        val isHidden: Boolean,
+        /**
+         * The Profile whose Store page Install in Private Space opens, or null when the menu hides
+         * the action: no Unlocked Private Space, or an App that already belongs to one.
+         */
+        val installInPrivateSpaceProfile: ProfileInfo?
     ) : LauncherMenuState() {
         /** Whether the menu offers hiding [item] from the App List: Apps and Standalone shortcuts that are not Hidden apps yet. */
         val canHide: Boolean get() = !isHidden && (isStandaloneShortcut || item is App)
@@ -309,21 +317,21 @@ private enum class MenuRequest {
 
 private data class MenuItemRequest(val launchable: Launchable, val isSearchSuggestion: Boolean)
 
-/** A menu request and the Launchable State it resolves against. */
-private data class MenuLookup(val request: MenuItemRequest, val state: LaunchableState)
+/** A menu request, the Launchable State it resolves against, and that state's Private Space status. */
+private data class MenuLookup(val request: MenuItemRequest, val state: LaunchableState, val privateSpaceStatus: PrivateSpaceStatus) {
+    /** The menu of [launchable], resolved from this lookup. */
+    fun toMenu(launchable: Launchable, profileSource: IProfileSource): LauncherMenuState.Menu = LauncherMenuState.Menu(
+        item = launchable,
+        isSearchSuggestion = request.isSearchSuggestion,
+        isStandaloneShortcut = state.launchableFor(key = launchable.key) is ShortcutLaunchable,
+        canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
+        isHidden = state.isHidden(launchable = launchable),
+        installInPrivateSpaceProfile = privateSpaceStatus.unlockedProfile?.takeIf { launchable.isOutsidePrivateSpace }
+    )
+}
 
-/** The menu of [launchable], resolved from [request] and the Launchable State it came from. */
-private fun LaunchableState.toMenu(
-    request: MenuItemRequest,
-    launchable: Launchable,
-    profileSource: IProfileSource
-): LauncherMenuState.Menu = LauncherMenuState.Menu(
-    item = launchable,
-    isSearchSuggestion = request.isSearchSuggestion,
-    isStandaloneShortcut = launchableFor(key = launchable.key) is ShortcutLaunchable,
-    canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
-    isHidden = isHidden(launchable = launchable)
-)
+/** Whether Install in Private Space offers this Launchable: an App that does not already belong to the Private Space. */
+private val Launchable.isOutsidePrivateSpace: Boolean get() = this is App && !isPrivateApp
 
 class LauncherViewModel(
     listOffsets: ListOffsets,
@@ -590,16 +598,17 @@ class LauncherViewModel(
     // Shortcut search source only while the menu is shown, never from a warm Search state.
     private val resolvedMenuItem: Flow<LauncherMenuState.Menu?> = combine(
         requestedMenuItem,
-        launchableState
-    ) { request, state ->
-        request?.let { requested -> MenuLookup(request = requested, state = state) }
+        launchableState,
+        privateSpaceStatus.status
+    ) { request, state, status ->
+        request?.let { requested -> MenuLookup(request = requested, state = state, privateSpaceStatus = status) }
     }.flatMapLatest { lookup ->
         if (lookup == null) {
             flowOf(null)
         } else {
             val launchable: Launchable? = lookup.state.launchableFor(key = lookup.request.launchable.key)
             if (launchable != null) {
-                flowOf(lookup.state.toMenu(request = lookup.request, launchable = launchable, profileSource = profileSource))
+                flowOf(lookup.toMenu(launchable = launchable, profileSource = profileSource))
             } else {
                 shortcutSearchSource.shortcuts.map { shortcuts ->
                     val resolvedShortcut: SearchShortcut? = shortcuts
@@ -608,7 +617,10 @@ class LauncherViewModel(
                         Timber.w("Requested Shortcut is missing from the Shortcut search source")
                     }
                     resolvedShortcut?.let { searchShortcut ->
-                        lookup.state.toMenu(request = lookup.request, launchable = searchShortcut.shortcut, profileSource = profileSource)
+                        lookup.toMenu(
+                            launchable = searchShortcut.shortcut,
+                            profileSource = profileSource
+                        )
                     }
                 }
             }
@@ -649,9 +661,9 @@ class LauncherViewModel(
      * Follows the Private Space status so the action appears and disappears without a reload.
      */
     val privateSpaceSettingsIntent: StateFlow<IntentSender?> = privateSpaceStatus.status
-        .map { status -> status.isUnlocked }
+        .map { status -> status.unlockedProfile?.user }
         .distinctUntilChanged()
-        .map { isUnlocked -> if (isUnlocked) profileSource.privateSpaceSettingsIntent() else null }
+        .map { user -> user?.let { profileSource.privateSpaceSettingsIntent() } }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -703,6 +715,7 @@ class LauncherViewModel(
         }
     }
 
+    /** The Private Space user, Locked or not, for the requests that change its Lock. */
     private fun privateSpaceUser(): UserHandle? = privateSpaceStatus.currentStatus().profile?.user
 
     /** Asks the system to leave quiet mode for the paused Launchable's Profile. */

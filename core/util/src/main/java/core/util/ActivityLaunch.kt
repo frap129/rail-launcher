@@ -3,17 +3,22 @@ package core.util
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender.SendIntentException
 import timber.log.Timber
 
 /**
  * Runs [launch], returning whether the platform accepted it. The failures the platform reports
- * for a target that is gone or cannot handle the intent are logged and reported as false; any
- * other exception is rethrown.
+ * for a target that is gone, a sender that can no longer be sent or an intent it cannot handle
+ * are logged and reported as false; any other exception is rethrown.
  */
 fun attemptLaunch(launch: () -> Unit): Boolean = runCatching { launch() }.fold(
     onSuccess = { true },
     onFailure = { exception ->
-        if (exception is ActivityNotFoundException || exception is SecurityException || exception is IllegalStateException) {
+        if (exception is ActivityNotFoundException ||
+            exception is SecurityException ||
+            exception is IllegalStateException ||
+            exception is SendIntentException
+        ) {
             Timber.w("Could not open the target: %s", exception.logTypeName())
             false
         } else {
