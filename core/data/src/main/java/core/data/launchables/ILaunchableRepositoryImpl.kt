@@ -2,6 +2,7 @@ package core.data.launchables
 
 import android.os.UserHandle
 import core.data.R
+import core.data.apps.HomeApps
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
@@ -57,7 +58,7 @@ private data class FolderAppList(val records: List<FolderRecord>, val memberKeys
 
 private data class AppListSources(val folderAppList: FolderAppList, val standaloneShortcuts: StandaloneShortcuts)
 
-private data class AppState(val appsOrNull: List<App>?, val privateSpaceStatus: PrivateSpaceStatus)
+private data class AppState(val homeApps: HomeApps?, val privateSpaceStatus: PrivateSpaceStatus)
 
 /** The Launch counts the App List order needs, or that they have not loaded yet. */
 private sealed interface LaunchCounts {
@@ -118,11 +119,11 @@ class ILaunchableRepositoryImpl(
 
     // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
     private val appState: Flow<AppState> = combine(
-        appRepository.apps,
+        appRepository.homeApps,
         privateSpaceStatus.status,
         iconRepository.iconPacks
-    ) { appsOrNull, status, _ ->
-        AppState(appsOrNull = appsOrNull, privateSpaceStatus = status)
+    ) { homeApps, status, _ ->
+        AppState(homeApps = homeApps, privateSpaceStatus = status)
     }
 
     private val unorderedLaunchableState: Flow<UnorderedLaunchableState> = combine(
@@ -168,17 +169,27 @@ class ILaunchableRepositoryImpl(
         LaunchCounts.Loading -> state
 
         is LaunchCounts.Loaded -> {
-            val ranking: AppListRanking = appListOrder.toAppListRanking(
-                usage = AppListUsage(
-                    launchCountsByKey = launchCounts.records.associateBy { record -> record.key },
-                    rankFoldersByUse = rankFoldersByUse
+            if (!state.readiness.isLive) {
+                state
+            } else {
+                val ranking: AppListRanking = appListOrder.toAppListRanking(
+                    usage = AppListUsage(
+                        launchCountsByKey = launchCounts.records.associateBy { record -> record.key },
+                        rankFoldersByUse = rankFoldersByUse
+                    )
                 )
-            )
-            state.copy(
-                groups = state.groups.withAppListOrder(ranking = ranking),
-                readiness = if (state.readiness.isHomeReady) LaunchableReadiness.AppListReady else LaunchableReadiness.Loading
-            )
+                state.copy(
+                    groups = state.groups.withAppListOrder(ranking = ranking),
+                    readiness = LaunchableReadiness.AppListReady
+                )
+            }
         }
+    }
+
+    private fun HomeApps?.toReadiness(): LaunchableReadiness = when (this) {
+        null -> LaunchableReadiness.Loading
+        is HomeApps.LastKnown -> LaunchableReadiness.LastKnownHomeReady
+        is HomeApps.Live -> LaunchableReadiness.HomeReady
     }
 
     private suspend fun resolve(
@@ -188,7 +199,9 @@ class ILaunchableRepositoryImpl(
         profiles: List<ProfileInfo>,
         appListSources: AppListSources
     ): UnorderedLaunchableState {
-        val apps: List<App> = appState.appsOrNull.orEmpty()
+        val homeApps: HomeApps? = appState.homeApps
+        val apps: List<App> = homeApps?.apps.orEmpty()
+        val isLastKnown: Boolean = homeApps is HomeApps.LastKnown
         val profilesByUser: Map<UserHandle, ProfileInfo> = profiles.associateBy { profile -> profile.user }
         val names: LaunchableNames = customizations.toLaunchableNames()
         val icons: LaunchableIcons = customizations.toLaunchableIcons()
@@ -225,22 +238,31 @@ class ILaunchableRepositoryImpl(
         )
         val appListLaunchables: List<Launchable> = resolvedLaunchables
             .filterNot { launchable -> launchable.key in appListSources.folderAppList.memberKeys } + folders
-        val groups: List<LaunchableGroup> = appListLaunchables.toLaunchableGroups(
-            builtinGroup = resolvedBuiltinGroup,
-            privateSpaceStatus = appState.privateSpaceStatus
-        )
-        val pickerGroups: List<LaunchableGroup.Listed> = (resolvedLaunchables + folders)
-            .toLaunchableGroups(
+        // A Last-known state exposes only Home's Launchables; the App List and picker groups wait for live Apps.
+        val groups: List<LaunchableGroup> = if (isLastKnown) {
+            emptyList()
+        } else {
+            appListLaunchables.toLaunchableGroups(
                 builtinGroup = resolvedBuiltinGroup,
                 privateSpaceStatus = appState.privateSpaceStatus
             )
-            .toPickerGroups()
+        }
+        val pickerGroups: List<LaunchableGroup.Listed> = if (isLastKnown) {
+            emptyList()
+        } else {
+            (resolvedLaunchables + folders)
+                .toLaunchableGroups(
+                    builtinGroup = resolvedBuiltinGroup,
+                    privateSpaceStatus = appState.privateSpaceStatus
+                )
+                .toPickerGroups()
+        }
         return UnorderedLaunchableState(
             state = LaunchableState(
                 groups = groups,
                 // Folder members stay reachable through their Folder, pickers and the Favorites.
                 launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
-                readiness = if (appState.appsOrNull != null) LaunchableReadiness.HomeReady else LaunchableReadiness.Loading,
+                readiness = homeApps.toReadiness(),
                 keptKeys = appState.privateSpaceStatus.keptKeys,
                 retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
                     ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true

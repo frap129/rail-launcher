@@ -208,9 +208,17 @@ _Avoid_: Pin, starred app, dock
 The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
+**Home Apps**:
+The Apps Home resolves its Favorites from: the Last-known App list until the live LauncherApps load finishes, then the live Apps. Only Favorites, Folders and Pop-ups resolve from a Last-known Home Apps state; the App List, Rail groups, picker groups, stale-key cleanup and App Widget reconciliation require live Apps.
+_Avoid_: Saved Apps, cached Apps
+
 **Home readiness**:
-The first Launchable readiness stage: the installed Apps have loaded, so Home resolves its Favorites with Launchable customizations, Folder membership and Private Space rules. Only Favorites wait for this stage; every other Launchable consumer waits for App List readiness.
+The first Launchable readiness stage: Apps have loaded, either from the Last-known App list before the live LauncherApps load finishes or from that live load itself, so Home resolves its Favorites with Launchable customizations, Folder membership and Private Space rules. Only Favorites wait for this stage; every other Launchable consumer waits for App List readiness.
 _Avoid_: Home loaded, Favorites loaded (when meaning readiness)
+
+**Last-known Home readiness**:
+Home readiness reached from the Last-known App list before the live LauncherApps load finishes. Only Favorites, Folders and Pop-ups resolve from it, and its groups and picker groups are empty; the App List, Rail groups, stale-key cleanup and App Widget reconciliation wait for the live load and App List readiness.
+_Avoid_: Saved readiness, cached Home
 
 **App List readiness**:
 The Launchable readiness stage after Home readiness: the Launch counts that order the App List groups have loaded, so every group is complete and ordered. The App List, Rail, Search and every non-Home Launchable consumer wait for this stage.

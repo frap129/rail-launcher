@@ -11,20 +11,10 @@ class ILastKnownAppStoreImpl(private val lastKnownAppDao: LastKnownAppDao) : ILa
             .map { app -> app.toRecord() }
         lastKnownAppDao.replace(records = records)
     }
+
+    override suspend fun read(): List<LastKnownAppRecord> = lastKnownAppDao.getAll()
 }
 
 // An Other Profile's kind is unknown, so an Unlocked Private Space whose user info failed to read would look Other.
 private val ProfileKind.isKnownNotPrivate: Boolean
     get() = this == ProfileKind.Personal || this == ProfileKind.Work
-
-private fun App.toRecord(): LastKnownAppRecord = LastKnownAppRecord(
-    componentName = componentName,
-    profileSerial = profileInfo.serial,
-    label = defaultName,
-    badgedLabel = badgedLabel,
-    isPackageRepresentative = isPackageRepresentative,
-    firstInstallTime = firstInstallTime,
-    lastUpdateTime = lastUpdateTime,
-    isRemovable = isRemovable,
-    isSuspended = isSuspended
-)

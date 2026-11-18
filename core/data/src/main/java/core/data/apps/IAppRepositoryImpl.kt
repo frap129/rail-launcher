@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.UserHandle
 import core.data.apps.model.App
+import core.data.apps.model.AppFields
 import core.data.profiles.IPrivateSpaceStatus
 import core.data.profiles.IProfileSource
 import core.data.profiles.ProfileActivity
@@ -15,9 +16,10 @@ import core.data.runContained
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.update
@@ -32,13 +34,34 @@ class IAppRepositoryImpl(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IAppRepository {
     private val ownPackageName: String = context.packageName
-    private val _apps: MutableStateFlow<List<App>?> = MutableStateFlow(null)
-    override val apps: StateFlow<List<App>?> = _apps.asStateFlow()
+    private val liveApps: MutableStateFlow<List<App>?> = MutableStateFlow(null)
+    private val lastKnownRecords: MutableStateFlow<List<LastKnownAppRecord>?> = MutableStateFlow(null)
+    private val _homeApps: MutableStateFlow<HomeApps?> = MutableStateFlow(null)
+    override val homeApps: Flow<HomeApps?> = _homeApps.asStateFlow()
+    private val lastKnownHomeApps: Flow<HomeApps?> = combine(
+        lastKnownRecords,
+        profileSource.profiles
+    ) { records: List<LastKnownAppRecord>?, profiles: List<ProfileInfo> ->
+        records?.toLastKnownHomeApps(profiles = profiles)
+    }
 
     init {
         scope.launch(dispatcher) {
-            _apps.filterNotNull().collect { apps ->
-                runContained(message = "Could not save the Last-known App list") {
+            runContained(message = "Could not read the Last-known App list") {
+                lastKnownRecords.value = lastKnownAppStore.read()
+            }
+        }
+        scope.launch(dispatcher) {
+            lastKnownHomeApps.collect { lastKnownApps: HomeApps? ->
+                if (lastKnownApps != null) {
+                    _homeApps.update { current -> if (current is HomeApps.Live) current else lastKnownApps }
+                }
+            }
+        }
+        scope.launch(dispatcher) {
+            liveApps.filterNotNull().collect { apps ->
+                _homeApps.value = HomeApps.Live(apps = apps)
+                runContained(message = "Could not store the Last-known App list") {
                     lastKnownAppStore.save(apps = apps)
                 }
             }
@@ -97,19 +120,19 @@ class IAppRepositoryImpl(
             privateSpaceStatus.listedProfiles.value - user
         }
         publish(
-            apps = (_apps.value.orEmpty().filterNot { app -> app.profile == user } + profileApps).excludingOwnPackage(),
+            apps = (liveApps.value.orEmpty().filterNot { app -> app.profile == user } + profileApps).excludingOwnPackage(),
             listedProfiles = listedProfiles
         )
     }
 
     private fun removeProfile(user: UserHandle) {
-        _apps.update { current -> current?.filterNot { app -> app.profile == user } }
+        liveApps.update { current -> current?.filterNot { app -> app.profile == user } }
         privateSpaceStatus.setListedProfiles(profiles = privateSpaceStatus.listedProfiles.value - user)
     }
 
     // The Apps go out before the listing, so a Space's keys are never released before its Apps list.
     private fun publish(apps: List<App>, listedProfiles: Set<UserHandle>) {
-        _apps.value = apps
+        liveApps.value = apps
         privateSpaceStatus.setListedProfiles(profiles = listedProfiles)
     }
 
@@ -135,7 +158,7 @@ class IAppRepositoryImpl(
     }
 
     private fun updateApps(user: UserHandle, transform: (App) -> App) {
-        _apps.update { current ->
+        liveApps.update { current ->
             current?.map { app -> if (app.profile == user) transform(app) else app }
         }
     }
@@ -148,7 +171,7 @@ class IAppRepositoryImpl(
         } else {
             profileSource.activities(packageName, user).toApps(profile = profile)
         }
-        _apps.update { current ->
+        liveApps.update { current ->
             current.orEmpty().filterNot { app -> app.profile == user && app.packageName == packageName } + replacedApps
         }
         // Only a full Profile load lists it; a package event may at most revoke that.
@@ -158,12 +181,25 @@ class IAppRepositoryImpl(
     }
 
     private fun removePackage(user: UserHandle, packageName: String) {
-        _apps.update { current ->
+        liveApps.update { current ->
             current?.filterNot { app -> app.profile == user && app.packageName == packageName }
         }
     }
 
     private fun List<App>.excludingOwnPackage(): List<App> = filterNot { app -> app.packageName == ownPackageName }
+
+    /** The Last-known entries whose Profile still exists, leaving out Private Space Apps. */
+    private fun List<LastKnownAppRecord>.toLastKnownHomeApps(profiles: List<ProfileInfo>): HomeApps? {
+        val profilesBySerial: Map<Long, ProfileInfo> = profiles.associateBy { profile -> profile.serial }
+        val apps: List<App> = mapNotNull { record ->
+            profilesBySerial[record.profileSerial]
+                ?.takeUnless { profile -> profile.isPrivate }
+                ?.let { profile -> record.toApp(profileInfo = profile) }
+        }
+        return apps.takeIf { lastKnownApps ->
+            lastKnownApps.isNotEmpty()
+        }?.let { lastKnownApps -> HomeApps.LastKnown(apps = lastKnownApps) }
+    }
 
     private fun List<ProfileActivity>.toApps(profile: ProfileInfo): List<App> {
         val representatives: Set<ComponentName> = groupBy { activity -> activity.componentName.packageName }
@@ -174,7 +210,7 @@ class IAppRepositoryImpl(
         }
     }
 
-    private fun ProfileActivity.toApp(profile: ProfileInfo, isPackageRepresentative: Boolean): App = App(
+    private fun ProfileActivity.toApp(profile: ProfileInfo, isPackageRepresentative: Boolean): App = AppFields(
         defaultName = label,
         profileInfo = profile,
         componentName = componentName,
@@ -184,5 +220,5 @@ class IAppRepositoryImpl(
         lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
         isSuspended = isSuspended
-    )
+    ).toApp()
 }

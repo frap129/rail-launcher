@@ -292,6 +292,34 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `shows Favorites from the Last-known App list while the Rail keeps only the Star`() {
+        runTest {
+            val inputLastKnownApp: App = createApp(name = "Last-known", customName = "Last-known name")
+            inputLaunchableState.value = createLaunchableState(
+                groups = emptyList(),
+                readiness = LaunchableReadiness.LastKnownHomeReady
+            )
+            mockFavoritesFixture.state.setFavorites(listOf(inputLastKnownApp))
+            mockFavoritesFixture.state.setLoaded(true)
+            val viewModel: LauncherViewModel = createViewModel()
+            viewModel.uiState.test {
+                val actualHome: LauncherUiState.Home = expectHome()
+                assertTrue(actualHome.isFavoritesLoaded)
+                assertEquals(listOf(inputLastKnownApp), actualHome.favorites)
+
+                viewModel.onRailReleased(index = 1)
+                runCurrent()
+
+                expectNoEvents()
+                assertSame(actualHome, viewModel.uiState.value)
+            }
+            viewModel.railItems.test {
+                assertEquals(listOf(GroupMark.Label("★")), awaitRailItems(listOf(GroupMark.Label("★"))))
+            }
+        }
+    }
+
+    @Test
     fun `reads Loading for Search until the App List is ready`() {
         runTest {
             inputLaunchableState.value = createLaunchableState(groups = inputGroups, readiness = LaunchableReadiness.HomeReady)

@@ -2,6 +2,7 @@ package core.data.apps
 
 import android.content.ComponentName
 import android.os.UserHandle
+import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.icons.model.Icon
@@ -155,14 +156,14 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         val repository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
 
-        assertNull(repository.apps.value)
+        assertNull(repository.homeApps.first())
 
         inputState.isLoaded.value = true
         finishPendingWork()
 
         assertEquals(
             setOf(personalUser, workUser, privateUser),
-            repository.apps.value.orEmpty().mapTo(mutableSetOf()) { app -> app.profile }
+            repository.homeAppsOf<HomeApps.Live>().apps.mapTo(mutableSetOf()) { app -> app.profile }
         )
     }
 
@@ -638,7 +639,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
         val appRepository: IAppRepositoryImpl = createRepository(state = inputState)
         finishPendingWork()
-        val inputWorkApp: App = appRepository.apps.value.orEmpty().single()
+        val inputWorkApp: App = appRepository.homeAppsOf<HomeApps.Live>().apps.single()
         val repositories: LaunchableRepositories = createLaunchableRepositories(
             appRepository = appRepository,
             profileState = inputState,
@@ -890,18 +891,16 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
     @Test
     fun `publishes the live App list before saving finishes`() = databaseTest {
-        val inputState: ProfileSourceState = baseState()
         val saveGate: CompletableDeferred<Unit> = CompletableDeferred()
-        val mockLastKnownAppStore: ILastKnownAppStore = mockk()
-        coEvery { mockLastKnownAppStore.save(any()) } coAnswers { saveGate.await() }
+        val mockLastKnownAppStore: ILastKnownAppStore = createLastKnownAppStoreMock(save = { saveGate.await() })
         val repository: IAppRepositoryImpl = createRepository(
-            state = inputState,
+            state = baseState(),
             lastKnownAppStore = mockLastKnownAppStore
         )
 
         finishPendingWork()
 
-        assertEquals(2, repository.apps.value.orEmpty().size)
+        assertEquals(2, repository.homeAppsOf<HomeApps.Live>().apps.size)
         coVerify(exactly = 1) { mockLastKnownAppStore.save(any()) }
 
         saveGate.complete(Unit)
@@ -911,8 +910,9 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
     @Test
     fun `publishes the live App list when saving fails`() = databaseTest {
         val inputState: ProfileSourceState = baseState()
-        val mockLastKnownAppStore: ILastKnownAppStore = mockk()
-        coEvery { mockLastKnownAppStore.save(any()) } throws IllegalStateException("Last-known App list write failed")
+        val mockLastKnownAppStore: ILastKnownAppStore = createLastKnownAppStoreMock(
+            save = { throw IllegalStateException("Last-known App list write failed") }
+        )
         val logRecorder: TimberLogRecorder = TimberLogRecorder()
         val repository: IAppRepositoryImpl = createRepository(
             state = inputState,
@@ -921,7 +921,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
 
         logRecorder.recordSuspending {
             finishPendingWork()
-            assertEquals(2, repository.apps.value.orEmpty().size)
+            assertEquals(2, repository.homeAppsOf<HomeApps.Live>().apps.size)
 
             inputState.setActivities(
                 user = workUser,
@@ -934,15 +934,174 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
             finishPendingWork()
         }
 
-        assertEquals(3, repository.apps.value.orEmpty().size)
+        assertEquals(3, repository.homeAppsOf<HomeApps.Live>().apps.size)
         coVerify(exactly = 2) { mockLastKnownAppStore.save(any()) }
         logRecorder.assertLoggedWithout()
     }
 
+    @Test
+    fun `publishes the Last-known App list as Home's Apps before the live load finishes`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile), isLoaded = false)
+        lastKnownAppDatabase.getLastKnownAppDao().insertAll(listOf(lastKnownRecord(profile = personalProfile)))
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        finishPendingWork()
+
+        val actualHomeApps: HomeApps.LastKnown = repository.homeAppsOf()
+        assertEquals(listOf("Last-known"), actualHomeApps.apps.map { app -> app.defaultName })
+    }
+
+    @Test
+    fun `treats an empty Last-known App list as no Last-known Apps`() = databaseTest {
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = listOf(personalProfile), isLoaded = false)
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        finishPendingWork()
+
+        assertNull(repository.homeApps.first())
+    }
+
+    @Test
+    fun `drops Last-known Apps whose Profile no longer exists`() = databaseTest {
+        val inputProfiles: List<ProfileInfo> = listOf(personalProfile)
+        val inputState: ProfileSourceState = ProfileSourceState(profiles = inputProfiles, isLoaded = false)
+        lastKnownAppDatabase.getLastKnownAppDao().insertAll(
+            listOf(
+                lastKnownRecord(profile = personalProfile),
+                lastKnownRecord(profile = workProfile, packageName = WORK_PACKAGE)
+            )
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        finishPendingWork()
+
+        val actualHomeApps: HomeApps.LastKnown = repository.homeAppsOf()
+        assertEquals(
+            listOf(ComponentName(PERSONAL_PACKAGE, "$PERSONAL_PACKAGE.MainActivity")),
+            actualHomeApps.apps.map { app -> app.componentName }
+        )
+    }
+
+    @Test
+    fun `never publishes a Private Space App from the Last-known App list`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(
+            userId = PRIVATE_USER_ID,
+            kind = ProfileKind.Private,
+            isQuiet = false
+        )
+        val inputState: ProfileSourceState = ProfileSourceState(
+            profiles = listOf(personalProfile, inputPrivateProfile),
+            isLoaded = false
+        )
+        lastKnownAppDatabase.getLastKnownAppDao().insertAll(
+            listOf(
+                lastKnownRecord(profile = personalProfile),
+                lastKnownRecord(profile = inputPrivateProfile, packageName = PRIVATE_PACKAGE)
+            )
+        )
+        val repository: IAppRepositoryImpl = createRepository(state = inputState)
+
+        finishPendingWork()
+
+        val actualHomeApps: HomeApps.LastKnown = repository.homeAppsOf()
+        assertTrue(actualHomeApps.apps.none { app -> app.profileInfo.isPrivate })
+        assertEquals(1, actualHomeApps.apps.size)
+    }
+
+    @Test
+    fun `publishes the live App load without waiting for the Last-known App list read`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val readGate: CompletableDeferred<Unit> = CompletableDeferred()
+        val mockLastKnownAppStore: ILastKnownAppStore = createLastKnownAppStoreMock(
+            read = {
+                readGate.await()
+                emptyList()
+            }
+        )
+        val repository: IAppRepositoryImpl = createRepository(
+            state = inputState,
+            lastKnownAppStore = mockLastKnownAppStore
+        )
+
+        finishPendingWork()
+
+        val actualHomeApps: HomeApps.Live = repository.homeAppsOf()
+        assertEquals(2, actualHomeApps.apps.size)
+
+        readGate.complete(Unit)
+        finishPendingWork()
+
+        assertTrue(repository.homeApps.first() is HomeApps.Live)
+    }
+
+    @Test
+    fun `ignores the Last-known App list when its read finishes after the live load`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val readGate: CompletableDeferred<Unit> = CompletableDeferred()
+        val mockLastKnownAppStore: ILastKnownAppStore = createLastKnownAppStoreMock(
+            read = {
+                readGate.await()
+                listOf(createApp(name = "Late", packageName = PERSONAL_PACKAGE).toRecord())
+            }
+        )
+        val repository: IAppRepositoryImpl = createRepository(
+            state = inputState,
+            lastKnownAppStore = mockLastKnownAppStore
+        )
+        finishPendingWork()
+        assertEquals(2, repository.homeAppsOf<HomeApps.Live>().apps.size)
+
+        repository.homeApps.test {
+            assertTrue(awaitItem() is HomeApps.Live)
+
+            readGate.complete(Unit)
+            finishPendingWork()
+
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `publishes the live App load when reading the Last-known App list fails`() = databaseTest {
+        val inputState: ProfileSourceState = baseState()
+        val mockLastKnownAppStore: ILastKnownAppStore = createLastKnownAppStoreMock(
+            read = { throw IllegalStateException("Last-known App list read failed") }
+        )
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+        val repository: IAppRepositoryImpl = createRepository(
+            state = inputState,
+            lastKnownAppStore = mockLastKnownAppStore
+        )
+
+        logRecorder.recordSuspending { finishPendingWork() }
+
+        assertEquals(2, repository.homeAppsOf<HomeApps.Live>().apps.size)
+        logRecorder.assertLoggedWithout()
+    }
+
+    private fun createLastKnownAppStoreMock(
+        read: suspend () -> List<LastKnownAppRecord> = { emptyList() },
+        save: suspend (List<App>) -> Unit = {}
+    ): ILastKnownAppStore {
+        val mockLastKnownAppStore: ILastKnownAppStore = mockk()
+        coEvery { mockLastKnownAppStore.read() } coAnswers { read() }
+        coEvery { mockLastKnownAppStore.save(any()) } coAnswers { save(firstArg()) }
+        return mockLastKnownAppStore
+    }
+
+    private fun lastKnownRecord(
+        profile: ProfileInfo,
+        packageName: String = PERSONAL_PACKAGE,
+        label: String = "Last-known"
+    ): LastKnownAppRecord = createApp(name = label, packageName = packageName, profileInfo = profile).toRecord()
+
+    private suspend inline fun <reified T : HomeApps> IAppRepository.homeAppsOf(): T =
+        homeApps.first() as? T ?: throw AssertionError("Expected Home Apps of type ${T::class.simpleName}")
+
     private suspend fun lastKnownAppRecords(): List<LastKnownAppRecord> = lastKnownAppDatabase.getLastKnownAppDao().getAll()
 
     private suspend fun assertLastKnownAppListMatchesLive(repository: IAppRepository) {
-        val expectedKeys: Set<Pair<ComponentName, Long>> = repository.apps.value.orEmpty()
+        val expectedKeys: Set<Pair<ComponentName, Long>> = repository.homeAppsOf<HomeApps.Live>().apps
             .filterNot { app -> app.profileInfo.isPrivate }
             .map { app -> app.componentName to app.profileInfo.serial }
             .toSet()
@@ -983,9 +1142,9 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         )
     }
 
-    private fun TestScope.loadApps(repository: IAppRepository): List<App> {
+    private suspend fun TestScope.loadApps(repository: IAppRepository): List<App> {
         finishPendingWork()
-        return repository.apps.value.orEmpty()
+        return repository.homeAppsOf<HomeApps.Live>().apps
     }
 
     private fun TestScope.createLaunchableRepositories(

@@ -314,6 +314,39 @@ class IFavoritesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `keeps Favorites loaded and customized when the live Apps replace the Last-known App list`() = databaseTest {
+        val inputLastKnownFavorite: App = createApp(name = "App", customName = "Renamed")
+        val inputLiveFavorite: App = inputLastKnownFavorite.copy(defaultName = "Live app")
+        seedFavorite(key = inputLastKnownFavorite.key, position = FIRST_POSITION)
+        val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLoadedLaunchableState(
+                launchables = listOf(inputLastKnownFavorite),
+                readiness = LaunchableReadiness.LastKnownHomeReady
+            )
+        )
+        val repository: IFavoritesRepositoryImpl = createRepository(
+            favoriteDao = database.getFavoriteDao(),
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState)
+        )
+        finishPendingWork()
+
+        repository.state.test {
+            val actualLastKnownState: FavoritesState = awaitItem()
+            assertEquals(FavoritesState(favorites = listOf(inputLastKnownFavorite), isLoaded = true), actualLastKnownState)
+            assertEquals(listOf("Renamed"), actualLastKnownState.favorites.map { favorite -> favorite.name })
+
+            inputLaunchableState.value = createLoadedLaunchableState(
+                launchables = listOf(inputLiveFavorite),
+                readiness = LaunchableReadiness.HomeReady
+            )
+            val actualLiveState: FavoritesState = awaitItem()
+            assertEquals(FavoritesState(favorites = listOf(inputLiveFavorite), isLoaded = true), actualLiveState)
+            assertEquals(listOf("Renamed"), actualLiveState.favorites.map { favorite -> favorite.name })
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `reports unloaded Favorites while Home's Launchables are not ready`() = databaseTest {
         seedFavorite(key = inputLaunchable.key, position = FIRST_POSITION)
         val launchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(

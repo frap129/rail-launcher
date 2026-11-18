@@ -1,5 +1,6 @@
 package core.data.widgets
 
+import core.data.launchables.LaunchableState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -20,4 +21,10 @@ interface IWidgetLifecycleReconciler {
 
     /** Removes rows whose provider package is no longer installed for its profile. */
     suspend fun removeGoneProviders()
+
+    /**
+     * Removes gone providers whenever [launchableState] reports the live App List ready and
+     * [providerChanges] emits; a Last-known Home state never triggers it.
+     */
+    suspend fun removeGoneProvidersWhenAppListReady(launchableState: Flow<LaunchableState>, providerChanges: Flow<Unit>)
 }
