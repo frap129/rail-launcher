@@ -8,10 +8,12 @@ import android.content.pm.LauncherApps
 import android.net.Uri
 import android.os.UserHandle
 import core.data.icons.model.Icon
+import core.data.icons.model.UNKNOWN_APP_UPDATE_TIME
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.ProfileSourceState
+import core.data.testing.TEST_APP_UPDATE_TIME
 import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
 import core.data.testing.WORK_USER_ID
@@ -101,11 +103,17 @@ class AppTest {
     fun `badges the default icon of a non-personal App`() {
         val inputProfile: ProfileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work)
         val inputApp: App = createApp(name = "Example", packageName = PACKAGE_NAME, profileInfo = inputProfile)
-
         assertEquals(
-            Icon.ProfileIcon(icon = Icon.ActivityIcon(inputApp.componentName), profile = inputProfile.user),
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(inputApp.componentName, UNKNOWN_APP_UPDATE_TIME), profile = inputProfile.user),
             inputApp.defaultIcon
         )
+    }
+
+    @Test
+    fun `carries its update time on its default icon`() {
+        val inputApp: App = createApp(name = "Example", packageName = PACKAGE_NAME, lastUpdateTime = TEST_APP_UPDATE_TIME)
+
+        assertEquals(Icon.ActivityIcon(inputApp.componentName, lastUpdateTime = TEST_APP_UPDATE_TIME), inputApp.defaultIcon)
     }
 
     @Suppress("DEPRECATION")

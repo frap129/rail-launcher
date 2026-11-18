@@ -36,6 +36,10 @@ _Avoid_: Theme, icon theme
 A heading in an Icon pack's drawable list that groups the icons under it in the Icon picker; a pack without headings shows one untitled category.
 _Avoid_: Group, section
 
+**Home icon cache**:
+The rendered App icons Rail keeps on disk for every icon it draws (Home, the App List, Search and the pickers), keyed by the icon's identity, the App's update time, density and request size, so an icon draws without loading its App's resources; a background revalidation replaces a stored icon whose system icon changed, and the icons drawn from it reload in place.
+_Avoid_: Icon disk cache, bitmap cache
+
 **App key**:
 The stored identity of an App: its activity component and Profile, which makes each launcher activity in a Profile one App.
 _Avoid_: Component key, activity key, package key

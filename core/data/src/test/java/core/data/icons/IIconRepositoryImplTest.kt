@@ -9,6 +9,7 @@ import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
+import core.data.icons.model.UNKNOWN_APP_UPDATE_TIME
 import core.data.launchables.model.Launchable
 import core.data.profiles.ProfileChange
 import core.data.profiles.ProfileInfo
@@ -81,7 +82,7 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile
         )
 
-        assertEquals(Icon.ActivityIcon(inputComponentName), actualIcon)
+        assertEquals(Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME), actualIcon)
     }
 
     @Test
@@ -96,7 +97,10 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile
         )
 
-        assertEquals(Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName), profile = inputWorkUser), actualIcon)
+        assertEquals(
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME), profile = inputWorkUser),
+            actualIcon
+        )
     }
 
     @Test
@@ -111,7 +115,10 @@ class IIconRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile
         )
 
-        assertEquals(Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName), profile = inputPrivateUser), actualIcon)
+        assertEquals(
+            Icon.ProfileIcon(icon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME), profile = inputPrivateUser),
+            actualIcon
+        )
     }
 
     @Test

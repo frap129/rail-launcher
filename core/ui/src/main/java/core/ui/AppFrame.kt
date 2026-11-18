@@ -3,6 +3,7 @@ package core.ui
 import android.annotation.SuppressLint
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -17,6 +18,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import core.data.icons.IHomeIconCache
+import core.ui.composables.LocalHomeIconCache
 import core.ui.model.data.Destination
 import core.ui.model.data.LauncherSignal
 import core.ui.model.data.LauncherSignalRequest
@@ -24,6 +27,7 @@ import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import org.koin.androidx.compose.KoinAndroidContext
+import org.koin.compose.koinInject
 import org.koin.core.annotation.KoinExperimentalAPI
 
 private const val DARK_SURFACE_LUMINANCE_THRESHOLD: Float = 0.5f
@@ -85,23 +89,26 @@ fun App(
         }
 
         KoinAndroidContext {
-            NavHost(
-                modifier = Modifier.semantics { testTagsAsResourceId = true },
-                navController = navController,
-                startDestination = startDestination
-            ) {
-                // Add all defined destinations to the NavGraph
-                destinations.forEach { dest ->
-                    composable(
-                        route = dest.route,
-                        content = { navBackStackEntry ->
-                            dest.content(navController, navBackStackEntry)
-                        },
-                        deepLinks = dest.deepLinks,
-                        arguments = dest.arguments,
-                        enterTransition = dest.enterTransition,
-                        exitTransition = dest.exitTransition
-                    )
+            val homeIconCache: IHomeIconCache = koinInject()
+            CompositionLocalProvider(LocalHomeIconCache provides homeIconCache) {
+                NavHost(
+                    modifier = Modifier.semantics { testTagsAsResourceId = true },
+                    navController = navController,
+                    startDestination = startDestination
+                ) {
+                    // Add all defined destinations to the NavGraph
+                    destinations.forEach { dest ->
+                        composable(
+                            route = dest.route,
+                            content = { navBackStackEntry ->
+                                dest.content(navController, navBackStackEntry)
+                            },
+                            deepLinks = dest.deepLinks,
+                            arguments = dest.arguments,
+                            enterTransition = dest.enterTransition,
+                            exitTransition = dest.exitTransition
+                        )
+                    }
                 }
             }
         }

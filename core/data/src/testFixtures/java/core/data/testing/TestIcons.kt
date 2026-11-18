@@ -21,6 +21,15 @@ const val TEST_CUSTOM_ICON_DRAWABLE_NAME: String = "calendar"
 /** The side length of the square gallery icon tests import. */
 const val TEST_GALLERY_ICON_SIZE: Int = 192
 
+/** The display density tests key and render icons at. */
+const val TEST_DENSITY_DPI: Int = 320
+
+/** The square size tests render a Home icon at. */
+const val TEST_ICON_SIZE_PX: Int = 128
+
+/** The centre pixel of a [TEST_ICON_SIZE_PX] Home icon, where tests read a rendered colour. */
+const val TEST_ICON_CENTER_PX: Int = TEST_ICON_SIZE_PX / 2
+
 /** The file name tests give an imported gallery icon. */
 const val TEST_GALLERY_ICON_FILE_NAME: String = "gallery-icon.png"
 
