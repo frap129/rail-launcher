@@ -32,8 +32,19 @@ import org.koin.core.annotation.KoinExperimentalAPI
 
 private const val DARK_SURFACE_LUMINANCE_THRESHOLD: Float = 0.5f
 
-/** Returns to [startDestination], navigating to it when nothing was above it. */
+/** Whether [route] is the App's [startDestination]. */
+internal fun isStartDestination(route: String?, startDestination: String): Boolean = route == startDestination
+
+/**
+ * Returns to [startDestination], navigating to it when nothing was above it. While the start
+ * destination is already shown nothing navigates, so its entry is never replaced, keeping its
+ * ViewModels and their state.
+ */
 private fun showStartDestination(navController: NavController, startDestination: String) {
+    val currentRoute: String? = navController.currentBackStackEntry?.destination?.route
+    if (isStartDestination(route = currentRoute, startDestination = startDestination)) {
+        return
+    }
     val startOnBackStack: Boolean = navController.popBackStack(startDestination, inclusive = false)
     if (!startOnBackStack) {
         navController.navigate(startDestination)
@@ -64,7 +75,10 @@ fun App(
 
     LaunchedEffect(launcherSignals) {
         launcherSignals.collect { signal ->
-            val wasShowingStart: Boolean = latestBackStackEntry?.destination?.route == startDestination
+            val wasShowingStart: Boolean = isStartDestination(
+                route = latestBackStackEntry?.destination?.route,
+                startDestination = startDestination
+            )
             if (signal !is LauncherSignal.TypedCharacter) {
                 showStartDestination(navController = navController, startDestination = startDestination)
             }
