@@ -413,6 +413,15 @@ class LauncherViewModel(
         initial = false
     )
 
+    /**
+     * Whether the Rail draws its marks. It shows the stored setting, starting from its default so
+     * the Rail draws at a cold start until the stored value arrives.
+     */
+    val showRail: StateFlow<Boolean> = prefsRepo.settings.settingState(
+        read = { settings -> settings.showRail },
+        initial = defaultSettings.showRail
+    )
+
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())
 

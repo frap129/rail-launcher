@@ -61,14 +61,13 @@ import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
 import core.ui.composables.scrollrail.RailScrubState
 import core.ui.composables.scrollrail.ScrollRail
-import core.ui.composables.scrollrail.railMirrorScrubInput
 import core.ui.composables.scrollrail.railScrubInput
+import core.ui.composables.scrollrail.railScrubStripInput
 import core.ui.composables.scrollrail.railWidth
 import core.ui.composables.scrollrail.rememberRailScrubState
 import core.ui.layout.HomeEditMode
+import core.ui.layout.appListStartInset
 import core.ui.layout.homeEdgePadding
-import core.ui.layout.homeRailContentPaddingValues
-import core.ui.layout.homeRailStartInset
 import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
@@ -92,8 +91,8 @@ private const val REVEAL_FADE_IN_DELAY_MILLIS: Int = 75
 private const val REVEAL_FADE_OUT_MILLIS: Int = 1
 private const val REVEAL_FADE_OUT_DELAY_MILLIS: Int = 275
 
-/** The test tag on the Rail mirror strip. */
-internal const val RAIL_MIRROR_STRIP_TEST_TAG: String = "railMirrorStrip"
+/** The test tag on the Rail scrub strip on [side]. */
+internal fun railScrubStripTestTag(side: RailSide): String = if (side.isStart) "railScrubStripStart" else "railScrubStripEnd"
 
 @Composable
 internal fun LauncherContent(
@@ -102,6 +101,7 @@ internal fun LauncherContent(
     widgetViewModel: WidgetAreaViewModel,
     railBounds: RailBounds,
     railSide: RailSide,
+    showRail: Boolean,
     onItemLaunch: (Launchable) -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
@@ -260,9 +260,7 @@ internal fun LauncherContent(
                         isPopupSwipeEnabled = !isEditingHome
                     )
                     LauncherAppList(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(homeRailContentPaddingValues(railSide = railSide)),
+                        modifier = Modifier.fillMaxSize(),
                         appList = state.groups,
                         recentlyInstalled = state.recentlyInstalled,
                         lazyListState = state.lazyListState,
@@ -270,7 +268,9 @@ internal fun LauncherContent(
                         itemActions = itemActions,
                         folderSummaries = folderSummaries,
                         topOffset = viewModel.listStartOffsetPx.toDp(context).dp,
-                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp
+                        bottomOffset = viewModel.listEndOffsetPx.toDp(context).dp,
+                        railSide = railSide,
+                        showRail = showRail
                     )
                 }
 
@@ -283,7 +283,10 @@ internal fun LauncherContent(
                     LauncherItemGroup(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = homeRailStartInset(railSide = railSide), top = viewModel.listStartOffsetPx.toDp(context).dp),
+                            .padding(
+                                start = appListStartInset(railSide = railSide, showRail = showRail),
+                                top = viewModel.listStartOffsetPx.toDp(context).dp
+                            ),
                         group = state.group,
                         rowState = rowState,
                         itemActions = itemActions,
@@ -356,6 +359,7 @@ internal fun BoxScope.LauncherRail(
     railBounds: RailBounds,
     railSide: RailSide,
     scrubEdges: ScrubEdges,
+    showRail: Boolean,
     isCardOpen: () -> Boolean,
     railHaptics: Boolean,
     onRailTouched: () -> Unit,
@@ -367,7 +371,7 @@ internal fun BoxScope.LauncherRail(
     // Edit Favorites keeps the Rail so Apps can be found in the App List and added.
     val isEnabled: Boolean = homeEditMode == HomeEditMode.None || homeEditMode == HomeEditMode.Favorites
     // Re-arms the policy whenever ScrollRail restarts its pointer input mid-gesture.
-    LaunchedEffect(railItems.size, isEnabled, railSide, scrubEdges) {
+    LaunchedEffect(railItems.size, isEnabled, railSide, scrubEdges, showRail) {
         railGesture.reset()
     }
     val railScrubState: RailScrubState = rememberRailScrubState(
@@ -385,38 +389,62 @@ internal fun BoxScope.LauncherRail(
         enabled = isEnabled,
         railHaptics = railHaptics
     )
-    val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
-        Modifier.railScrubInput(state = railScrubState)
-    } else {
-        Modifier
-    }
-    val railAlignment: Alignment = if (railSide.isStart) Alignment.CenterStart else Alignment.CenterEnd
-    val railHorizontalOffset: Dp = if (railSide.isStart) railHorizontalInset else -railHorizontalInset
-    ScrollRail(
-        state = railScrubState,
-        items = railItems,
-        modifier = Modifier
-            .align(railAlignment)
-            .padding(0.dp, railTopPadding, 0.dp, 0.dp)
-            .width(railWidth)
-            .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
-            .then(drawnRailInput)
-            .onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) },
-        railSide = railSide
-    )
-    val mirrorSide: RailSide = railSide.opposite()
-    if (scrubEdges.includes(mirrorSide)) {
-        Box(
+    if (showRail) {
+        val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
+            Modifier.railScrubInput(state = railScrubState)
+        } else {
+            Modifier
+        }
+        val railHorizontalOffset: Dp = if (railSide.isStart) railHorizontalInset else -railHorizontalInset
+        ScrollRail(
+            state = railScrubState,
+            items = railItems,
             modifier = Modifier
-                .align(if (mirrorSide.isStart) Alignment.CenterStart else Alignment.CenterEnd)
+                .align(railSide.centerAlignment())
                 .padding(0.dp, railTopPadding, 0.dp, 0.dp)
-                .width(homeEdgePadding)
-                .height(railScrubState.railHeight)
-                .railMirrorScrubInput(state = railScrubState, railSide = railSide)
-                .testTag(RAIL_MIRROR_STRIP_TEST_TAG)
-                .clearAndSetSemantics { hideFromAccessibility() }
+                .width(railWidth)
+                .offset { IntOffset(railHorizontalOffset.toPx().toInt(), 0) }
+                .then(drawnRailInput)
+                .publishRailBounds(railBounds = railBounds),
+            railSide = railSide
         )
     }
+    // The drawn Rail takes touches on its own edge; every other enabled edge, including both while
+    // the Rail is hidden, gets an invisible strip that scrubs it.
+    val scrubStripSides: List<RailSide> = RailSide.entries.filter { side ->
+        scrubEdges.includes(side) && !(showRail && side == railSide)
+    }
+    scrubStripSides.forEach { stripSide ->
+        val hiddenRailBounds: Modifier = if (!showRail && stripSide == railSide) {
+            Modifier.publishRailBounds(railBounds = railBounds)
+        } else {
+            Modifier
+        }
+        RailScrubStrip(state = railScrubState, railSide = railSide, stripSide = stripSide, modifier = hiddenRailBounds)
+    }
+}
+
+/** The horizontal alignment that puts content on [this] side. */
+private fun RailSide.centerAlignment(): Alignment = if (isStart) Alignment.CenterStart else Alignment.CenterEnd
+
+/** Publishes this layout's bounds into [railBounds], so row swipes stop at the Rail's touch column. */
+private fun Modifier.publishRailBounds(railBounds: RailBounds): Modifier =
+    onGloballyPositioned { coordinates -> railBounds.update(bounds = coordinates.boundsInRoot()) }
+
+/** An invisible strip on [stripSide] that scrubs the Rail as if the finger were on its own edge. */
+@Composable
+private fun BoxScope.RailScrubStrip(state: RailScrubState, railSide: RailSide, stripSide: RailSide, modifier: Modifier) {
+    Box(
+        modifier = Modifier
+            .align(stripSide.centerAlignment())
+            .padding(0.dp, railTopPadding, 0.dp, 0.dp)
+            .width(homeEdgePadding)
+            .height(state.railHeight)
+            .then(modifier)
+            .railScrubStripInput(state = state, railSide = railSide)
+            .testTag(railScrubStripTestTag(side = stripSide))
+            .clearAndSetSemantics { hideFromAccessibility() }
+    )
 }
 
 @Composable

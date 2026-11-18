@@ -29,6 +29,7 @@ import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.layout.HomeEditMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,7 +51,7 @@ class LauncherRailTest {
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = false)
-        assertMirrorStripOnSide(isOnLeft = true)
+        assertScrubStripOnSide(side = RailSide.START, isOnLeft = true)
     }
 
     @Test
@@ -90,7 +91,7 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `Start Rail side scrubs from the drawn Rail and the mirror strip on the end edge`() {
+    fun `Start Rail side scrubs from the drawn Rail and the scrub strip on the end edge`() {
         assertBothEdgesScrub(railSide = RailSide.START, layoutDirection = LayoutDirection.Ltr, isRailOnLeft = true)
     }
 
@@ -105,7 +106,7 @@ class LauncherRailTest {
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.END)
 
         assertEquals(listOf(0, 1, 2), actualPreviewIndices)
     }
@@ -135,7 +136,7 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `Both scrub edges preview and release from the drawn Rail and the mirror strip`() {
+    fun `Both scrub edges preview and release from the drawn Rail and the scrub strip`() {
         assertBothEdgesScrub(railSide = RailSide.DEFAULT, layoutDirection = LayoutDirection.Ltr, isRailOnLeft = false)
     }
 
@@ -149,7 +150,7 @@ class LauncherRailTest {
             onRailReleased = { index -> actualReleaseIndices += index }
         )
 
-        composeRule.onNodeWithTag(RAIL_MIRROR_STRIP_TEST_TAG).assertDoesNotExist()
+        composeRule.onNodeWithTag(railScrubStripTestTag(side = RailSide.START)).assertDoesNotExist()
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
 
         assertEquals(listOf(0, 1, 2), actualPreviewIndices)
@@ -157,7 +158,7 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `Start scrub edges preview and release only from the mirror strip`() {
+    fun `Start scrub edges preview and release only from the scrub strip`() {
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
         val actualReleaseIndices: MutableList<Int> = mutableListOf()
         setRailContent(
@@ -167,14 +168,14 @@ class LauncherRailTest {
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
 
         assertEquals(listOf(0, 1, 2), actualPreviewIndices)
         assertEquals(listOf(2), actualReleaseIndices)
     }
 
     @Test
-    fun `scrubbing the mirror strip closes an open Pop-up instead of the Rail`() {
+    fun `scrubbing a scrub strip closes an open Pop-up instead of the Rail`() {
         var actualCloseCount: Int = 0
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
         val actualReleaseIndices: MutableList<Int> = mutableListOf()
@@ -186,7 +187,7 @@ class LauncherRailTest {
             onRailReleased = { index -> actualReleaseIndices += index }
         )
 
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
 
         assertEquals(1, actualCloseCount)
         assertEquals(emptyList<Int>(), actualPreviewIndices)
@@ -194,7 +195,7 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `scrubbing the mirror strip does nothing while editing Widgets`() {
+    fun `scrubbing a scrub strip does nothing while editing Widgets`() {
         var actualCloseCount: Int = 0
         var actualHapticTickCount: Int = 0
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
@@ -209,7 +210,7 @@ class LauncherRailTest {
             onHapticTick = { actualHapticTickCount++ }
         )
 
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
 
         assertEquals(0, actualCloseCount)
         assertEquals(0, actualHapticTickCount)
@@ -229,7 +230,7 @@ class LauncherRailTest {
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
 
         assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
         assertEquals(listOf(2, 2), actualReleaseIndices)
@@ -248,13 +249,13 @@ class LauncherRailTest {
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
         assertEquals(emptyList<Int>(), actualPreviewIndices)
         assertEquals(emptyList<Int>(), actualReleaseIndices)
 
         composeRule.runOnIdle { inputHomeEditMode = HomeEditMode.None }
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = RailSide.START)
 
         assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
         assertEquals(listOf(2, 2), actualReleaseIndices)
@@ -281,10 +282,83 @@ class LauncherRailTest {
         )
 
         val scrubbedMarkCount: Int = dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG) +
-            dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+            dragScrubStrip(side = RailSide.START)
 
         val expectedHapticTickCount: Int = if (railHaptics) scrubbedMarkCount else 0
         assertEquals(expectedHapticTickCount, actualHapticTickCount)
+    }
+
+    @Test
+    fun `hides the drawn Rail when Show Rail is off`() {
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            showRail = false,
+            onRailPreview = {},
+            onRailReleased = {}
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `puts a scrub strip on both enabled edges when Show Rail is off`() {
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            showRail = false,
+            onRailPreview = {},
+            onRailReleased = {}
+        )
+
+        assertScrubStripOnSide(side = RailSide.START, isOnLeft = true)
+        assertScrubStripOnSide(side = RailSide.END, isOnLeft = false)
+    }
+
+    @Test
+    fun `scrubs both edges including the hidden Rail's own edge`() {
+        val actualPreviewIndices: MutableList<Int> = mutableListOf()
+        val actualReleaseIndices: MutableList<Int> = mutableListOf()
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            showRail = false,
+            onRailPreview = { index -> actualPreviewIndices += index },
+            onRailReleased = { index -> actualReleaseIndices += index }
+        )
+
+        dragScrubStrip(side = RailSide.END)
+        dragScrubStrip(side = RailSide.START)
+
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(2, 2), actualReleaseIndices)
+    }
+
+    @Test
+    fun `scrubs only the enabled edge when Show Rail is off`() {
+        val actualPreviewIndices: MutableList<Int> = mutableListOf()
+        setRailContent(
+            scrubEdges = ScrubEdges.START,
+            showRail = false,
+            onRailPreview = { index -> actualPreviewIndices += index },
+            onRailReleased = {}
+        )
+
+        composeRule.onNodeWithTag(railScrubStripTestTag(side = RailSide.END)).assertDoesNotExist()
+        dragScrubStrip(side = RailSide.START)
+
+        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
+    }
+
+    @Test
+    fun `publishes the Rail bounds from the hidden Rail's own strip`() {
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            showRail = false,
+            onRailPreview = {},
+            onRailReleased = {}
+        )
+
+        composeRule.waitForIdle()
+
+        assertNotNull(railBounds.current)
     }
 
     private fun setRailContent(
@@ -292,6 +366,7 @@ class LauncherRailTest {
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+        showRail: Boolean = true,
         isCardOpen: () -> Boolean = { false },
         railHaptics: Boolean = true,
         onRailTouched: () -> Unit = {},
@@ -318,6 +393,7 @@ class LauncherRailTest {
                         railBounds = remember { railBounds },
                         railSide = railSide,
                         scrubEdges = scrubEdges,
+                        showRail = showRail,
                         isCardOpen = isCardOpen,
                         railHaptics = railHaptics,
                         onRailTouched = onRailTouched,
@@ -343,10 +419,10 @@ class LauncherRailTest {
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = isRailOnLeft)
-        assertMirrorStripOnSide(isOnLeft = !isRailOnLeft)
+        assertScrubStripOnSide(side = railSide.opposite(), isOnLeft = !isRailOnLeft)
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
-        dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+        dragScrubStrip(side = railSide.opposite())
 
         assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
         assertEquals(listOf(2, 2), actualReleaseIndices)
@@ -395,14 +471,17 @@ class LauncherRailTest {
         assertHorizontallyInsideScreen(actualBoundsDp, actualRootBounds, "Rail must be inside the screen")
     }
 
-    private fun assertMirrorStripOnSide(isOnLeft: Boolean) {
+    private fun assertScrubStripOnSide(side: RailSide, isOnLeft: Boolean) {
         composeRule.waitForIdle()
-        val actualMirrorBounds: DpRect = composeRule.onNodeWithTag(RAIL_MIRROR_STRIP_TEST_TAG).getUnclippedBoundsInRoot()
+        val actualStripBounds: DpRect = composeRule.onNodeWithTag(railScrubStripTestTag(side = side)).getUnclippedBoundsInRoot()
         val actualRootBounds: DpRect = composeRule.screenBounds()
-        assertEquals(isOnLeft, actualMirrorBounds.centerX() < actualRootBounds.centerX())
+        assertEquals(isOnLeft, actualStripBounds.centerX() < actualRootBounds.centerX())
     }
 
     private fun DpRect.centerX(): Float = (left.value + right.value) / 2f
+
+    /** Drags the Rail scrub strip on [side] and returns how many marks it scrubbed. */
+    private fun dragScrubStrip(side: RailSide): Int = dragScrubEdge(tag = railScrubStripTestTag(side = side))
 
     /** Drags across every mark on the edge with [tag] and returns how many marks it scrubbed. */
     private fun dragScrubEdge(tag: String): Int {
