@@ -65,13 +65,18 @@ fun createApp(
 fun App.packageLevelKey(): String = "${packageName}_$profile"
 
 /** A private App in a Private Space Profile. */
-fun createPrivateApp(name: String = "Secret", packageName: String = PRIVATE_PACKAGE_NAME, badgedLabel: String = "Private $name"): App =
-    createApp(
-        name = name,
-        packageName = packageName,
-        profileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private),
-        badgedLabel = badgedLabel
-    )
+fun createPrivateApp(
+    name: String = "Secret",
+    packageName: String = PRIVATE_PACKAGE_NAME,
+    badgedLabel: String = "Private $name",
+    firstInstallTime: Long = 0L
+): App = createApp(
+    name = name,
+    packageName = packageName,
+    profileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private),
+    badgedLabel = badgedLabel,
+    firstInstallTime = firstInstallTime
+)
 
 /** The Launchable State resolved from [groups] and [folders]. */
 fun createLaunchableState(

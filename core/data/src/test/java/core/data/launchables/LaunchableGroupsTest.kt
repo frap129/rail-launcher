@@ -1,10 +1,12 @@
 package core.data.launchables
 
+import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launches.LaunchCountRecord
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
@@ -14,14 +16,21 @@ import core.data.testing.TEST_FOURTEEN_DAYS_MS
 import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createBuiltinGroup
 import core.data.testing.createFixedPrivateSpaceStatus
+import core.data.testing.createLaunchableState
+import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPrivateApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
 import core.util.MILLIS_PER_DAY
+import core.util.MILLIS_PER_HOUR
+import core.util.MILLIS_PER_MINUTE
+import core.util.RECENT_INSTALL_WINDOW_MS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -412,6 +421,114 @@ class LaunchableGroupsTest {
 
         assertEquals(listOf("★", "A", "Z", "⌂"), actualGroups.map { group -> group.label })
         assertEquals(inputBuiltinGroup, actualGroups.last())
+    }
+
+    @Test
+    fun `lists the section's Apps newest first`() {
+        val inputOldest: App = createApp(
+            name = "Alpha",
+            packageName = "com.example.alpha",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
+        )
+        val inputMiddle: App = createApp(
+            name = "Beta",
+            packageName = "com.example.beta",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - MILLIS_PER_HOUR
+        )
+        val inputNewest: App = createApp(
+            name = "Gamma",
+            packageName = "com.example.gamma",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+        )
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOldest, inputNewest, inputMiddle))
+
+        val actualSection: RecentlyInstalledSection =
+            requireNotNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+
+        assertEquals(listOf(inputNewest, inputMiddle, inputOldest), actualSection.apps)
+    }
+
+    @Test
+    fun `includes an App first installed exactly 3 days ago and leaves out an older one`() {
+        val inputBoundary: App = createApp(
+            name = "Boundary",
+            packageName = "com.example.boundary",
+            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
+        )
+        val inputOlder: App = createApp(
+            name = "Older",
+            packageName = "com.example.older",
+            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS - 1
+        )
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOlder, inputBoundary))
+
+        val actualSection: RecentlyInstalledSection =
+            requireNotNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+
+        assertEquals(listOf(inputBoundary), actualSection.apps)
+    }
+
+    @Test
+    fun `holds no section when no App was first installed within 3 days`() {
+        val inputOldApp: App = createApp(
+            name = "Alpha",
+            packageName = "com.example.alpha",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS - 1
+        )
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOldApp))
+
+        assertNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+    }
+
+    @Test
+    fun `keeps a section App in its letter group`() {
+        val inputRecentApp: App = createApp(name = "Alpha", packageName = "com.example.alpha", firstInstallTime = TEST_NOW_EPOCH_MS)
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputRecentApp))
+
+        val actualSection: RecentlyInstalledSection =
+            requireNotNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+
+        assertEquals(listOf(inputRecentApp), inputState.listedGroups.single().items)
+        assertEquals(listOf(inputRecentApp), actualSection.apps)
+    }
+
+    @Test
+    fun `leaves a Hidden App out of the section`() {
+        val inputHiddenApp: App = createApp(name = "Alpha", packageName = "com.example.alpha", firstInstallTime = TEST_NOW_EPOCH_MS)
+        val inputState: LaunchableState =
+            createLoadedLaunchableState(launchables = listOf(inputHiddenApp), hiddenKeys = setOf(inputHiddenApp.key))
+
+        assertNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+    }
+
+    @Test
+    fun `leaves a Folder out of the section`() {
+        val inputFolder: Folder = Folder(folderId = 1L, name = "Games")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputFolder), folders = listOf(inputFolder))
+
+        assertNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+    }
+
+    @Test
+    fun `includes a recent private App from an Unlocked Private Space group`() {
+        val inputPrivateApp: App =
+            createPrivateApp(name = "Secret", packageName = "com.example.secret", firstInstallTime = TEST_NOW_EPOCH_MS)
+        val inputState: LaunchableState = createLaunchableState(
+            groups = listOf(
+                LaunchableGroup.Star,
+                inputBuiltinGroup,
+                LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+            )
+        )
+
+        val actualSection: RecentlyInstalledSection =
+            requireNotNull(inputState.recentlyInstalledSection(nowEpochMs = TEST_NOW_EPOCH_MS))
+
+        assertEquals(listOf(inputPrivateApp), actualSection.apps)
     }
 
     private fun assertFoldersLast(ranking: (AppListUsage) -> AppListRanking) {

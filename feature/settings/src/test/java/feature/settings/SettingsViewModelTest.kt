@@ -231,6 +231,30 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `defaults Show Recently installed to off`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+
+        assertFalse(viewModel.uiState.value.showRecentlyInstalled)
+    }
+
+    @Test
+    fun `exposes the stored Show Recently installed switch`() = runTest {
+        assertExposesSetting(
+            expected = true,
+            inputSettings = Settings(showRecentlyInstalled = true),
+            read = { showRecentlyInstalled }
+        )
+    }
+
+    @Test
+    fun `persists Show Recently installed`() = runTest {
+        assertPersists(
+            persist = { setShowRecentlyInstalled(true) },
+            verifyCall = { setShowRecentlyInstalled(true) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

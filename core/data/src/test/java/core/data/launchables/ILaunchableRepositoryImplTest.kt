@@ -19,6 +19,7 @@ import core.data.icons.model.Icon
 import core.data.icons.model.UNKNOWN_APP_UPDATE_TIME
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launchables.model.appListKey
 import core.data.launches.ILaunchCountRepository
 import core.data.launches.LaunchCountRecord
@@ -78,6 +79,7 @@ import core.data.testing.createFavoritesRepository
 import core.data.testing.createIconRepositoryMock
 import core.data.testing.createLaunchCountRepository
 import core.data.testing.createLaunchCountRepositoryMock
+import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPopupRepository
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceLock
@@ -98,6 +100,9 @@ import core.data.time.IClockSource
 import core.data.widgets.IWidgetAreaRepository
 import core.data.widgets.IWidgetSettingsRepository
 import core.data.widgets.IWidgetSettingsRepositoryImpl
+import core.util.MILLIS_PER_MINUTE
+import core.util.MILLIS_PER_WEEK
+import core.util.RECENT_INSTALL_WINDOW_MS
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -121,6 +126,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
@@ -780,6 +786,108 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             assertEquals(LaunchableReadiness.AppListReady, expectMostRecentItem().readiness)
         }
     }
+
+    @Test
+    fun `resolves the Recently installed section while its setting is on`() = databaseTest {
+        val inputRecentApp: App = createApp(
+            name = "Fresh",
+            packageName = "com.example.fresh",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+        )
+        val inputOldApp: App = createApp(
+            name = "Old",
+            packageName = "com.example.old",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - MILLIS_PER_WEEK
+        )
+        database.getSettingsDao().upsert(Settings(showRecentlyInstalled = true))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputOldApp, inputRecentApp)),
+            mockPreferencesRepository = createPreferencesRepository()
+        )
+
+        repository.launchableState.test {
+            finishPendingWork()
+            val actualState: LaunchableState = expectMostRecentItem()
+
+            val actualSection: RecentlyInstalledSection = requireNotNull(actualState.recentlyInstalled)
+            assertEquals(listOf(inputRecentApp.key), actualSection.apps.map { app -> app.key })
+        }
+    }
+
+    @Test
+    fun `leaves the Recently installed section off while its setting is off`() = databaseTest {
+        val inputRecentApp: App = createApp(
+            name = "Fresh",
+            packageName = "com.example.fresh",
+            firstInstallTime =
+            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputRecentApp))
+        )
+
+        repository.launchableState.test {
+            finishPendingWork()
+            assertNull(expectMostRecentItem().recentlyInstalled)
+        }
+    }
+
+    @Test
+    fun `drops the earliest-installed App from the section at its expiry without any other change`() = runTest {
+        val inputAgingApp: App = createApp(
+            name = "Aging",
+            packageName = "com.example.aging",
+            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
+        )
+        val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh", firstInstallTime = TEST_NOW_EPOCH_MS)
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputFreshApp, inputAgingApp)).copy(
+            recentlyInstalled = RecentlyInstalledSection(apps = listOf(inputFreshApp, inputAgingApp))
+        )
+        val inputStates: MutableStateFlow<LaunchableState> = MutableStateFlow(inputState)
+        var currentEpochMs: Long = TEST_NOW_EPOCH_MS
+        val mockClockSource: IClockSource = createClockSourceMock(
+            readings = MutableStateFlow(createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
+            now = { Instant.ofEpochMilli(currentEpochMs) }
+        )
+
+        inputStates.withRecentlyInstalledExpiry(clockSource = mockClockSource).test {
+            assertEquals(listOf(inputFreshApp.key, inputAgingApp.key), sectionAppKeys(expectMostRecentItem()))
+
+            // The aging App's window ended at TEST_NOW, so two milliseconds later it must leave.
+            currentEpochMs = TEST_NOW_EPOCH_MS + 2
+            advanceTimeBy(2)
+
+            assertEquals(listOf(inputFreshApp.key), sectionAppKeys(expectMostRecentItem()))
+        }
+    }
+
+    @Test
+    fun `ages the section out once time passes the window without any other change`() = databaseTest {
+        val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh", firstInstallTime = TEST_NOW_EPOCH_MS)
+        database.getSettingsDao().upsert(Settings(showRecentlyInstalled = true))
+        val mockClockSource: IClockSource = createClockSourceMock(
+            readings = MutableStateFlow(createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
+            now = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + testScheduler.currentTime) }
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputFreshApp)),
+            mockPreferencesRepository = createPreferencesRepository(),
+            clockSource = mockClockSource
+        )
+
+        repository.launchableState.test {
+            finishPendingWork()
+            // The section timer runs in the repository's background scope, so advance past the window explicitly.
+            advanceTimeBy(RECENT_INSTALL_WINDOW_MS + 2)
+            runCurrent()
+
+            assertNull(expectMostRecentItem().recentlyInstalled)
+        }
+    }
+
+    private fun sectionAppKeys(state: LaunchableState): List<String> = state.recentlyInstalled?.apps?.map { app -> app.key }.orEmpty()
 
     @Test
     fun `resolves a Home-ready state with customizations, Folders and the Locked Private Space applied`() = databaseTest {
@@ -2657,6 +2765,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             clockSource = createTestClockSourceMock(),
             dispatcher = databaseDispatcher
         ),
+        clockSource: IClockSource = createTestClockSourceMock(),
         scope: CoroutineScope = backgroundScope
     ): ILaunchableRepository {
         val launchableRepository: ILaunchableRepository = ILaunchableRepositoryImpl(
@@ -2669,6 +2778,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             standaloneShortcutSource = standaloneShortcutSource,
             privateSpaceStatus = privateSpaceStatus,
             launchCountRepository = launchCountRepository,
+            clockSource = clockSource,
             scope = scope
         )
         createStaleKeyCleanup(

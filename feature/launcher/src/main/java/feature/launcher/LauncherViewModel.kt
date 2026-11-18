@@ -14,6 +14,7 @@ import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launches.ILaunchCountRepository
 import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
@@ -100,6 +101,7 @@ sealed class LauncherUiState {
 
         data class Browsing(
             val groups: List<LaunchableGroup.Listed>,
+            val recentlyInstalled: RecentlyInstalledSection?,
             val lazyListState: LazyListState,
             override val isEditingFavorites: Boolean
         ) : AppList()
@@ -287,6 +289,7 @@ private fun toLauncherUiState(
     val appListState: LazyListState = navigation.appListState ?: return LauncherUiState.Loading
     return LauncherUiState.AppList.Browsing(
         groups = listedGroups,
+        recentlyInstalled = state.recentlyInstalled,
         lazyListState = appListState,
         isEditingFavorites = isEditingFavorites
     )

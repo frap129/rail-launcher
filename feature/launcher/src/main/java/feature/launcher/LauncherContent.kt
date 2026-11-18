@@ -264,6 +264,7 @@ internal fun LauncherContent(
                             .fillMaxSize()
                             .padding(homeRailContentPaddingValues(railSide = railSide)),
                         appList = state.groups,
+                        recentlyInstalled = state.recentlyInstalled,
                         lazyListState = state.lazyListState,
                         rowState = rowState,
                         itemActions = itemActions,

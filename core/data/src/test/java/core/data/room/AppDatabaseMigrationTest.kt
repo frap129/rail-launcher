@@ -60,6 +60,8 @@ private const val MIGRATION_24_25_DATABASE_NAME: String = "migration-24-25-test"
 private const val MIGRATION_24_25_DATABASE_VERSION: Int = 24
 private const val MIGRATION_25_26_DATABASE_NAME: String = "migration-25-26-test"
 private const val MIGRATION_25_26_DATABASE_VERSION: Int = 25
+private const val MIGRATION_26_27_DATABASE_NAME: String = "migration-26-27-test"
+private const val MIGRATION_26_27_DATABASE_VERSION: Int = 26
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val FIRST_FOLDER_ID: Long = 1L
@@ -617,6 +619,32 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds Show Recently installed defaulting off and keeps the settings row`() {
+        withDatabase(
+            name = MIGRATION_26_27_DATABASE_NAME,
+            version = MIGRATION_26_27_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
+            }
+        ) { db ->
+            MIGRATION_26_27.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_SHOW_RECENTLY_INSTALLED
+                ),
+                db.columnNames(table = Settings.TABLE_NAME)
+            )
+            assertEquals(false, db.showRecentlyInstalled())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -929,6 +957,8 @@ private fun SupportSQLiteDatabase.searchContacts(): Boolean = booleanColumn(Sett
 private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)
 
 private fun SupportSQLiteDatabase.searchShowHiddenApps(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS)
+
+private fun SupportSQLiteDatabase.showRecentlyInstalled(): Boolean = booleanColumn(Settings.COLUMN_SHOW_RECENTLY_INSTALLED)
 
 private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
     booleanColumn(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)

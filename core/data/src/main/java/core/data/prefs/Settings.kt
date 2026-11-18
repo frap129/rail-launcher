@@ -45,7 +45,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_APP_LIST_ORDER, defaultValue = "RECENTLY_USED")
     val appListOrder: AppListOrder = AppListOrder.DEFAULT,
     @ColumnInfo(name = Settings.COLUMN_RANK_FOLDERS_BY_USE, defaultValue = "1")
-    val rankFoldersByUse: Boolean = true
+    val rankFoldersByUse: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SHOW_RECENTLY_INSTALLED, defaultValue = "0")
+    val showRecentlyInstalled: Boolean = false
 ) {
     companion object {
         const val TABLE_NAME: String = "settings"
@@ -69,5 +71,6 @@ data class Settings(
         const val COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN: String = "expand_notifications_on_swipe_down"
         const val COLUMN_APP_LIST_ORDER: String = "app_list_order"
         const val COLUMN_RANK_FOLDERS_BY_USE: String = "rank_folders_by_use"
+        const val COLUMN_SHOW_RECENTLY_INSTALLED: String = "show_recently_installed"
     }
 }

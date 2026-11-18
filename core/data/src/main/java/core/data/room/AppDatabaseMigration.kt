@@ -215,6 +215,18 @@ val MIGRATION_25_26: Migration = object : Migration(25, 26) {
     }
 }
 
+/**
+ * Adds the Show Recently installed setting, defaulting to off so the App List ends where the user
+ * expects, and keeps every other setting.
+ */
+val MIGRATION_26_27: Migration = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SHOW_RECENTLY_INSTALLED} INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -231,5 +243,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_22_23,
     MIGRATION_23_24,
     MIGRATION_24_25,
-    MIGRATION_25_26
+    MIGRATION_25_26,
+    MIGRATION_26_27
 )

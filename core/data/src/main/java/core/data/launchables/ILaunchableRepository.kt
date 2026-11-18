@@ -1,7 +1,9 @@
 package core.data.launchables
 
+import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launchables.model.toPickerGroups
 import core.data.profiles.ProfileToken
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -33,6 +35,13 @@ data class LaunchableState(
     val retainedKeys: Set<String> = emptySet(),
     /** The keys of the Hidden apps: Apps and Standalone shortcuts the user hid from the App List. */
     val hiddenKeys: Set<String> = emptySet(),
+    /**
+     * The Recently installed section the App List shows after the Private Space group: the Apps
+     * first installed within the recent-install window, newest first, each also staying in its own
+     * group, kept current as each App's window ends. Null while Show Recently installed is off or
+     * no App qualifies.
+     */
+    val recentlyInstalled: RecentlyInstalledSection? = null,
     /**
      * The groups the pickers may list: the groups without the Locked Private Space container,
      * so private Apps join the pickers while the Private Space is Unlocked. Hidden apps stay listed.
@@ -77,6 +86,22 @@ data class LaunchableState(
 
     /** The Launchable stored under [key] unless it is a Hidden app, or null when it is gone. */
     fun visibleLaunchableFor(key: String): Launchable? = launchableFor(key = key)?.takeUnless { launchable -> isHidden(launchable) }
+
+    /**
+     * The Recently installed section over the App List's Launchables: every App first installed
+     * within the recent-install window before [nowEpochMs], newest first, each also staying in its
+     * own group. Hidden apps and the private Apps of a Locked Private Space are left out with the
+     * App List, whose groups the section reads. Null when no App qualifies.
+     */
+    internal fun recentlyInstalledSection(nowEpochMs: Long): RecentlyInstalledSection? {
+        val recentApps: List<App> = listedGroupsFor(includeHidden = false)
+            .flatMap { group -> group.items }
+            .recentlyInstalledApps(nowEpochMs = nowEpochMs)
+        if (recentApps.isEmpty()) {
+            return null
+        }
+        return RecentlyInstalledSection(apps = recentApps)
+    }
 }
 
 /** Orders Launchables by their resolved names, ignoring case. */
