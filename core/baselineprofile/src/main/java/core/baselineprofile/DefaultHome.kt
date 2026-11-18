@@ -33,6 +33,12 @@ internal fun resolveHomeToHold(device: UiDevice, previousHome: String): String? 
         .firstOrNull { homeActivity -> isComponentLine(line = homeActivity) && isOtherHome(homeActivity = homeActivity) }
 }
 
+/** [resolveHomeToHold], failing when the device installs no Home to hold. */
+internal fun requireHomeToHold(device: UiDevice, previousHome: String): String =
+    checkNotNull(resolveHomeToHold(device = device, previousHome = previousHome)) {
+        "Install a Home app other than Rail first; the device Home is: $previousHome"
+    }
+
 /** Whether [homeActivity] is a usable default Home other than Rail's. */
 internal fun isOtherHome(homeActivity: String): Boolean =
     homeActivity.isNotBlank() && homeActivity != FALLBACK_HOME_ACTIVITY && !homeActivity.contains(APP_PACKAGE)
@@ -42,6 +48,14 @@ internal fun setDefaultHome(device: UiDevice, homeActivity: String) {
     device.executeShellCommand("cmd package set-home-activity $homeActivity")
 }
 
+/** Makes [homeActivity] the device's default Home, failing when the device refuses it. */
+internal fun setDefaultHomeAndVerify(device: UiDevice, homeActivity: String) {
+    setDefaultHome(device = device, homeActivity = homeActivity)
+    check(resolveDefaultHome(device = device) == homeActivity) {
+        "The device did not accept $homeActivity as its default Home"
+    }
+}
+
 /** Runs [block] with the device's current default Home, restoring it afterwards. */
 internal fun <T> withPreviousHomeRestored(device: UiDevice, block: (previousHome: String) -> T): T {
     val previousHome: String = resolveDefaultHome(device = device)
@@ -49,7 +63,7 @@ internal fun <T> withPreviousHomeRestored(device: UiDevice, block: (previousHome
         block(previousHome)
     } finally {
         if (previousHome.isNotBlank()) {
-            setDefaultHome(device = device, homeActivity = previousHome)
+            setDefaultHomeAndVerify(device = device, homeActivity = previousHome)
         }
     }
 }

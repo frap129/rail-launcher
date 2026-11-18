@@ -58,9 +58,7 @@ class StartupBenchmarks {
     private fun benchmark(compilationMode: CompilationMode) = withPreviousHomeRestored(device = device) { previousHome ->
         // The system restarts the default Home when its process dies, so another Home holds the
         // default for the COLD kill while Rail owns it for the measured HOME press.
-        val homeToHold: String = checkNotNull(resolveHomeToHold(device = device, previousHome = previousHome)) {
-            "Install a Home app other than Rail before benchmarking; the device Home is: $previousHome"
-        }
+        val homeToHold: String = requireHomeToHold(device = device, previousHome = previousHome)
         rule.measureRepeated(
             packageName = APP_PACKAGE,
             metrics = listOf(StartupTimingMetric(), TraceSectionMetric(sectionName = HOME_ICONS_DRAWN_TRACE_SECTION)),
@@ -68,12 +66,12 @@ class StartupBenchmarks {
             startupMode = StartupMode.COLD,
             iterations = ITERATIONS,
             setupBlock = {
-                setDefaultHome(device = device, homeActivity = homeToHold)
+                setDefaultHomeAndVerify(device = device, homeActivity = homeToHold)
                 pressHome()
             },
             measureBlock = {
                 // Rail is the default Home for a real HOME press, which starts it cold.
-                setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
+                setDefaultHomeAndVerify(device = device, homeActivity = APP_HOME_ACTIVITY)
                 pressHome()
                 waitForHomeFullyDrawn(device = device)
                 waitForHomeIconsDrawn(device = device)
