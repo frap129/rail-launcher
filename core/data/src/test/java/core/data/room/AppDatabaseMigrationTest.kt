@@ -62,6 +62,8 @@ private const val MIGRATION_25_26_DATABASE_NAME: String = "migration-25-26-test"
 private const val MIGRATION_25_26_DATABASE_VERSION: Int = 25
 private const val MIGRATION_26_27_DATABASE_NAME: String = "migration-26-27-test"
 private const val MIGRATION_26_27_DATABASE_VERSION: Int = 26
+private const val MIGRATION_27_28_DATABASE_NAME: String = "migration-27-28-test"
+private const val MIGRATION_27_28_DATABASE_VERSION: Int = 27
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val FIRST_FOLDER_ID: Long = 1L
@@ -645,6 +647,32 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds Rail haptics defaulting on and keeps the settings row`() {
+        withDatabase(
+            name = MIGRATION_27_28_DATABASE_NAME,
+            version = MIGRATION_27_28_DATABASE_VERSION,
+            createTables = { db ->
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
+            }
+        ) { db ->
+            MIGRATION_27_28.migrate(db)
+
+            assertEquals(
+                listOf(
+                    "id",
+                    "icon_pack",
+                    Settings.COLUMN_SEARCH_SUGGESTIONS,
+                    Settings.COLUMN_RAIL_HAPTICS
+                ),
+                db.columnNames(table = Settings.TABLE_NAME)
+            )
+            assertEquals(true, db.railHaptics())
+            assertEquals(false, db.searchSuggestions())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -959,6 +987,8 @@ private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean = booleanColum
 private fun SupportSQLiteDatabase.searchShowHiddenApps(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS)
 
 private fun SupportSQLiteDatabase.showRecentlyInstalled(): Boolean = booleanColumn(Settings.COLUMN_SHOW_RECENTLY_INSTALLED)
+
+private fun SupportSQLiteDatabase.railHaptics(): Boolean = booleanColumn(Settings.COLUMN_RAIL_HAPTICS)
 
 private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
     booleanColumn(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)

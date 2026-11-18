@@ -154,6 +154,7 @@ fun LauncherScreen(
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
     val railSide: RailSide by viewModel.railSide.collectAsState()
     val scrubEdges: ScrubEdges by viewModel.scrubEdges.collectAsState()
+    val railHaptics: Boolean by viewModel.railHaptics.collectAsState()
     val homeEditMode: HomeEditMode by viewModel.homeEditMode.collectAsState()
     val launcherSignalRequest: LauncherSignalRequest = remember(backStackEntry) {
         LauncherSignalRequest(savedStateHandle = backStackEntry.savedStateHandle)
@@ -393,6 +394,7 @@ fun LauncherScreen(
             railSide = railSide,
             scrubEdges = scrubEdges,
             isCardOpen = popupCardViewModel::isOpen,
+            railHaptics = railHaptics,
             onRailTouched = popupCardViewModel::close,
             onRailPreview = viewModel::onRailPreview,
             onRailReleased = viewModel::onRailReleased,

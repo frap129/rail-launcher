@@ -227,6 +227,18 @@ val MIGRATION_26_27: Migration = object : Migration(26, 27) {
     }
 }
 
+/**
+ * Adds the Rail haptics setting, defaulting on so scrubbing keeps its tick haptics, and keeps
+ * every other setting.
+ */
+val MIGRATION_27_28: Migration = object : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_RAIL_HAPTICS} INTEGER NOT NULL DEFAULT 1"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -244,5 +256,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_23_24,
     MIGRATION_24_25,
     MIGRATION_25_26,
-    MIGRATION_26_27
+    MIGRATION_26_27,
+    MIGRATION_27_28
 )

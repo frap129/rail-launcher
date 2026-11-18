@@ -357,6 +357,7 @@ internal fun BoxScope.LauncherRail(
     railSide: RailSide,
     scrubEdges: ScrubEdges,
     isCardOpen: () -> Boolean,
+    railHaptics: Boolean,
     onRailTouched: () -> Unit,
     onRailPreview: (Int) -> Unit,
     onRailReleased: (Int) -> Unit,
@@ -381,7 +382,8 @@ internal fun BoxScope.LauncherRail(
                 onRailReleased(index)
             }
         },
-        enabled = isEnabled
+        enabled = isEnabled,
+        railHaptics = railHaptics
     )
     val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
         Modifier.railScrubInput(state = railScrubState)

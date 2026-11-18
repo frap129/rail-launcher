@@ -89,6 +89,7 @@ private class RailPointerAnimation {
 class RailScrubState internal constructor(
     private val markCount: Int,
     enabled: Boolean,
+    private val railHaptics: State<Boolean>,
     density: Float,
     private val hapticFeedback: HapticFeedback,
     private val scope: CoroutineScope,
@@ -133,7 +134,7 @@ class RailScrubState internal constructor(
     }
 
     private fun startScrub(pointer: Offset, markIndex: Int) {
-        hapticFeedback.performRailTickHaptic()
+        playTickHaptic()
         onScroll(markIndex)
         selectedMarkIndex = markIndex
         scope.launch { pointerAnimation.start(at = pointer) }
@@ -142,9 +143,15 @@ class RailScrubState internal constructor(
     private fun moveScrub(pointer: Offset, markIndex: Int) {
         scope.launch { pointerAnimation.follow(at = pointer) }
         if (markIndex != selectedMarkIndex) {
-            hapticFeedback.performRailTickHaptic()
+            playTickHaptic()
             onScroll(markIndex)
             selectedMarkIndex = markIndex
+        }
+    }
+
+    private fun playTickHaptic() {
+        if (railHaptics.value) {
+            hapticFeedback.performRailTickHaptic()
         }
     }
 
@@ -161,17 +168,20 @@ fun rememberRailScrubState(
     items: List<GroupMark>,
     onScroll: (Int) -> Unit,
     onScrollEnded: (Int) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    railHaptics: Boolean
 ): RailScrubState {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val scope: CoroutineScope = rememberCoroutineScope()
     val density: Float = LocalDensity.current.density
     val currentOnScroll: State<(Int) -> Unit> = rememberUpdatedState(onScroll)
     val currentOnScrollEnded: State<(Int) -> Unit> = rememberUpdatedState(onScrollEnded)
+    val currentRailHaptics: State<Boolean> = rememberUpdatedState(railHaptics)
     return remember(items.size, enabled, density) {
         RailScrubState(
             markCount = items.size,
             enabled = enabled,
+            railHaptics = currentRailHaptics,
             density = density,
             hapticFeedback = hapticFeedback,
             scope = scope,

@@ -45,7 +45,8 @@ class GroupMarkContentTest {
             val state: RailScrubState = rememberRailScrubState(
                 items = items,
                 onScroll = {},
-                onScrollEnded = {}
+                onScrollEnded = {},
+                railHaptics = true
             )
             ScrollRail(
                 state = state,

@@ -396,6 +396,10 @@ _Avoid_: Scroll bar, alphabet, wave
 The screen side, relative to the layout direction, where the Rail is drawn: the layout start or the layout end. It defaults to the layout end.
 _Avoid_: Rail position, rail alignment
 
+**Rail haptics**:
+The Rail Settings switch that turns the tick haptics the Rail plays while scrubbing on or off. It defaults to on; while it is off, scrubbing the Rail or a Scrub edge stays silent and the launcher's other haptics are unchanged.
+_Avoid_: Haptic feedback toggle, scrub vibration
+
 **Scrub edges**:
 The screen edges, relative to the layout direction, whose touches scrub the Rail: the layout start, the layout end, or both.
 _Avoid_: Scroll edges, touch edges, Rail edges

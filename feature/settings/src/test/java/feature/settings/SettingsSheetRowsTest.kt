@@ -4,11 +4,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
@@ -200,13 +203,32 @@ class SettingsSheetRowsTest {
         composeRule.runOnIdle { assertEquals(true, actualShowRecentlyInstalled) }
     }
 
+    @Test
+    fun `shows Rail haptics with its summary and reports its change`() {
+        var actualRailHaptics: Boolean? = null
+        setAppearanceContent(
+            railHaptics = true,
+            onRailHapticsChange = { enabled -> actualRailHaptics = enabled }
+        )
+
+        composeRule.onNode(hasScrollToNodeAction())
+            .performScrollToNode(hasText(getString(R.string.rail_haptics)))
+        composeRule.onNodeWithText(getString(R.string.rail_haptics)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.rail_haptics_summary)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.rail_haptics)).performClick()
+
+        composeRule.runOnIdle { assertEquals(false, actualRailHaptics) }
+    }
+
     private fun setAppearanceContent(
         appListOrder: AppListOrder = AppListOrder.RECENTLY_USED,
         rankFoldersByUse: Boolean = true,
         showRecentlyInstalled: Boolean = false,
+        railHaptics: Boolean = true,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
         onRankFoldersByUseChange: (Boolean) -> Unit = {},
-        onShowRecentlyInstalledChange: (Boolean) -> Unit = {}
+        onShowRecentlyInstalledChange: (Boolean) -> Unit = {},
+        onRailHapticsChange: (Boolean) -> Unit = {}
     ) {
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -217,12 +239,14 @@ class SettingsSheetRowsTest {
                 appListOrder = appListOrder,
                 rankFoldersByUse = rankFoldersByUse,
                 showRecentlyInstalled = showRecentlyInstalled,
+                railHaptics = railHaptics,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
                     onResetCustomIcons = {},
                     onAppListOrderSelected = onAppListOrderSelected,
                     onRankFoldersByUseChange = onRankFoldersByUseChange,
                     onShowRecentlyInstalledChange = onShowRecentlyInstalledChange,
+                    onRailHapticsChange = onRailHapticsChange,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}
                 )

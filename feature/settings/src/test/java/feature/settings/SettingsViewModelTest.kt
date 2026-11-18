@@ -255,6 +255,30 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `defaults Rail haptics to on`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+
+        assertTrue(viewModel.uiState.value.railHaptics)
+    }
+
+    @Test
+    fun `exposes the stored Rail haptics switch`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(railHaptics = false),
+            read = { railHaptics }
+        )
+    }
+
+    @Test
+    fun `persists Rail haptics`() = runTest {
+        assertPersists(
+            persist = { setRailHaptics(false) },
+            verifyCall = { setRailHaptics(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

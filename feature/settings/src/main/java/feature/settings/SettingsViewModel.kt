@@ -48,6 +48,7 @@ data class SettingsUiState(
     val appListOrder: AppListOrder,
     val rankFoldersByUse: Boolean,
     val showRecentlyInstalled: Boolean,
+    val railHaptics: Boolean,
     val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
@@ -80,6 +81,7 @@ private fun Settings.toSettingsUiState(
     appListOrder = appListOrder,
     rankFoldersByUse = rankFoldersByUse,
     showRecentlyInstalled = showRecentlyInstalled,
+    railHaptics = railHaptics,
     expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
@@ -170,6 +172,9 @@ class SettingsViewModel(
 
     /** Persists whether the App List shows the Recently installed section. */
     fun setShowRecentlyInstalled(enabled: Boolean) = prefsRepo.setShowRecentlyInstalled(enabled)
+
+    /** Persists whether the Rail plays its tick haptics while scrubbing. */
+    fun setRailHaptics(enabled: Boolean) = prefsRepo.setRailHaptics(enabled)
 
     /** Persists whether swiping down on Home expands the notification shade. */
     fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)

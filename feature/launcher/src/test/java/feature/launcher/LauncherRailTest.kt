@@ -260,12 +260,40 @@ class LauncherRailTest {
         assertEquals(listOf(2, 2), actualReleaseIndices)
     }
 
+    @Test
+    fun `scrubbing with Rail haptics off performs no tick haptics`() {
+        assertHapticTickCount(railHaptics = false)
+    }
+
+    @Test
+    fun `scrubbing with Rail haptics on ticks once per scrubbed mark`() {
+        assertHapticTickCount(railHaptics = true)
+    }
+
+    private fun assertHapticTickCount(railHaptics: Boolean) {
+        var actualHapticTickCount: Int = 0
+        setRailContent(
+            scrubEdges = ScrubEdges.BOTH,
+            railHaptics = railHaptics,
+            onRailPreview = {},
+            onRailReleased = {},
+            onHapticTick = { actualHapticTickCount++ }
+        )
+
+        val scrubbedMarkCount: Int = dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG) +
+            dragScrubEdge(tag = RAIL_MIRROR_STRIP_TEST_TAG)
+
+        val expectedHapticTickCount: Int = if (railHaptics) scrubbedMarkCount else 0
+        assertEquals(expectedHapticTickCount, actualHapticTickCount)
+    }
+
     private fun setRailContent(
         scrubEdges: ScrubEdges,
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
         isCardOpen: () -> Boolean = { false },
+        railHaptics: Boolean = true,
         onRailTouched: () -> Unit = {},
         onRailPreview: (Int) -> Unit,
         onRailReleased: (Int) -> Unit,
@@ -291,6 +319,7 @@ class LauncherRailTest {
                         railSide = railSide,
                         scrubEdges = scrubEdges,
                         isCardOpen = isCardOpen,
+                        railHaptics = railHaptics,
                         onRailTouched = onRailTouched,
                         onRailPreview = onRailPreview,
                         onRailReleased = onRailReleased,
@@ -375,14 +404,17 @@ class LauncherRailTest {
 
     private fun DpRect.centerX(): Float = (left.value + right.value) / 2f
 
-    private fun dragScrubEdge(tag: String) {
+    /** Drags across every mark on the edge with [tag] and returns how many marks it scrubbed. */
+    private fun dragScrubEdge(tag: String): Int {
         composeRule.onNodeWithTag(tag).performTouchInput {
             fun markCenterY(index: Int): Float = height / MARKS.size * (index + 0.5f)
             down(position = Offset(x = center.x, y = markCenterY(index = 0)))
-            moveTo(position = Offset(x = center.x, y = markCenterY(index = 1)))
-            moveTo(position = Offset(x = center.x, y = markCenterY(index = 2)))
+            MARKS.indices.drop(1).forEach { index ->
+                moveTo(position = Offset(x = center.x, y = markCenterY(index = index)))
+            }
             up()
         }
+        return MARKS.size
     }
 
     private companion object {

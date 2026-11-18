@@ -121,6 +121,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
@@ -606,6 +607,32 @@ class LauncherViewModelTest {
             viewModel.railSide.test {
                 assertEquals(RailSide.START, expectMostRecentItem())
             }
+        }
+    }
+
+    @Test
+    fun `exposes the Rail haptics setting`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(
+                    settings = Settings(railHaptics = true)
+                )
+            )
+
+            viewModel.railHaptics.test {
+                assertEquals(true, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `keeps Rail haptics off until the stored setting arrives`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = emptyFlow())
+            )
+
+            assertFalse(viewModel.railHaptics.value)
         }
     }
 
