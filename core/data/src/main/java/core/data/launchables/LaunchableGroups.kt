@@ -1,20 +1,37 @@
 package core.data.launchables
 
+import android.icu.lang.UScript
 import android.icu.text.Collator
+import android.icu.text.Transliterator
+import android.icu.util.ULocale
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileInfo
+import java.text.Normalizer
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 private const val DIGIT_GROUP_LABEL: String = "#"
+
+/** Transliterates any script to Latin, so the key keeps the first letter of the result. */
+private const val TO_LATIN_TRANSLITERATOR_ID: String = "Any-Latin"
 
 /** The letters a Group key may keep: A-Z plus the letters the supported alphabets add beyond them. */
 private val GROUP_LETTERS: List<Char> = ('A'..'Z') + listOf('Æ', 'Ø', 'Å', 'Ä', 'Ö', 'Ñ', 'Œ')
 
 /** Each locale's [InitialGroupCollation], so an unchanged locale reuses its collators and keys. */
 private val collationsByLocale: ConcurrentHashMap<Locale, InitialGroupCollation> = ConcurrentHashMap()
+
+/** The scripts [this] locale writes, whose names keep their native letters instead of a transliteration. */
+private fun Locale.writtenScripts(): Set<Int> = UScript.getCode(ULocale.forLocale(this))?.toSet().orEmpty()
+
+/** [this] without its combining marks, so the locale can fold it into the letter it decomposes to. */
+private fun String.baseLetter(): String {
+    val decomposition: String = Normalizer.normalize(this, Normalizer.Form.NFD)
+    val withoutMarks: String = decomposition.filterNot { character -> Character.getType(character) == Character.NON_SPACING_MARK.toInt() }
+    return if (withoutMarks.isEmpty()) this else Normalizer.normalize(withoutMarks, Normalizer.Form.NFC)
+}
 
 /**
  * Orders the Rail: the Star, then the Initial groups in [locale]'s order, then [builtinGroup],
@@ -50,12 +67,14 @@ internal fun List<Launchable>.toLaunchableGroups(
 
 /**
  * The Group keys and their order in [locale], shared by every grouping that uses the locale.
- * Collators are not thread-safe, so readers synchronize on this instance.
+ * Collators and transliterators are not thread-safe, so readers synchronize on this instance.
  */
 private class InitialGroupCollation(private val locale: Locale) {
     private val foldCollator: Collator = Collator.getInstance(locale).apply { strength = Collator.PRIMARY }
     private val orderCollator: Collator = Collator.getInstance(locale)
-    private val labelsByInitial: MutableMap<Char, String> = mutableMapOf()
+    private val localeScripts: Set<Int> = locale.writtenScripts()
+    private val latinTransliterator: Transliterator by lazy { Transliterator.getInstance(TO_LATIN_TRANSLITERATOR_ID) }
+    private val labelsByName: MutableMap<String, String> = mutableMapOf()
 
     /** Orders Group keys with "#" first, then in the locale's collation. */
     val labelOrder: Comparator<String> = Comparator { first, second ->
@@ -66,17 +85,27 @@ private class InitialGroupCollation(private val locale: Locale) {
     }
 
     fun labelOf(name: String): String = synchronized(this) {
-        val initial: Char = name.firstOrNull() ?: return DIGIT_GROUP_LABEL
-        if (initial.isDigit()) return DIGIT_GROUP_LABEL
-        labelsByInitial.getOrPut(initial) { initial.toGroupLabel() }
+        if (name.isEmpty()) return DIGIT_GROUP_LABEL
+        if (Character.isDigit(name.codePointAt(0))) return DIGIT_GROUP_LABEL
+        labelsByName.getOrPut(name) { name.toGroupLabel() }
     }
 
-    /** The canonical Group letter [this] collates as; see Group key in `GLOSSARY.md`. */
-    private fun Char.toGroupLabel(): String {
-        val uppercase: Char = toString().uppercase(locale).first()
-        val canonical: Char? = GROUP_LETTERS
-            .filter { letter -> foldCollator.compare(uppercase.toString(), letter.toString()) == 0 }
+    /** The canonical Group letter [this] name keys, see Group key in `GLOSSARY.md`. */
+    private fun String.toGroupLabel(): String {
+        val codePoint: Int = codePointAt(0)
+        val script: Int = UScript.getScript(codePoint)
+        val letter: Int = if (script == UScript.LATIN || script in localeScripts) {
+            codePoint
+        } else {
+            latinTransliterator.transliterate(this).codePointAt(0)
+        }
+        val uppercase: String = String(Character.toChars(letter)).uppercase(locale)
+        val initial: String = String(Character.toChars(uppercase.codePointAt(0)))
+        val keptLetter: Char? = GROUP_LETTERS
+            .filter { candidate -> foldCollator.compare(initial, candidate.toString()) == 0 }
             .minWithOrNull { first, second -> orderCollator.compare(first.toString(), second.toString()) }
-        return (canonical ?: uppercase).toString()
+        if (keptLetter != null) return keptLetter.toString()
+        val baseLetter: String = initial.baseLetter()
+        return if (foldCollator.compare(initial, baseLetter) == 0) baseLetter else initial
     }
 }
