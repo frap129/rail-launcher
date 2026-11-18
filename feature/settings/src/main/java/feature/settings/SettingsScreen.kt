@@ -271,12 +271,14 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     appListOrder = uiState.appListOrder,
                     rankFoldersByUse = uiState.rankFoldersByUse,
                     showRecentlyInstalled = uiState.showRecentlyInstalled,
+                    railHaptics = uiState.railHaptics,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
                         onAppListOrderSelected = viewModel::setAppListOrder,
                         onRankFoldersByUseChange = viewModel::setRankFoldersByUse,
                         onShowRecentlyInstalledChange = viewModel::setShowRecentlyInstalled,
+                        onRailHapticsChange = viewModel::setRailHaptics,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1429,6 +1431,7 @@ class SettingsAppearanceActions(
     val onAppListOrderSelected: (AppListOrder) -> Unit,
     val onRankFoldersByUseChange: (Boolean) -> Unit,
     val onShowRecentlyInstalledChange: (Boolean) -> Unit,
+    val onRailHapticsChange: (Boolean) -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1442,6 +1445,7 @@ fun SettingsAppearanceScreen(
     appListOrder: AppListOrder,
     rankFoldersByUse: Boolean,
     showRecentlyInstalled: Boolean,
+    railHaptics: Boolean,
     actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
@@ -1496,6 +1500,14 @@ fun SettingsAppearanceScreen(
             ScrubEdgesRow(
                 scrubEdges = scrubEdges,
                 onScrubEdgesSelected = actions.onScrubEdgesSelected
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.rail_haptics),
+                checked = railHaptics,
+                supportingText = stringResource(R.string.rail_haptics_summary),
+                onCheckedChange = actions.onRailHapticsChange
             )
         }
     }

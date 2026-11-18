@@ -376,30 +376,42 @@ class LauncherViewModel(
         initialValue = emptyList()
     )
 
+    private val defaultSettings: Settings = Settings()
+
     // Kept current so gesture callbacks can read saved settings without a UI collector.
     private val currentSettings: StateFlow<Settings> = prefsRepo.settings.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = Settings()
+        initialValue = defaultSettings
+    )
+
+    // The stored setting as a UI state, showing [initial] until the stored value first arrives.
+    private fun <T> Flow<Settings>.settingState(read: (Settings) -> T, initial: T): StateFlow<T> = map(read).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        initialValue = initial
     )
 
     /** The screen edges that scrub the Rail. */
-    val scrubEdges: StateFlow<ScrubEdges> = currentSettings
-        .map { settings -> settings.scrubEdges }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-            initialValue = ScrubEdges.DEFAULT
-        )
+    val scrubEdges: StateFlow<ScrubEdges> = currentSettings.settingState(
+        read = { settings -> settings.scrubEdges },
+        initial = defaultSettings.scrubEdges
+    )
 
     /** The screen side where the Rail is drawn. */
-    val railSide: StateFlow<RailSide> = currentSettings
-        .map { settings -> settings.railSide }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
-            initialValue = RailSide.DEFAULT
-        )
+    val railSide: StateFlow<RailSide> = currentSettings.settingState(
+        read = { settings -> settings.railSide },
+        initial = defaultSettings.railSide
+    )
+
+    /**
+     * Whether the Rail plays its tick haptics while scrubbing. It reads the stored setting rather
+     * than [currentSettings], so a cold start never ticks before the stored value is known.
+     */
+    val railHaptics: StateFlow<Boolean> = prefsRepo.settings.settingState(
+        read = { settings -> settings.railHaptics },
+        initial = false
+    )
 
     // Mode, selection, and scroll positions change together, so one Rail event is one emission.
     private val navigation: MutableStateFlow<RailNavigation> = MutableStateFlow(RailNavigation())

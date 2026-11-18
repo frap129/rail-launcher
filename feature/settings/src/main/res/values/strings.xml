@@ -11,6 +11,8 @@
     <string name="show_recently_installed_summary">Ends the App List with Apps first installed in the last %1$d days</string>
     <string name="rail">Rail</string>
     <string name="show_rail_on_left">Show Rail on left</string>
+    <string name="rail_haptics">Rail haptics</string>
+    <string name="rail_haptics_summary">Tick each mark you scrub over</string>
     <string name="icon_pack">Icon Pack</string>
     <string name="reset_custom_icons">Reset custom icons</string>
     <string name="reset_custom_icons_title">Reset custom icons?</string>

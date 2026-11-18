@@ -502,6 +502,23 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults Rail haptics to on`() = databaseTest {
+        assertTrue(defaultSettings().railHaptics)
+    }
+
+    @Test
+    fun `stores Rail haptics without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setRailHaptics(false)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> !stored.railHaptics }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, railHaptics = false), actualSettings)
+    }
+
+    @Test
     fun `stores Show Recently installed without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -702,6 +719,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setAppListOrder(order = AppListOrder.MOST_USED) },
             { repository.setRankFoldersByUse(enabled = false) },
             { repository.setShowRecentlyInstalled(enabled = true) },
+            { repository.setRailHaptics(enabled = false) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -731,6 +749,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 appListOrder = AppListOrder.MOST_USED,
                 rankFoldersByUse = false,
                 showRecentlyInstalled = true,
+                railHaptics = false,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,
