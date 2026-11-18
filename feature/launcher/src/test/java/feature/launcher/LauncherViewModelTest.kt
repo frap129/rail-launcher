@@ -970,7 +970,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.openItemMenu(inputItem)
-                assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
+                assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
         }
     }
@@ -981,8 +981,8 @@ class LauncherViewModelTest {
         val inputShortcut: ShortcutLaunchable = createShortcut(packageName = "com.example.site")
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp, inputShortcut))
 
-        assertCanHide(item = inputApp, expected = true)
-        assertCanHide(item = inputShortcut, expected = true)
+        assertMenuProperty(item = inputApp, expected = true, select = { it.canHide })
+        assertMenuProperty(item = inputShortcut, expected = true, select = { it.canHide })
     }
 
     @Test
@@ -993,7 +993,7 @@ class LauncherViewModelTest {
             hiddenKeys = setOf(inputHiddenApp.key)
         )
 
-        assertCanHide(item = inputHiddenApp, expected = false)
+        assertMenuProperty(item = inputHiddenApp, expected = false, select = { it.canHide })
     }
 
     @Test
@@ -1001,7 +1001,7 @@ class LauncherViewModelTest {
         val inputFolder: Folder = Folder(folderId = 1L)
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputFolder))
 
-        assertCanHide(item = inputFolder, expected = false)
+        assertMenuProperty(item = inputFolder, expected = false, select = { it.canHide })
     }
 
     @Test
@@ -1009,7 +1009,7 @@ class LauncherViewModelTest {
         val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
         val expectedResult: ShortcutLaunchable = fixture.shortcut.copy(publisherName = fixture.publisher.name)
 
-        assertCanHide(item = expectedResult, expected = false, viewModel = fixture.viewModel)
+        assertMenuProperty(item = expectedResult, expected = false, select = { it.canHide }, viewModel = fixture.viewModel)
     }
 
     @Test
@@ -1017,7 +1017,7 @@ class LauncherViewModelTest {
         val inputRailLaunchable: Launchable = createRailLaunchable(name = "Rail Settings")
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputRailLaunchable))
 
-        assertCanHide(item = inputRailLaunchable, expected = false)
+        assertMenuProperty(item = inputRailLaunchable, expected = false, select = { it.canHide })
     }
 
     @Test
@@ -1077,7 +1077,7 @@ class LauncherViewModelTest {
         val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
 
-        assertCanUninstall(item = inputApp, expected = true)
+        assertMenuProperty(item = inputApp, expected = true, select = { it.canUninstall })
     }
 
     @Test
@@ -1085,7 +1085,58 @@ class LauncherViewModelTest {
         val inputApp: App = createApp(name = "Settings", packageName = "com.android.settings", isRemovable = false)
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
 
-        assertCanUninstall(item = inputApp, expected = false)
+        assertMenuProperty(item = inputApp, expected = false, select = { it.canUninstall })
+    }
+
+    @Test
+    fun `offers Install in Private Space for an App while the Private Space is Unlocked`() = runTest {
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+
+        assertMenuProperty(
+            item = inputApp,
+            expected = inputPrivateProfile,
+            select = { menu -> menu.installInPrivateSpaceProfile },
+            viewModel = createViewModel(
+                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `hides Install in Private Space while the Private Space is Locked`() = runTest {
+        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+
+        assertMenuProperty(
+            item = inputApp,
+            expected = null,
+            select = { menu -> menu.installInPrivateSpaceProfile },
+            viewModel = createViewModel(
+                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true))
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `hides Install in Private Space for a private App`() = runTest {
+        val inputApp: App = createPrivateApp()
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+
+        assertMenuProperty(
+            item = inputApp,
+            expected = null,
+            select = { menu -> menu.installInPrivateSpaceProfile },
+            viewModel = createViewModel(
+                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+                )
+            )
+        )
     }
 
     @Test
@@ -1100,14 +1151,14 @@ class LauncherViewModelTest {
             mockProfileSource = createProfileSourceMock(state = inputProfileState)
         )
 
-        assertCanUninstall(item = inputApp, expected = false, viewModel = viewModel)
+        assertMenuProperty(item = inputApp, expected = false, select = { it.canUninstall }, viewModel = viewModel)
     }
 
     @Test
     fun `hides uninstall for a Shortcut`() = runTest {
         val fixture: ShortcutSearchFixture = createShortcutSearchFixture()
 
-        assertCanUninstall(item = fixture.shortcut, expected = false, viewModel = fixture.viewModel)
+        assertMenuProperty(item = fixture.shortcut, expected = false, select = { it.canUninstall }, viewModel = fixture.viewModel)
     }
 
     @Test
@@ -1116,8 +1167,8 @@ class LauncherViewModelTest {
         val inputFolder: Folder = Folder(folderId = 1L)
         inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputShortcut, inputFolder))
 
-        assertCanUninstall(item = inputShortcut, expected = false)
-        assertCanUninstall(item = inputFolder, expected = false)
+        assertMenuProperty(item = inputShortcut, expected = false, select = { it.canUninstall })
+        assertMenuProperty(item = inputFolder, expected = false, select = { it.canUninstall })
     }
 
     @Test
@@ -1194,7 +1245,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
                 viewModel.setItemName(inputItem, RENAMED_NAME)
-                assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
+                assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
         }
     }
@@ -1283,7 +1334,7 @@ class LauncherViewModelTest {
                 expectAppList()
                 viewModel.menuState.test {
                     viewModel.openItemMenu(inputItem)
-                    assertEquals(menuStateOf(item = inputItem), expectMostRecentItem())
+                    assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
                 }
             }
         }
@@ -1654,7 +1705,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             viewModel.openItemMenu(inputApp)
-            assertEquals(menuStateOf(item = inputApp, canUninstall = true), expectMostRecentItem())
+            assertEquals(createItemMenu(item = inputApp, canUninstall = true), expectMostRecentItem())
         }
     }
 
@@ -1726,7 +1777,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             viewModel.openItemMenu(inputPausedApp)
-            assertEquals(menuStateOf(item = inputPausedApp, canUninstall = true), expectMostRecentItem())
+            assertEquals(createItemMenu(item = inputPausedApp, canUninstall = true), expectMostRecentItem())
         }
     }
 
@@ -4362,31 +4413,16 @@ class LauncherViewModelTest {
         verify(exactly = expectedSuggestionCalls) { mockWebSuggestionSource.suggestions(any(), any()) }
     }
 
-    private fun menuStateOf(item: Launchable, canUninstall: Boolean = false): LauncherMenuState.Menu = LauncherMenuState.Menu(
-        item = item,
-        isSearchSuggestion = false,
-        isStandaloneShortcut = false,
-        canUninstall = canUninstall,
-        isHidden = false
-    )
-
-    private suspend fun TestScope.assertCanHide(item: Launchable, expected: Boolean, viewModel: LauncherViewModel = createViewModel()) {
-        viewModel.menuState.test {
-            viewModel.openItemMenu(item)
-            val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
-            assertEquals(expected, actualMenu.canHide)
-        }
-    }
-
-    private suspend fun TestScope.assertCanUninstall(
+    private suspend fun <T> TestScope.assertMenuProperty(
         item: Launchable,
-        expected: Boolean,
+        expected: T,
+        select: (LauncherMenuState.Menu) -> T,
         viewModel: LauncherViewModel = createViewModel()
     ) {
         viewModel.menuState.test {
             viewModel.openItemMenu(item)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
-            assertEquals(expected, actualMenu.canUninstall)
+            assertEquals(expected, select(actualMenu))
         }
     }
 

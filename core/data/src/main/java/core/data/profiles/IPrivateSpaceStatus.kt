@@ -24,6 +24,9 @@ data class PrivateSpaceStatus(
     /** Whether the Private Space exists and is not Locked. */
     val isUnlocked: Boolean get() = profile != null && !isLocked
 
+    /** The Private Space Profile while it is Unlocked, or null when the device has none or it is Locked. */
+    val unlockedProfile: ProfileInfo? get() = if (isUnlocked) profile else null
+
     /** Whether Rail keeps the Private Space's Launchable and Shortcut keys. */
     val areKeysKept: Boolean get() = profile != null && !hasListedApps
 

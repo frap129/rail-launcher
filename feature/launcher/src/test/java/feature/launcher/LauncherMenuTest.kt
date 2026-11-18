@@ -1,5 +1,7 @@
 package feature.launcher
 
+import android.content.Context
+import android.content.pm.LauncherApps
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -13,8 +15,12 @@ import androidx.compose.ui.test.performClick
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.profiles.ProfileInfo
+import core.data.profiles.ProfileKind
+import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
+import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
@@ -32,6 +38,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -51,6 +59,7 @@ class LauncherMenuTest {
     private val mockViewModel: LauncherViewModel = mockk(relaxed = true)
     private val mockIconPicker: IIconPicker = mockk(relaxed = true)
     private val mockCollaborators: IPopupCollaborators = mockk(relaxed = true)
+    private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
     private val changeIconDescription: String
         get() = getString(CoreUiR.string.change_icon)
     private val removeSuggestionLabel: String
@@ -61,6 +70,8 @@ class LauncherMenuTest {
         get() = getString(R.string.uninstall)
     private val hideLabel: String
         get() = getString(R.string.hide_from_app_list)
+    private val installInPrivateSpaceLabel: String
+        get() = getString(R.string.install_in_private_space)
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -181,6 +192,33 @@ class LauncherMenuTest {
     }
 
     @Test
+    fun `shows the Install in Private Space action for an App while the Private Space is Unlocked`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), installInPrivateSpaceProfile = inputPrivateProfile)
+
+        composeRule.onNodeWithText(installInPrivateSpaceLabel).assertExists()
+    }
+
+    @Test
+    fun `hides the Install in Private Space action without an Unlocked Private Space`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), installInPrivateSpaceProfile = null)
+
+        composeRule.onNodeWithText(installInPrivateSpaceLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun `opens the Private Space Store page when the Install in Private Space action is tapped`() {
+        val inputApp: App = createApp(name = APP_NAME)
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getAppMarketActivityIntent(any(), any()) } returns null
+        shadowOf(RuntimeEnvironment.getApplication()).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        setItemMenuContent(item = inputApp, installInPrivateSpaceProfile = inputPrivateProfile)
+
+        composeRule.onNodeWithText(installInPrivateSpaceLabel).performClick()
+
+        verify(exactly = 1) { mockLauncherApps.getAppMarketActivityIntent(inputApp.packageName, inputPrivateProfile.user) }
+    }
+
+    @Test
     fun `paints the App menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             item = createApp(name = APP_NAME),
@@ -237,7 +275,7 @@ class LauncherMenuTest {
         isStandaloneShortcut: Boolean = false,
         canUninstall: Boolean = false
     ) {
-        val menu: LauncherMenuState.Menu = itemMenu(
+        val menu: LauncherMenuState.Menu = createItemMenu(
             item = item,
             isSearchSuggestion = isSearchSuggestion,
             isStandaloneShortcut = isStandaloneShortcut,
@@ -264,13 +302,15 @@ class LauncherMenuTest {
         item: Launchable,
         isSearchSuggestion: Boolean = false,
         isStandaloneShortcut: Boolean = false,
-        canUninstall: Boolean = false
+        canUninstall: Boolean = false,
+        installInPrivateSpaceProfile: ProfileInfo? = null
     ) {
-        val menu: LauncherMenuState.Menu = itemMenu(
+        val menu: LauncherMenuState.Menu = createItemMenu(
             item = item,
             isSearchSuggestion = isSearchSuggestion,
             isStandaloneShortcut = isStandaloneShortcut,
-            canUninstall = canUninstall
+            canUninstall = canUninstall,
+            installInPrivateSpaceProfile = installInPrivateSpaceProfile
         )
         composeRule.setContent {
             RowTestContent {
@@ -286,7 +326,7 @@ class LauncherMenuTest {
         canUninstall: Boolean = false
     ) {
         every { mockViewModel.menuState } returns MutableStateFlow(
-            itemMenu(
+            createItemMenu(
                 item = item,
                 isSearchSuggestion = isSearchSuggestion,
                 isStandaloneShortcut = isStandaloneShortcut,
@@ -298,17 +338,4 @@ class LauncherMenuTest {
             LauncherMenu(viewModel = mockViewModel, collaborators = mockCollaborators)
         }
     }
-
-    private fun itemMenu(
-        item: Launchable,
-        isSearchSuggestion: Boolean = false,
-        isStandaloneShortcut: Boolean = false,
-        canUninstall: Boolean = false
-    ): LauncherMenuState.Menu = LauncherMenuState.Menu(
-        item = item,
-        isSearchSuggestion = isSearchSuggestion,
-        isStandaloneShortcut = isStandaloneShortcut,
-        canUninstall = canUninstall,
-        isHidden = false
-    )
 }

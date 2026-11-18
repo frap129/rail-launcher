@@ -116,6 +116,14 @@ _Avoid_: Cleanup paths, stale purge, key sweep
 An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked, except that a recently installed one also appears in the Recently installed section.
 _Avoid_: Private profile app, vault app
 
+**Install in Private Space**:
+The action an App's menu offers on an App outside Private Space, while the Private Space is Unlocked. It opens the App's Store page inside the Private Space Profile, so the user can install a private copy without leaving Rail.
+_Avoid_: Private install, private copy action
+
+**Store page**:
+An app market's listing for one package, which Install in Private Space opens through the system's own market activity intent for the Private Space Profile.
+_Avoid_: Play Store link, market page
+
 **Folder**:
 A Launchable that only opens a Pop-up listing the Launchables the user put in it.
 _Avoid_: Group, category, pop-up folder

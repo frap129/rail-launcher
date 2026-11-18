@@ -1,6 +1,7 @@
 package core.util
 
 import android.content.ActivityNotFoundException
+import android.content.IntentSender
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,6 +17,7 @@ class ActivityLaunchTest {
         assertFalse(attemptLaunch { throw ActivityNotFoundException() })
         assertFalse(attemptLaunch { throw SecurityException() })
         assertFalse(attemptLaunch { throw IllegalStateException() })
+        assertFalse(attemptLaunch { throw IntentSender.SendIntentException() })
     }
 
     @Test(expected = IllegalArgumentException::class)

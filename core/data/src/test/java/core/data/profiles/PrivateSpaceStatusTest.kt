@@ -6,6 +6,7 @@ import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createProfileInfo
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -122,6 +123,20 @@ class PrivateSpaceStatusTest {
             assertEquals(case.name, case.expected.hasListedApps, actualStatus.hasListedApps)
             assertEquals(case.name, case.expected.hasProfile, actualStatus.profile != null)
         }
+    }
+
+    @Test
+    fun `reads the Unlocked Private Space Profile only while the space is Unlocked`() {
+        val inputUnlocked: PrivateSpaceStatus =
+            derivePrivateSpaceStatus(inputs = PrivateSpaceInputs(profiles = listOf(inputPrivateProfile)))
+        val inputLocked: PrivateSpaceStatus = derivePrivateSpaceStatus(
+            inputs = PrivateSpaceInputs(profiles = listOf(inputPrivateProfile.copy(isQuiet = true)))
+        )
+        val inputAbsent: PrivateSpaceStatus = derivePrivateSpaceStatus(inputs = PrivateSpaceInputs(profiles = listOf(inputPersonalProfile)))
+
+        assertEquals(inputPrivateProfile, inputUnlocked.unlockedProfile)
+        assertNull(inputLocked.unlockedProfile)
+        assertNull(inputAbsent.unlockedProfile)
     }
 
     private data class Case(val name: String, val inputs: PrivateSpaceInputs, val expected: Expected)
