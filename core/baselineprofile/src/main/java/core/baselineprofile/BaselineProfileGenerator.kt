@@ -15,6 +15,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -46,6 +47,10 @@ private const val REVEAL_SCROLL_PERCENT = 0.2f
 private const val MIN_LAUNCHABLE_NAME_LENGTH = 2
 private const val ROW_CENTER_SLOP_FRACTION = 0.02f
 private const val RAIL_SETTINGS_NAME = "Rail Settings"
+private const val SEEDED_FAVORITE_COUNT = 3
+private const val ROW_READ_ATTEMPTS = 8
+private const val ROW_READ_RETRY_DELAY_MS = 200L
+private const val FAVORITE_STATE_ATTEMPTS = 5
 
 private const val WORK_USER_NAME = "rail-work"
 private const val PRIVATE_SPACE_USER_NAME = "rail-private"
@@ -104,9 +109,11 @@ class BaselineProfileGenerator {
 
     @Test
     fun generateStartupProfile() {
-        withPreviousHomeRestored(device = device) {
+        withPreviousHomeRestored(device = device) { previousHome ->
+            val homeToHold: String = requireHomeToHold(device = device, previousHome = previousHome)
+            warmStartupCaches(homeToHold = homeToHold)
             rule.collect(packageName = APP_PACKAGE, includeInStartupProfile = true) {
-                collectStartupJourney()
+                collectStartupJourney(homeToHold = homeToHold)
             }
         }
     }
@@ -125,25 +132,53 @@ class BaselineProfileGenerator {
         }
     }
 
+    /**
+     * Saves the Last-known App list and stores the seeded Favorites' icons before profile
+     * collection starts. collect() kills the target process between iterations but never clears
+     * its data or cache directory, so every collected run reads the warmed caches.
+     */
+    private fun warmStartupCaches(homeToHold: String) {
+        setDefaultHomeAndVerify(device = device, homeActivity = APP_HOME_ACTIVITY)
+        // A live start loads the Apps and saves the Last-known App list.
+        device.pressHome()
+        waitForHomeFullyDrawn(device = device)
+        addFavoritesFromAppList(device = device, count = SEEDED_FAVORITE_COUNT)
+        // The icons-drawn report is one-shot per process and the seeding process already reported
+        // on its empty Home, so a fresh process is the observable signal that the seeded Favorites
+        // and their stored icons loaded. The collected block then starts another fresh process.
+        setDefaultHomeAndVerify(device = device, homeActivity = homeToHold)
+        device.pressHome()
+        device.executeShellCommand("am force-stop $APP_PACKAGE")
+        setDefaultHomeAndVerify(device = device, homeActivity = APP_HOME_ACTIVITY)
+        device.pressHome()
+        waitForHomeFullyDrawn(device = device)
+        waitForHomeIconsDrawn(device = device)
+    }
+
     /** Covers the cold path to a usable Home, the only journey in the startup profile. */
-    private fun MacrobenchmarkScope.collectStartupJourney() {
-        // Make Rail the default Home so pressHome() always returns to it.
-        setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
-        check(resolveDefaultHome(device = device) == APP_HOME_ACTIVITY) { "Rail did not become the default Home" }
+    private fun MacrobenchmarkScope.collectStartupJourney(homeToHold: String) {
+        // Hold another Home for the kill, so the system cannot restart Rail before the HOME press.
+        setDefaultHomeAndVerify(device = device, homeActivity = homeToHold)
+        pressHome()
+        // killProcess() flushes ART profiles and waits inside the Benchmark library; the setup has
+        // already stored the caches, so this wait is only for the profile flush.
+        killProcess()
+        setDefaultHomeAndVerify(device = device, homeActivity = APP_HOME_ACTIVITY)
         pressHome()
         waitForHomeFullyDrawn(device = device)
+        waitForHomeIconsDrawn(device = device)
     }
 
     /** Covers the rest of the launcher for the full Baseline Profile. */
     private fun MacrobenchmarkScope.collectBroaderJourneys(testProfiles: TestProfiles) {
         // Make Rail the default Home so pressHome() always returns to it.
-        setDefaultHome(device = device, homeActivity = APP_HOME_ACTIVITY)
+        setDefaultHomeAndVerify(device = device, homeActivity = APP_HOME_ACTIVITY)
         // Start default activity
         pressHome()
         startActivityAndWait()
         // Create a known Favorite, open it, exercise the card and return Home.
         findOrThrow(By.res("launcherHome"), "Home not found")
-        val favoriteName: String = addFavoriteFromAppList()
+        val favoriteName: String = addFavoritesFromAppList(device = device, count = 1).single()
         openFavoritePopup(favoriteName = favoriteName)
         // Scroll launcher
         val launcherList = openAppList()
@@ -330,6 +365,7 @@ class BaselineProfileGenerator {
     }
 
     private fun MacrobenchmarkScope.findWorkRow(): UiObject2 = findListRow(
+        device = device,
         container = findOrThrow(By.res("launcherList"), "App List not found"),
         selector = By.descStartsWith("${appString("work")} "),
         rowName = "Badged work row"
@@ -459,7 +495,7 @@ class BaselineProfileGenerator {
 
     private fun MacrobenchmarkScope.isPrivateAppInPicker(descriptions: Set<String>): Boolean {
         device.findObject(By.scrollable(true))?.let { pickerList ->
-            scrollToEdge(container = pickerList, direction = Direction.DOWN)
+            scrollToEdge(device = device, container = pickerList, direction = Direction.DOWN)
         }
         return descriptions.any { description -> device.hasObject(By.desc(description)) }
     }
@@ -566,6 +602,9 @@ class BaselineProfileGenerator {
     }
 
     private fun MacrobenchmarkScope.findOrThrow(selector: BySelector, message: String): UiObject2 =
+        findOrThrow(device = device, selector = selector, message = message)
+
+    private fun findOrThrow(device: UiDevice, selector: BySelector, message: String): UiObject2 =
         checkNotNull(device.wait(Until.findObject(selector), WAIT_TIMEOUT_MS)) { message }
 
     private fun MacrobenchmarkScope.returnHome() {
@@ -589,9 +628,15 @@ class BaselineProfileGenerator {
         return scrollUntil(container = home, selector = HEADER_TIME_SELECTOR, direction = Direction.UP)
     }
 
-    private fun MacrobenchmarkScope.openAppList(): UiObject2 {
-        findOrThrow(By.res("scrollRail"), "ScrollRail not found").click()
-        return findOrThrow(By.res("launcherList"), "Launcher list not found after opening the ScrollRail")
+    private fun MacrobenchmarkScope.openAppList(): UiObject2 = openAppList(device = device)
+
+    private fun openAppList(device: UiDevice): UiObject2 {
+        findOrThrow(device = device, selector = By.res("scrollRail"), message = "ScrollRail not found").click()
+        return findOrThrow(
+            device = device,
+            selector = By.res("launcherList"),
+            message = "Launcher list not found after opening the ScrollRail"
+        )
     }
 
     private fun MacrobenchmarkScope.openWidgetsSettings(): UiObject2 {
@@ -606,6 +651,14 @@ class BaselineProfileGenerator {
         selector: BySelector,
         direction: Direction,
         speed: Int = FLING_SPEED
+    ): Boolean = scrollUntil(device = device, container = container, selector = selector, direction = direction, speed = speed)
+
+    private fun scrollUntil(
+        device: UiDevice,
+        container: UiObject2,
+        selector: BySelector,
+        direction: Direction,
+        speed: Int = FLING_SPEED
     ): Boolean {
         repeat(SCROLL_ATTEMPTS) {
             if (device.hasObject(selector)) return true
@@ -615,33 +668,51 @@ class BaselineProfileGenerator {
         return device.hasObject(selector)
     }
 
-    private fun MacrobenchmarkScope.scrollToStart(container: UiObject2) {
-        scrollToEdge(container = container, direction = Direction.UP)
+    private fun MacrobenchmarkScope.scrollToEnd(container: UiObject2) {
+        scrollToEnd(device = device, container = container)
     }
 
-    private fun MacrobenchmarkScope.scrollToEnd(container: UiObject2) {
-        scrollToEdge(container = container, direction = Direction.DOWN)
+    private fun scrollToStart(device: UiDevice, container: UiObject2) {
+        scrollToEdge(device = device, container = container, direction = Direction.UP)
+    }
+
+    private fun scrollToEnd(device: UiDevice, container: UiObject2) {
+        scrollToEdge(device = device, container = container, direction = Direction.DOWN)
     }
 
     // Stops at the edge, where a fling leaves the shown rows unchanged, instead of waiting out the
     // scroll-event timeout on every remaining attempt. fling()'s own result is not used: on a busy
     // device it misses the scroll event and reports the edge while the list is still moving.
-    private fun MacrobenchmarkScope.scrollToEdge(container: UiObject2, direction: Direction) {
+    private fun scrollToEdge(device: UiDevice, container: UiObject2, direction: Direction) {
         repeat(SCROLL_ATTEMPTS) {
-            val shownBefore: List<String> = shownRows(container = container)
+            val shownBefore: List<String>? = shownRows(device = device, container = container)
             container.fling(direction, FLING_SPEED)
             device.waitForIdle()
-            if (shownRows(container = container) == shownBefore) {
+            val shownAfter: List<String>? = shownRows(device = device, container = container)
+            if (shownBefore != null && shownAfter != null && shownAfter == shownBefore) {
                 return
             }
         }
     }
 
-    private fun shownRows(container: UiObject2): List<String> =
-        container.findObjects(By.clazz("android.widget.TextView")).map { node -> "${node.text}@${node.visibleBounds}" }
+    // A scroll can recycle a node while its text is read, so settle and re-read. Null means no
+    // complete snapshot was readable: scrollToEdge must not mistake it for an unchanged edge.
+    private fun shownRows(device: UiDevice, container: UiObject2): List<String>? {
+        repeat(ROW_READ_ATTEMPTS) {
+            try {
+                return container.findObjects(By.clazz("android.widget.TextView"))
+                    .map { node -> "${node.text}@${node.visibleBounds}" }
+            } catch (exception: StaleObjectException) {
+                device.waitForIdle()
+                SystemClock.sleep(ROW_READ_RETRY_DELAY_MS)
+            }
+        }
+        return null
+    }
 
     /** Finds the built-in Rail Settings row by name, wherever the App List is scrolled. */
     private fun MacrobenchmarkScope.railSettingsEntry(container: UiObject2): UiObject2 = findListRow(
+        device = device,
         container = container,
         selector = By.desc(RAIL_SETTINGS_NAME),
         rowName = "Rail Settings entry"
@@ -652,29 +723,37 @@ class BaselineProfileGenerator {
      * row's center is between the system bars: the App List draws under both bars, which take a
      * touch meant for a row there, so one short scroll toward the row brings it in first.
      */
-    private fun MacrobenchmarkScope.findListRow(container: UiObject2, selector: BySelector, rowName: String): UiObject2 {
-        scrollToStart(container = container)
-        check(scrollUntil(container = container, selector = selector, direction = Direction.DOWN)) { "$rowName not found" }
-        if (findTouchableRow(selector = selector) == null) {
-            val isUnderStatusBar: Boolean = findOrThrow(selector, "$rowName not found").visibleBounds.centerY() < statusBarBottom()
+    private fun findListRow(device: UiDevice, container: UiObject2, selector: BySelector, rowName: String): UiObject2 {
+        scrollToStart(device = device, container = container)
+        check(scrollUntil(device = device, container = container, selector = selector, direction = Direction.DOWN)) {
+            "$rowName not found"
+        }
+        if (findTouchableRow(device = device, selector = selector) == null) {
+            val isUnderStatusBar: Boolean = findOrThrow(device, selector, "$rowName not found").visibleBounds.centerY() <
+                statusBarBottom(device)
             container.scroll(if (isUnderStatusBar) Direction.UP else Direction.DOWN, REVEAL_SCROLL_PERCENT)
             device.waitForIdle()
         }
-        return checkNotNull(findTouchableRow(selector = selector)) { "$rowName is under a system bar" }
+        return checkNotNull(findTouchableRow(device = device, selector = selector)) { "$rowName is under a system bar" }
     }
 
-    private fun MacrobenchmarkScope.findTouchableRow(selector: BySelector): UiObject2? {
+    private fun findTouchableRow(device: UiDevice, selector: BySelector): UiObject2? {
         val navigationBarTop: Int = (device.displayHeight * (1 - NAVIGATION_BAR_HEIGHT_FRACTION)).toInt()
-        return device.findObjects(selector).firstOrNull { node -> node.visibleBounds.centerY() in statusBarBottom()..navigationBarTop }
+        return device.findObjects(selector).firstOrNull { node ->
+            node.visibleBounds.centerY() in statusBarBottom(device)..navigationBarTop
+        }
     }
 
-    private fun MacrobenchmarkScope.statusBarBottom(): Int = (device.displayHeight * STATUS_BAR_HEIGHT_FRACTION).toInt()
+    private fun statusBarBottom(device: UiDevice): Int = (device.displayHeight * STATUS_BAR_HEIGHT_FRACTION).toInt()
 
-    private fun MacrobenchmarkScope.firstLaunchableNameNode(container: UiObject2): UiObject2 = checkNotNull(
+    // Personal and Work copies of an App share a label; distinct labels keep the seeded Favorites
+    // distinct, since the Edit Favorites row is found by its label.
+    private fun firstLaunchableNameNodes(device: UiDevice, container: UiObject2, count: Int): List<UiObject2> =
         container.findObjects(By.clazz("android.widget.TextView"))
-            .filter { node -> isLaunchableName(text = node.text) && node.visibleBounds.top >= statusBarBottom() }
-            .minByOrNull { node -> node.visibleBounds.top }
-    ) { "App List row not found" }
+            .filter { node -> isLaunchableName(text = node.text) && node.visibleBounds.top >= statusBarBottom(device) }
+            .sortedBy { node -> node.visibleBounds.top }
+            .distinctBy { node -> node.text }
+            .take(count)
 
     private fun MacrobenchmarkScope.setHeightLimit(row: UiObject2, enabled: Boolean) {
         val onText: String = appString("widget_area_scrolls_when_needed")
@@ -707,49 +786,101 @@ class BaselineProfileGenerator {
         device.waitForIdle()
     }
 
-    /** Creates or verifies a known Favorite and returns its Home label. */
-    private fun MacrobenchmarkScope.addFavoriteFromAppList(): String {
-        val launcherList = openAppList()
-        val appNameNode = firstLaunchableNameNode(container = launcherList)
-        val appName: String = checkNotNull(appNameNode.text) { "App List row has no name" }
-        appNameNode.longClick()
-        findOrThrow(By.text(appString("edit_favorites")), "Edit Favorites entry not found").click()
-
-        val editName = findOrThrow(By.text(appName), "App row not found in Edit Favorites")
-        val rowCenterY: Int = editName.visibleCenter.y
-        val slop: Int = (device.displayHeight * ROW_CENTER_SLOP_FRACTION).toInt()
-        val addStar: UiObject2? = favoriteStarNear(rowCenterY = rowCenterY, slop = slop, description = appString("add_to_favorites"))
-        if (addStar != null) {
-            addStar.click()
-        } else {
-            checkNotNull(
-                favoriteStarNear(rowCenterY = rowCenterY, slop = slop, description = appString("remove_from_favorites"))
-            ) { "Favorite star for $appName not found" }
+    /** Creates or verifies the first [count] App List rows as Favorites and returns their Home labels. */
+    private fun addFavoritesFromAppList(device: UiDevice, count: Int): List<String> {
+        val launcherList: UiObject2 = openAppList(device = device)
+        scrollToStart(device = device, container = launcherList)
+        val appNameNodes: List<UiObject2> = firstLaunchableNameNodes(device = device, container = launcherList, count = count)
+        check(appNameNodes.size == count) {
+            "App List shows ${appNameNodes.size} distinct launchable rows below the status bar; " +
+                "$count are required to seed the startup caches"
         }
-        findOrThrow(By.text(appString("done")), "Done button not found").click()
+        val appNames: List<String> = appNameNodes.map { node -> checkNotNull(node.text) { "App List row has no name" } }
+        appNameNodes.first().longClick()
+        findOrThrow(
+            device = device,
+            selector = By.text(appString("edit_favorites")),
+            message = "Edit Favorites entry not found"
+        ).click()
+        val editList: UiObject2 = findOrThrow(
+            device = device,
+            selector = By.res("launcherList"),
+            message = "App List not found in Edit Favorites"
+        )
+        val rowCenterSlop: Int = (device.displayHeight * ROW_CENTER_SLOP_FRACTION).toInt()
+        appNames.forEach { appName ->
+            toggleFavorite(device = device, launcherList = editList, appName = appName, rowCenterSlop = rowCenterSlop)
+        }
+        findOrThrow(device = device, selector = By.text(appString("done")), message = "Done button not found").click()
         val doneText: String = appString("done")
         check(device.wait(Until.gone(By.text(doneText)), WAIT_TIMEOUT_MS)) { "Edit Favorites did not close" }
-        openHomeFromRail()
-        findOrThrow(By.res("launcherHome"), "Home not found after adding a Favorite")
+        openHomeFromRail(device = device)
+        findOrThrow(device = device, selector = By.res("launcherHome"), message = "Home not found after adding Favorites")
         check(
             !device.hasObject(By.desc(appString("add_to_favorites"))) &&
                 !device.hasObject(By.desc(appString("remove_from_favorites")))
         ) { "Favorites edit did not close before opening the Pop-up" }
-        findOrThrow(By.text(appName), "Favorite $appName not found on Home")
-        return appName
+        appNames.forEach { appName ->
+            findOrThrow(device = device, selector = By.text(appName), message = "Favorite $appName not found on Home")
+        }
+        return appNames
+    }
+
+    /** Adds [appName] to the Favorites, or verifies it already is one, and asserts the star's state. */
+    private fun toggleFavorite(device: UiDevice, launcherList: UiObject2, appName: String, rowCenterSlop: Int) {
+        val row: UiObject2 = findListRow(
+            device = device,
+            container = launcherList,
+            selector = By.text(appName),
+            rowName = "App $appName in Edit Favorites"
+        )
+        val addStar: UiObject2? = favoriteStarNear(
+            device = device,
+            rowCenterY = row.visibleCenter.y,
+            slop = rowCenterSlop,
+            description = appString("add_to_favorites")
+        )
+        if (addStar != null) {
+            addStar.click()
+            device.waitForIdle()
+        }
+        val updatedRow: UiObject2 = findListRow(
+            device = device,
+            container = launcherList,
+            selector = By.text(appName),
+            rowName = "App $appName in Edit Favorites"
+        )
+        checkNotNull(
+            waitForFavoriteStar(
+                device = device,
+                rowCenterY = updatedRow.visibleCenter.y,
+                slop = rowCenterSlop,
+                description = appString("remove_from_favorites")
+            )
+        ) { "Favorite state for $appName did not change" }
+    }
+
+    private fun waitForFavoriteStar(device: UiDevice, rowCenterY: Int, slop: Int, description: String): UiObject2? {
+        repeat(FAVORITE_STATE_ATTEMPTS) {
+            favoriteStarNear(device = device, rowCenterY = rowCenterY, slop = slop, description = description)?.let { star ->
+                return star
+            }
+            device.waitForIdle()
+        }
+        return null
     }
 
     /** Taps the Home entry at the top of the Rail without duplicating its label. */
-    private fun MacrobenchmarkScope.openHomeFromRail() {
-        val rail = findOrThrow(By.res("scrollRail"), "ScrollRail not found")
-        val homeEntry = checkNotNull(
+    private fun openHomeFromRail(device: UiDevice) {
+        val rail: UiObject2 = findOrThrow(device = device, selector = By.res("scrollRail"), message = "ScrollRail not found")
+        val homeEntry: UiObject2 = checkNotNull(
             rail.findObjects(By.clazz("android.widget.TextView")).minByOrNull { entry -> entry.visibleBounds.top }
         ) { "Home Rail entry not found" }
         homeEntry.click()
         device.waitForIdle()
     }
 
-    private fun MacrobenchmarkScope.favoriteStarNear(rowCenterY: Int, slop: Int, description: String): UiObject2? =
+    private fun favoriteStarNear(device: UiDevice, rowCenterY: Int, slop: Int, description: String): UiObject2? =
         device.findObjects(By.desc(description))
             .filter { star -> abs(star.visibleCenter.y - rowCenterY) <= slop }
             .minByOrNull { star -> abs(star.visibleCenter.y - rowCenterY) }
