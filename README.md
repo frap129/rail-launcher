@@ -3,7 +3,7 @@
 Rail is a list-based home-screen launcher for Android, inspired by
 Niagara. Home shows a clock and your Favorites; everything else lives in
 an alphabetical App List you reach by scrubbing the letter Rail on the
-screen edge. Everything Niagara puts behind Pro is free in Rail.
+screen edge.
 
 Rail is in alpha. Until the first stable release, an update may reset
 your Favorites, widgets and settings.
