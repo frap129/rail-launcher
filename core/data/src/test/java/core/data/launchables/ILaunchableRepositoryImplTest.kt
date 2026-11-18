@@ -16,6 +16,7 @@ import core.data.icons.IIconPackSource
 import core.data.icons.IIconRepository
 import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
+import core.data.icons.model.UNKNOWN_APP_UPDATE_TIME
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.appListKey
@@ -324,7 +325,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             profile = inputProfile.user,
             longLabel = "Example site"
         )
-        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME))
         val launchableRepository: ILaunchableRepository = createStandaloneShortcutRepository(
             inputKey = inputKey,
             inputResolution = MutableStateFlow(ShortcutResolution(shortcuts = mapOf(inputKey to inputShortcut))),
@@ -654,7 +656,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputAppState: MutableStateFlow<List<App>?> = MutableStateFlow(listOf(inputApp))
         val mockAppRepository: IAppRepository = createAppRepositoryMock(inputAppState = inputAppState)
-        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = mockAppRepository,
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
@@ -734,7 +737,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputDispatcher: TestDispatcher = StandardTestDispatcher(testScheduler)
         val inputAppState: MutableStateFlow<List<App>?> =
             MutableStateFlow(listOf(createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)))
-        val mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        val mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME))
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputAppState = inputAppState),
             mockPreferencesRepository = createPreferencesRepositoryMock(settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)),
@@ -997,7 +1001,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val expectedCustomIcon: Icon = PACK_CUSTOM_ICON.resolvedIcon
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
-            inputIcon = Icon.ActivityIcon(inputComponentName),
+            inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME),
             customIcon = expectedCustomIcon
         )
         val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(
@@ -1097,7 +1101,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         assertNotSame(inputApp, actualApp)
         assertEquals(RENAMED_NAME, actualApp.name)
         assertEquals(ORIGINAL_NAME, inputApp.name)
-        assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
+        assertEquals(Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME), inputApp.icon)
     }
 
     @Test
@@ -1151,7 +1155,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         assertNotSame(inputApp, actualApp)
         assertEquals(expectedIcon, actualApp.icon)
-        assertEquals(Icon.ActivityIcon(inputComponentName), inputApp.icon)
+        assertEquals(Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME), inputApp.icon)
         coVerify(exactly = 1) {
             mockIconRepository.getAppIcons(packPackageName = TEST_ICON_PACK_PACKAGE, apps = listOf(inputApp))
         }
@@ -1281,7 +1285,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
         val inputCustomIcon: CustomIcon = PACK_CUSTOM_ICON.customIcon
         val mockIconRepository: IIconRepository = createIconRepositoryMock(
-            inputIcon = Icon.ActivityIcon(inputComponentName),
+            inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME),
             customIcon = null
         )
         val launchableCustomizationDao: LaunchableCustomizationDao = database.getLaunchableCustomizationDao()
@@ -1503,7 +1507,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputApp)),
             mockPreferencesRepository = createPreferencesRepository(launchableCustomizationDao = inputCustomizationDao),
             mockIconRepository = createIconRepositoryMock(
-                inputIcon = Icon.ActivityIcon(inputComponentName),
+                inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME),
                 customIcon = expectedCustomIcon
             )
         )
@@ -2560,7 +2564,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         inputFolders: List<Folder> = emptyList(),
         inputCustomizations: List<LaunchableCustomization> = emptyList(),
         inputSettings: MutableStateFlow<Settings>? = null,
-        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME))
     ): AppListRankingFixture {
         inputFolders.forEach { folder -> database.getFolderDao().insert(FolderRecord(id = folder.folderId)) }
         val launchCountRepository: ILaunchCountRepository = createLaunchCountRepository(
@@ -2610,7 +2615,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         mockProfileSource: IProfileSource = createProfileSourceMock(),
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
         mockAppRepository: IAppRepository = createAppRepositoryMock(inputApps = emptyList()),
-        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName))
+        mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME))
     ): ILaunchableRepository {
         database.getStandaloneShortcutDao().insert(StandaloneShortcutRecord(key = inputKey.format(), addedAt = 1L))
         return createRepository(
@@ -2629,7 +2635,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     private fun TestScope.createRepository(
         mockAppRepository: IAppRepository,
         mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(),
-        mockIconRepository: IIconRepository = createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName)),
+        mockIconRepository: IIconRepository =
+            createIconRepositoryMock(inputIcon = Icon.ActivityIcon(inputComponentName, UNKNOWN_APP_UPDATE_TIME)),
         mockProfileSource: IProfileSource = createProfileSourceMock(),
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         privateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatus(

@@ -6,10 +6,17 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import core.data.profiles.ProfileInfo
 
+/**
+ * The update time of an App icon whose caller reads none, as App Widget host icons do: an icon
+ * that carries it never takes part in the Home icon cache.
+ */
+const val UNKNOWN_APP_UPDATE_TIME: Long = 0L
+
 sealed class Icon {
     data class RailIcon(val resId: Int) : Icon()
 
-    data class ActivityIcon(val componentName: ComponentName) : Icon()
+    /** The launcher activity icon of [componentName] from the App package updated at [lastUpdateTime], or [UNKNOWN_APP_UPDATE_TIME]. */
+    data class ActivityIcon(val componentName: ComponentName, val lastUpdateTime: Long) : Icon()
 
     data class ApplicationIcon(val packageName: String) : Icon()
 
@@ -49,5 +56,5 @@ fun Icon.badgedFor(profile: ProfileInfo): Icon =
     if (profile.kind.isPersonal) this else Icon.ProfileIcon(icon = this, profile = profile.user)
 
 /** The Activity icon of [componentName], badged for [profile]: what an App without a pack or Custom icon shows. */
-fun activityIconFor(componentName: ComponentName, profile: ProfileInfo): Icon =
-    Icon.ActivityIcon(componentName).badgedFor(profile = profile)
+fun activityIconFor(componentName: ComponentName, profile: ProfileInfo, lastUpdateTime: Long): Icon =
+    Icon.ActivityIcon(componentName = componentName, lastUpdateTime = lastUpdateTime).badgedFor(profile = profile)

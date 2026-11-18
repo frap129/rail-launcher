@@ -10,6 +10,7 @@ import core.data.icons.model.CustomIcon
 import core.data.icons.model.Icon
 import core.data.icons.model.IconPack
 import core.data.icons.model.IconPackCategory
+import core.data.icons.model.UNKNOWN_APP_UPDATE_TIME
 import core.data.icons.model.activityIconFor
 import core.data.icons.model.badgedFor
 import core.data.icons.model.sortedCustomIconPacks
@@ -130,7 +131,12 @@ class IIconRepositoryImpl(
 
     override suspend fun getIcon(packPackageName: String, componentName: ComponentName, profile: ProfileInfo): Icon {
         val packIcon: Icon.PackIcon? = iconDao.getIcon(componentName, packPackageName)
-        return packIcon?.badgedFor(profile = profile) ?: activityIconFor(componentName = componentName, profile = profile)
+        // An App Widget host icon is not Home's icon, so its App update time is not read and it never enters the Home icon cache.
+        return packIcon?.badgedFor(profile = profile) ?: activityIconFor(
+            componentName = componentName,
+            profile = profile,
+            lastUpdateTime = UNKNOWN_APP_UPDATE_TIME
+        )
     }
 
     override suspend fun getAppIcons(packPackageName: String, apps: List<App>): Map<String, Icon> {

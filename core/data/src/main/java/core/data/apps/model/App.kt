@@ -20,8 +20,6 @@ data class App(
     val componentName: ComponentName,
     val badgedLabel: String = defaultName,
     override val name: String = defaultName,
-    override val defaultIcon: Icon = activityIconFor(componentName = componentName, profile = profileInfo),
-    override val icon: Icon = defaultIcon,
     /**
      * Whether this App is its package's representative in its Profile: the alphabetically first
      * launcher activity, which owns the package's Shortcuts and notifications.
@@ -34,7 +32,14 @@ data class App(
     /** Whether the system lets the user uninstall the App's package from its Profile. */
     val isRemovable: Boolean,
     /** Whether the system has suspended the App's package, as Digital Wellbeing or a freezer app does. */
-    override val isSuspended: Boolean = false
+    override val isSuspended: Boolean = false,
+    /** The App's [lastUpdateTime] rides on its icon, so an App update never shows a stored Home icon. */
+    override val defaultIcon: Icon = activityIconFor(
+        componentName = componentName,
+        profile = profileInfo,
+        lastUpdateTime = lastUpdateTime
+    ),
+    override val icon: Icon = defaultIcon
 ) : Launchable() {
     override val profile: UserHandle = profileInfo.user
     val kind: ProfileKind = profileInfo.kind

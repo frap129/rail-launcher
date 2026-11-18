@@ -19,7 +19,11 @@ import core.util.resolveIconPack
 import java.io.File
 
 internal sealed interface IconSource {
+    /** The key Coil stores this icon's image under; it changes with the App update time. */
     val cacheKey: String
+
+    /** The icon's identity across App updates, which the Home icon cache keys its stored bitmaps on. */
+    val identity: String get() = cacheKey
 
     fun loadDrawable(context: Context): Drawable?
 }
@@ -31,16 +35,17 @@ private class RailIconSource(private val resId: Int) : IconSource {
 }
 
 private class ActivityIconSource(
-    private val componentName: ComponentName,
+    private val icon: Icon.ActivityIcon,
     private val profile: UserHandle?,
     private val profileSource: IProfileSource?
 ) : IconSource {
-    override val cacheKey: String = "activity:${componentName.flattenToString()}"
+    override val identity: String = "activity:${icon.componentName.flattenToString()}"
+    override val cacheKey: String = "$identity:${icon.lastUpdateTime}"
 
     override fun loadDrawable(context: Context): Drawable? = if (profile != null && profileSource != null) {
-        profileSource.activityIcon(componentName = componentName, user = profile)
+        profileSource.activityIcon(componentName = icon.componentName, user = profile)
     } else {
-        context.packageManager.getActivityIcon(componentName)
+        context.packageManager.getActivityIcon(icon.componentName)
     }
 }
 
@@ -92,6 +97,7 @@ private class FolderIconSource(private val shade: Int) : IconSource {
 
 private class ProfileIconSource(private val icon: Icon, private val profile: UserHandle, profileSource: IProfileSource?) : IconSource {
     private val source: IconSource = icon.toSource(profileSource = profileSource, profile = profile)
+    override val identity: String = "${source.identity}:profile:$profile"
     override val cacheKey: String = "${source.cacheKey}:profile:$profile"
 
     override fun loadDrawable(context: Context): Drawable? {
@@ -129,7 +135,7 @@ private class ShortcutIconSource(private val packageName: String, private val sh
 }
 
 internal fun Icon.toSource(profileSource: IProfileSource? = null, profile: UserHandle? = null): IconSource = when (this) {
-    is Icon.ActivityIcon -> ActivityIconSource(componentName = componentName, profile = profile, profileSource = profileSource)
+    is Icon.ActivityIcon -> ActivityIconSource(icon = this, profile = profile, profileSource = profileSource)
     is Icon.ApplicationIcon -> ApplicationIconSource(packageName = packageName, profile = profile, profileSource = profileSource)
     is Icon.FolderIcon -> FolderIconSource(shade)
     is Icon.ImageIcon -> ImageIconSource(icon = this)
@@ -139,3 +145,6 @@ internal fun Icon.toSource(profileSource: IProfileSource? = null, profile: UserH
     is Icon.RailIcon -> RailIconSource(resId)
     is Icon.ShortcutIcon -> ShortcutIconSource(packageName = packageName, shortcutId = shortcutId, profile = this.profile)
 }
+
+/** The identity of this icon across App updates: what the Home icon cache keys its stored bitmaps and revalidations on. */
+val Icon.identity: String get() = toSource().identity

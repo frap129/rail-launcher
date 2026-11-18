@@ -37,6 +37,8 @@ import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
 import core.data.folders.IFolderRepositoryImpl
+import core.data.icons.IHomeIconCache
+import core.data.icons.IHomeIconCacheImpl
 import core.data.icons.IIconImageImporter
 import core.data.icons.IIconImageImporterImpl
 import core.data.icons.IIconImageStore
@@ -295,6 +297,14 @@ class MainApplication :
         }
         single<IIconPackSource> { IIconPackSourceImpl(context = androidContext()) }
         single<IIconImageStore> { IIconImageStoreImpl(context = androidContext()) }
+        single<IHomeIconCache> {
+            IHomeIconCacheImpl(
+                context = androidContext(),
+                profileSource = get(),
+                appRepository = get(),
+                scope = get(named(APP_SCOPE_QUALIFIER))
+            )
+        }
         single<IIconImageImporter> { IIconImageImporterImpl(context = androidContext(), imageStore = get()) }
         single<IIconRepository> {
             IIconRepositoryImpl(androidContext(), get(), get(), get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
@@ -713,8 +723,14 @@ class MainApplication :
 
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(context)
         .components {
-            add(IconKeyer())
-            add(IconFetcher.Factory(profileSource = get()))
+            add(IconKeyer(homeIconCache = get()))
+            add(
+                IconFetcher.Factory(
+                    profileSource = get(),
+                    homeIconCache = get(),
+                    scope = get(named(APP_SCOPE_QUALIFIER))
+                )
+            )
             add(MediaArtworkKeyer())
             add(MediaArtworkFetcher.Factory(store = get()))
         }

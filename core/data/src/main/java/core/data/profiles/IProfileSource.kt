@@ -19,6 +19,12 @@ enum class ProfileKind {
     val isPersonal: Boolean get() = this == Personal
 }
 
+/**
+ * Whether this Profile's kind is known and is not the Private Space. An Other Profile's kind is
+ * unknown, so an Unlocked Private Space whose user info failed to read would look Other.
+ */
+val ProfileKind.isKnownNotPrivate: Boolean get() = this == ProfileKind.Personal || this == ProfileKind.Work
+
 /** A Profile Rail can load Apps from. */
 data class ProfileInfo(
     val user: UserHandle,
