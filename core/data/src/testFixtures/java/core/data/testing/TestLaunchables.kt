@@ -8,9 +8,11 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
+import core.data.launchables.toLaunchableGroups
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.ProfileToken
+import java.util.Locale
 
 private const val TEST_APP_USER_ID: Int = 0
 private const val TEST_APP_NAME: String = "App"
@@ -21,6 +23,10 @@ const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 
 /** The Rail Settings Builtin group used across launcher tests. */
 fun createBuiltinGroup(): LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
+
+/** The App List groups [names] form in [locale], with the Rail Settings Builtin group and no Private Space. */
+fun createAppListGroups(locale: Locale, names: List<String>): List<LaunchableGroup> = names.map { name -> createRailLaunchable(name) }
+    .toLaunchableGroups(builtinGroup = createBuiltinGroup(), locale = locale)
 
 /** A Rail Launchable with a predictable key for tests. */
 fun createRailLaunchable(name: String, deeplink: String = "rail://$name"): RailLaunchable = RailLaunchable(

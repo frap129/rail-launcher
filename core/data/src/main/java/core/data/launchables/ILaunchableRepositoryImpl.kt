@@ -45,6 +45,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.StandaloneShortcuts
 import core.data.time.IClockSource
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -63,7 +64,7 @@ private data class FolderAppList(val records: List<FolderRecord>, val memberKeys
 
 private data class AppListSources(val folderAppList: FolderAppList, val standaloneShortcuts: StandaloneShortcuts)
 
-private data class AppState(val homeApps: HomeApps?, val privateSpaceStatus: PrivateSpaceStatus)
+private data class AppState(val homeApps: HomeApps?, val privateSpaceStatus: PrivateSpaceStatus, val locale: Locale)
 
 /** The Launch counts the App List order needs, or that they have not loaded yet. */
 private sealed interface LaunchCounts {
@@ -123,13 +124,15 @@ class ILaunchableRepositoryImpl(
         AppListSources(folderAppList = folders, standaloneShortcuts = shortcuts)
     }
 
-    // Icon pack changes re-resolve every icon, so the pack flow triggers the App state.
+    // Icon pack changes re-resolve every icon, so the pack flow triggers the App state. The clock
+    // source reports locale changes, which re-key and re-order the Initial groups.
     private val appState: Flow<AppState> = combine(
         appRepository.homeApps,
         privateSpaceStatus.status,
-        iconRepository.iconPacks
-    ) { homeApps, status, _ ->
-        AppState(homeApps = homeApps, privateSpaceStatus = status)
+        iconRepository.iconPacks,
+        clockSource.readings.map { reading -> reading.locale }.distinctUntilChanged()
+    ) { homeApps, status, _, locale ->
+        AppState(homeApps = homeApps, privateSpaceStatus = status, locale = locale)
     }
 
     private val unorderedLaunchableState: Flow<UnorderedLaunchableState> = combine(
@@ -251,7 +254,8 @@ class ILaunchableRepositoryImpl(
         } else {
             appListLaunchables.toLaunchableGroups(
                 builtinGroup = resolvedBuiltinGroup,
-                privateSpaceStatus = appState.privateSpaceStatus
+                privateSpaceStatus = appState.privateSpaceStatus,
+                locale = appState.locale
             )
         }
         val pickerGroups: List<LaunchableGroup.Listed> = if (isLastKnown) {
@@ -260,7 +264,8 @@ class ILaunchableRepositoryImpl(
             (resolvedLaunchables + folders)
                 .toLaunchableGroups(
                     builtinGroup = resolvedBuiltinGroup,
-                    privateSpaceStatus = appState.privateSpaceStatus
+                    privateSpaceStatus = appState.privateSpaceStatus,
+                    locale = appState.locale
                 )
                 .toPickerGroups()
         }
@@ -374,39 +379,6 @@ private fun LaunchableState.expiringRecentlyInstalled(clockSource: IClockSource)
     }
 }
 
-private const val DIGIT_GROUP_LABEL: String = "#"
-
-/**
- * Orders the Rail: the Star, then Initial groups sorted by label, then
- * [builtinGroup], then the Private Space container. Names starting with a
- * digit share the "#" group. Private Apps and their Shortcuts belong to the
- * Private Space group only, so they never form or join an Initial group.
- * Folders group with the other Launchables by their resolved names. Always
- * holds the Star and the Builtin group so Home stays reachable without apps.
- *
- * [privateSpaceStatus] supplies the Private Space's Profile and whether its
- * container is listed, Hidden or Locked.
- *
- * An Initial group keeps the order its items arrive in, and the Unlocked Private
- * Space group lists its items A-Z. [withAppListOrder] applies the App List order.
- */
-internal fun List<Launchable>.toLaunchableGroups(
-    builtinGroup: LaunchableGroup.Builtin,
-    privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus()
-): List<LaunchableGroup> {
-    val privateSpace: ProfileInfo? = privateSpaceStatus.profile
-    val (privateItems, otherItems) = partition { launchable -> launchable.isPrivateIn(privateSpace = privateSpace) }
-    val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { it.groupLabel() }
-        .map { (label: String, items: List<Launchable>) -> LaunchableGroup.InitialGroup(label = label, items = items) }
-        .sortedBy { it.label }
-    val privateSpaceGroup: LaunchableGroup.PrivateSpace? = when {
-        !privateSpaceStatus.isContainerListed -> null
-        privateSpaceStatus.isLocked -> LaunchableGroup.PrivateSpace.Locked
-        else -> LaunchableGroup.PrivateSpace.Unlocked(items = privateItems.sortedWith(launchableNameOrder))
-    }
-    return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
-}
-
 /**
  * Applies [ranking] to the items of each Initial group and of the Unlocked Private Space
  * group, highest first. [AppListRanking.Alphabetical] returns [this] untouched: the Initial
@@ -461,11 +433,6 @@ private fun List<Launchable>.rankedByUsage(usage: AppListUsage, rankingValue: (L
         compareByDescending<Launchable> { launchable -> rankingValue(usage.launchCountsByKey[launchable.key]) }
             .then(launchableNameOrder)
     ) + lastItems
-}
-
-private fun Launchable.groupLabel(): String {
-    val initial: Char = name.firstOrNull()?.uppercaseChar() ?: return DIGIT_GROUP_LABEL
-    return if (initial.isDigit()) DIGIT_GROUP_LABEL else initial.toString()
 }
 
 /** Whether this Launchable belongs to [privateSpace]: a private App or a Shortcut its Profile publishes. */

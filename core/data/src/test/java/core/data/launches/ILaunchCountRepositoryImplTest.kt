@@ -4,13 +4,11 @@ import core.data.cleanup.launchCountCleanupRow
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.StaleKeyCleanupOutcome
 import core.data.testing.TEST_NOW_EPOCH_MS
-import core.data.testing.createClockReading
-import core.data.testing.createClockSourceMock
+import core.data.testing.createMutableClockSourceMock
 import core.data.testing.staleKeyCleanupOutcome
 import core.util.MILLIS_PER_WEEK
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -78,10 +76,7 @@ class ILaunchCountRepositoryImplTest : InMemoryDatabaseTest() {
     private fun createRepository(now: () -> Instant = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS) }): ILaunchCountRepository =
         ILaunchCountRepositoryImpl(
             launchCountDao = database.getLaunchCountDao(),
-            clockSource = createClockSourceMock(
-                readings = MutableStateFlow(createClockReading(instant = Instant.ofEpochMilli(TEST_NOW_EPOCH_MS))),
-                now = now
-            ),
+            clockSource = createMutableClockSourceMock(now = now).source,
             dispatcher = databaseDispatcher
         )
 }
