@@ -3,6 +3,7 @@ package core.data.launchables
 import android.content.ComponentName
 import android.os.UserHandle
 import app.cash.turbine.test
+import core.data.apps.HomeApps
 import core.data.apps.IAppRepository
 import core.data.apps.model.App
 import core.data.cleanup.HeaderTapTargetCleanupRow
@@ -807,6 +808,101 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             assertTrue(actualHomeState.listedGroups.flatMap { group -> group.items }.any { item -> item.key == inputFolder.key })
             assertTrue(actualHomeState.launchableFor(key = inputFolderMember.key) != null)
             assertNull(actualHomeState.launchableFor(key = inputPrivateApp.key))
+        }
+    }
+
+    @Test
+    fun `resolves only Home's Launchables from the Last-known App list`() = databaseTest {
+        val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private, isQuiet = true)
+        val inputPrivateApp: App = createApp(name = "Secret", packageName = PRIVATE_PACKAGE_NAME, profileInfo = inputPrivateProfile)
+        val inputLastKnownApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputFolderMember: App = createApp(name = "Member", packageName = "com.example.member")
+        val inputFolder: Folder = Folder(folderId = FOLDER_ID)
+        database.getLaunchableCustomizationDao().setName(key = inputLastKnownApp.key, name = RENAMED_NAME)
+        database.getFolderDao().insert(FolderRecord(id = inputFolder.folderId))
+        database.getPopupDao().insertItems(
+            listOf(PopupItemRecord(ownerKey = inputFolder.key, itemKey = inputFolderMember.key, position = FIRST_POSITION))
+        )
+        seedFavorite(key = inputLastKnownApp.key, position = FIRST_POSITION)
+        seedFavorite(key = inputPrivateApp.key, position = SECOND_POSITION)
+        val inputHomeApps: MutableStateFlow<HomeApps?> = MutableStateFlow(
+            HomeApps.LastKnown(apps = listOf(inputPrivateApp, inputLastKnownApp, inputFolderMember))
+        )
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputHomeApps = inputHomeApps),
+            mockPreferencesRepository = createPreferencesRepository(
+                launchableCustomizationDao = database.getLaunchableCustomizationDao()
+            ),
+            mockProfileSource = createProfileSourceMock(profile = inputPrivateProfile)
+        )
+        val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
+            favoriteDao = database.getFavoriteDao(),
+            launchableRepository = repository
+        )
+        repository.launchableState.test {
+            finishPendingWork()
+            val actualLastKnownState: LaunchableState = expectMostRecentItem()
+
+            assertEquals(LaunchableReadiness.LastKnownHomeReady, actualLastKnownState.readiness)
+            assertFalse(actualLastKnownState.readiness.isLive)
+            assertFalse(actualLastKnownState.isAppListReady)
+            assertTrue(actualLastKnownState.groups.isEmpty())
+            assertTrue(actualLastKnownState.pickerGroups.isEmpty())
+            assertEquals(RENAMED_NAME, actualLastKnownState.app(key = inputLastKnownApp.key).name)
+            assertTrue(actualLastKnownState.launchableFor(key = inputFolderMember.key) != null)
+            assertTrue(actualLastKnownState.launchableFor(key = inputFolder.key) != null)
+            assertNull(actualLastKnownState.launchableFor(key = inputPrivateApp.key))
+            assertEquals(listOf(RENAMED_NAME), favoritesRepository.favorites.first().map { favorite -> favorite.name })
+        }
+    }
+
+    @Test
+    fun `keeps a Last-known Favorite until the live Apps replace the list without it`() = databaseTest {
+        val inputLastKnownApp: App = createApp(name = "Gone", packageName = APP_PACKAGE_NAME)
+        val inputLiveApp: App = createApp(name = "Present", packageName = "com.example.present")
+        seedFavorite(key = inputLastKnownApp.key, position = FIRST_POSITION)
+        val inputHomeApps: MutableStateFlow<HomeApps?> = MutableStateFlow(HomeApps.LastKnown(apps = listOf(inputLastKnownApp)))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputHomeApps = inputHomeApps)
+        )
+        val favoritesRepository: IFavoritesRepositoryImpl = createFavoritesRepository(
+            favoriteDao = database.getFavoriteDao(),
+            launchableRepository = repository
+        )
+        finishPendingWork()
+
+        favoritesRepository.favorites.test {
+            assertEquals(listOf(inputLastKnownApp), awaitItem())
+
+            inputHomeApps.value = HomeApps.Live(apps = listOf(inputLiveApp))
+
+            assertEquals(emptyList<Launchable>(), awaitItem())
+        }
+    }
+
+    @Test
+    fun `promotes Home to the live Apps and the App List once they replace the Last-known App list`() = databaseTest {
+        val inputLastKnownApp: App = createApp(name = "Last-known", packageName = APP_PACKAGE_NAME)
+        val inputLiveApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)
+        val inputHomeApps: MutableStateFlow<HomeApps?> = MutableStateFlow(HomeApps.LastKnown(apps = listOf(inputLastKnownApp)))
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(inputHomeApps = inputHomeApps)
+        )
+        repository.launchableState.test {
+            finishPendingWork()
+            val actualLastKnownState: LaunchableState = expectMostRecentItem()
+            assertEquals(LaunchableReadiness.LastKnownHomeReady, actualLastKnownState.readiness)
+            assertFalse(actualLastKnownState.isAppListReady)
+            assertTrue(actualLastKnownState.groups.isEmpty())
+            assertEquals("Last-known", actualLastKnownState.singleAppName())
+
+            inputHomeApps.value = HomeApps.Live(apps = listOf(inputLiveApp))
+            finishPendingWork()
+            val actualLiveState: LaunchableState = expectMostRecentItem()
+
+            assertEquals(ORIGINAL_NAME, actualLiveState.singleAppName())
+            assertEquals(LaunchableReadiness.AppListReady, actualLiveState.readiness)
+            assertTrue(actualLiveState.isAppListReady)
         }
     }
 

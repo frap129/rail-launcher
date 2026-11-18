@@ -1,8 +1,10 @@
 package core.data.widgets
 
+import core.data.launchables.LaunchableState
 import core.data.profiles.IProfileSource
 import core.data.profiles.awaitLoaded
 import core.data.room.dao.WidgetAreaDao
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -10,6 +12,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -83,6 +90,17 @@ class IWidgetLifecycleReconcilerImpl(
                 }
             }
         }
+    }
+
+    // Package and Profile changes reach providerChanges, so other Launchable State updates (names,
+    // icons, Launch counts) never need a scan of the stored App Widgets.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override suspend fun removeGoneProvidersWhenAppListReady(launchableState: Flow<LaunchableState>, providerChanges: Flow<Unit>) {
+        launchableState
+            .map { state -> state.isAppListReady }
+            .distinctUntilChanged()
+            .flatMapLatest { isAppListReady -> if (isAppListReady) providerChanges.onStart { emit(Unit) } else emptyFlow() }
+            .collect { removeGoneProviders() }
     }
 }
 

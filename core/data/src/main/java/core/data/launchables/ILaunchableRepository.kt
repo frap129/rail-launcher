@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 data class LaunchableState(
     val groups: List<LaunchableGroup>,
     val launchables: List<Launchable>,
-    /** How far the Launchables have resolved: no Apps yet, Home-ready, or App List-ready. */
+    /** How far the Launchables have resolved: no Apps yet, Last-known or live Home-ready, or App List-ready. */
     val readiness: LaunchableReadiness,
     /**
      * The Profile tokens of every Private Space whose Launchable and Shortcut keys Rail keeps:
@@ -100,8 +100,9 @@ interface ILaunchableRepository {
 
     /**
      * The shared Launchable State, computed off the main thread. Starts
-     * [LaunchableReadiness.Loading], becomes [LaunchableReadiness.HomeReady] once the installed
-     * Apps have resolved, and [LaunchableReadiness.AppListReady] once the Launch counts that
+     * [LaunchableReadiness.Loading], becomes [LaunchableReadiness.LastKnownHomeReady] once the
+     * Last-known App list resolves and [LaunchableReadiness.HomeReady] once the live installed
+     * Apps have resolved, then [LaunchableReadiness.AppListReady] once the Launch counts that
      * order its groups arrive. Keeps its upstream subscription for
      * [WHILE_SUBSCRIBED_TIMEOUT_MS] after the last collector leaves.
      */

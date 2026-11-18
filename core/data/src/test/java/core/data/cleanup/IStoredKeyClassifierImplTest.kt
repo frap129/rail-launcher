@@ -45,14 +45,18 @@ class IStoredKeyClassifierImplTest {
     private val inputProfile = createUserHandle(userId = PERSONAL_USER_ID)
 
     @Test
-    fun `emits null until the Launchables load`() = runTest {
-        val inputState: MutableStateFlow<LaunchableState> =
-            MutableStateFlow(createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading))
-        val classifier: IStoredKeyClassifier = createClassifier(state = inputState)
+    fun `emits null until the live Launchables load`() = runTest {
+        val inputStates: List<LaunchableState> = listOf(
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.Loading),
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.LastKnownHomeReady)
+        )
+        inputStates.forEach { inputState ->
+            val classifier: IStoredKeyClassifier = createClassifier(state = MutableStateFlow(inputState))
 
-        val actualStates: Map<String, StoredKeyState>? = classifier.observe(flowOf(setOf("key"))).first()
+            val actualStates: Map<String, StoredKeyState>? = classifier.observe(flowOf(setOf("key"))).first()
 
-        assertNull(actualStates)
+            assertNull(actualStates)
+        }
     }
 
     @Test

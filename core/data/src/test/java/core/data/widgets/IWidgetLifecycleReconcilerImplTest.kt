@@ -2,23 +2,31 @@ package core.data.widgets
 
 import app.cash.turbine.test
 import core.data.icons.model.Icon
+import core.data.launchables.LaunchableReadiness
+import core.data.launchables.LaunchableState
 import core.data.room.dao.WidgetAreaDao
 import core.data.testing.AppWidgetHostState
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.ProfileSourceState
 import core.data.testing.createAppWidgetHostMock
+import core.data.testing.createLaunchableState
 import core.data.testing.createProfileSourceMock
 import io.mockk.verify
 import io.mockk.verifyOrder
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+private const val HIDDEN_APP_KEY: String = "com.example.hidden"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
@@ -112,6 +120,77 @@ class IWidgetLifecycleReconcilerImplTest : InMemoryDatabaseTest() {
         verify(exactly = 1) { mockHost.deleteId(id = AppWidgetId(42)) }
         assertTrue(dao.getAppWidgets().isEmpty())
         assertTrue(dao.observePlaces().first().isEmpty())
+    }
+
+    @Test
+    fun `removes gone providers only once the live App List is ready`() = databaseTest {
+        val dao: WidgetAreaDao = widgetAreaDao()
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
+        )
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock(
+            availabilityProvider = { WidgetAvailability.Gone }
+        )
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = dao, host = mockHost, profileSource = createProfileSourceMock())
+        val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(
+            createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.LastKnownHomeReady)
+        )
+        val collection = backgroundScope.launch {
+            reconciler.removeGoneProvidersWhenAppListReady(
+                launchableState = inputLaunchableState,
+                providerChanges = MutableSharedFlow()
+            )
+        }
+        try {
+            finishPendingWork()
+
+            assertEquals(1, dao.getAppWidgets().size)
+            verify(exactly = 0) { mockHost.deleteId(any()) }
+
+            inputLaunchableState.value =
+                createLaunchableState(groups = emptyList(), readiness = LaunchableReadiness.AppListReady)
+            finishPendingWork()
+
+            assertTrue(dao.getAppWidgets().isEmpty())
+            verify(exactly = 1) { mockHost.deleteId(id = AppWidgetId(42)) }
+        } finally {
+            collection.cancel()
+        }
+    }
+
+    @Test
+    fun `scans for gone providers on provider changes, not on every Launchable State update`() = databaseTest {
+        seedWidgetArea(
+            places = listOf(WidgetPlaceRecord(id = 1L, position = 0)),
+            widgets = listOf(appWidget(appWidgetId = 42))
+        )
+        val mockHost: IAppWidgetHostSource = createAppWidgetHostMock()
+        val reconciler: IWidgetLifecycleReconcilerImpl =
+            IWidgetLifecycleReconcilerImpl(dao = widgetAreaDao(), host = mockHost, profileSource = createProfileSourceMock())
+        val inputLaunchableState: MutableStateFlow<LaunchableState> = MutableStateFlow(createLaunchableState(groups = emptyList()))
+        val inputProviderChanges: MutableSharedFlow<Unit> = MutableSharedFlow()
+        val collection = backgroundScope.launch {
+            reconciler.removeGoneProvidersWhenAppListReady(
+                launchableState = inputLaunchableState,
+                providerChanges = inputProviderChanges
+            )
+        }
+        try {
+            finishPendingWork()
+            verify(exactly = 1) { mockHost.availability(any(), any(), any()) }
+
+            inputLaunchableState.value = createLaunchableState(groups = emptyList(), hiddenKeys = setOf(HIDDEN_APP_KEY))
+            finishPendingWork()
+            verify(exactly = 1) { mockHost.availability(any(), any(), any()) }
+
+            inputProviderChanges.emit(Unit)
+            finishPendingWork()
+            verify(exactly = 2) { mockHost.availability(any(), any(), any()) }
+        } finally {
+            collection.cancel()
+        }
     }
 
     @Test

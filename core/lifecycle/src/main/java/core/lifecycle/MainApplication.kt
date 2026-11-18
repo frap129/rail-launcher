@@ -185,9 +185,6 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -700,12 +697,10 @@ class MainApplication :
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
         appScope.launch(Dispatchers.IO) {
-            combine(
-                launchableRepository.launchableState,
-                hostSource.providerChanges.onStart { emit(Unit) }
-            ) { state, _ -> state.isAppListReady }
-                .filter { isAppListReady -> isAppListReady }
-                .collect { reconciler.removeGoneProviders() }
+            reconciler.removeGoneProvidersWhenAppListReady(
+                launchableState = launchableRepository.launchableState,
+                providerChanges = hostSource.providerChanges
+            )
         }
     }
 

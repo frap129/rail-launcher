@@ -96,6 +96,28 @@ class LauncherLaunchPathTest {
     }
 
     @Test
+    fun `a Favorite whose App was uninstalled reports a failed launch instead of crashing`() {
+        val inputContext: Application = RuntimeEnvironment.getApplication()
+        val inputGoneApp: App = createApp(name = "Gone", packageName = "com.example.gone")
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every {
+            mockLauncherApps.startMainActivity(inputGoneApp.componentName, inputGoneApp.profile, null, null)
+        } throws IllegalStateException("The App is uninstalled")
+        shadowOf(inputContext).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        every { mockViewModel.requestLaunch(inputGoneApp) } returns true
+        var actualFailed: Launchable? = null
+
+        launch(
+            launchable = inputGoneApp,
+            context = inputContext,
+            effects = effects(onLaunchFailed = { launchable -> actualFailed = launchable })
+        )
+
+        assertEquals(inputGoneApp, actualFailed)
+        assertNoLaunchRecorded()
+    }
+
+    @Test
     fun `launching a Folder neither launches nor records a Launch count`() {
         launch(launchable = inputFolder)
 
