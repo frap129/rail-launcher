@@ -163,6 +163,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setShowRecentlyInstalled(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(showRecentlyInstalled = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

@@ -113,7 +113,7 @@ The one job in `core:data` that classifies the keys stored by Launchable customi
 _Avoid_: Cleanup paths, stale purge, key sweep
 
 **private App**:
-An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked.
+An App that belongs to Private Space. It appears only in the Private Space group while the space is Unlocked, except that a recently installed one also appears in the Recently installed section.
 _Avoid_: Private profile app, vault app
 
 **Folder**:
@@ -241,7 +241,7 @@ The installed App list Rail saves after each live App load in its own Room datab
 _Avoid_: App cache, saved App list, app snapshot
 
 **App List**:
-The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
+The launcher state showing every Launchable grouped by initial, then the Private Space group last, leaving out Hidden apps. While Show Recently installed is on, the list ends with the Recently installed section. The App List order setting chooses the order inside each group. Folders appear in the group for their resolved name, and the Apps they hold are left out until they leave the Folder. Private Apps appear only in the Private Space group.
 _Avoid_: Drawer, all-apps, launcher list
 
 **App List order**:
@@ -251,6 +251,14 @@ _Avoid_: Sort order, app order
 **Rank Folders by use**:
 The setting choosing whether the App List ranks Folders by use alongside the other Launchables, or keeps them last in their group in their current relative order. It applies only to Most used and Recently used, and defaults to on.
 _Avoid_: Folder sort, folder ranking
+
+**Recently installed**:
+The App List section after the Private Space group that lists the Apps first installed in the last 3 days, newest first, and an App leaves it once it is older than 3 days. Its Apps also stay in their letter groups; it is not a group of its own, so it has no Rail mark, and scrolling to the end of the App List reaches it. Hidden apps and the private Apps of a Locked Private Space are left out.
+_Avoid_: New apps, recent installs
+
+**Show Recently installed**:
+The Rail Settings switch that shows or hides the Recently installed section. It defaults to off.
+_Avoid_: Recently installed toggle, new apps setting
 
 **Launch count**:
 The all-time number of launches Rail recorded for a Launchable or Shortcut key, or Pop-up opens for a Folder key.

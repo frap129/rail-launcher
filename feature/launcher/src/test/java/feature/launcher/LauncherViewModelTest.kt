@@ -12,6 +12,7 @@ import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launches.ILaunchCountRepository
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationShade
@@ -287,6 +288,48 @@ class LauncherViewModelTest {
                 val actualAppList: LauncherUiState.AppList.Browsing =
                     awaitFirstMatching { state -> state is LauncherUiState.AppList.Browsing } as LauncherUiState.AppList.Browsing
                 assertEquals(inputListedGroups, actualAppList.groups)
+            }
+        }
+    }
+
+    @Test
+    fun `carries the resolved Recently installed section beside the listed groups`() {
+        runTest {
+            val inputRecentApp: App = createApp(name = "Fresh", packageName = "com.example.fresh")
+            val inputSection: RecentlyInstalledSection = RecentlyInstalledSection(apps = listOf(inputRecentApp))
+            inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputRecentApp))
+                .copy(recentlyInstalled = inputSection)
+            val viewModel: LauncherViewModel = createViewModel()
+
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(index = 0)
+                runCurrent()
+
+                val actualAppList: LauncherUiState.AppList.Browsing =
+                    awaitFirstMatching { state -> state is LauncherUiState.AppList.Browsing } as LauncherUiState.AppList.Browsing
+                assertEquals(listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputRecentApp))), actualAppList.groups)
+                assertEquals(inputSection, actualAppList.recentlyInstalled)
+            }
+        }
+    }
+
+    @Test
+    fun `carries no Recently installed section while none is resolved`() {
+        runTest {
+            val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh")
+            inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputFreshApp))
+            val viewModel: LauncherViewModel = createViewModel()
+
+            viewModel.uiState.test {
+                expectHome()
+                viewModel.onRailReleased(index = 0)
+                runCurrent()
+
+                val actualAppList: LauncherUiState.AppList.Browsing =
+                    awaitFirstMatching { state -> state is LauncherUiState.AppList.Browsing } as LauncherUiState.AppList.Browsing
+                assertEquals(listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(inputFreshApp))), actualAppList.groups)
+                assertNull(actualAppList.recentlyInstalled)
             }
         }
     }

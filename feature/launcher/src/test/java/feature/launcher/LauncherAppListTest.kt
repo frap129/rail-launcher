@@ -6,14 +6,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.testing.TEST_SDK
+import core.data.testing.createApp
 import core.data.testing.createRailLaunchable
+import core.ui.composables.getString
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -63,11 +69,29 @@ class LauncherAppListTest {
         assertEquals("Released App List must keep the scrubbed group in place", actualHeaderTops.first(), actualHeaderTops.last())
     }
 
+    @Test
+    fun `announces the Recently installed title as a heading`() {
+        val inputSection: RecentlyInstalledSection = RecentlyInstalledSection(apps = listOf(createApp(name = "Fresh")))
+        val expectedTitle: String = getString(R.string.recently_installed)
+
+        composeRule.setContent {
+            AppListContent(appList = emptyList(), recentlyInstalled = inputSection, lazyListState = LazyListState(), topOffset = 0.dp)
+        }
+
+        composeRule.onNodeWithText(expectedTitle, useUnmergedTree = true).assert(isHeading())
+    }
+
     @Composable
-    private fun AppListContent(appList: List<LaunchableGroup.Listed>, lazyListState: LazyListState, topOffset: Dp) {
+    private fun AppListContent(
+        appList: List<LaunchableGroup.Listed>,
+        recentlyInstalled: RecentlyInstalledSection? = null,
+        lazyListState: LazyListState,
+        topOffset: Dp
+    ) {
         LauncherAppList(
             modifier = Modifier.fillMaxSize(),
             appList = appList,
+            recentlyInstalled = recentlyInstalled,
             lazyListState = lazyListState,
             rowState = rowState,
             itemActions = itemActions,

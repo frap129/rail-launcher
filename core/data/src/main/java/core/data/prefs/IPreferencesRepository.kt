@@ -44,6 +44,9 @@ interface IPreferencesRepository {
     /** Sets whether the App List ranks Folders by use instead of keeping them last in their group. */
     fun setRankFoldersByUse(enabled: Boolean)
 
+    /** Sets whether the App List shows the Recently installed section after the Private Space group. */
+    fun setShowRecentlyInstalled(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

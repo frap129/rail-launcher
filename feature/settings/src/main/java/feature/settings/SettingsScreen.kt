@@ -135,6 +135,7 @@ import core.ui.widgets.MoveWidgetAreaSlider
 import core.ui.widgets.NotificationAccessDialog
 import core.ui.widgets.labelResource
 import core.ui.widgets.openRailNotificationListenerSettings
+import core.util.RECENT_INSTALL_WINDOW_DAYS
 import core.util.openApplicationDetailsSettings
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -269,11 +270,13 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     scrubEdges = uiState.scrubEdges,
                     appListOrder = uiState.appListOrder,
                     rankFoldersByUse = uiState.rankFoldersByUse,
+                    showRecentlyInstalled = uiState.showRecentlyInstalled,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
                         onAppListOrderSelected = viewModel::setAppListOrder,
                         onRankFoldersByUseChange = viewModel::setRankFoldersByUse,
+                        onShowRecentlyInstalledChange = viewModel::setShowRecentlyInstalled,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1425,6 +1428,7 @@ class SettingsAppearanceActions(
     val onResetCustomIcons: () -> Unit,
     val onAppListOrderSelected: (AppListOrder) -> Unit,
     val onRankFoldersByUseChange: (Boolean) -> Unit,
+    val onShowRecentlyInstalledChange: (Boolean) -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1437,6 +1441,7 @@ fun SettingsAppearanceScreen(
     scrubEdges: ScrubEdges,
     appListOrder: AppListOrder,
     rankFoldersByUse: Boolean,
+    showRecentlyInstalled: Boolean,
     actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
@@ -1471,6 +1476,14 @@ fun SettingsAppearanceScreen(
                     onCheckedChange = actions.onRankFoldersByUseChange
                 )
             }
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_recently_installed),
+                checked = showRecentlyInstalled,
+                supportingText = stringResource(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS),
+                onCheckedChange = actions.onShowRecentlyInstalledChange
+            )
         }
         item { SettingsSectionTitle(R.string.rail) }
         item {

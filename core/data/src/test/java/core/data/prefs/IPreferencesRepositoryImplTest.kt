@@ -497,6 +497,23 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults Show Recently installed to off`() = databaseTest {
+        assertFalse(defaultSettings().showRecentlyInstalled)
+    }
+
+    @Test
+    fun `stores Show Recently installed without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+
+        repository.setShowRecentlyInstalled(true)
+
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.showRecentlyInstalled }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, showRecentlyInstalled = true), actualSettings)
+    }
+
+    @Test
     fun `stores Rank Folders by use without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -684,6 +701,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setRailSide(side = RailSide.START) },
             { repository.setAppListOrder(order = AppListOrder.MOST_USED) },
             { repository.setRankFoldersByUse(enabled = false) },
+            { repository.setShowRecentlyInstalled(enabled = true) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -712,6 +730,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 railSide = RailSide.START,
                 appListOrder = AppListOrder.MOST_USED,
                 rankFoldersByUse = false,
+                showRecentlyInstalled = true,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,

@@ -31,6 +31,7 @@ import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesRowContent
 import core.ui.composables.getString
 import core.ui.composables.rowTestBackgroundColor
+import core.util.RECENT_INSTALL_WINDOW_DAYS
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -183,11 +184,29 @@ class SettingsSheetRowsTest {
         composeRule.runOnIdle { assertEquals(false, actualRankFoldersByUse) }
     }
 
+    @Test
+    fun `shows Show Recently installed with its derived window and reports its change`() {
+        var actualShowRecentlyInstalled: Boolean? = null
+        setAppearanceContent(
+            showRecentlyInstalled = false,
+            onShowRecentlyInstalledChange = { enabled -> actualShowRecentlyInstalled = enabled }
+        )
+
+        composeRule.onNodeWithText(getString(R.string.show_recently_installed)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS))
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(getString(R.string.show_recently_installed)).performClick()
+
+        composeRule.runOnIdle { assertEquals(true, actualShowRecentlyInstalled) }
+    }
+
     private fun setAppearanceContent(
-        appListOrder: AppListOrder,
+        appListOrder: AppListOrder = AppListOrder.RECENTLY_USED,
         rankFoldersByUse: Boolean = true,
+        showRecentlyInstalled: Boolean = false,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
-        onRankFoldersByUseChange: (Boolean) -> Unit = {}
+        onRankFoldersByUseChange: (Boolean) -> Unit = {},
+        onShowRecentlyInstalledChange: (Boolean) -> Unit = {}
     ) {
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -197,11 +216,13 @@ class SettingsSheetRowsTest {
                 scrubEdges = ScrubEdges.DEFAULT,
                 appListOrder = appListOrder,
                 rankFoldersByUse = rankFoldersByUse,
+                showRecentlyInstalled = showRecentlyInstalled,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
                     onResetCustomIcons = {},
                     onAppListOrderSelected = onAppListOrderSelected,
                     onRankFoldersByUseChange = onRankFoldersByUseChange,
+                    onShowRecentlyInstalledChange = onShowRecentlyInstalledChange,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}
                 )

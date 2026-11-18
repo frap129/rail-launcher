@@ -20,13 +20,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launchables.model.appListKey
 import core.ui.composables.LaunchableGroupHeader
+import core.ui.composables.LaunchableSectionHeader
 import kotlinx.coroutines.flow.Flow
+
+/** The LazyColumn key of the Recently installed section, which is not one of the App List's groups. */
+private const val RECENTLY_INSTALLED_ITEM_KEY: String = "recentlyInstalled"
 
 @Immutable
 data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
@@ -51,6 +57,7 @@ internal fun rememberAppListRowState(
 fun LauncherAppList(
     modifier: Modifier = Modifier,
     appList: List<LaunchableGroup.Listed>,
+    recentlyInstalled: RecentlyInstalledSection?,
     lazyListState: LazyListState,
     rowState: AppListRowState,
     itemActions: LauncherItemActions,
@@ -85,6 +92,16 @@ fun LauncherAppList(
                 folderSummaries = folderSummaries
             )
         }
+        if (recentlyInstalled != null) {
+            item(key = RECENTLY_INSTALLED_ITEM_KEY) {
+                LauncherRecentlyInstalledGroup(
+                    section = recentlyInstalled,
+                    rowState = rowState,
+                    itemActions = itemActions,
+                    folderSummaries = folderSummaries
+                )
+            }
+        }
         item {
             Spacer(Modifier.height(bottomSpacerHeightAnimator))
         }
@@ -111,17 +128,44 @@ fun LauncherItemGroup(
             )
         }
         group.items.forEach { item ->
-            LauncherItem(
-                item = item,
-                isEditingFavorites = rowState.isEditingFavorites,
-                isFavorite = item.key in rowState.favoriteKeys,
-                isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
-                itemActions = itemActions,
-                secondaryText = folderSummaries[item.key]
-            )
+            LauncherAppListRow(item = item, rowState = rowState, itemActions = itemActions, folderSummaries = folderSummaries)
         }
         if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
             PrivateSpaceActionRows(actions = itemActions.privateSpaceActions)
         }
     }
+}
+
+/** The Recently installed section: its titled header and its Apps, after every group. */
+@Composable
+private fun LauncherRecentlyInstalledGroup(
+    section: RecentlyInstalledSection,
+    rowState: AppListRowState,
+    itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String>
+) {
+    Column {
+        LaunchableSectionHeader(title = stringResource(R.string.recently_installed))
+        section.apps.forEach { app ->
+            LauncherAppListRow(item = app, rowState = rowState, itemActions = itemActions, folderSummaries = folderSummaries)
+        }
+    }
+}
+
+/** One App List row, shared by the groups and the Recently installed section. */
+@Composable
+private fun LauncherAppListRow(
+    item: Launchable,
+    rowState: AppListRowState,
+    itemActions: LauncherItemActions,
+    folderSummaries: Map<String, String>
+) {
+    LauncherItem(
+        item = item,
+        isEditingFavorites = rowState.isEditingFavorites,
+        isFavorite = item.key in rowState.favoriteKeys,
+        isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
+        itemActions = itemActions,
+        secondaryText = folderSummaries[item.key]
+    )
 }

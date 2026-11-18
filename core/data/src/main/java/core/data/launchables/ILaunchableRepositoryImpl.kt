@@ -43,16 +43,21 @@ import core.data.shortcuts.IStandaloneShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.StandaloneShortcuts
+import core.data.time.IClockSource
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -84,6 +89,7 @@ class ILaunchableRepositoryImpl(
     standaloneShortcutSource: IStandaloneShortcutSource,
     private val privateSpaceStatus: IPrivateSpaceStatus,
     private val launchCountRepository: ILaunchCountRepository,
+    private val clockSource: IClockSource,
     private val scope: CoroutineScope
 ) : ILaunchableRepository {
     private val builtinGroup: LaunchableGroup.Builtin = LaunchableGroup.Builtin(
@@ -153,6 +159,7 @@ class ILaunchableRepositoryImpl(
         unorderedState.toLaunchableState(launchCounts = counts)
     }
         .retryWithExponentialBackoff()
+        .withRecentlyInstalledExpiry(clockSource = clockSource)
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -257,18 +264,25 @@ class ILaunchableRepositoryImpl(
                 )
                 .toPickerGroups()
         }
+        val resolvedState: LaunchableState = LaunchableState(
+            groups = groups,
+            // Folder members stay reachable through their Folder, pickers and the Favorites.
+            launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
+            readiness = homeApps.toReadiness(),
+            keptKeys = appState.privateSpaceStatus.keptKeys,
+            retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
+                ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
+            },
+            hiddenKeys = hiddenKeys,
+            pickerGroups = pickerGroups
+        )
         return UnorderedLaunchableState(
-            state = LaunchableState(
-                groups = groups,
-                // Folder members stay reachable through their Folder, pickers and the Favorites.
-                launchables = resolvedLaunchables + resolvedBuiltinGroup.items + folders,
-                readiness = homeApps.toReadiness(),
-                keptKeys = appState.privateSpaceStatus.keptKeys,
-                retainedKeys = appListSources.standaloneShortcuts.unresolvedKeys.filterTo(mutableSetOf()) { key ->
-                    ShortcutKey.parse(key)?.profile?.let { profile -> profile in profilesByUser } == true
-                },
-                hiddenKeys = hiddenKeys,
-                pickerGroups = pickerGroups
+            state = resolvedState.copy(
+                recentlyInstalled = if (settings.showRecentlyInstalled) {
+                    resolvedState.recentlyInstalledSection(nowEpochMs = clockSource.now().toEpochMilli())
+                } else {
+                    null
+                }
             ),
             appListOrder = settings.appListOrder,
             rankFoldersByUse = settings.rankFoldersByUse
@@ -332,6 +346,31 @@ class ILaunchableRepositoryImpl(
         profileInfo.kind.isPersonal -> name
         badgedDefaultName != null -> badgedDefaultName
         else -> profileSource.badgedLabel(label = name, user = profileInfo.user)
+    }
+}
+
+/**
+ * Re-emits each state with its Recently installed section re-projected once the section's
+ * earliest-installed App leaves the recent-install window, so an App expires on time without an
+ * unrelated state change. A new state restarts the projection from the section it carries.
+ */
+internal fun Flow<LaunchableState>.withRecentlyInstalledExpiry(clockSource: IClockSource): Flow<LaunchableState> =
+    transformLatest { state -> emitAll(state.expiringRecentlyInstalled(clockSource = clockSource)) }
+
+/**
+ * [this], then [this] with the section re-projected at each of its expiries, stopping once a
+ * re-projection changes nothing: only a clock that reads backwards reaches an expiry with nothing
+ * to drop, and the next state change re-arms it.
+ */
+private fun LaunchableState.expiringRecentlyInstalled(clockSource: IClockSource): Flow<LaunchableState> = flow {
+    val state: LaunchableState = this@expiringRecentlyInstalled
+    emit(state)
+    val earliestExpiryEpochMs: Long = state.recentlyInstalled?.earliestExpiryEpochMs() ?: return@flow
+    delay((earliestExpiryEpochMs - clockSource.now().toEpochMilli()).coerceAtLeast(0))
+    val nowEpochMs: Long = clockSource.now().toEpochMilli()
+    val expired: LaunchableState = state.copy(recentlyInstalled = state.recentlyInstalledSection(nowEpochMs = nowEpochMs))
+    if (expired != state) {
+        emitAll(expired.expiringRecentlyInstalled(clockSource = clockSource))
     }
 }
 
