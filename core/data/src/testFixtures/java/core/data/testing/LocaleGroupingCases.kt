@@ -5,8 +5,9 @@ data class LocaleGroupingCase(val localeTag: String, val names: List<String>, va
 
 /**
  * The locales the Initial grouping covers, each with names exercising its letters: letters the
- * locale keeps apart, accents it folds into a base letter, and variants it merges into the
- * locale's own letter.
+ * locale keeps apart, accents it folds into a base letter, variants it merges into the locale's
+ * own letter, names in another script transliterated to Latin, and names in a script the locale
+ * writes, which keep their native letters.
  */
 val localeGroupingCases: List<LocaleGroupingCase> = listOf(
     LocaleGroupingCase(
@@ -43,5 +44,35 @@ val localeGroupingCases: List<LocaleGroupingCase> = listOf(
         localeTag = "de",
         names = listOf("Über", "Äpfel", "Öl", "Zebra"),
         expectedLabels = listOf("A", "O", "U", "Z")
+    ),
+    LocaleGroupingCase(
+        localeTag = "en",
+        names = listOf("Яндекс", "Ελλάδα", "東京", "Привет", "重庆", "欧元"),
+        expectedLabels = listOf("A", "C", "D", "E", "O", "P")
+    ),
+    LocaleGroupingCase(
+        localeTag = "en",
+        names = listOf("🎉Party", "🎮 Games", "𠮷"),
+        expectedLabels = listOf("🎉", "🎮", "𠮷")
+    ),
+    LocaleGroupingCase(
+        localeTag = "ja",
+        names = listOf("あおい", "カメラ", "東京"),
+        expectedLabels = listOf("あ", "カ", "東")
+    ),
+    LocaleGroupingCase(
+        localeTag = "ko",
+        names = listOf("가나", "나무", "한국"),
+        expectedLabels = listOf("가", "나", "한")
+    ),
+    LocaleGroupingCase(
+        localeTag = "zh",
+        names = listOf("北京", "上海", "东京"),
+        expectedLabels = listOf("北", "东", "上")
+    ),
+    LocaleGroupingCase(
+        localeTag = "ru",
+        names = listOf("Яндекс", "Альфа", "Браво", "Гугл", "Юла", "Экран", "Ёлка", "Европа", "Zebra"),
+        expectedLabels = listOf("А", "Б", "Г", "Е", "Э", "Ю", "Я", "Z")
     )
 )
