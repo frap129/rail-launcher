@@ -2,6 +2,7 @@ package core.data.room
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -60,10 +61,6 @@ private const val MIGRATION_24_25_DATABASE_NAME: String = "migration-24-25-test"
 private const val MIGRATION_24_25_DATABASE_VERSION: Int = 24
 private const val MIGRATION_25_26_DATABASE_NAME: String = "migration-25-26-test"
 private const val MIGRATION_25_26_DATABASE_VERSION: Int = 25
-private const val MIGRATION_26_27_DATABASE_NAME: String = "migration-26-27-test"
-private const val MIGRATION_26_27_DATABASE_VERSION: Int = 26
-private const val MIGRATION_27_28_DATABASE_NAME: String = "migration-27-28-test"
-private const val MIGRATION_27_28_DATABASE_VERSION: Int = 27
 private const val ROOM_OPEN_DATABASE_NAME: String = "room-open-migration-test"
 private const val TABLE_NAME_PLACEHOLDER: String = "\${TABLE_NAME}"
 private const val FIRST_FOLDER_ID: Long = 1L
@@ -622,54 +619,32 @@ class AppDatabaseMigrationTest {
 
     @Test
     fun `adds Show Recently installed defaulting off and keeps the settings row`() {
-        withDatabase(
-            name = MIGRATION_26_27_DATABASE_NAME,
-            version = MIGRATION_26_27_DATABASE_VERSION,
-            createTables = { db ->
-                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
-            }
-        ) { db ->
-            MIGRATION_26_27.migrate(db)
-
-            assertEquals(
-                listOf(
-                    "id",
-                    "icon_pack",
-                    Settings.COLUMN_SEARCH_SUGGESTIONS,
-                    Settings.COLUMN_SHOW_RECENTLY_INSTALLED
-                ),
-                db.columnNames(table = Settings.TABLE_NAME)
-            )
-            assertEquals(false, db.showRecentlyInstalled())
-            assertEquals(false, db.searchSuggestions())
-            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
-        }
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_26_27,
+            version = 26,
+            column = Settings.COLUMN_SHOW_RECENTLY_INSTALLED,
+            expected = false
+        )
     }
 
     @Test
     fun `adds Rail haptics defaulting on and keeps the settings row`() {
-        withDatabase(
-            name = MIGRATION_27_28_DATABASE_NAME,
-            version = MIGRATION_27_28_DATABASE_VERSION,
-            createTables = { db ->
-                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
-            }
-        ) { db ->
-            MIGRATION_27_28.migrate(db)
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_27_28,
+            version = 27,
+            column = Settings.COLUMN_RAIL_HAPTICS,
+            expected = true
+        )
+    }
 
-            assertEquals(
-                listOf(
-                    "id",
-                    "icon_pack",
-                    Settings.COLUMN_SEARCH_SUGGESTIONS,
-                    Settings.COLUMN_RAIL_HAPTICS
-                ),
-                db.columnNames(table = Settings.TABLE_NAME)
-            )
-            assertEquals(true, db.railHaptics())
-            assertEquals(false, db.searchSuggestions())
-            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
-        }
+    @Test
+    fun `adds Show Rail defaulting on and keeps the settings row`() {
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_28_29,
+            version = 28,
+            column = Settings.COLUMN_SHOW_RAIL,
+            expected = true
+        )
     }
 
     @Test
@@ -815,6 +790,28 @@ private fun assertOpensAfterMigration(version: Int) {
     } finally {
         actualDatabase.close()
         inputContext.deleteDatabase(inputDatabaseName)
+    }
+}
+
+/**
+ * Runs [migration] on a settings row created at [version] and asserts it added [column], defaulting
+ * to [expected], while keeping the other settings.
+ */
+private fun assertAddsBooleanSettingColumn(migration: Migration, version: Int, column: String, expected: Boolean) {
+    withDatabase(
+        name = "migration-$version-${version + 1}-test",
+        version = version,
+        createTables = { db -> db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false) }
+    ) { db ->
+        migration.migrate(db)
+
+        assertEquals(
+            listOf("id", "icon_pack", Settings.COLUMN_SEARCH_SUGGESTIONS, column),
+            db.columnNames(table = Settings.TABLE_NAME)
+        )
+        assertEquals(expected, db.booleanColumn(column))
+        assertEquals(false, db.searchSuggestions())
+        assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
     }
 }
 
@@ -985,10 +982,6 @@ private fun SupportSQLiteDatabase.searchContacts(): Boolean = booleanColumn(Sett
 private fun SupportSQLiteDatabase.searchWebSuggestions(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_WEB_SUGGESTIONS)
 
 private fun SupportSQLiteDatabase.searchShowHiddenApps(): Boolean = booleanColumn(Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS)
-
-private fun SupportSQLiteDatabase.showRecentlyInstalled(): Boolean = booleanColumn(Settings.COLUMN_SHOW_RECENTLY_INSTALLED)
-
-private fun SupportSQLiteDatabase.railHaptics(): Boolean = booleanColumn(Settings.COLUMN_RAIL_HAPTICS)
 
 private fun SupportSQLiteDatabase.expandNotificationsOnSwipeDown(): Boolean =
     booleanColumn(Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN)

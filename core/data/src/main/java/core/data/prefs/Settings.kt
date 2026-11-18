@@ -49,7 +49,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_SHOW_RECENTLY_INSTALLED, defaultValue = "0")
     val showRecentlyInstalled: Boolean = false,
     @ColumnInfo(name = Settings.COLUMN_RAIL_HAPTICS, defaultValue = "1")
-    val railHaptics: Boolean = true
+    val railHaptics: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SHOW_RAIL, defaultValue = "1")
+    val showRail: Boolean = true
 ) {
     companion object {
         const val TABLE_NAME: String = "settings"
@@ -75,5 +77,6 @@ data class Settings(
         const val COLUMN_RANK_FOLDERS_BY_USE: String = "rank_folders_by_use"
         const val COLUMN_SHOW_RECENTLY_INSTALLED: String = "show_recently_installed"
         const val COLUMN_RAIL_HAPTICS: String = "rail_haptics"
+        const val COLUMN_SHOW_RAIL: String = "show_rail"
     }
 }

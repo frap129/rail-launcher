@@ -272,6 +272,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     rankFoldersByUse = uiState.rankFoldersByUse,
                     showRecentlyInstalled = uiState.showRecentlyInstalled,
                     railHaptics = uiState.railHaptics,
+                    showRail = uiState.showRail,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
@@ -279,6 +280,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         onRankFoldersByUseChange = viewModel::setRankFoldersByUse,
                         onShowRecentlyInstalledChange = viewModel::setShowRecentlyInstalled,
                         onRailHapticsChange = viewModel::setRailHaptics,
+                        onShowRailChange = viewModel::setShowRail,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1432,6 +1434,7 @@ class SettingsAppearanceActions(
     val onRankFoldersByUseChange: (Boolean) -> Unit,
     val onShowRecentlyInstalledChange: (Boolean) -> Unit,
     val onRailHapticsChange: (Boolean) -> Unit,
+    val onShowRailChange: (Boolean) -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1446,6 +1449,7 @@ fun SettingsAppearanceScreen(
     rankFoldersByUse: Boolean,
     showRecentlyInstalled: Boolean,
     railHaptics: Boolean,
+    showRail: Boolean,
     actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
@@ -1490,6 +1494,14 @@ fun SettingsAppearanceScreen(
             )
         }
         item { SettingsSectionTitle(R.string.rail) }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.show_rail),
+                checked = showRail,
+                supportingText = stringResource(R.string.show_rail_summary),
+                onCheckedChange = actions.onShowRailChange
+            )
+        }
         item {
             RailSideRow(
                 railSide = railSide,

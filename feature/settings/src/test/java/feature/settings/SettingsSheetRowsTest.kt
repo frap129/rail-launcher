@@ -174,50 +174,71 @@ class SettingsSheetRowsTest {
 
     @Test
     fun `shows Rank Folders by use for a usage mode and reports its change`() {
-        var actualRankFoldersByUse: Boolean? = null
-        setAppearanceContent(
-            appListOrder = AppListOrder.RECENTLY_USED,
-            rankFoldersByUse = true,
-            onRankFoldersByUseChange = { enabled -> actualRankFoldersByUse = enabled }
+        assertSwitchRow(
+            title = getString(R.string.rank_folders_by_use),
+            checked = true,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(
+                    appListOrder = AppListOrder.RECENTLY_USED,
+                    rankFoldersByUse = true,
+                    onRankFoldersByUseChange = onCheckedChange
+                )
+            }
         )
-
-        composeRule.onNodeWithText(getString(R.string.rank_folders_by_use)).assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.rank_folders_by_use)).performClick()
-
-        composeRule.runOnIdle { assertEquals(false, actualRankFoldersByUse) }
     }
 
     @Test
     fun `shows Show Recently installed with its derived window and reports its change`() {
-        var actualShowRecentlyInstalled: Boolean? = null
-        setAppearanceContent(
-            showRecentlyInstalled = false,
-            onShowRecentlyInstalledChange = { enabled -> actualShowRecentlyInstalled = enabled }
+        assertSwitchRow(
+            title = getString(R.string.show_recently_installed),
+            summary = getString(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS),
+            checked = false,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(showRecentlyInstalled = false, onShowRecentlyInstalledChange = onCheckedChange)
+            }
         )
-
-        composeRule.onNodeWithText(getString(R.string.show_recently_installed)).assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS))
-            .assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.show_recently_installed)).performClick()
-
-        composeRule.runOnIdle { assertEquals(true, actualShowRecentlyInstalled) }
     }
 
     @Test
     fun `shows Rail haptics with its summary and reports its change`() {
-        var actualRailHaptics: Boolean? = null
-        setAppearanceContent(
-            railHaptics = true,
-            onRailHapticsChange = { enabled -> actualRailHaptics = enabled }
+        assertSwitchRow(
+            title = getString(R.string.rail_haptics),
+            summary = getString(R.string.rail_haptics_summary),
+            checked = true,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(railHaptics = true, onRailHapticsChange = onCheckedChange)
+            }
         )
+    }
 
-        composeRule.onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasText(getString(R.string.rail_haptics)))
-        composeRule.onNodeWithText(getString(R.string.rail_haptics)).assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.rail_haptics_summary)).assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.rail_haptics)).performClick()
+    @Test
+    fun `shows Show Rail with its summary and reports its change`() {
+        assertSwitchRow(
+            title = getString(R.string.show_rail),
+            summary = getString(R.string.show_rail_summary),
+            checked = true,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(showRail = true, onShowRailChange = onCheckedChange)
+            }
+        )
+    }
 
-        composeRule.runOnIdle { assertEquals(false, actualRailHaptics) }
+    /** Asserts the switch row [title] shows [summary] and reports the opposite of [checked] when clicked. */
+    private fun assertSwitchRow(
+        title: String,
+        summary: String? = null,
+        checked: Boolean,
+        setContent: (onCheckedChange: (Boolean) -> Unit) -> Unit
+    ) {
+        var actualEnabled: Boolean? = null
+        setContent { enabled -> actualEnabled = enabled }
+
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(title))
+        composeRule.onNodeWithText(title).assertIsDisplayed()
+        summary?.let { text -> composeRule.onNodeWithText(text).assertIsDisplayed() }
+        composeRule.onNodeWithText(title).performClick()
+
+        composeRule.runOnIdle { assertEquals(!checked, actualEnabled) }
     }
 
     private fun setAppearanceContent(
@@ -225,10 +246,12 @@ class SettingsSheetRowsTest {
         rankFoldersByUse: Boolean = true,
         showRecentlyInstalled: Boolean = false,
         railHaptics: Boolean = true,
+        showRail: Boolean = true,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
         onRankFoldersByUseChange: (Boolean) -> Unit = {},
         onShowRecentlyInstalledChange: (Boolean) -> Unit = {},
-        onRailHapticsChange: (Boolean) -> Unit = {}
+        onRailHapticsChange: (Boolean) -> Unit = {},
+        onShowRailChange: (Boolean) -> Unit = {}
     ) {
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -240,6 +263,7 @@ class SettingsSheetRowsTest {
                 rankFoldersByUse = rankFoldersByUse,
                 showRecentlyInstalled = showRecentlyInstalled,
                 railHaptics = railHaptics,
+                showRail = showRail,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
                     onResetCustomIcons = {},
@@ -247,6 +271,7 @@ class SettingsSheetRowsTest {
                     onRankFoldersByUseChange = onRankFoldersByUseChange,
                     onShowRecentlyInstalledChange = onShowRecentlyInstalledChange,
                     onRailHapticsChange = onRailHapticsChange,
+                    onShowRailChange = onShowRailChange,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}
                 )

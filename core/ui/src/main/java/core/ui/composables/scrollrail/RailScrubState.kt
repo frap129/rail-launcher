@@ -199,12 +199,13 @@ fun Modifier.railScrubInput(state: RailScrubState): Modifier = pointerInput(stat
 }
 
 /**
- * Feeds pointer positions from the Rail's mirror strip into [state], mapping
- * them into the drawn Rail's touch column on [railSide]. A strip touch keeps
- * its height and its distance in from the mirror strip's screen edge.
+ * Feeds pointer positions from the Rail scrub strip on the edge opposite [railSide], or on
+ * [railSide] itself while Show Rail is off, into [state], mapping them into the drawn Rail's touch
+ * column. A strip touch keeps its height and its distance in from the strip's screen edge; only
+ * the height picks a mark, so a strip on either edge scrubs the same marks.
  */
 @Composable
-fun Modifier.railMirrorScrubInput(state: RailScrubState, railSide: RailSide): Modifier {
+fun Modifier.railScrubStripInput(state: RailScrubState, railSide: RailSide): Modifier {
     val isRtl: Boolean = LocalLayoutDirection.current == LayoutDirection.Rtl
     val isRailOnLeft: Boolean = railSide.isOnLeft(isRtl = isRtl)
     return pointerInput(state, isRailOnLeft) {

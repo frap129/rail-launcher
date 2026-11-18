@@ -637,6 +637,32 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `exposes the Show Rail setting`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(
+                    settings = Settings(showRail = true)
+                )
+            )
+
+            viewModel.showRail.test {
+                assertEquals(true, expectMostRecentItem())
+            }
+        }
+    }
+
+    @Test
+    fun `starts with the default Show Rail before the stored setting arrives`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = emptyFlow())
+            )
+
+            assertTrue(viewModel.showRail.value)
+        }
+    }
+
+    @Test
     fun `maps Rail indexes through the Star, digit, initial and builtin groups`() {
         runTest {
             val inputDigitGroup: LaunchableGroup.InitialGroup = LaunchableGroup.InitialGroup(

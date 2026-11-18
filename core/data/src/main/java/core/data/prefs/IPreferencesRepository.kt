@@ -50,6 +50,9 @@ interface IPreferencesRepository {
     /** Sets whether the Rail plays its tick haptics while scrubbing. */
     fun setRailHaptics(enabled: Boolean)
 
+    /** Sets whether the Rail draws its marks, keeping the Scrub edges scrubbing it while it is hidden. */
+    fun setShowRail(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

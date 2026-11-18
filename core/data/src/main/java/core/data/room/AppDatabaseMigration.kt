@@ -239,6 +239,18 @@ val MIGRATION_27_28: Migration = object : Migration(27, 28) {
     }
 }
 
+/**
+ * Adds the Show Rail setting, defaulting on so the Rail draws its marks, and keeps every other
+ * setting.
+ */
+val MIGRATION_28_29: Migration = object : Migration(28, 29) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SHOW_RAIL} INTEGER NOT NULL DEFAULT 1"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -257,5 +269,6 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_24_25,
     MIGRATION_25_26,
     MIGRATION_26_27,
-    MIGRATION_27_28
+    MIGRATION_27_28,
+    MIGRATION_28_29
 )

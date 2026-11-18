@@ -29,9 +29,9 @@ private const val WAIT_TIMEOUT_MS = 5_000L
 private const val FLING_SPEED = 10_000
 private const val DRAG_SPEED = 1_000
 private const val RAIL_SWIPE_STEPS = 10
-private const val MIRROR_STRIP_EDGE_OFFSET_PX = 8
-private const val MIRROR_STRIP_START_FRACTION = 0.25f
-private const val MIRROR_STRIP_END_FRACTION = 0.75f
+private const val SCRUB_STRIP_EDGE_OFFSET_PX = 8
+private const val SCRUB_STRIP_START_FRACTION = 0.25f
+private const val SCRUB_STRIP_END_FRACTION = 0.75f
 private const val BACK_RETRY_TIMEOUT_MS = 1_000L
 private const val BACK_RETRIES = 3
 private const val SCROLL_ATTEMPTS = 6
@@ -186,7 +186,7 @@ class BaselineProfileGenerator {
         launcherList.fling(Direction.UP, FLING_SPEED)
         // Interact with the ScrollRail
         dragScrollRail()
-        dragMirrorStrip()
+        dragScrubStrip()
         // Rail Settings > Widgets.
         setHeightLimit(row = openWidgetsSettings(), enabled = true)
         // Home with the widget height limit on: the Header renders inside the cap.
@@ -774,14 +774,14 @@ class BaselineProfileGenerator {
         scrollRail.drag(point, DRAG_SPEED)
     }
 
-    /** Drags the invisible Rail mirror strip, which shares the drawn Rail's vertical bounds, along the layout start edge. */
-    private fun MacrobenchmarkScope.dragMirrorStrip() {
+    /** Drags the invisible Rail scrub strip, which shares the drawn Rail's vertical bounds, along the layout start edge. */
+    private fun MacrobenchmarkScope.dragScrubStrip() {
         val railBounds = findOrThrow(By.res("scrollRail"), "ScrollRail not found on Home").visibleBounds
-        val startY: Int = (railBounds.top + railBounds.height() * MIRROR_STRIP_START_FRACTION).toInt()
-        val endY: Int = (railBounds.top + railBounds.height() * MIRROR_STRIP_END_FRACTION).toInt()
+        val startY: Int = (railBounds.top + railBounds.height() * SCRUB_STRIP_START_FRACTION).toInt()
+        val endY: Int = (railBounds.top + railBounds.height() * SCRUB_STRIP_END_FRACTION).toInt()
         val isRtl: Boolean = InstrumentationRegistry.getInstrumentation().targetContext.resources.configuration.layoutDirection ==
             View.LAYOUT_DIRECTION_RTL
-        val stripX: Int = if (isRtl) device.displayWidth - MIRROR_STRIP_EDGE_OFFSET_PX else MIRROR_STRIP_EDGE_OFFSET_PX
+        val stripX: Int = if (isRtl) device.displayWidth - SCRUB_STRIP_EDGE_OFFSET_PX else SCRUB_STRIP_EDGE_OFFSET_PX
         device.swipe(stripX, startY, stripX, endY, RAIL_SWIPE_STEPS)
         device.waitForIdle()
     }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -27,8 +28,10 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launchables.model.appListKey
+import core.data.prefs.RailSide
 import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.LaunchableSectionHeader
+import core.ui.layout.appListPaddingValues
 import kotlinx.coroutines.flow.Flow
 
 /** The LazyColumn key of the Recently installed section, which is not one of the App List's groups. */
@@ -63,7 +66,9 @@ fun LauncherAppList(
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
     topOffset: Dp,
-    bottomOffset: Dp
+    bottomOffset: Dp,
+    railSide: RailSide,
+    showRail: Boolean
 ) {
     val defaultBuffer: Dp = 100.dp
     var animated: Boolean by remember { mutableStateOf(false) }
@@ -76,7 +81,9 @@ fun LauncherAppList(
         animationSpec = tween(durationMillis = 400, delayMillis = 275)
     )
     LazyColumn(
-        modifier = modifier.testTag("launcherList"),
+        modifier = modifier
+            .padding(appListPaddingValues(railSide = railSide, showRail = showRail))
+            .testTag("launcherList"),
         state = lazyListState,
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top

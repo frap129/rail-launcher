@@ -33,6 +33,7 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setRankFoldersByUse(any()) } just Runs
     every { mockPreferencesRepository.setShowRecentlyInstalled(any()) } just Runs
     every { mockPreferencesRepository.setRailHaptics(any()) } just Runs
+    every { mockPreferencesRepository.setShowRail(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnSwipeUp(any()) } just Runs
     every { mockPreferencesRepository.setExpandNotificationsOnSwipeDown(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnHomePress(any()) } just Runs

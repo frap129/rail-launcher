@@ -279,6 +279,30 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `defaults Show Rail to on`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+
+        assertTrue(viewModel.uiState.value.showRail)
+    }
+
+    @Test
+    fun `exposes the stored Show Rail switch`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(showRail = false),
+            read = { showRail }
+        )
+    }
+
+    @Test
+    fun `persists Show Rail`() = runTest {
+        assertPersists(
+            persist = { setShowRail(false) },
+            verifyCall = { setShowRail(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
