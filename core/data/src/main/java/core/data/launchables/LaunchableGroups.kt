@@ -1,6 +1,7 @@
 package core.data.launchables
 
 import android.icu.lang.UScript
+import android.icu.text.AlphabeticIndex
 import android.icu.text.Collator
 import android.icu.text.Transliterator
 import android.icu.util.ULocale
@@ -16,6 +17,9 @@ private const val DIGIT_GROUP_LABEL: String = "#"
 
 /** Transliterates any script to Latin, so the key keeps the first letter of the result. */
 private const val TO_LATIN_TRANSLITERATOR_ID: String = "Any-Latin"
+
+/** The scripts whose locale index buckets names into a bounded set of groups instead of one per first character. */
+private val INDEXED_SCRIPTS: Set<Int> = setOf(UScript.HAN, UScript.HANGUL, UScript.HIRAGANA, UScript.KATAKANA)
 
 /** The letters a Group key may keep: A-Z plus the letters the supported alphabets add beyond them. */
 private val GROUP_LETTERS: List<Char> = ('A'..'Z') + listOf('Æ', 'Ø', 'Å', 'Ä', 'Ö', 'Ñ', 'Œ')
@@ -73,14 +77,39 @@ private class InitialGroupCollation(private val locale: Locale) {
     private val foldCollator: Collator = Collator.getInstance(locale).apply { strength = Collator.PRIMARY }
     private val orderCollator: Collator = Collator.getInstance(locale)
     private val localeScripts: Set<Int> = locale.writtenScripts()
+    private val indexBucketIndex: AlphabeticIndex<String> by lazy { AlphabeticIndex<String>(ULocale.forLocale(locale)) }
+
+    /** The locale's own index letters in index order, empty unless the locale writes an indexed script. */
+    private val indexLabels: List<String> by lazy {
+        if (localeScripts.none { script -> script in INDEXED_SCRIPTS }) {
+            emptyList()
+        } else {
+            val catchAllLabels: Set<String> =
+                setOf(indexBucketIndex.underflowLabel, indexBucketIndex.inflowLabel, indexBucketIndex.overflowLabel)
+            indexBucketIndex.bucketLabels.filterNot { label -> label in catchAllLabels }
+        }
+    }
     private val latinTransliterator: Transliterator by lazy { Transliterator.getInstance(TO_LATIN_TRANSLITERATOR_ID) }
     private val labelsByName: MutableMap<String, String> = mutableMapOf()
 
-    /** Orders Group keys with "#" first, then in the locale's collation. */
+    /**
+     * Orders Group keys with "#" first, then the locale's index letters in index order, then every
+     * other key in the locale's collation.
+     */
     val labelOrder: Comparator<String> = Comparator { first, second ->
         when {
             first == DIGIT_GROUP_LABEL || second == DIGIT_GROUP_LABEL -> first.compareTo(second)
-            else -> synchronized(this) { orderCollator.compare(first, second) }
+
+            else -> synchronized(this) {
+                val firstRank: Int = indexLabels.indexOf(first)
+                val secondRank: Int = indexLabels.indexOf(second)
+                when {
+                    firstRank >= 0 && secondRank >= 0 -> firstRank.compareTo(secondRank)
+                    firstRank >= 0 -> -1
+                    secondRank >= 0 -> 1
+                    else -> orderCollator.compare(first, second)
+                }
+            }
         }
     }
 
@@ -90,12 +119,26 @@ private class InitialGroupCollation(private val locale: Locale) {
         labelsByName.getOrPut(name) { name.toGroupLabel() }
     }
 
-    /** The canonical Group letter [this] name keys, see Group key in `GLOSSARY.md`. */
+    /** The Group key [this] name takes, see Group key in `GLOSSARY.md`. */
     private fun String.toGroupLabel(): String {
-        val codePoint: Int = codePointAt(0)
-        val script: Int = UScript.getScript(codePoint)
-        val letter: Int = if (script == UScript.LATIN || script in localeScripts) {
-            codePoint
+        val script: Int = UScript.getScript(codePointAt(0))
+        val isLocaleScript: Boolean = script in localeScripts
+        return if (isLocaleScript && script in INDEXED_SCRIPTS) indexBucketLabel() else letterLabel(script, isLocaleScript)
+    }
+
+    /**
+     * The locale's index letter for [this] name, which groups an indexed (CJK) script into a bounded set of keys;
+     * a name the index only catches in its overflow bucket keys under "#".
+     */
+    private fun String.indexBucketLabel(): String {
+        val label: String = indexBucketIndex.bucketLabels[indexBucketIndex.getBucketIndex(this)]
+        return if (label in indexLabels) label else DIGIT_GROUP_LABEL
+    }
+
+    /** The canonical Group letter [this] name keys by its first letter, transliterated unless the locale writes [script]. */
+    private fun String.letterLabel(script: Int, isLocaleScript: Boolean): String {
+        val letter: Int = if (script == UScript.LATIN || isLocaleScript) {
+            codePointAt(0)
         } else {
             latinTransliterator.transliterate(this).codePointAt(0)
         }
