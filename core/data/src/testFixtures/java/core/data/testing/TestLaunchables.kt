@@ -53,6 +53,7 @@ fun createApp(
     firstInstallTime: Long = 0L,
     lastUpdateTime: Long = 0L,
     isRemovable: Boolean = true,
+    isSystemApp: Boolean = false,
     isSuspended: Boolean = false
 ): App = App(
     defaultName = name,
@@ -64,6 +65,7 @@ fun createApp(
     firstInstallTime = firstInstallTime,
     lastUpdateTime = lastUpdateTime,
     isRemovable = isRemovable,
+    isSystemApp = isSystemApp,
     isSuspended = isSuspended
 )
 

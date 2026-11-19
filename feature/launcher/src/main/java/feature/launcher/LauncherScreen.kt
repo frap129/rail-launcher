@@ -173,6 +173,7 @@ fun LauncherScreen(
         }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val couldntOpenSearchRowMessage: String = stringResource(R.string.couldnt_open_search_row)
+    val couldntOpenStorePageMessage: String = stringResource(R.string.couldnt_open_store_page)
     val calculatorCopiedMessage: String = stringResource(R.string.calculator_copied)
     val attemptSearchRowOpen: (open: () -> Boolean) -> Unit = { open ->
         keyboardController?.hide()
@@ -404,7 +405,13 @@ fun LauncherScreen(
             homeEditMode = homeEditMode
         )
         LauncherDoneButton(viewModel, widgetViewModel, popupEditor)
-        LauncherMenu(viewModel, popupCardViewModel.collaborators)
+        LauncherMenu(
+            viewModel = viewModel,
+            collaborators = popupCardViewModel.collaborators,
+            onStorePageFailed = {
+                coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = couldntOpenStorePageMessage)
+            }
+        )
         PopupMenuSheet(
             card = popupCardViewModel,
             editor = popupEditor,

@@ -13,6 +13,7 @@ internal data class AppFields(
     val firstInstallTime: Long,
     val lastUpdateTime: Long,
     val isRemovable: Boolean,
+    val isSystemApp: Boolean,
     val isSuspended: Boolean
 ) {
     fun toApp(): App = App(
@@ -24,6 +25,7 @@ internal data class AppFields(
         firstInstallTime = firstInstallTime,
         lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
+        isSystemApp = isSystemApp,
         isSuspended = isSuspended
     )
 }

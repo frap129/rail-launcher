@@ -308,6 +308,7 @@ class IProfileSourceImpl(
                 firstInstallTime = activity.firstInstallTime,
                 lastUpdateTime = updateTimeFor(activity = activity),
                 isRemovable = activity.applicationInfo.isRemovable(),
+                isSystemApp = activity.applicationInfo.isSystemApp(),
                 isSuspended = activity.applicationInfo.isSuspended()
             )
         }
@@ -393,8 +394,9 @@ class IProfileSourceImpl(
     }
 }
 
+private fun ApplicationInfo.isSystemApp(): Boolean = flags and ApplicationInfo.FLAG_SYSTEM != 0
+
 // An updated System App can be uninstalled back to its factory version; other System Apps cannot be removed.
-private fun ApplicationInfo.isRemovable(): Boolean =
-    flags and ApplicationInfo.FLAG_SYSTEM == 0 || flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
+private fun ApplicationInfo.isRemovable(): Boolean = !isSystemApp() || flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
 
 private fun ApplicationInfo.isSuspended(): Boolean = flags and ApplicationInfo.FLAG_SUSPENDED != 0

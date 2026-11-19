@@ -1274,7 +1274,8 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
             isPackageRepresentative = true,
             firstInstallTime = 0L,
             lastUpdateTime = 0L,
-            isRemovable = true
+            isRemovable = true,
+            isSystemApp = false
         )
         val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputProfile)).apply {
             badgedLabel = { label, _ -> "Work $label" }

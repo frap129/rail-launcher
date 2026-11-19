@@ -353,6 +353,7 @@ class IHomeIconCacheImplTest {
         firstInstallTime = 0L,
         lastUpdateTime = TEST_APP_UPDATE_TIME,
         isRemovable = true,
+        isSystemApp = false,
         isSuspended = false
     )
 }

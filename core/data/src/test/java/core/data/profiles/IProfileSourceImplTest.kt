@@ -392,8 +392,8 @@ class IProfileSourceImplTest {
         verify(exactly = 1) { mockActivityInfo.getIcon(application.resources.displayMetrics.densityDpi) }
     }
 
-    @Test
-    fun `marks Apps removable unless they are unmodified system Apps`() = runTest {
+    /** A source whose work Profile lists a downloaded App, an updated System App and an unmodified System App, in that order. */
+    private fun TestScope.createSourceWithSystemAppVariants(): IProfileSourceImpl {
         val mockLauncherApps: LauncherApps = installLauncherApps()
         every { mockLauncherApps.getActivityList(null, workUser) } returns listOf(
             mockActivityInfo(applicationInfo = ApplicationInfo()),
@@ -408,11 +408,25 @@ class IProfileSourceImplTest {
                 }
             )
         )
-        val source: IProfileSourceImpl = createSource()
+        return createSource()
+    }
+
+    @Test
+    fun `marks Apps removable unless they are unmodified system Apps`() = runTest {
+        val source: IProfileSourceImpl = createSourceWithSystemAppVariants()
 
         val actualRemovability: List<Boolean> = source.activities(workUser).map { activity -> activity.isRemovable }
 
         assertEquals(listOf(true, true, false), actualRemovability)
+    }
+
+    @Test
+    fun `marks System Apps whether or not they are updated`() = runTest {
+        val source: IProfileSourceImpl = createSourceWithSystemAppVariants()
+
+        val actualSystemApps: List<Boolean> = source.activities(workUser).map { activity -> activity.isSystemApp }
+
+        assertEquals(listOf(false, true, true), actualSystemApps)
     }
 
     @Test
