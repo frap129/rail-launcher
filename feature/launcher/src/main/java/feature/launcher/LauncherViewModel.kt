@@ -147,7 +147,7 @@ sealed class LauncherMenuState {
         val isHidden: Boolean,
         /**
          * The Profile whose Store page Install in Private Space opens, or null when the menu hides
-         * the action: no Unlocked Private Space, or an App that already belongs to one.
+         * the action: no Unlocked Private Space, an App that already belongs to one, or a System App.
          */
         val installInPrivateSpaceProfile: ProfileInfo?
     ) : LauncherMenuState() {
@@ -326,12 +326,12 @@ private data class MenuLookup(val request: MenuItemRequest, val state: Launchabl
         isStandaloneShortcut = state.launchableFor(key = launchable.key) is ShortcutLaunchable,
         canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
         isHidden = state.isHidden(launchable = launchable),
-        installInPrivateSpaceProfile = privateSpaceStatus.unlockedProfile?.takeIf { launchable.isOutsidePrivateSpace }
+        installInPrivateSpaceProfile = privateSpaceStatus.unlockedProfile?.takeIf { launchable.offersPrivateInstall }
     )
 }
 
-/** Whether Install in Private Space offers this Launchable: an App that does not already belong to the Private Space. */
-private val Launchable.isOutsidePrivateSpace: Boolean get() = this is App && !isPrivateApp
+/** Whether Install in Private Space offers this Launchable: an App outside the Private Space that is not a System App. */
+private val Launchable.offersPrivateInstall: Boolean get() = this is App && !isPrivateApp && !isSystemApp
 
 class LauncherViewModel(
     listOffsets: ListOffsets,

@@ -1090,52 +1090,51 @@ class LauncherViewModelTest {
 
     @Test
     fun `offers Install in Private Space for an App while the Private Space is Unlocked`() = runTest {
-        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
-        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
-
-        assertMenuProperty(
-            item = inputApp,
-            expected = inputPrivateProfile,
-            select = { menu -> menu.installInPrivateSpaceProfile },
-            viewModel = createViewModel(
-                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
-                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
-                )
-            )
+        assertInstallInPrivateSpaceProfile(
+            item = createApp(name = "Example", packageName = "com.example.app"),
+            status = PrivateSpaceStatus(profile = inputPrivateProfile),
+            expected = inputPrivateProfile
         )
     }
 
     @Test
     fun `hides Install in Private Space while the Private Space is Locked`() = runTest {
-        val inputApp: App = createApp(name = "Example", packageName = "com.example.app")
-        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
-
-        assertMenuProperty(
-            item = inputApp,
-            expected = null,
-            select = { menu -> menu.installInPrivateSpaceProfile },
-            viewModel = createViewModel(
-                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
-                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true))
-                )
-            )
+        assertInstallInPrivateSpaceProfile(
+            item = createApp(name = "Example", packageName = "com.example.app"),
+            status = PrivateSpaceStatus(profile = inputPrivateProfile, isLocked = true),
+            expected = null
         )
     }
 
     @Test
     fun `hides Install in Private Space for a private App`() = runTest {
-        val inputApp: App = createPrivateApp()
-        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputApp))
+        assertInstallInPrivateSpaceProfile(
+            item = createPrivateApp(),
+            status = PrivateSpaceStatus(profile = inputPrivateProfile),
+            expected = null
+        )
+    }
+
+    @Test
+    fun `hides Install in Private Space for a System App, updated or not`() = runTest {
+        listOf(true, false).forEach { isRemovable ->
+            assertInstallInPrivateSpaceProfile(
+                item = createApp(name = "Clock", packageName = "com.android.deskclock", isRemovable = isRemovable, isSystemApp = true),
+                status = PrivateSpaceStatus(profile = inputPrivateProfile),
+                expected = null
+            )
+        }
+    }
+
+    /** Asserts the Profile whose Store page [item]'s menu offers while the Private Space has [status]. */
+    private suspend fun TestScope.assertInstallInPrivateSpaceProfile(item: App, status: PrivateSpaceStatus, expected: ProfileInfo?) {
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(item))
 
         assertMenuProperty(
-            item = inputApp,
-            expected = null,
+            item = item,
+            expected = expected,
             select = { menu -> menu.installInPrivateSpaceProfile },
-            viewModel = createViewModel(
-                mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
-                    status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
-                )
-            )
+            viewModel = createViewModel(mockPrivateSpaceStatus = createPrivateSpaceStatusMock(status = MutableStateFlow(status)))
         )
     }
 

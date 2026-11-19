@@ -219,6 +219,7 @@ class IAppRepositoryImpl(
         firstInstallTime = firstInstallTime,
         lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
+        isSystemApp = isSystemApp,
         isSuspended = isSuspended
     ).toApp()
 }

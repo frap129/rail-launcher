@@ -31,6 +31,8 @@ data class App(
     val lastUpdateTime: Long,
     /** Whether the system lets the user uninstall the App's package from its Profile. */
     val isRemovable: Boolean,
+    /** Whether the App is a System App, preinstalled on the system image, updated or not. */
+    val isSystemApp: Boolean,
     /** Whether the system has suspended the App's package, as Digital Wellbeing or a freezer app does. */
     override val isSuspended: Boolean = false,
     /** The App's [lastUpdateTime] rides on its icon, so an App update never shows a stored Home icon. */

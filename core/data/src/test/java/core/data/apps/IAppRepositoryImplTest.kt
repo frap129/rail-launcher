@@ -734,6 +734,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                         firstInstallTime = TEST_NOW_EPOCH_MS,
                         lastUpdateTime = inputLastUpdateTime,
                         isRemovable = false,
+                        isSystemApp = true,
                         isSuspended = true
                     )
                 )
@@ -760,6 +761,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                 firstInstallTime = TEST_NOW_EPOCH_MS,
                 lastUpdateTime = inputLastUpdateTime,
                 isRemovable = false,
+                isSystemApp = true,
                 isSuspended = true
             ),
             LastKnownAppRecord(
@@ -771,6 +773,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
                 firstInstallTime = 0L,
                 lastUpdateTime = 0L,
                 isRemovable = true,
+                isSystemApp = false,
                 isSuspended = false
             )
         )
@@ -1200,6 +1203,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         firstInstallTime: Long = 0,
         lastUpdateTime: Long = 0,
         isRemovable: Boolean = true,
+        isSystemApp: Boolean = false,
         isSuspended: Boolean = false
     ): ProfileActivity = ProfileActivity(
         componentName = ComponentName(packageName, activityClass),
@@ -1209,6 +1213,7 @@ class IAppRepositoryImplTest : InMemoryDatabaseTest() {
         firstInstallTime = firstInstallTime,
         lastUpdateTime = lastUpdateTime,
         isRemovable = isRemovable,
+        isSystemApp = isSystemApp,
         isSuspended = isSuspended
     )
 }

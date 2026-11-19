@@ -56,6 +56,8 @@ data class ProfileActivity(
     val lastUpdateTime: Long,
     /** Whether the system lets the user uninstall the activity's package from [user]'s Profile. */
     val isRemovable: Boolean,
+    /** Whether the activity's package is a System App, preinstalled on the system image, updated or not. */
+    val isSystemApp: Boolean,
     /** Whether the system has suspended the activity's package, as Digital Wellbeing or a freezer app does. */
     val isSuspended: Boolean
 )

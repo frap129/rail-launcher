@@ -57,7 +57,7 @@ import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
+internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCollaborators, onStorePageFailed: () -> Unit) {
     val menuState: LauncherMenuState by viewModel.menuState.collectAsState()
     if (menuState is LauncherMenuState.Closed) {
         return
@@ -71,7 +71,8 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
             is LauncherMenuState.Menu -> LauncherItemMenu(
                 menu = currentMenuState,
                 viewModel = viewModel,
-                collaborators = collaborators
+                collaborators = collaborators,
+                onStorePageFailed = onStorePageFailed
             )
 
             is LauncherMenuState.Rename -> LauncherItemEditName(item = currentMenuState.item, viewModel = viewModel)
@@ -82,7 +83,12 @@ internal fun LauncherMenu(viewModel: LauncherViewModel, collaborators: IPopupCol
 }
 
 @Composable
-internal fun LauncherItemMenu(menu: LauncherMenuState.Menu, viewModel: LauncherViewModel, collaborators: IPopupCollaborators) {
+internal fun LauncherItemMenu(
+    menu: LauncherMenuState.Menu,
+    viewModel: LauncherViewModel,
+    collaborators: IPopupCollaborators,
+    onStorePageFailed: () -> Unit
+) {
     val item: Launchable = menu.item
     val context: Context = LocalContext.current
     val editor: IPopupEditor = collaborators.editor
@@ -129,6 +135,7 @@ internal fun LauncherItemMenu(menu: LauncherMenuState.Menu, viewModel: LauncherV
             context = context,
             canUninstall = menu.canUninstall,
             privateSpaceProfile = menu.installInPrivateSpaceProfile,
+            onStorePageFailed = onStorePageFailed,
             viewModel = viewModel,
             editor = editor,
             folderActions = folderActions
@@ -159,6 +166,7 @@ private fun AppMenuActions(
     context: Context,
     canUninstall: Boolean,
     privateSpaceProfile: ProfileInfo?,
+    onStorePageFailed: () -> Unit,
     viewModel: LauncherViewModel,
     editor: IPopupEditor,
     folderActions: IPopupFolderActions
@@ -178,7 +186,9 @@ private fun AppMenuActions(
             label = stringResource(R.string.install_in_private_space),
             onClick = {
                 viewModel.closeItemMenu()
-                context.openStorePage(packageName = item.packageName, profile = profile.user)
+                if (!context.openStorePage(packageName = item.packageName, profile = profile.user)) {
+                    onStorePageFailed()
+                }
             }
         )
     }

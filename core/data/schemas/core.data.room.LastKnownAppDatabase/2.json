@@ -1,0 +1,86 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "73e3a642ee0fac6862b3a195066c7e13",
+    "entities": [
+      {
+        "tableName": "last_known_apps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`componentName` TEXT NOT NULL, `profileSerial` INTEGER NOT NULL, `label` TEXT NOT NULL, `badgedLabel` TEXT NOT NULL, `isPackageRepresentative` INTEGER NOT NULL, `firstInstallTime` INTEGER NOT NULL, `lastUpdateTime` INTEGER NOT NULL, `isRemovable` INTEGER NOT NULL, `isSystemApp` INTEGER NOT NULL, `isSuspended` INTEGER NOT NULL, PRIMARY KEY(`componentName`, `profileSerial`))",
+        "fields": [
+          {
+            "fieldPath": "componentName",
+            "columnName": "componentName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileSerial",
+            "columnName": "profileSerial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "badgedLabel",
+            "columnName": "badgedLabel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPackageRepresentative",
+            "columnName": "isPackageRepresentative",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstInstallTime",
+            "columnName": "firstInstallTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUpdateTime",
+            "columnName": "lastUpdateTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isRemovable",
+            "columnName": "isRemovable",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSystemApp",
+            "columnName": "isSystemApp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSuspended",
+            "columnName": "isSuspended",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "componentName",
+            "profileSerial"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '73e3a642ee0fac6862b3a195066c7e13')"
+    ]
+  }
+}

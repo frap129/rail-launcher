@@ -17,6 +17,7 @@ data class LastKnownAppRecord(
     val firstInstallTime: Long,
     val lastUpdateTime: Long,
     val isRemovable: Boolean,
+    val isSystemApp: Boolean,
     val isSuspended: Boolean
 ) {
     companion object {
@@ -34,6 +35,7 @@ internal fun App.toRecord(): LastKnownAppRecord = LastKnownAppRecord(
     firstInstallTime = firstInstallTime,
     lastUpdateTime = lastUpdateTime,
     isRemovable = isRemovable,
+    isSystemApp = isSystemApp,
     isSuspended = isSuspended
 )
 
@@ -47,5 +49,6 @@ internal fun LastKnownAppRecord.toApp(profileInfo: ProfileInfo): App = AppFields
     firstInstallTime = firstInstallTime,
     lastUpdateTime = lastUpdateTime,
     isRemovable = isRemovable,
+    isSystemApp = isSystemApp,
     isSuspended = isSuspended
 ).toApp()

@@ -34,6 +34,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,6 +73,8 @@ class LauncherMenuTest {
         get() = getString(R.string.hide_from_app_list)
     private val installInPrivateSpaceLabel: String
         get() = getString(R.string.install_in_private_space)
+    private var storePageFailureCount: Int = 0
+    private val onStorePageFailed: () -> Unit = { storePageFailureCount++ }
 
     @Test
     fun `opens the Icon picker when an App's header icon is tapped`() {
@@ -208,14 +211,17 @@ class LauncherMenuTest {
     @Test
     fun `opens the Private Space Store page when the Install in Private Space action is tapped`() {
         val inputApp: App = createApp(name = APP_NAME)
-        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
-        every { mockLauncherApps.getAppMarketActivityIntent(any(), any()) } returns null
-        shadowOf(RuntimeEnvironment.getApplication()).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
-        setItemMenuContent(item = inputApp, installInPrivateSpaceProfile = inputPrivateProfile)
 
-        composeRule.onNodeWithText(installInPrivateSpaceLabel).performClick()
+        val mockLauncherApps: LauncherApps = tapInstallInPrivateSpace(item = inputApp)
 
         verify(exactly = 1) { mockLauncherApps.getAppMarketActivityIntent(inputApp.packageName, inputPrivateProfile.user) }
+    }
+
+    @Test
+    fun `reports a Store page the system cannot open`() {
+        tapInstallInPrivateSpace(item = createApp(name = APP_NAME))
+
+        assertEquals(1, storePageFailureCount)
     }
 
     @Test
@@ -268,6 +274,18 @@ class LauncherMenuTest {
         )
     }
 
+    /** Taps Install in Private Space on [item]'s menu while the system offers no Store page, returning the LauncherApps it asked. */
+    private fun tapInstallInPrivateSpace(item: App): LauncherApps {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        every { mockLauncherApps.getAppMarketActivityIntent(any(), any()) } returns null
+        shadowOf(RuntimeEnvironment.getApplication()).setSystemService(Context.LAUNCHER_APPS_SERVICE, mockLauncherApps)
+        setItemMenuContent(item = item, installInPrivateSpaceProfile = inputPrivateProfile)
+
+        composeRule.onNodeWithText(installInPrivateSpaceLabel).performClick()
+
+        return mockLauncherApps
+    }
+
     private fun assertRowsPaintSheetColor(
         item: Launchable,
         labels: List<Int>,
@@ -282,7 +300,14 @@ class LauncherMenuTest {
             canUninstall = canUninstall
         )
         composeRule.assertSheetRowsPaintSheetColor(
-            content = { LauncherItemMenu(menu = menu, viewModel = mockViewModel, collaborators = mockCollaborators) },
+            content = {
+                LauncherItemMenu(
+                    menu = menu,
+                    viewModel = mockViewModel,
+                    collaborators = mockCollaborators,
+                    onStorePageFailed = onStorePageFailed
+                )
+            },
             labels = labels
         )
     }
@@ -314,7 +339,12 @@ class LauncherMenuTest {
         )
         composeRule.setContent {
             RowTestContent {
-                LauncherItemMenu(menu = menu, viewModel = mockViewModel, collaborators = mockCollaborators)
+                LauncherItemMenu(
+                    menu = menu,
+                    viewModel = mockViewModel,
+                    collaborators = mockCollaborators,
+                    onStorePageFailed = onStorePageFailed
+                )
             }
         }
     }
@@ -335,7 +365,7 @@ class LauncherMenuTest {
         )
         every { mockCollaborators.iconPicker } returns mockIconPicker
         composeRule.setContent {
-            LauncherMenu(viewModel = mockViewModel, collaborators = mockCollaborators)
+            LauncherMenu(viewModel = mockViewModel, collaborators = mockCollaborators, onStorePageFailed = onStorePageFailed)
         }
     }
 }

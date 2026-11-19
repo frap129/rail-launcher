@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 import core.data.apps.LastKnownAppRecord
 import core.data.room.dao.LastKnownAppDao
 
-@Database(entities = [LastKnownAppRecord::class], version = 1)
+@Database(entities = [LastKnownAppRecord::class], version = 2)
 @TypeConverters(Converters::class)
 abstract class LastKnownAppDatabase : RoomDatabase() {
     abstract fun getLastKnownAppDao(): LastKnownAppDao

@@ -117,7 +117,7 @@ An App that belongs to Private Space. It appears only in the Private Space group
 _Avoid_: Private profile app, vault app
 
 **Install in Private Space**:
-The action an App's menu offers on an App outside Private Space, while the Private Space is Unlocked. It opens the App's Store page inside the Private Space Profile, so the user can install a private copy without leaving Rail.
+The action an App's menu offers on an App outside Private Space that is not a System App, while the Private Space is Unlocked. It opens the App's Store page inside the Private Space Profile, so the user can install a private copy without leaving Rail, and tells the user when the system cannot open it.
 _Avoid_: Private install, private copy action
 
 **Store page**:
