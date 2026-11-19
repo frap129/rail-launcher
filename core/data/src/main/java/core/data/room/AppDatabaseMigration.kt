@@ -11,6 +11,7 @@ import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.search.SearchHistoryRecord
+import core.data.search.StoppedSuggestionRecord
 import core.data.shortcuts.StandaloneShortcutRecord
 
 private const val REBUILT_FOLDERS_TABLE: String = "folders_rebuilt"
@@ -226,6 +227,13 @@ val MIGRATION_29_30: Migration = object : Migration(29, 30) {
     }
 }
 
+/** Adds the table that stores the keys the user chose Stop suggesting for, and keeps every other table. */
+val MIGRATION_30_31: Migration = object : Migration(30, 31) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS ${StoppedSuggestionRecord.TABLE_NAME} (key TEXT NOT NULL, PRIMARY KEY(key))")
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -246,7 +254,8 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_26_27,
     MIGRATION_27_28,
     MIGRATION_28_29,
-    MIGRATION_29_30
+    MIGRATION_29_30,
+    MIGRATION_30_31
 )
 
 /** Adds the Boolean settings [column], defaulting to [isEnabledByDefault], keeping every other setting. */

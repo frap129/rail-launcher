@@ -11,6 +11,7 @@ import core.data.retryWithExponentialBackoff
 import core.data.room.DatabaseTransaction
 import core.data.room.TransactionEffects
 import core.data.room.dao.PopupDao
+import core.data.room.dao.mapToKeySet
 import core.data.shortcuts.IShortcutPinCoordinator
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
@@ -60,7 +61,7 @@ class IPopupRepositoryImpl(
         .stateIn(scope = scope, started = SharingStarted.Eagerly, initialValue = null)
 
     private val itemKeys: Flow<Set<String>> = itemRecords.filterNotNull()
-        .map { records -> records.mapTo(mutableSetOf()) { record -> record.itemKey } }
+        .mapToKeySet(PopupItemRecord::itemKey)
         .distinctUntilChanged()
 
     private val itemResolution: StateFlow<ItemResolution> = combine(
