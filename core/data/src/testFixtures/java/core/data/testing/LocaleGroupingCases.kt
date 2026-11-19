@@ -57,18 +57,18 @@ val localeGroupingCases: List<LocaleGroupingCase> = listOf(
     ),
     LocaleGroupingCase(
         localeTag = "ja",
-        names = listOf("あおい", "カメラ", "東京"),
-        expectedLabels = listOf("あ", "カ", "東")
+        names = listOf("あおい", "アイス", "かさ", "カメラ", "さくら", "ゆめ", "東京", "한국", "Zebra", "1Password"),
+        expectedLabels = listOf("#", "あ", "か", "さ", "や", "H", "Z")
     ),
     LocaleGroupingCase(
         localeTag = "ko",
-        names = listOf("가나", "나무", "한국"),
-        expectedLabels = listOf("가", "나", "한")
+        names = listOf("가나", "각", "까치", "나무", "한국", "韓國", "東京", "Яндекс", "Zebra", "1Password"),
+        expectedLabels = listOf("#", "ㄱ", "ㄴ", "ㄷ", "ㅎ", "A", "Z")
     ),
     LocaleGroupingCase(
         localeTag = "zh",
-        names = listOf("北京", "上海", "东京"),
-        expectedLabels = listOf("北", "东", "上")
+        names = listOf("北京", "上海", "东京", "あお", "한국", "Zebra", "1Password"),
+        expectedLabels = listOf("#", "A", "B", "D", "H", "S", "Z")
     ),
     LocaleGroupingCase(
         localeTag = "ru",
