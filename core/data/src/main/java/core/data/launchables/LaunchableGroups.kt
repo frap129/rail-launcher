@@ -98,7 +98,11 @@ private class InitialGroupCollation(private val locale: Locale) {
      */
     val labelOrder: Comparator<String> = Comparator { first, second ->
         when {
-            first == DIGIT_GROUP_LABEL || second == DIGIT_GROUP_LABEL -> first.compareTo(second)
+            first == second -> 0
+
+            first == DIGIT_GROUP_LABEL -> -1
+
+            second == DIGIT_GROUP_LABEL -> 1
 
             else -> synchronized(this) {
                 val firstRank: Int = indexLabels.indexOf(first)
