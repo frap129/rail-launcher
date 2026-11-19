@@ -50,6 +50,7 @@ data class SettingsUiState(
     val showRecentlyInstalled: Boolean,
     val railHaptics: Boolean,
     val showRail: Boolean,
+    val suggestOftenUsedApps: Boolean,
     val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
@@ -84,6 +85,7 @@ private fun Settings.toSettingsUiState(
     showRecentlyInstalled = showRecentlyInstalled,
     railHaptics = railHaptics,
     showRail = showRail,
+    suggestOftenUsedApps = suggestOftenUsedApps,
     expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
@@ -180,6 +182,9 @@ class SettingsViewModel(
 
     /** Persists whether the Rail draws its marks. */
     fun setShowRail(enabled: Boolean) = prefsRepo.setShowRail(enabled)
+
+    /** Persists whether Home shows the Home suggestions. */
+    fun setSuggestOftenUsedApps(enabled: Boolean) = prefsRepo.setSuggestOftenUsedApps(enabled)
 
     /** Persists whether swiping down on Home expands the notification shade. */
     fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)

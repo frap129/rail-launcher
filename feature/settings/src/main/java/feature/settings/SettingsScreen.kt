@@ -273,6 +273,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     showRecentlyInstalled = uiState.showRecentlyInstalled,
                     railHaptics = uiState.railHaptics,
                     showRail = uiState.showRail,
+                    suggestOftenUsedApps = uiState.suggestOftenUsedApps,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
@@ -281,6 +282,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         onShowRecentlyInstalledChange = viewModel::setShowRecentlyInstalled,
                         onRailHapticsChange = viewModel::setRailHaptics,
                         onShowRailChange = viewModel::setShowRail,
+                        onSuggestOftenUsedAppsChange = viewModel::setSuggestOftenUsedApps,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1435,6 +1437,7 @@ class SettingsAppearanceActions(
     val onShowRecentlyInstalledChange: (Boolean) -> Unit,
     val onRailHapticsChange: (Boolean) -> Unit,
     val onShowRailChange: (Boolean) -> Unit,
+    val onSuggestOftenUsedAppsChange: (Boolean) -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1450,6 +1453,7 @@ fun SettingsAppearanceScreen(
     showRecentlyInstalled: Boolean,
     railHaptics: Boolean,
     showRail: Boolean,
+    suggestOftenUsedApps: Boolean,
     actions: SettingsAppearanceActions
 ) {
     var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
@@ -1491,6 +1495,14 @@ fun SettingsAppearanceScreen(
                 checked = showRecentlyInstalled,
                 supportingText = stringResource(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS),
                 onCheckedChange = actions.onShowRecentlyInstalledChange
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.suggest_often_used_apps),
+                checked = suggestOftenUsedApps,
+                supportingText = stringResource(R.string.suggest_often_used_apps_summary),
+                onCheckedChange = actions.onSuggestOftenUsedAppsChange
             )
         }
         item { SettingsSectionTitle(R.string.rail) }

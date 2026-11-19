@@ -290,7 +290,7 @@ private fun toLauncherUiState(
             lazyListState = navigation.homeListState,
             favorites = homeContent.favoritesState.favorites,
             isFavoritesLoaded = homeContent.favoritesState.isLoaded,
-            suggestions = if (isEditingFavorites) emptyList() else homeContent.suggestions,
+            suggestions = if (isEditingFavorites || !settings.suggestOftenUsedApps) emptyList() else homeContent.suggestions,
             isSwipeUpEnabled = settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
             isEditingFavorites = isEditingFavorites

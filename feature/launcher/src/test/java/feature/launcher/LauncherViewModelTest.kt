@@ -621,6 +621,28 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `hides Home suggestions while Suggest often-used Apps is off and shows them again when it is on`() = runTest {
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            apps = listOf(inputApp),
+            counts = listOf(createSuggestionRecord(app = inputApp, score = 1.0))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.inputSettings.value = fixture.inputSettings.value.copy(suggestOftenUsedApps = false)
+            val actualOff: LauncherUiState.Home =
+                awaitFirstMatching { state -> state is LauncherUiState.Home && state.suggestions.isEmpty() } as LauncherUiState.Home
+            fixture.inputSettings.value = fixture.inputSettings.value.copy(suggestOftenUsedApps = true)
+            val actualOn: List<Launchable> = awaitSuggestions()
+
+            assertEquals(emptyList<Launchable>(), actualOff.suggestions)
+            assertEquals(listOf<Launchable>(inputApp), actualOn)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `does not enter Edit Favorites until the Favorites are loaded`() {
         runTest {
             mockFavoritesFixture.state.setLoaded(false)
@@ -4555,9 +4577,14 @@ class LauncherViewModelTest {
     private fun TestScope.createSuggestionHomeFixture(apps: List<App>, counts: List<LaunchCountRecord>): SuggestionHomeFixture {
         inputLaunchableState.value = createLoadedLaunchableState(launchables = apps)
         val inputCounts: MutableStateFlow<List<LaunchCountRecord>> = MutableStateFlow(counts)
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings())
         return SuggestionHomeFixture(
             inputCounts = inputCounts,
-            viewModel = createViewModel(mockLaunchCountRepository = createLaunchCountRepositoryMock(counts = inputCounts))
+            inputSettings = inputSettings,
+            viewModel = createViewModel(
+                mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings),
+                mockLaunchCountRepository = createLaunchCountRepositoryMock(counts = inputCounts)
+            )
         )
     }
 
@@ -4757,7 +4784,11 @@ private data class FolderSummaryFixture(val folder: Folder, val viewModel: Launc
 
 private data class HiddenSearchFixture(val launchable: Launchable, val query: String, val viewModel: LauncherViewModel)
 
-private data class SuggestionHomeFixture(val inputCounts: MutableStateFlow<List<LaunchCountRecord>>, val viewModel: LauncherViewModel)
+private data class SuggestionHomeFixture(
+    val inputCounts: MutableStateFlow<List<LaunchCountRecord>>,
+    val inputSettings: MutableStateFlow<Settings>,
+    val viewModel: LauncherViewModel
+)
 
 private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)
 

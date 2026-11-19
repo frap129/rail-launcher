@@ -181,6 +181,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setSuggestOftenUsedApps(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(suggestOftenUsedApps = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

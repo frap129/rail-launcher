@@ -512,6 +512,11 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults Suggest often-used Apps to on`() = databaseTest {
+        assertTrue(defaultSettings().suggestOftenUsedApps)
+    }
+
+    @Test
     fun `stores Show Recently installed without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -714,6 +719,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setShowRecentlyInstalled(enabled = true) },
             { repository.setRailHaptics(enabled = false) },
             { repository.setShowRail(enabled = false) },
+            { repository.setSuggestOftenUsedApps(enabled = false) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -745,6 +751,7 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 showRecentlyInstalled = true,
                 railHaptics = false,
                 showRail = false,
+                suggestOftenUsedApps = false,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,
