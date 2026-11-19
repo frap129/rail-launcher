@@ -4,6 +4,7 @@ import core.data.cleanup.launchCountCleanupRow
 import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.StaleKeyCleanupOutcome
 import core.data.testing.TEST_NOW_EPOCH_MS
+import core.data.testing.createLaunchCountRecord
 import core.data.testing.createMutableClockSourceMock
 import core.data.testing.staleKeyCleanupOutcome
 import core.util.MILLIS_PER_WEEK
@@ -27,7 +28,7 @@ class ILaunchCountRepositoryImplTest : InMemoryDatabaseTest() {
         repository.recordLaunch(key = FIRST_KEY)
 
         assertEquals(
-            listOf(LaunchCountRecord(key = FIRST_KEY, launchCount = 2, recentUseScore = 2.0, scoreUpdatedAt = TEST_NOW_EPOCH_MS)),
+            listOf(createLaunchCountRecord(key = FIRST_KEY, launchCount = 2)),
             repository.counts.first()
         )
     }

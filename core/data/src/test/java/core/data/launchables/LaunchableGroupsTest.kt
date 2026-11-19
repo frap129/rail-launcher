@@ -20,6 +20,7 @@ import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createBuiltinGroup
 import core.data.testing.createFixedPrivateSpaceStatus
+import core.data.testing.createLaunchCountRecord
 import core.data.testing.createLaunchableState
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPrivateApp
@@ -342,8 +343,8 @@ class LaunchableGroupsTest {
         val inputAmber: Launchable = createLaunchable("Amber")
         val inputAzure: Launchable = createLaunchable("azure")
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputAlpine.key to createLaunchCount(key = inputAlpine.key, launchCount = 3),
-            inputAlfred.key to createLaunchCount(key = inputAlfred.key, launchCount = 3)
+            inputAlpine.key to createLaunchCountRecord(key = inputAlpine.key, launchCount = 3),
+            inputAlfred.key to createLaunchCountRecord(key = inputAlfred.key, launchCount = 3)
         )
 
         val actualGroup: LaunchableGroup = listOf(inputAzure, inputAmber, inputAlpine, inputAlfred).toAppListGroups(
@@ -397,7 +398,7 @@ class LaunchableGroupsTest {
         val inputZebra: Launchable = createLaunchable("Zebra")
         val inputZanzibar: Launchable = createLaunchable("zanzibar")
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputZulu.key to createLaunchCount(key = inputZulu.key, launchCount = 1, recentUseScore = 1.0)
+            inputZulu.key to createLaunchCountRecord(key = inputZulu.key, launchCount = 1, recentUseScore = 1.0)
         )
 
         val actualGroup: LaunchableGroup = listOf(inputZebra, inputZanzibar, inputZulu).toAppListGroups(
@@ -450,13 +451,13 @@ class LaunchableGroupsTest {
         val inputApp: Launchable = createLaunchable("Beta")
         val inputFolder: Folder = Folder(folderId = 1L, name = "Boulder folder")
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputApp.key to createLaunchCount(
+            inputApp.key to createLaunchCountRecord(
                 key = inputApp.key,
                 launchCount = 10,
                 recentUseScore = 10.0,
                 scoreUpdatedAt = TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
             ),
-            inputFolder.key to createLaunchCount(
+            inputFolder.key to createLaunchCountRecord(
                 key = inputFolder.key,
                 launchCount = 1,
                 recentUseScore = 3.0,
@@ -478,8 +479,8 @@ class LaunchableGroupsTest {
         val inputZulu: Launchable = createPrivateApp(name = "Zulu", packageName = "com.example.zulu")
         val inputAlpha: Launchable = createPrivateApp(name = "alpha", packageName = "com.example.alpha")
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputZulu.key to createLaunchCount(key = inputZulu.key, launchCount = 5),
-            inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 1)
+            inputZulu.key to createLaunchCountRecord(key = inputZulu.key, launchCount = 5),
+            inputAlpha.key to createLaunchCountRecord(key = inputAlpha.key, launchCount = 1)
         )
 
         val actualGroup: LaunchableGroup.PrivateSpace = listOf(inputAlpha, inputZulu).toAppListGroups(
@@ -495,7 +496,7 @@ class LaunchableGroupsTest {
         val inputZulu: Launchable = createLaunchable("Zulu")
         val inputAlpha: Launchable = createLaunchable("Alpha")
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputAlpha.key to createLaunchCount(key = inputAlpha.key, launchCount = 3)
+            inputAlpha.key to createLaunchCountRecord(key = inputAlpha.key, launchCount = 3)
         )
 
         val actualGroups: List<LaunchableGroup> = listOf(inputZulu, inputAlpha).toAppListGroups(
@@ -644,13 +645,13 @@ class LaunchableGroupsTest {
         inputRecentScore: Double
     ): List<Launchable> {
         val inputCounts: Map<String, LaunchCountRecord> = mapOf(
-            inputOlder.key to createLaunchCount(
+            inputOlder.key to createLaunchCountRecord(
                 key = inputOlder.key,
                 launchCount = 10,
                 recentUseScore = inputOlderScore,
                 scoreUpdatedAt = TEST_NOW_EPOCH_MS - inputOlderAgeMs
             ),
-            inputRecent.key to createLaunchCount(
+            inputRecent.key to createLaunchCountRecord(
                 key = inputRecent.key,
                 launchCount = 3,
                 recentUseScore = inputRecentScore,
@@ -694,28 +695,16 @@ class LaunchableGroupsTest {
     private fun FolderRankingFixture.createUsage(firstFolderCount: Int, secondFolderCount: Int, rankFoldersByUse: Boolean): AppListUsage =
         AppListUsage(
             launchCountsByKey = mapOf(
-                app.key to createLaunchCount(key = app.key, launchCount = 1),
-                otherApp.key to createLaunchCount(key = otherApp.key, launchCount = 2),
-                firstFolder.key to createLaunchCount(key = firstFolder.key, launchCount = firstFolderCount),
-                secondFolder.key to createLaunchCount(key = secondFolder.key, launchCount = secondFolderCount)
+                app.key to createLaunchCountRecord(key = app.key, launchCount = 1),
+                otherApp.key to createLaunchCountRecord(key = otherApp.key, launchCount = 2),
+                firstFolder.key to createLaunchCountRecord(key = firstFolder.key, launchCount = firstFolderCount),
+                secondFolder.key to createLaunchCountRecord(key = secondFolder.key, launchCount = secondFolderCount)
             ),
             rankFoldersByUse = rankFoldersByUse
         )
 
     private fun createUsage(launchCountsByKey: Map<String, LaunchCountRecord>, rankFoldersByUse: Boolean): AppListUsage =
         AppListUsage(launchCountsByKey = launchCountsByKey, rankFoldersByUse = rankFoldersByUse)
-
-    private fun createLaunchCount(
-        key: String,
-        launchCount: Int,
-        recentUseScore: Double = launchCount.toDouble(),
-        scoreUpdatedAt: Long = TEST_NOW_EPOCH_MS
-    ): LaunchCountRecord = LaunchCountRecord(
-        key = key,
-        launchCount = launchCount,
-        recentUseScore = recentUseScore,
-        scoreUpdatedAt = scoreUpdatedAt
-    )
 
     private fun createLaunchable(name: String): Launchable = RailLaunchable(
         defaultName = name,
