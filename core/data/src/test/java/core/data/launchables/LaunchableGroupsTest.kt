@@ -61,6 +61,21 @@ class LaunchableGroupsTest {
     }
 
     @Test
+    fun `keeps # before groups whose first character sorts below it`() {
+        val inputItems: List<Launchable> = listOf(
+            createLaunchable("!Bang"),
+            createLaunchable("\"Quoted"),
+            createLaunchable("Alpha"),
+            createLaunchable("1Password")
+        )
+
+        val actualLabels: List<String> = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = Locale.US).map { it.label }
+
+        assertEquals("#", actualLabels[1])
+        assertEquals(setOf("!", "\"", "A"), actualLabels.drop(2).dropLast(1).toSet())
+    }
+
+    @Test
     fun `groups names starting with any digit under #`() {
         val inputZero: Launchable = createLaunchable("0xBench")
         val inputOne: Launchable = createLaunchable("1Password")
