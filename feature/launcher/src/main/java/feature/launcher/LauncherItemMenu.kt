@@ -115,11 +115,18 @@ internal fun LauncherItemMenu(
         label = stringResource(R.string.edit_favorites),
         onClick = { viewModel.editFavorites() }
     )
-    if (menu.isSearchSuggestion) {
+    if (menu.suggestion == MenuSuggestion.Search) {
         SheetActionRow(
             imageVector = FontAwesomeIcons.Solid.TimesCircle,
             label = stringResource(R.string.remove_from_suggestions),
             onClick = { viewModel.removeSearchSuggestion(item) }
+        )
+    }
+    if (menu.suggestion == MenuSuggestion.Home) {
+        SheetActionRow(
+            imageVector = FontAwesomeIcons.Solid.TimesCircle,
+            label = stringResource(R.string.stop_suggesting),
+            onClick = { viewModel.stopSuggesting(item) }
         )
     }
     if (menu.canHide) {

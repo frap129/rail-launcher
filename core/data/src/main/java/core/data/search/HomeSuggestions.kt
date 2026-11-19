@@ -20,18 +20,19 @@ const val HOME_OVER_TARGET_SCORE_FACTOR: Int = 2
  * rows. One more row is allowed when the top candidate's score is at least [HOME_OVER_TARGET_SCORE_FACTOR]
  * times the median Favorite's, so with no Favorites there is no extra row and a Favorite with no
  * launch record counts as scoring zero. Favorites, Folder members in [folderMemberKeys] (the Apps
- * of Folders on Home) and keys [suggestibleLaunchableFor] rejects are left out. Rail itself and the
- * private Apps of a Locked Private Space never reach the Launchable State, so their keys resolve to
- * no Launchable here.
+ * of Folders on Home), the [stoppedKeys] the user chose Stop suggesting for and keys
+ * [suggestibleLaunchableFor] rejects are left out. Rail itself and the private Apps of a Locked
+ * Private Space never reach the Launchable State, so their keys resolve to no Launchable here.
  */
 fun LaunchableState.homeSuggestions(
     favorites: List<Launchable>,
     launchCounts: List<LaunchCountRecord>,
     folderMemberKeys: Set<String>,
+    stoppedKeys: Set<String>,
     nowEpochMs: Long
 ): List<Launchable> {
     val recordsByKey: Map<String, LaunchCountRecord> = launchCounts.associateBy { record -> record.key }
-    val excludedKeys: Set<String> = favorites.mapTo(folderMemberKeys.toMutableSet()) { favorite -> favorite.key }
+    val excludedKeys: Set<String> = favorites.mapTo((folderMemberKeys + stoppedKeys).toMutableSet()) { favorite -> favorite.key }
     val candidates: List<Pair<Launchable, Double>> = launchCounts
         .asSequence()
         .filter { record -> record.launchCount >= HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT && record.key !in excludedKeys }

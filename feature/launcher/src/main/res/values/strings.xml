@@ -26,6 +26,7 @@
     <string name="add_to_favorites">Add to Favorites</string>
     <string name="remove_from_favorites">Remove from Favorites</string>
     <string name="remove_from_suggestions">Remove from suggestions</string>
+    <string name="stop_suggesting">Stop suggesting</string>
     <string name="hide_from_app_list">Hide from App List</string>
     <string name="reorder_favorite">Reorder %1$s</string>
     <string name="rename_item">Rename %1$s</string>

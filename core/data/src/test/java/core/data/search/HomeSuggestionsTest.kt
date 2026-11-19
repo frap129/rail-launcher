@@ -49,6 +49,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -70,6 +71,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -93,6 +95,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -121,6 +124,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -149,6 +153,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -171,6 +176,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -189,6 +195,7 @@ class HomeSuggestionsTest {
             favorites = inputFavorites,
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -209,10 +216,32 @@ class HomeSuggestionsTest {
             favorites = emptyList(),
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
         assertEquals(listOf<Launchable>(inputAt), actualSuggestions)
+    }
+
+    @Test
+    fun `leaves out a Launchable the user stopped suggesting`() {
+        val inputStopped: App = createApp(name = "Stopped", packageName = "com.example.stopped")
+        val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputStopped, inputOther))
+        val inputCounts: List<LaunchCountRecord> = listOf(
+            createLaunchCountRecord(key = inputStopped.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0),
+            createLaunchCountRecord(key = inputOther.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 1.0)
+        )
+
+        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
+            favorites = emptyList(),
+            launchCounts = inputCounts,
+            folderMemberKeys = emptySet(),
+            stoppedKeys = setOf(inputStopped.key),
+            nowEpochMs = TEST_NOW_EPOCH_MS
+        )
+
+        assertEquals(listOf<Launchable>(inputOther), actualSuggestions)
     }
 
     @Test
@@ -230,6 +259,7 @@ class HomeSuggestionsTest {
             favorites = listOf(inputFavorite),
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -250,6 +280,7 @@ class HomeSuggestionsTest {
                 createLaunchCountRecord(key = inputHidden.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -268,6 +299,7 @@ class HomeSuggestionsTest {
             favorites = emptyList(),
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -283,6 +315,7 @@ class HomeSuggestionsTest {
             favorites = emptyList(),
             launchCounts = listOf(createLaunchCountRecord(key = inputRailKey, launchCount = SUGGESTION_LAUNCH_COUNT)),
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -300,6 +333,7 @@ class HomeSuggestionsTest {
                 createLaunchCountRecord(key = inputPaused.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -321,6 +355,7 @@ class HomeSuggestionsTest {
             favorites = listOf(Folder(folderId = 1)),
             launchCounts = inputCounts,
             folderMemberKeys = setOf(inputMember.key),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -338,6 +373,7 @@ class HomeSuggestionsTest {
                 createLaunchCountRecord(key = inputBuiltin.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 
@@ -364,6 +400,7 @@ class HomeSuggestionsTest {
             favorites = emptyList(),
             launchCounts = inputCounts,
             folderMemberKeys = emptySet(),
+            stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
 

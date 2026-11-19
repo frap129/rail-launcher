@@ -39,6 +39,7 @@ import core.data.profiles.QuietRequestResult
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchProjectionSource
 import core.data.search.IShortcutSearchSource
+import core.data.search.IStoppedSuggestionRepository
 import core.data.search.SearchProjection
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
@@ -74,6 +75,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -141,12 +143,19 @@ private enum class LauncherMode {
     Search
 }
 
+/** The kind of suggestion the row behind a menu is, which decides the suggestion action the menu offers. */
+enum class MenuSuggestion {
+    None,
+    Search,
+    Home
+}
+
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
 
     data class Menu(
         val item: Launchable,
-        val isSearchSuggestion: Boolean,
+        val suggestion: MenuSuggestion,
         val isStandaloneShortcut: Boolean,
         val canUninstall: Boolean,
         val isHidden: Boolean,
@@ -329,14 +338,14 @@ private enum class MenuRequest {
     Rename
 }
 
-private data class MenuItemRequest(val launchable: Launchable, val isSearchSuggestion: Boolean)
+private data class MenuItemRequest(val launchable: Launchable, val suggestion: MenuSuggestion)
 
 /** A menu request, the Launchable State it resolves against, and that state's Private Space status. */
 private data class MenuLookup(val request: MenuItemRequest, val state: LaunchableState, val privateSpaceStatus: PrivateSpaceStatus) {
     /** The menu of [launchable], resolved from this lookup. */
     fun toMenu(launchable: Launchable, profileSource: IProfileSource): LauncherMenuState.Menu = LauncherMenuState.Menu(
         item = launchable,
-        isSearchSuggestion = request.isSearchSuggestion,
+        suggestion = request.suggestion,
         isStandaloneShortcut = state.launchableFor(key = launchable.key) is ShortcutLaunchable,
         canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
         isHidden = state.isHidden(launchable = launchable),
@@ -363,6 +372,7 @@ class LauncherViewModel(
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
     private val launchCountRepository: ILaunchCountRepository,
+    private val stoppedSuggestionRepository: IStoppedSuggestionRepository,
     private val searchProjectionSource: ISearchProjectionSource,
     private val shortcutSearchSource: IShortcutSearchSource,
     private val searchSettings: ISearchSettings,
@@ -516,16 +526,24 @@ class LauncherViewModel(
     // resolve to stay current.
     private val homeSuggestionKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
+    // One subscription to the stopped keys serves the shown suggestions and the projection.
+    private val stoppedKeys: Flow<Set<String>> = stoppedSuggestionRepository.keys.shareIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        replay = 1
+    )
+
     private val homeContent: Flow<HomeContent> = combine(
         favoritesState,
         homeSuggestionKeys,
-        launchableState
-    ) { favoritesState, suggestionKeys, state ->
+        launchableState,
+        stoppedKeys
+    ) { favoritesState, suggestionKeys, state, stoppedKeys ->
         val favoriteKeys: Set<String> = favoritesState.favorites.mapTo(mutableSetOf()) { favorite -> favorite.key }
         HomeContent(
             favoritesState = favoritesState,
             suggestions = suggestionKeys.orEmpty()
-                .filterNot { key -> key in favoriteKeys }
+                .filterNot { key -> key in favoriteKeys || key in stoppedKeys }
                 .mapNotNull { key -> state.suggestibleLaunchableFor(key = key) }
         )
     }
@@ -613,6 +631,7 @@ class LauncherViewModel(
                         favorites = favoritesState.favorites,
                         launchCounts = launchCounts,
                         folderMemberKeys = members.memberKeysOf(folders = favoritesState.favorites),
+                        stoppedKeys = stoppedKeys.first(),
                         nowEpochMs = clockSource.now().toEpochMilli()
                     ).map { launchable -> launchable.key }
                 }
@@ -930,6 +949,14 @@ class LauncherViewModel(
         }
     }
 
+    /** Stops suggesting [launchable] on Home until the user resets the stopped suggestions. */
+    fun stopSuggesting(launchable: Launchable) {
+        closeItemMenu()
+        viewModelScope.launchLogged(message = "Failed to stop suggesting a Launchable") {
+            stoppedSuggestionRepository.stop(key = launchable.key)
+        }
+    }
+
     /** Closes Search, returning to the state it was opened from and resetting the query. */
     fun closeSearch() {
         clearAutoLaunch()
@@ -1078,9 +1105,15 @@ class LauncherViewModel(
             return
         }
         val search: LauncherUiState.Search? = uiState.value as? LauncherUiState.Search
-        val isSearchSuggestion: Boolean = search?.isShowingSuggestions == true &&
-            search.results.any { result -> result.key == launchable.key }
-        requestedMenuItem.value = MenuItemRequest(launchable = launchable, isSearchSuggestion = isSearchSuggestion)
+        val suggestion: MenuSuggestion = when {
+            search?.isShowingSuggestions == true && search.results.any { result -> result.key == launchable.key } -> MenuSuggestion.Search
+
+            (uiState.value as? LauncherUiState.Home)?.suggestions?.any { suggestion -> suggestion.key == launchable.key } == true ->
+                MenuSuggestion.Home
+
+            else -> MenuSuggestion.None
+        }
+        requestedMenuItem.value = MenuItemRequest(launchable = launchable, suggestion = suggestion)
         requestedMenuState.value = MenuRequest.Menu
     }
 
