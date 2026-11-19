@@ -119,6 +119,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -836,37 +837,43 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
-    fun `drops the earliest-installed App from the section at its expiry without any other change`() = runTest {
-        val inputAgingApp: App = createApp(
-            name = "Aging",
-            packageName = "com.example.aging",
-            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
-        )
-        val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh", firstInstallTime = TEST_NOW_EPOCH_MS)
-        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputFreshApp, inputAgingApp)).copy(
-            recentlyInstalled = RecentlyInstalledSection(apps = listOf(inputFreshApp, inputAgingApp))
-        )
-        val inputStates: MutableStateFlow<LaunchableState> = MutableStateFlow(inputState)
-        var currentEpochMs: Long = TEST_NOW_EPOCH_MS
-        val mockClockSource: MutableClockSource = createMutableClockSourceMock(now = { Instant.ofEpochMilli(currentEpochMs) })
+    fun `drops an App from the section at the first reading past its window without any other change`() = runTest {
+        val inputAgingApp: App = createInstalledApp(name = "Aging", installedAtEpochMs = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS)
+        val inputFreshApp: App = createInstalledApp(name = "Fresh", installedAtEpochMs = TEST_NOW_EPOCH_MS)
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock()
 
-        inputStates.withRecentlyInstalledExpiry(clockSource = mockClockSource.source).test {
-            assertEquals(listOf(inputFreshApp.key, inputAgingApp.key), sectionAppKeys(expectMostRecentItem()))
+        flowOf(createLoadedLaunchableState(launchables = listOf(inputFreshApp, inputAgingApp)))
+            .withRecentlyInstalled(isShown = flowOf(true), clockSource = mockClockSource.source)
+            .test {
+                assertEquals(listOf(inputFreshApp.key, inputAgingApp.key), sectionAppKeys(awaitItem()))
 
-            // The aging App's window ended at TEST_NOW, so two milliseconds later it must leave.
-            currentEpochMs = TEST_NOW_EPOCH_MS + 2
-            advanceTimeBy(2)
+                mockClockSource.moveTo(Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + 1))
 
-            assertEquals(listOf(inputFreshApp.key), sectionAppKeys(expectMostRecentItem()))
-        }
+                assertEquals(listOf(inputFreshApp.key), sectionAppKeys(awaitItem()))
+            }
     }
 
     @Test
-    fun `ages the section out once time passes the window without any other change`() = databaseTest {
-        val inputFreshApp: App = createApp(name = "Fresh", packageName = "com.example.fresh", firstInstallTime = TEST_NOW_EPOCH_MS)
+    fun `leaves a state without a section without one across readings while the setting is off`() = runTest {
+        val inputFreshApp: App = createInstalledApp(name = "Fresh", installedAtEpochMs = TEST_NOW_EPOCH_MS)
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock()
+
+        flowOf(createLoadedLaunchableState(launchables = listOf(inputFreshApp)))
+            .withRecentlyInstalled(isShown = flowOf(false), clockSource = mockClockSource.source)
+            .test {
+                assertNull(awaitItem().recentlyInstalled)
+
+                mockClockSource.moveTo(Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + 1))
+
+                assertNull(awaitItem().recentlyInstalled)
+            }
+    }
+
+    @Test
+    fun `removes the section on the next reading after the wall clock jumps past the window in one step`() = databaseTest {
+        val inputFreshApp: App = createInstalledApp(name = "Fresh", installedAtEpochMs = TEST_NOW_EPOCH_MS)
         database.getSettingsDao().upsert(Settings(showRecentlyInstalled = true))
-        val mockClockSource: MutableClockSource =
-            createMutableClockSourceMock(now = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + testScheduler.currentTime) })
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock()
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputFreshApp)),
             mockPreferencesRepository = createPreferencesRepository(),
@@ -875,13 +882,17 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
 
         repository.launchableState.test {
             finishPendingWork()
-            // The section timer runs in the repository's background scope, so advance past the window explicitly.
-            advanceTimeBy(RECENT_INSTALL_WINDOW_MS + 2)
-            runCurrent()
+            assertEquals(listOf(inputFreshApp.key), sectionAppKeys(expectMostRecentItem()))
+
+            mockClockSource.moveTo(Instant.ofEpochMilli(TEST_NOW_EPOCH_MS + 2 * RECENT_INSTALL_WINDOW_MS))
+            finishPendingWork()
 
             assertNull(expectMostRecentItem().recentlyInstalled)
         }
     }
+
+    private fun createInstalledApp(name: String, installedAtEpochMs: Long): App =
+        createApp(name = name, packageName = "com.example.${name.lowercase()}", firstInstallTime = installedAtEpochMs)
 
     private fun sectionAppKeys(state: LaunchableState): List<String> = state.recentlyInstalled?.apps?.map { app -> app.key }.orEmpty()
 

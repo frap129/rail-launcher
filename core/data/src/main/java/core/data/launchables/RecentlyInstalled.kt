@@ -2,7 +2,6 @@ package core.data.launchables
 
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
-import core.data.launchables.model.RecentlyInstalledSection
 import core.util.RECENT_INSTALL_WINDOW_MS
 
 /**
@@ -13,11 +12,3 @@ import core.util.RECENT_INSTALL_WINDOW_MS
 internal fun List<Launchable>.recentlyInstalledApps(nowEpochMs: Long): List<App> = filterIsInstance<App>()
     .filter { app -> nowEpochMs - app.firstInstallTime <= RECENT_INSTALL_WINDOW_MS }
     .sortedByDescending { app -> app.firstInstallTime }
-
-/**
- * The first instant at which the contents of [this] section change: the window includes an App
- * first installed exactly at its end, so the earliest-installed App leaves one millisecond past
- * that end. Null when the section holds no App.
- */
-internal fun RecentlyInstalledSection.earliestExpiryEpochMs(): Long? = apps
-    .minOfOrNull { app -> app.firstInstallTime + RECENT_INSTALL_WINDOW_MS + 1 }
