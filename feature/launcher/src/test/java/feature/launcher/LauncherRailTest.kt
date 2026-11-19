@@ -1,7 +1,9 @@
 package feature.launcher
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -15,6 +17,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -39,6 +42,7 @@ import core.ui.toGroupMark
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,9 +58,7 @@ class LauncherRailTest {
     @Test
     fun `draws the Rail on the layout end by default`() {
         val railBounds: RailBounds = setRailContent(
-            scrubEdges = ScrubEdges.BOTH,
-            onRailPreview = {},
-            onRailReleased = {}
+            scrubEdges = ScrubEdges.BOTH
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = false)
@@ -89,8 +91,7 @@ class LauncherRailTest {
         val railBounds: RailBounds = setRailContent(
             scrubEdges = ScrubEdges.START,
             railSide = RailSide.START,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = {}
+            onRailPreview = { index -> actualPreviewIndices += index }
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = true)
@@ -110,8 +111,7 @@ class LauncherRailTest {
         setRailContent(
             scrubEdges = ScrubEdges.END,
             railSide = RailSide.START,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = {}
+            onRailPreview = { index -> actualPreviewIndices += index }
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
@@ -285,8 +285,6 @@ class LauncherRailTest {
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
             railHaptics = railHaptics,
-            onRailPreview = {},
-            onRailReleased = {},
             onHapticTick = { actualHapticTickCount++ }
         )
 
@@ -302,9 +300,7 @@ class LauncherRailTest {
         val railItems: MutableState<List<GroupMark>> = mutableStateOf(emptyList())
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            railItems = { railItems.value },
-            onRailPreview = {},
-            onRailReleased = {}
+            railItems = { railItems.value }
         )
 
         localeGroupingCases.forEach { inputCase ->
@@ -327,9 +323,7 @@ class LauncherRailTest {
     fun `hides the drawn Rail when Show Rail is off`() {
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            showRail = false,
-            onRailPreview = {},
-            onRailReleased = {}
+            showRail = { false }
         )
 
         composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).assertDoesNotExist()
@@ -339,9 +333,7 @@ class LauncherRailTest {
     fun `puts a scrub strip on both enabled edges when Show Rail is off`() {
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            showRail = false,
-            onRailPreview = {},
-            onRailReleased = {}
+            showRail = { false }
         )
 
         assertScrubStripOnSide(side = RailSide.START, isOnLeft = true)
@@ -354,7 +346,7 @@ class LauncherRailTest {
         val actualReleaseIndices: MutableList<Int> = mutableListOf()
         setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            showRail = false,
+            showRail = { false },
             onRailPreview = { index -> actualPreviewIndices += index },
             onRailReleased = { index -> actualReleaseIndices += index }
         )
@@ -371,9 +363,8 @@ class LauncherRailTest {
         val actualPreviewIndices: MutableList<Int> = mutableListOf()
         setRailContent(
             scrubEdges = ScrubEdges.START,
-            showRail = false,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = {}
+            showRail = { false },
+            onRailPreview = { index -> actualPreviewIndices += index }
         )
 
         composeRule.onNodeWithTag(railScrubStripTestTag(side = RailSide.END)).assertDoesNotExist()
@@ -386,14 +377,80 @@ class LauncherRailTest {
     fun `publishes the Rail bounds from the hidden Rail's own strip`() {
         val railBounds: RailBounds = setRailContent(
             scrubEdges = ScrubEdges.BOTH,
-            showRail = false,
-            onRailPreview = {},
-            onRailReleased = {}
+            showRail = { false }
         )
 
         composeRule.waitForIdle()
 
         assertNotNull(railBounds.current)
+    }
+
+    @Test
+    fun `does not stop a row swipe at the old Rail column when the Rail is hidden with no strip on its side`() {
+        val inputShowRail: MutableState<Boolean> = mutableStateOf(true)
+        var actualOpenCount: Int = 0
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.START,
+            showRail = { inputShowRail.value },
+            rowContent = { bounds ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag(ROW_TEST_TAG)
+                        .popupSwipe(
+                            enabled = true,
+                            railSide = RailSide.DEFAULT,
+                            railBounds = { bounds.current },
+                            onSwipeOpen = { actualOpenCount++ }
+                        )
+                )
+            }
+        )
+        composeRule.waitForIdle()
+
+        changeShowRail(inputShowRail, isShown = false)
+        composeRule.onNodeWithTag(ROW_TEST_TAG).performTouchInput {
+            down(position = Offset(x = width * ROW_SWIPE_START_FRACTION, y = center.y))
+            moveTo(position = Offset(x = width - 1f, y = center.y))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertNull(railBounds.current)
+        assertEquals(1, actualOpenCount)
+    }
+
+    @Test
+    fun `stores the drawn Rail bounds again when Show Rail turns back on`() {
+        val inputShowRail: MutableState<Boolean> = mutableStateOf(false)
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.START,
+            showRail = { inputShowRail.value }
+        )
+        composeRule.waitForIdle()
+
+        changeShowRail(inputShowRail, isShown = true)
+
+        assertNotNull(railBounds.current)
+    }
+
+    @Test
+    fun `keeps the strip bounds when the Rail is hidden with a strip on its side`() {
+        val inputShowRail: MutableState<Boolean> = mutableStateOf(true)
+        val railBounds: RailBounds = setRailContent(
+            scrubEdges = ScrubEdges.END,
+            showRail = { inputShowRail.value }
+        )
+        composeRule.waitForIdle()
+
+        changeShowRail(inputShowRail, isShown = false)
+
+        assertNotNull(railBounds.current)
+    }
+
+    private fun changeShowRail(showRail: MutableState<Boolean>, isShown: Boolean) {
+        showRail.value = isShown
+        composeRule.waitForIdle()
     }
 
     private fun setRailContent(
@@ -402,13 +459,14 @@ class LauncherRailTest {
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
-        showRail: Boolean = true,
+        showRail: () -> Boolean = { true },
         isCardOpen: () -> Boolean = { false },
         railHaptics: Boolean = true,
         onRailTouched: () -> Unit = {},
-        onRailPreview: (Int) -> Unit,
-        onRailReleased: (Int) -> Unit,
-        onHapticTick: () -> Unit = {}
+        onRailPreview: (Int) -> Unit = {},
+        onRailReleased: (Int) -> Unit = {},
+        onHapticTick: () -> Unit = {},
+        rowContent: @Composable BoxScope.(RailBounds) -> Unit = {}
     ): RailBounds {
         val railBounds: RailBounds = RailBounds()
         composeRule.setContent {
@@ -424,12 +482,13 @@ class LauncherRailTest {
                 LocalHapticFeedback provides hapticFeedback
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
+                    rowContent(railBounds)
                     LauncherRail(
                         railItems = railItems(),
                         railBounds = remember { railBounds },
                         railSide = railSide,
                         scrubEdges = scrubEdges,
-                        showRail = showRail,
+                        showRail = showRail(),
                         isCardOpen = isCardOpen,
                         railHaptics = railHaptics,
                         onRailTouched = onRailTouched,
@@ -468,9 +527,7 @@ class LauncherRailTest {
         val railBounds: RailBounds = setRailContent(
             scrubEdges = ScrubEdges.BOTH,
             railSide = railSide,
-            layoutDirection = layoutDirection,
-            onRailPreview = {},
-            onRailReleased = {}
+            layoutDirection = layoutDirection
         )
 
         composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performTouchInput { down(center) }
@@ -541,6 +598,8 @@ class LauncherRailTest {
         .distinct()
 
     private companion object {
+        const val ROW_TEST_TAG: String = "row"
+        const val ROW_SWIPE_START_FRACTION: Float = 0.3f
         val MARKS: List<GroupMark> = listOf(
             GroupMark.Label(text = "A"),
             GroupMark.Label(text = "B"),
