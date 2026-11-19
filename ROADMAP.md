@@ -8,7 +8,7 @@ rough estimates.
 
 | # | Epic | Size | Notes |
 |---|---|---|---|
-| 1 | App List additions (`rail-pog`) | S–M | Recently installed, haptics toggle, hide the Rail, install into Private Space. Language-aware alphabet last. |
+| 1 | ~~App List additions (`rail-pog`)~~ | S–M | **Done.** Recently installed, haptics toggle, hide the Rail, install into Private Space. Language-aware alphabet last. |
 | 2 | Suggested apps on Home (`rail-ccs`) | S–M | Pure projection over existing launch data. |
 | 3 | Agenda sheet and weekday clock (`rail-dol`) | S–M | Reuses the calendar source and Header tap targets. Unblocks Keyboard and Integrations. |
 | 4 | Keyboard and input (`rail-49n`) | S | Extends `LauncherKeyHandler`. |
