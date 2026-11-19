@@ -1000,6 +1000,27 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `resolves the Group keys of a Last-known App list before the live Apps arrive`() = databaseTest {
+        val inputLocale: Locale = Locale.forLanguageTag("en-x-lknown")
+        val inputLastKnownApp: App = createApp(name = "Яндекс", packageName = APP_PACKAGE_NAME)
+        val mockClockSource: MutableClockSource = createMutableClockSourceMock()
+        mockClockSource.readings.value = mockClockSource.readings.value.copy(locale = inputLocale)
+        val repository: ILaunchableRepository = createRepository(
+            mockAppRepository = createAppRepositoryMock(
+                inputHomeApps = MutableStateFlow(HomeApps.LastKnown(apps = listOf(inputLastKnownApp)))
+            ),
+            clockSource = mockClockSource.source
+        )
+
+        repository.launchableState.test {
+            finishPendingWork()
+            assertTrue(expectMostRecentItem().groups.isEmpty())
+
+            assertEquals(1, cachedGroupKeyCount(locale = inputLocale))
+        }
+    }
+
+    @Test
     fun `promotes Home to the live Apps and the App List once they replace the Last-known App list`() = databaseTest {
         val inputLastKnownApp: App = createApp(name = "Last-known", packageName = APP_PACKAGE_NAME)
         val inputLiveApp: App = createApp(name = ORIGINAL_NAME, packageName = APP_PACKAGE_NAME)

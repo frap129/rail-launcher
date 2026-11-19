@@ -5,6 +5,7 @@ import android.icu.text.AlphabeticIndex
 import android.icu.text.Collator
 import android.icu.text.Transliterator
 import android.icu.util.ULocale
+import android.util.LruCache
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.profiles.PrivateSpaceStatus
@@ -23,6 +24,9 @@ private val INDEXED_SCRIPTS: Set<Int> = setOf(UScript.HAN, UScript.HANGUL, UScri
 
 /** The letters a Group key may keep: A-Z plus the letters the supported alphabets add beyond them. */
 private val GROUP_LETTERS: List<Char> = ('A'..'Z') + listOf('Æ', 'Ø', 'Å', 'Ä', 'Ö', 'Ñ', 'Œ')
+
+/** The most names whose Group keys one locale keeps, so renamed and removed names age out. */
+internal const val GROUP_KEY_CACHE_SIZE: Int = 1_024
 
 /** Each locale's [InitialGroupCollation], so an unchanged locale reuses its collators and keys. */
 private val collationsByLocale: ConcurrentHashMap<Locale, InitialGroupCollation> = ConcurrentHashMap()
@@ -55,7 +59,7 @@ internal fun List<Launchable>.toLaunchableGroups(
     privateSpaceStatus: PrivateSpaceStatus = PrivateSpaceStatus(),
     locale: Locale
 ): List<LaunchableGroup> {
-    val collation: InitialGroupCollation = collationsByLocale.computeIfAbsent(locale) { key -> InitialGroupCollation(locale = key) }
+    val collation: InitialGroupCollation = locale.initialGroupCollation()
     val privateSpace: ProfileInfo? = privateSpaceStatus.profile
     val (privateItems, otherItems) = partition { launchable -> launchable.isPrivateIn(privateSpace = privateSpace) }
     val initialGroups: List<LaunchableGroup.InitialGroup> = otherItems.groupBy { launchable -> collation.labelOf(name = launchable.name) }
@@ -68,6 +72,21 @@ internal fun List<Launchable>.toLaunchableGroups(
     }
     return listOf(LaunchableGroup.Star) + initialGroups + builtinGroup + listOfNotNull(privateSpaceGroup)
 }
+
+private fun Locale.initialGroupCollation(): InitialGroupCollation =
+    collationsByLocale.computeIfAbsent(this) { key -> InitialGroupCollation(locale = key) }
+
+/**
+ * Resolves the Group keys of [names] in [locale] ahead of the first grouping, so the collators and,
+ * when a name needs one, the transliterator are built before the App List groups are.
+ */
+internal fun prewarmGroupKeys(names: List<String>, locale: Locale) {
+    val collation: InitialGroupCollation = locale.initialGroupCollation()
+    names.forEach { name -> collation.labelOf(name = name) }
+}
+
+/** How many names' Group keys [locale] keeps cached. */
+internal fun cachedGroupKeyCount(locale: Locale): Int = locale.initialGroupCollation().cachedLabelCount
 
 /**
  * The Group keys and their order in [locale], shared by every grouping that uses the locale.
@@ -90,7 +109,10 @@ private class InitialGroupCollation(private val locale: Locale) {
         }
     }
     private val latinTransliterator: Transliterator by lazy { Transliterator.getInstance(TO_LATIN_TRANSLITERATOR_ID) }
-    private val labelsByName: MutableMap<String, String> = mutableMapOf()
+    private val labelsByName: LruCache<String, String> = LruCache(GROUP_KEY_CACHE_SIZE)
+
+    /** How many names' Group keys this locale keeps cached. */
+    val cachedLabelCount: Int get() = labelsByName.size()
 
     /**
      * Orders Group keys with "#" first, then the locale's index letters in index order, then every
@@ -120,7 +142,7 @@ private class InitialGroupCollation(private val locale: Locale) {
     fun labelOf(name: String): String = synchronized(this) {
         if (name.isEmpty()) return DIGIT_GROUP_LABEL
         if (Character.isDigit(name.codePointAt(0))) return DIGIT_GROUP_LABEL
-        labelsByName.getOrPut(name) { name.toGroupLabel() }
+        labelsByName.get(name) ?: name.toGroupLabel().also { label -> labelsByName.put(name, label) }
     }
 
     /** The Group key [this] name takes, see Group key in `GLOSSARY.md`. */
