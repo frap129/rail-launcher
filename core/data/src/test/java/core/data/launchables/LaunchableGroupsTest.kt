@@ -61,6 +61,31 @@ class LaunchableGroupsTest {
     }
 
     @Test
+    fun `keeps at most the cache size of Group keys per locale`() {
+        val inputLocale: Locale = Locale.forLanguageTag("en-x-gcache")
+        val inputNames: List<String> = (0 until GROUP_KEY_CACHE_SIZE + 10).map { index -> "App $index" }
+
+        prewarmGroupKeys(names = inputNames, locale = inputLocale)
+
+        assertEquals(GROUP_KEY_CACHE_SIZE, cachedGroupKeyCount(locale = inputLocale))
+    }
+
+    @Test
+    fun `prewarmed Group keys match the keys a cold grouping forms`() {
+        val inputItems: List<Launchable> = listOf("Яндекс", "東京", "Zebra").map { name -> createLaunchable(name) }
+        val inputWarmLocale: Locale = Locale.forLanguageTag("en-x-gwarm")
+        prewarmGroupKeys(names = inputItems.map { item -> item.name }, locale = inputWarmLocale)
+
+        val expectedGroups: List<LaunchableGroup> = inputItems.toLaunchableGroups(
+            inputBuiltinGroup,
+            locale = Locale.forLanguageTag("en-x-gcold")
+        )
+        val actualGroups: List<LaunchableGroup> = inputItems.toLaunchableGroups(inputBuiltinGroup, locale = inputWarmLocale)
+
+        assertEquals(expectedGroups, actualGroups)
+    }
+
+    @Test
     fun `keeps # before groups whose first character sorts below it`() {
         val inputItems: List<Launchable> = listOf(
             createLaunchable("!Bang"),

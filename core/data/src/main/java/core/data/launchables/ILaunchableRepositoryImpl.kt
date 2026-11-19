@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -247,8 +248,11 @@ class ILaunchableRepositoryImpl(
         )
         val appListLaunchables: List<Launchable> = resolvedLaunchables
             .filterNot { launchable -> launchable.key in appListSources.folderAppList.memberKeys } + folders
-        // A Last-known state exposes only Home's Launchables; the App List and picker groups wait for live Apps.
+        // A Last-known state exposes only Home's Launchables; the App List and picker groups wait for live Apps,
+        // while their Group keys are resolved in the background so the first live grouping finds them ready.
         val groups: List<LaunchableGroup> = if (isLastKnown) {
+            val lastKnownNames: List<String> = appListLaunchables.map { launchable -> launchable.name }
+            scope.launch { prewarmGroupKeys(names = lastKnownNames, locale = appState.locale) }
             emptyList()
         } else {
             appListLaunchables.toLaunchableGroups(
