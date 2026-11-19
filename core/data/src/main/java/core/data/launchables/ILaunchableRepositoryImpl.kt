@@ -47,18 +47,14 @@ import core.data.time.IClockSource
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.transformLatest
 
 private data class FolderAppList(val records: List<FolderRecord>, val memberKeys: Set<String>)
 
@@ -162,7 +158,10 @@ class ILaunchableRepositoryImpl(
         unorderedState.toLaunchableState(launchCounts = counts)
     }
         .retryWithExponentialBackoff()
-        .withRecentlyInstalledExpiry(clockSource = clockSource)
+        .withRecentlyInstalled(
+            isShown = preferencesRepository.settings.map { settings -> settings.showRecentlyInstalled },
+            clockSource = clockSource
+        )
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
@@ -282,13 +281,7 @@ class ILaunchableRepositoryImpl(
             pickerGroups = pickerGroups
         )
         return UnorderedLaunchableState(
-            state = resolvedState.copy(
-                recentlyInstalled = if (settings.showRecentlyInstalled) {
-                    resolvedState.recentlyInstalledSection(nowEpochMs = clockSource.now().toEpochMilli())
-                } else {
-                    null
-                }
-            ),
+            state = resolvedState,
             appListOrder = settings.appListOrder,
             rankFoldersByUse = settings.rankFoldersByUse
         )
@@ -355,29 +348,19 @@ class ILaunchableRepositoryImpl(
 }
 
 /**
- * Re-emits each state with its Recently installed section re-projected once the section's
- * earliest-installed App leaves the recent-install window, so an App expires on time without an
- * unrelated state change. A new state restarts the projection from the section it carries.
+ * Projects each state's Recently installed section at the instant of every Clock source reading
+ * (each minute tick, time and timezone change) while [isShown] is true, so an App expires at the
+ * first reading past its window, even after deep sleep or a wall-clock jump, without an unrelated
+ * state change. A state is left without a section while [isShown] is false.
  */
-internal fun Flow<LaunchableState>.withRecentlyInstalledExpiry(clockSource: IClockSource): Flow<LaunchableState> =
-    transformLatest { state -> emitAll(state.expiringRecentlyInstalled(clockSource = clockSource)) }
-
-/**
- * [this], then [this] with the section re-projected at each of its expiries, stopping once a
- * re-projection changes nothing: only a clock that reads backwards reaches an expiry with nothing
- * to drop, and the next state change re-arms it.
- */
-private fun LaunchableState.expiringRecentlyInstalled(clockSource: IClockSource): Flow<LaunchableState> = flow {
-    val state: LaunchableState = this@expiringRecentlyInstalled
-    emit(state)
-    val earliestExpiryEpochMs: Long = state.recentlyInstalled?.earliestExpiryEpochMs() ?: return@flow
-    delay((earliestExpiryEpochMs - clockSource.now().toEpochMilli()).coerceAtLeast(0))
-    val nowEpochMs: Long = clockSource.now().toEpochMilli()
-    val expired: LaunchableState = state.copy(recentlyInstalled = state.recentlyInstalledSection(nowEpochMs = nowEpochMs))
-    if (expired != state) {
-        emitAll(expired.expiringRecentlyInstalled(clockSource = clockSource))
+internal fun Flow<LaunchableState>.withRecentlyInstalled(isShown: Flow<Boolean>, clockSource: IClockSource): Flow<LaunchableState> =
+    combine(this, isShown, clockSource.readings) { state, shown, reading ->
+        if (shown) {
+            state.copy(recentlyInstalled = state.recentlyInstalledSection(nowEpochMs = reading.instant.toEpochMilli()))
+        } else {
+            state
+        }
     }
-}
 
 /**
  * Applies [ranking] to the items of each Initial group and of the Unlocked Private Space

@@ -31,15 +31,24 @@ fun createClockSourceMock(reading: ClockReading): IClockSource =
     createClockSourceMock(readings = MutableStateFlow(reading), now = { reading.instant })
 
 /** A MockK [IClockSource] and the [readings] flow a test emits new readings to. */
-data class MutableClockSource(val source: IClockSource, val readings: MutableStateFlow<ClockReading>)
+data class MutableClockSource(val source: IClockSource, val readings: MutableStateFlow<ClockReading>) {
+    /** Emits a reading at [instant], which [IClockSource.now] then reports too unless the source was given its own `now`. */
+    fun moveTo(instant: Instant) {
+        readings.value = readings.value.copy(instant = instant)
+    }
+}
 
 /**
- * A [MutableClockSource] whose readings start at [now] in UTC, so a test moves the clock by
- * changing what [now] returns or by emitting a reading to [MutableClockSource.readings].
+ * A [MutableClockSource] whose readings start at [now] (default [TEST_NOW_EPOCH_MS]) in UTC. A test
+ * moves the clock with [MutableClockSource.moveTo], or by changing what a custom [now] returns.
  */
-fun createMutableClockSourceMock(now: () -> Instant = { Instant.ofEpochMilli(TEST_NOW_EPOCH_MS) }): MutableClockSource {
-    val readings: MutableStateFlow<ClockReading> = MutableStateFlow(createClockReading(instant = now()))
-    return MutableClockSource(source = createClockSourceMock(readings = readings, now = now), readings = readings)
+fun createMutableClockSourceMock(now: (() -> Instant)? = null): MutableClockSource {
+    val readings: MutableStateFlow<ClockReading> =
+        MutableStateFlow(createClockReading(instant = now?.invoke() ?: Instant.ofEpochMilli(TEST_NOW_EPOCH_MS)))
+    return MutableClockSource(
+        source = createClockSourceMock(readings = readings, now = now ?: { readings.value.instant }),
+        readings = readings
+    )
 }
 
 /** A MockK [IClockSource] held at [TEST_NOW_EPOCH_MS]. */
