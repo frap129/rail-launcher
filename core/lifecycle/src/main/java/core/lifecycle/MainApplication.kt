@@ -543,7 +543,8 @@ class MainApplication :
                 launchCountRepository = get(),
                 searchProjectionSource = get(),
                 shortcutSearchSource = get(),
-                searchSettings = get()
+                searchSettings = get(),
+                clockSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->

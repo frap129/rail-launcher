@@ -17,3 +17,16 @@ fun createLaunchCountRepositoryMock(counts: Flow<List<LaunchCountRecord>> = Muta
     coEvery { mockLaunchCountRepository.recordLaunch(any()) } just Runs
     return mockLaunchCountRepository
 }
+
+/** A [LaunchCountRecord] for [key] with [launchCount] launches, scored [recentUseScore] as of [scoreUpdatedAt]. */
+fun createLaunchCountRecord(
+    key: String,
+    launchCount: Int,
+    recentUseScore: Double = launchCount.toDouble(),
+    scoreUpdatedAt: Long = TEST_NOW_EPOCH_MS
+): LaunchCountRecord = LaunchCountRecord(
+    key = key,
+    launchCount = launchCount,
+    recentUseScore = recentUseScore,
+    scoreUpdatedAt = scoreUpdatedAt
+)

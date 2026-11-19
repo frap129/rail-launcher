@@ -5,12 +5,16 @@ const val FAVORITES_EMPTY_HINT_KEY: String = "favoritesEmptyHint"
 
 private const val PLACE_KEY_PREFIX: String = "place:"
 private const val FAVORITE_KEY_PREFIX: String = "favorite:"
+private const val SUGGESTION_KEY_PREFIX: String = "suggestion:"
 
 /** The LazyColumn key of a Widget Area place. */
 fun placeKey(id: Long): String = "$PLACE_KEY_PREFIX$id"
 
 /** The LazyColumn key of a Favorite on Home. */
 fun favoriteKey(key: String): String = "$FAVORITE_KEY_PREFIX$key"
+
+/** The LazyColumn key of a Home suggestion. */
+fun suggestionKey(key: String): String = "$SUGGESTION_KEY_PREFIX$key"
 
 /** Whether [key] belongs to a Widget Area place rather than another Home item. */
 fun isPlaceKey(key: Any?): Boolean = key is String && key.startsWith(PLACE_KEY_PREFIX)

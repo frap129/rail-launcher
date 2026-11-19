@@ -45,11 +45,14 @@ import core.data.search.SearchShortcut
 import core.data.search.SearchSuggestionSources
 import core.data.search.SearchTypedSources
 import core.data.search.autoLaunchResult
+import core.data.search.homeSuggestions
 import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
+import core.data.search.suggestibleLaunchableFor
 import core.data.search.toSearchResults
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -65,6 +68,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -94,6 +98,7 @@ sealed class LauncherUiState {
         val lazyListState: LazyListState,
         val favorites: List<Launchable>,
         val isFavoritesLoaded: Boolean,
+        val suggestions: List<Launchable>,
         val isSwipeUpEnabled: Boolean,
         val isSwipeDownEnabled: Boolean,
         val isEditingFavorites: Boolean = false
@@ -168,6 +173,11 @@ private fun resolvePausedPrompt(requested: Launchable?, state: LaunchableState):
     state.launchables.firstOrNull { current -> current.key == launchable.key }?.takeIf { current -> current.isPaused }
 }
 
+/** The keys of the members of the Folders among [folders]. */
+private fun Map<String, List<PopupItem>>.memberKeysOf(folders: List<Launchable>): Set<String> = folders
+    .flatMap { folder -> this[folder.key].orEmpty() }
+    .mapTo(mutableSetOf()) { item -> item.launchable.key }
+
 /** The names of the Folder members whose App has at least one visible notification. */
 private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: List<NotificationSnapshot>): List<String> {
     val notificationsByItem: Map<String, List<NotificationSnapshot>> =
@@ -176,6 +186,9 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
         .filter { item -> item.launchable.key in notificationsByItem }
         .map { item -> item.launchable.name }
 }
+
+/** The Favorites and the Home suggestions Home shows after them. */
+private data class HomeContent(val favoritesState: FavoritesState, val suggestions: List<Launchable>)
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
@@ -268,15 +281,16 @@ private fun toSearchUiState(
 private fun toLauncherUiState(
     navigation: RailNavigation,
     state: LaunchableState,
-    favoritesState: FavoritesState,
+    homeContent: HomeContent,
     isEditingFavorites: Boolean,
     settings: Settings
 ): LauncherUiState {
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
-            favorites = favoritesState.favorites,
-            isFavoritesLoaded = favoritesState.isLoaded,
+            favorites = homeContent.favoritesState.favorites,
+            isFavoritesLoaded = homeContent.favoritesState.isLoaded,
+            suggestions = if (isEditingFavorites) emptyList() else homeContent.suggestions,
             isSwipeUpEnabled = settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
             isEditingFavorites = isEditingFavorites
@@ -351,7 +365,8 @@ class LauncherViewModel(
     private val launchCountRepository: ILaunchCountRepository,
     private val searchProjectionSource: ISearchProjectionSource,
     private val shortcutSearchSource: IShortcutSearchSource,
-    private val searchSettings: ISearchSettings
+    private val searchSettings: ISearchSettings,
+    private val clockSource: IClockSource
 ) : ViewModel() {
     private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
@@ -496,19 +511,38 @@ class LauncherViewModel(
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: Flow<List<Launchable>> = favoritesState.map { state -> state.favorites }
 
+    // The keys of the Home suggestions, null until they are first projected. They change only on
+    // start and while Home is not shown, so rows never move under the user; the Launchables they
+    // resolve to stay current.
+    private val homeSuggestionKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
+
+    private val homeContent: Flow<HomeContent> = combine(
+        favoritesState,
+        homeSuggestionKeys,
+        launchableState
+    ) { favoritesState, suggestionKeys, state ->
+        val favoriteKeys: Set<String> = favoritesState.favorites.mapTo(mutableSetOf()) { favorite -> favorite.key }
+        HomeContent(
+            favoritesState = favoritesState,
+            suggestions = suggestionKeys.orEmpty()
+                .filterNot { key -> key in favoriteKeys }
+                .mapNotNull { key -> state.suggestibleLaunchableFor(key = key) }
+        )
+    }
+
     // Home and the App List never read the Search projection; only the Search state collects it.
     private val launcherUiState: Flow<LauncherUiState> = combine(
         navigation,
         launchableState,
-        favoritesState,
+        homeContent,
         isEditingFavorites,
         currentSettings
-    ) { navigation, state, favoritesState, isEditingFavorites, settings ->
+    ) { navigation, state, homeContent, isEditingFavorites, settings ->
         if (navigation.search == null) {
             toLauncherUiState(
                 navigation = navigation,
                 state = state,
-                favoritesState = favoritesState,
+                homeContent = homeContent,
                 isEditingFavorites = isEditingFavorites,
                 settings = settings
             )
@@ -558,6 +592,33 @@ class LauncherViewModel(
                 }
             }
         }
+
+    // Projects the Home suggestions once Home's Favorites and the Launch counts have loaded, then
+    // again only while Home is not shown. It reads the repository's Favorites, because the shown
+    // Favorites stop being collected when nothing is subscribed.
+    init {
+        viewModelScope.launch {
+            combine(
+                navigation.map { navigation -> navigation.mode == LauncherMode.Home }.distinctUntilChanged(),
+                launchableState,
+                favoritesRepo.state,
+                launchCountRepository.counts,
+                folderMembers
+            ) { isHomeShown, state, favoritesState, launchCounts, members ->
+                val isFrozen: Boolean = isHomeShown && homeSuggestionKeys.value != null
+                if (isFrozen || !state.isAppListReady || !favoritesState.isLoaded) {
+                    null
+                } else {
+                    state.homeSuggestions(
+                        favorites = favoritesState.favorites,
+                        launchCounts = launchCounts,
+                        folderMemberKeys = members.memberKeysOf(folders = favoritesState.favorites),
+                        nowEpochMs = clockSource.now().toEpochMilli()
+                    ).map { launchable -> launchable.key }
+                }
+            }.filterNotNull().collect { keys -> homeSuggestionKeys.value = keys }
+        }
+    }
 
     /** The names of each Folder's members with notifications, in item order, keyed by the Folder key. */
     val folderSummaries: StateFlow<Map<String, List<String>>> = combine(
