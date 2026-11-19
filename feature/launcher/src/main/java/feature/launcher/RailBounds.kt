@@ -11,4 +11,9 @@ internal class RailBounds {
     fun update(bounds: Rect) {
         current = bounds
     }
+
+    /** Forgets the stored bounds once nothing takes Rail touches. */
+    fun clear() {
+        current = null
+    }
 }

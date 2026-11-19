@@ -374,6 +374,16 @@ internal fun BoxScope.LauncherRail(
     LaunchedEffect(railItems.size, isEnabled, railSide, scrubEdges, showRail) {
         railGesture.reset()
     }
+    // The drawn Rail takes touches on its own edge; every other enabled edge, including both while
+    // the Rail is hidden, gets an invisible strip that scrubs it.
+    val scrubStripSides: List<RailSide> = RailSide.entries.filter { side ->
+        scrubEdges.includes(side) && !(showRail && side == railSide)
+    }
+    // Stored bounds always describe what takes Rail touches: the drawn Rail, the Rail-side strip, or nothing.
+    val takesRailTouches: Boolean = showRail || railSide in scrubStripSides
+    LaunchedEffect(takesRailTouches) {
+        if (!takesRailTouches) railBounds.clear()
+    }
     val railScrubState: RailScrubState = rememberRailScrubState(
         items = railItems,
         onScroll = { index ->
@@ -409,13 +419,8 @@ internal fun BoxScope.LauncherRail(
             railSide = railSide
         )
     }
-    // The drawn Rail takes touches on its own edge; every other enabled edge, including both while
-    // the Rail is hidden, gets an invisible strip that scrubs it.
-    val scrubStripSides: List<RailSide> = RailSide.entries.filter { side ->
-        scrubEdges.includes(side) && !(showRail && side == railSide)
-    }
     scrubStripSides.forEach { stripSide ->
-        val hiddenRailBounds: Modifier = if (!showRail && stripSide == railSide) {
+        val hiddenRailBounds: Modifier = if (stripSide == railSide) {
             Modifier.publishRailBounds(railBounds = railBounds)
         } else {
             Modifier
