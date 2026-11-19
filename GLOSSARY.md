@@ -136,6 +136,10 @@ _Avoid_: Folder item, folder entry
 The floating card attached to a row, opened by swiping an App row or by tapping or swiping a Folder row, holding that Launchable's shortcuts, added items and, later, widgets and notifications.
 _Avoid_: Popup, card menu, long-press menu
 
+**Pop-up row**:
+The list a Pop-up's row sits in: Home, an App List group, Recently installed or Search. With its Owner it names one row, so a recently installed App's two rows, in its Initial group and in Recently installed, stay distinct and the open Pop-up follows only the one that opened it, even after that row scrolls away and returns.
+_Avoid_: Anchor row, source row
+
 **Pop-up card**:
 The floating surface of an open Pop-up: its header, Shortcuts, Added items, Notifications, Widget and menu. It is not a Widget.
 _Avoid_: Card (when meaning a Widget), pop-up window

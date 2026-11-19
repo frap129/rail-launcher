@@ -10,8 +10,14 @@ private const val NON_RAIL_INSET_DP: Float = 16f
 private const val MAX_WIDTH_DP: Float = 400f
 private const val VERTICAL_INSET_DP: Float = 16f
 
-/** The swiped row's position and icon centre, in root pixels. */
-data class PopupAnchor(val rowTop: Int, val rowBottom: Int, val iconCenter: Offset)
+/**
+ * The list a row sits in. With its Owner it names one row, so the two rows a recently installed App
+ * has stay distinct, and the name is stable while a row leaves and re-enters a lazy list.
+ */
+enum class PopupRow { Home, Group, RecentlyInstalled, Search }
+
+/** The [row]'s position and icon centre, in root pixels. */
+data class PopupAnchor(val row: PopupRow, val rowTop: Int, val rowBottom: Int, val iconCenter: Offset)
 
 /** The window's top and bottom safe insets, in pixels. */
 data class PopupInsets(val top: Int, val bottom: Int)

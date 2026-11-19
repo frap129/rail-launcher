@@ -122,6 +122,7 @@ fun LauncherItem(
     isEditingFavorites: Boolean,
     isFavorite: Boolean,
     isPopupSwipeEnabled: Boolean,
+    popupRow: PopupRow,
     itemActions: LauncherItemActions,
     secondaryText: String? = null,
     accessibilityAnnouncement: String? = null,
@@ -184,6 +185,7 @@ fun LauncherItem(
                         bounds.left + iconCenterPx
                     }
                     val anchor: PopupAnchor = PopupAnchor(
+                        row = popupRow,
                         rowTop = bounds.top.roundToInt(),
                         rowBottom = bounds.bottom.roundToInt(),
                         iconCenter = Offset(x = iconCenterX, y = bounds.top + iconCenterPx)

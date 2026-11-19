@@ -348,6 +348,7 @@ private fun LauncherSearchResults(
                     isEditingFavorites = false,
                     isFavorite = false,
                     isPopupSwipeEnabled = true,
+                    popupRow = PopupRow.Search,
                     itemActions = itemActions,
                     secondaryText = if (result.isHidden) hiddenLabel else (result.launchable as? ShortcutLaunchable)?.publisherName,
                     accessibilityAnnouncement = accessibilityAnnouncement

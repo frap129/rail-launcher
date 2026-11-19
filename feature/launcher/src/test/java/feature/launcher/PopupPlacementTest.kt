@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntRect
 import core.data.prefs.RailSide
 import org.junit.Assert.assertEquals
@@ -9,7 +8,6 @@ import org.junit.Test
 private const val DENSITY: Float = 1f
 private val INPUT_WINDOW: IntRect = IntRect(left = 0, top = 0, right = 1080, bottom = 1920)
 private val INPUT_SAFE_INSETS: PopupInsets = PopupInsets(top = 100, bottom = 100)
-private val INPUT_ANCHOR: PopupAnchor = PopupAnchor(rowTop = 500, rowBottom = 564, iconCenter = Offset(32f, 532f))
 
 class PopupPlacementTest {
     @Test
@@ -17,7 +15,7 @@ class PopupPlacementTest {
         val actualFrame: PopupFrame = placeFrame()
 
         assertEquals(16, actualFrame.offsetX)
-        assertEquals(500, actualFrame.offsetY)
+        assertEquals(400, actualFrame.offsetY)
         assertEquals(400, actualFrame.width)
         assertEquals(1688, actualFrame.maxHeight)
     }
@@ -63,7 +61,7 @@ class PopupPlacementTest {
     @Test
     fun `shifts the card up when it does not fit below the row`() {
         val actualFrame: PopupFrame = placeFrame(
-            anchor = INPUT_ANCHOR.copy(rowTop = 1800, rowBottom = 1864),
+            anchor = TEST_INPUT_ANCHOR.copy(rowTop = 1800, rowBottom = 1864),
             contentHeightPx = 400
         )
 
@@ -73,7 +71,7 @@ class PopupPlacementTest {
     @Test
     fun `clamps the card at the window height and reports the max height`() {
         val actualFrame: PopupFrame = placeFrame(
-            anchor = INPUT_ANCHOR.copy(rowTop = 1800, rowBottom = 1864),
+            anchor = TEST_INPUT_ANCHOR.copy(rowTop = 1800, rowBottom = 1864),
             contentHeightPx = 2000
         )
 
@@ -106,7 +104,7 @@ class PopupPlacementTest {
     }
 
     private fun placeFrame(
-        anchor: PopupAnchor? = INPUT_ANCHOR,
+        anchor: PopupAnchor? = TEST_INPUT_ANCHOR,
         window: IntRect = INPUT_WINDOW,
         safeInsets: PopupInsets = INPUT_SAFE_INSETS,
         contentHeightPx: Int = 200,
