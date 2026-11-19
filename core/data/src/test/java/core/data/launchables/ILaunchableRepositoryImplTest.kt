@@ -794,14 +794,12 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputRecentApp: App = createApp(
             name = "Fresh",
             packageName = "com.example.fresh",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
         )
         val inputOldApp: App = createApp(
             name = "Old",
             packageName = "com.example.old",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - MILLIS_PER_WEEK
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_WEEK
         )
         database.getSettingsDao().upsert(Settings(showRecentlyInstalled = true))
         val repository: ILaunchableRepository = createRepository(
@@ -823,8 +821,7 @@ class ILaunchableRepositoryImplTest : InMemoryDatabaseTest() {
         val inputRecentApp: App = createApp(
             name = "Fresh",
             packageName = "com.example.fresh",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
         )
         val repository: ILaunchableRepository = createRepository(
             mockAppRepository = createAppRepositoryMock(inputApps = listOf(inputRecentApp))

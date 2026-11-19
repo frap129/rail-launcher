@@ -511,20 +511,17 @@ class LaunchableGroupsTest {
         val inputOldest: App = createApp(
             name = "Alpha",
             packageName = "com.example.alpha",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
+            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS
         )
         val inputMiddle: App = createApp(
             name = "Beta",
             packageName = "com.example.beta",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - MILLIS_PER_HOUR
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_HOUR
         )
         val inputNewest: App = createApp(
             name = "Gamma",
             packageName = "com.example.gamma",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
+            firstInstallTime = TEST_NOW_EPOCH_MS - MILLIS_PER_MINUTE
         )
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOldest, inputNewest, inputMiddle))
 
@@ -559,8 +556,7 @@ class LaunchableGroupsTest {
         val inputOldApp: App = createApp(
             name = "Alpha",
             packageName = "com.example.alpha",
-            firstInstallTime =
-            TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS - 1
+            firstInstallTime = TEST_NOW_EPOCH_MS - RECENT_INSTALL_WINDOW_MS - 1
         )
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOldApp))
 
