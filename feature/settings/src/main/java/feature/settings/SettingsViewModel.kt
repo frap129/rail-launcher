@@ -15,6 +15,7 @@ import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.prefs.isContactResultsEnabled
 import core.data.profiles.IPrivateSpaceStatus
+import core.data.search.IStoppedSuggestionRepository
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.ui.model.data.SEARCH_SETTINGS_KEY
 import core.ui.search.SearchContactsUiEvent
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 private val defaultSettings: Settings = Settings()
 
@@ -107,7 +109,8 @@ class SettingsViewModel(
     private val iconRepo: IIconRepository,
     private val privateSpaceStatus: IPrivateSpaceStatus,
     private val searchSettings: ISearchSettings,
-    private val launchableRepo: ILaunchableRepository
+    private val launchableRepo: ILaunchableRepository,
+    private val stoppedSuggestionRepo: IStoppedSuggestionRepository
 ) : ViewModel() {
     private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
@@ -121,6 +124,15 @@ class SettingsViewModel(
             viewModelScope,
             SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
             null
+        )
+
+    /** Whether the user stopped suggesting any Launchable on Home, so the reset row has something to reset. */
+    val hasStoppedSuggestions: StateFlow<Boolean> = stoppedSuggestionRepo.keys
+        .map { keys -> keys.isNotEmpty() }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+            false
         )
 
     private val selectedIconPack: Flow<IconPack> = iconRepo.iconPacks.combine(prefsRepo.settings) { iconPacks, settings ->
@@ -185,6 +197,11 @@ class SettingsViewModel(
 
     /** Persists whether Home shows the Home suggestions. */
     fun setSuggestOftenUsedApps(enabled: Boolean) = prefsRepo.setSuggestOftenUsedApps(enabled)
+
+    /** Lets Home suggest every Launchable the user stopped suggesting again. */
+    fun resetStoppedSuggestions() {
+        viewModelScope.launch { stoppedSuggestionRepo.reset() }
+    }
 
     /** Persists whether swiping down on Home expands the notification shade. */
     fun setExpandNotificationsOnSwipeDown(enabled: Boolean) = prefsRepo.setExpandNotificationsOnSwipeDown(enabled)

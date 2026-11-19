@@ -2,10 +2,13 @@ package feature.settings
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -235,6 +238,44 @@ class SettingsSheetRowsTest {
         )
     }
 
+    @Test
+    fun `resets custom icons only after the user confirms`() {
+        var actualResets = 0
+        setAppearanceContent(onResetCustomIcons = { actualResets++ })
+
+        assertResetRunsOnlyAfterConfirming(title = getString(R.string.reset_custom_icons), actualResets = { actualResets })
+    }
+
+    @Test
+    fun `shows Reset stopped suggestions and resets only after the user confirms when a suggestion is stopped`() {
+        var actualResets = 0
+        setAppearanceContent(hasStoppedSuggestions = true, onResetStoppedSuggestions = { actualResets++ })
+
+        assertResetRunsOnlyAfterConfirming(title = getString(R.string.reset_stopped_suggestions), actualResets = { actualResets })
+    }
+
+    @Test
+    fun `hides Reset stopped suggestions when nothing is stopped`() {
+        setAppearanceContent(hasStoppedSuggestions = false)
+
+        composeRule.onNodeWithText(getString(R.string.reset_stopped_suggestions)).assertDoesNotExist()
+    }
+
+    /** Asserts the destructive row [title] resets nothing when dismissed and resets once when confirmed, reading resets with [actualResets]. */
+    private fun assertResetRunsOnlyAfterConfirming(title: String, actualResets: () -> Int) {
+        val confirmButton: SemanticsMatcher = hasText(title) and hasAnyAncestor(isDialog())
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(title))
+
+        composeRule.onNodeWithText(title).performClick()
+        composeRule.onNodeWithText(getString(CoreUiR.string.cancel)).performClick()
+        composeRule.runOnIdle { assertEquals(0, actualResets()) }
+        composeRule.onNodeWithText(title).performClick()
+        composeRule.onNode(confirmButton).performClick()
+
+        composeRule.runOnIdle { assertEquals(1, actualResets()) }
+        composeRule.onNode(confirmButton).assertDoesNotExist()
+    }
+
     /** Asserts the switch row [title] shows [summary] and reports the opposite of [checked] when clicked. */
     private fun assertSwitchRow(
         title: String,
@@ -260,12 +301,15 @@ class SettingsSheetRowsTest {
         railHaptics: Boolean = true,
         showRail: Boolean = true,
         suggestOftenUsedApps: Boolean = true,
+        hasStoppedSuggestions: Boolean = false,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
         onRankFoldersByUseChange: (Boolean) -> Unit = {},
         onShowRecentlyInstalledChange: (Boolean) -> Unit = {},
         onRailHapticsChange: (Boolean) -> Unit = {},
         onShowRailChange: (Boolean) -> Unit = {},
-        onSuggestOftenUsedAppsChange: (Boolean) -> Unit = {}
+        onSuggestOftenUsedAppsChange: (Boolean) -> Unit = {},
+        onResetCustomIcons: () -> Unit = {},
+        onResetStoppedSuggestions: () -> Unit = {}
     ) {
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -279,15 +323,17 @@ class SettingsSheetRowsTest {
                 railHaptics = railHaptics,
                 showRail = showRail,
                 suggestOftenUsedApps = suggestOftenUsedApps,
+                hasStoppedSuggestions = hasStoppedSuggestions,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
-                    onResetCustomIcons = {},
+                    onResetCustomIcons = onResetCustomIcons,
                     onAppListOrderSelected = onAppListOrderSelected,
                     onRankFoldersByUseChange = onRankFoldersByUseChange,
                     onShowRecentlyInstalledChange = onShowRecentlyInstalledChange,
                     onRailHapticsChange = onRailHapticsChange,
                     onShowRailChange = onShowRailChange,
                     onSuggestOftenUsedAppsChange = onSuggestOftenUsedAppsChange,
+                    onResetStoppedSuggestions = onResetStoppedSuggestions,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}
                 )

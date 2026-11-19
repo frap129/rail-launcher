@@ -15,6 +15,9 @@ interface StoppedSuggestionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(record: StoppedSuggestionRecord)
 
+    @Query("DELETE FROM ${StoppedSuggestionRecord.TABLE_NAME}")
+    suspend fun clear()
+
     @Query("DELETE FROM ${StoppedSuggestionRecord.TABLE_NAME} WHERE key IN (:keys)")
     suspend fun remove(keys: List<String>)
 }

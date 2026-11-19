@@ -18,4 +18,10 @@ class IStoppedSuggestionRepositoryImpl(
             stoppedSuggestionDao.upsert(StoppedSuggestionRecord(key = key))
         }
     }
+
+    override suspend fun reset() {
+        withContext(dispatcher) {
+            stoppedSuggestionDao.clear()
+        }
+    }
 }

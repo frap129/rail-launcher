@@ -581,7 +581,8 @@ class MainApplication :
                 iconRepo = get(),
                 privateSpaceStatus = get(),
                 searchSettings = get(),
-                launchableRepo = get()
+                launchableRepo = get(),
+                stoppedSuggestionRepo = get()
             )
         }
         viewModel { (session: IPopupSession) ->

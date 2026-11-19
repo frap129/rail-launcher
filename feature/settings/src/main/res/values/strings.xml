@@ -18,6 +18,9 @@
     <string name="rail_haptics">Rail haptics</string>
     <string name="rail_haptics_summary">Tick each mark you scrub over</string>
     <string name="icon_pack">Icon Pack</string>
+    <string name="reset_stopped_suggestions">Reset stopped suggestions</string>
+    <string name="reset_stopped_suggestions_title">Reset stopped suggestions?</string>
+    <string name="reset_stopped_suggestions_body">Home can suggest Apps you chose Stop suggesting for again.</string>
     <string name="reset_custom_icons">Reset custom icons</string>
     <string name="reset_custom_icons_title">Reset custom icons?</string>
     <string name="reset_custom_icons_body">Apps, Shortcuts and Folders stop using their custom icons. Custom names are kept.</string>
