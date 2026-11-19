@@ -136,7 +136,7 @@ internal fun LauncherContent(
                     onUnlock = viewModel::requestPrivateSpaceUnlock,
                     onLock = viewModel::lockPrivateSpace,
                     onSettings = privateSpaceSettingsIntent?.let { intentSender ->
-                        { context.openPrivateSpaceSettings(intentSender) }
+                        { context.tryStartIntentSender(intentSender = intentSender) }
                     }
                 ),
                 railBounds = { railBounds.current },
@@ -396,8 +396,8 @@ internal fun BoxScope.LauncherRail(
                 onRailReleased(index)
             }
         },
-        enabled = isEnabled,
-        railHaptics = railHaptics
+        railHaptics = railHaptics,
+        enabled = isEnabled
     )
     if (showRail) {
         val drawnRailInput: Modifier = if (scrubEdges.includes(railSide)) {
@@ -494,8 +494,3 @@ internal fun privateSpaceLaunchOptions(): ActivityOptions? = if (Build.VERSION.S
 /** Starts the system's [intentSender], returning whether the system accepted it. */
 internal fun Context.tryStartIntentSender(intentSender: IntentSender): Boolean =
     attemptLaunch { startIntentSender(intentSender, null, 0, 0, 0, privateSpaceLaunchOptions()?.toBundle()) }
-
-/** Opens the system's Private Space settings screen, logging when the system no longer offers it. */
-private fun Context.openPrivateSpaceSettings(intentSender: IntentSender) {
-    tryStartIntentSender(intentSender = intentSender)
-}

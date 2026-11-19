@@ -168,8 +168,8 @@ fun rememberRailScrubState(
     items: List<GroupMark>,
     onScroll: (Int) -> Unit,
     onScrollEnded: (Int) -> Unit,
-    enabled: Boolean = true,
-    railHaptics: Boolean
+    railHaptics: Boolean,
+    enabled: Boolean = true
 ): RailScrubState {
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val scope: CoroutineScope = rememberCoroutineScope()

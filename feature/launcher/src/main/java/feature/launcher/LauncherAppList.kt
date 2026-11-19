@@ -31,7 +31,8 @@ import core.data.launchables.model.appListKey
 import core.data.prefs.RailSide
 import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.LaunchableSectionHeader
-import core.ui.layout.appListPaddingValues
+import core.ui.layout.appListStartInset
+import core.ui.layout.homeEdgePadding
 import kotlinx.coroutines.flow.Flow
 
 /** The LazyColumn key of the Recently installed section, which is not one of the App List's groups. */
@@ -82,7 +83,7 @@ fun LauncherAppList(
     )
     LazyColumn(
         modifier = modifier
-            .padding(appListPaddingValues(railSide = railSide, showRail = showRail))
+            .padding(start = appListStartInset(railSide = railSide, showRail = showRail), end = homeEdgePadding)
             .testTag("launcherList"),
         state = lazyListState,
         horizontalAlignment = Alignment.Start,

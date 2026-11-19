@@ -39,13 +39,6 @@ fun homeRailContentPaddingValues(railSide: RailSide, bottom: Dp = 0.dp): Padding
 fun appListStartInset(railSide: RailSide, showRail: Boolean): Dp =
     if (showRail) homeRailStartInset(railSide = railSide) else homeEdgePadding
 
-/** The App List's padding, keeping the Rail's touch column clear only while [showRail]. */
-fun appListPaddingValues(railSide: RailSide, showRail: Boolean, bottom: Dp = 0.dp): PaddingValues = PaddingValues(
-    start = appListStartInset(railSide = railSide, showRail = showRail),
-    end = homeEdgePadding,
-    bottom = bottom
-)
-
 /** The padding that keeps Home content clear of the Rail's touch column on [railSide]. */
 fun homeContentPaddingValues(railSide: RailSide): PaddingValues = PaddingValues(
     start = homeContentStartInset(railSide = railSide),
