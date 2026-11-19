@@ -51,7 +51,12 @@ import org.robolectric.RuntimeEnvironment
 
 internal const val TEST_WORK_PROFILE_SERIAL: Long = 42L
 internal val TEST_NOW: Instant = Instant.ofEpochMilli(10_000_000L)
-internal val TEST_INPUT_ANCHOR: PopupAnchor = PopupAnchor(rowTop = 400, rowBottom = 464, iconCenter = Offset(32f, 432f))
+internal val TEST_INPUT_ANCHOR: PopupAnchor = PopupAnchor(
+    row = PopupRow.Group,
+    rowTop = 400,
+    rowBottom = 464,
+    iconCenter = Offset(32f, 432f)
+)
 
 /** The card, editor, pickers and Folder actions connected by one Pop-up session. */
 class PopupTestSession(

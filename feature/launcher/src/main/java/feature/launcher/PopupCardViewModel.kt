@@ -472,10 +472,15 @@ class PopupCardViewModel(
         }
     }
 
-    /** Moves an open Pop-up to its row's latest position after a relayout. */
+    /**
+     * Moves an open Pop-up to the latest position of the row that opened it, ignoring the owner's other
+     * rows. A Pop-up opened without a row takes the first one the owner reports and follows only that.
+     */
     fun onAnchorChanged(ownerKey: String, anchor: PopupAnchor) {
         openRequest.update { request ->
-            if (request?.target?.ownerKey == ownerKey) request.copy(anchor = anchor) else request
+            val isOpeningRow: Boolean = request?.target?.ownerKey == ownerKey &&
+                (request.anchor == null || request.anchor.row == anchor.row)
+            if (isOpeningRow) request?.copy(anchor = anchor) else request
         }
     }
 

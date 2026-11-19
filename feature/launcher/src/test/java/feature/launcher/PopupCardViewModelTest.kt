@@ -559,6 +559,44 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     }
 
     @Test
+    fun `keeps a Pop-up opened from the Initial group row on that row`() = runTest {
+        assertPopupFollowsOnlyOpeningRow(openingRow = PopupRow.Group, otherRow = PopupRow.RecentlyInstalled)
+    }
+
+    @Test
+    fun `keeps a Pop-up opened from the Recently installed row on that row`() = runTest {
+        assertPopupFollowsOnlyOpeningRow(openingRow = PopupRow.RecentlyInstalled, otherRow = PopupRow.Group)
+    }
+
+    @Test
+    fun `adopts the first row an owner reports for a Pop-up opened without a row`() = runTest {
+        val viewModel: PopupCardViewModel = createCard()
+        val inputFirstAnchor: PopupAnchor = TEST_INPUT_ANCHOR.copy(row = PopupRow.Group, rowTop = 700, rowBottom = 764)
+        val inputOtherAnchor: PopupAnchor = TEST_INPUT_ANCHOR.copy(row = PopupRow.RecentlyInstalled, rowTop = 900, rowBottom = 964)
+        viewModel.popupState.test {
+            viewModel.open(inputApp, anchor = null)
+            viewModel.onAnchorChanged(inputApp.key, inputFirstAnchor)
+            assertEquals(inputFirstAnchor, (expectMostRecentItem() as PopupUiState.Open).anchor)
+            viewModel.onAnchorChanged(inputApp.key, inputOtherAnchor)
+            expectNoEvents()
+        }
+    }
+
+    private suspend fun TestScope.assertPopupFollowsOnlyOpeningRow(openingRow: PopupRow, otherRow: PopupRow) {
+        val viewModel: PopupCardViewModel = createCard()
+        val inputOpeningAnchor: PopupAnchor = TEST_INPUT_ANCHOR.copy(row = openingRow)
+        val inputOtherAnchor: PopupAnchor = TEST_INPUT_ANCHOR.copy(row = otherRow, rowTop = 800, rowBottom = 864)
+        val inputMovedAnchor: PopupAnchor = inputOpeningAnchor.copy(rowTop = 900, rowBottom = 964)
+        viewModel.popupState.test {
+            viewModel.open(inputApp, inputOpeningAnchor)
+            viewModel.onAnchorChanged(inputApp.key, inputOtherAnchor)
+            assertEquals(inputOpeningAnchor, (expectMostRecentItem() as PopupUiState.Open).anchor)
+            viewModel.onAnchorChanged(inputApp.key, inputMovedAnchor)
+            assertEquals(inputMovedAnchor, (expectMostRecentItem() as PopupUiState.Open).anchor)
+        }
+    }
+
+    @Test
     fun `requests the owner's shortcuts again after a reload`() = runTest {
         val viewModel: PopupCardViewModel = createCard()
 

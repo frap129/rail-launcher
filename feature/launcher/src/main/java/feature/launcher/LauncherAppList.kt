@@ -135,7 +135,13 @@ fun LauncherItemGroup(
             )
         }
         group.items.forEach { item ->
-            LauncherAppListRow(item = item, rowState = rowState, itemActions = itemActions, folderSummaries = folderSummaries)
+            LauncherAppListRow(
+                item = item,
+                popupRow = PopupRow.Group,
+                rowState = rowState,
+                itemActions = itemActions,
+                folderSummaries = folderSummaries
+            )
         }
         if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
             PrivateSpaceActionRows(actions = itemActions.privateSpaceActions)
@@ -154,7 +160,13 @@ private fun LauncherRecentlyInstalledGroup(
     Column {
         LaunchableSectionHeader(title = stringResource(R.string.recently_installed))
         section.apps.forEach { app ->
-            LauncherAppListRow(item = app, rowState = rowState, itemActions = itemActions, folderSummaries = folderSummaries)
+            LauncherAppListRow(
+                item = app,
+                popupRow = PopupRow.RecentlyInstalled,
+                rowState = rowState,
+                itemActions = itemActions,
+                folderSummaries = folderSummaries
+            )
         }
     }
 }
@@ -163,6 +175,7 @@ private fun LauncherRecentlyInstalledGroup(
 @Composable
 private fun LauncherAppListRow(
     item: Launchable,
+    popupRow: PopupRow,
     rowState: AppListRowState,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>
@@ -172,6 +185,7 @@ private fun LauncherAppListRow(
         isEditingFavorites = rowState.isEditingFavorites,
         isFavorite = item.key in rowState.favoriteKeys,
         isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
+        popupRow = popupRow,
         itemActions = itemActions,
         secondaryText = folderSummaries[item.key]
     )

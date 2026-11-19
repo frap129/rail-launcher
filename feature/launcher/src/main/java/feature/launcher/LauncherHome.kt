@@ -353,6 +353,7 @@ private fun LazyListScope.favoriteItems(
                         isEditingFavorites = home.isEditingFavorites,
                         isFavorite = true,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
+                        popupRow = PopupRow.Home,
                         itemActions = itemActions,
                         secondaryText = folderSummaries[favorite.key],
                         onIconSettled = { onFavoriteIconSettled(favorite) },
