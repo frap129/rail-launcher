@@ -9,6 +9,8 @@
     <string name="rank_folders_by_use">Rank Folders by use</string>
     <string name="show_recently_installed">Show Recently installed</string>
     <string name="show_recently_installed_summary">Ends the App List with Apps first installed in the last %1$d days</string>
+    <string name="suggest_often_used_apps">Suggest often-used Apps</string>
+    <string name="suggest_often_used_apps_summary">Show Apps you open often below your Favorites on Home</string>
     <string name="rail">Rail</string>
     <string name="show_rail_on_left">Show Rail on left</string>
     <string name="show_rail">Show Rail</string>

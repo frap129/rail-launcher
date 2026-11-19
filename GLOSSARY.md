@@ -228,6 +228,10 @@ _Avoid_: Favorites screen, home page, dashboard
 The Launchables Home shows below the Favorites that the user opens often but has not made Favorites, drawn quieter and announced as suggested. They are chosen on start and on leaving Home, never while Home is shown, and Edit Favorites leaves them out.
 _Avoid_: Suggested apps, predictions, Search suggestions (which are another list)
 
+**Suggest often-used Apps**:
+The Rail Settings switch that shows or hides Home suggestions. It defaults to on; while it is off, Home shows only its Favorites.
+_Avoid_: Suggestions toggle, predictions setting
+
 **Home Apps**:
 The Apps Home resolves its Favorites from: the Last-known App list until the live LauncherApps load finishes, then the live Apps. Only Favorites, Folders and Pop-ups resolve from a Last-known Home Apps state; the App List, Rail groups, picker groups, stale-key cleanup and App Widget reconciliation require live Apps.
 _Avoid_: Saved Apps, cached Apps

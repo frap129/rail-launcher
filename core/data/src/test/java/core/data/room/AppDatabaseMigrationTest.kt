@@ -648,6 +648,16 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds Suggest often-used Apps defaulting on and keeps the settings row`() {
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_29_30,
+            version = 29,
+            column = Settings.COLUMN_SUGGEST_OFTEN_USED_APPS,
+            expected = true
+        )
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,

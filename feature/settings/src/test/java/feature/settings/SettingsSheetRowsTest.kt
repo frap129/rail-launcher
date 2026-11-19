@@ -223,6 +223,18 @@ class SettingsSheetRowsTest {
         )
     }
 
+    @Test
+    fun `shows Suggest often-used Apps with its summary and reports its change`() {
+        assertSwitchRow(
+            title = getString(R.string.suggest_often_used_apps),
+            summary = getString(R.string.suggest_often_used_apps_summary),
+            checked = true,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(suggestOftenUsedApps = true, onSuggestOftenUsedAppsChange = onCheckedChange)
+            }
+        )
+    }
+
     /** Asserts the switch row [title] shows [summary] and reports the opposite of [checked] when clicked. */
     private fun assertSwitchRow(
         title: String,
@@ -247,11 +259,13 @@ class SettingsSheetRowsTest {
         showRecentlyInstalled: Boolean = false,
         railHaptics: Boolean = true,
         showRail: Boolean = true,
+        suggestOftenUsedApps: Boolean = true,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
         onRankFoldersByUseChange: (Boolean) -> Unit = {},
         onShowRecentlyInstalledChange: (Boolean) -> Unit = {},
         onRailHapticsChange: (Boolean) -> Unit = {},
-        onShowRailChange: (Boolean) -> Unit = {}
+        onShowRailChange: (Boolean) -> Unit = {},
+        onSuggestOftenUsedAppsChange: (Boolean) -> Unit = {}
     ) {
         composeRule.setContent {
             SettingsAppearanceScreen(
@@ -264,6 +278,7 @@ class SettingsSheetRowsTest {
                 showRecentlyInstalled = showRecentlyInstalled,
                 railHaptics = railHaptics,
                 showRail = showRail,
+                suggestOftenUsedApps = suggestOftenUsedApps,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
                     onResetCustomIcons = {},
@@ -272,6 +287,7 @@ class SettingsSheetRowsTest {
                     onShowRecentlyInstalledChange = onShowRecentlyInstalledChange,
                     onRailHapticsChange = onRailHapticsChange,
                     onShowRailChange = onShowRailChange,
+                    onSuggestOftenUsedAppsChange = onSuggestOftenUsedAppsChange,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}
                 )

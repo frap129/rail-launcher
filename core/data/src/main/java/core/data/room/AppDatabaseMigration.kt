@@ -28,9 +28,7 @@ val MIGRATION_11_12: Migration = object : Migration(11, 12) {
 /** Adds the switch that hides a Locked Private Space, leaving every other setting in place. */
 val MIGRATION_12_13: Migration = object : Migration(12, 13) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED, isEnabledByDefault = false)
     }
 }
 
@@ -75,12 +73,8 @@ val MIGRATION_16_17: Migration = object : Migration(16, 17) {
  */
 val MIGRATION_17_18: Migration = object : Migration(17, 18) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP} INTEGER NOT NULL DEFAULT 1"
-        )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_OPEN_SEARCH_ON_SWIPE_UP, isEnabledByDefault = true)
+        db.addBooleanSetting(column = Settings.COLUMN_OPEN_SEARCH_ON_HOME_PRESS, isEnabledByDefault = false)
     }
 }
 
@@ -90,9 +84,7 @@ val MIGRATION_17_18: Migration = object : Migration(17, 18) {
  */
 val MIGRATION_18_19: Migration = object : Migration(18, 19) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_SUGGESTIONS} INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_SUGGESTIONS, isEnabledByDefault = true)
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS ${SearchHistoryRecord.TABLE_NAME} " +
                 "(key TEXT NOT NULL, launch_count INTEGER NOT NULL, last_launched_at INTEGER NOT NULL, " +
@@ -108,15 +100,9 @@ val MIGRATION_18_19: Migration = object : Migration(18, 19) {
  */
 val MIGRATION_19_20: Migration = object : Migration(19, 20) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_CALCULATOR_ROW} INTEGER NOT NULL DEFAULT 1"
-        )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_ROW} INTEGER NOT NULL DEFAULT 1"
-        )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_PLAY_STORE_ROW} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_CALCULATOR_ROW, isEnabledByDefault = true)
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_WEB_ROW, isEnabledByDefault = true)
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_PLAY_STORE_ROW, isEnabledByDefault = false)
         db.execSQL(
             "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_ENGINE} TEXT NOT NULL " +
                 "DEFAULT '${SearchEngine.None.name}'"
@@ -131,12 +117,8 @@ val MIGRATION_19_20: Migration = object : Migration(19, 20) {
  */
 val MIGRATION_20_21: Migration = object : Migration(20, 21) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_AUTO_LAUNCH} INTEGER NOT NULL DEFAULT 0"
-        )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_AUTO_LAUNCH, isEnabledByDefault = false)
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_BOTTOM_ANCHORED_RESULTS, isEnabledByDefault = false)
     }
 }
 
@@ -146,9 +128,7 @@ val MIGRATION_20_21: Migration = object : Migration(20, 21) {
  */
 val MIGRATION_21_22: Migration = object : Migration(21, 22) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_CONTACTS} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_CONTACTS, isEnabledByDefault = false)
     }
 }
 
@@ -158,9 +138,7 @@ val MIGRATION_21_22: Migration = object : Migration(21, 22) {
  */
 val MIGRATION_22_23: Migration = object : Migration(22, 23) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_WEB_SUGGESTIONS} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_WEB_SUGGESTIONS, isEnabledByDefault = false)
     }
 }
 
@@ -169,9 +147,7 @@ val MIGRATION_22_23: Migration = object : Migration(22, 23) {
  */
 val MIGRATION_23_24: Migration = object : Migration(23, 24) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN} INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_EXPAND_NOTIFICATIONS_ON_SWIPE_DOWN, isEnabledByDefault = true)
     }
 }
 
@@ -191,9 +167,7 @@ val MIGRATION_24_25: Migration = object : Migration(24, 25) {
             "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_APP_LIST_ORDER} TEXT NOT NULL " +
                 "DEFAULT '${AppListOrder.DEFAULT.name}'"
         )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_RANK_FOLDERS_BY_USE} INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_RANK_FOLDERS_BY_USE, isEnabledByDefault = true)
     }
 }
 
@@ -208,10 +182,7 @@ val MIGRATION_25_26: Migration = object : Migration(25, 26) {
             "ALTER TABLE ${LaunchableCustomization.TABLE_NAME} ADD COLUMN ${LaunchableCustomization.COLUMN_HIDDEN} " +
                 "INTEGER NOT NULL DEFAULT 0"
         )
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS} " +
-                "INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SEARCH_SHOW_HIDDEN_APPS, isEnabledByDefault = true)
     }
 }
 
@@ -221,9 +192,7 @@ val MIGRATION_25_26: Migration = object : Migration(25, 26) {
  */
 val MIGRATION_26_27: Migration = object : Migration(26, 27) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SHOW_RECENTLY_INSTALLED} INTEGER NOT NULL DEFAULT 0"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SHOW_RECENTLY_INSTALLED, isEnabledByDefault = false)
     }
 }
 
@@ -233,9 +202,7 @@ val MIGRATION_26_27: Migration = object : Migration(26, 27) {
  */
 val MIGRATION_27_28: Migration = object : Migration(27, 28) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_RAIL_HAPTICS} INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_RAIL_HAPTICS, isEnabledByDefault = true)
     }
 }
 
@@ -245,9 +212,17 @@ val MIGRATION_27_28: Migration = object : Migration(27, 28) {
  */
 val MIGRATION_28_29: Migration = object : Migration(28, 29) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
-            "ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_SHOW_RAIL} INTEGER NOT NULL DEFAULT 1"
-        )
+        db.addBooleanSetting(column = Settings.COLUMN_SHOW_RAIL, isEnabledByDefault = true)
+    }
+}
+
+/**
+ * Adds the Suggest often-used Apps setting, defaulting on so Home shows its suggestions, and keeps
+ * every other setting.
+ */
+val MIGRATION_29_30: Migration = object : Migration(29, 30) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addBooleanSetting(column = Settings.COLUMN_SUGGEST_OFTEN_USED_APPS, isEnabledByDefault = true)
     }
 }
 
@@ -270,5 +245,12 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_25_26,
     MIGRATION_26_27,
     MIGRATION_27_28,
-    MIGRATION_28_29
+    MIGRATION_28_29,
+    MIGRATION_29_30
 )
+
+/** Adds the Boolean settings [column], defaulting to [isEnabledByDefault], keeping every other setting. */
+private fun SupportSQLiteDatabase.addBooleanSetting(column: String, isEnabledByDefault: Boolean) {
+    val defaultValue: Int = if (isEnabledByDefault) 1 else 0
+    execSQL("ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN $column INTEGER NOT NULL DEFAULT $defaultValue")
+}

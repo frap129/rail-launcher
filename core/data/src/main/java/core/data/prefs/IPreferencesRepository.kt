@@ -53,6 +53,9 @@ interface IPreferencesRepository {
     /** Sets whether the Rail draws its marks, keeping the Scrub edges scrubbing it while it is hidden. */
     fun setShowRail(enabled: Boolean)
 
+    /** Sets whether Home shows the Home suggestions below the Favorites. */
+    fun setSuggestOftenUsedApps(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

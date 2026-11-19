@@ -303,6 +303,30 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `defaults Suggest often-used Apps to on`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+
+        assertTrue(viewModel.uiState.value.suggestOftenUsedApps)
+    }
+
+    @Test
+    fun `exposes the stored Suggest often-used Apps switch`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(suggestOftenUsedApps = false),
+            read = { suggestOftenUsedApps }
+        )
+    }
+
+    @Test
+    fun `persists Suggest often-used Apps`() = runTest {
+        assertPersists(
+            persist = { setSuggestOftenUsedApps(false) },
+            verifyCall = { setSuggestOftenUsedApps(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(
