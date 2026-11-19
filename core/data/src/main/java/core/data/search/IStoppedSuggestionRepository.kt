@@ -8,4 +8,7 @@ interface IStoppedSuggestionRepository {
 
     /** Stops suggesting the Launchable stored under [key] on Home. */
     suspend fun stop(key: String)
+
+    /** Lets Home suggest every Launchable the user stopped suggesting again. */
+    suspend fun reset()
 }

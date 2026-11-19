@@ -7,12 +7,13 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
-/** A MockK [IStoppedSuggestionRepository] that reads [keys] and adds each key it is asked to stop to them. */
+/** A MockK [IStoppedSuggestionRepository] that reads [keys], adds each key it is asked to stop to them, and clears them on reset. */
 fun createStoppedSuggestionRepositoryMock(
     keys: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
 ): IStoppedSuggestionRepository {
     val mockStoppedSuggestionRepository: IStoppedSuggestionRepository = mockk()
     every { mockStoppedSuggestionRepository.keys } returns keys
     coEvery { mockStoppedSuggestionRepository.stop(any()) } coAnswers { keys.update { current -> current + firstArg<String>() } }
+    coEvery { mockStoppedSuggestionRepository.reset() } coAnswers { keys.value = emptySet() }
     return mockStoppedSuggestionRepository
 }

@@ -12,6 +12,7 @@ import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.profiles.PrivateSpaceStatus
 import core.data.profiles.ProfileKind
+import core.data.search.IStoppedSuggestionRepository
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
@@ -22,9 +23,11 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createPreferencesRepositoryMock
 import core.data.testing.createPrivateSpaceStatusMock
 import core.data.testing.createProfileInfo
+import core.data.testing.createStoppedSuggestionRepositoryMock
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -584,6 +587,32 @@ class SettingsViewModelTest {
             viewModel.resetCustomIcons()
             verify(exactly = 1) { mockPreferencesRepository.resetCustomIcons() }
         }
+    }
+
+    @Test
+    fun `reports no stopped suggestions until one is stopped`() = runTest {
+        val inputStoppedKeys: MutableStateFlow<Set<String>> = MutableStateFlow(emptySet())
+        val viewModel: SettingsViewModel = createSettingsViewModel(
+            mockStoppedSuggestionRepository = createStoppedSuggestionRepositoryMock(keys = inputStoppedKeys)
+        )
+
+        viewModel.hasStoppedSuggestions.test {
+            assertFalse(expectMostRecentItem())
+            inputStoppedKeys.value = setOf("com.example/.Main_UserHandle{0}")
+            assertTrue(expectMostRecentItem())
+        }
+    }
+
+    @Test
+    fun `resets every stopped suggestion`() = runTest {
+        val mockStoppedSuggestionRepository: IStoppedSuggestionRepository = createStoppedSuggestionRepositoryMock(
+            keys = MutableStateFlow(setOf("com.example/.Main_UserHandle{0}"))
+        )
+        val viewModel: SettingsViewModel = createSettingsViewModel(mockStoppedSuggestionRepository = mockStoppedSuggestionRepository)
+
+        viewModel.resetStoppedSuggestions()
+
+        assertEquals(emptySet<String>(), mockStoppedSuggestionRepository.keys.first())
     }
 
     private suspend fun <T> TestScope.assertExposesSetting(expected: T, inputSettings: Settings, read: SettingsUiState.() -> T) {
