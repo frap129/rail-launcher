@@ -212,12 +212,16 @@ fun LauncherScreen(
             )
         )
     }
-    DisposableEffect(lifecycleOwner, widgetViewModel) {
+    DisposableEffect(lifecycleOwner, viewModel, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> appWidgetHostSource.startListening()
+                Lifecycle.Event.ON_START -> {
+                    viewModel.setLauncherStarted(isStarted = true)
+                    appWidgetHostSource.startListening()
+                }
 
                 Lifecycle.Event.ON_STOP -> {
+                    viewModel.setLauncherStarted(isStarted = false)
                     popupCardViewModel.onStopped()
                     widgetViewModel.finishResize()
                     widgetViewModel.finishEditingWidgets()
