@@ -185,22 +185,43 @@ class HomeSuggestionsTest {
     }
 
     @Test
-    fun `counts a Favorite with no Launch record as scoring zero in the median`() {
-        val inputFavorites: List<App> = createApps(prefix = "Favorite", count = HOME_ROW_TARGET)
-        val inputTop: App = createApp(name = "Top", packageName = "com.example.top")
-        val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputTop)
-        val inputCounts: List<LaunchCountRecord> =
-            listOf(createLaunchCountRecord(key = inputTop.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 0.5))
+    fun `allows no extra row when no Favorite has a Launch record`() {
+        val inputCandidates: List<App> = createApps(prefix = "Candidate", count = 2)
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> =
+            suggestionsWithOpenedFavorites(favoriteCount = HOME_ROW_TARGET, openedFavoriteCount = 0, candidates = inputCandidates)
 
-        assertEquals(listOf<Launchable>(inputTop), actualSuggestions)
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `allows no extra row when more than 8 Favorites have no Launch record`() {
+        val inputCandidates: List<App> = createApps(prefix = "Candidate", count = 2)
+
+        val actualSuggestions: List<Launchable> =
+            suggestionsWithOpenedFavorites(favoriteCount = HOME_ROW_TARGET + 2, openedFavoriteCount = 0, candidates = inputCandidates)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `allows no extra row when the median Favorite is unopened though some Favorites were opened`() {
+        val inputCandidates: List<App> = createApps(prefix = "Candidate", count = 2)
+
+        val actualSuggestions: List<Launchable> =
+            suggestionsWithOpenedFavorites(favoriteCount = HOME_ROW_TARGET, openedFavoriteCount = 3, candidates = inputCandidates)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `keeps the base slots below 8 Favorites when the median Favorite score is zero`() {
+        val inputCandidates: List<App> = createApps(prefix = "Candidate", count = 4)
+
+        val actualSuggestions: List<Launchable> =
+            suggestionsWithOpenedFavorites(favoriteCount = HOME_ROW_TARGET - 3, openedFavoriteCount = 0, candidates = inputCandidates)
+
+        assertEquals(inputCandidates.take(3), actualSuggestions)
     }
 
     @Test
@@ -407,6 +428,23 @@ class HomeSuggestionsTest {
         )
 
         assertEquals(listOf<Launchable>(inputRecent, inputOldHigh), actualSuggestions)
+    }
+
+    private fun suggestionsWithOpenedFavorites(favoriteCount: Int, openedFavoriteCount: Int, candidates: List<App>): List<Launchable> {
+        val inputFavorites: List<App> = createApps(prefix = "Favorite", count = favoriteCount)
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + candidates)
+        val inputCounts: List<LaunchCountRecord> =
+            (inputFavorites.take(openedFavoriteCount).map { app -> app to FAVORITE_SCORE } + candidates.map { app -> app to TOP_SCORE })
+                .map { (app, score) ->
+                    createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = score)
+                }
+        return inputState.homeSuggestions(
+            favorites = inputFavorites,
+            launchCounts = inputCounts,
+            folderMembers = emptyMap(),
+            stoppedKeys = emptySet(),
+            nowEpochMs = TEST_NOW_EPOCH_MS
+        )
     }
 
     private fun createApps(prefix: String, count: Int): List<App> =
