@@ -811,6 +811,22 @@ class PopupCardViewModelTest : PopupSessionTestBase() {
     }
 
     @Test
+    fun `a Pop-up item's menu offers only Pop-up actions, never a suggestion action`() = runTest {
+        setPopupItems(ownerKey = inputApp.key, items = listOf(PopupItem.Launchable(inputOtherApp)))
+        val viewModel: PopupCardViewModel = createCard()
+        backgroundScope.launch { viewModel.popupState.collect() }
+        backgroundScope.launch { viewModel.menuState.collect() }
+        viewModel.open(inputApp, TEST_INPUT_ANCHOR)
+        runCurrent()
+
+        viewModel.openItemMenu(PopupItem.Launchable(inputOtherApp))
+        runCurrent()
+
+        val actualMenu: PopupMenuState.Open = viewModel.menuState.value as PopupMenuState.Open
+        assertEquals(listOf(PopupMenuItem.RemoveFromPopup, PopupMenuItem.AppInfo), actualMenu.items)
+    }
+
+    @Test
     fun `removing an item closes its menu and updates the card`() = runTest {
         setPopupLaunchables(ownerKey = inputApp.key, launchables = listOf(inputOtherApp))
         val viewModel: PopupCardViewModel = createCard()

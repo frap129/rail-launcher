@@ -6,7 +6,7 @@ import core.data.profiles.ProfileInfo
 
 fun createLauncherItemActions(railSide: RailSide = RailSide.DEFAULT): LauncherItemActions = LauncherItemActions(
     onItemTap = { _, _ -> },
-    onItemLongPress = {},
+    onItemLongPress = { _, _ -> },
     onToggleFavorite = {},
     onItemOpenPopup = { _, _ -> },
     onItemAnchorChanged = { _, _ -> },

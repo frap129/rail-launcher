@@ -67,7 +67,7 @@ private val folderSummaryChevronSize: Dp = 16.dp
 @Immutable
 data class LauncherItemActions(
     val onItemTap: (Launchable, PopupAnchor?) -> Unit,
-    val onItemLongPress: (Launchable) -> Unit,
+    val onItemLongPress: (Launchable, MenuSuggestion) -> Unit,
     val onToggleFavorite: (Launchable) -> Unit,
     val onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     val onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
@@ -126,6 +126,7 @@ fun LauncherItem(
     itemActions: LauncherItemActions,
     secondaryText: String? = null,
     accessibilityAnnouncement: String? = null,
+    menuSuggestion: MenuSuggestion = MenuSuggestion.None,
     onIconSettled: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -135,6 +136,7 @@ fun LauncherItem(
     val openPopupLabel: String = stringResource(R.string.open_popup)
     val currentItem: Launchable by rememberUpdatedState(item)
     val currentItemActions: LauncherItemActions by rememberUpdatedState(itemActions)
+    val currentMenuSuggestion: MenuSuggestion by rememberUpdatedState(menuSuggestion)
     val anchorHolder: PopupAnchorHolder = remember { PopupAnchorHolder() }
     val longPressGate: LongPressGate = remember { LongPressGate() }
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
@@ -161,7 +163,7 @@ fun LauncherItem(
                             },
                             onLongPress = {
                                 longPressGate.isFired = true
-                                currentItemActions.onItemLongPress(currentItem)
+                                currentItemActions.onItemLongPress(currentItem, currentMenuSuggestion)
                                 hapticFeedback.performLongPressHaptic()
                             }
                         )
