@@ -14,6 +14,7 @@ import core.data.testing.createLaunchCountRecord
 import core.data.testing.createLoadedLaunchableState
 import core.data.testing.createPausedWorkApp
 import core.data.testing.createRailLaunchable
+import core.util.MILLIS_PER_WEEK
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,9 +22,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 private const val FAVORITE_SCORE: Double = 10.0
-private const val BELOW_OVER_TARGET_MARGIN: Double = 0.1
+private const val SCORE_MARGIN: Double = 0.1
 private const val TOP_SCORE: Double = FAVORITE_SCORE * HOME_OVER_TARGET_SCORE_FACTOR
 private const val SUGGESTION_LAUNCH_COUNT: Int = HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT
+private const val OFTEN_LAUNCHED_COUNT: Int = SUGGESTION_LAUNCH_COUNT * 10
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE, sdk = [TEST_SDK])
@@ -35,24 +37,13 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputCandidates)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.map { app ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = FAVORITE_SCORE)
+                createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE)
             } +
                 inputCandidates.mapIndexed { index, app ->
-                    createLaunchCountRecord(
-                        key = app.key,
-                        launchCount = SUGGESTION_LAUNCH_COUNT,
-                        recentUseScore =
-                        10.0 - index
-                    )
+                    createSuggestionRecord(key = app.key, recentUseScore = 10.0 - index)
                 }
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(inputCandidates.take(3), actualSuggestions)
     }
@@ -64,17 +55,11 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputCandidate)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.map { app ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = FAVORITE_SCORE)
+                createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE)
             } +
-                createLaunchCountRecord(key = inputCandidate.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = TOP_SCORE - 1.0)
+                createSuggestionRecord(key = inputCandidate.key, recentUseScore = TOP_SCORE - 1.0)
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -87,18 +72,12 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputTop + inputSecond)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.map { app ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = FAVORITE_SCORE)
+                createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE)
             } +
-                createLaunchCountRecord(key = inputTop.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = TOP_SCORE) +
-                createLaunchCountRecord(key = inputSecond.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = TOP_SCORE - 1.0)
+                createSuggestionRecord(key = inputTop.key, recentUseScore = TOP_SCORE) +
+                createSuggestionRecord(key = inputSecond.key, recentUseScore = TOP_SCORE - 1.0)
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(listOf<Launchable>(inputTop), actualSuggestions)
     }
@@ -110,24 +89,13 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputCandidates)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.map { app ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = FAVORITE_SCORE)
+                createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE)
             } +
                 inputCandidates.mapIndexed { index, app ->
-                    createLaunchCountRecord(
-                        key = app.key,
-                        launchCount = SUGGESTION_LAUNCH_COUNT,
-                        recentUseScore =
-                        30.0 - index
-                    )
+                    createSuggestionRecord(key = app.key, recentUseScore = 30.0 - index)
                 }
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(inputCandidates.take(3), actualSuggestions)
     }
@@ -139,24 +107,13 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputCandidates)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.map { app ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = FAVORITE_SCORE)
+                createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE)
             } +
                 inputCandidates.map { app ->
-                    createLaunchCountRecord(
-                        key = app.key,
-                        launchCount = SUGGESTION_LAUNCH_COUNT,
-                        recentUseScore =
-                        TOP_SCORE - BELOW_OVER_TARGET_MARGIN
-                    )
+                    createSuggestionRecord(key = app.key, recentUseScore = TOP_SCORE - SCORE_MARGIN)
                 }
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(inputCandidates.take(1), actualSuggestions)
     }
@@ -169,17 +126,11 @@ class HomeSuggestionsTest {
         val inputScores: List<Double> = listOf(1.0, 1.0, 1.0, 8.0, 12.0, 12.0, 12.0, 12.0)
         val inputCounts: List<LaunchCountRecord> =
             inputFavorites.zip(inputScores) { app, score ->
-                createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = score)
+                createSuggestionRecord(key = app.key, recentUseScore = score)
             } +
-                createLaunchCountRecord(key = inputTop.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = TOP_SCORE)
+                createSuggestionRecord(key = inputTop.key, recentUseScore = TOP_SCORE)
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
 
         assertEquals(listOf<Launchable>(inputTop), actualSuggestions)
     }
@@ -230,19 +181,81 @@ class HomeSuggestionsTest {
         val inputAt: App = createApp(name = "At", packageName = "com.example.at")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputBelow, inputAt))
         val inputCounts: List<LaunchCountRecord> = listOf(
-            createLaunchCountRecord(key = inputBelow.key, launchCount = SUGGESTION_LAUNCH_COUNT - 1, recentUseScore = 50.0),
-            createLaunchCountRecord(key = inputAt.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 1.0)
+            createSuggestionRecord(key = inputBelow.key, launchCount = SUGGESTION_LAUNCH_COUNT - 1, recentUseScore = 50.0),
+            createSuggestionRecord(key = inputAt.key)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(launchCounts = inputCounts)
 
         assertEquals(listOf<Launchable>(inputAt), actualSuggestions)
+    }
+
+    @Test
+    fun `leaves out a single stale Launchable however often it was launched`() {
+        val inputStale: App = createApp(name = "Stale", packageName = "com.example.stale")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputStale))
+        val inputCounts: List<LaunchCountRecord> = listOf(
+            createSuggestionRecord(
+                key = inputStale.key,
+                launchCount = OFTEN_LAUNCHED_COUNT,
+                scoreUpdatedAt =
+                TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
+            )
+        )
+
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(launchCounts = inputCounts)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `suggests a Launchable at exactly the minimum Recent use score`() {
+        val inputAt: App = createApp(name = "At", packageName = "com.example.at")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputAt))
+        val inputCounts: List<LaunchCountRecord> = listOf(
+            createSuggestionRecord(
+                key = inputAt.key,
+                recentUseScore = 2 * HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE,
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS - MILLIS_PER_WEEK
+            )
+        )
+
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(launchCounts = inputCounts)
+
+        assertEquals(listOf<Launchable>(inputAt), actualSuggestions)
+    }
+
+    @Test
+    fun `lets a stale top candidate neither be suggested nor add an extra row`() {
+        val inputFavorites: List<App> = createApps(prefix = "Favorite", count = HOME_ROW_TARGET)
+        val inputStale: App = createApp(name = "Stale", packageName = "com.example.stale")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = inputFavorites + inputStale)
+        val inputCounts: List<LaunchCountRecord> =
+            inputFavorites.map { app -> createSuggestionRecord(key = app.key, recentUseScore = FAVORITE_SCORE) } +
+                createSuggestionRecord(
+                    key = inputStale.key,
+                    launchCount = OFTEN_LAUNCHED_COUNT,
+                    recentUseScore = TOP_SCORE * 4,
+                    scoreUpdatedAt = TEST_NOW_EPOCH_MS - MILLIS_PER_WEEK * 8
+                )
+
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
+    fun `leaves out a Launchable just below the minimum Recent use score`() {
+        val inputBelow: App = createApp(name = "Below", packageName = "com.example.below")
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputBelow))
+
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
+            launchCounts = listOf(
+                createSuggestionRecord(key = inputBelow.key, recentUseScore = HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE - SCORE_MARGIN)
+            )
+        )
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
 
     @Test
@@ -251,16 +264,13 @@ class HomeSuggestionsTest {
         val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputStopped, inputOther))
         val inputCounts: List<LaunchCountRecord> = listOf(
-            createLaunchCountRecord(key = inputStopped.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0),
-            createLaunchCountRecord(key = inputOther.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 1.0)
+            createSuggestionRecord(key = inputStopped.key, recentUseScore = 9.0),
+            createSuggestionRecord(key = inputOther.key)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = setOf(inputStopped.key),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+            stoppedKeys = setOf(inputStopped.key)
         )
 
         assertEquals(listOf<Launchable>(inputOther), actualSuggestions)
@@ -273,16 +283,13 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputFavorite, inputOther))
         val inputCounts: List<LaunchCountRecord> =
             listOf(
-                createLaunchCountRecord(key = inputFavorite.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0),
-                createLaunchCountRecord(key = inputOther.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 1.0)
+                createSuggestionRecord(key = inputFavorite.key, recentUseScore = 9.0),
+                createSuggestionRecord(key = inputOther.key)
             )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             favorites = listOf(inputFavorite),
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+            launchCounts = inputCounts
         )
 
         assertEquals(listOf<Launchable>(inputOther), actualSuggestions)
@@ -296,14 +303,10 @@ class HomeSuggestionsTest {
             hiddenKeys = setOf(inputHidden.key)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             launchCounts = listOf(
-                createLaunchCountRecord(key = inputHidden.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
-            ),
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+                createSuggestionRecord(key = inputHidden.key, recentUseScore = 9.0)
+            )
         )
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
@@ -314,16 +317,10 @@ class HomeSuggestionsTest {
         val inputLockedPrivateKey: String = "com.example.private/.MainActivity_UserHandle{10}"
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = emptyList())
         val inputCounts: List<LaunchCountRecord> = listOf(
-            createLaunchCountRecord(key = inputLockedPrivateKey, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
+            createSuggestionRecord(key = inputLockedPrivateKey, recentUseScore = 9.0)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(launchCounts = inputCounts)
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
     }
@@ -333,12 +330,8 @@ class HomeSuggestionsTest {
         val inputRailKey: String = "dev.maples.rail/dev.maples.rail.MainActivity_UserHandle{0}"
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = emptyList())
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
-            launchCounts = listOf(createLaunchCountRecord(key = inputRailKey, launchCount = SUGGESTION_LAUNCH_COUNT)),
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
+            launchCounts = listOf(createSuggestionRecord(key = inputRailKey))
         )
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
@@ -349,14 +342,10 @@ class HomeSuggestionsTest {
         val inputPaused: App = createPausedWorkApp()
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputPaused))
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             launchCounts = listOf(
-                createLaunchCountRecord(key = inputPaused.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
-            ),
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+                createSuggestionRecord(key = inputPaused.key, recentUseScore = 9.0)
+            )
         )
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
@@ -370,16 +359,14 @@ class HomeSuggestionsTest {
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputMember, inputOther))
         val inputCounts: List<LaunchCountRecord> =
             listOf(
-                createLaunchCountRecord(key = inputMember.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0),
-                createLaunchCountRecord(key = inputOther.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 1.0)
+                createSuggestionRecord(key = inputMember.key, recentUseScore = 9.0),
+                createSuggestionRecord(key = inputOther.key)
             )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             favorites = listOf(inputFolder),
             launchCounts = inputCounts,
-            folderMembers = mapOf(inputFolder.key to listOf(PopupItem.Launchable(launchable = inputMember))),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+            folderMembers = mapOf(inputFolder.key to listOf(PopupItem.Launchable(launchable = inputMember)))
         )
 
         assertEquals(listOf<Launchable>(inputOther), actualSuggestions)
@@ -390,14 +377,10 @@ class HomeSuggestionsTest {
         val inputBuiltin: Launchable = createRailLaunchable("Rail Settings")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputBuiltin))
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
             launchCounts = listOf(
-                createLaunchCountRecord(key = inputBuiltin.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
-            ),
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
+                createSuggestionRecord(key = inputBuiltin.key, recentUseScore = 9.0)
+            )
         )
 
         assertEquals(emptyList<Launchable>(), actualSuggestions)
@@ -409,26 +392,43 @@ class HomeSuggestionsTest {
         val inputRecent: App = createApp(name = "Recent", packageName = "com.example.recent")
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputOldHigh, inputRecent))
         val inputCounts: List<LaunchCountRecord> = listOf(
-            createLaunchCountRecord(
+            createSuggestionRecord(
                 key = inputOldHigh.key,
-                launchCount = SUGGESTION_LAUNCH_COUNT,
                 recentUseScore = 8.0,
-                scoreUpdatedAt =
-                TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
+                scoreUpdatedAt = TEST_NOW_EPOCH_MS - TEST_FOURTEEN_DAYS_MS
             ),
-            createLaunchCountRecord(key = inputRecent.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 3.0)
+            createSuggestionRecord(key = inputRecent.key, recentUseScore = 3.0)
         )
 
-        val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = emptyList(),
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(launchCounts = inputCounts)
 
         assertEquals(listOf<Launchable>(inputRecent, inputOldHigh), actualSuggestions)
     }
+
+    private fun createSuggestionRecord(
+        key: String,
+        launchCount: Int = SUGGESTION_LAUNCH_COUNT,
+        recentUseScore: Double = HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE,
+        scoreUpdatedAt: Long = TEST_NOW_EPOCH_MS
+    ): LaunchCountRecord = createLaunchCountRecord(
+        key = key,
+        launchCount = launchCount,
+        recentUseScore = recentUseScore,
+        scoreUpdatedAt = scoreUpdatedAt
+    )
+
+    private fun LaunchableState.suggestionsAtNow(
+        launchCounts: List<LaunchCountRecord>,
+        favorites: List<Launchable> = emptyList(),
+        folderMembers: Map<String, List<PopupItem>> = emptyMap(),
+        stoppedKeys: Set<String> = emptySet()
+    ): List<Launchable> = homeSuggestions(
+        favorites = favorites,
+        launchCounts = launchCounts,
+        folderMembers = folderMembers,
+        stoppedKeys = stoppedKeys,
+        nowEpochMs = TEST_NOW_EPOCH_MS
+    )
 
     private fun suggestionsWithOpenedFavorites(favoriteCount: Int, openedFavoriteCount: Int, candidates: List<App>): List<Launchable> {
         val inputFavorites: List<App> = createApps(prefix = "Favorite", count = favoriteCount)
@@ -436,15 +436,9 @@ class HomeSuggestionsTest {
         val inputCounts: List<LaunchCountRecord> =
             (inputFavorites.take(openedFavoriteCount).map { app -> app to FAVORITE_SCORE } + candidates.map { app -> app to TOP_SCORE })
                 .map { (app, score) ->
-                    createLaunchCountRecord(key = app.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = score)
+                    createSuggestionRecord(key = app.key, recentUseScore = score)
                 }
-        return inputState.homeSuggestions(
-            favorites = inputFavorites,
-            launchCounts = inputCounts,
-            folderMembers = emptyMap(),
-            stoppedKeys = emptySet(),
-            nowEpochMs = TEST_NOW_EPOCH_MS
-        )
+        return inputState.suggestionsAtNow(favorites = inputFavorites, launchCounts = inputCounts)
     }
 
     private fun createApps(prefix: String, count: Int): List<App> =

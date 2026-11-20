@@ -12,17 +12,20 @@ const val HOME_ROW_TARGET: Int = 8
 /** The Launch count a Launchable needs to be a Home suggestion. */
 const val HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT: Int = 3
 
+/** The Recent use score, decayed to now, a Launchable needs to be a Home suggestion: about one launch today. */
+const val HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE: Double = 1.0
+
 /** How many times the median Favorite's Recent use score the top candidate's must reach to add one row over the target. */
 const val HOME_OVER_TARGET_SCORE_FACTOR: Int = 2
 
 /**
- * The Home suggestions shown below [favorites]: Launchables with at least [HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT]
- * launches, highest Recent use score at [nowEpochMs] first, filling Home up to [HOME_ROW_TARGET]
- * rows. One more row is allowed when the median Favorite's score is above zero and the top candidate's score is at least
- * [HOME_OVER_TARGET_SCORE_FACTOR] times it, so with no Favorites, or a median of zero, there is no extra row; a Favorite with no
- * launch record counts as scoring zero. The keys [homeSuggestionExcludedKeys] returns and keys
- * [suggestibleLaunchableFor] rejects are left out. Rail itself and the private Apps of a Locked
- * Private Space never reach the Launchable State, so their keys resolve to no Launchable here.
+ * The Home suggestions shown below [favorites]: Launchables with at least [HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT] launches and a
+ * Recent use score at [nowEpochMs] of at least [HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE], so an App not opened for two to three
+ * weeks drops off. Highest score first, they fill Home up to [HOME_ROW_TARGET] rows. One more row is allowed when the median
+ * Favorite's score is above zero and the top candidate's score is at least [HOME_OVER_TARGET_SCORE_FACTOR] times it, so with no
+ * Favorites, or a median of zero, there is no extra row; a Favorite with no launch record counts as scoring zero. The keys
+ * [homeSuggestionExcludedKeys] returns and keys [suggestibleLaunchableFor] rejects are left out. Rail itself and the private Apps
+ * of a Locked Private Space never reach the Launchable State, so their keys resolve to no Launchable here.
  */
 fun LaunchableState.homeSuggestions(
     favorites: List<Launchable>,
@@ -39,6 +42,7 @@ fun LaunchableState.homeSuggestions(
         .filter { record -> record.launchCount >= HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT && record.key !in excludedKeys }
         .mapNotNull { record -> suggestibleLaunchableFor(key = record.key) }
         .map { launchable -> launchable to recordsByKey.getValue(launchable.key).recentUseScoreAt(nowEpochMs) }
+        .filter { (_, score) -> score >= HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE }
         .sortedWith(compareByDescending<Pair<Launchable, Double>> { (_, score) -> score }.thenBy { (launchable, _) -> launchable.name })
         .toList()
     val topScore: Double = candidates.firstOrNull()?.second ?: return emptyList()
