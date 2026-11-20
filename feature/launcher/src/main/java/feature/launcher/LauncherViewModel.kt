@@ -39,17 +39,22 @@ import core.data.profiles.QuietRequestResult
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchProjectionSource
 import core.data.search.IShortcutSearchSource
+import core.data.search.IStoppedSuggestionRepository
 import core.data.search.SearchProjection
 import core.data.search.SearchResult
 import core.data.search.SearchShortcut
 import core.data.search.SearchSuggestionSources
 import core.data.search.SearchTypedSources
 import core.data.search.autoLaunchResult
+import core.data.search.homeSuggestionExcludedKeys
+import core.data.search.homeSuggestions
 import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
+import core.data.search.suggestibleLaunchableFor
 import core.data.search.toSearchResults
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
@@ -59,19 +64,23 @@ import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import java.util.Locale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -94,6 +103,7 @@ sealed class LauncherUiState {
         val lazyListState: LazyListState,
         val favorites: List<Launchable>,
         val isFavoritesLoaded: Boolean,
+        val suggestions: List<Launchable>,
         val isSwipeUpEnabled: Boolean,
         val isSwipeDownEnabled: Boolean,
         val isEditingFavorites: Boolean = false
@@ -136,12 +146,19 @@ private enum class LauncherMode {
     Search
 }
 
+/** The kind of suggestion the row behind a menu is, which decides the suggestion action the menu offers. */
+enum class MenuSuggestion {
+    None,
+    Search,
+    Home
+}
+
 sealed class LauncherMenuState {
     data object Closed : LauncherMenuState()
 
     data class Menu(
         val item: Launchable,
-        val isSearchSuggestion: Boolean,
+        val suggestion: MenuSuggestion,
         val isStandaloneShortcut: Boolean,
         val canUninstall: Boolean,
         val isHidden: Boolean,
@@ -176,6 +193,9 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
         .filter { item -> item.launchable.key in notificationsByItem }
         .map { item -> item.launchable.name }
 }
+
+/** The Favorites and the Home suggestions Home shows after them. */
+private data class HomeContent(val favoritesState: FavoritesState, val suggestions: List<Launchable>)
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
@@ -268,15 +288,16 @@ private fun toSearchUiState(
 private fun toLauncherUiState(
     navigation: RailNavigation,
     state: LaunchableState,
-    favoritesState: FavoritesState,
+    homeContent: HomeContent,
     isEditingFavorites: Boolean,
     settings: Settings
 ): LauncherUiState {
     if (navigation.mode == LauncherMode.Home) {
         return LauncherUiState.Home(
             lazyListState = navigation.homeListState,
-            favorites = favoritesState.favorites,
-            isFavoritesLoaded = favoritesState.isLoaded,
+            favorites = homeContent.favoritesState.favorites,
+            isFavoritesLoaded = homeContent.favoritesState.isLoaded,
+            suggestions = if (isEditingFavorites || !settings.suggestOftenUsedApps) emptyList() else homeContent.suggestions,
             isSwipeUpEnabled = settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
             isEditingFavorites = isEditingFavorites
@@ -315,14 +336,14 @@ private enum class MenuRequest {
     Rename
 }
 
-private data class MenuItemRequest(val launchable: Launchable, val isSearchSuggestion: Boolean)
+private data class MenuItemRequest(val launchable: Launchable, val suggestion: MenuSuggestion)
 
 /** A menu request, the Launchable State it resolves against, and that state's Private Space status. */
 private data class MenuLookup(val request: MenuItemRequest, val state: LaunchableState, val privateSpaceStatus: PrivateSpaceStatus) {
     /** The menu of [launchable], resolved from this lookup. */
     fun toMenu(launchable: Launchable, profileSource: IProfileSource): LauncherMenuState.Menu = LauncherMenuState.Menu(
         item = launchable,
-        isSearchSuggestion = request.isSearchSuggestion,
+        suggestion = request.suggestion,
         isStandaloneShortcut = state.launchableFor(key = launchable.key) is ShortcutLaunchable,
         canUninstall = (launchable as? App)?.canUninstall(profileSource = profileSource) == true,
         isHidden = state.isHidden(launchable = launchable),
@@ -349,9 +370,11 @@ class LauncherViewModel(
     private val standaloneShortcutRepository: IStandaloneShortcutRepository,
     private val searchHistoryRepository: ISearchHistoryRepository,
     private val launchCountRepository: ILaunchCountRepository,
+    private val stoppedSuggestionRepository: IStoppedSuggestionRepository,
     private val searchProjectionSource: ISearchProjectionSource,
     private val shortcutSearchSource: IShortcutSearchSource,
-    private val searchSettings: ISearchSettings
+    private val searchSettings: ISearchSettings,
+    private val clockSource: IClockSource
 ) : ViewModel() {
     private val searchContactsUiEvents: SearchContactsUiEvents = SearchContactsUiEvents()
 
@@ -496,19 +519,63 @@ class LauncherViewModel(
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: Flow<List<Launchable>> = favoritesState.map { state -> state.favorites }
 
+    // The keys of the Home suggestions, null until they are first projected. They change only when
+    // Home is not visible, so rows never move under the user; the Launchables they resolve to stay
+    // current.
+    private val homeSuggestionKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
+
+    // One subscription to the stopped keys serves the shown suggestions and the projection.
+    private val stoppedKeys: Flow<Set<String>> = stoppedSuggestionRepository.keys.shareIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(WHILE_SUBSCRIBED_TIMEOUT_MS),
+        replay = 1
+    )
+
+    /** The items of every Folder, keyed by the Folder key. */
+    private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
+        .flatMapLatest { folders ->
+            if (folders.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(folders.map { folder -> popupRepo.items(ownerKey = folder.key) }) { folderItems ->
+                    folders.zip(folderItems).associate { (folder, items) -> folder.key to items }
+                }
+            }
+        }
+
+    private val homeContent: Flow<HomeContent> = combine(
+        favoritesState,
+        homeSuggestionKeys,
+        launchableState,
+        stoppedKeys,
+        folderMembers
+    ) { favoritesState, suggestionKeys, state, stoppedKeys, members ->
+        val excludedKeys: Set<String> = homeSuggestionExcludedKeys(
+            favorites = favoritesState.favorites,
+            folderMembers = members,
+            stoppedKeys = stoppedKeys
+        )
+        HomeContent(
+            favoritesState = favoritesState,
+            suggestions = suggestionKeys.orEmpty()
+                .filterNot { key -> key in excludedKeys }
+                .mapNotNull { key -> state.suggestibleLaunchableFor(key = key) }
+        )
+    }
+
     // Home and the App List never read the Search projection; only the Search state collects it.
     private val launcherUiState: Flow<LauncherUiState> = combine(
         navigation,
         launchableState,
-        favoritesState,
+        homeContent,
         isEditingFavorites,
         currentSettings
-    ) { navigation, state, favoritesState, isEditingFavorites, settings ->
+    ) { navigation, state, homeContent, isEditingFavorites, settings ->
         if (navigation.search == null) {
             toLauncherUiState(
                 navigation = navigation,
                 state = state,
-                favoritesState = favoritesState,
+                homeContent = homeContent,
                 isEditingFavorites = isEditingFavorites,
                 settings = settings
             )
@@ -547,17 +614,66 @@ class LauncherViewModel(
             initialValue = LauncherUiState.Loading
         )
 
-    /** The items of every Folder, keyed by the Folder key. */
-    private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
-        .flatMapLatest { folders ->
-            if (folders.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(folders.map { folder -> popupRepo.items(ownerKey = folder.key) }) { folderItems ->
-                    folders.zip(folderItems).associate { (folder, items) -> folder.key to items }
+    private val isLauncherStarted: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
+    /** Whether the launcher is started; Home suggestions are projected whenever Home is not visible. */
+    fun setLauncherStarted(isStarted: Boolean) {
+        isLauncherStarted.value = isStarted
+    }
+
+    private var homeProjectionJob: Job? = null
+
+    // The Launch count writes still running, which a projection awaits so it never misses a launch
+    // that raced the launcher stopping. Read and written only on the main thread.
+    private var launchCountJobs: List<Job> = emptyList()
+
+    // Projects the Home suggestions once, when the sources have loaded, then unsubscribes from
+    // them. It reads the repository's Favorites, because the shown Favorites stop being collected
+    // when nothing is subscribed. A newer projection replaces one still waiting for its sources.
+    private fun projectHomeSuggestions() {
+        homeProjectionJob?.cancel()
+        homeProjectionJob = viewModelScope.launchLogged(message = "Failed to project the Home suggestions") {
+            launchCountJobs.joinAll()
+            homeSuggestionKeys.value = combine(
+                launchableState,
+                favoritesRepo.state,
+                launchCountRepository.counts,
+                folderMembers
+            ) { state, favoritesState, launchCounts, members ->
+                if (!state.isAppListReady || !favoritesState.isLoaded) {
+                    null
+                } else {
+                    state.homeSuggestions(
+                        favorites = favoritesState.favorites,
+                        launchCounts = launchCounts,
+                        folderMembers = members,
+                        stoppedKeys = stoppedSuggestionRepository.keys.first(),
+                        nowEpochMs = clockSource.now().toEpochMilli()
+                    ).map { launchable -> launchable.key }
                 }
-            }
+            }.filterNotNull().first()
         }
+    }
+
+    // Home suggestions are frozen while Home is visible, so a projection never lands then: one still
+    // waiting for its sources is cancelled when Home becomes visible with suggestions already
+    // projected. Every other change of the launcher or Home visibility projects again.
+    init {
+        viewModelScope.launch {
+            combine(
+                isLauncherStarted,
+                navigation.map { navigation -> navigation.mode == LauncherMode.Home }
+            ) { isStarted, isHomeMode -> isStarted to isHomeMode }
+                .distinctUntilChanged()
+                .collect { (isStarted, isHomeMode) ->
+                    if (isStarted && isHomeMode && homeSuggestionKeys.value != null) {
+                        homeProjectionJob?.cancel()
+                    } else {
+                        projectHomeSuggestions()
+                    }
+                }
+        }
+    }
 
     /** The names of each Folder's members with notifications, in item order, keyed by the Folder key. */
     val folderSummaries: StateFlow<Map<String, List<String>>> = combine(
@@ -856,9 +972,10 @@ class LauncherViewModel(
     }
 
     private fun recordLaunchCount(launchable: Launchable) {
-        viewModelScope.launchLogged(message = "Failed to record a Launch count") {
+        val launchCountJob: Job = viewModelScope.launchLogged(message = "Failed to record a Launch count") {
             launchCountRepository.recordLaunch(key = launchable.key)
         }
+        launchCountJobs = launchCountJobs.filter { job -> job.isActive } + launchCountJob
     }
 
     /** Removes [launchable] from Search suggestions; its launches keep counting toward ranking. */
@@ -866,6 +983,14 @@ class LauncherViewModel(
         closeItemMenu()
         viewModelScope.launchLogged(message = "Failed to remove a Search suggestion") {
             searchHistoryRepository.removeFromSuggestions(key = launchable.key)
+        }
+    }
+
+    /** Stops suggesting [launchable] on Home until the user resets the stopped suggestions. */
+    fun stopSuggesting(launchable: Launchable) {
+        closeItemMenu()
+        viewModelScope.launchLogged(message = "Failed to stop suggesting a Launchable") {
+            stoppedSuggestionRepository.stop(key = launchable.key)
         }
     }
 
@@ -1012,14 +1137,12 @@ class LauncherViewModel(
         }
     }
 
-    fun openItemMenu(launchable: Launchable) {
+    /** Opens the menu of the row long-pressed for [launchable]; [suggestion] is the kind of suggestion that row is. */
+    fun openItemMenu(launchable: Launchable, suggestion: MenuSuggestion) {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
         }
-        val search: LauncherUiState.Search? = uiState.value as? LauncherUiState.Search
-        val isSearchSuggestion: Boolean = search?.isShowingSuggestions == true &&
-            search.results.any { result -> result.key == launchable.key }
-        requestedMenuItem.value = MenuItemRequest(launchable = launchable, isSearchSuggestion = isSearchSuggestion)
+        requestedMenuItem.value = MenuItemRequest(launchable = launchable, suggestion = suggestion)
         requestedMenuState.value = MenuRequest.Menu
     }
 
@@ -1036,7 +1159,7 @@ class LauncherViewModel(
         viewModelScope.launchLogged(message = "Failed to rename a Launchable") {
             prefsRepo.setItemName(launchable, name)
         }
-        openItemMenu(launchable)
+        requestedMenuState.value = MenuRequest.Menu
     }
 
     fun removeShortcut(shortcut: ShortcutLaunchable) {

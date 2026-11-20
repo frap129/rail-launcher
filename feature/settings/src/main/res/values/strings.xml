@@ -9,6 +9,8 @@
     <string name="rank_folders_by_use">Rank Folders by use</string>
     <string name="show_recently_installed">Show Recently installed</string>
     <string name="show_recently_installed_summary">Ends the App List with Apps first installed in the last %1$d days</string>
+    <string name="suggest_often_used_apps">Suggest often-used Apps</string>
+    <string name="suggest_often_used_apps_summary">Show Apps you open often below your Favorites on Home</string>
     <string name="rail">Rail</string>
     <string name="show_rail_on_left">Show Rail on left</string>
     <string name="show_rail">Show Rail</string>
@@ -16,6 +18,9 @@
     <string name="rail_haptics">Rail haptics</string>
     <string name="rail_haptics_summary">Tick each mark you scrub over</string>
     <string name="icon_pack">Icon Pack</string>
+    <string name="reset_stopped_suggestions">Reset stopped suggestions</string>
+    <string name="reset_stopped_suggestions_title">Reset stopped suggestions?</string>
+    <string name="reset_stopped_suggestions_body">Home can suggest Apps you chose Stop suggesting for again.</string>
     <string name="reset_custom_icons">Reset custom icons</string>
     <string name="reset_custom_icons_title">Reset custom icons?</string>
     <string name="reset_custom_icons_body">Apps, Shortcuts and Folders stop using their custom icons. Custom names are kept.</string>

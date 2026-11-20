@@ -14,6 +14,7 @@ import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launches.ILaunchCountRepository
+import core.data.launches.LaunchCountRecord
 import core.data.notifications.INotificationListenerRelayImpl
 import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
@@ -33,12 +34,16 @@ import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
 import core.data.profiles.QuietRequestResult
 import core.data.room.AppDatabase
+import core.data.search.HOME_ROW_TARGET
+import core.data.search.HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT
+import core.data.search.HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE
 import core.data.search.IContactSearchSource
 import core.data.search.ISearchHistoryRepository
 import core.data.search.ISearchHistoryRepositoryImpl
 import core.data.search.ISearchProjectionSource
 import core.data.search.ISearchProjectionSourceImpl
 import core.data.search.IShortcutSearchSource
+import core.data.search.IStoppedSuggestionRepository
 import core.data.search.IWebSuggestionSource
 import core.data.search.SearchContact
 import core.data.search.SearchHistoryRecord
@@ -77,6 +82,7 @@ import core.data.testing.createFavoritesRepositoryFixture
 import core.data.testing.createFolderRepositoryMock
 import core.data.testing.createInMemoryDatabase
 import core.data.testing.createIntentSender
+import core.data.testing.createLaunchCountRecord
 import core.data.testing.createLaunchCountRepositoryMock
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableResult
@@ -99,6 +105,7 @@ import core.data.testing.createSearchSettings
 import core.data.testing.createShortcut
 import core.data.testing.createShortcutSearchSourceMock
 import core.data.testing.createStandaloneShortcutRepositoryMock
+import core.data.testing.createStoppedSuggestionRepositoryMock
 import core.data.testing.createTestNotificationSource
 import core.data.testing.createWebSuggestionRow
 import core.data.testing.createWebSuggestionSourceMock
@@ -110,6 +117,7 @@ import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
@@ -119,10 +127,14 @@ import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -153,6 +165,8 @@ private const val START_OFFSET_PX: Int = 200
 private const val END_OFFSET_PX: Int = 800
 private const val RENAMED_NAME: String = "Renamed Launchable"
 private const val FAVORITE_FOLDER_ID: Long = 42L
+private const val LAUNCH_RECORD_DELAY_MS: Long = 50L
+private const val SLOW_LAUNCH_RECORD_DELAY_MS: Long = 100L
 private const val SUMMARY_PACKAGE_NAME: String = "com.example.summary"
 private const val MESSAGES_PUBLISHER: String = "Messages"
 
@@ -212,6 +226,8 @@ class LauncherViewModelTest {
 
     private val mockSearchHistoryRepository: ISearchHistoryRepository
         get() = searchHistoryRepository.value
+
+    private val mockStoppedSuggestionRepository: IStoppedSuggestionRepository = createStoppedSuggestionRepositoryMock()
 
     private val mockLaunchCountRepository: ILaunchCountRepository = createLaunchCountRepositoryMock()
 
@@ -489,6 +505,435 @@ class LauncherViewModelTest {
                 val actualLoaded: LauncherUiState.Home = awaitLoadedHome()
                 assertTrue(actualLoaded.favorites.isEmpty())
                 cancelAndIgnoreRemainingEvents()
+            }
+        }
+    }
+
+    @Test
+    fun `keeps Home suggestions still while Home is shown and updates them after leaving Home`() = runTest {
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
+        )
+
+        fixture.viewModel.uiState.test {
+            val actualInitial: List<Launchable> = awaitSuggestions()
+            fixture.inputCounts.value = listOf(
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
+            )
+            runCurrent()
+            val actualWhileShown: List<Launchable> = homeSuggestions(fixture.viewModel)
+            fixture.viewModel.openSearch()
+            runCurrent()
+            fixture.viewModel.closeSearch()
+            runCurrent()
+            val actualAfterLeaving: List<Launchable> = homeSuggestions(fixture.viewModel)
+
+            assertEquals(listOf<Launchable>(inputFirst), actualInitial)
+            assertEquals(listOf<Launchable>(inputFirst), actualWhileShown)
+            assertEquals(listOf<Launchable>(inputSecond, inputFirst), actualAfterLeaving)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `updates Home suggestions after leaving Home for the App List`() = runTest {
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.inputCounts.value = listOf(
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
+            )
+            fixture.viewModel.onRailReleased(index = 0)
+            runCurrent()
+            fixture.viewModel.onBack()
+            runCurrent()
+            val actualAfterLeaving: List<Launchable> = homeSuggestions(fixture.viewModel)
+
+            assertEquals(listOf<Launchable>(inputSecond, inputFirst), actualAfterLeaving)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `refreshes Home suggestions from a launch made from Home when the launcher stops and starts`() = runTest {
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
+        )
+        coEvery { fixture.mockLaunchCountRepository.recordLaunch(inputSecond.key) } coAnswers {
+            delay(LAUNCH_RECORD_DELAY_MS)
+            fixture.inputCounts.value = listOf(
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
+            )
+        }
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.viewModel.onLaunched(inputSecond)
+            fixture.viewModel.setLauncherStarted(isStarted = false)
+            advanceUntilIdle()
+            fixture.viewModel.setLauncherStarted(isStarted = true)
+            runCurrent()
+
+            assertEquals(listOf<Launchable>(inputSecond, inputFirst), homeSuggestions(fixture.viewModel))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `waits for every pending Launch count write before projecting the Home suggestions`() = runTest {
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSlow: App = createApp(name = "Slow", packageName = "com.example.slow")
+        val inputFast: App = createApp(name = "Fast", packageName = "com.example.fast")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFirst, inputSlow, inputFast),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
+        )
+        coEvery { fixture.mockLaunchCountRepository.recordLaunch(inputSlow.key) } coAnswers {
+            delay(SLOW_LAUNCH_RECORD_DELAY_MS)
+            fixture.inputCounts.value = fixture.inputCounts.value + createSuggestionRecord(launchable = inputSlow, score = 3.0)
+        }
+        coEvery { fixture.mockLaunchCountRepository.recordLaunch(inputFast.key) } coAnswers {
+            delay(LAUNCH_RECORD_DELAY_MS)
+            fixture.inputCounts.value = fixture.inputCounts.value + createSuggestionRecord(launchable = inputFast, score = 2.0)
+        }
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.viewModel.onLaunched(inputSlow)
+            fixture.viewModel.onLaunched(inputFast)
+            fixture.viewModel.setLauncherStarted(isStarted = false)
+            advanceUntilIdle()
+            fixture.viewModel.setLauncherStarted(isStarted = true)
+            runCurrent()
+
+            assertEquals(listOf<Launchable>(inputSlow, inputFast, inputFirst), homeSuggestions(fixture.viewModel))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps a pending Home suggestion projection from landing once Home is visible again`() = runTest {
+        val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
+        val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            mockFavoritesFixture.state.setLoaded(false)
+            fixture.viewModel.setLauncherStarted(isStarted = false)
+            runCurrent()
+            fixture.viewModel.setLauncherStarted(isStarted = true)
+            fixture.inputCounts.value = listOf(
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
+            )
+            mockFavoritesFixture.state.setLoaded(true)
+            runCurrent()
+
+            assertEquals(listOf<Launchable>(inputFirst), homeSuggestions(fixture.viewModel))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps every projection source subscribed only while the Home suggestions are projected`() = runTest {
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val inputPopupState: PopupRepositoryState = PopupRepositoryState()
+        inputFolders.value = listOf(inputFolder)
+        mockFavoritesFixture.state.setLoaded(false)
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputApp),
+            mockPopupRepository = createPopupRepositoryMock(state = inputPopupState)
+        )
+
+        runCurrent()
+        val actualProjecting: List<Int> = listOf(
+            fixture.inputCounts.subscriptionCount.value,
+            mockFavoritesFixture.state.favoritesState.subscriptionCount.value,
+            inputPopupState.itemsByOwner.subscriptionCount.value
+        )
+        mockFavoritesFixture.state.setLoaded(true)
+        runCurrent()
+        val actualProjected: List<Int> = listOf(
+            fixture.inputCounts.subscriptionCount.value,
+            mockFavoritesFixture.state.favoritesState.subscriptionCount.value,
+            inputPopupState.itemsByOwner.subscriptionCount.value
+        )
+
+        assertTrue(actualProjecting.all { count -> count > 0 })
+        assertEquals(listOf(0, 0, 0), actualProjected)
+        fixture.viewModel.uiState.test {
+            assertEquals(listOf<Launchable>(inputApp), awaitSuggestions())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `logs a Home suggestion projection failure and projects again on the next event`() = runTest {
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        var isFailing: Boolean = true
+        val logRecorder: TimberLogRecorder = TimberLogRecorder()
+        lateinit var fixture: SuggestionHomeFixture
+
+        logRecorder.recordSuspending {
+            fixture = createSuggestionHomeFixture(
+                launchables = listOf(inputApp),
+                countsTransform = { counts ->
+                    flow {
+                        if (isFailing) {
+                            throw IllegalStateException("Could not read the Launch counts")
+                        }
+                        emitAll(counts)
+                    }
+                }
+            )
+            runCurrent()
+        }
+        isFailing = false
+        fixture.viewModel.uiState.test {
+            fixture.viewModel.setLauncherStarted(isStarted = false)
+
+            assertEquals(listOf<Launchable>(inputApp), awaitSuggestions())
+            cancelAndIgnoreRemainingEvents()
+        }
+        logRecorder.assertLogged("Failed to project the Home suggestions")
+    }
+
+    @Test
+    fun `suggests a Launchable again on the next projection after the stopped suggestions are reset`() = runTest {
+        val inputApp: App = createApp(name = "Stopped", packageName = "com.example.stopped")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(launchables = listOf(inputApp), stoppedKeys = setOf(inputApp.key))
+
+        fixture.viewModel.uiState.test {
+            runCurrent()
+            val actualStopped: LauncherUiState.Home = expectMostRecentItem() as LauncherUiState.Home
+            fixture.inputStoppedKeys.value = emptySet()
+            fixture.viewModel.setLauncherStarted(isStarted = false)
+            fixture.viewModel.setLauncherStarted(isStarted = true)
+
+            assertEquals(emptyList<Launchable>(), actualStopped.suggestions)
+            assertEquals(listOf<Launchable>(inputApp), awaitSuggestions())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `removes a Home suggestion at once when its App is added to a Folder on Home`() = runTest {
+        val inputMember: App = createApp(name = "Member", packageName = "com.example.member")
+        val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
+        val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val inputPopupState: PopupRepositoryState = PopupRepositoryState()
+        inputFolders.value = listOf(inputFolder)
+        mockFavoritesFixture.state.setFavorites(listOf(inputFolder))
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputMember, inputOther),
+            counts = listOf(
+                createSuggestionRecord(launchable = inputMember, score = 2.0),
+                createSuggestionRecord(launchable = inputOther)
+            ),
+            mockPopupRepository = createPopupRepositoryMock(state = inputPopupState)
+        )
+
+        fixture.viewModel.uiState.test {
+            val actualBefore: List<Launchable> = awaitSuggestions()
+            inputPopupState.itemsByOwner.value = mapOf(inputFolder.key to listOf(PopupItem.Launchable(launchable = inputMember)))
+            runCurrent()
+            val actualAfter: List<Launchable> = homeSuggestions(fixture.viewModel)
+
+            assertEquals(listOf<Launchable>(inputMember, inputOther), actualBefore)
+            assertEquals(listOf<Launchable>(inputOther), actualAfter)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `never shows a Folder among the Home suggestions`() = runTest {
+        val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFolder, inputApp),
+            counts = listOf(
+                createSuggestionRecord(launchable = inputFolder, score = 9.0),
+                createSuggestionRecord(launchable = inputApp)
+            )
+        )
+
+        fixture.viewModel.uiState.test {
+            val actualSuggestions: List<Launchable> = awaitSuggestions()
+
+            assertEquals(listOf<Launchable>(inputApp), actualSuggestions)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `keeps Home suggestions still when the Favorites change while Home is shown`() = runTest {
+        val inputSuggested: List<App> = (1..3).map { index ->
+            createApp(name = "Suggested $index", packageName = "com.example.suggested$index")
+        }
+        val inputFavorites: List<App> = (1..HOME_ROW_TARGET - 1).map { index ->
+            createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
+        }
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = inputSuggested + inputFavorites,
+            counts = inputSuggested.mapIndexed { index, app ->
+                createSuggestionRecord(
+                    launchable = app,
+                    score =
+                    inputSuggested.size - index.toDouble()
+                )
+            }
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            mockFavoritesFixture.state.setFavorites(inputFavorites)
+            runCurrent()
+
+            assertEquals(inputSuggested, homeSuggestions(fixture.viewModel))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `drops a Home suggestion that is Paused while Home is shown`() = runTest {
+        val inputActive: App = createWorkSuggestion(isQuiet = false)
+        val inputPaused: App = createWorkSuggestion(isQuiet = true)
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputActive),
+            counts = listOf(createSuggestionRecord(launchable = inputActive))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            inputLaunchableState.value = createLoadedLaunchableState(launchables = listOf(inputPaused))
+            runCurrent()
+
+            assertEquals(emptyList<Launchable>(), homeSuggestions(fixture.viewModel))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `leaves Home suggestions out while editing Favorites`() = runTest {
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputApp),
+            counts = listOf(createSuggestionRecord(launchable = inputApp))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.viewModel.editFavorites()
+            val actualEditingHome: LauncherUiState.Home =
+                awaitFirstMatching { state -> state is LauncherUiState.Home && state.isEditingFavorites } as LauncherUiState.Home
+
+            assertEquals(emptyList<Launchable>(), actualEditingHome.suggestions)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `hides Home suggestions while Suggest often-used Apps is off and shows them again when it is on`() = runTest {
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputApp),
+            counts = listOf(createSuggestionRecord(launchable = inputApp))
+        )
+
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            fixture.inputSettings.value = fixture.inputSettings.value.copy(suggestOftenUsedApps = false)
+            val actualOff: LauncherUiState.Home =
+                awaitFirstMatching { state -> state is LauncherUiState.Home && state.suggestions.isEmpty() } as LauncherUiState.Home
+            fixture.inputSettings.value = fixture.inputSettings.value.copy(suggestOftenUsedApps = true)
+            val actualOn: List<Launchable> = awaitSuggestions()
+
+            assertEquals(emptyList<Launchable>(), actualOff.suggestions)
+            assertEquals(listOf<Launchable>(inputApp), actualOn)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `Stop suggesting removes the Home suggestion and it never returns`() = runTest {
+        val inputStopped: App = createApp(name = "Stopped", packageName = "com.example.stopped")
+        val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputStopped, inputOther),
+            counts = listOf(
+                createSuggestionRecord(launchable = inputStopped, score = 2.0),
+                createSuggestionRecord(launchable = inputOther)
+            )
+        )
+
+        fixture.viewModel.uiState.test {
+            val actualBefore: List<Launchable> = awaitSuggestions()
+            fixture.viewModel.stopSuggesting(inputStopped)
+            runCurrent()
+            val actualWhileShown: List<Launchable> = homeSuggestions(fixture.viewModel)
+            fixture.viewModel.openSearch()
+            runCurrent()
+            fixture.viewModel.closeSearch()
+            runCurrent()
+            val actualAfterLeaving: List<Launchable> = homeSuggestions(fixture.viewModel)
+
+            assertEquals(listOf<Launchable>(inputStopped, inputOther), actualBefore)
+            assertEquals(listOf<Launchable>(inputOther), actualWhileShown)
+            assertEquals(listOf<Launchable>(inputOther), actualAfterLeaving)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a long-pressed Home suggestion row's menu is a Home suggestion`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.suggested, origin = MenuSuggestion.Home, expected = MenuSuggestion.Home)
+        }
+    }
+
+    @Test
+    fun `a long-pressed Home Favorite row's menu is not a suggestion`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.favorite, origin = MenuSuggestion.None, expected = MenuSuggestion.None)
+        }
+    }
+
+    @Test
+    fun `a Launchable that is also a Home suggestion opened without a suggestion origin offers no suggestion action`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.suggested, origin = MenuSuggestion.None, expected = MenuSuggestion.None)
+        }
+    }
+
+    @Test
+    fun `renaming a Home suggestion keeps its menu a Home suggestion`() = runTest {
+        withHomeRows { rows ->
+            rows.viewModel.menuState.test {
+                rows.viewModel.openItemMenu(rows.suggested, MenuSuggestion.Home)
+                rows.viewModel.openItemRename(rows.suggested)
+                rows.viewModel.setItemName(rows.suggested, RENAMED_NAME)
+                val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+                assertEquals(MenuSuggestion.Home, actualMenu.suggestion)
             }
         }
     }
@@ -969,7 +1414,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
         }
@@ -1061,7 +1506,7 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel()
 
         viewModel.menuState.test {
-            viewModel.openItemMenu(inputApp)
+            viewModel.openItemMenu(inputApp, MenuSuggestion.None)
             assertTrue(expectMostRecentItem() is LauncherMenuState.Menu)
 
             viewModel.hideFromAppList(inputApp)
@@ -1175,7 +1620,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.openItemRename(inputItem)
                 assertEquals(LauncherMenuState.Rename(item = inputItem), expectMostRecentItem())
             }
@@ -1187,7 +1632,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.closeItemMenu()
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
@@ -1243,6 +1688,8 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
+                viewModel.openItemRename(inputItem)
                 viewModel.setItemName(inputItem, RENAMED_NAME)
                 assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
@@ -1332,7 +1779,7 @@ class LauncherViewModelTest {
                 viewModel.onRailReleased(railIndex(inputListedGroups[0]))
                 expectAppList()
                 viewModel.menuState.test {
-                    viewModel.openItemMenu(inputItem)
+                    viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                     assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
                 }
             }
@@ -1626,7 +2073,7 @@ class LauncherViewModelTest {
             viewModel.editFavorites()
             viewModel.menuState.test {
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 advanceUntilIdle()
                 expectNoEvents()
             }
@@ -1652,7 +2099,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.toggleFavorite(inputItem)
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.editFavorites()
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
@@ -1703,7 +2150,7 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputApp)
+            viewModel.openItemMenu(inputApp, MenuSuggestion.None)
             assertEquals(createItemMenu(item = inputApp, canUninstall = true), expectMostRecentItem())
         }
     }
@@ -1775,7 +2222,7 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputPausedApp)
+            viewModel.openItemMenu(inputPausedApp, MenuSuggestion.None)
             assertEquals(createItemMenu(item = inputPausedApp, canUninstall = true), expectMostRecentItem())
         }
     }
@@ -2514,7 +2961,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
 
-            viewModel.openItemMenu(inputShortcut)
+            viewModel.openItemMenu(inputShortcut, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(inputShortcut, actualMenu.item)
@@ -2536,7 +2983,7 @@ class LauncherViewModelTest {
         )
 
         viewModel.menuState.test {
-            viewModel.openItemMenu(inputShortcut)
+            viewModel.openItemMenu(inputShortcut, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(inputShortcut, actualMenu.item)
@@ -3732,9 +4179,9 @@ class LauncherViewModelTest {
 
         fixture.viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            fixture.viewModel.openItemMenu(fixture.app)
+            fixture.viewModel.openItemMenu(launchable = fixture.app, suggestion = MenuSuggestion.Search)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
-            assertTrue(actualMenu.isSearchSuggestion)
+            assertEquals(MenuSuggestion.Search, actualMenu.suggestion)
 
             fixture.viewModel.removeSearchSuggestion(fixture.app)
 
@@ -3762,9 +4209,9 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputItem)
+            viewModel.openItemMenu(inputItem, MenuSuggestion.None)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
-            assertFalse(actualMenu.isSearchSuggestion)
+            assertEquals(MenuSuggestion.None, actualMenu.suggestion)
         }
     }
 
@@ -4056,7 +4503,7 @@ class LauncherViewModelTest {
         fixture.viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
 
-            fixture.viewModel.openItemMenu(expectedResult)
+            fixture.viewModel.openItemMenu(expectedResult, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(fixture.shortcut, actualMenu.item)
@@ -4419,11 +4866,85 @@ class LauncherViewModelTest {
         viewModel: LauncherViewModel = createViewModel()
     ) {
         viewModel.menuState.test {
-            viewModel.openItemMenu(item)
+            viewModel.openItemMenu(item, MenuSuggestion.None)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(expected, select(actualMenu))
         }
     }
+
+    private suspend fun TestScope.withHomeRows(block: suspend (HomeRows) -> Unit) {
+        val inputSuggested: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val inputFavorite: App = createApp(name = "Favorite", packageName = "com.example.favorite")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputSuggested, inputFavorite),
+            counts = listOf(createSuggestionRecord(launchable = inputSuggested))
+        )
+        mockFavoritesFixture.state.setFavorites(listOf(inputFavorite))
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            block(HomeRows(viewModel = fixture.viewModel, suggested = inputSuggested, favorite = inputFavorite))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private suspend fun assertMenuSuggestion(rows: HomeRows, item: Launchable, origin: MenuSuggestion, expected: MenuSuggestion) {
+        rows.viewModel.menuState.test {
+            rows.viewModel.openItemMenu(item, origin)
+            assertEquals(expected, (expectMostRecentItem() as LauncherMenuState.Menu).suggestion)
+        }
+    }
+
+    private fun TestScope.createSuggestionHomeFixture(
+        launchables: List<Launchable>,
+        counts: List<LaunchCountRecord> = launchables.map { launchable -> createSuggestionRecord(launchable = launchable) },
+        stoppedKeys: Set<String> = emptySet(),
+        countsTransform: (Flow<List<LaunchCountRecord>>) -> Flow<List<LaunchCountRecord>> = { source -> source },
+        mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository
+    ): SuggestionHomeFixture {
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = launchables)
+        val inputCounts: MutableStateFlow<List<LaunchCountRecord>> = MutableStateFlow(counts)
+        val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings())
+        val inputStoppedKeys: MutableStateFlow<Set<String>> = MutableStateFlow(stoppedKeys)
+        val mockLaunchCountRepository: ILaunchCountRepository = createLaunchCountRepositoryMock(counts = countsTransform(inputCounts))
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPopupRepository = mockPopupRepository,
+            mockPreferencesRepository = createPreferencesRepositoryMock(settingsFlow = inputSettings),
+            mockLaunchCountRepository = mockLaunchCountRepository,
+            mockStoppedSuggestionRepository = createStoppedSuggestionRepositoryMock(keys = inputStoppedKeys)
+        )
+        viewModel.setLauncherStarted(isStarted = true)
+        return SuggestionHomeFixture(
+            inputCounts = inputCounts,
+            inputSettings = inputSettings,
+            inputStoppedKeys = inputStoppedKeys,
+            mockLaunchCountRepository = mockLaunchCountRepository,
+            viewModel = viewModel
+        )
+    }
+
+    private fun createSuggestionRecord(
+        launchable: Launchable,
+        score: Double = HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE
+    ): LaunchCountRecord = createLaunchCountRecord(
+        key = launchable.key,
+        launchCount = HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT,
+        recentUseScore = score
+    )
+
+    private fun createWorkSuggestion(isQuiet: Boolean): App = createApp(
+        name = "Mail",
+        packageName = "com.example.mail",
+        profileInfo = createProfileInfo(userId = WORK_USER_ID, kind = ProfileKind.Work, isQuiet = isQuiet)
+    )
+
+    private fun homeSuggestions(viewModel: LauncherViewModel): List<Launchable> =
+        checkState<LauncherUiState.Home>(viewModel.uiState.value).suggestions
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitSuggestions(): List<Launchable> = (
+        awaitFirstMatching { state ->
+            state is LauncherUiState.Home && state.suggestions.isNotEmpty()
+        } as LauncherUiState.Home
+        ).suggestions
 
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
@@ -4438,6 +4959,7 @@ class LauncherViewModelTest {
         mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
         mockSearchHistoryRepository: ISearchHistoryRepository = this@LauncherViewModelTest.mockSearchHistoryRepository,
         mockLaunchCountRepository: ILaunchCountRepository = this@LauncherViewModelTest.mockLaunchCountRepository,
+        mockStoppedSuggestionRepository: IStoppedSuggestionRepository = this@LauncherViewModelTest.mockStoppedSuggestionRepository,
         mockClockSource: IClockSource = this@LauncherViewModelTest.mockClockSource,
         mockShortcutSearchSource: IShortcutSearchSource = createShortcutSearchSourceMock(),
         mockContactSearchSource: IContactSearchSource = createContactSearchSourceMock(),
@@ -4471,9 +4993,11 @@ class LauncherViewModelTest {
         standaloneShortcutRepository = mockStandaloneShortcutRepository,
         searchHistoryRepository = mockSearchHistoryRepository,
         launchCountRepository = mockLaunchCountRepository,
+        stoppedSuggestionRepository = mockStoppedSuggestionRepository,
         searchProjectionSource = mockSearchProjectionSource,
         shortcutSearchSource = mockShortcutSearchSource,
-        searchSettings = mockSearchSettings
+        searchSettings = mockSearchSettings,
+        clockSource = mockClockSource
     )
 
     private fun createPrivateSpaceGroups(privateSpace: LaunchableGroup.PrivateSpace): List<LaunchableGroup> = listOf(
@@ -4598,6 +5122,16 @@ class LauncherViewModelTest {
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)
 
 private data class HiddenSearchFixture(val launchable: Launchable, val query: String, val viewModel: LauncherViewModel)
+
+private data class HomeRows(val viewModel: LauncherViewModel, val suggested: App, val favorite: App)
+
+private data class SuggestionHomeFixture(
+    val inputCounts: MutableStateFlow<List<LaunchCountRecord>>,
+    val inputSettings: MutableStateFlow<Settings>,
+    val inputStoppedKeys: MutableStateFlow<Set<String>>,
+    val mockLaunchCountRepository: ILaunchCountRepository,
+    val viewModel: LauncherViewModel
+)
 
 private data class SuggestionFixture(val app: App, val viewModel: LauncherViewModel)
 

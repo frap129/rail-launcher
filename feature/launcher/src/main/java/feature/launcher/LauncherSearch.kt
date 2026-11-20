@@ -278,6 +278,7 @@ internal fun LauncherSearch(
             results = search.results,
             itemActions = searchItemActions,
             topResultKey = search.topResult?.key,
+            resultMenuSuggestion = if (search.isShowingSuggestions) MenuSuggestion.Search else MenuSuggestion.None,
             isBottomAnchored = search.isBottomAnchored,
             onResultTap = onResultTap,
             onContactRowAction = onContactRowAction
@@ -301,6 +302,7 @@ private fun LauncherSearchResults(
     results: List<SearchResult>,
     itemActions: LauncherItemActions,
     topResultKey: String?,
+    resultMenuSuggestion: MenuSuggestion,
     isBottomAnchored: Boolean,
     onResultTap: (SearchResult) -> Unit,
     onContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit
@@ -351,7 +353,8 @@ private fun LauncherSearchResults(
                     popupRow = PopupRow.Search,
                     itemActions = itemActions,
                     secondaryText = if (result.isHidden) hiddenLabel else (result.launchable as? ShortcutLaunchable)?.publisherName,
-                    accessibilityAnnouncement = accessibilityAnnouncement
+                    accessibilityAnnouncement = accessibilityAnnouncement,
+                    menuSuggestion = resultMenuSuggestion
                 )
 
                 is SearchResult.CalculatorRow -> LauncherActionRow(

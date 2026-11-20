@@ -67,6 +67,8 @@ class LauncherMenuTest {
         get() = getString(R.string.remove_from_suggestions)
     private val removeShortcutLabel: String
         get() = getString(R.string.remove_shortcut)
+    private val stopSuggestingLabel: String
+        get() = getString(R.string.stop_suggesting)
     private val uninstallLabel: String
         get() = getString(R.string.uninstall)
     private val hideLabel: String
@@ -107,7 +109,7 @@ class LauncherMenuTest {
     @Test
     fun `removes a Search suggestion from its item menu`() {
         val item: App = createApp(name = APP_NAME)
-        setMenuContent(item = item, isSearchSuggestion = true)
+        setMenuContent(item = item, suggestion = MenuSuggestion.Search)
 
         composeRule.onNodeWithText(removeSuggestionLabel).performClick()
 
@@ -115,8 +117,25 @@ class LauncherMenuTest {
     }
 
     @Test
+    fun `stops suggesting a Home suggestion from its item menu`() {
+        val item: App = createApp(name = APP_NAME)
+        setItemMenuContent(item = item, suggestion = MenuSuggestion.Home)
+
+        composeRule.onNodeWithText(stopSuggestingLabel).performClick()
+
+        verify(exactly = 1) { mockViewModel.stopSuggesting(item) }
+    }
+
+    @Test
+    fun `hides the Stop suggesting action for a row that is not a Home suggestion`() {
+        setItemMenuContent(item = createApp(name = APP_NAME), suggestion = MenuSuggestion.None)
+
+        composeRule.onNodeWithText(stopSuggestingLabel).assertDoesNotExist()
+    }
+
+    @Test
     fun `hides the remove suggestion action for a normal row`() {
-        setMenuContent(item = createApp(name = APP_NAME), isSearchSuggestion = false)
+        setMenuContent(item = createApp(name = APP_NAME), suggestion = MenuSuggestion.None)
 
         composeRule.onNodeWithText(removeSuggestionLabel).assertDoesNotExist()
     }
@@ -228,7 +247,7 @@ class LauncherMenuTest {
     fun `paints the App menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             item = createApp(name = APP_NAME),
-            isSearchSuggestion = true,
+            suggestion = MenuSuggestion.Search,
             canUninstall = true,
             labels = listOf(
                 R.string.edit_favorites,
@@ -289,13 +308,13 @@ class LauncherMenuTest {
     private fun assertRowsPaintSheetColor(
         item: Launchable,
         labels: List<Int>,
-        isSearchSuggestion: Boolean = false,
+        suggestion: MenuSuggestion = MenuSuggestion.None,
         isStandaloneShortcut: Boolean = false,
         canUninstall: Boolean = false
     ) {
         val menu: LauncherMenuState.Menu = createItemMenu(
             item = item,
-            isSearchSuggestion = isSearchSuggestion,
+            suggestion = suggestion,
             isStandaloneShortcut = isStandaloneShortcut,
             canUninstall = canUninstall
         )
@@ -325,14 +344,14 @@ class LauncherMenuTest {
 
     private fun setItemMenuContent(
         item: Launchable,
-        isSearchSuggestion: Boolean = false,
+        suggestion: MenuSuggestion = MenuSuggestion.None,
         isStandaloneShortcut: Boolean = false,
         canUninstall: Boolean = false,
         installInPrivateSpaceProfile: ProfileInfo? = null
     ) {
         val menu: LauncherMenuState.Menu = createItemMenu(
             item = item,
-            isSearchSuggestion = isSearchSuggestion,
+            suggestion = suggestion,
             isStandaloneShortcut = isStandaloneShortcut,
             canUninstall = canUninstall,
             installInPrivateSpaceProfile = installInPrivateSpaceProfile
@@ -351,14 +370,14 @@ class LauncherMenuTest {
 
     private fun setMenuContent(
         item: Launchable,
-        isSearchSuggestion: Boolean = false,
+        suggestion: MenuSuggestion = MenuSuggestion.None,
         isStandaloneShortcut: Boolean = false,
         canUninstall: Boolean = false
     ) {
         every { mockViewModel.menuState } returns MutableStateFlow(
             createItemMenu(
                 item = item,
-                isSearchSuggestion = isSearchSuggestion,
+                suggestion = suggestion,
                 isStandaloneShortcut = isStandaloneShortcut,
                 canUninstall = canUninstall
             )

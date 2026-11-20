@@ -38,6 +38,7 @@ import core.ui.layout.favoritesContentPadding
 import core.ui.layout.homeEdgePadding
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
+import core.ui.model.data.suggestionKey
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import feature.launcher.widgets.CappedWidgetArea
@@ -57,6 +58,7 @@ import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private const val LAUNCHER_HOME_TEST_TAG: String = "launcherHome"
+private const val SUGGESTION_ALPHA: Float = 0.7f
 
 private data class HomeInteraction(
     val menuEnabled: Boolean,
@@ -348,13 +350,13 @@ private fun LazyListScope.favoriteItems(
                             modifier = Modifier.draggableHandle()
                         )
                     }
-                    LauncherItem(
+                    HomeItem(
                         item = favorite,
                         isEditingFavorites = home.isEditingFavorites,
                         isFavorite = true,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
-                        popupRow = PopupRow.Home,
                         itemActions = itemActions,
+                        menuSuggestion = MenuSuggestion.None,
                         secondaryText = folderSummaries[favorite.key],
                         onIconSettled = { onFavoriteIconSettled(favorite) },
                         modifier = Modifier
@@ -378,4 +380,58 @@ private fun LazyListScope.favoriteItems(
             }
         }
     }
+    items(home.suggestions, key = { suggestion -> suggestionKey(suggestion.key) }) { suggestion ->
+        HomeSuggestionRow(
+            suggestion = suggestion,
+            railSide = railSide,
+            itemActions = itemActions,
+            isPopupSwipeEnabled = isPopupSwipeEnabled
+        )
+    }
+}
+
+/** A Home suggestion: a Favorite-like row drawn quieter and announced as suggested. */
+@Composable
+internal fun HomeSuggestionRow(suggestion: Launchable, railSide: RailSide, itemActions: LauncherItemActions, isPopupSwipeEnabled: Boolean) {
+    HomeItem(
+        item = suggestion,
+        isFavorite = false,
+        isEditingFavorites = false,
+        isPopupSwipeEnabled = isPopupSwipeEnabled,
+        itemActions = itemActions,
+        accessibilityAnnouncement = stringResource(R.string.home_suggestion_announcement),
+        menuSuggestion = MenuSuggestion.Home,
+        modifier = Modifier
+            .alpha(SUGGESTION_ALPHA)
+            .favoritesContentPadding(railSide = railSide)
+    )
+}
+
+/** A [LauncherItem] on Home, whose Pop-up opens from the Home row. */
+@Composable
+private fun HomeItem(
+    item: Launchable,
+    isFavorite: Boolean,
+    isEditingFavorites: Boolean,
+    isPopupSwipeEnabled: Boolean,
+    itemActions: LauncherItemActions,
+    menuSuggestion: MenuSuggestion,
+    modifier: Modifier,
+    secondaryText: String? = null,
+    accessibilityAnnouncement: String? = null,
+    onIconSettled: (() -> Unit)? = null
+) {
+    LauncherItem(
+        item = item,
+        isEditingFavorites = isEditingFavorites,
+        isFavorite = isFavorite,
+        isPopupSwipeEnabled = isPopupSwipeEnabled,
+        popupRow = PopupRow.Home,
+        itemActions = itemActions,
+        secondaryText = secondaryText,
+        accessibilityAnnouncement = accessibilityAnnouncement,
+        menuSuggestion = menuSuggestion,
+        onIconSettled = onIconSettled,
+        modifier = modifier
+    )
 }

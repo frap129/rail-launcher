@@ -15,8 +15,11 @@ import core.data.room.dao.LaunchCountDao
 import core.data.room.dao.PopupDao
 import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.StandaloneShortcutDao
+import core.data.room.dao.StoppedSuggestionDao
+import core.data.room.dao.mapToKeySet
 import core.data.runContained
 import core.data.search.SearchHistoryRecord
+import core.data.search.StoppedSuggestionRecord
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.StandaloneShortcutRecord
 import core.data.widgets.IWidgetAreaRepository
@@ -33,15 +36,13 @@ class KeyedCleanupRow(override val keys: Flow<Set<String>>, private val deleteKe
 
 /** The customizations stored for Launchable keys. */
 fun launchableCustomizationCleanupRow(preferencesRepository: IPreferencesRepository): IStaleKeyRow = KeyedCleanupRow(
-    keys = preferencesRepository.launchableCustomizations.map { customizations ->
-        customizations.mapTo(mutableSetOf(), LaunchableCustomization::key)
-    },
+    keys = preferencesRepository.launchableCustomizations.mapToKeySet(LaunchableCustomization::key),
     deleteKeys = { keys -> preferencesRepository.removeLaunchableCustomizations(keys = keys.toList()) }
 )
 
 /** The Favorites stored for Launchable keys. */
 fun favoriteCleanupRow(favoriteDao: FavoriteDao): IStaleKeyRow = KeyedCleanupRow(
-    keys = favoriteDao.observeAll().map { records -> records.mapTo(mutableSetOf(), FavoriteRecord::key) },
+    keys = favoriteDao.observeAll().mapToKeySet(FavoriteRecord::key),
     deleteKeys = { keys -> favoriteDao.remove(keys = keys.toList()) }
 )
 
@@ -70,7 +71,7 @@ class PopupOwnerCleanupRow(
 
 /** The Pop-up items stored for Launchable and Shortcut keys. */
 fun popupItemCleanupRow(popupDao: PopupDao, popupRepository: IPopupRepository): IStaleKeyRow = KeyedCleanupRow(
-    keys = popupDao.observeAllItems().map { records -> records.mapTo(mutableSetOf(), PopupItemRecord::itemKey) },
+    keys = popupDao.observeAllItems().mapToKeySet(PopupItemRecord::itemKey),
     deleteKeys = { keys -> popupRepository.deleteItemsByKey(itemKeys = keys.toList()) }
 )
 
@@ -93,13 +94,19 @@ class HeaderTapTargetCleanupRow(private val headerSettingsDao: HeaderSettingsDao
 
 /** The Search history stored for Launchable keys. */
 fun searchHistoryCleanupRow(searchHistoryDao: SearchHistoryDao): IStaleKeyRow = KeyedCleanupRow(
-    keys = searchHistoryDao.observeAll().map { records -> records.mapTo(mutableSetOf(), SearchHistoryRecord::key) },
+    keys = searchHistoryDao.observeAll().mapToKeySet(SearchHistoryRecord::key),
     deleteKeys = { keys -> searchHistoryDao.remove(keys = keys.toList()) }
+)
+
+/** The Stop suggesting keys stored for Launchable keys. */
+fun stoppedSuggestionCleanupRow(stoppedSuggestionDao: StoppedSuggestionDao): IStaleKeyRow = KeyedCleanupRow(
+    keys = stoppedSuggestionDao.observeAll().mapToKeySet(StoppedSuggestionRecord::key),
+    deleteKeys = { keys -> stoppedSuggestionDao.remove(keys = keys.toList()) }
 )
 
 /** The launch counts stored for Launchable and Shortcut keys. */
 fun launchCountCleanupRow(launchCountDao: LaunchCountDao): IStaleKeyRow = KeyedCleanupRow(
-    keys = launchCountDao.observeAll().map { records -> records.mapTo(mutableSetOf(), LaunchCountRecord::key) },
+    keys = launchCountDao.observeAll().mapToKeySet(LaunchCountRecord::key),
     deleteKeys = { keys -> launchCountDao.remove(keys = keys.toList()) }
 )
 
@@ -108,6 +115,6 @@ fun standaloneShortcutCleanupRow(
     standaloneShortcutDao: StandaloneShortcutDao,
     standaloneShortcutRepository: IStandaloneShortcutRepository
 ): IStaleKeyRow = KeyedCleanupRow(
-    keys = standaloneShortcutDao.observeAll().map { records -> records.mapTo(mutableSetOf(), StandaloneShortcutRecord::key) },
+    keys = standaloneShortcutDao.observeAll().mapToKeySet(StandaloneShortcutRecord::key),
     deleteKeys = { keys -> standaloneShortcutRepository.delete(keys = keys.toList()) }
 )

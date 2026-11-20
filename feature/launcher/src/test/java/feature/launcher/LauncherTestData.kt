@@ -6,7 +6,7 @@ import core.data.profiles.ProfileInfo
 
 fun createLauncherItemActions(railSide: RailSide = RailSide.DEFAULT): LauncherItemActions = LauncherItemActions(
     onItemTap = { _, _ -> },
-    onItemLongPress = {},
+    onItemLongPress = { _, _ -> },
     onToggleFavorite = {},
     onItemOpenPopup = { _, _ -> },
     onItemAnchorChanged = { _, _ -> },
@@ -18,14 +18,14 @@ fun createLauncherItemActions(railSide: RailSide = RailSide.DEFAULT): LauncherIt
 /** The menu [LauncherViewModel] resolves for [item], defaulting every action it has not been given to hidden. */
 fun createItemMenu(
     item: Launchable,
-    isSearchSuggestion: Boolean = false,
+    suggestion: MenuSuggestion = MenuSuggestion.None,
     isStandaloneShortcut: Boolean = false,
     canUninstall: Boolean = false,
     isHidden: Boolean = false,
     installInPrivateSpaceProfile: ProfileInfo? = null
 ): LauncherMenuState.Menu = LauncherMenuState.Menu(
     item = item,
-    isSearchSuggestion = isSearchSuggestion,
+    suggestion = suggestion,
     isStandaloneShortcut = isStandaloneShortcut,
     canUninstall = canUninstall,
     isHidden = isHidden,

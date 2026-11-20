@@ -19,6 +19,10 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +33,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
+import core.ui.composables.DestructiveConfirmationDialog
 import core.ui.composables.SheetRow
 import core.ui.composables.settingsRowContainerColor
 
@@ -109,6 +114,25 @@ internal fun SettingsDestructiveRow(title: String, onClick: () -> Unit, containe
         headlineContent = { Text(text = title, color = MaterialTheme.colorScheme.error) },
         containerColor = containerColor
     )
+}
+
+/** A [SettingsDestructiveRow] that runs [onConfirm] only after the user confirms the [DestructiveConfirmationDialog]. */
+@Composable
+internal fun SettingsConfirmedDestructiveRow(title: String, dialogTitle: String, dialogBody: String, onConfirm: () -> Unit) {
+    var showConfirmation: Boolean by remember { mutableStateOf(false) }
+    SettingsDestructiveRow(title = title, onClick = { showConfirmation = true })
+    if (showConfirmation) {
+        DestructiveConfirmationDialog(
+            title = dialogTitle,
+            body = dialogBody,
+            confirmLabel = title,
+            onConfirm = {
+                onConfirm()
+                showConfirmation = false
+            },
+            onDismiss = { showConfirmation = false }
+        )
+    }
 }
 
 /** The bottom-centred Snackbar host every Settings screen shows in its content Box. */

@@ -16,6 +16,7 @@ import core.data.prefs.ScrubEdges
 import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.search.SearchHistoryRecord
+import core.data.search.StoppedSuggestionRecord
 import core.data.shortcuts.StandaloneShortcutRecord
 import core.data.testing.TEST_CUSTOM_SEARCH_ENGINE_TEMPLATE
 import core.data.testing.TEST_ICON_PACK_PACKAGE
@@ -645,6 +646,33 @@ class AppDatabaseMigrationTest {
             column = Settings.COLUMN_SHOW_RAIL,
             expected = true
         )
+    }
+
+    @Test
+    fun `adds Suggest often-used Apps defaulting on and keeps the settings row`() {
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_29_30,
+            version = 29,
+            column = Settings.COLUMN_SUGGEST_OFTEN_USED_APPS,
+            expected = true
+        )
+    }
+
+    @Test
+    fun `adds the Stopped suggestion table and keeps the settings row`() {
+        withDatabase(
+            name = "migration-30-31-test",
+            version = 30,
+            createTables = { db -> db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE) }
+        ) { db ->
+            MIGRATION_30_31.migrate(db)
+
+            assertEquals(
+                listOf(TableColumn(name = "key", type = "TEXT", isNotNull = true, isPrimaryKey = true)),
+                db.tableColumns(table = StoppedSuggestionRecord.TABLE_NAME)
+            )
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
     }
 
     @Test

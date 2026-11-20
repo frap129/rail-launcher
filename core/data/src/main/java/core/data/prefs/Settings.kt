@@ -51,7 +51,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_RAIL_HAPTICS, defaultValue = "1")
     val railHaptics: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SHOW_RAIL, defaultValue = "1")
-    val showRail: Boolean = true
+    val showRail: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_SUGGEST_OFTEN_USED_APPS, defaultValue = "1")
+    val suggestOftenUsedApps: Boolean = true
 ) {
     companion object {
         const val TABLE_NAME: String = "settings"
@@ -78,5 +80,6 @@ data class Settings(
         const val COLUMN_SHOW_RECENTLY_INSTALLED: String = "show_recently_installed"
         const val COLUMN_RAIL_HAPTICS: String = "rail_haptics"
         const val COLUMN_SHOW_RAIL: String = "show_rail"
+        const val COLUMN_SUGGEST_OFTEN_USED_APPS: String = "suggest_often_used_apps"
     }
 }

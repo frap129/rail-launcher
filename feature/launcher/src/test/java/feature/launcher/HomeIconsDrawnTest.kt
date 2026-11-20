@@ -112,6 +112,7 @@ class HomeIconsDrawnTest {
         lazyListState = LazyListState(),
         favorites = favorites,
         isFavoritesLoaded = true,
+        suggestions = emptyList(),
         isSwipeUpEnabled = false,
         isSwipeDownEnabled = false
     )

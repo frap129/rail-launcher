@@ -1,12 +1,15 @@
 package core.data.cleanup
 
 import core.data.launchables.model.Launchable
+import core.data.search.IStoppedSuggestionRepository
+import core.data.search.IStoppedSuggestionRepositoryImpl
 import core.data.shortcuts.IShortcutSource
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutResolution
 import core.data.testing.FIRST_SHORTCUT_ID
+import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.PERSONAL_USER_ID
-import core.data.testing.TEST_SDK
+import core.data.testing.StaleKeyCleanupOutcome
 import core.data.testing.createApp
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLoadedLaunchableState
@@ -14,6 +17,7 @@ import core.data.testing.createRailLaunchable
 import core.data.testing.createShortcutSourceMock
 import core.data.testing.createUserHandle
 import core.data.testing.finishPendingWork
+import core.data.testing.staleKeyCleanupOutcome
 import io.mockk.clearMocks
 import io.mockk.verify
 import kotlinx.coroutines.CancellationException
@@ -21,19 +25,15 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
-@Config(manifest = Config.NONE, sdk = [TEST_SDK])
-class IStaleKeyCleanupImplTest {
+class IStaleKeyCleanupImplTest : InMemoryDatabaseTest() {
     @Test
     fun `does not delete anything before the Launchables load`() = runTest {
         val mockClassifier: FakeClassifier = FakeClassifier()
@@ -142,6 +142,22 @@ class IStaleKeyCleanupImplTest {
 
         verify(exactly = 0) { mockShortcutSource.resolve(any()) }
         assertEquals(listOf(setOf(inputStale.key)), mockRow.deletedKeys)
+    }
+
+    @Test
+    fun `removes stopped suggestions for gone Launchables and keeps present and Kept keys`() = databaseTest {
+        val repository: IStoppedSuggestionRepository = IStoppedSuggestionRepositoryImpl(
+            stoppedSuggestionDao = database.getStoppedSuggestionDao(),
+            dispatcher = databaseDispatcher
+        )
+
+        val actualOutcome: StaleKeyCleanupOutcome = staleKeyCleanupOutcome(
+            record = { key -> repository.stop(key = key) },
+            storedKeys = { repository.keys.first() },
+            cleanupRow = stoppedSuggestionCleanupRow(stoppedSuggestionDao = database.getStoppedSuggestionDao())
+        )
+
+        assertEquals(setOf(actualOutcome.presentKey, actualOutcome.keptKey), actualOutcome.survivingKeys)
     }
 
     @Test

@@ -29,9 +29,11 @@ import core.data.room.dao.PopupDao
 import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.StandaloneShortcutDao
+import core.data.room.dao.StoppedSuggestionDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.search.SearchHistoryRecord
+import core.data.search.StoppedSuggestionRecord
 import core.data.shortcuts.StandaloneShortcutRecord
 import core.data.widgets.MediaPlayerSettings
 import core.data.widgets.PendingAppWidgetRecord
@@ -59,9 +61,10 @@ import core.data.widgets.WidgetRecord
         FolderRecord::class,
         StandaloneShortcutRecord::class,
         SearchHistoryRecord::class,
-        LaunchCountRecord::class
+        LaunchCountRecord::class,
+        StoppedSuggestionRecord::class
     ],
-    version = 29
+    version = 31
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -81,4 +84,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun getStandaloneShortcutDao(): StandaloneShortcutDao
     abstract fun getSearchHistoryDao(): SearchHistoryDao
     abstract fun getLaunchCountDao(): LaunchCountDao
+    abstract fun getStoppedSuggestionDao(): StoppedSuggestionDao
 }

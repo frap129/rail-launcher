@@ -109,7 +109,7 @@ A key read from a database that Android cloud backup or device transfer restored
 _Avoid_: Backup key, old key
 
 **Stale-key cleanup**:
-The one job in `core:data` that classifies the keys stored by Launchable customizations, Favorites, Pop-up owners and items, Header tap actions and Standalone shortcuts, then removes the rows whose key's Launchable, Shortcut or Profile is gone. Each stored row kind only supplies its keys and how to delete them.
+The one job in `core:data` that classifies the keys stored by Launchable customizations, Favorites, Pop-up owners and items, Header tap actions, Standalone shortcuts and Stopped suggestions, then removes the rows whose key's Launchable, Shortcut or Profile is gone. Each stored row kind only supplies its keys and how to delete them.
 _Avoid_: Cleanup paths, stale purge, key sweep
 
 **private App**:
@@ -223,6 +223,18 @@ _Avoid_: Pin, starred app, dock
 **Home**:
 The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
+
+**Home suggestions**:
+The Launchables Home shows below the Favorites that the user opens often and recently but has not made Favorites (at least three launches and a Recent use score of at least 1.0, so an App not opened for two to three weeks drops off), drawn quieter and announced as suggested. Folders are never suggested, whatever their Launch count and Recent use score. They are chosen when the launcher starts or stops and on leaving Home, never while Home is shown, and Edit Favorites leaves them out.
+_Avoid_: Suggested apps, predictions, Search suggestions (which are another list)
+
+**Stopped suggestion**:
+A Launchable key the user chose Stop suggesting for in a Home suggestion's long-press menu. Home suggestions never show it again until the user resets the stopped suggestions, and the whole-database backup keeps it.
+_Avoid_: Blocked suggestion, dismissed suggestion
+
+**Suggest often-used Apps**:
+The Rail Settings switch that shows or hides Home suggestions. It defaults to on; while it is off, Home shows only its Favorites.
+_Avoid_: Suggestions toggle, predictions setting
 
 **Home Apps**:
 The Apps Home resolves its Favorites from: the Last-known App list until the live LauncherApps load finishes, then the live Apps. Only Favorites, Folders and Pop-ups resolve from a Last-known Home Apps state; the App List, Rail groups, picker groups, stale-key cleanup and App Widget reconciliation require live Apps.

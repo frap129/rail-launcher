@@ -114,7 +114,6 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
-import core.ui.composables.DestructiveConfirmationDialog
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
@@ -208,6 +207,7 @@ private fun NavController.startAddWidgetOnHome() {
 @Composable
 fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: SettingsViewModel = koinViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val hasStoppedSuggestions: Boolean by viewModel.hasStoppedSuggestions.collectAsState()
     val theme = MaterialTheme.colorScheme
     val screen: SettingsScreen = remember {
         SettingsScreen.entries.find { it.key == backStackEntry.arguments?.getString(SCREEN_ARGUMENT) } ?: SettingsScreen.Main
@@ -273,6 +273,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     showRecentlyInstalled = uiState.showRecentlyInstalled,
                     railHaptics = uiState.railHaptics,
                     showRail = uiState.showRail,
+                    suggestOftenUsedApps = uiState.suggestOftenUsedApps,
+                    hasStoppedSuggestions = hasStoppedSuggestions,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
                         onResetCustomIcons = viewModel::resetCustomIcons,
@@ -281,6 +283,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         onShowRecentlyInstalledChange = viewModel::setShowRecentlyInstalled,
                         onRailHapticsChange = viewModel::setRailHaptics,
                         onShowRailChange = viewModel::setShowRail,
+                        onSuggestOftenUsedAppsChange = viewModel::setSuggestOftenUsedApps,
+                        onResetStoppedSuggestions = viewModel::resetStoppedSuggestions,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
                     )
@@ -1435,6 +1439,8 @@ class SettingsAppearanceActions(
     val onShowRecentlyInstalledChange: (Boolean) -> Unit,
     val onRailHapticsChange: (Boolean) -> Unit,
     val onShowRailChange: (Boolean) -> Unit,
+    val onSuggestOftenUsedAppsChange: (Boolean) -> Unit,
+    val onResetStoppedSuggestions: () -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
 )
@@ -1450,9 +1456,10 @@ fun SettingsAppearanceScreen(
     showRecentlyInstalled: Boolean,
     railHaptics: Boolean,
     showRail: Boolean,
+    suggestOftenUsedApps: Boolean,
+    hasStoppedSuggestions: Boolean,
     actions: SettingsAppearanceActions
 ) {
-    var showResetCustomIconsConfirmation: Boolean by remember { mutableStateOf(false) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             IconPackRow(
@@ -1462,9 +1469,11 @@ fun SettingsAppearanceScreen(
             )
         }
         item {
-            SettingsDestructiveRow(
+            SettingsConfirmedDestructiveRow(
                 title = stringResource(R.string.reset_custom_icons),
-                onClick = { showResetCustomIconsConfirmation = true }
+                dialogTitle = stringResource(R.string.reset_custom_icons_title),
+                dialogBody = stringResource(R.string.reset_custom_icons_body),
+                onConfirm = actions.onResetCustomIcons
             )
         }
         item {
@@ -1492,6 +1501,24 @@ fun SettingsAppearanceScreen(
                 supportingText = stringResource(R.string.show_recently_installed_summary, RECENT_INSTALL_WINDOW_DAYS),
                 onCheckedChange = actions.onShowRecentlyInstalledChange
             )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.suggest_often_used_apps),
+                checked = suggestOftenUsedApps,
+                supportingText = stringResource(R.string.suggest_often_used_apps_summary),
+                onCheckedChange = actions.onSuggestOftenUsedAppsChange
+            )
+        }
+        if (hasStoppedSuggestions) {
+            item {
+                SettingsConfirmedDestructiveRow(
+                    title = stringResource(R.string.reset_stopped_suggestions),
+                    dialogTitle = stringResource(R.string.reset_stopped_suggestions_title),
+                    dialogBody = stringResource(R.string.reset_stopped_suggestions_body),
+                    onConfirm = actions.onResetStoppedSuggestions
+                )
+            }
         }
         item { SettingsSectionTitle(R.string.rail) }
         item {
@@ -1522,18 +1549,6 @@ fun SettingsAppearanceScreen(
                 onCheckedChange = actions.onRailHapticsChange
             )
         }
-    }
-    if (showResetCustomIconsConfirmation) {
-        DestructiveConfirmationDialog(
-            title = stringResource(R.string.reset_custom_icons_title),
-            body = stringResource(R.string.reset_custom_icons_body),
-            confirmLabel = stringResource(R.string.reset_custom_icons),
-            onConfirm = {
-                actions.onResetCustomIcons()
-                showResetCustomIconsConfirmation = false
-            },
-            onDismiss = { showResetCustomIconsConfirmation = false }
-        )
     }
 }
 

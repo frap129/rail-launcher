@@ -33,6 +33,7 @@ import core.data.cleanup.launchableCustomizationCleanupRow
 import core.data.cleanup.popupItemCleanupRow
 import core.data.cleanup.searchHistoryCleanupRow
 import core.data.cleanup.standaloneShortcutCleanupRow
+import core.data.cleanup.stoppedSuggestionCleanupRow
 import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
@@ -94,6 +95,7 @@ import core.data.room.dao.PopupDao
 import core.data.room.dao.SearchHistoryDao
 import core.data.room.dao.SettingsDao
 import core.data.room.dao.StandaloneShortcutDao
+import core.data.room.dao.StoppedSuggestionDao
 import core.data.room.dao.WidgetAreaDao
 import core.data.room.dao.WidgetAreaSettingsDao
 import core.data.search.IContactSearchSource
@@ -104,6 +106,8 @@ import core.data.search.ISearchProjectionSource
 import core.data.search.ISearchProjectionSourceImpl
 import core.data.search.IShortcutSearchSource
 import core.data.search.IShortcutSearchSourceImpl
+import core.data.search.IStoppedSuggestionRepository
+import core.data.search.IStoppedSuggestionRepositoryImpl
 import core.data.search.IWebSuggestionSource
 import core.data.search.IWebSuggestionSourceImpl
 import core.data.shortcuts.IPopupShortcutPinSource
@@ -270,6 +274,7 @@ class MainApplication :
         single<StandaloneShortcutDao> { database.getStandaloneShortcutDao() }
         single<SearchHistoryDao> { database.getSearchHistoryDao() }
         single<LaunchCountDao> { database.getLaunchCountDao() }
+        single<StoppedSuggestionDao> { database.getStoppedSuggestionDao() }
     }
 
     /**
@@ -338,6 +343,7 @@ class MainApplication :
         single<IFavoritesRepository> { IFavoritesRepositoryImpl(get(), get(), get(named(APP_SCOPE_QUALIFIER))) }
         single<ISearchHistoryRepository> { ISearchHistoryRepositoryImpl(searchHistoryDao = get(), clockSource = get()) }
         single<ILaunchCountRepository> { ILaunchCountRepositoryImpl(launchCountDao = get(), clockSource = get()) }
+        single<IStoppedSuggestionRepository> { IStoppedSuggestionRepositoryImpl(stoppedSuggestionDao = get()) }
         single<IShortcutPickerSource> { IShortcutPickerSourceImpl(shortcutSource = get(), launchableRepository = get()) }
         single<IShortcutSearchSource> { IShortcutSearchSourceImpl(shortcutPickerSource = get(), popupRepository = get()) }
         single<IContactSearchSource> {
@@ -541,9 +547,11 @@ class MainApplication :
                 standaloneShortcutRepository = get(),
                 searchHistoryRepository = get(),
                 launchCountRepository = get(),
+                stoppedSuggestionRepository = get(),
                 searchProjectionSource = get(),
                 shortcutSearchSource = get(),
-                searchSettings = get()
+                searchSettings = get(),
+                clockSource = get()
             )
         }
         viewModel { (session: IPopupSession) ->
@@ -573,7 +581,8 @@ class MainApplication :
                 iconRepo = get(),
                 privateSpaceStatus = get(),
                 searchSettings = get(),
-                launchableRepo = get()
+                launchableRepo = get(),
+                stoppedSuggestionRepo = get()
             )
         }
         viewModel { (session: IPopupSession) ->
@@ -666,6 +675,7 @@ class MainApplication :
         cleanup.register(HeaderTapTargetCleanupRow(headerSettingsDao = get()))
         cleanup.register(searchHistoryCleanupRow(searchHistoryDao = get()))
         cleanup.register(launchCountCleanupRow(launchCountDao = get()))
+        cleanup.register(stoppedSuggestionCleanupRow(stoppedSuggestionDao = get()))
         cleanup.register(
             standaloneShortcutCleanupRow(
                 standaloneShortcutDao = get(),
