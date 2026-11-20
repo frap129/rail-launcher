@@ -356,6 +356,7 @@ private fun LazyListScope.favoriteItems(
                         isFavorite = true,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
+                        menuSuggestion = MenuSuggestion.None,
                         secondaryText = folderSummaries[favorite.key],
                         onIconSettled = { onFavoriteIconSettled(favorite) },
                         modifier = Modifier
@@ -399,6 +400,7 @@ internal fun HomeSuggestionRow(suggestion: Launchable, railSide: RailSide, itemA
         isPopupSwipeEnabled = isPopupSwipeEnabled,
         itemActions = itemActions,
         accessibilityAnnouncement = stringResource(R.string.home_suggestion_announcement),
+        menuSuggestion = MenuSuggestion.Home,
         modifier = Modifier
             .alpha(SUGGESTION_ALPHA)
             .favoritesContentPadding(railSide = railSide)
@@ -413,6 +415,7 @@ private fun HomeItem(
     isEditingFavorites: Boolean,
     isPopupSwipeEnabled: Boolean,
     itemActions: LauncherItemActions,
+    menuSuggestion: MenuSuggestion,
     modifier: Modifier,
     secondaryText: String? = null,
     accessibilityAnnouncement: String? = null,
@@ -427,6 +430,7 @@ private fun HomeItem(
         itemActions = itemActions,
         secondaryText = secondaryText,
         accessibilityAnnouncement = accessibilityAnnouncement,
+        menuSuggestion = menuSuggestion,
         onIconSettled = onIconSettled,
         modifier = modifier
     )

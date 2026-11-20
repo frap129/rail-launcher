@@ -1137,18 +1137,10 @@ class LauncherViewModel(
         }
     }
 
-    fun openItemMenu(launchable: Launchable) {
+    /** Opens the menu of the row long-pressed for [launchable]; [suggestion] is the kind of suggestion that row is. */
+    fun openItemMenu(launchable: Launchable, suggestion: MenuSuggestion) {
         if (homeEditState.mode.value != HomeEditMode.None) {
             return
-        }
-        val search: LauncherUiState.Search? = uiState.value as? LauncherUiState.Search
-        val suggestion: MenuSuggestion = when {
-            search?.isShowingSuggestions == true && search.results.any { result -> result.key == launchable.key } -> MenuSuggestion.Search
-
-            (uiState.value as? LauncherUiState.Home)?.suggestions?.any { suggestion -> suggestion.key == launchable.key } == true ->
-                MenuSuggestion.Home
-
-            else -> MenuSuggestion.None
         }
         requestedMenuItem.value = MenuItemRequest(launchable = launchable, suggestion = suggestion)
         requestedMenuState.value = MenuRequest.Menu
@@ -1167,7 +1159,7 @@ class LauncherViewModel(
         viewModelScope.launchLogged(message = "Failed to rename a Launchable") {
             prefsRepo.setItemName(launchable, name)
         }
-        openItemMenu(launchable)
+        requestedMenuState.value = MenuRequest.Menu
     }
 
     fun removeShortcut(shortcut: ShortcutLaunchable) {

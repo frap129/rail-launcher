@@ -905,31 +905,36 @@ class LauncherViewModelTest {
     }
 
     @Test
-    fun `marks only a Home suggestion's menu as a Home suggestion`() = runTest {
-        val inputSuggested: App = createApp(name = "Suggested", packageName = "com.example.suggested")
-        val inputFavorite: App = createApp(name = "Favorite", packageName = "com.example.favorite")
-        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            launchables = listOf(inputSuggested, inputFavorite),
-            counts = listOf(createSuggestionRecord(launchable = inputSuggested))
-        )
-        mockFavoritesFixture.state.setFavorites(listOf(inputFavorite))
+    fun `a long-pressed Home suggestion row's menu is a Home suggestion`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.suggested, origin = MenuSuggestion.Home, expected = MenuSuggestion.Home)
+        }
+    }
 
-        fixture.viewModel.uiState.test {
-            awaitSuggestions()
-            assertMenuProperty(
-                item = inputSuggested,
-                expected = MenuSuggestion.Home,
-                select = { menu -> menu.suggestion },
-                viewModel = fixture.viewModel
-            )
-            fixture.viewModel.closeItemMenu()
-            assertMenuProperty(
-                item = inputFavorite,
-                expected = MenuSuggestion.None,
-                select = { menu -> menu.suggestion },
-                viewModel = fixture.viewModel
-            )
-            cancelAndIgnoreRemainingEvents()
+    @Test
+    fun `a long-pressed Home Favorite row's menu is not a suggestion`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.favorite, origin = MenuSuggestion.None, expected = MenuSuggestion.None)
+        }
+    }
+
+    @Test
+    fun `a Launchable that is also a Home suggestion opened without a suggestion origin offers no suggestion action`() = runTest {
+        withHomeRows { rows ->
+            assertMenuSuggestion(rows = rows, item = rows.suggested, origin = MenuSuggestion.None, expected = MenuSuggestion.None)
+        }
+    }
+
+    @Test
+    fun `renaming a Home suggestion keeps its menu a Home suggestion`() = runTest {
+        withHomeRows { rows ->
+            rows.viewModel.menuState.test {
+                rows.viewModel.openItemMenu(rows.suggested, MenuSuggestion.Home)
+                rows.viewModel.openItemRename(rows.suggested)
+                rows.viewModel.setItemName(rows.suggested, RENAMED_NAME)
+                val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
+                assertEquals(MenuSuggestion.Home, actualMenu.suggestion)
+            }
         }
     }
 
@@ -1409,7 +1414,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
         }
@@ -1501,7 +1506,7 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel()
 
         viewModel.menuState.test {
-            viewModel.openItemMenu(inputApp)
+            viewModel.openItemMenu(inputApp, MenuSuggestion.None)
             assertTrue(expectMostRecentItem() is LauncherMenuState.Menu)
 
             viewModel.hideFromAppList(inputApp)
@@ -1615,7 +1620,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.openItemRename(inputItem)
                 assertEquals(LauncherMenuState.Rename(item = inputItem), expectMostRecentItem())
             }
@@ -1627,7 +1632,7 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.closeItemMenu()
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
@@ -1683,6 +1688,8 @@ class LauncherViewModelTest {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.menuState.test {
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
+                viewModel.openItemRename(inputItem)
                 viewModel.setItemName(inputItem, RENAMED_NAME)
                 assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
             }
@@ -1772,7 +1779,7 @@ class LauncherViewModelTest {
                 viewModel.onRailReleased(railIndex(inputListedGroups[0]))
                 expectAppList()
                 viewModel.menuState.test {
-                    viewModel.openItemMenu(inputItem)
+                    viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                     assertEquals(createItemMenu(item = inputItem), expectMostRecentItem())
                 }
             }
@@ -2066,7 +2073,7 @@ class LauncherViewModelTest {
             viewModel.editFavorites()
             viewModel.menuState.test {
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 advanceUntilIdle()
                 expectNoEvents()
             }
@@ -2092,7 +2099,7 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.toggleFavorite(inputItem)
             viewModel.menuState.test {
-                viewModel.openItemMenu(inputItem)
+                viewModel.openItemMenu(inputItem, MenuSuggestion.None)
                 viewModel.editFavorites()
                 assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
             }
@@ -2143,7 +2150,7 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputApp)
+            viewModel.openItemMenu(inputApp, MenuSuggestion.None)
             assertEquals(createItemMenu(item = inputApp, canUninstall = true), expectMostRecentItem())
         }
     }
@@ -2215,7 +2222,7 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputPausedApp)
+            viewModel.openItemMenu(inputPausedApp, MenuSuggestion.None)
             assertEquals(createItemMenu(item = inputPausedApp, canUninstall = true), expectMostRecentItem())
         }
     }
@@ -2954,7 +2961,7 @@ class LauncherViewModelTest {
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
 
-            viewModel.openItemMenu(inputShortcut)
+            viewModel.openItemMenu(inputShortcut, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(inputShortcut, actualMenu.item)
@@ -2976,7 +2983,7 @@ class LauncherViewModelTest {
         )
 
         viewModel.menuState.test {
-            viewModel.openItemMenu(inputShortcut)
+            viewModel.openItemMenu(inputShortcut, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(inputShortcut, actualMenu.item)
@@ -4172,7 +4179,7 @@ class LauncherViewModelTest {
 
         fixture.viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            fixture.viewModel.openItemMenu(fixture.app)
+            fixture.viewModel.openItemMenu(launchable = fixture.app, suggestion = MenuSuggestion.Search)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(MenuSuggestion.Search, actualMenu.suggestion)
 
@@ -4202,7 +4209,7 @@ class LauncherViewModelTest {
 
         viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
-            viewModel.openItemMenu(inputItem)
+            viewModel.openItemMenu(inputItem, MenuSuggestion.None)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(MenuSuggestion.None, actualMenu.suggestion)
         }
@@ -4496,7 +4503,7 @@ class LauncherViewModelTest {
         fixture.viewModel.menuState.test {
             assertEquals(LauncherMenuState.Closed, expectMostRecentItem())
 
-            fixture.viewModel.openItemMenu(expectedResult)
+            fixture.viewModel.openItemMenu(expectedResult, MenuSuggestion.None)
 
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(fixture.shortcut, actualMenu.item)
@@ -4859,9 +4866,31 @@ class LauncherViewModelTest {
         viewModel: LauncherViewModel = createViewModel()
     ) {
         viewModel.menuState.test {
-            viewModel.openItemMenu(item)
+            viewModel.openItemMenu(item, MenuSuggestion.None)
             val actualMenu: LauncherMenuState.Menu = expectMostRecentItem() as LauncherMenuState.Menu
             assertEquals(expected, select(actualMenu))
+        }
+    }
+
+    private suspend fun TestScope.withHomeRows(block: suspend (HomeRows) -> Unit) {
+        val inputSuggested: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val inputFavorite: App = createApp(name = "Favorite", packageName = "com.example.favorite")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputSuggested, inputFavorite),
+            counts = listOf(createSuggestionRecord(launchable = inputSuggested))
+        )
+        mockFavoritesFixture.state.setFavorites(listOf(inputFavorite))
+        fixture.viewModel.uiState.test {
+            awaitSuggestions()
+            block(HomeRows(viewModel = fixture.viewModel, suggested = inputSuggested, favorite = inputFavorite))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private suspend fun assertMenuSuggestion(rows: HomeRows, item: Launchable, origin: MenuSuggestion, expected: MenuSuggestion) {
+        rows.viewModel.menuState.test {
+            rows.viewModel.openItemMenu(item, origin)
+            assertEquals(expected, (expectMostRecentItem() as LauncherMenuState.Menu).suggestion)
         }
     }
 
@@ -5093,6 +5122,8 @@ class LauncherViewModelTest {
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)
 
 private data class HiddenSearchFixture(val launchable: Launchable, val query: String, val viewModel: LauncherViewModel)
+
+private data class HomeRows(val viewModel: LauncherViewModel, val suggested: App, val favorite: App)
 
 private data class SuggestionHomeFixture(
     val inputCounts: MutableStateFlow<List<LaunchCountRecord>>,
