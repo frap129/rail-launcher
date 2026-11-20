@@ -21,13 +21,13 @@ import core.ui.model.data.SEARCH_SETTINGS_KEY
 import core.ui.search.SearchContactsUiEvent
 import core.ui.search.SearchContactsUiEvents
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import core.util.launchLogged
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 private val defaultSettings: Settings = Settings()
 
@@ -200,7 +200,7 @@ class SettingsViewModel(
 
     /** Lets Home suggest every Launchable the user stopped suggesting again. */
     fun resetStoppedSuggestions() {
-        viewModelScope.launch { stoppedSuggestionRepo.reset() }
+        viewModelScope.launchLogged(message = "Failed to reset the stopped suggestions") { stoppedSuggestionRepo.reset() }
     }
 
     /** Persists whether swiping down on Home expands the notification shade. */
