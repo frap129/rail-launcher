@@ -261,7 +261,10 @@ class SettingsSheetRowsTest {
         composeRule.onNodeWithText(getString(R.string.reset_stopped_suggestions)).assertDoesNotExist()
     }
 
-    /** Asserts the destructive row [title] resets nothing when dismissed and resets once when confirmed, reading resets with [actualResets]. */
+    /**
+     * Asserts the destructive row [title] resets nothing when dismissed and resets once when confirmed,
+     * reading resets with [actualResets].
+     */
     private fun assertResetRunsOnlyAfterConfirming(title: String, actualResets: () -> Int) {
         val confirmButton: SemanticsMatcher = hasText(title) and hasAnyAncestor(isDialog())
         composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(title))
