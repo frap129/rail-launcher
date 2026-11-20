@@ -338,6 +338,18 @@ class HomeSuggestionsTest {
     }
 
     @Test
+    fun `leaves out a Folder whatever its Launch count and Recent use score`() {
+        val inputFolder: Folder = Folder(folderId = 1)
+        val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputFolder))
+
+        val actualSuggestions: List<Launchable> = inputState.suggestionsAtNow(
+            launchCounts = listOf(createSuggestionRecord(key = inputFolder.key, launchCount = 100, recentUseScore = 99.0))
+        )
+
+        assertEquals(emptyList<Launchable>(), actualSuggestions)
+    }
+
+    @Test
     fun `leaves out a Paused work App`() {
         val inputPaused: App = createPausedWorkApp()
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputPaused))

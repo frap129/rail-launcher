@@ -225,7 +225,7 @@ The launcher's default state, showing the Widget Area and Favorites.
 _Avoid_: Favorites screen, home page, dashboard
 
 **Home suggestions**:
-The Launchables Home shows below the Favorites that the user opens often and recently but has not made Favorites (at least three launches and a Recent use score of at least 1.0, so an App not opened for two to three weeks drops off), drawn quieter and announced as suggested. They are chosen when the launcher starts or stops and on leaving Home, never while Home is shown, and Edit Favorites leaves them out.
+The Launchables Home shows below the Favorites that the user opens often and recently but has not made Favorites (at least three launches and a Recent use score of at least 1.0, so an App not opened for two to three weeks drops off), drawn quieter and announced as suggested. Folders are never suggested, whatever their Launch count and Recent use score. They are chosen when the launcher starts or stops and on leaving Home, never while Home is shown, and Edit Favorites leaves them out.
 _Avoid_: Suggested apps, predictions, Search suggestions (which are another list)
 
 **Stopped suggestion**:

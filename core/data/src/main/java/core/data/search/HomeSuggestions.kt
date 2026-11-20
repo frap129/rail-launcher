@@ -1,5 +1,6 @@
 package core.data.search
 
+import core.data.folders.Folder
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
@@ -81,6 +82,7 @@ private fun List<Double>.median(): Double? {
     return if (size % 2 == 0) (sortedScores[middle - 1] + sortedScores[middle]) / 2 else sortedScores[middle]
 }
 
-/** The Launchable stored under [key] unless it is a Hidden app, Paused or one of Rail's built-in Launchables. */
-fun LaunchableState.suggestibleLaunchableFor(key: String): Launchable? =
-    visibleLaunchableFor(key = key)?.takeUnless { launchable -> launchable.isPaused || launchable is RailLaunchable }
+/** The Launchable stored under [key] unless it is a Hidden app, Paused, a Folder or one of Rail's built-in Launchables. */
+fun LaunchableState.suggestibleLaunchableFor(key: String): Launchable? = visibleLaunchableFor(key = key)?.takeUnless { launchable ->
+    launchable.isPaused || launchable is Folder || launchable is RailLaunchable
+}
