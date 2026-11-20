@@ -60,7 +60,7 @@ class IStoppedSuggestionRepositoryImplTest : InMemoryDatabaseTest() {
             launchCounts = listOf(
                 createLaunchCountRecord(key = inputApp.key, launchCount = HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT, recentUseScore = 1.0)
             ),
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = repository.keys.first(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )

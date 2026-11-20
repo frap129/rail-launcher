@@ -4,6 +4,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
 import core.data.launches.LaunchCountRecord
+import core.data.popups.PopupItem
 
 /** The Favorites plus Home suggestions Home aims for. */
 const val HOME_ROW_TARGET: Int = 8
@@ -19,20 +20,20 @@ const val HOME_OVER_TARGET_SCORE_FACTOR: Int = 2
  * launches, highest Recent use score at [nowEpochMs] first, filling Home up to [HOME_ROW_TARGET]
  * rows. One more row is allowed when the top candidate's score is at least [HOME_OVER_TARGET_SCORE_FACTOR]
  * times the median Favorite's, so with no Favorites there is no extra row and a Favorite with no
- * launch record counts as scoring zero. Favorites, Folder members in [folderMemberKeys] (the Apps
- * of Folders on Home), the [stoppedKeys] the user chose Stop suggesting for and keys
+ * launch record counts as scoring zero. The keys [homeSuggestionExcludedKeys] returns and keys
  * [suggestibleLaunchableFor] rejects are left out. Rail itself and the private Apps of a Locked
  * Private Space never reach the Launchable State, so their keys resolve to no Launchable here.
  */
 fun LaunchableState.homeSuggestions(
     favorites: List<Launchable>,
     launchCounts: List<LaunchCountRecord>,
-    folderMemberKeys: Set<String>,
+    folderMembers: Map<String, List<PopupItem>>,
     stoppedKeys: Set<String>,
     nowEpochMs: Long
 ): List<Launchable> {
     val recordsByKey: Map<String, LaunchCountRecord> = launchCounts.associateBy { record -> record.key }
-    val excludedKeys: Set<String> = favorites.mapTo((folderMemberKeys + stoppedKeys).toMutableSet()) { favorite -> favorite.key }
+    val excludedKeys: Set<String> =
+        homeSuggestionExcludedKeys(favorites = favorites, folderMembers = folderMembers, stoppedKeys = stoppedKeys)
     val candidates: List<Pair<Launchable, Double>> = launchCounts
         .asSequence()
         .filter { record -> record.launchCount >= HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT && record.key !in excludedKeys }
@@ -47,6 +48,20 @@ fun LaunchableState.homeSuggestions(
     val extraRows: Int = if (medianFavoriteScore != null && topScore >= HOME_OVER_TARGET_SCORE_FACTOR * medianFavoriteScore) 1 else 0
     val rows: Int = (HOME_ROW_TARGET - favorites.size).coerceAtLeast(0) + extraRows
     return candidates.take(rows).map { (launchable, _) -> launchable }
+}
+
+/**
+ * The keys Home never suggests: the [favorites], the Apps of the Folders among them, whose items are
+ * in [folderMembers] keyed by the Folder key, and the [stoppedKeys] the user chose Stop suggesting for.
+ */
+fun homeSuggestionExcludedKeys(
+    favorites: List<Launchable>,
+    folderMembers: Map<String, List<PopupItem>>,
+    stoppedKeys: Set<String>
+): Set<String> {
+    val memberKeys: List<String> = favorites.flatMap { favorite -> folderMembers[favorite.key].orEmpty() }
+        .map { item -> item.launchable.key }
+    return favorites.mapTo((memberKeys + stoppedKeys).toMutableSet()) { favorite -> favorite.key }
 }
 
 private fun List<Double>.median(): Double? {

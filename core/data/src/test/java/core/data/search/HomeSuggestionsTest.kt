@@ -5,6 +5,7 @@ import core.data.folders.Folder
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launches.LaunchCountRecord
+import core.data.popups.PopupItem
 import core.data.testing.TEST_FOURTEEN_DAYS_MS
 import core.data.testing.TEST_NOW_EPOCH_MS
 import core.data.testing.TEST_SDK
@@ -48,7 +49,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -70,7 +71,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -94,7 +95,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -123,7 +124,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -152,7 +153,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -175,7 +176,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -194,7 +195,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = inputFavorites,
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -215,7 +216,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = emptyList(),
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -236,7 +237,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = emptyList(),
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = setOf(inputStopped.key),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -258,7 +259,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = listOf(inputFavorite),
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -279,7 +280,7 @@ class HomeSuggestionsTest {
             launchCounts = listOf(
                 createLaunchCountRecord(key = inputHidden.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -298,7 +299,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = emptyList(),
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -314,7 +315,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = emptyList(),
             launchCounts = listOf(createLaunchCountRecord(key = inputRailKey, launchCount = SUGGESTION_LAUNCH_COUNT)),
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -332,7 +333,7 @@ class HomeSuggestionsTest {
             launchCounts = listOf(
                 createLaunchCountRecord(key = inputPaused.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -344,6 +345,7 @@ class HomeSuggestionsTest {
     fun `leaves out an App in a Folder on Home`() {
         val inputMember: App = createApp(name = "Member", packageName = "com.example.member")
         val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
+        val inputFolder: Folder = Folder(folderId = 1)
         val inputState: LaunchableState = createLoadedLaunchableState(launchables = listOf(inputMember, inputOther))
         val inputCounts: List<LaunchCountRecord> =
             listOf(
@@ -352,9 +354,9 @@ class HomeSuggestionsTest {
             )
 
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
-            favorites = listOf(Folder(folderId = 1)),
+            favorites = listOf(inputFolder),
             launchCounts = inputCounts,
-            folderMemberKeys = setOf(inputMember.key),
+            folderMembers = mapOf(inputFolder.key to listOf(PopupItem.Launchable(launchable = inputMember))),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -372,7 +374,7 @@ class HomeSuggestionsTest {
             launchCounts = listOf(
                 createLaunchCountRecord(key = inputBuiltin.key, launchCount = SUGGESTION_LAUNCH_COUNT, recentUseScore = 9.0)
             ),
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )
@@ -399,7 +401,7 @@ class HomeSuggestionsTest {
         val actualSuggestions: List<Launchable> = inputState.homeSuggestions(
             favorites = emptyList(),
             launchCounts = inputCounts,
-            folderMemberKeys = emptySet(),
+            folderMembers = emptyMap(),
             stoppedKeys = emptySet(),
             nowEpochMs = TEST_NOW_EPOCH_MS
         )

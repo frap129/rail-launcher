@@ -46,6 +46,7 @@ import core.data.search.SearchShortcut
 import core.data.search.SearchSuggestionSources
 import core.data.search.SearchTypedSources
 import core.data.search.autoLaunchResult
+import core.data.search.homeSuggestionExcludedKeys
 import core.data.search.homeSuggestions
 import core.data.search.searchResultRows
 import core.data.search.searchSuggestions
@@ -63,6 +64,7 @@ import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
 import java.util.Locale
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -78,6 +80,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -181,11 +184,6 @@ private fun List<Launchable>.sortedInOrderOf(keys: List<String>): List<Launchabl
 private fun resolvePausedPrompt(requested: Launchable?, state: LaunchableState): Launchable? = requested?.let { launchable ->
     state.launchables.firstOrNull { current -> current.key == launchable.key }?.takeIf { current -> current.isPaused }
 }
-
-/** The keys of the members of the Folders among [folders]. */
-private fun Map<String, List<PopupItem>>.memberKeysOf(folders: List<Launchable>): Set<String> = folders
-    .flatMap { folder -> this[folder.key].orEmpty() }
-    .mapTo(mutableSetOf()) { item -> item.launchable.key }
 
 /** The names of the Folder members whose App has at least one visible notification. */
 private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: List<NotificationSnapshot>): List<String> {
@@ -521,9 +519,9 @@ class LauncherViewModel(
     /** The Favorites in their shown order, including the unsaved order during Edit Favorites. */
     val favorites: Flow<List<Launchable>> = favoritesState.map { state -> state.favorites }
 
-    // The keys of the Home suggestions, null until they are first projected. They change only on
-    // start and while Home is not shown, so rows never move under the user; the Launchables they
-    // resolve to stay current.
+    // The keys of the Home suggestions, null until they are first projected. They change only when
+    // Home is not visible, so rows never move under the user; the Launchables they resolve to stay
+    // current.
     private val homeSuggestionKeys: MutableStateFlow<List<String>?> = MutableStateFlow(null)
 
     // One subscription to the stopped keys serves the shown suggestions and the projection.
@@ -533,17 +531,34 @@ class LauncherViewModel(
         replay = 1
     )
 
+    /** The items of every Folder, keyed by the Folder key. */
+    private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
+        .flatMapLatest { folders ->
+            if (folders.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(folders.map { folder -> popupRepo.items(ownerKey = folder.key) }) { folderItems ->
+                    folders.zip(folderItems).associate { (folder, items) -> folder.key to items }
+                }
+            }
+        }
+
     private val homeContent: Flow<HomeContent> = combine(
         favoritesState,
         homeSuggestionKeys,
         launchableState,
-        stoppedKeys
-    ) { favoritesState, suggestionKeys, state, stoppedKeys ->
-        val favoriteKeys: Set<String> = favoritesState.favorites.mapTo(mutableSetOf()) { favorite -> favorite.key }
+        stoppedKeys,
+        folderMembers
+    ) { favoritesState, suggestionKeys, state, stoppedKeys, members ->
+        val excludedKeys: Set<String> = homeSuggestionExcludedKeys(
+            favorites = favoritesState.favorites,
+            folderMembers = members,
+            stoppedKeys = stoppedKeys
+        )
         HomeContent(
             favoritesState = favoritesState,
             suggestions = suggestionKeys.orEmpty()
-                .filterNot { key -> key in favoriteKeys || key in stoppedKeys }
+                .filterNot { key -> key in excludedKeys }
                 .mapNotNull { key -> state.suggestibleLaunchableFor(key = key) }
         )
     }
@@ -599,43 +614,64 @@ class LauncherViewModel(
             initialValue = LauncherUiState.Loading
         )
 
-    /** The items of every Folder, keyed by the Folder key. */
-    private val folderMembers: Flow<Map<String, List<PopupItem>>> = folderRepo.folders
-        .flatMapLatest { folders ->
-            if (folders.isEmpty()) {
-                flowOf(emptyMap())
-            } else {
-                combine(folders.map { folder -> popupRepo.items(ownerKey = folder.key) }) { folderItems ->
-                    folders.zip(folderItems).associate { (folder, items) -> folder.key to items }
-                }
-            }
-        }
+    private val isLauncherStarted: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
-    // Projects the Home suggestions once Home's Favorites and the Launch counts have loaded, then
-    // again only while Home is not shown. It reads the repository's Favorites, because the shown
-    // Favorites stop being collected when nothing is subscribed.
-    init {
-        viewModelScope.launch {
-            combine(
-                navigation.map { navigation -> navigation.mode == LauncherMode.Home }.distinctUntilChanged(),
+    /** Whether the launcher is started; Home suggestions are projected whenever Home is not visible. */
+    fun setLauncherStarted(isStarted: Boolean) {
+        isLauncherStarted.value = isStarted
+    }
+
+    private var homeProjectionJob: Job? = null
+
+    // The Launch count writes still running, which a projection awaits so it never misses a launch
+    // that raced the launcher stopping. Read and written only on the main thread.
+    private var launchCountJobs: List<Job> = emptyList()
+
+    // Projects the Home suggestions once, when the sources have loaded, then unsubscribes from
+    // them. It reads the repository's Favorites, because the shown Favorites stop being collected
+    // when nothing is subscribed. A newer projection replaces one still waiting for its sources.
+    private fun projectHomeSuggestions() {
+        homeProjectionJob?.cancel()
+        homeProjectionJob = viewModelScope.launchLogged(message = "Failed to project the Home suggestions") {
+            launchCountJobs.joinAll()
+            homeSuggestionKeys.value = combine(
                 launchableState,
                 favoritesRepo.state,
                 launchCountRepository.counts,
                 folderMembers
-            ) { isHomeShown, state, favoritesState, launchCounts, members ->
-                val isFrozen: Boolean = isHomeShown && homeSuggestionKeys.value != null
-                if (isFrozen || !state.isAppListReady || !favoritesState.isLoaded) {
+            ) { state, favoritesState, launchCounts, members ->
+                if (!state.isAppListReady || !favoritesState.isLoaded) {
                     null
                 } else {
                     state.homeSuggestions(
                         favorites = favoritesState.favorites,
                         launchCounts = launchCounts,
-                        folderMemberKeys = members.memberKeysOf(folders = favoritesState.favorites),
-                        stoppedKeys = stoppedKeys.first(),
+                        folderMembers = members,
+                        stoppedKeys = stoppedSuggestionRepository.keys.first(),
                         nowEpochMs = clockSource.now().toEpochMilli()
                     ).map { launchable -> launchable.key }
                 }
-            }.filterNotNull().collect { keys -> homeSuggestionKeys.value = keys }
+            }.filterNotNull().first()
+        }
+    }
+
+    // Home suggestions are frozen while Home is visible, so a projection never lands then: one still
+    // waiting for its sources is cancelled when Home becomes visible with suggestions already
+    // projected. Every other change of the launcher or Home visibility projects again.
+    init {
+        viewModelScope.launch {
+            combine(
+                isLauncherStarted,
+                navigation.map { navigation -> navigation.mode == LauncherMode.Home }
+            ) { isStarted, isHomeMode -> isStarted to isHomeMode }
+                .distinctUntilChanged()
+                .collect { (isStarted, isHomeMode) ->
+                    if (isStarted && isHomeMode && homeSuggestionKeys.value != null) {
+                        homeProjectionJob?.cancel()
+                    } else {
+                        projectHomeSuggestions()
+                    }
+                }
         }
     }
 
@@ -936,9 +972,10 @@ class LauncherViewModel(
     }
 
     private fun recordLaunchCount(launchable: Launchable) {
-        viewModelScope.launchLogged(message = "Failed to record a Launch count") {
+        val launchCountJob: Job = viewModelScope.launchLogged(message = "Failed to record a Launch count") {
             launchCountRepository.recordLaunch(key = launchable.key)
         }
+        launchCountJobs = launchCountJobs.filter { job -> job.isActive } + launchCountJob
     }
 
     /** Removes [launchable] from Search suggestions; its launches keep counting toward ranking. */

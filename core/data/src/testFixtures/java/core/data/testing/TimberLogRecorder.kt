@@ -31,6 +31,11 @@ class TimberLogRecorder : Timber.Tree() {
         }
     }
 
+    /** Asserts a message containing [text] was logged. */
+    fun assertLogged(text: String) {
+        assertTrue("Expected a log entry containing $text", recordedEntries.any { entry -> entry.contains(text) })
+    }
+
     /** Asserts something was logged and no entry contains any of [identifiers]. */
     fun assertLoggedWithout(vararg identifiers: String) {
         assertTrue("Expected a log entry", recordedEntries.isNotEmpty())
