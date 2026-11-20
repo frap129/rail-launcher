@@ -18,8 +18,8 @@ const val HOME_OVER_TARGET_SCORE_FACTOR: Int = 2
 /**
  * The Home suggestions shown below [favorites]: Launchables with at least [HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT]
  * launches, highest Recent use score at [nowEpochMs] first, filling Home up to [HOME_ROW_TARGET]
- * rows. One more row is allowed when the top candidate's score is at least [HOME_OVER_TARGET_SCORE_FACTOR]
- * times the median Favorite's, so with no Favorites there is no extra row and a Favorite with no
+ * rows. One more row is allowed when the median Favorite's score is above zero and the top candidate's score is at least
+ * [HOME_OVER_TARGET_SCORE_FACTOR] times it, so with no Favorites, or a median of zero, there is no extra row; a Favorite with no
  * launch record counts as scoring zero. The keys [homeSuggestionExcludedKeys] returns and keys
  * [suggestibleLaunchableFor] rejects are left out. Rail itself and the private Apps of a Locked
  * Private Space never reach the Launchable State, so their keys resolve to no Launchable here.
@@ -42,10 +42,14 @@ fun LaunchableState.homeSuggestions(
         .sortedWith(compareByDescending<Pair<Launchable, Double>> { (_, score) -> score }.thenBy { (launchable, _) -> launchable.name })
         .toList()
     val topScore: Double = candidates.firstOrNull()?.second ?: return emptyList()
-    val medianFavoriteScore: Double? = favorites
+    val medianFavoriteScore: Double = favorites
         .map { favorite -> recordsByKey[favorite.key]?.recentUseScoreAt(nowEpochMs) ?: 0.0 }
-        .median()
-    val extraRows: Int = if (medianFavoriteScore != null && topScore >= HOME_OVER_TARGET_SCORE_FACTOR * medianFavoriteScore) 1 else 0
+        .median() ?: 0.0
+    val extraRows: Int = if (medianFavoriteScore > 0.0 && topScore >= HOME_OVER_TARGET_SCORE_FACTOR * medianFavoriteScore) {
+        1
+    } else {
+        0
+    }
     val rows: Int = (HOME_ROW_TARGET - favorites.size).coerceAtLeast(0) + extraRows
     return candidates.take(rows).map { (launchable, _) -> launchable }
 }
