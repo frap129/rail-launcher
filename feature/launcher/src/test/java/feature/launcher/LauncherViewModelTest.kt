@@ -514,15 +514,15 @@ class LauncherViewModelTest {
         val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
         val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputFirst, inputSecond),
-            counts = listOf(createSuggestionRecord(app = inputFirst))
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
         )
 
         fixture.viewModel.uiState.test {
             val actualInitial: List<Launchable> = awaitSuggestions()
             fixture.inputCounts.value = listOf(
-                createSuggestionRecord(app = inputFirst),
-                createSuggestionRecord(app = inputSecond, score = 2.0)
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
             )
             runCurrent()
             val actualWhileShown: List<Launchable> = homeSuggestions(fixture.viewModel)
@@ -544,15 +544,15 @@ class LauncherViewModelTest {
         val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
         val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputFirst, inputSecond),
-            counts = listOf(createSuggestionRecord(app = inputFirst))
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
         )
 
         fixture.viewModel.uiState.test {
             awaitSuggestions()
             fixture.inputCounts.value = listOf(
-                createSuggestionRecord(app = inputFirst),
-                createSuggestionRecord(app = inputSecond, score = 2.0)
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
             )
             fixture.viewModel.onRailReleased(index = 0)
             runCurrent()
@@ -570,14 +570,14 @@ class LauncherViewModelTest {
         val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
         val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputFirst, inputSecond),
-            counts = listOf(createSuggestionRecord(app = inputFirst))
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
         )
         coEvery { fixture.mockLaunchCountRepository.recordLaunch(inputSecond.key) } coAnswers {
             delay(LAUNCH_RECORD_DELAY_MS)
             fixture.inputCounts.value = listOf(
-                createSuggestionRecord(app = inputFirst),
-                createSuggestionRecord(app = inputSecond, score = 2.0)
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
             )
         }
 
@@ -631,8 +631,8 @@ class LauncherViewModelTest {
         val inputFirst: App = createApp(name = "First", packageName = "com.example.first")
         val inputSecond: App = createApp(name = "Second", packageName = "com.example.second")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputFirst, inputSecond),
-            counts = listOf(createSuggestionRecord(app = inputFirst))
+            launchables = listOf(inputFirst, inputSecond),
+            counts = listOf(createSuggestionRecord(launchable = inputFirst))
         )
 
         fixture.viewModel.uiState.test {
@@ -642,8 +642,8 @@ class LauncherViewModelTest {
             runCurrent()
             fixture.viewModel.setLauncherStarted(isStarted = true)
             fixture.inputCounts.value = listOf(
-                createSuggestionRecord(app = inputFirst),
-                createSuggestionRecord(app = inputSecond, score = 2.0)
+                createSuggestionRecord(launchable = inputFirst),
+                createSuggestionRecord(launchable = inputSecond, score = 2.0)
             )
             mockFavoritesFixture.state.setLoaded(true)
             runCurrent()
@@ -661,7 +661,7 @@ class LauncherViewModelTest {
         inputFolders.value = listOf(inputFolder)
         mockFavoritesFixture.state.setLoaded(false)
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputApp),
+            launchables = listOf(inputApp),
             mockPopupRepository = createPopupRepositoryMock(state = inputPopupState)
         )
 
@@ -696,7 +696,7 @@ class LauncherViewModelTest {
 
         logRecorder.recordSuspending {
             fixture = createSuggestionHomeFixture(
-                apps = listOf(inputApp),
+                launchables = listOf(inputApp),
                 countsTransform = { counts ->
                     flow {
                         if (isFailing) {
@@ -721,7 +721,7 @@ class LauncherViewModelTest {
     @Test
     fun `suggests a Launchable again on the next projection after the stopped suggestions are reset`() = runTest {
         val inputApp: App = createApp(name = "Stopped", packageName = "com.example.stopped")
-        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(apps = listOf(inputApp), stoppedKeys = setOf(inputApp.key))
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(launchables = listOf(inputApp), stoppedKeys = setOf(inputApp.key))
 
         fixture.viewModel.uiState.test {
             runCurrent()
@@ -745,10 +745,10 @@ class LauncherViewModelTest {
         inputFolders.value = listOf(inputFolder)
         mockFavoritesFixture.state.setFavorites(listOf(inputFolder))
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputMember, inputOther),
+            launchables = listOf(inputMember, inputOther),
             counts = listOf(
-                createSuggestionRecord(app = inputMember, score = 2.0),
-                createSuggestionRecord(app = inputOther)
+                createSuggestionRecord(launchable = inputMember, score = 2.0),
+                createSuggestionRecord(launchable = inputOther)
             ),
             mockPopupRepository = createPopupRepositoryMock(state = inputPopupState)
         )
@@ -766,6 +766,26 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `never shows a Folder among the Home suggestions`() = runTest {
+        val inputFolder: Folder = Folder(folderId = FAVORITE_FOLDER_ID)
+        val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = listOf(inputFolder, inputApp),
+            counts = listOf(
+                createSuggestionRecord(launchable = inputFolder, score = 9.0),
+                createSuggestionRecord(launchable = inputApp)
+            )
+        )
+
+        fixture.viewModel.uiState.test {
+            val actualSuggestions: List<Launchable> = awaitSuggestions()
+
+            assertEquals(listOf<Launchable>(inputApp), actualSuggestions)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `keeps Home suggestions still when the Favorites change while Home is shown`() = runTest {
         val inputSuggested: List<App> = (1..3).map { index ->
             createApp(name = "Suggested $index", packageName = "com.example.suggested$index")
@@ -774,10 +794,10 @@ class LauncherViewModelTest {
             createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
         }
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = inputSuggested + inputFavorites,
+            launchables = inputSuggested + inputFavorites,
             counts = inputSuggested.mapIndexed { index, app ->
                 createSuggestionRecord(
-                    app = app,
+                    launchable = app,
                     score =
                     inputSuggested.size - index.toDouble()
                 )
@@ -799,8 +819,8 @@ class LauncherViewModelTest {
         val inputActive: App = createWorkSuggestion(isQuiet = false)
         val inputPaused: App = createWorkSuggestion(isQuiet = true)
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputActive),
-            counts = listOf(createSuggestionRecord(app = inputActive))
+            launchables = listOf(inputActive),
+            counts = listOf(createSuggestionRecord(launchable = inputActive))
         )
 
         fixture.viewModel.uiState.test {
@@ -817,8 +837,8 @@ class LauncherViewModelTest {
     fun `leaves Home suggestions out while editing Favorites`() = runTest {
         val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputApp),
-            counts = listOf(createSuggestionRecord(app = inputApp))
+            launchables = listOf(inputApp),
+            counts = listOf(createSuggestionRecord(launchable = inputApp))
         )
 
         fixture.viewModel.uiState.test {
@@ -836,8 +856,8 @@ class LauncherViewModelTest {
     fun `hides Home suggestions while Suggest often-used Apps is off and shows them again when it is on`() = runTest {
         val inputApp: App = createApp(name = "Suggested", packageName = "com.example.suggested")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputApp),
-            counts = listOf(createSuggestionRecord(app = inputApp))
+            launchables = listOf(inputApp),
+            counts = listOf(createSuggestionRecord(launchable = inputApp))
         )
 
         fixture.viewModel.uiState.test {
@@ -859,10 +879,10 @@ class LauncherViewModelTest {
         val inputStopped: App = createApp(name = "Stopped", packageName = "com.example.stopped")
         val inputOther: App = createApp(name = "Other", packageName = "com.example.other")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputStopped, inputOther),
+            launchables = listOf(inputStopped, inputOther),
             counts = listOf(
-                createSuggestionRecord(app = inputStopped, score = 2.0),
-                createSuggestionRecord(app = inputOther)
+                createSuggestionRecord(launchable = inputStopped, score = 2.0),
+                createSuggestionRecord(launchable = inputOther)
             )
         )
 
@@ -889,8 +909,8 @@ class LauncherViewModelTest {
         val inputSuggested: App = createApp(name = "Suggested", packageName = "com.example.suggested")
         val inputFavorite: App = createApp(name = "Favorite", packageName = "com.example.favorite")
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
-            apps = listOf(inputSuggested, inputFavorite),
-            counts = listOf(createSuggestionRecord(app = inputSuggested))
+            launchables = listOf(inputSuggested, inputFavorite),
+            counts = listOf(createSuggestionRecord(launchable = inputSuggested))
         )
         mockFavoritesFixture.state.setFavorites(listOf(inputFavorite))
 
@@ -4846,13 +4866,13 @@ class LauncherViewModelTest {
     }
 
     private fun TestScope.createSuggestionHomeFixture(
-        apps: List<App>,
-        counts: List<LaunchCountRecord> = apps.map { app -> createSuggestionRecord(app = app) },
+        launchables: List<Launchable>,
+        counts: List<LaunchCountRecord> = launchables.map { launchable -> createSuggestionRecord(launchable = launchable) },
         stoppedKeys: Set<String> = emptySet(),
         countsTransform: (Flow<List<LaunchCountRecord>>) -> Flow<List<LaunchCountRecord>> = { source -> source },
         mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository
     ): SuggestionHomeFixture {
-        inputLaunchableState.value = createLoadedLaunchableState(launchables = apps)
+        inputLaunchableState.value = createLoadedLaunchableState(launchables = launchables)
         val inputCounts: MutableStateFlow<List<LaunchCountRecord>> = MutableStateFlow(counts)
         val inputSettings: MutableStateFlow<Settings> = MutableStateFlow(Settings())
         val inputStoppedKeys: MutableStateFlow<Set<String>> = MutableStateFlow(stoppedKeys)
@@ -4873,12 +4893,14 @@ class LauncherViewModelTest {
         )
     }
 
-    private fun createSuggestionRecord(app: App, score: Double = HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE): LaunchCountRecord =
-        createLaunchCountRecord(
-            key = app.key,
-            launchCount = HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT,
-            recentUseScore = score
-        )
+    private fun createSuggestionRecord(
+        launchable: Launchable,
+        score: Double = HOME_SUGGESTION_MINIMUM_RECENT_USE_SCORE
+    ): LaunchCountRecord = createLaunchCountRecord(
+        key = launchable.key,
+        launchCount = HOME_SUGGESTION_MINIMUM_LAUNCH_COUNT,
+        recentUseScore = score
+    )
 
     private fun createWorkSuggestion(isQuiet: Boolean): App = createApp(
         name = "Mail",
