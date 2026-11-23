@@ -35,6 +35,7 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         when (setting) {
             null, HeaderTapSetting.SystemDefault -> fallback
             HeaderTapSetting.Nothing -> HeaderTapTarget.None
+            HeaderTapSetting.OpenAgenda -> HeaderTapTarget.OpenAgenda
             is HeaderTapSetting.Launchable -> launchableTarget(setting = setting, launchableState = launchableState) ?: fallback
         }
 
@@ -62,6 +63,7 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
     private fun HeaderTapTarget.clickLabel(): Int? = when (this) {
         HeaderTapTarget.SystemAlarms -> R.string.open_alarms
         is HeaderTapTarget.SystemCalendar -> R.string.open_calendar
+        HeaderTapTarget.OpenAgenda -> R.string.open_agenda
         is HeaderTapTarget.OpenEvent -> R.string.open_event
         HeaderTapTarget.SystemBatteryUsage -> R.string.open_battery_usage
         is HeaderTapTarget.LaunchLaunchable -> R.string.open_launchable

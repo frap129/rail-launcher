@@ -44,7 +44,7 @@ class LauncherSignals {
     fun signal(signal: LauncherSignal) {
         when (signal) {
             is LauncherSignal.TypedCharacter -> typedCharacterChannel.trySend(signal.character)
-            is LauncherSignal.Home, LauncherSignal.OpenSearch -> signalChannel.trySend(signal)
+            is LauncherSignal.Home, LauncherSignal.OpenSearch, LauncherSignal.OpenAgenda -> signalChannel.trySend(signal)
         }
     }
 }

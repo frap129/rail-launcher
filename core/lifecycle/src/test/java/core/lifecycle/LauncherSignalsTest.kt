@@ -60,6 +60,16 @@ class LauncherSignalsTest {
     }
 
     @Test
+    fun `an agenda signal sent before a collector attaches is delivered once it attaches`() = runTest {
+        val launcherSignals: LauncherSignals = LauncherSignals()
+        launcherSignals.signal(LauncherSignal.OpenAgenda)
+        launcherSignals.events.test {
+            assertEquals(LauncherSignal.OpenAgenda, awaitItem())
+            expectNoEvents()
+        }
+    }
+
+    @Test
     fun `typed characters sent before a collector attaches are all delivered in order`() = runTest {
         val launcherSignals: LauncherSignals = LauncherSignals()
         launcherSignals.signal(LauncherSignal.TypedCharacter(character = "c"))

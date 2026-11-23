@@ -165,6 +165,37 @@ class IHeaderTapTargetResolverImplTest {
     }
 
     @Test
+    fun `opens the agenda from the time and the date`() {
+        val inputHeader: HeaderModel = header()
+        val inputSettings: HeaderSettings = HeaderSettings(
+            timeTapTarget = HeaderTapSetting.OpenAgenda,
+            dateTapTarget = HeaderTapSetting.OpenAgenda
+        )
+
+        val actualHeader: HeaderModel = resolver.applyTo(
+            header = inputHeader,
+            settings = inputSettings,
+            launchableState = createLaunchableState(groups = emptyList()),
+            atEpochMillis = nowMillis
+        )
+
+        assertEquals(HeaderTapTarget.OpenAgenda, actualHeader.time?.tapTarget)
+        assertEquals(R.string.open_agenda, actualHeader.time?.clickLabel)
+        assertEquals(HeaderTapTarget.OpenAgenda, actualHeader.date?.tapTarget)
+        assertEquals(R.string.open_agenda, actualHeader.date?.clickLabel)
+    }
+
+    @Test
+    fun `keeps Open agenda while resolving the settings for display`() {
+        val actualSetting: HeaderTapSetting = resolver.resolveSetting(
+            setting = HeaderTapSetting.OpenAgenda,
+            launchableState = createLoadedLaunchableState(listOf(inputLaunchable))
+        )
+
+        assertEquals(HeaderTapSetting.OpenAgenda, actualSetting)
+    }
+
+    @Test
     fun `resolves a present Launchable, Nothing and the system default unchanged`() {
         val inputSetting: HeaderTapSetting = HeaderTapSetting.Launchable(key = inputLaunchable.key)
         val actualLaunchable: HeaderTapSetting =

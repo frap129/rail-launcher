@@ -46,10 +46,28 @@ class WidgetAreaLaunchTest : IntentLaunchTestBase() {
         assertEquals(AlarmClock.ACTION_SHOW_ALARMS, actualIntent?.action)
     }
 
+    @Test
+    fun `an Open agenda Tap action goes through the agenda callback`() {
+        var actualOpenAgendaCount: Int = 0
+
+        val actualLaunched: Launchable? = runTapAction(
+            target = HeaderTapTarget.OpenAgenda,
+            onOpenAgenda = { actualOpenAgendaCount++ }
+        )
+
+        assertNull(actualLaunched)
+        assertEquals(1, actualOpenAgendaCount)
+        assertNull(shadowActivity.nextStartedActivity)
+    }
+
     /** Runs [target] and returns the Launchable it handed to the launcher launch path, if any. */
-    private fun runTapAction(target: HeaderTapTarget): Launchable? {
+    private fun runTapAction(target: HeaderTapTarget, onOpenAgenda: () -> Unit = {}): Launchable? {
         var actualLaunched: Launchable? = null
-        context.runHeaderTapAction(target = target, onLaunch = { launchable -> actualLaunched = launchable })
+        context.runHeaderTapAction(
+            target = target,
+            onLaunch = { launchable -> actualLaunched = launchable },
+            onOpenAgenda = onOpenAgenda
+        )
         return actualLaunched
     }
 

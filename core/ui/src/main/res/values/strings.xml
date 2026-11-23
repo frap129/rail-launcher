@@ -63,6 +63,9 @@
     <string name="couldnt_send">Couldn\'t send</string>
     <string name="open_alarms">Open alarms</string>
     <string name="open_calendar">Open calendar</string>
+    <string name="open_agenda">Open agenda</string>
+    <string name="agenda">Agenda</string>
+    <string name="agenda_empty">Nothing coming up</string>
     <string name="open_event">Open %1$s</string>
     <string name="event_untitled">(No title)</string>
     <string name="event_until">until %1$s</string>

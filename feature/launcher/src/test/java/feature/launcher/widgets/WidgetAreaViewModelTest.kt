@@ -44,6 +44,7 @@ import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
 import core.data.testing.createMediaSessionSourceMock
 import core.data.testing.createRemoveAppWidgetMock
+import core.data.testing.createUpcomingEvent
 import core.data.testing.createWidgetAreaRepositoryFixture
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.testing.createWidgetLifecycleReconcilerMock
@@ -870,7 +871,11 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `drops an event on the first clock tick after it ends`() = runTest {
-        val inputEvent: UpcomingEvent = event(title = "Standup")
+        val inputEvent: UpcomingEvent = createUpcomingEvent(
+            title = "Standup",
+            begin = "2026-10-20T14:06:00Z",
+            end = "2026-10-20T14:07:00Z"
+        )
         val inputClockReadings: MutableStateFlow<ClockReading> = MutableStateFlow(reading(at = "2026-10-20T14:05:00Z"))
         val mockClockSource: IClockSource = createClockSourceMock(inputClockReadings)
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
@@ -906,21 +911,6 @@ class WidgetAreaViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    private fun event(
-        title: String = "Standup",
-        begin: String = "2026-10-20T14:06:00Z",
-        end: String = "2026-10-20T14:07:00Z"
-    ): UpcomingEvent = UpcomingEvent(
-        eventId = 7L,
-        title = title,
-        beginMillis = Instant.parse(begin).toEpochMilli(),
-        endMillis = Instant.parse(end).toEpochMilli(),
-        isAllDay = false,
-        calendarId = 3L,
-        color = 0,
-        isWorkProfile = false
-    )
 
     @Test
     fun `a stack Header menu offers Remove from stack`() = runTest {

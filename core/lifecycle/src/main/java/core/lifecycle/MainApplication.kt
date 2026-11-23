@@ -152,6 +152,7 @@ import core.lifecycle.startup.IHomeIconsDrawnImpl
 import core.lifecycle.widgets.IAppWidgetViewCacheImpl
 import core.lifecycle.widgets.RailAppWidgetHost
 import core.ui.IHomeIconsDrawn
+import core.ui.agenda.AgendaFormatter
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
 import core.ui.model.data.LauncherTypingState
@@ -178,6 +179,7 @@ import feature.launcher.LauncherViewModel
 import feature.launcher.ListOffsets
 import feature.launcher.PinShortcutViewModel
 import feature.launcher.PopupCardViewModel
+import feature.launcher.agenda.AgendaViewModel
 import feature.launcher.widgets.AppWidgetResults
 import feature.launcher.widgets.IWidgetAddController
 import feature.launcher.widgets.IWidgetAddControllerImpl
@@ -437,6 +439,7 @@ class MainApplication :
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
         }
         single<IHeaderTapTargetResolver> { IHeaderTapTargetResolverImpl() }
+        single { AgendaFormatter(get(), androidContext().resources) }
         factory<IWidgetAddController> { (savedStateHandle: SavedStateHandle) ->
             IWidgetAddControllerImpl(
                 repository = get(),
@@ -552,6 +555,14 @@ class MainApplication :
                 shortcutSearchSource = get(),
                 searchSettings = get(),
                 clockSource = get()
+            )
+        }
+        viewModel {
+            AgendaViewModel(
+                clockSource = get(),
+                settingsRepository = get(),
+                calendarEventSource = get(),
+                formatter = get()
             )
         }
         viewModel { (session: IPopupSession) ->

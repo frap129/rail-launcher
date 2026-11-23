@@ -72,6 +72,7 @@ import core.data.media.MediaCommand
 import core.data.prefs.RailSide
 import core.data.widgets.MediaPlayerPlacement
 import core.data.widgets.WidgetWidth
+import core.ui.calendar.OpenEventTarget
 import core.ui.composables.OutlinedText
 import core.ui.layout.homeContentPaddingValues
 import core.ui.layout.homeEdgePadding
@@ -148,7 +149,12 @@ class WidgetAreaUi(
 
 /** Collects the Widget Area and builds its Home actions. */
 @Composable
-fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, onLaunch: (Launchable) -> Unit, menuEnabled: Boolean = true): WidgetAreaUi {
+fun rememberWidgetAreaUi(
+    viewModel: WidgetAreaViewModel,
+    onLaunch: (Launchable) -> Unit,
+    onOpenAgenda: () -> Unit,
+    menuEnabled: Boolean = true
+): WidgetAreaUi {
     val state: WidgetAreaState by viewModel.widgetAreaState.collectAsState()
     val resize: ResizeState? by viewModel.resizeState.collectAsState()
     val editDraft: WidgetEditDraft? by viewModel.editState.collectAsState()
@@ -156,12 +162,14 @@ fun rememberWidgetAreaUi(viewModel: WidgetAreaViewModel, onLaunch: (Launchable) 
     val scrollToPlaceId: Long? by viewModel.scrollToPlaceId.collectAsState()
     val context: Context = LocalContext.current
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
-    val actions: WidgetAreaActions = remember(viewModel, onLaunch, menuEnabled, context, hapticFeedback) {
+    val actions: WidgetAreaActions = remember(viewModel, onLaunch, onOpenAgenda, menuEnabled, context, hapticFeedback) {
         WidgetAreaActions(
             menuEnabled = menuEnabled,
             onHomeHeight = viewModel::setHomeHeight,
             onWidgetAreaWidth = viewModel::setWidgetAreaWidth,
-            onTapTarget = { target -> context.runHeaderTapAction(target = target, onLaunch = onLaunch) },
+            onTapTarget = { target ->
+                context.runHeaderTapAction(target = target, onLaunch = onLaunch, onOpenAgenda = onOpenAgenda)
+            },
             onHeaderLongPress = { widgetId ->
                 if (menuEnabled) {
                     hapticFeedback.performLongPressHaptic()
@@ -787,36 +795,38 @@ internal fun WidgetWidth.contentPadding(railSide: RailSide): PaddingValues = whe
     WidgetWidth.UnderRail -> PaddingValues()
 }
 
-/** Runs a Tap action: a Launchable goes through [onLaunch], while every other target opens itself. */
-internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -> Unit) {
+/** Runs a Tap action: a Launchable goes through [onLaunch], the agenda through [onOpenAgenda], and every other target opens itself. */
+internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -> Unit, onOpenAgenda: () -> Unit) {
     when (target) {
         HeaderTapTarget.None -> Unit
 
         is HeaderTapTarget.LaunchLaunchable -> onLaunch(target.launchable)
 
+        HeaderTapTarget.OpenAgenda -> onOpenAgenda()
+
         HeaderTapTarget.SystemAlarms -> openSystemIntent(
             intent = Intent(AlarmClock.ACTION_SHOW_ALARMS),
-            target = target,
+            targetDescription = target.toString(),
             messageResource = R.string.no_clock_app
         )
 
         is HeaderTapTarget.SystemCalendar -> openSystemIntent(
             intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/${target.atEpochMillis}")),
-            target = target,
+            targetDescription = target.toString(),
             messageResource = R.string.no_calendar_app
         )
 
         HeaderTapTarget.SystemBatteryUsage -> openSystemIntent(
             intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY),
-            target = target,
+            targetDescription = target.toString(),
             messageResource = R.string.no_battery_usage_app
         )
 
-        is HeaderTapTarget.OpenEvent -> openEvent(target)
+        is HeaderTapTarget.OpenEvent -> openEvent(target = target.target)
     }
 }
 
-private fun Context.openEvent(target: HeaderTapTarget.OpenEvent) {
+private fun Context.openEvent(target: OpenEventTarget) {
     if (target.isWorkProfile) {
         try {
             val opened: Boolean = CalendarContract.startViewCalendarEventInManagedProfile(
@@ -840,14 +850,14 @@ private fun Context.openEvent(target: HeaderTapTarget.OpenEvent) {
         .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, target.eventId))
         .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, target.beginMillis)
         .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, target.endMillis)
-    openSystemIntent(intent = intent, target = target, messageResource = R.string.no_calendar_app)
+    openSystemIntent(intent = intent, targetDescription = target.toString(), messageResource = R.string.no_calendar_app)
 }
 
-private fun Context.openSystemIntent(intent: Intent, target: HeaderTapTarget, messageResource: Int) {
+private fun Context.openSystemIntent(intent: Intent, targetDescription: String, messageResource: Int) {
     try {
         startActivity(intent)
     } catch (exception: ActivityNotFoundException) {
         Toast.makeText(this, messageResource, Toast.LENGTH_SHORT).show()
-        Timber.w(exception, "No activity for %s", target)
+        Timber.w(exception, "No activity for %s", targetDescription)
     }
 }

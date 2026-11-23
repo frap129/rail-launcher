@@ -63,10 +63,12 @@ class ConvertersTest {
     fun `round trips every Header tap setting encoding`() {
         val inputSettings: List<HeaderTapSetting> = listOf(
             HeaderTapSetting.Nothing,
+            HeaderTapSetting.OpenAgenda,
             HeaderTapSetting.Launchable(key = "com.example.app_UserHandle{0}"),
             HeaderTapSetting.Launchable(key = "launchable:com.example/thing:extra")
         )
         assertEquals("none", converters.fromHeaderTapSettingToString(HeaderTapSetting.Nothing))
+        assertEquals("agenda", converters.fromHeaderTapSettingToString(HeaderTapSetting.OpenAgenda))
         inputSettings.forEach { setting ->
             assertEquals(setting, converters.fromStringToHeaderTapSetting(converters.fromHeaderTapSettingToString(setting)))
         }

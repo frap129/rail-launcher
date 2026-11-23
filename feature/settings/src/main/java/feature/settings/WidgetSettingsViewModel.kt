@@ -676,6 +676,8 @@ private fun HeaderTapSetting.toLabel(defaultResource: Int, launchableState: Laun
 
     HeaderTapSetting.Nothing -> TapActionLabel.Resource(R.string.tap_action_nothing)
 
+    HeaderTapSetting.OpenAgenda -> TapActionLabel.Resource(CoreUiR.string.open_agenda)
+
     is HeaderTapSetting.Launchable -> launchableState.launchableFor(key = key)
         ?.let { launchable -> TapActionLabel.Launchable(name = launchable.name) }
         ?: TapActionLabel.Resource(defaultResource)

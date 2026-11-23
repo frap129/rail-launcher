@@ -457,8 +457,12 @@ The built-in clock-and-date Widget, present in the Widget Area by default.
 _Avoid_: Glance, clock bar
 
 **Tap action**:
-What a tappable Header line opens: the system default, a chosen Launchable, or nothing. A removed Launchable falls back to the system default.
+What a tappable Header line opens: the system default, a chosen Launchable, the agenda, or nothing. A removed Launchable falls back to the system default.
 _Avoid_: Shortcut, click action, gesture
+
+**Agenda**:
+The bottom sheet listing the upcoming events the Event settings select, grouped by local day: Today, Tomorrow, then dates. A Header time or date Tap action opens it through a Launcher signal; tapping an event opens it in the calendar App.
+_Avoid_: Calendar sheet, schedule, event list
 
 **Media Player**:
 The built-in Widget that appears on Home while an app is playing media and shows its playback controls.

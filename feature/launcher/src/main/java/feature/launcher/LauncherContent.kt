@@ -103,6 +103,7 @@ internal fun LauncherContent(
     railSide: RailSide,
     showRail: Boolean,
     onItemLaunch: (Launchable) -> Unit,
+    onOpenAgenda: () -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
@@ -184,6 +185,7 @@ internal fun LauncherContent(
             val widgetArea: WidgetAreaUi = rememberWidgetAreaUi(
                 viewModel = widgetViewModel,
                 onLaunch = onItemLaunch,
+                onOpenAgenda = onOpenAgenda,
                 menuEnabled = !isEditingHome
             )
             val isHomeDrawable: Boolean = isHomeVisible && home.isFavoritesLoaded && widgetArea.state.isLoaded

@@ -21,6 +21,7 @@ import core.data.widgets.WidgetKind
 import core.data.widgets.WidgetSpacing
 
 private const val TAP_TARGET_NONE: String = "none"
+private const val TAP_TARGET_OPEN_AGENDA: String = "agenda"
 private const val TAP_TARGET_LAUNCHABLE_PREFIX: String = "launchable:"
 
 class Converters {
@@ -101,6 +102,7 @@ class Converters {
     fun fromHeaderTapSettingToString(setting: HeaderTapSetting?): String? = when (setting) {
         null, HeaderTapSetting.SystemDefault -> null
         HeaderTapSetting.Nothing -> TAP_TARGET_NONE
+        HeaderTapSetting.OpenAgenda -> TAP_TARGET_OPEN_AGENDA
         is HeaderTapSetting.Launchable -> "$TAP_TARGET_LAUNCHABLE_PREFIX${setting.key}"
     }
 
@@ -108,6 +110,7 @@ class Converters {
     fun fromStringToHeaderTapSetting(value: String?): HeaderTapSetting = when {
         value == null -> HeaderTapSetting.SystemDefault
         value == TAP_TARGET_NONE -> HeaderTapSetting.Nothing
+        value == TAP_TARGET_OPEN_AGENDA -> HeaderTapSetting.OpenAgenda
         value.startsWith(TAP_TARGET_LAUNCHABLE_PREFIX) -> HeaderTapSetting.Launchable(value.removePrefix(TAP_TARGET_LAUNCHABLE_PREFIX))
         else -> HeaderTapSetting.SystemDefault
     }

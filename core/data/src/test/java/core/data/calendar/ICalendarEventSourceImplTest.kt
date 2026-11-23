@@ -13,6 +13,7 @@ import core.data.testing.ProfileSourceState
 import core.data.testing.TEST_SDK
 import core.data.testing.createProfileInfo
 import core.data.testing.createProfileSourceMock
+import core.data.testing.createUpcomingEvent
 import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant
@@ -44,11 +45,13 @@ class ICalendarEventSourceImplTest {
     @Test
     fun `rolls the window across midnight and emits tomorrow events`() = runTest {
         val inputContext: Context = RuntimeEnvironment.getApplication()
-        val inputTomorrowEvent: UpcomingEvent = event(
-            eventId = 1,
+        val inputTomorrowEvent: UpcomingEvent = createUpcomingEvent(
+            eventId = 1L,
             title = "Tomorrow",
             begin = "2026-10-23T02:00:00Z",
-            end = "2026-10-23T02:30:00Z"
+            end = "2026-10-23T02:30:00Z",
+            calendarId = 7L,
+            color = 42
         )
         val actualQueriedWindows: MutableList<EventQueryWindow> = mutableListOf()
         val mockProvider: ContentProvider = createCalendarProviderMock(
@@ -196,17 +199,6 @@ class ICalendarEventSourceImplTest {
     private fun window(start: String, end: String): EventQueryWindow = EventQueryWindow(
         startMillis = Instant.parse(start).toEpochMilli(),
         endMillis = Instant.parse(end).toEpochMilli()
-    )
-
-    private fun event(eventId: Long, title: String, begin: String, end: String): UpcomingEvent = UpcomingEvent(
-        eventId = eventId,
-        title = title,
-        beginMillis = Instant.parse(begin).toEpochMilli(),
-        endMillis = Instant.parse(end).toEpochMilli(),
-        isAllDay = false,
-        calendarId = 7L,
-        color = 42,
-        isWorkProfile = false
     )
 
     private class MutableTime(var current: Instant, var zone: ZoneId)
