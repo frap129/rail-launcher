@@ -434,7 +434,7 @@ class MainApplication :
         single<IRemoveAppWidget> { IRemoveAppWidgetImpl(get(), get()) }
         single<IRemoveOwnerWidgets> { IRemoveOwnerWidgetsImpl(get(), get()) }
         single<ICalendarEventSource> { ICalendarEventSourceImpl(androidContext(), get()) }
-        factory<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
+        single<ICalendarPermissionGate> { ICalendarPermissionGateImpl(calendarEventSource = get()) }
         factory<IHeaderSettingsActions> {
             IHeaderSettingsActionsImpl(settingsRepository = get(), calendarPermissionGate = get())
         }
@@ -562,6 +562,7 @@ class MainApplication :
                 clockSource = get(),
                 settingsRepository = get(),
                 calendarEventSource = get(),
+                calendarPermissionGate = get(),
                 formatter = get()
             )
         }

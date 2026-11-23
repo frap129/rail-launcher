@@ -59,7 +59,6 @@
     <string name="tap_action_system_default">System default</string>
     <string name="tap_action_nothing">Nothing</string>
     <string name="show_upcoming_events">Show upcoming events</string>
-    <string name="grant">Grant</string>
     <string name="event_lookahead">Lookahead</string>
     <plurals name="event_lookahead_hours">
         <item quantity="one">%1$d hour</item>
