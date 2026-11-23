@@ -44,6 +44,7 @@ data class HeaderModel(
 @Immutable
 data class HeaderTimeModel(
     val text: String?,
+    val weekdayText: String?,
     val hourText: String?,
     val minuteText: String?,
     val amPmText: String?,

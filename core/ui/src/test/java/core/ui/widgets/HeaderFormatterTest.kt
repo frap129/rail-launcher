@@ -148,6 +148,23 @@ class HeaderFormatterTest {
     }
 
     @Test
+    fun `shows the weekday prominently with the time and date`() {
+        val actualHeader: HeaderModel = format(HeaderSettings(clockStyle = ClockStyle.WEEKDAY))
+
+        assertEquals(ClockStyle.WEEKDAY, actualHeader.style)
+        assertEquals("Tuesday", actualHeader.time?.weekdayText)
+        assertEquals("2:05", actualHeader.time?.text)
+        assertEquals("Tuesday, 2:05 PM", actualHeader.time?.spokenText)
+        assertEquals("October 20", actualHeader.date?.text)
+        assertEquals("October 20, 2026", actualHeader.date?.spokenText)
+    }
+
+    @Test
+    fun `shows no weekday outside the Weekday style`() {
+        assertNull(format(HeaderSettings()).time?.weekdayText)
+    }
+
+    @Test
     fun `carries the selected style alignment and size into the model`() {
         val actualHeader: HeaderModel = format(
             HeaderSettings(

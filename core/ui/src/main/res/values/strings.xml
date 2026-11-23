@@ -84,6 +84,7 @@
     <string name="clock_style_bold">Bold</string>
     <string name="clock_style_stacked">Stacked</string>
     <string name="clock_style_compact">Compact</string>
+    <string name="clock_style_weekday">Weekday</string>
     <string name="allow_notification_access_title">Allow notification access</string>
     <string name="allow_notification_access_body">Rail needs notification access to show notifications in Pop-ups and to see what’s playing in the Media Player. Notifications are read on this device only and are never stored or shared.</string>
     <string name="allow_notification_access_sideloaded">If the switch is greyed out, open Rail’s App info, tap ⋮ and choose Allow restricted settings.</string>

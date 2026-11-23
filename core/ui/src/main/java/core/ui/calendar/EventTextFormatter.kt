@@ -12,16 +12,11 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
-private const val WEEKDAY_SKELETON: String = "EEEE"
 private const val DEFAULT_EVENT_UNTITLED: String = "(No title)"
 private const val DEFAULT_EVENT_UNTIL: String = "until "
 private const val DEFAULT_EVENT_TODAY: String = "Today"
 private const val DEFAULT_EVENT_TOMORROW: String = "Tomorrow"
 private const val DEFAULT_EVENT_TOMORROW_LOWER: String = "tomorrow"
-
-/** The separator the Header's event lines use between their parts, and their spoken form. */
-internal const val EVENT_SEPARATOR: String = " · "
-internal const val EVENT_SPOKEN_SEPARATOR: String = ", "
 
 /**
  * Formats the event titles, times and day labels the Header's event lines and the agenda share.
@@ -84,7 +79,7 @@ class EventTextFormatter(datePatternSource: IDatePatternSource, private val reso
 
     private fun weekday(date: LocalDate, reading: ClockReading): String = clockText.format(
         dateTime = date.atStartOfDay(reading.zoneId),
-        pattern = clockText.datePattern(skeleton = WEEKDAY_SKELETON, reading = reading),
+        pattern = clockText.datePattern(skeleton = DateFormatPreset.WEEKDAY.skeleton, reading = reading),
         locale = reading.locale
     )
 

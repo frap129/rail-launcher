@@ -5,6 +5,7 @@ import core.data.icons.model.Icon
 import core.data.launchables.LaunchableReadiness
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
+import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.profiles.ProfileToken
@@ -46,6 +47,15 @@ class IHeaderTapTargetResolverImplTest {
         assertEquals(R.string.open_alarms, actualHeader.time?.clickLabel)
         assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
         assertEquals(R.string.open_calendar, actualHeader.date?.clickLabel)
+
+        val actualWeekdayHeader: HeaderModel = resolver.applyTo(
+            header = inputHeader,
+            settings = HeaderSettings(clockStyle = ClockStyle.WEEKDAY),
+            launchableState = createLaunchableState(groups = emptyList()),
+            atEpochMillis = nowMillis
+        )
+        assertEquals(HeaderTapTarget.SystemAlarms, actualWeekdayHeader.date?.tapTarget)
+        assertEquals(R.string.open_alarms, actualWeekdayHeader.date?.clickLabel)
     }
 
     @Test
