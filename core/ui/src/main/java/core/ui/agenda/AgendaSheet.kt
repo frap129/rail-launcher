@@ -24,6 +24,8 @@ import core.ui.composables.EventDot
 import core.ui.composables.LaunchableSectionHeader
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetRow
+import core.ui.composables.WarningRow
+import core.ui.composables.sheetContainerColor
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetRowContentInset
 import core.ui.composables.sheetVerticalPadding
@@ -35,15 +37,18 @@ private const val EVENT_KEY_PREFIX: String = "agenda-event-"
 
 /**
  * The agenda sheet listing upcoming events by local day. Back and a swipe down dismiss it through
- * [onDismiss]; the title's Open calendar action opens the calendar App.
+ * [onDismiss]; the title's Open calendar action opens the calendar App. Without calendar access it
+ * offers [onGrantPermission] instead of events.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgendaSheet(
     days: List<AgendaDayModel>,
     isLoading: Boolean,
+    hasPermission: Boolean,
     onOpenEvent: (OpenEventTarget) -> Unit,
     onOpenCalendar: () -> Unit,
+    onGrantPermission: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -65,6 +70,14 @@ fun AgendaSheet(
             ) {
                 CircularProgressIndicator()
             }
+
+            !hasPermission -> WarningRow(
+                title = stringResource(R.string.calendar_permission_denied_title),
+                supportingText = stringResource(R.string.calendar_permission_needed),
+                actionLabel = stringResource(R.string.grant),
+                onClick = onGrantPermission,
+                containerColor = sheetContainerColor
+            )
 
             days.isEmpty() -> Text(
                 text = stringResource(R.string.agenda_empty),

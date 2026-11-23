@@ -89,6 +89,7 @@ import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.NotificationAccessDialog
 import core.util.attemptLaunch
 import core.util.openApplicationDetailsSettings
+import feature.launcher.agenda.AgendaEvent
 import feature.launcher.agenda.AgendaUiState
 import feature.launcher.agenda.AgendaViewModel
 import feature.launcher.widgets.AddWidgetFlowState
@@ -181,6 +182,10 @@ fun LauncherScreen(
         rememberPermissionResultLauncher(permission = Manifest.permission.READ_CALENDAR) { granted, canAskAgain ->
             widgetViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
         }
+    val agendaPermissionLauncher: ManagedActivityResultLauncher<String, Boolean> =
+        rememberPermissionResultLauncher(permission = Manifest.permission.READ_CALENDAR) { granted, canAskAgain ->
+            agendaViewModel.onCalendarPermissionResult(granted = granted, canAskAgain = canAskAgain)
+        }
     val couldntOpenShortcutMessage: String = stringResource(R.string.couldnt_open_shortcut)
     val couldntOpenSearchRowMessage: String = stringResource(R.string.couldnt_open_search_row)
     val couldntOpenStorePageMessage: String = stringResource(R.string.couldnt_open_store_page)
@@ -260,7 +265,7 @@ fun LauncherScreen(
         }
     }
     OnResume {
-        widgetViewModel.refreshCalendarPermission()
+        agendaViewModel.refreshCalendarPermission()
         widgetViewModel.refreshMediaAccess()
         viewModel.refreshContactsPermission()
     }
@@ -302,6 +307,13 @@ fun LauncherScreen(
                 showCalendarPermissionDialog = { showCalendarPermissionDialog = true },
                 showNotificationAccessDialog = { showNotificationAccessDialog = true }
             )
+        }
+    }
+    LaunchedEffect(agendaViewModel) {
+        agendaViewModel.events.collect { event ->
+            when (event) {
+                AgendaEvent.ShowCalendarPermissionDenied -> showCalendarPermissionDialog = true
+            }
         }
     }
     val editFolderLabel: String = stringResource(R.string.edit_folder)
@@ -414,10 +426,12 @@ fun LauncherScreen(
             AgendaSheet(
                 days = agendaState.days,
                 isLoading = agendaState.isLoading,
+                hasPermission = agendaState.hasPermission,
                 onOpenEvent = { target -> openAgendaTarget(HeaderTapTarget.OpenEvent(target = target)) },
                 onOpenCalendar = {
                     openAgendaTarget(HeaderTapTarget.SystemCalendar(atEpochMillis = clockSource.now().toEpochMilli()))
                 },
+                onGrantPermission = { agendaPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
                 onDismiss = agendaViewModel::close
             )
         }
@@ -513,7 +527,7 @@ fun LauncherScreen(
     if (showCalendarPermissionDialog) {
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
-            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
+            message = stringResource(CoreUiR.string.calendar_permission_needed),
             onDismiss = { showCalendarPermissionDialog = false },
             onOpenSettings = {
                 showCalendarPermissionDialog = false
@@ -648,7 +662,7 @@ private suspend fun handleWidgetEvent(
             } else {
                 coroutineScope.launch {
                     val result: SnackbarResult = snackbarHostState.showSnackbar(
-                        message = context.getString(R.string.calendar_permission_needed),
+                        message = context.getString(CoreUiR.string.calendar_permission_needed),
                         actionLabel = context.getString(CoreUiR.string.open_settings),
                         duration = SnackbarDuration.Long
                     )

@@ -31,7 +31,6 @@
     <string name="reorder_favorite">Reorder %1$s</string>
     <string name="rename_item">Rename %1$s</string>
     <string name="cannot_open_launchable">Can\'t open %1$s</string>
-    <string name="calendar_permission_needed">Rail needs calendar access to show events</string>
     <string name="no_clock_app">No clock app</string>
     <string name="no_calendar_app">No calendar app</string>
     <string name="no_battery_usage_app">No battery usage screen</string>

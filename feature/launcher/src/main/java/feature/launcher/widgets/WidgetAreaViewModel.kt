@@ -860,10 +860,6 @@ class WidgetAreaViewModel(
         }
     }
 
-    fun refreshCalendarPermission() {
-        headerSettingsActions.refreshCalendarPermission()
-    }
-
     fun setHomeHeight(heightDp: Int) {
         homeHeightState.setHeight(heightDp = heightDp)
         resizeController.setHomeHeight(heightDp = heightDp)

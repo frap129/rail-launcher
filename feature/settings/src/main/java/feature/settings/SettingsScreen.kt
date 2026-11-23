@@ -118,6 +118,7 @@ import core.ui.composables.NotificationAccessRow
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.SettingsSwitchRow
+import core.ui.composables.WarningRow
 import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.composables.sheetContainerColor
 import core.ui.model.data.Destination
@@ -465,7 +466,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     if (showPermissionDialog) {
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
-            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
+            message = stringResource(CoreUiR.string.calendar_permission_needed),
             onDismiss = { showPermissionDialog = false },
             onOpenSettings = {
                 context.openApplicationDetailsSettings()
@@ -705,9 +706,9 @@ private fun EventSettingsRows(
             onCheckedChange = viewModel::setEventsEnabled
         )
         if (uiState.eventsEnabled && !uiState.calendarAccess) {
-            SettingsWarningRow(
+            WarningRow(
                 title = stringResource(CoreUiR.string.calendar_permission_denied_title),
-                actionLabel = stringResource(R.string.grant),
+                actionLabel = stringResource(CoreUiR.string.grant),
                 onClick = { viewModel.setEventsEnabled(true) }
             )
         }
@@ -749,19 +750,6 @@ private fun calendarSelectionSummary(uiState: WidgetSettingsUiState): String {
     } else {
         stringResource(R.string.calendars_selected, selectedCount, uiState.calendars.size)
     }
-}
-
-@Composable
-private fun SettingsWarningRow(title: String, actionLabel: String, onClick: () -> Unit) {
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text(title) },
-        trailingContent = {
-            TextButton(onClick = onClick) {
-                Text(actionLabel)
-            }
-        }
-    )
 }
 
 @Composable
