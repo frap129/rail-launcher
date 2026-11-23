@@ -36,6 +36,8 @@ sealed interface HeaderTapSetting {
 
     data object Nothing : HeaderTapSetting
 
+    data object OpenAgenda : HeaderTapSetting
+
     data class Launchable(val key: String) : HeaderTapSetting
 }
 

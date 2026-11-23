@@ -62,6 +62,13 @@ internal fun TapActionPickerContent(state: TapActionPickerState, partUi: TapActi
                     onClick = { partUi.onSelect(HeaderTapSetting.Nothing) }
                 )
             }
+            item {
+                TapActionRow(
+                    label = stringResource(CoreUiR.string.open_agenda),
+                    selected = partUi.selected == HeaderTapSetting.OpenAgenda,
+                    onClick = { partUi.onSelect(HeaderTapSetting.OpenAgenda) }
+                )
+            }
             item { HorizontalDivider() }
             if (!state.isLoaded) {
                 item {

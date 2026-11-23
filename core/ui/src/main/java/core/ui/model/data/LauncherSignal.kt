@@ -18,6 +18,9 @@ sealed interface LauncherSignal : Serializable {
     /** The Search entry asked to open Search. */
     data object OpenSearch : LauncherSignal
 
+    /** The user asked to open the agenda from a Header Tap action. */
+    data object OpenAgenda : LauncherSignal
+
     /** A printable character was typed on the launcher with a hardware keyboard. */
     data class TypedCharacter(val character: String) : LauncherSignal
 }

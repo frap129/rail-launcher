@@ -1,7 +1,6 @@
 package core.ui.widgets
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +45,7 @@ import compose.icons.fontawesomeicons.solid.Check
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderAlignment
 import core.ui.R
+import core.ui.composables.EventDot
 import core.ui.composables.OutlinedText
 import core.ui.composables.SheetRow
 import core.ui.composables.SheetTextTitle
@@ -55,7 +54,6 @@ import core.ui.layout.minTouchTargetSize
 private val previewSpacing: Dp = 8.dp
 private val previewPadding: Dp = 20.dp
 private val selectedIconSize: Dp = 24.dp
-private val eventDotSize: Dp = 8.dp
 private val eventDotSpacing: Dp = 8.dp
 private const val STACKED_LINE_HEIGHT_MULTIPLIER: Float = 0.9f
 private const val COMPACT_SEPARATOR: String = "·"
@@ -379,11 +377,7 @@ private fun HeaderEventLine(event: EventModel, presentation: HeaderLinePresentat
         presentation = presentation
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(eventDotSize)
-                    .background(color = event.color, shape = CircleShape)
-            )
+            EventDot(color = event.color)
             val titleText: String = if (event.suffix.isEmpty()) event.text else event.text.removeSuffix(event.suffix)
             OutlinedText(
                 text = titleText,

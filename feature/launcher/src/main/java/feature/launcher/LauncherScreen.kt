@@ -53,11 +53,13 @@ import core.data.prefs.ScrubEdges
 import core.data.profiles.IProfileSource
 import core.data.search.SearchResult
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.time.IClockSource
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.InsertPosition
 import core.ui.GroupMark
 import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
+import core.ui.agenda.AgendaSheet
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.rememberPermissionResultLauncher
@@ -82,10 +84,13 @@ import core.ui.popups.IconPickerHost
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
+import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.NotificationAccessDialog
 import core.util.attemptLaunch
 import core.util.openApplicationDetailsSettings
+import feature.launcher.agenda.AgendaUiState
+import feature.launcher.agenda.AgendaViewModel
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.AddWidgetOrigin
 import feature.launcher.widgets.AddWidgetPlacement
@@ -99,6 +104,7 @@ import feature.launcher.widgets.UndoAction
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import feature.launcher.widgets.WidgetEvent
+import feature.launcher.widgets.runHeaderTapAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
@@ -122,7 +128,8 @@ private val snackbarBottomPadding: Dp = 80.dp
 fun LauncherScreen(
     navController: NavController,
     backStackEntry: NavBackStackEntry,
-    widgetViewModel: WidgetAreaViewModel = koinViewModel()
+    widgetViewModel: WidgetAreaViewModel = koinViewModel(),
+    agendaViewModel: AgendaViewModel = koinViewModel()
 ) {
     // One session per Pop-up host; the card ViewModel keeps the collaborators it was created with.
     val popupSession: IPopupSession = koinInject()
@@ -148,7 +155,9 @@ fun LauncherScreen(
     val profileSource: IProfileSource = koinInject()
     val launcherTypingState: LauncherTypingState = koinInject()
     val homeIconsDrawn: IHomeIconsDrawn = koinInject()
+    val clockSource: IClockSource = koinInject()
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
+    val agendaState: AgendaUiState by agendaViewModel.uiState.collectAsState()
     val isPopupOpen: Boolean by popupCardViewModel.isCardOpen.collectAsState()
     val pausedLaunchable: Launchable? by viewModel.pausedPrompt.collectAsState()
     val railItems: List<GroupMark> by viewModel.railItems.collectAsState()
@@ -160,6 +169,7 @@ fun LauncherScreen(
     val launcherSignalRequest: LauncherSignalRequest = remember(backStackEntry) {
         LauncherSignalRequest(savedStateHandle = backStackEntry.savedStateHandle)
     }
+    val requestOpenAgenda: () -> Unit = { launcherSignalRequest.request(signal = LauncherSignal.OpenAgenda) }
     val addWidgetRequest: OneShotRequest = remember(backStackEntry) {
         OneShotRequest(savedStateHandle = backStackEntry.savedStateHandle, key = HOME_ADD_WIDGET_REQUEST_KEY)
     }
@@ -210,6 +220,14 @@ fun LauncherScreen(
                 },
                 onHomeIntent = widgetViewModel::onHomeIntent
             )
+        )
+    }
+    val openAgendaTarget: (HeaderTapTarget) -> Unit = { target ->
+        agendaViewModel.close()
+        context.runHeaderTapAction(
+            target = target,
+            onLaunch = launchItem,
+            onOpenAgenda = requestOpenAgenda
         )
     }
     DisposableEffect(lifecycleOwner, viewModel, widgetViewModel) {
@@ -308,6 +326,7 @@ fun LauncherScreen(
             }
             when (signal) {
                 is LauncherSignal.Home -> {
+                    agendaViewModel.close()
                     val wasEditingHome: Boolean =
                         widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
                     if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
@@ -316,6 +335,8 @@ fun LauncherScreen(
                 }
 
                 LauncherSignal.OpenSearch -> viewModel.openSearch()
+
+                LauncherSignal.OpenAgenda -> agendaViewModel.open()
 
                 is LauncherSignal.TypedCharacter -> viewModel.onTypedCharacter(
                     character = signal.character,
@@ -365,6 +386,7 @@ fun LauncherScreen(
             railSide = railSide,
             showRail = showRail,
             onItemLaunch = launchItem,
+            onOpenAgenda = requestOpenAgenda,
             onItemOpenPopup = { launchable, anchor ->
                 openLauncherItemPopup(
                     launchable = launchable,
@@ -388,6 +410,17 @@ fun LauncherScreen(
             isEditingWidgets = isEditingWidgets,
             homeEditMode = homeEditMode
         )
+        if (agendaState.isOpen) {
+            AgendaSheet(
+                days = agendaState.days,
+                isLoading = agendaState.isLoading,
+                onOpenEvent = { target -> openAgendaTarget(HeaderTapTarget.OpenEvent(target = target)) },
+                onOpenCalendar = {
+                    openAgendaTarget(HeaderTapTarget.SystemCalendar(atEpochMillis = clockSource.now().toEpochMilli()))
+                },
+                onDismiss = agendaViewModel::close
+            )
+        }
         PopupHost(
             viewModel = popupCardViewModel,
             railSide = railSide,

@@ -113,6 +113,7 @@ class SettingsSheetRowsTest {
                 listOf(
                     composeRule.onNodeWithText(getString(R.string.tap_action_system_default)),
                     composeRule.onNodeWithText(getString(R.string.tap_action_nothing)),
+                    composeRule.onNodeWithText(getString(CoreUiR.string.open_agenda)),
                     composeRule.onNodeWithText(APP_NAME)
                 )
             }

@@ -10,6 +10,7 @@ import core.data.prefs.HeaderAlignment
 import core.data.prefs.HeaderSize
 import core.data.widgets.WidgetAvailability
 import core.ui.R
+import core.ui.calendar.OpenEventTarget
 
 @Immutable
 sealed interface WidgetModel {
@@ -84,9 +85,11 @@ sealed interface HeaderTapTarget {
 
     data object SystemBatteryUsage : HeaderTapTarget
 
+    data object OpenAgenda : HeaderTapTarget
+
     data class SystemCalendar(val atEpochMillis: Long) : HeaderTapTarget
 
-    data class OpenEvent(val eventId: Long, val beginMillis: Long, val endMillis: Long, val isWorkProfile: Boolean) : HeaderTapTarget
+    data class OpenEvent(val target: OpenEventTarget) : HeaderTapTarget
 
     data class LaunchLaunchable(val launchable: Launchable) : HeaderTapTarget
 
