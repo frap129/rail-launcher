@@ -15,8 +15,6 @@ import core.data.time.ClockReading
 import core.data.time.IDatePatternSource
 import core.ui.R
 import core.ui.calendar.ClockTextFormatter
-import core.ui.calendar.EVENT_SEPARATOR
-import core.ui.calendar.EVENT_SPOKEN_SEPARATOR
 import core.ui.calendar.EventTextFormatter
 import core.ui.calendar.HOUR_PATTERN_12_HOUR
 import core.ui.calendar.HOUR_PATTERN_24_HOUR
@@ -61,7 +59,16 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
             } else {
                 null
             },
-            date = if (settings.dateVisible) createDateModel(dateTime, reading, settings.dateFormat) else null,
+            date = if (settings.dateVisible) {
+                createDateModel(
+                    dateTime = dateTime,
+                    reading = reading,
+                    preset = settings.dateFormat,
+                    style = settings.clockStyle
+                )
+            } else {
+                null
+            },
             battery = createBatteryModel(battery, settings.batteryVisibility),
             events = selectEvents(
                 events = events,
@@ -154,7 +161,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
     private fun createEventModel(event: UpcomingEvent, text: String, suffix: String = ""): EventModel = EventModel(
         text = text,
         suffix = suffix,
-        spokenText = text.replace(EVENT_SEPARATOR, EVENT_SPOKEN_SEPARATOR),
+        spokenText = text.replace(EVENT_SEPARATOR, SPOKEN_SEPARATOR),
         color = event.eventColor(),
         tapTarget = HeaderTapTarget.OpenEvent(target = event.openEventTarget()),
         clickLabel = R.string.open_event,
@@ -168,17 +175,23 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
         showAmPm: Boolean,
         style: ClockStyle
     ): HeaderTimeModel {
-        val spokenText: String = clockText.format(
+        val weekdayText: String? = if (style == ClockStyle.WEEKDAY) {
+            formatDate(reading = reading, preset = DateFormatPreset.WEEKDAY)
+        } else {
+            null
+        }
+        val timeSpokenText: String = clockText.format(
             dateTime = dateTime,
             pattern = clockText.timePattern(reading = reading, is24Hour = is24Hour),
             locale = reading.locale
         )
         val common: HeaderTimeModel = HeaderTimeModel(
             text = null,
+            weekdayText = weekdayText,
             hourText = null,
             minuteText = null,
             amPmText = null,
-            spokenText = spokenText,
+            spokenText = if (weekdayText == null) timeSpokenText else weekdayText + SPOKEN_SEPARATOR + timeSpokenText,
             tapTarget = HeaderTapTarget.SystemAlarms,
             clickLabel = R.string.open_alarms
         )
@@ -207,17 +220,26 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
         }
     }
 
-    private fun createDateModel(dateTime: ZonedDateTime, reading: ClockReading, preset: DateFormatPreset): HeaderLineModel =
-        HeaderLineModel(
+    private fun createDateModel(
+        dateTime: ZonedDateTime,
+        reading: ClockReading,
+        preset: DateFormatPreset,
+        style: ClockStyle
+    ): HeaderLineModel {
+        val isWeekdayStyle: Boolean = style == ClockStyle.WEEKDAY
+        val datePreset: DateFormatPreset = if (isWeekdayStyle) DateFormatPreset.DAY_AND_MONTH else preset
+        val spokenStyle: FormatStyle = if (isWeekdayStyle) FormatStyle.LONG else FormatStyle.FULL
+        return HeaderLineModel(
             text = clockText.format(
                 dateTime = dateTime,
-                pattern = clockText.datePattern(skeleton = preset.skeleton, reading = reading),
+                pattern = clockText.datePattern(skeleton = datePreset.skeleton, reading = reading),
                 locale = reading.locale
             ),
-            spokenText = DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(reading.locale).format(dateTime),
+            spokenText = DateTimeFormatter.ofLocalizedDate(spokenStyle).withLocale(reading.locale).format(dateTime),
             tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = reading.instant.toEpochMilli()),
             clickLabel = R.string.open_calendar
         )
+    }
 
     private fun createBatteryModel(status: BatteryStatus?, visibility: BatteryVisibility): BatteryModel? {
         if (status == null) {

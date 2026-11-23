@@ -45,7 +45,8 @@ enum class ClockStyle {
     CLASSIC,
     BOLD,
     STACKED,
-    COMPACT
+    COMPACT,
+    WEEKDAY
 }
 
 enum class TimeFormat {

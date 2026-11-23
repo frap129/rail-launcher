@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -108,14 +109,23 @@ fun HeaderContent(
     val secondaryPresentation: HeaderLinePresentation = timePresentation.copy(style = secondaryStyle)
     Column(modifier = modifier.fillMaxWidth()) {
         model.time?.let { time ->
-            if (model.style == ClockStyle.STACKED) {
-                StackedTime(
+            when (model.style) {
+                ClockStyle.STACKED -> StackedTime(
                     time = time,
                     presentation = timePresentation,
                     secondaryStyle = secondaryStyle
                 )
-            } else {
-                HeaderTimeText(time = time, presentation = timePresentation)
+
+                ClockStyle.WEEKDAY -> WeekdayTime(
+                    time = time,
+                    presentation = timePresentation,
+                    secondaryStyle = secondaryStyle
+                )
+
+                ClockStyle.CLASSIC, ClockStyle.BOLD, ClockStyle.COMPACT -> HeaderTimeText(
+                    time = time,
+                    presentation = timePresentation
+                )
             }
         }
         if (model.date != null || model.battery != null) {
@@ -135,6 +145,7 @@ fun ClockStyle.labelResource(): Int = when (this) {
     ClockStyle.BOLD -> R.string.clock_style_bold
     ClockStyle.STACKED -> R.string.clock_style_stacked
     ClockStyle.COMPACT -> R.string.clock_style_compact
+    ClockStyle.WEEKDAY -> R.string.clock_style_weekday
 }
 
 @Composable
@@ -239,13 +250,7 @@ private fun HeaderSecondaryLine(line: HeaderLineModel?, battery: BatteryModel?, 
 @Composable
 private fun HeaderTimeText(time: HeaderTimeModel, presentation: HeaderLinePresentation) {
     val text: String = time.text ?: return
-    val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
-    HeaderTapTargetBox(
-        clickLabel = clickLabel,
-        spokenText = time.spokenText,
-        tapTarget = time.tapTarget,
-        presentation = presentation
-    ) {
+    HeaderTimeTapTarget(time = time, presentation = presentation) {
         OutlinedText(text = text, style = presentation.style, textAlign = presentation.alignment.textAlign())
     }
 }
@@ -254,17 +259,11 @@ private fun HeaderTimeText(time: HeaderTimeModel, presentation: HeaderLinePresen
 private fun StackedTime(time: HeaderTimeModel, presentation: HeaderLinePresentation, secondaryStyle: TextStyle) {
     val hourText: String = time.hourText ?: return
     val minuteText: String = time.minuteText ?: return
-    val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
     val stackedStyle: TextStyle = presentation.style.copy(
         lineHeight = presentation.style.fontSize * STACKED_LINE_HEIGHT_MULTIPLIER
     )
-    HeaderTapTargetBox(
-        clickLabel = clickLabel,
-        spokenText = time.spokenText,
-        tapTarget = time.tapTarget,
-        presentation = presentation
-    ) {
-        Column(horizontalAlignment = presentation.alignment.horizontalAlignment()) {
+    HeaderTimeTapTarget(time = time, presentation = presentation) {
+        HeaderTimeColumn(presentation = presentation) {
             OutlinedText(text = hourText, style = stackedStyle, textAlign = presentation.alignment.textAlign())
             Row(verticalAlignment = Alignment.Bottom) {
                 OutlinedText(text = minuteText, style = stackedStyle, textAlign = presentation.alignment.textAlign())
@@ -279,6 +278,35 @@ private fun StackedTime(time: HeaderTimeModel, presentation: HeaderLinePresentat
             }
         }
     }
+}
+
+@Composable
+private fun WeekdayTime(time: HeaderTimeModel, presentation: HeaderLinePresentation, secondaryStyle: TextStyle) {
+    val weekdayText: String = time.weekdayText ?: return
+    val timeText: String = time.text ?: return
+    HeaderTimeTapTarget(time = time, presentation = presentation) {
+        HeaderTimeColumn(presentation = presentation) {
+            OutlinedText(text = weekdayText, style = presentation.style, textAlign = presentation.alignment.textAlign())
+            OutlinedText(text = timeText, style = secondaryStyle, textAlign = presentation.alignment.textAlign())
+        }
+    }
+}
+
+@Composable
+private fun HeaderTimeTapTarget(time: HeaderTimeModel, presentation: HeaderLinePresentation, content: @Composable () -> Unit) {
+    val clickLabel: String? = resolveClickLabel(clickLabel = time.clickLabel, arg = time.clickLabelArg)
+    HeaderTapTargetBox(
+        clickLabel = clickLabel,
+        spokenText = time.spokenText,
+        tapTarget = time.tapTarget,
+        presentation = presentation,
+        content = content
+    )
+}
+
+@Composable
+private fun HeaderTimeColumn(presentation: HeaderLinePresentation, content: @Composable ColumnScope.() -> Unit) {
+    Column(horizontalAlignment = presentation.alignment.horizontalAlignment(), content = content)
 }
 
 @OptIn(ExperimentalLayoutApi::class)

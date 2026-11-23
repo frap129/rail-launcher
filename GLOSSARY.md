@@ -456,6 +456,10 @@ _Avoid_: Custom widget, third-party widget
 The built-in clock-and-date Widget, present in the Widget Area by default.
 _Avoid_: Glance, clock bar
 
+**Weekday clock style**:
+The Header style that shows the weekday prominently above the time and date. Its system-default Tap action opens the alarm list for both the time and the date.
+_Avoid_: Day clock, weekday clock
+
 **Tap action**:
 What a tappable Header line opens: the system default, a chosen Launchable, the agenda, or nothing. A removed Launchable falls back to the system default.
 _Avoid_: Shortcut, click action, gesture

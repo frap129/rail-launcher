@@ -56,6 +56,7 @@ import core.data.widgets.MediaPlayerPlacement
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
 import core.ui.widgets.HeaderFormatter
+import core.ui.widgets.HeaderModel
 import core.ui.widgets.IHeaderTapTargetResolverImpl
 import io.mockk.coVerify
 import io.mockk.verify
@@ -114,6 +115,9 @@ class WidgetSettingsViewModelTest {
             val actualState: WidgetSettingsUiState = expectMostRecentItem()
             assertEquals(ClockStyle.entries, actualState.clockStylePreviews.map { preview -> preview.style })
             assertEquals("2:05", actualState.clockStylePreviews.first().time?.text)
+            val actualWeekdayPreview: HeaderModel =
+                actualState.clockStylePreviews.single { preview -> preview.style == ClockStyle.WEEKDAY }
+            assertEquals("Tuesday", actualWeekdayPreview.time?.weekdayText)
             assertEquals(DateFormatPreset.entries, actualState.dateFormatOptions.map { option -> option.preset })
             assertEquals(
                 listOf("Tuesday, October 20", "Tue, Oct 20", "October 20", "Tuesday 20", "Tuesday", "10/20/2026"),
@@ -320,6 +324,22 @@ class WidgetSettingsViewModelTest {
             assertEquals(HeaderTapSetting.SystemDefault, actualState.dateTapAction.setting)
             assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), actualState.timeTapAction.label)
             assertEquals(TapActionLabel.Resource(R.string.tap_action_calendar_default), actualState.dateTapAction.label)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `describes the Weekday style's date default as the clock`() = runTest {
+        val viewModel: WidgetSettingsViewModel = createViewModel(
+            mockSettingsRepository = createWidgetSettingsRepositoryMock(
+                headerSettings = HeaderSettings(clockStyle = ClockStyle.WEEKDAY)
+            )
+        )
+
+        viewModel.uiState.test {
+            val actualState: WidgetSettingsUiState = expectMostRecentItem()
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), actualState.timeTapAction.label)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_alarms_default), actualState.dateTapAction.label)
             cancelAndIgnoreRemainingEvents()
         }
     }

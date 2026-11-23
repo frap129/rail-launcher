@@ -18,6 +18,7 @@ fun createHeaderModel(
     id = id,
     time = HeaderTimeModel(
         text = timeText,
+        weekdayText = null,
         hourText = null,
         minuteText = null,
         amPmText = null,

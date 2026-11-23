@@ -44,7 +44,9 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
 import core.ui.widgets.HeaderFormatter
 import core.ui.widgets.HeaderModel
+import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.IHeaderTapTargetResolver
+import core.ui.widgets.dateDefaultTapTarget
 import core.util.EventChannel
 import core.util.SearchQuery
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -275,6 +277,9 @@ class WidgetSettingsViewModel(
             setting = settings.resolvedDateTapTarget,
             launchableState = launchableState
         )
+        val dateDefaultTarget: HeaderTapTarget = settings.clockStyle.dateDefaultTapTarget(
+            atEpochMillis = reading.instant.toEpochMilli()
+        )
         WidgetSettingsUiState(
             isLoaded = true,
             headerShown = places.any { place -> place.widgets.any { widget -> widget is PlacedWidget.Header } },
@@ -299,7 +304,7 @@ class WidgetSettingsViewModel(
                 launchableState = launchableState
             ),
             dateTapAction = dateTapTarget.toSummary(
-                defaultResource = R.string.tap_action_calendar_default,
+                defaultResource = dateDefaultTarget.dateDefaultLabelResource(),
                 launchableState = launchableState
             ),
             calendarAccess = eventSettingsState.hasPermission,
@@ -670,6 +675,13 @@ private fun HeaderTapSetting.toSummary(defaultResource: Int, launchableState: La
     setting = this,
     label = toLabel(defaultResource = defaultResource, launchableState = launchableState)
 )
+
+/** The settings label describing what the Header's date line opens by default. */
+private fun HeaderTapTarget.dateDefaultLabelResource(): Int = when (this) {
+    HeaderTapTarget.SystemAlarms -> R.string.tap_action_alarms_default
+    is HeaderTapTarget.SystemCalendar -> R.string.tap_action_calendar_default
+    else -> R.string.tap_action_system_default
+}
 
 private fun HeaderTapSetting.toLabel(defaultResource: Int, launchableState: LaunchableState): TapActionLabel = when (this) {
     HeaderTapSetting.SystemDefault -> TapActionLabel.Resource(defaultResource)

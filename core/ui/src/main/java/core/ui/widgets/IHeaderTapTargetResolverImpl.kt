@@ -2,6 +2,7 @@ package core.ui.widgets
 
 import androidx.annotation.StringRes
 import core.data.launchables.LaunchableState
+import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.isDisplayable
@@ -15,7 +16,14 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         atEpochMillis: Long
     ): HeaderModel = header.copy(
         time = header.time?.withTapTarget(resolveTimeTapTarget(settings.timeTapTarget, launchableState)),
-        date = header.date?.withTapTarget(resolveDateTapTarget(settings.dateTapTarget, launchableState, atEpochMillis))
+        date = header.date?.withTapTarget(
+            resolveDateTapTarget(
+                setting = settings.dateTapTarget,
+                launchableState = launchableState,
+                atEpochMillis = atEpochMillis,
+                clockStyle = settings.clockStyle
+            )
+        )
     )
 
     override fun resolveSetting(setting: HeaderTapSetting, launchableState: LaunchableState): HeaderTapSetting =
@@ -24,12 +32,16 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
     private fun resolveTimeTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState): HeaderTapTarget =
         resolveTapTarget(setting = setting, launchableState = launchableState, fallback = HeaderTapTarget.SystemAlarms)
 
-    private fun resolveDateTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState, atEpochMillis: Long): HeaderTapTarget =
-        resolveTapTarget(
-            setting = setting,
-            launchableState = launchableState,
-            fallback = HeaderTapTarget.SystemCalendar(atEpochMillis = atEpochMillis)
-        )
+    private fun resolveDateTapTarget(
+        setting: HeaderTapSetting?,
+        launchableState: LaunchableState,
+        atEpochMillis: Long,
+        clockStyle: ClockStyle
+    ): HeaderTapTarget = resolveTapTarget(
+        setting = setting,
+        launchableState = launchableState,
+        fallback = clockStyle.dateDefaultTapTarget(atEpochMillis = atEpochMillis)
+    )
 
     private fun resolveTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState, fallback: HeaderTapTarget): HeaderTapTarget =
         when (setting) {
