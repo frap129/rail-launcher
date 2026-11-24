@@ -143,9 +143,4 @@ class AgendaViewModel(
             }
         }
     }
-
-    /** Rechecks calendar access, so a grant made outside the sheet loads the agenda on resume. */
-    fun refreshCalendarPermission() {
-        calendarPermissionGate.refreshPermission()
-    }
 }

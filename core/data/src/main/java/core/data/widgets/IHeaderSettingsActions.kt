@@ -19,6 +19,4 @@ interface IHeaderSettingsActions {
 
     /** Persists Upcoming events on a grant and reports a denial for the UI to show. */
     suspend fun onCalendarPermissionResult(granted: Boolean, canAskAgain: Boolean): UpcomingEventsOutcome
-
-    fun refreshCalendarPermission()
 }

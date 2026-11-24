@@ -193,7 +193,7 @@ class AgendaViewModelTest {
     }
 
     @Test
-    fun `loads the agenda when a grant made outside the sheet is picked up on resume`() = runTest {
+    fun `loads the agenda when a grant made outside the sheet reaches the calendar source`() = runTest {
         val inputPermission: MutableStateFlow<Boolean> = MutableStateFlow(false)
         val inputEvents: MutableStateFlow<List<UpcomingEvent>> = MutableStateFlow(
             listOf(createUpcomingEvent(title = "Standup", begin = "2026-10-20T15:00:00Z", end = "2026-10-20T15:30:00Z"))
@@ -205,7 +205,7 @@ class AgendaViewModelTest {
             viewModel.open()
             assertFalse(awaitSettled().hasPermission)
 
-            viewModel.refreshCalendarPermission()
+            inputPermission.value = true
             val actualGranted: AgendaUiState = awaitSettled()
 
             assertTrue(actualGranted.hasPermission)

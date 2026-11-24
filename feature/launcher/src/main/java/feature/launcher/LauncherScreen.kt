@@ -46,6 +46,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
+import core.data.calendar.ICalendarPermissionGate
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
@@ -60,6 +61,7 @@ import core.ui.GroupMark
 import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
 import core.ui.agenda.AgendaSheet
+import core.ui.composables.CalendarPermissionResumeRefresh
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.rememberPermissionResultLauncher
@@ -153,6 +155,7 @@ fun LauncherScreen(
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
+    val calendarPermissionGate: ICalendarPermissionGate = koinInject()
     val profileSource: IProfileSource = koinInject()
     val launcherTypingState: LauncherTypingState = koinInject()
     val homeIconsDrawn: IHomeIconsDrawn = koinInject()
@@ -260,8 +263,8 @@ fun LauncherScreen(
             appWidgetHostSource.stopListening()
         }
     }
+    CalendarPermissionResumeRefresh(calendarPermissionGate = calendarPermissionGate)
     OnResume {
-        agendaViewModel.refreshCalendarPermission()
         widgetViewModel.refreshMediaAccess()
         viewModel.refreshContactsPermission()
     }
@@ -523,7 +526,7 @@ fun LauncherScreen(
     if (showCalendarPermissionDialog) {
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
-            message = stringResource(CoreUiR.string.calendar_permission_needed),
+            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
             onDismiss = { showCalendarPermissionDialog = false },
             onOpenSettings = {
                 showCalendarPermissionDialog = false

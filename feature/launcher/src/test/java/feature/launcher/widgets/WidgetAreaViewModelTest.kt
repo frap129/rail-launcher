@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import core.data.battery.BatteryStatus
 import core.data.battery.IBatterySource
 import core.data.calendar.ICalendarEventSource
+import core.data.calendar.ICalendarPermissionGate
 import core.data.calendar.MAX_EVENT_LOOKAHEAD_HOURS
 import core.data.calendar.UpcomingEvent
 import core.data.icons.model.Icon
@@ -37,6 +38,7 @@ import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createBatterySourceMock
 import core.data.testing.createCalendarEventSourceMock
+import core.data.testing.createCalendarPermissionGate
 import core.data.testing.createClockSourceMock
 import core.data.testing.createDatePatternSourceMock
 import core.data.testing.createHeaderSettingsActions
@@ -792,6 +794,45 @@ class WidgetAreaViewModelTest {
             advanceUntilIdle()
 
             verify(exactly = 0) { mockCalendarEventSource.events(any()) }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `shows Header events after the calendar permission is refreshed`() = runTest {
+        val inputPermission: MutableStateFlow<Boolean> = MutableStateFlow(false)
+        val mockCalendarEventSource: ICalendarEventSource = createCalendarEventSourceMock(
+            permission = inputPermission,
+            onRefresh = { inputPermission.value = true },
+            events = MutableStateFlow(
+                listOf(
+                    createUpcomingEvent(
+                        title = "Standup",
+                        begin = "2026-10-20T14:06:00Z",
+                        end = "2026-10-20T14:30:00Z"
+                    )
+                )
+            )
+        )
+        val calendarPermissionGate: ICalendarPermissionGate = createCalendarPermissionGate(
+            calendarEventSource = mockCalendarEventSource
+        )
+        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
+            headerSettings = HeaderSettings(timeFormat = TimeFormat.H24),
+            eventSettings = EventSettings(enabled = true)
+        )
+        val viewModel: WidgetAreaViewModel = createViewModel(
+            mockSettingsRepository = mockSettingsRepository,
+            mockCalendarEventSource = mockCalendarEventSource
+        )
+
+        viewModel.widgetAreaState.test {
+            assertTrue(expectMostRecentItem().header().events.isEmpty())
+
+            calendarPermissionGate.refreshPermission()
+            advanceUntilIdle()
+
+            assertEquals(listOf("Standup · 14:06"), expectMostRecentItem().header().events.map { model -> model.text })
             cancelAndIgnoreRemainingEvents()
         }
     }
