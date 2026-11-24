@@ -3,8 +3,9 @@ package core.ui.model.data
 import java.io.Serializable
 
 /**
- * A one-shot request the launcher UI acts on: a HOME intent, the Search entry or a Typed character
- * the launcher activity hands it, or the agenda the launcher UI opens on its own.
+ * A one-shot request the launcher UI acts on: a HOME intent, a Keyboard shortcut, the Search entry
+ * or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its
+ * own.
  */
 sealed interface LauncherSignal : Serializable {
     /**
@@ -17,11 +18,14 @@ sealed interface LauncherSignal : Serializable {
      */
     data class Home(val shouldShowHome: Boolean, val wasFocused: Boolean) : LauncherSignal
 
-    /** The Search entry asked to open Search. */
+    /** A Search entry or a Keyboard shortcut asked to open Search. */
     data object OpenSearch : LauncherSignal
 
-    /** The launcher UI asked to open the agenda, from a Header Tap action. */
+    /** A Header Tap action or a Keyboard shortcut asked to open the agenda. */
     data object OpenAgenda : LauncherSignal
+
+    /** A Keyboard shortcut asked to open Rail Settings. */
+    data object OpenSettings : LauncherSignal
 
     /** A printable character was typed on the launcher with a hardware keyboard. */
     data class TypedCharacter(val character: String) : LauncherSignal

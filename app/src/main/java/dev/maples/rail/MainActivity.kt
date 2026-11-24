@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
+import android.view.KeyboardShortcutGroup
+import android.view.Menu
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,11 +21,12 @@ import core.lifecycle.LauncherIntentHandler
 import core.lifecycle.LauncherKeyHandler
 import core.lifecycle.LauncherSignals
 import core.lifecycle.TemplateActivity
+import core.lifecycle.createKeyboardShortcutGroup
 import core.lifecycle.isSearchEntry
 import core.ui.App
 import core.ui.layout.resolveRequestedOrientation
 import core.ui.model.data.Destination
-import core.ui.model.data.LauncherTypingState
+import core.ui.model.data.LauncherInputState
 import feature.launcher.launcherDestination
 import feature.launcher.widgets.AppWidgetResults
 import feature.settings.settingsDestination
@@ -60,7 +63,7 @@ class MainActivity : TemplateActivity() {
         homePressState = homePressState
     )
 
-    private val launcherTypingState: LauncherTypingState by inject()
+    private val launcherInputState: LauncherInputState by inject()
 
     private val wallpaperManager: WallpaperManager by lazy {
         WallpaperManager.getInstance(applicationContext)
@@ -71,7 +74,8 @@ class MainActivity : TemplateActivity() {
 
     private val launcherKeyHandler: LauncherKeyHandler = LauncherKeyHandler(
         isLauncherShown = { isLauncherShown },
-        isTypingAccepted = { launcherTypingState.acceptsTyping.value },
+        isTypingAccepted = { launcherInputState.acceptsTyping.value },
+        isTextFieldFocused = { launcherInputState.isTextFieldFocused.value },
         onBack = { onBackPressedDispatcher.onBackPressed() },
         onSignal = launcherSignals::signal
     )
@@ -170,6 +174,14 @@ class MainActivity : TemplateActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
         launcherKeyHandler.onKeyDown(keyCode = keyCode, event = event) || super.onKeyDown(keyCode, event)
+
+    override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>, menu: Menu?, deviceId: Int) {
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+        data += createKeyboardShortcutGroup(
+            label = getString(R.string.app_name),
+            resolveLabel = { shortcut -> getString(shortcut.label) }
+        )
+    }
 
     private fun observeWallpaperColors() {
         wallpaperManager.addOnColorsChangedListener(wallpaperColorsListener, Handler(Looper.getMainLooper()))

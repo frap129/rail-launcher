@@ -6,6 +6,12 @@ const val LAUNCHER_ROUTE: String = "launcher"
 /** Route root of the Settings screens. */
 const val SETTINGS_ROUTE: String = "settings"
 
+/** The Rail Settings main screen key under [SETTINGS_ROUTE]. */
+const val SETTINGS_MAIN_KEY: String = "main"
+
+/** The Rail Settings main screen. */
+const val SETTINGS_MAIN_ROUTE: String = "$SETTINGS_ROUTE/$SETTINGS_MAIN_KEY"
+
 /** The Widgets settings screen. */
 const val WIDGETS_SETTINGS_ROUTE: String = "$SETTINGS_ROUTE/widgets"
 

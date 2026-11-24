@@ -65,6 +65,7 @@ import core.data.shortcuts.ShortcutLaunchable
 import core.ui.composables.RequestFocusedWindow
 import core.ui.composables.RequestKeyboardFocus
 import core.ui.composables.toTextFieldValueAtEnd
+import core.ui.composables.tracksTextFieldFocus
 import core.ui.layout.compactIconSize
 import core.ui.layout.homeRailContentPaddingValues
 import core.ui.search.SearchContactsUiEvent
@@ -228,6 +229,7 @@ internal fun LauncherSearch(
                     bottom = searchFieldVerticalPadding
                 )
                 .height(SearchBarDefaults.InputFieldHeight)
+                .tracksTextFieldFocus()
                 .focusRequester(focusRequester),
             placeholder = {
                 Text(

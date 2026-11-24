@@ -80,6 +80,7 @@ import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.iconColorFilter
 import core.ui.composables.suspendedIconColorFilter
+import core.ui.composables.tracksTextFieldFocus
 import core.ui.layout.compactIconSize
 import core.ui.layout.minTouchTargetSize
 import core.ui.popups.PopupEmptyState
@@ -648,7 +649,7 @@ private fun NotificationReplyField(onSend: (String) -> Unit) {
     val sendLabel: String = stringResource(R.string.notification_send)
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).tracksTextFieldFocus(),
             value = replyText,
             onValueChange = { value -> replyText = value },
             placeholder = { Text(text = stringResource(R.string.notification_reply_hint)) },

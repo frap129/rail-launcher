@@ -20,7 +20,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import core.data.icons.IHomeIconCache
 import core.ui.composables.LocalHomeIconCache
+import core.ui.composables.LocalLauncherInputState
 import core.ui.model.data.Destination
+import core.ui.model.data.LauncherInputState
 import core.ui.model.data.LauncherSignal
 import core.ui.model.data.LauncherSignalRequest
 import core.ui.model.data.narrowSearchToStartDestination
@@ -105,7 +107,11 @@ fun App(
 
         KoinAndroidContext {
             val homeIconCache: IHomeIconCache = koinInject()
-            CompositionLocalProvider(LocalHomeIconCache provides homeIconCache) {
+            val launcherInputState: LauncherInputState = koinInject()
+            CompositionLocalProvider(
+                LocalHomeIconCache provides homeIconCache,
+                LocalLauncherInputState provides launcherInputState
+            ) {
                 NavHost(
                     modifier = Modifier.semantics { testTagsAsResourceId = true },
                     navController = navController,

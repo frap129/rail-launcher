@@ -69,11 +69,12 @@ import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.LauncherInputState
 import core.ui.model.data.LauncherSignal
 import core.ui.model.data.LauncherSignalRequest
-import core.ui.model.data.LauncherTypingState
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.SEARCH_SETTINGS_ROUTE
+import core.ui.model.data.SETTINGS_MAIN_ROUTE
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
 import core.ui.popups.FolderDeleteHost
@@ -157,7 +158,7 @@ fun LauncherScreen(
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val calendarPermissionGate: ICalendarPermissionGate = koinInject()
     val profileSource: IProfileSource = koinInject()
-    val launcherTypingState: LauncherTypingState = koinInject()
+    val launcherInputState: LauncherInputState = koinInject()
     val homeIconsDrawn: IHomeIconsDrawn = koinInject()
     val clockSource: IClockSource = koinInject()
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
@@ -326,7 +327,7 @@ fun LauncherScreen(
         )
     }
     LaunchedEffect(uiState, homeEditMode, isPopupOpen) {
-        launcherTypingState.setAcceptsTyping(
+        launcherInputState.setAcceptsTyping(
             acceptsTyping = viewModel.canAcceptTypedCharacter(isPopupOpen = isPopupOpen)
         )
     }
@@ -348,6 +349,8 @@ fun LauncherScreen(
                 LauncherSignal.OpenSearch -> viewModel.openSearch()
 
                 LauncherSignal.OpenAgenda -> agendaViewModel.open()
+
+                LauncherSignal.OpenSettings -> navController.navigate(route = SETTINGS_MAIN_ROUTE)
 
                 is LauncherSignal.TypedCharacter -> viewModel.onTypedCharacter(
                     character = signal.character,

@@ -320,8 +320,12 @@ _Avoid_: Search section, Search screen
 A printable character typed with a hardware keyboard while the launcher is shown, which opens Search with that character as the query.
 _Avoid_: Key press, keystroke
 
+**Keyboard shortcut**:
+A Ctrl or Meta key combination the launcher consumes on Home or in the App List, such as Ctrl/Meta+F for Search. Rail keeps one list of them, which feeds the system keyboard shortcuts helper and, later, the Keyboard shortcuts help sheet; any other Ctrl, Alt or Meta combination passes through, and a Keyboard shortcut does nothing while a text field has focus.
+_Avoid_: Hotkey, key binding, Launcher shortcut
+
 **Launcher signal**:
-A one-shot request the launcher UI acts on: a HOME intent, the Search entry or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
+A one-shot request the launcher UI acts on: a HOME intent, a Search entry, a Keyboard shortcut or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
 _Avoid_: Home event, intent event
 
 **Home press**:
