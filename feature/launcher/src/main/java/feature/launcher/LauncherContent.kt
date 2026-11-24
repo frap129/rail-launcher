@@ -48,7 +48,6 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
@@ -103,8 +102,9 @@ internal fun LauncherContent(
     railSide: RailSide,
     showRail: Boolean,
     onItemLaunch: (Launchable) -> Unit,
+    onRowTap: (Launchable, PopupAnchor?) -> Unit,
     onOpenAgenda: () -> Unit,
-    onItemOpenPopup: (Launchable, PopupAnchor) -> Unit,
+    onItemOpenPopup: (Launchable, PopupAnchor?) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
     onOpenSearchRow: (SearchResult.ExternalRow) -> Unit,
@@ -120,15 +120,9 @@ internal fun LauncherContent(
     val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
     val itemActions: LauncherItemActions =
-        remember(viewModel, onItemLaunch, onItemOpenPopup, onItemAnchorChanged, railBounds, railSide, context, privateSpaceSettingsIntent) {
+        remember(viewModel, onRowTap, onItemOpenPopup, onItemAnchorChanged, railBounds, railSide, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
-                onItemTap = { launchable, anchor ->
-                    if (launchable is Folder) {
-                        anchor?.let { popupAnchor -> onItemOpenPopup(launchable, popupAnchor) }
-                    } else {
-                        onItemLaunch(launchable)
-                    }
-                },
+                onItemTap = onRowTap,
                 onItemLongPress = viewModel::openItemMenu,
                 onToggleFavorite = viewModel::toggleFavorite,
                 onItemOpenPopup = onItemOpenPopup,

@@ -141,6 +141,17 @@ sealed class LauncherUiState {
     }
 }
 
+/** One actionable row an OpenIndex signal can invoke in the shown Home or App List order. */
+sealed interface LauncherRowTarget {
+    data class OpenLaunchable(val launchable: Launchable) : LauncherRowTarget
+
+    data object UnlockPrivateSpace : LauncherRowTarget
+
+    data object LockPrivateSpace : LauncherRowTarget
+
+    data class OpenPrivateSpaceSettings(val intentSender: IntentSender) : LauncherRowTarget
+}
+
 private enum class LauncherMode {
     Home,
     AppList,
@@ -324,6 +335,25 @@ private fun toLauncherUiState(
         isEditingFavorites = isEditingFavorites
     )
 }
+
+/** The actionable rows in one group; an Unlocked Private Space container has no tap action. */
+private fun LaunchableGroup.Listed.rowTargets(privateSpaceSettingsIntent: IntentSender?): List<LauncherRowTarget> = buildList {
+    val group: LaunchableGroup.Listed = this@rowTargets
+    if (group is LaunchableGroup.PrivateSpace && group.isLocked) {
+        add(LauncherRowTarget.UnlockPrivateSpace)
+    }
+    group.items.forEach { launchable -> add(LauncherRowTarget.OpenLaunchable(launchable)) }
+    if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
+        add(LauncherRowTarget.LockPrivateSpace)
+        privateSpaceSettingsIntent?.let { intentSender ->
+            add(LauncherRowTarget.OpenPrivateSpaceSettings(intentSender))
+        }
+    }
+}
+
+private fun LauncherUiState.AppList.Browsing.rowTargets(privateSpaceSettingsIntent: IntentSender?): List<LauncherRowTarget> =
+    groups.flatMap { group -> group.rowTargets(privateSpaceSettingsIntent) } +
+        recentlyInstalled?.apps.orEmpty().map { app -> LauncherRowTarget.OpenLaunchable(app) }
 
 /** The App List scroll state that shows the group at [groupIndex] where the Rail scrub showed it, past the top spacer. */
 internal fun createReleasedAppListState(groupIndex: Int, listStartOffsetPx: Int): LazyListState = LazyListState(
@@ -793,6 +823,24 @@ class LauncherViewModel(
             launchableState.collect { state ->
                 requestedPausedLaunchable.update { requested -> resolvePausedPrompt(requested = requested, state = state) }
             }
+        }
+    }
+
+    /**
+     * The actionable row at the zero-based [index] in the shown Home or App List order, or null when
+     * the index is outside that order or a Home edit mode disables row taps.
+     */
+    fun rowTargetForOpenIndex(index: Int): LauncherRowTarget? {
+        if (homeEditState.mode.value != HomeEditMode.None) {
+            return null
+        }
+        val state: LauncherUiState = uiState.value
+        val settingsIntent: IntentSender? = privateSpaceSettingsIntent.value
+        return when (state) {
+            is LauncherUiState.Home -> state.favorites.map { launchable -> LauncherRowTarget.OpenLaunchable(launchable) }.getOrNull(index)
+            is LauncherUiState.AppList.Browsing -> state.rowTargets(settingsIntent).getOrNull(index)
+            is LauncherUiState.AppList.Scrolling -> state.group.rowTargets(settingsIntent).getOrNull(index)
+            LauncherUiState.Loading, is LauncherUiState.Search -> null
         }
     }
 

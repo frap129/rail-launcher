@@ -53,12 +53,41 @@ class LauncherKeyHandlerTest {
     @Test
     fun `every listed shortcut fires for each of its modifiers`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
-            KeyboardShortcut.modifiers.forEach { inputModifier ->
-                assertShortcutFires(
-                    inputKeyCode = inputShortcut.keyCode,
-                    inputMetaState = inputModifier,
-                    expectedSignal = inputShortcut.signal
-                )
+            inputShortcut.keyCodes.forEach { inputKeyCode ->
+                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                    assertShortcutFires(
+                        inputKeyCode = inputKeyCode,
+                        inputMetaState = inputModifier,
+                        expectedSignal = inputShortcut.signal
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `Ctrl or Meta with each primary or numpad digit opens its row index`() {
+        val expectedSignals: List<LauncherSignal> = listOf(
+            LauncherSignal.OpenIndex(index = 0),
+            LauncherSignal.OpenIndex(index = 1),
+            LauncherSignal.OpenIndex(index = 2),
+            LauncherSignal.OpenIndex(index = 3),
+            LauncherSignal.OpenIndex(index = 4),
+            LauncherSignal.OpenIndex(index = 5),
+            LauncherSignal.OpenIndex(index = 6),
+            LauncherSignal.OpenIndex(index = 7),
+            LauncherSignal.OpenIndex(index = 8)
+        )
+        expectedSignals.forEachIndexed { index, expectedSignal ->
+            val inputKeyCodes: List<Int> = listOf(KeyEvent.KEYCODE_1 + index, KeyEvent.KEYCODE_NUMPAD_1 + index)
+            inputKeyCodes.forEach { inputKeyCode ->
+                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                    assertShortcutFires(
+                        inputKeyCode = inputKeyCode,
+                        inputMetaState = inputModifier,
+                        expectedSignal = expectedSignal
+                    )
+                }
             }
         }
     }
@@ -75,8 +104,10 @@ class LauncherKeyHandlerTest {
         )
 
         KeyboardShortcut.entries.forEach { inputShortcut ->
-            inputMetaStates.forEach { inputMetaState ->
-                assertPassesThrough(inputKeyCode = inputShortcut.keyCode, inputMetaState = inputMetaState)
+            inputShortcut.keyCodes.forEach { inputKeyCode ->
+                inputMetaStates.forEach { inputMetaState ->
+                    assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
+                }
             }
         }
     }
@@ -84,7 +115,7 @@ class LauncherKeyHandlerTest {
     @Test
     fun `an unlisted modified key passes through`() {
         val inputKeyCode: Int = (KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z).first { keyCode ->
-            KeyboardShortcut.entries.none { shortcut -> shortcut.keyCode == keyCode }
+            KeyboardShortcut.entries.none { shortcut -> keyCode in shortcut.keyCodes }
         }
 
         assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = KeyEvent.META_CTRL_ON)
@@ -94,12 +125,14 @@ class LauncherKeyHandlerTest {
     @Test
     fun `every listed shortcut passes through outside the launcher`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
-            KeyboardShortcut.modifiers.forEach { inputModifier ->
-                assertPassesThrough(
-                    inputKeyCode = inputShortcut.keyCode,
-                    inputMetaState = inputModifier,
-                    isLauncherShown = false
-                )
+            inputShortcut.keyCodes.forEach { inputKeyCode ->
+                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                    assertPassesThrough(
+                        inputKeyCode = inputKeyCode,
+                        inputMetaState = inputModifier,
+                        isLauncherShown = false
+                    )
+                }
             }
         }
     }
@@ -107,32 +140,29 @@ class LauncherKeyHandlerTest {
     @Test
     fun `shortcuts are ignored while a text field has focus`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
-            KeyboardShortcut.modifiers.forEach { inputModifier ->
-                assertPassesThrough(
-                    inputKeyCode = inputShortcut.keyCode,
-                    inputMetaState = inputModifier,
-                    isTextFieldFocused = true
-                )
+            inputShortcut.keyCodes.forEach { inputKeyCode ->
+                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                    assertPassesThrough(
+                        inputKeyCode = inputKeyCode,
+                        inputMetaState = inputModifier,
+                        isTextFieldFocused = true
+                    )
+                }
             }
         }
     }
 
     @Test
     fun `a Typed character accepted by the launcher is consumed and signalled`() {
-        val actualSignals: MutableList<LauncherSignal> = mutableListOf()
-        val launcherKeyHandler: LauncherKeyHandler = createHandler(
-            isLauncherShown = true,
-            isTypingAccepted = true,
-            onSignal = actualSignals::add
-        )
+        assertTypedCharacterFires(inputKeyCode = KeyEvent.KEYCODE_A, expectedCharacter = "a")
+    }
 
-        val actualHandled: Boolean = launcherKeyHandler.onKeyDown(
-            keyCode = KeyEvent.KEYCODE_A,
-            event = createKeyEvent(keyCode = KeyEvent.KEYCODE_A)
-        )
-
-        assertTrue(actualHandled)
-        assertEquals(listOf(LauncherSignal.TypedCharacter(character = "a")), actualSignals)
+    @Test
+    fun `plain digits still open Search with the digit`() {
+        val expectedCharacters: List<String> = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
+        expectedCharacters.forEachIndexed { index, expectedCharacter ->
+            assertTypedCharacterFires(inputKeyCode = KeyEvent.KEYCODE_1 + index, expectedCharacter = expectedCharacter)
+        }
     }
 
     @Test
@@ -221,6 +251,25 @@ class LauncherKeyHandlerTest {
 
         assertFalse(actualHandled)
         assertTrue(actualSignals.isEmpty())
+    }
+
+    private fun assertTypedCharacterFires(inputKeyCode: Int, expectedCharacter: String) {
+        val actualSignals: MutableList<LauncherSignal> = mutableListOf()
+        val launcherKeyHandler: LauncherKeyHandler = createHandler(
+            isLauncherShown = true,
+            isTypingAccepted = true,
+            onSignal = actualSignals::add
+        )
+        val actualHandled: Boolean = launcherKeyHandler.onKeyDown(
+            keyCode = inputKeyCode,
+            event = createKeyEvent(keyCode = inputKeyCode)
+        )
+        assertTrue("Expected key code $inputKeyCode to be consumed", actualHandled)
+        assertEquals(
+            "Unexpected Typed character for key code $inputKeyCode",
+            listOf(LauncherSignal.TypedCharacter(character = expectedCharacter)),
+            actualSignals
+        )
     }
 
     private fun assertShortcutFires(inputKeyCode: Int, inputMetaState: Int, expectedSignal: LauncherSignal) {
