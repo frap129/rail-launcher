@@ -386,18 +386,25 @@ internal fun BoxScope.LauncherRail(
     LaunchedEffect(takesRailTouches) {
         if (!takesRailTouches) railBounds.clear()
     }
+    // Reads the open Pop-up card, if any, when a Rail gesture starts: an open card takes it first.
+    val currentRailPopupCard: () -> RailPopupCard = { RailPopupCard(isOpen = isCardOpen(), close = onRailTouched) }
     val railScrubState: RailScrubState = rememberRailScrubState(
         items = railItems,
         onScroll = { index ->
-            if (railGesture.onScroll(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+            if (railGesture.onScroll(index = index, card = currentRailPopupCard()) == RailIndexAction.Act) {
                 onRailPreview(index)
             }
         },
         onScrollEnded = { index ->
-            if (railGesture.onScrollEnded(isCardOpen = isCardOpen(), closeCard = onRailTouched) == RailIndexAction.Act) {
+            if (railGesture.onScrollEnded(index = index, card = currentRailPopupCard()) == RailIndexAction.Act) {
                 onRailReleased(index)
             }
         },
+        onWheelScroll = { deltaY ->
+            railGesture.onWheelScroll(deltaY = deltaY, markCount = railItems.size, card = currentRailPopupCard())
+                .forEach(onRailReleased)
+        },
+        onPointerExit = railGesture::resetWheelScroll,
         railHaptics = railHaptics,
         enabled = isEnabled
     )
