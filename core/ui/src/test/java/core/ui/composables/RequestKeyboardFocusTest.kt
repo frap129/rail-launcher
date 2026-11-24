@@ -20,7 +20,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
 import core.data.testing.TEST_SDK
 import io.mockk.every
 import io.mockk.mockk
@@ -32,8 +31,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 private const val TEXT_FIELD_TEST_TAG: String = "requestKeyboardFocusField"
-
-private data class LifecycleFixture(val owner: LifecycleOwner, val registry: LifecycleRegistry)
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -141,12 +138,4 @@ class RequestKeyboardFocusTest {
 
     private fun createWindowInfoMock(isWindowFocusedProvider: () -> Boolean): WindowInfo =
         mockk { every { isWindowFocused } answers { isWindowFocusedProvider() } }
-
-    private fun createLifecycleFixture(state: Lifecycle.State): LifecycleFixture {
-        val mockLifecycleOwner: LifecycleOwner = mockk()
-        val lifecycleRegistry: LifecycleRegistry = LifecycleRegistry(mockLifecycleOwner)
-        every { mockLifecycleOwner.lifecycle } returns lifecycleRegistry
-        lifecycleRegistry.currentState = state
-        return LifecycleFixture(owner = mockLifecycleOwner, registry = lifecycleRegistry)
-    }
 }

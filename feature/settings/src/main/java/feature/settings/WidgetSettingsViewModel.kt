@@ -491,10 +491,6 @@ class WidgetSettingsViewModel(
         }
     }
 
-    fun refreshCalendarPermission() {
-        headerSettingsActions.refreshCalendarPermission()
-    }
-
     fun refreshMediaAccess() {
         mediaSessionSource.refreshAccess()
     }

@@ -171,18 +171,4 @@ class IHeaderSettingsActionsImplTest {
         assertEquals(UpcomingEventsOutcome.PermissionDenied(permanentlyDenied = false), actualOutcome)
         coVerify(exactly = 0) { mockSettingsRepository.setEventsEnabled(any()) }
     }
-
-    @Test
-    fun `refreshes the calendar permission`() {
-        val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock()
-        val mockCalendarEventSource: ICalendarEventSource = createCalendarEventSourceMock()
-        val actions: IHeaderSettingsActions = createHeaderSettingsActions(
-            settingsRepository = mockSettingsRepository,
-            calendarEventSource = mockCalendarEventSource
-        )
-
-        actions.refreshCalendarPermission()
-
-        verify(exactly = 1) { mockCalendarEventSource.refreshPermission() }
-    }
 }

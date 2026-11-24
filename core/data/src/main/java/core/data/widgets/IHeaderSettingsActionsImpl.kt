@@ -37,10 +37,6 @@ class IHeaderSettingsActionsImpl(
     override suspend fun onCalendarPermissionResult(granted: Boolean, canAskAgain: Boolean): UpcomingEventsOutcome =
         calendarPermissionGate.onPermissionResult(granted = granted, canAskAgain = canAskAgain).toUpcomingEventsOutcome()
 
-    override fun refreshCalendarPermission() {
-        calendarPermissionGate.refreshPermission()
-    }
-
     private suspend fun CalendarPermissionDecision.toUpcomingEventsOutcome(): UpcomingEventsOutcome {
         persistEnabledEvents(decision = this)
         return when (this) {

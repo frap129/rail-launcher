@@ -91,7 +91,7 @@ fun AgendaSheet(
                 title = stringResource(R.string.calendar_permission_denied_title),
                 supportingText = stringResource(R.string.calendar_permission_needed),
                 actionLabel = stringResource(R.string.grant),
-                onClick = onGrantPermission,
+                onActionClick = onGrantPermission,
                 containerColor = sheetContainerColor
             )
 

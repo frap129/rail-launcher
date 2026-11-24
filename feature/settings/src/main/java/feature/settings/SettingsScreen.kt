@@ -99,6 +99,7 @@ import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.Th
 import compose.icons.fontawesomeicons.solid.TrashAlt
 import core.data.calendar.CalendarInfo
+import core.data.calendar.ICalendarPermissionGate
 import core.data.icons.model.IconPack
 import core.data.prefs.AppListOrder
 import core.data.prefs.BatteryVisibility
@@ -114,6 +115,7 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.ui.R as CoreUiR
+import core.ui.composables.CalendarPermissionResumeRefresh
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
@@ -378,6 +380,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     val mediaPlayerExclusions: MediaPlayerExclusionsState? by viewModel.mediaPlayerExclusions.collectAsState()
     val context: Context = LocalContext.current
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
+    val calendarPermissionGate: ICalendarPermissionGate = koinInject()
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -409,8 +412,8 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
             }
         }
     }
+    CalendarPermissionResumeRefresh(calendarPermissionGate = calendarPermissionGate)
     OnResume {
-        viewModel.refreshCalendarPermission()
         viewModel.refreshMediaAccess()
     }
     Box(modifier = Modifier.fillMaxSize()) {
@@ -466,7 +469,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
     if (showPermissionDialog) {
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
-            message = stringResource(CoreUiR.string.calendar_permission_needed),
+            message = stringResource(CoreUiR.string.calendar_permission_denied_message),
             onDismiss = { showPermissionDialog = false },
             onOpenSettings = {
                 context.openApplicationDetailsSettings()
@@ -709,7 +712,7 @@ private fun EventSettingsRows(
             WarningRow(
                 title = stringResource(CoreUiR.string.calendar_permission_denied_title),
                 actionLabel = stringResource(CoreUiR.string.grant),
-                onClick = { viewModel.setEventsEnabled(true) }
+                onActionClick = { viewModel.setEventsEnabled(true) }
             )
         }
         SettingsActionRow(
