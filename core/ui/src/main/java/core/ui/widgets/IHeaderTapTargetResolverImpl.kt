@@ -1,12 +1,10 @@
 package core.ui.widgets
 
-import androidx.annotation.StringRes
 import core.data.launchables.LaunchableState
 import core.data.prefs.ClockStyle
 import core.data.prefs.HeaderSettings
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.isDisplayable
-import core.ui.R
 
 class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
     override fun applyTo(
@@ -15,7 +13,13 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         launchableState: LaunchableState,
         atEpochMillis: Long
     ): HeaderModel = header.copy(
-        time = header.time?.withTapTarget(resolveTimeTapTarget(settings.timeTapTarget, launchableState)),
+        time = header.time?.withTapTarget(
+            resolveTimeTapTarget(
+                setting = settings.timeTapTarget,
+                launchableState = launchableState,
+                clockStyle = settings.clockStyle
+            )
+        ),
         date = header.date?.withTapTarget(
             resolveDateTapTarget(
                 setting = settings.dateTapTarget,
@@ -29,8 +33,15 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
     override fun resolveSetting(setting: HeaderTapSetting, launchableState: LaunchableState): HeaderTapSetting =
         if (setting.isDisplayable(state = launchableState)) setting else HeaderTapSetting.SystemDefault
 
-    private fun resolveTimeTapTarget(setting: HeaderTapSetting?, launchableState: LaunchableState): HeaderTapTarget =
-        resolveTapTarget(setting = setting, launchableState = launchableState, fallback = HeaderTapTarget.SystemAlarms)
+    private fun resolveTimeTapTarget(
+        setting: HeaderTapSetting?,
+        launchableState: LaunchableState,
+        clockStyle: ClockStyle
+    ): HeaderTapTarget = resolveTapTarget(
+        setting = setting,
+        launchableState = launchableState,
+        fallback = clockStyle.timeDefaultTapTarget()
+    )
 
     private fun resolveDateTapTarget(
         setting: HeaderTapSetting?,
@@ -70,17 +81,4 @@ class IHeaderTapTargetResolverImpl : IHeaderTapTargetResolver {
         clickLabel = target.clickLabel(),
         clickLabelArg = target.clickLabelArg()
     )
-
-    @StringRes
-    private fun HeaderTapTarget.clickLabel(): Int? = when (this) {
-        HeaderTapTarget.SystemAlarms -> R.string.open_alarms
-        is HeaderTapTarget.SystemCalendar -> R.string.open_calendar
-        HeaderTapTarget.OpenAgenda -> R.string.open_agenda
-        is HeaderTapTarget.OpenEvent -> R.string.open_event
-        HeaderTapTarget.SystemBatteryUsage -> R.string.open_battery_usage
-        is HeaderTapTarget.LaunchLaunchable -> R.string.open_launchable
-        HeaderTapTarget.None -> null
-    }
-
-    private fun HeaderTapTarget.clickLabelArg(): String? = (this as? HeaderTapTarget.LaunchLaunchable)?.launchable?.name
 }

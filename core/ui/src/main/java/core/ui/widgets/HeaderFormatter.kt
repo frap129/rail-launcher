@@ -11,6 +11,7 @@ import core.data.prefs.DateFormatPreset
 import core.data.prefs.EventSettings
 import core.data.prefs.HeaderSettings
 import core.data.prefs.is24Hour
+import core.data.prefs.isWeekday
 import core.data.time.ClockReading
 import core.data.time.IDatePatternSource
 import core.ui.R
@@ -48,17 +49,12 @@ class HeaderFormatter(datePatternSource: IDatePatternSource, resources: Resource
         val is24Hour: Boolean = settings.timeFormat.is24Hour(reading.isSystem24Hour)
         return HeaderModel(
             id = id,
-            time = if (settings.clockVisible) {
-                createTimeModel(
-                    dateTime = dateTime,
-                    reading = reading,
-                    is24Hour = is24Hour,
-                    showAmPm = !is24Hour && settings.showAmPm,
-                    style = settings.clockStyle
-                )
-            } else {
-                null
-            },
+            time = createTimeModel(
+                dateTime = dateTime,
+                reading = reading,
+                is24Hour = is24Hour,
+                settings = settings
+            ),
             date = if (settings.dateVisible) {
                 createDateModel(
                     dateTime = dateTime,
@@ -166,48 +162,58 @@ class HeaderFormatter(datePatternSource: IDatePatternSource, resources: Resource
         dateTime: ZonedDateTime,
         reading: ClockReading,
         is24Hour: Boolean,
-        showAmPm: Boolean,
-        style: ClockStyle
-    ): HeaderTimeModel {
-        val weekdayText: String? = if (style == ClockStyle.WEEKDAY) {
+        settings: HeaderSettings
+    ): HeaderTimeModel? {
+        val showTime: Boolean = settings.clockVisible
+        val weekdayText: String? = if (settings.clockStyle.isWeekday) {
             formatDate(preset = DateFormatPreset.WEEKDAY, reading = reading)
         } else {
             null
         }
-        val timeSpokenText: String = clockText.format(
-            dateTime = dateTime,
-            pattern = clockText.timePattern(reading = reading, is24Hour = is24Hour),
-            locale = reading.locale
-        )
+        if (weekdayText == null && !showTime) {
+            return null
+        }
+        val timeSpokenText: String? = if (showTime) {
+            clockText.format(
+                dateTime = dateTime,
+                pattern = clockText.timePattern(reading = reading, is24Hour = is24Hour),
+                locale = reading.locale
+            )
+        } else {
+            null
+        }
+        val tapTarget: HeaderTapTarget = settings.clockStyle.timeDefaultTapTarget()
         val common: HeaderTimeModel = HeaderTimeModel(
             text = null,
             weekdayText = weekdayText,
             hourText = null,
             minuteText = null,
             amPmText = null,
-            spokenText = if (weekdayText == null) timeSpokenText else weekdayText + SPOKEN_SEPARATOR + timeSpokenText,
-            tapTarget = HeaderTapTarget.SystemAlarms,
-            clickLabel = R.string.open_alarms
+            spokenText = listOfNotNull(weekdayText, timeSpokenText).joinToString(SPOKEN_SEPARATOR),
+            tapTarget = tapTarget,
+            clickLabel = tapTarget.clickLabel()
         )
-        return if (style == ClockStyle.STACKED) {
-            common.copy(
+        return when {
+            !showTime -> common
+
+            settings.clockStyle == ClockStyle.STACKED -> common.copy(
                 hourText = clockText.format(
                     dateTime = dateTime,
                     pattern = if (is24Hour) HOUR_PATTERN_24_HOUR else HOUR_PATTERN_12_HOUR,
                     locale = reading.locale
                 ),
                 minuteText = clockText.format(dateTime = dateTime, pattern = MINUTE_PATTERN, locale = reading.locale),
-                amPmText = if (showAmPm) {
+                amPmText = if (!is24Hour && settings.showAmPm) {
                     clockText.format(dateTime = dateTime, pattern = DAY_PERIOD_PATTERN, locale = reading.locale)
                 } else {
                     null
                 }
             )
-        } else {
-            common.copy(
+
+            else -> common.copy(
                 text = clockText.format(
                     dateTime = dateTime,
-                    pattern = clockText.displayPattern(reading = reading, is24Hour = is24Hour, showAmPm = showAmPm),
+                    pattern = clockText.displayPattern(reading = reading, is24Hour = is24Hour, showAmPm = !is24Hour && settings.showAmPm),
                     locale = reading.locale
                 )
             )
@@ -220,14 +226,14 @@ class HeaderFormatter(datePatternSource: IDatePatternSource, resources: Resource
         preset: DateFormatPreset,
         style: ClockStyle
     ): HeaderLineModel {
-        val isWeekdayStyle: Boolean = style == ClockStyle.WEEKDAY
-        val datePreset: DateFormatPreset = if (isWeekdayStyle) DateFormatPreset.DAY_AND_MONTH else preset
-        val spokenStyle: FormatStyle = if (isWeekdayStyle) FormatStyle.LONG else FormatStyle.FULL
+        val tapTarget: HeaderTapTarget = style.dateDefaultTapTarget(atEpochMillis = reading.instant.toEpochMilli())
+        // The Weekday time line already speaks the weekday.
+        val spokenStyle: FormatStyle = if (style.isWeekday) FormatStyle.LONG else FormatStyle.FULL
         return HeaderLineModel(
-            text = clockText.formatDate(dateTime = dateTime, preset = datePreset, reading = reading),
+            text = clockText.formatDate(dateTime = dateTime, preset = preset, reading = reading),
             spokenText = DateTimeFormatter.ofLocalizedDate(spokenStyle).withLocale(reading.locale).format(dateTime),
-            tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = reading.instant.toEpochMilli()),
-            clickLabel = R.string.open_calendar
+            tapTarget = tapTarget,
+            clickLabel = tapTarget.clickLabel()
         )
     }
 

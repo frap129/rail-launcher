@@ -985,7 +985,8 @@ private fun WidgetSettingsDialogContent(
                     enabled = canSetBatteryVisibility(
                         visibility = visibility,
                         clockVisible = uiState.clockVisible,
-                        dateVisible = uiState.dateVisible
+                        dateVisible = uiState.dateVisible,
+                        clockStyle = uiState.clockStyle
                     )
                 )
             },
