@@ -5,6 +5,9 @@ import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,45 +41,82 @@ import core.ui.model.data.hasShortcutModifier
 
 private val rowFocusCornerRadius: Dp = 12.dp
 private val rowFocusRingWidth: Dp = 2.dp
-private const val ROW_FOCUS_BACKGROUND_ALPHA: Float = 0.16f
+internal const val ROW_FOCUS_BACKGROUND_ALPHA: Float = 0.16f
+const val ROW_HOVER_BACKGROUND_ALPHA: Float = 0.08f
 
 /** The keys that open the focused row, as a tap would. */
 private val rowOpenKeys: Set<Key> = setOf(Key.Enter, Key.NumPadEnter, Key.DirectionCenter)
 
 /**
- * Paints the focus indicator on any row that takes Row focus, including a clickable row such as a
- * Private Space action, and moves TalkBack's accessibility focus to it so both focuses stay on the
- * same row.
+ * Paints the focus indicator on a focusable control that is not a launcher row, such as an icon
+ * button, and moves TalkBack's accessibility focus to it so both focuses stay on the same control.
  */
 @Composable
 fun Modifier.rowFocusIndicator(): Modifier {
-    val focusColor: Color = MaterialTheme.colorScheme.primary
-    val context: Context = LocalContext.current
-    val view: View = LocalView.current
     var isFocused: Boolean by remember { mutableStateOf(false) }
     return this
-        .onFocusChanged { focusState ->
-            isFocused = focusState.isFocused
-            if (focusState.isFocused) {
-                view.post { view.requestRowAccessibilityFocus(context = context) }
-            }
+        .tracksRowFocusState(onFocusChange = { isFocused = it })
+        .rowBackground(isActive = isFocused, alpha = ROW_FOCUS_BACKGROUND_ALPHA)
+        .rowFocusRing(isFocused = isFocused)
+}
+
+/**
+ * Paints a launcher row's hover and Row focus states and moves TalkBack's accessibility focus to
+ * the row when it takes Row focus. A focused row paints the focus background and ring, a hovered row
+ * paints the hover background, and a row that is both paints the focus background only, so hover
+ * never stacks under focus.
+ */
+@Composable
+fun Modifier.rowHoverAndFocusIndicator(): Modifier {
+    val interactionSource: MutableInteractionSource = remember { MutableInteractionSource() }
+    val isHovered: Boolean by interactionSource.collectIsHoveredAsState()
+    var isFocused: Boolean by remember { mutableStateOf(false) }
+    val backgroundAlpha: Float = if (isFocused) ROW_FOCUS_BACKGROUND_ALPHA else ROW_HOVER_BACKGROUND_ALPHA
+    return this
+        .hoverable(interactionSource = interactionSource)
+        .tracksRowFocusState(onFocusChange = { isFocused = it })
+        .rowBackground(isActive = isFocused || isHovered, alpha = backgroundAlpha)
+        .rowFocusRing(isFocused = isFocused)
+}
+
+/** Paints the themed row background while [isActive], at [alpha] of the theme primary. */
+@Composable
+private fun Modifier.rowBackground(isActive: Boolean, alpha: Float): Modifier {
+    val backgroundColor: Color = MaterialTheme.colorScheme.primary
+    return drawBehind { if (isActive) drawRowBackground(color = backgroundColor, alpha = alpha) }
+}
+
+/** Paints the focus ring over the row's content while [isFocused]. */
+@Composable
+private fun Modifier.rowFocusRing(isFocused: Boolean): Modifier {
+    val ringColor: Color = MaterialTheme.colorScheme.primary
+    return drawWithContent {
+        drawContent()
+        if (isFocused) drawRowFocusRing(color = ringColor)
+    }
+}
+
+/** Tracks this row's focus state and moves TalkBack's accessibility focus to it when it gains focus. */
+@Composable
+private fun Modifier.tracksRowFocusState(onFocusChange: (Boolean) -> Unit): Modifier {
+    val context: Context = LocalContext.current
+    val view: View = LocalView.current
+    return onFocusChanged { focusState ->
+        onFocusChange(focusState.isFocused)
+        if (focusState.isFocused) {
+            view.post { view.requestRowAccessibilityFocus(context = context) }
         }
-        .drawBehind { if (isFocused) drawRowFocusBackground(color = focusColor) }
-        .drawWithContent {
-            drawContent()
-            if (isFocused) drawRowFocusRing(color = focusColor)
-        }
+    }
 }
 
 /**
  * Makes this launcher row part of the hardware keyboard's Row focus: the arrow keys move it
- * between rows, Enter opens it as a tap would, and the focused row paints the focus indicator and
- * takes TalkBack's accessibility focus. Modified keys pass through, and Row focus never counts as
- * text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus.
+ * between rows and Enter opens it as a tap would. The row paints [rowHoverAndFocusIndicator].
+ * Modified keys pass through, and Row focus never counts as text-field focus, so Keyboard
+ * shortcuts and Typed characters still fire while a row has focus.
  */
 @Composable
 fun Modifier.tracksRowFocus(onOpen: () -> Unit): Modifier = this
-    .rowFocusIndicator()
     .focusable()
     .onKeyEvent { event ->
         if (event.type != KeyEventType.KeyUp || event.key !in rowOpenKeys || event.nativeKeyEvent.hasShortcutModifier()) {
@@ -105,10 +145,10 @@ private fun SemanticsNode.findFocusedNode(): SemanticsNode? = if (config.getOrNu
     children.firstNotNullOfOrNull { child -> child.findFocusedNode() }
 }
 
-/** Paints the tinted background a row with Row focus shows under its content. */
-private fun DrawScope.drawRowFocusBackground(color: Color) {
+/** Paints the tinted background a row shows under its content while it is hovered or focused. */
+internal fun DrawScope.drawRowBackground(color: Color, alpha: Float) {
     drawRoundRect(
-        color = color.copy(alpha = ROW_FOCUS_BACKGROUND_ALPHA),
+        color = color.copy(alpha = alpha),
         cornerRadius = CornerRadius(x = rowFocusCornerRadius.toPx())
     )
 }
