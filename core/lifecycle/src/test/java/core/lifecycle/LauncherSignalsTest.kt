@@ -14,7 +14,8 @@ class LauncherSignalsTest {
             LauncherSignal.Home(shouldShowHome = true, wasFocused = true),
             LauncherSignal.Home(shouldShowHome = true, wasFocused = false),
             LauncherSignal.OpenSearch,
-            LauncherSignal.OpenAgenda
+            LauncherSignal.OpenAgenda,
+            LauncherSignal.OpenIndex(index = 0)
         )
         for (inputSignal in inputSignals) {
             val launcherSignals: LauncherSignals = LauncherSignals()

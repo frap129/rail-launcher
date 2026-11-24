@@ -27,6 +27,13 @@ sealed interface LauncherSignal : Serializable {
     /** A Keyboard shortcut asked to open Rail Settings. */
     data object OpenSettings : LauncherSignal
 
+    /**
+     * A Keyboard shortcut asked to open a row in the shown Home or App List order.
+     *
+     * @property index the zero-based row index.
+     */
+    data class OpenIndex(val index: Int) : LauncherSignal
+
     /** A printable character was typed on the launcher with a hardware keyboard. */
     data class TypedCharacter(val character: String) : LauncherSignal
 }

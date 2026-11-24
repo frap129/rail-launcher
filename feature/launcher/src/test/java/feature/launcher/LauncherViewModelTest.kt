@@ -1160,6 +1160,167 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `open index resolves Favorites in Home order`() = runTest {
+        val inputSecondFavorite: Launchable = listedItem(1)
+        mockFavoritesFixture.state.setFavorites(listOf(inputSecondFavorite, inputItem))
+        mockFavoritesFixture.state.setLoaded(true)
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            assertEquals(listOf(inputSecondFavorite, inputItem), expectHome().favorites)
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputSecondFavorite), viewModel.rowTargetForOpenIndex(index = 0))
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputItem), viewModel.rowTargetForOpenIndex(index = 1))
+        }
+    }
+
+    @Test
+    fun `open index follows App List rows through groups and Recently installed`() = runTest {
+        val inputRecentApp: App = createApp(name = "Recent", packageName = "com.example.recent")
+        val inputGroupsWithRecentApp: List<LaunchableGroup> = listOf(
+            LaunchableGroup.Star,
+            LaunchableGroup.InitialGroup(label = "A", items = listOf(inputRecentApp, inputItem)),
+            inputListedGroups[1],
+            inputBuiltinGroup
+        )
+        inputLaunchableState.value = createLaunchableState(groups = inputGroupsWithRecentApp)
+            .copy(recentlyInstalled = RecentlyInstalledSection(apps = listOf(inputRecentApp)))
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = 1)
+            expectAppList()
+            val expectedTargets: List<LauncherRowTarget> = listOf(
+                LauncherRowTarget.OpenLaunchable(inputRecentApp),
+                LauncherRowTarget.OpenLaunchable(inputItem),
+                LauncherRowTarget.OpenLaunchable(listedItem(1)),
+                LauncherRowTarget.OpenLaunchable(listedItem(2)),
+                LauncherRowTarget.OpenLaunchable(inputRecentApp)
+            )
+            expectedTargets.forEachIndexed { index, expectedTarget ->
+                assertEquals(expectedTarget, viewModel.rowTargetForOpenIndex(index = index))
+            }
+        }
+    }
+
+    @Test
+    fun `open index follows the rows in a Scrolling App List group`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = railIndex(inputListedGroups[1]))
+            expectAppList()
+            viewModel.onRailPreview(index = railIndex(inputListedGroups[1]))
+            expectState<LauncherUiState.AppList.Scrolling>()
+            assertEquals(LauncherRowTarget.OpenLaunchable(listedItem(1)), viewModel.rowTargetForOpenIndex(index = 0))
+            assertNull(viewModel.rowTargetForOpenIndex(index = 1))
+        }
+    }
+
+    @Test
+    fun `open index outside Home or App List rows resolves nothing`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            assertNull(viewModel.rowTargetForOpenIndex(index = -1))
+            assertNull(viewModel.rowTargetForOpenIndex(index = 0))
+            viewModel.onRailReleased(index = railIndex(inputListedGroups[0]))
+            expectAppList()
+            assertNull(viewModel.rowTargetForOpenIndex(index = -1))
+            assertNull(viewModel.rowTargetForOpenIndex(index = inputListedGroups.sumOf { group -> group.items.size }))
+        }
+    }
+
+    @Test
+    fun `open index targets the Locked Private Space container after the listed rows`() = runTest {
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(privateSpace = LaunchableGroup.PrivateSpace.Locked)
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups)
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = inputGroups.lastIndex)
+            expectAppList()
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputItem), viewModel.rowTargetForOpenIndex(index = 0))
+            assertEquals(LauncherRowTarget.OpenLaunchable(listedItem(2)), viewModel.rowTargetForOpenIndex(index = 1))
+            assertEquals(LauncherRowTarget.UnlockPrivateSpace, viewModel.rowTargetForOpenIndex(index = 2))
+            assertNull(viewModel.rowTargetForOpenIndex(index = 3))
+            viewModel.onRailPreview(index = inputGroups.lastIndex)
+            expectState<LauncherUiState.AppList.Scrolling>()
+            assertEquals(LauncherRowTarget.UnlockPrivateSpace, viewModel.rowTargetForOpenIndex(index = 0))
+        }
+    }
+
+    @Test
+    fun `open index targets Unlocked Private Space rows before its actions`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups)
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = inputGroups.lastIndex)
+            expectAppList()
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputPrivateApp), viewModel.rowTargetForOpenIndex(index = 2))
+            assertEquals(LauncherRowTarget.LockPrivateSpace, viewModel.rowTargetForOpenIndex(index = 3))
+            assertNull(viewModel.rowTargetForOpenIndex(index = 4))
+        }
+    }
+
+    @Test
+    fun `open index targets Private Space Settings after its Lock action`() = runTest {
+        val inputPrivateApp: App = createPrivateApp()
+        val inputSettingsIntent: IntentSender = createIntentSender(context = RuntimeEnvironment.getApplication())
+        val inputProfileState: ProfileSourceState = ProfileSourceState(profiles = listOf(inputPrivateProfile)).apply {
+            privateSpaceSettingsIntent = inputSettingsIntent
+        }
+        val inputGroups: List<LaunchableGroup> = createPrivateSpaceGroups(
+            privateSpace = LaunchableGroup.PrivateSpace.Unlocked(items = listOf(inputPrivateApp))
+        )
+        inputLaunchableState.value = createLaunchableState(groups = inputGroups)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockLaunchableRepository = createLaunchableRepositoryMock(inputLaunchableState),
+            mockProfileSource = createProfileSourceMock(state = inputProfileState),
+            mockPrivateSpaceStatus = createPrivateSpaceStatusMock(
+                status = MutableStateFlow(PrivateSpaceStatus(profile = inputPrivateProfile))
+            )
+        )
+        backgroundScope.launch { viewModel.privateSpaceSettingsIntent.collect { } }
+        runCurrent()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailReleased(index = inputGroups.lastIndex)
+            expectAppList()
+            assertEquals(LauncherRowTarget.LockPrivateSpace, viewModel.rowTargetForOpenIndex(index = 3))
+            assertEquals(
+                LauncherRowTarget.OpenPrivateSpaceSettings(inputSettingsIntent),
+                viewModel.rowTargetForOpenIndex(index = 4)
+            )
+        }
+    }
+
+    @Test
+    fun `open index resolves nothing while Home edit modes disable row taps`() = runTest {
+        val inputModes: List<HomeEditMode> = listOf(
+            HomeEditMode.Favorites,
+            HomeEditMode.Widgets,
+            HomeEditMode.Resizing(placeId = 7L)
+        )
+        mockFavoritesFixture.state.setFavorites(listOf(inputItem))
+        mockFavoritesFixture.state.setLoaded(true)
+        inputModes.forEach { inputMode ->
+            val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(inputMode) }
+            val viewModel: LauncherViewModel = createViewModel(inputHomeEditState = inputHomeEditState)
+            viewModel.uiState.test {
+                expectHome()
+                assertNull(viewModel.rowTargetForOpenIndex(index = 0))
+                viewModel.onRailReleased(index = railIndex(inputListedGroups[0]))
+                expectAppList()
+                assertNull(viewModel.rowTargetForOpenIndex(index = 0))
+            }
+        }
+    }
+
+    @Test
     fun `emits one uiState per Rail event`() {
         runTest {
             val viewModel: LauncherViewModel = createViewModel()

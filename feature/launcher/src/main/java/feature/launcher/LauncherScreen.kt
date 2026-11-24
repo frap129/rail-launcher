@@ -208,7 +208,7 @@ fun LauncherScreen(
     val openContactRowAction: (SearchResult.ContactRow, ContactRowAction) -> Unit = { row, action ->
         attemptSearchRowOpen { openContactRow(context = context, contact = row.contact, action = action) }
     }
-    val launchItem: (Launchable) -> Unit = { launchable ->
+    val launchLaunchable: (Launchable) -> Unit = { launchable ->
         launchLauncherItem(
             launchable = launchable,
             context = context,
@@ -230,6 +230,21 @@ fun LauncherScreen(
                 finishHomeInteractions = { widgetViewModel.finishHomeInteractions(resetScroll = false) }
             )
         )
+    }
+    val openLaunchablePopup: (Launchable, PopupAnchor?) -> Unit = { launchable, anchor ->
+        openLauncherItemPopup(
+            launchable = launchable,
+            anchor = anchor,
+            popupCard = popupCardViewModel,
+            viewModel = viewModel
+        )
+    }
+    val openRow: (Launchable, PopupAnchor?) -> Unit = { launchable, anchor ->
+        if (launchable is Folder) {
+            openLaunchablePopup(launchable, anchor)
+        } else {
+            launchLaunchable(launchable)
+        }
     }
     val closeAgendaThenOpen: (open: () -> Unit) -> Unit = { open ->
         agendaViewModel.close()
@@ -333,7 +348,7 @@ fun LauncherScreen(
     }
     LaunchedEffect(launcherSignalRequest) {
         launcherSignalRequest.collectRequests { signal ->
-            if (signal !is LauncherSignal.TypedCharacter) {
+            if (signal !is LauncherSignal.TypedCharacter && signal !is LauncherSignal.OpenIndex) {
                 popupCardViewModel.onHomeIntent()
             }
             when (signal) {
@@ -351,6 +366,17 @@ fun LauncherScreen(
                 LauncherSignal.OpenAgenda -> agendaViewModel.open()
 
                 LauncherSignal.OpenSettings -> navController.navigate(route = SETTINGS_MAIN_ROUTE)
+
+                is LauncherSignal.OpenIndex -> {
+                    val target: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = signal.index)
+                    when (target) {
+                        null -> Unit
+                        is LauncherRowTarget.OpenLaunchable -> openRow(target.launchable, null)
+                        LauncherRowTarget.UnlockPrivateSpace -> viewModel.requestPrivateSpaceUnlock()
+                        LauncherRowTarget.LockPrivateSpace -> viewModel.lockPrivateSpace()
+                        is LauncherRowTarget.OpenPrivateSpaceSettings -> context.tryStartIntentSender(target.intentSender)
+                    }
+                }
 
                 is LauncherSignal.TypedCharacter -> viewModel.onTypedCharacter(
                     character = signal.character,
@@ -399,16 +425,10 @@ fun LauncherScreen(
             railBounds = railBounds,
             railSide = railSide,
             showRail = showRail,
-            onItemLaunch = launchItem,
+            onItemLaunch = launchLaunchable,
+            onRowTap = openRow,
             onOpenAgenda = requestOpenAgenda,
-            onItemOpenPopup = { launchable, anchor ->
-                openLauncherItemPopup(
-                    launchable = launchable,
-                    anchor = anchor,
-                    popupCard = popupCardViewModel,
-                    viewModel = viewModel
-                )
-            },
+            onItemOpenPopup = openLaunchablePopup,
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
             onCopyCalculatorRow = { result ->
                 // Android 13 and later show the system's own clipboard confirmation.
@@ -440,7 +460,7 @@ fun LauncherScreen(
         PopupHost(
             viewModel = popupCardViewModel,
             railSide = railSide,
-            onLaunch = launchItem,
+            onLaunch = launchLaunchable,
             onAddItems = popupPicker::startFolderPicking,
             modifier = Modifier.fillMaxSize()
         )

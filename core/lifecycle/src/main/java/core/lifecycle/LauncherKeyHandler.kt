@@ -7,10 +7,10 @@ import core.ui.model.data.hasShortcutModifier
 
 /**
  * Routes a hardware key press in the launcher activity: Esc acts as Back on every screen, while
- * the listed Ctrl or Meta keyboard shortcuts open Search, the Agenda or Rail Settings. Every other
- * Ctrl, Alt or Meta combination passes through, and shortcuts are ignored while a text field has
- * focus so typing never triggers them. A Typed character opens Search or appends to its query when
- * the launcher accepts typing, and is consumed; otherwise the key passes through.
+ * the listed Ctrl or Meta keyboard shortcuts open Search, the Agenda, Rail Settings or a row by
+ * index. Every other Ctrl, Alt or Meta combination passes through, and shortcuts are ignored while
+ * a text field has focus so typing never triggers them. A Typed character opens Search or appends to
+ * its query when the launcher accepts typing, and is consumed; otherwise the key passes through.
  */
 class LauncherKeyHandler(
     private val isLauncherShown: () -> Boolean,
