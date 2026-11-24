@@ -20,6 +20,7 @@ class AgendaFormatter(datePatternSource: IDatePatternSource, resources: Resource
         val today: LocalDate = reading.instant.atZone(reading.zoneId).toLocalDate()
         return days.map { day ->
             AgendaDayModel(
+                date = day.date,
                 label = eventText.dayHeading(date = day.date, today = today, reading = reading),
                 events = day.events.map { event -> toEventModel(event = event, reading = reading, headerSettings = headerSettings) }
             )

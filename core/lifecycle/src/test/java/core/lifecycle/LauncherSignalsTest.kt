@@ -9,12 +9,19 @@ import org.junit.Test
 
 class LauncherSignalsTest {
     @Test
-    fun `signal sent before a collector attaches is delivered once it attaches`() = runTest {
-        val launcherSignals: LauncherSignals = LauncherSignals()
-        launcherSignals.signal(LauncherSignal.Home(wasResumed = true))
-        launcherSignals.events.test {
-            assertEquals(LauncherSignal.Home(wasResumed = true), awaitItem())
-            expectNoEvents()
+    fun `a signal sent before a collector attaches is delivered once it attaches`() = runTest {
+        val inputSignals: List<LauncherSignal> = listOf(
+            LauncherSignal.Home(wasResumed = true),
+            LauncherSignal.OpenSearch,
+            LauncherSignal.OpenAgenda
+        )
+        for (inputSignal in inputSignals) {
+            val launcherSignals: LauncherSignals = LauncherSignals()
+            launcherSignals.signal(inputSignal)
+            launcherSignals.events.test {
+                assertEquals(inputSignal, awaitItem())
+                expectNoEvents()
+            }
         }
     }
 
@@ -56,16 +63,6 @@ class LauncherSignalsTest {
             assertEquals(LauncherSignal.Home(wasResumed = true), awaitItem())
             launcherSignals.signal(LauncherSignal.Home(wasResumed = false))
             assertEquals(LauncherSignal.Home(wasResumed = false), awaitItem())
-        }
-    }
-
-    @Test
-    fun `an agenda signal sent before a collector attaches is delivered once it attaches`() = runTest {
-        val launcherSignals: LauncherSignals = LauncherSignals()
-        launcherSignals.signal(LauncherSignal.OpenAgenda)
-        launcherSignals.events.test {
-            assertEquals(LauncherSignal.OpenAgenda, awaitItem())
-            expectNoEvents()
         }
     }
 

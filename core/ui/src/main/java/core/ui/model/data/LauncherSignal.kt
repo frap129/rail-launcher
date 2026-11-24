@@ -3,7 +3,8 @@ package core.ui.model.data
 import java.io.Serializable
 
 /**
- * A signal the launcher activity hands to the launcher UI.
+ * A one-shot request the launcher UI acts on: a HOME intent, the Search entry or a Typed character
+ * the launcher activity hands it, or the agenda the launcher UI opens on its own.
  */
 sealed interface LauncherSignal : Serializable {
     /**
@@ -18,7 +19,7 @@ sealed interface LauncherSignal : Serializable {
     /** The Search entry asked to open Search. */
     data object OpenSearch : LauncherSignal
 
-    /** The user asked to open the agenda from a Header Tap action. */
+    /** The launcher UI asked to open the agenda, from a Header Tap action. */
     data object OpenAgenda : LauncherSignal
 
     /** A printable character was typed on the launcher with a hardware keyboard. */

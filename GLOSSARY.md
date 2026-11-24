@@ -321,7 +321,7 @@ A printable character typed with a hardware keyboard while the launcher is shown
 _Avoid_: Key press, keystroke
 
 **Launcher signal**:
-A one-shot request the launcher activity hands to the launcher UI: a HOME intent, the Search entry or a Typed character.
+A one-shot request the launcher UI acts on: a HOME intent, the Search entry or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
 _Avoid_: Home event, intent event
 
 **Home press**:

@@ -44,6 +44,22 @@ class AgendaFormatterTest {
     }
 
     @Test
+    fun `carries each day's date into its formatted day`() {
+        val inputDays: List<AgendaDay> = listOf(
+            AgendaDay(date = LocalDate.of(2026, 10, 20), events = emptyList()),
+            AgendaDay(date = LocalDate.of(2026, 10, 22), events = emptyList())
+        )
+
+        val actualDays: List<AgendaDayModel> = formatter.format(
+            days = inputDays,
+            reading = inputReading,
+            headerSettings = HeaderSettings(timeFormat = TimeFormat.SYSTEM)
+        )
+
+        assertEquals(inputDays.map { day -> day.date }, actualDays.map { day -> day.date })
+    }
+
+    @Test
     fun `formats timed events with the Header time and all-day events without one`() {
         val inputTimed: UpcomingEvent = createUpcomingEvent(title = "Standup", begin = "2026-10-20T15:00:00Z", end = "2026-10-20T15:30:00Z")
         val inputAllDay: UpcomingEvent = createUpcomingEvent(
