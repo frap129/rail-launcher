@@ -32,7 +32,7 @@ private const val PREVIEW_ID: Long = 0L
 private const val LOW_BATTERY_PERCENT: Int = 20
 
 /** Pure mapping from Header settings and the current clock reading to the values the Header renders. */
-class HeaderFormatter(private val datePatternSource: IDatePatternSource, resources: Resources? = null) {
+class HeaderFormatter(datePatternSource: IDatePatternSource, resources: Resources? = null) {
     private val clockText: ClockTextFormatter = ClockTextFormatter(datePatternSource = datePatternSource)
     private val eventText: EventTextFormatter = EventTextFormatter(datePatternSource = datePatternSource, resources = resources)
 
@@ -82,14 +82,8 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
         )
     }
 
-    fun formatDate(reading: ClockReading, preset: DateFormatPreset): String {
-        val dateTime: ZonedDateTime = reading.instant.atZone(reading.zoneId)
-        return clockText.format(
-            dateTime = dateTime,
-            pattern = clockText.datePattern(skeleton = preset.skeleton, reading = reading),
-            locale = reading.locale
-        )
-    }
+    fun formatDate(preset: DateFormatPreset, reading: ClockReading): String =
+        clockText.formatDate(dateTime = reading.instant.atZone(reading.zoneId), preset = preset, reading = reading)
 
     fun previews(reading: ClockReading, settings: HeaderSettings): List<HeaderModel> = ClockStyle.entries.map { style ->
         format(id = PREVIEW_ID, reading = reading, settings = settings.copy(clockStyle = style))
@@ -129,8 +123,8 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
     }
 
     private fun createOngoingEvent(event: UpcomingEvent, headerSettings: HeaderSettings, reading: ClockReading): EventModel {
-        val until: String = eventText.untilLabel(event = event, reading = reading, headerSettings = headerSettings)
-        val suffix: String = EVENT_SEPARATOR + eventText.untilText(until)
+        val untilText: String = eventText.ongoingText(event = event, reading = reading, headerSettings = headerSettings)
+        val suffix: String = EVENT_SEPARATOR + untilText
         return createEventModel(event = event, text = eventText.title(event) + suffix, suffix = suffix)
     }
 
@@ -176,7 +170,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
         style: ClockStyle
     ): HeaderTimeModel {
         val weekdayText: String? = if (style == ClockStyle.WEEKDAY) {
-            formatDate(reading = reading, preset = DateFormatPreset.WEEKDAY)
+            formatDate(preset = DateFormatPreset.WEEKDAY, reading = reading)
         } else {
             null
         }
@@ -230,11 +224,7 @@ class HeaderFormatter(private val datePatternSource: IDatePatternSource, resourc
         val datePreset: DateFormatPreset = if (isWeekdayStyle) DateFormatPreset.DAY_AND_MONTH else preset
         val spokenStyle: FormatStyle = if (isWeekdayStyle) FormatStyle.LONG else FormatStyle.FULL
         return HeaderLineModel(
-            text = clockText.format(
-                dateTime = dateTime,
-                pattern = clockText.datePattern(skeleton = datePreset.skeleton, reading = reading),
-                locale = reading.locale
-            ),
+            text = clockText.formatDate(dateTime = dateTime, preset = datePreset, reading = reading),
             spokenText = DateTimeFormatter.ofLocalizedDate(spokenStyle).withLocale(reading.locale).format(dateTime),
             tapTarget = HeaderTapTarget.SystemCalendar(atEpochMillis = reading.instant.toEpochMilli()),
             clickLabel = R.string.open_calendar

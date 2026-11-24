@@ -30,8 +30,10 @@ class AgendaFormatter(datePatternSource: IDatePatternSource, resources: Resource
         val timeText: String? = when {
             event.isAllDay -> null
 
-            event.beginMillis <= reading.instant.toEpochMilli() -> eventText.untilText(
-                eventText.untilLabel(event = event, reading = reading, headerSettings = headerSettings)
+            event.beginMillis <= reading.instant.toEpochMilli() -> eventText.ongoingText(
+                event = event,
+                reading = reading,
+                headerSettings = headerSettings
             )
 
             else -> eventText.timeText(

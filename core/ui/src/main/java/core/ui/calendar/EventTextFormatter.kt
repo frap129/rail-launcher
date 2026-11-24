@@ -35,35 +35,31 @@ class EventTextFormatter(datePatternSource: IDatePatternSource, private val reso
         locale = reading.locale
     )
 
-    /** The end label of an event that has already started: its end time, with a day when needed. */
-    fun untilLabel(event: UpcomingEvent, reading: ClockReading, headerSettings: HeaderSettings): String {
-        val endDate: LocalDate = Instant.ofEpochMilli(event.endMillis).atZone(reading.zoneId).toLocalDate()
+    /** The "until ..." text of an event that has already started: its end time, with a day when needed. */
+    fun ongoingText(event: UpcomingEvent, reading: ClockReading, headerSettings: HeaderSettings): String {
+        val endDateTime: ZonedDateTime = Instant.ofEpochMilli(event.endMillis).atZone(reading.zoneId)
+        val endDate: LocalDate = endDateTime.toLocalDate()
         val today: LocalDate = reading.instant.atZone(reading.zoneId).toLocalDate()
-        val endTime: String = timeText(
-            dateTime = Instant.ofEpochMilli(event.endMillis).atZone(reading.zoneId),
-            reading = reading,
-            headerSettings = headerSettings
-        )
-        return when (endDate) {
+        val endTime: String = timeText(dateTime = endDateTime, reading = reading, headerSettings = headerSettings)
+        val until: String = when (endDate) {
             today -> endTime
             today.plusDays(1) -> tomorrowLower() + " " + endTime
             else -> dayLabel(date = endDate, today = today, reading = reading) + " " + endTime
         }
+        return eventResource(resourceId = R.string.event_until, fallback = DEFAULT_EVENT_UNTIL, formatArg = until)
     }
 
     fun title(event: UpcomingEvent): String = event.title.ifBlank {
         eventResource(resourceId = R.string.event_untitled, fallback = DEFAULT_EVENT_UNTITLED)
     }
 
-    fun untilText(until: String): String = resources?.getString(R.string.event_until, until) ?: (DEFAULT_EVENT_UNTIL + until)
-
     fun tomorrowLower(): String = eventResource(resourceId = R.string.event_tomorrow_lower, fallback = DEFAULT_EVENT_TOMORROW_LOWER)
 
     fun dayLabel(date: LocalDate, today: LocalDate, reading: ClockReading): String =
-        relativeDayLabel(date = date, today = today) ?: weekday(date = date, reading = reading)
+        relativeDayLabel(date = date, today = today) ?: dateText(date = date, preset = DateFormatPreset.WEEKDAY, reading = reading)
 
     fun dayHeading(date: LocalDate, today: LocalDate, reading: ClockReading): String =
-        relativeDayLabel(date = date, today = today) ?: dateLabel(date = date, reading = reading)
+        relativeDayLabel(date = date, today = today) ?: dateText(date = date, preset = DateFormatPreset.FULL, reading = reading)
 
     private fun relativeDayLabel(date: LocalDate, today: LocalDate): String? = when (date) {
         today -> eventResource(resourceId = R.string.event_today, fallback = DEFAULT_EVENT_TODAY)
@@ -71,17 +67,11 @@ class EventTextFormatter(datePatternSource: IDatePatternSource, private val reso
         else -> null
     }
 
-    private fun dateLabel(date: LocalDate, reading: ClockReading): String = clockText.format(
-        dateTime = date.atStartOfDay(reading.zoneId),
-        pattern = clockText.datePattern(skeleton = DateFormatPreset.FULL.skeleton, reading = reading),
-        locale = reading.locale
-    )
-
-    private fun weekday(date: LocalDate, reading: ClockReading): String = clockText.format(
-        dateTime = date.atStartOfDay(reading.zoneId),
-        pattern = clockText.datePattern(skeleton = DateFormatPreset.WEEKDAY.skeleton, reading = reading),
-        locale = reading.locale
-    )
+    private fun dateText(date: LocalDate, preset: DateFormatPreset, reading: ClockReading): String =
+        clockText.formatDate(dateTime = date.atStartOfDay(reading.zoneId), preset = preset, reading = reading)
 
     private fun eventResource(resourceId: Int, fallback: String): String = resources?.getString(resourceId) ?: fallback
+
+    private fun eventResource(resourceId: Int, fallback: String, formatArg: String): String =
+        resources?.getString(resourceId, formatArg) ?: (fallback + formatArg)
 }
