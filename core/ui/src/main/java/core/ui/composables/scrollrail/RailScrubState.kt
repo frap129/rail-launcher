@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -82,8 +83,8 @@ private class RailPointerAnimation {
 
 /**
  * Holds the Rail's scrub selection and the pointer animations that bend it.
- * The Rail's touch input feeds pointer positions into this state; ScrollRail
- * only reads it to draw the marks.
+ * The Rail's touch and wheel input feeds pointer positions and wheel scroll
+ * deltas into this state; ScrollRail only reads it to draw the marks.
  */
 @Stable
 class RailScrubState internal constructor(
@@ -94,7 +95,9 @@ class RailScrubState internal constructor(
     private val hapticFeedback: HapticFeedback,
     private val scope: CoroutineScope,
     private val onScroll: (Int) -> Unit,
-    private val onScrollEnded: (Int) -> Unit
+    private val onScrollEnded: (Int) -> Unit,
+    private val onWheelScroll: (deltaY: Float) -> Unit,
+    private val onPointerExit: () -> Unit
 ) {
     internal val metrics: RailMetrics = RailMetrics(density = density)
     internal val isEnabled: Boolean = enabled
@@ -116,7 +119,11 @@ class RailScrubState internal constructor(
     internal val bendStrength: Float get() = pointerAnimation.bendStrength
     internal val bubblePosition: Offset get() = pointerAnimation.bubblePosition
 
-    internal fun handlePointerEvent(eventType: PointerEventType, pointer: Offset) {
+    internal fun handlePointerEvent(eventType: PointerEventType, pointer: Offset, isPressed: Boolean) {
+        // A mouse hovering the Rail sends moves with no button pressed; only a press scrubs.
+        if (eventType == PointerEventType.Move && !isPressed) {
+            return
+        }
         if (eventType == PointerEventType.Press) {
             railOffset = 0f
         }
@@ -130,7 +137,20 @@ class RailScrubState internal constructor(
             PointerEventType.Press -> startScrub(pointer = pointer, markIndex = markIndex)
             PointerEventType.Move -> moveScrub(pointer = pointer, markIndex = markIndex)
             PointerEventType.Unknown, PointerEventType.Release -> endScrub(markIndex = markIndex)
+            else -> Unit
         }
+    }
+
+    /** Reports a wheel notch's vertical scroll [deltaY], ignoring a sideways notch. */
+    internal fun handleWheelScroll(deltaY: Float) {
+        if (deltaY != 0f) {
+            onWheelScroll(deltaY)
+        }
+    }
+
+    /** Reports the pointer leaving the Rail, which ends any wheel scrolling in progress. */
+    internal fun handlePointerExit() {
+        onPointerExit()
     }
 
     private fun startScrub(pointer: Offset, markIndex: Int) {
@@ -168,6 +188,8 @@ fun rememberRailScrubState(
     items: List<GroupMark>,
     onScroll: (Int) -> Unit,
     onScrollEnded: (Int) -> Unit,
+    onWheelScroll: (deltaY: Float) -> Unit,
+    onPointerExit: () -> Unit,
     railHaptics: Boolean,
     enabled: Boolean = true
 ): RailScrubState {
@@ -176,6 +198,8 @@ fun rememberRailScrubState(
     val density: Float = LocalDensity.current.density
     val currentOnScroll: State<(Int) -> Unit> = rememberUpdatedState(onScroll)
     val currentOnScrollEnded: State<(Int) -> Unit> = rememberUpdatedState(onScrollEnded)
+    val currentOnWheelScroll: State<(Float) -> Unit> = rememberUpdatedState(onWheelScroll)
+    val currentOnPointerExit: State<() -> Unit> = rememberUpdatedState(onPointerExit)
     val currentRailHaptics: State<Boolean> = rememberUpdatedState(railHaptics)
     return remember(items.size, enabled, density) {
         RailScrubState(
@@ -186,23 +210,25 @@ fun rememberRailScrubState(
             hapticFeedback = hapticFeedback,
             scope = scope,
             onScroll = { index -> currentOnScroll.value(index) },
-            onScrollEnded = { index -> currentOnScrollEnded.value(index) }
+            onScrollEnded = { index -> currentOnScrollEnded.value(index) },
+            onWheelScroll = { deltaY -> currentOnWheelScroll.value(deltaY) },
+            onPointerExit = { currentOnPointerExit.value() }
         )
     }
 }
 
 /**
- * Feeds the drawn Rail's pointer positions into [state].
+ * Feeds the drawn Rail's pointer positions and wheel notches into [state].
  */
 fun Modifier.railScrubInput(state: RailScrubState): Modifier = pointerInput(state) {
     collectRailPointers(state = state) { position, _ -> position }
 }
 
 /**
- * Feeds pointer positions from the Rail scrub strip on the edge opposite [railSide], or on
- * [railSide] itself while Show Rail is off, into [state], mapping them into the drawn Rail's touch
- * column. A strip touch keeps its height and its distance in from the strip's screen edge; only
- * the height picks a mark, so a strip on either edge scrubs the same marks.
+ * Feeds pointer positions and wheel notches from the Rail scrub strip on the edge opposite
+ * [railSide], or on [railSide] itself while Show Rail is off, into [state], mapping positions into
+ * the drawn Rail's touch column. A strip touch keeps its height and its distance in from the
+ * strip's screen edge; only the height picks a mark, so a strip on either edge scrubs the same marks.
  */
 @Composable
 fun Modifier.railScrubStripInput(state: RailScrubState, railSide: RailSide): Modifier {
@@ -229,11 +255,18 @@ private suspend fun PointerInputScope.collectRailPointers(
     awaitPointerEventScope {
         while (true) {
             val event: PointerEvent = awaitPointerEvent()
-            val position: Offset = event.changes.first().position
-            state.handlePointerEvent(
-                eventType = event.type,
-                pointer = mapPointer(position, nodeWidthPx)
-            )
+            val change: PointerInputChange = event.changes.first()
+            when (event.type) {
+                PointerEventType.Scroll -> state.handleWheelScroll(deltaY = change.scrollDelta.y)
+
+                PointerEventType.Exit -> state.handlePointerExit()
+
+                else -> state.handlePointerEvent(
+                    eventType = event.type,
+                    pointer = mapPointer(change.position, nodeWidthPx),
+                    isPressed = change.pressed
+                )
+            }
         }
     }
 }

@@ -48,7 +48,8 @@ const val SCROLL_RAIL_BUBBLE_TEST_TAG: String = "scrollRailBubble"
  * it remains visible while being touched.
  *
  * Pointer positions are supplied to [state] by [railScrubInput] or
- * [railScrubStripInput]; this composable only draws the marks. A single
+ * [railScrubStripInput], which also report its wheel notches; this composable
+ * only draws the marks. A single
  * animated pointer position drives the bend of every mark, and an animated
  * strength bends the Rail in and out when a scrub starts and ends.
  *

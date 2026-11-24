@@ -24,6 +24,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
@@ -87,17 +88,17 @@ class LauncherRailTest {
 
     @Test
     fun `draws and scrubs the Rail on the layout start for the Start Rail side`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val railBounds: RailBounds = setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        val railBounds: RailBounds = setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.START,
-            railSide = RailSide.START,
-            onRailPreview = { index -> actualPreviewIndices += index }
+            railSide = RailSide.START
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = true)
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
 
-        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(0, 1, 2), actualRail.previewIndices)
     }
 
     @Test
@@ -107,32 +108,30 @@ class LauncherRailTest {
 
     @Test
     fun `Start Rail side ignores its drawn Rail when Scrub edges exclude it`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.END,
-            railSide = RailSide.START,
-            onRailPreview = { index -> actualPreviewIndices += index }
+            railSide = RailSide.START
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = RailSide.END)
 
-        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(0, 1, 2), actualRail.previewIndices)
     }
 
     @Test
     fun `scrubbing the drawn Rail does nothing while editing Widgets`() {
         var actualCloseCount: Int = 0
         var actualHapticTickCount: Int = 0
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.BOTH,
             homeEditMode = { HomeEditMode.Widgets },
             isCardOpen = { true },
             onRailTouched = { actualCloseCount++ },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index },
             onHapticTick = { actualHapticTickCount++ }
         )
 
@@ -140,8 +139,8 @@ class LauncherRailTest {
 
         assertEquals(0, actualCloseCount)
         assertEquals(0, actualHapticTickCount)
-        assertEquals(emptyList<Int>(), actualPreviewIndices)
-        assertEquals(emptyList<Int>(), actualReleaseIndices)
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
     }
 
     @Test
@@ -150,72 +149,156 @@ class LauncherRailTest {
     }
 
     @Test
+    fun `a hovering mouse over the Rail does not scrub it`() {
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            moveBy(Offset(x = 0f, y = -20f))
+        }
+
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
+    }
+
+    @Test
+    fun `a downward wheel notch over the Rail steps one group per notch and stops at the edges`() {
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            scroll(delta = 1f)
+            scroll(delta = 1f)
+            scroll(delta = 1f)
+            scroll(delta = -1f)
+        }
+
+        assertEquals(listOf(1, 2, 1), actualRail.releaseIndices)
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+    }
+
+    @Test
+    fun `a fast downward wheel scroll over the Rail steps up to the last group`() {
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            scroll(delta = 5f)
+        }
+
+        assertEquals(listOf(1, 2), actualRail.releaseIndices)
+    }
+
+    @Test
+    fun `a partial downward wheel notch is dropped when the pointer leaves the Rail`() {
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            scroll(delta = 0.9f)
+            exit()
+            moveTo(center)
+            scroll(delta = 0.9f)
+        }
+
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
+    }
+
+    @Test
+    fun `a downward wheel notch over the Rail closes an open Pop-up instead of stepping`() {
+        var actualCloseCount: Int = 0
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH,
+            isCardOpen = { true },
+            onRailTouched = { actualCloseCount++ }
+        )
+
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            scroll(delta = 1f)
+        }
+
+        assertEquals(1, actualCloseCount)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
+    }
+
+    @Test
     fun `End scrub edges preview and release only from the drawn Rail`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
-            scrubEdges = ScrubEdges.END,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.END
         )
 
         composeRule.onNodeWithTag(railScrubStripTestTag(side = RailSide.START)).assertDoesNotExist()
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
 
-        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2), actualRail.releaseIndices)
     }
 
     @Test
     fun `Start scrub edges preview and release only from the scrub strip`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
-            scrubEdges = ScrubEdges.START,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.START
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = RailSide.START)
 
-        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2), actualRail.releaseIndices)
     }
 
     @Test
     fun `scrubbing a scrub strip closes an open Pop-up instead of the Rail`() {
         var actualCloseCount: Int = 0
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.START,
             isCardOpen = { true },
-            onRailTouched = { actualCloseCount++ },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            onRailTouched = { actualCloseCount++ }
         )
 
         dragScrubStrip(side = RailSide.START)
 
         assertEquals(1, actualCloseCount)
-        assertEquals(emptyList<Int>(), actualPreviewIndices)
-        assertEquals(emptyList<Int>(), actualReleaseIndices)
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
     }
 
     @Test
     fun `scrubbing a scrub strip does nothing while editing Widgets`() {
         var actualCloseCount: Int = 0
         var actualHapticTickCount: Int = 0
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.START,
             homeEditMode = { HomeEditMode.Widgets },
             isCardOpen = { true },
             onRailTouched = { actualCloseCount++ },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index },
             onHapticTick = { actualHapticTickCount++ }
         )
 
@@ -223,51 +306,47 @@ class LauncherRailTest {
 
         assertEquals(0, actualCloseCount)
         assertEquals(0, actualHapticTickCount)
-        assertEquals(emptyList<Int>(), actualPreviewIndices)
-        assertEquals(emptyList<Int>(), actualReleaseIndices)
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
     }
 
     @Test
     fun `scrubbing both edges previews and releases while editing Favorites`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.BOTH,
-            homeEditMode = { HomeEditMode.Favorites },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            homeEditMode = { HomeEditMode.Favorites }
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = RailSide.START)
 
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2, 2), actualRail.releaseIndices)
     }
 
     @Test
     fun `scrubbing both edges works again when editing Widgets ends`() {
         var inputHomeEditMode: HomeEditMode by mutableStateOf(HomeEditMode.Widgets)
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.BOTH,
-            homeEditMode = { inputHomeEditMode },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            homeEditMode = { inputHomeEditMode }
         )
 
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = RailSide.START)
-        assertEquals(emptyList<Int>(), actualPreviewIndices)
-        assertEquals(emptyList<Int>(), actualReleaseIndices)
+        assertEquals(emptyList<Int>(), actualRail.previewIndices)
+        assertEquals(emptyList<Int>(), actualRail.releaseIndices)
 
         composeRule.runOnIdle { inputHomeEditMode = HomeEditMode.None }
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = RailSide.START)
 
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2, 2), actualRail.releaseIndices)
     }
 
     @Test
@@ -342,35 +421,33 @@ class LauncherRailTest {
 
     @Test
     fun `scrubs both edges including the hidden Rail's own edge`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.BOTH,
-            showRail = { false },
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            showRail = { false }
         )
 
         dragScrubStrip(side = RailSide.END)
         dragScrubStrip(side = RailSide.START)
 
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2, 2), actualRail.releaseIndices)
     }
 
     @Test
     fun `scrubs only the enabled edge when Show Rail is off`() {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.START,
-            showRail = { false },
-            onRailPreview = { index -> actualPreviewIndices += index }
+            showRail = { false }
         )
 
         composeRule.onNodeWithTag(railScrubStripTestTag(side = RailSide.END)).assertDoesNotExist()
         dragScrubStrip(side = RailSide.START)
 
-        assertEquals(listOf(0, 1, 2), actualPreviewIndices)
+        assertEquals(listOf(0, 1, 2), actualRail.previewIndices)
     }
 
     @Test
@@ -502,15 +579,45 @@ class LauncherRailTest {
         return railBounds
     }
 
+    /** The Rail preview and release indices one test records. */
+    private class RailCallbackRecorder {
+        val previewIndices: MutableList<Int> = mutableListOf()
+        val releaseIndices: MutableList<Int> = mutableListOf()
+    }
+
+    /** Sets the Rail content, recording its preview and release indices into [recorder]. */
+    private fun setRecordedRailContent(
+        recorder: RailCallbackRecorder,
+        scrubEdges: ScrubEdges,
+        railSide: RailSide = RailSide.DEFAULT,
+        layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+        showRail: () -> Boolean = { true },
+        isCardOpen: () -> Boolean = { false },
+        railHaptics: Boolean = true,
+        homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
+        onRailTouched: () -> Unit = {},
+        onHapticTick: () -> Unit = {}
+    ): RailBounds = setRailContent(
+        scrubEdges = scrubEdges,
+        railSide = railSide,
+        layoutDirection = layoutDirection,
+        showRail = showRail,
+        isCardOpen = isCardOpen,
+        railHaptics = railHaptics,
+        homeEditMode = homeEditMode,
+        onRailTouched = onRailTouched,
+        onRailPreview = { index -> recorder.previewIndices += index },
+        onRailReleased = { index -> recorder.releaseIndices += index },
+        onHapticTick = onHapticTick
+    )
+
     private fun assertBothEdgesScrub(railSide: RailSide, layoutDirection: LayoutDirection, isRailOnLeft: Boolean) {
-        val actualPreviewIndices: MutableList<Int> = mutableListOf()
-        val actualReleaseIndices: MutableList<Int> = mutableListOf()
-        val railBounds: RailBounds = setRailContent(
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        val railBounds: RailBounds = setRecordedRailContent(
+            recorder = actualRail,
             scrubEdges = ScrubEdges.BOTH,
             railSide = railSide,
-            layoutDirection = layoutDirection,
-            onRailPreview = { index -> actualPreviewIndices += index },
-            onRailReleased = { index -> actualReleaseIndices += index }
+            layoutDirection = layoutDirection
         )
 
         assertRailInsideScreenOnSide(railBounds = railBounds, isOnLeft = isRailOnLeft)
@@ -519,8 +626,8 @@ class LauncherRailTest {
         dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG)
         dragScrubStrip(side = railSide.opposite())
 
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualPreviewIndices)
-        assertEquals(listOf(2, 2), actualReleaseIndices)
+        assertEquals(listOf(0, 1, 2, 0, 1, 2), actualRail.previewIndices)
+        assertEquals(listOf(2, 2), actualRail.releaseIndices)
     }
 
     private fun assertScrubBubbleOnInnerSide(railSide: RailSide, layoutDirection: LayoutDirection, isRailOnLeft: Boolean) {

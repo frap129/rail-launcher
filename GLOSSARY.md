@@ -460,6 +460,10 @@ _Avoid_: Scroll edges, touch edges, Rail edges
 The invisible touch strip on a Scrub edge that scrubs the Rail as if the finger were at the same height and the same distance in from the Rail's own edge. Every enabled Scrub edge without a drawn Rail has one, and while Show Rail is off both do, so the edge where the Rail would be drawn still scrubs.
 _Avoid_: Rail mirror strip, ghost Rail, invisible Rail, edge strip
 
+**Rail wheel step**:
+The move one mouse wheel notch over the Rail makes: one mark per notch, toward the last mark on a downward notch and the first on an upward one, stopping at the first and last mark. A hovering pointer never steps the Rail.
+_Avoid_: Wheel scroll, Rail scroll
+
 **Widget**:
 A self-contained panel shown on Home, either built into Rail (the Header, the Media Player) or an App Widget.
 _Avoid_: Card, glance

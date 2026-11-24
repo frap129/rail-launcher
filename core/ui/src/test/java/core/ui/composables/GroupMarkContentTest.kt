@@ -46,6 +46,8 @@ class GroupMarkContentTest {
                 items = items,
                 onScroll = {},
                 onScrollEnded = {},
+                onWheelScroll = {},
+                onPointerExit = {},
                 railHaptics = true
             )
             ScrollRail(
