@@ -810,11 +810,7 @@ internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Laun
             messageResource = R.string.no_clock_app
         )
 
-        is HeaderTapTarget.SystemCalendar -> openSystemIntent(
-            intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/${target.atEpochMillis}")),
-            targetDescription = target.toString(),
-            messageResource = R.string.no_calendar_app
-        )
+        is HeaderTapTarget.SystemCalendar -> openSystemCalendar(atEpochMillis = target.atEpochMillis)
 
         HeaderTapTarget.SystemBatteryUsage -> openSystemIntent(
             intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY),
@@ -822,11 +818,21 @@ internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Laun
             messageResource = R.string.no_battery_usage_app
         )
 
-        is HeaderTapTarget.OpenEvent -> openEvent(target = target.target)
+        is HeaderTapTarget.OpenEvent -> openCalendarEvent(target = target.target)
     }
 }
 
-private fun Context.openEvent(target: OpenEventTarget) {
+/** Opens the calendar App at [atEpochMillis]. */
+internal fun Context.openSystemCalendar(atEpochMillis: Long) {
+    openSystemIntent(
+        intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/$atEpochMillis")),
+        targetDescription = "calendar at $atEpochMillis",
+        messageResource = R.string.no_calendar_app
+    )
+}
+
+/** Opens [target] in the calendar App, through the work profile when the event belongs to one. */
+internal fun Context.openCalendarEvent(target: OpenEventTarget) {
     if (target.isWorkProfile) {
         try {
             val opened: Boolean = CalendarContract.startViewCalendarEventInManagedProfile(

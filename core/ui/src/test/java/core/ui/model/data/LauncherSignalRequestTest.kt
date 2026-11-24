@@ -16,6 +16,7 @@ class LauncherSignalRequestTest {
             LauncherSignal.Home(wasResumed = true),
             LauncherSignal.Home(wasResumed = false),
             LauncherSignal.OpenSearch,
+            LauncherSignal.OpenAgenda,
             LauncherSignal.TypedCharacter(character = "a")
         )
         val savedStateHandle: SavedStateHandle = SavedStateHandle()

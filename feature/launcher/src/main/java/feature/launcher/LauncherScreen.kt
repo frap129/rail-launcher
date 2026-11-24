@@ -84,7 +84,6 @@ import core.ui.popups.IconPickerHost
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
-import core.ui.widgets.HeaderTapTarget
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.NotificationAccessDialog
 import core.util.attemptLaunch
@@ -105,7 +104,8 @@ import feature.launcher.widgets.UndoAction
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetEditDraft
 import feature.launcher.widgets.WidgetEvent
-import feature.launcher.widgets.runHeaderTapAction
+import feature.launcher.widgets.openCalendarEvent
+import feature.launcher.widgets.openSystemCalendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
@@ -227,13 +227,9 @@ fun LauncherScreen(
             )
         )
     }
-    val openAgendaTarget: (HeaderTapTarget) -> Unit = { target ->
+    val closeAgendaThenOpen: (open: () -> Unit) -> Unit = { open ->
         agendaViewModel.close()
-        context.runHeaderTapAction(
-            target = target,
-            onLaunch = launchItem,
-            onOpenAgenda = requestOpenAgenda
-        )
+        open()
     }
     DisposableEffect(lifecycleOwner, viewModel, widgetViewModel) {
         val observer: LifecycleEventObserver = LifecycleEventObserver { _, event ->
@@ -427,9 +423,9 @@ fun LauncherScreen(
                 days = agendaState.days,
                 isLoading = agendaState.isLoading,
                 hasPermission = agendaState.hasPermission,
-                onOpenEvent = { target -> openAgendaTarget(HeaderTapTarget.OpenEvent(target = target)) },
+                onOpenEvent = { target -> closeAgendaThenOpen { context.openCalendarEvent(target = target) } },
                 onOpenCalendar = {
-                    openAgendaTarget(HeaderTapTarget.SystemCalendar(atEpochMillis = clockSource.now().toEpochMilli()))
+                    closeAgendaThenOpen { context.openSystemCalendar(atEpochMillis = clockSource.now().toEpochMilli()) }
                 },
                 onGrantPermission = { agendaPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
                 onDismiss = agendaViewModel::close

@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.merge
  *
  * Each HOME signal carries whether the launcher was already resumed when the HOME intent arrived,
  * so the UI can tell a Home press on Home from one that returns to Rail from another app. The
- * Search entry and Typed characters use the same signal flow, so every signal reaches the launcher
- * through one path.
+ * Search entry and Typed characters use the same signal flow, so every signal the activity hands
+ * in reaches the launcher through one path; an agenda the launcher UI opens on its own goes
+ * straight to its saved request queue instead.
  *
  * The launcher activity uses `singleTask`, so a HOME intent that arrives while
  * the activity is being recreated is redelivered by the platform to the new
@@ -22,7 +23,7 @@ import kotlinx.coroutines.flow.merge
  * intent, so rotating the device never resets Home scroll.
  *
  * Signals sent before a collector attaches stay queued until one does, and each
- * signal is consumed exactly once. HOME and Search signals use a conflated
+ * signal is consumed exactly once. Every signal but a Typed character uses a conflated
  * [EventChannel] instead of a replaying flow so an already consumed signal is never
  * re-delivered to a later collector (e.g. a composition that re-collects after
  * recreation), which would wrongly reset the UI to Home. Conflation is safe because
@@ -44,7 +45,7 @@ class LauncherSignals {
     fun signal(signal: LauncherSignal) {
         when (signal) {
             is LauncherSignal.TypedCharacter -> typedCharacterChannel.trySend(signal.character)
-            is LauncherSignal.Home, LauncherSignal.OpenSearch, LauncherSignal.OpenAgenda -> signalChannel.trySend(signal)
+            else -> signalChannel.trySend(signal)
         }
     }
 }
