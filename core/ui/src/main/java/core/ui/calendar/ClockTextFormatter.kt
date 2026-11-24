@@ -1,5 +1,6 @@
 package core.ui.calendar
 
+import core.data.prefs.DateFormatPreset
 import core.data.time.ClockReading
 import core.data.time.IDatePatternSource
 import java.time.ZonedDateTime
@@ -23,7 +24,12 @@ class ClockTextFormatter(private val datePatternSource: IDatePatternSource) {
         return datePatternSource.bestPattern(skeleton, reading.locale)
     }
 
-    fun datePattern(skeleton: String, reading: ClockReading): String = datePatternSource.bestPattern(skeleton, reading.locale)
+    /** Formats [dateTime] with the locale's best pattern for the [preset] skeleton. */
+    fun formatDate(dateTime: ZonedDateTime, preset: DateFormatPreset, reading: ClockReading): String = format(
+        dateTime = dateTime,
+        pattern = datePatternSource.bestPattern(preset.skeleton, reading.locale),
+        locale = reading.locale
+    )
 
     fun displayPattern(reading: ClockReading, is24Hour: Boolean, showAmPm: Boolean): String {
         val pattern: String = timePattern(reading = reading, is24Hour = is24Hour)

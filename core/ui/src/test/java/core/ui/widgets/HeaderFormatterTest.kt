@@ -139,11 +139,11 @@ class HeaderFormatterTest {
         val requestedSkeletons: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
         val mockSkeletonSource: IDatePatternSource = createDatePatternSourceMock(requestedSkeletons = requestedSkeletons)
         val formatter: HeaderFormatter = HeaderFormatter(mockSkeletonSource)
-        DateFormatPreset.entries.forEach { preset -> formatter.formatDate(inputReading, preset) }
+        DateFormatPreset.entries.forEach { preset -> formatter.formatDate(preset = preset, reading = inputReading) }
         assertEquals(DateFormatPreset.entries.map { preset -> preset.skeleton }, requestedSkeletons.value)
         assertEquals(
             listOf("Tuesday, October 20", "Tue, Oct 20", "October 20", "Tuesday 20", "Tuesday", "10/20/2026"),
-            DateFormatPreset.entries.map { preset -> formatter.formatDate(inputReading, preset) }
+            DateFormatPreset.entries.map { preset -> formatter.formatDate(preset = preset, reading = inputReading) }
         )
     }
 

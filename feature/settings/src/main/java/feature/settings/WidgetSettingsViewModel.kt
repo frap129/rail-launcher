@@ -297,7 +297,7 @@ class WidgetSettingsViewModel(
             size = settings.size,
             clockStylePreviews = formatter.previews(reading = reading, settings = settings),
             dateFormatOptions = DateFormatPreset.entries.map { preset ->
-                DateFormatOption(preset = preset, label = formatter.formatDate(reading, preset))
+                DateFormatOption(preset = preset, label = formatter.formatDate(preset = preset, reading = reading))
             },
             timeTapAction = timeTapTarget.toSummary(
                 defaultResource = R.string.tap_action_clock_default,
