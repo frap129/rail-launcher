@@ -329,7 +329,7 @@ class WidgetSettingsViewModelTest {
     }
 
     @Test
-    fun `describes the Weekday style's date default as the clock`() = runTest {
+    fun `labels the Weekday style's date default like its time default`() = runTest {
         val viewModel: WidgetSettingsViewModel = createViewModel(
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 headerSettings = HeaderSettings(clockStyle = ClockStyle.WEEKDAY)
@@ -339,7 +339,7 @@ class WidgetSettingsViewModelTest {
         viewModel.uiState.test {
             val actualState: WidgetSettingsUiState = expectMostRecentItem()
             assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), actualState.timeTapAction.label)
-            assertEquals(TapActionLabel.Resource(R.string.tap_action_alarms_default), actualState.dateTapAction.label)
+            assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), actualState.dateTapAction.label)
             cancelAndIgnoreRemainingEvents()
         }
     }

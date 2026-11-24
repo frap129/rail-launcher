@@ -43,6 +43,20 @@ class ConvertersTest {
     }
 
     @Test
+    fun `decodes previously stored clock style names`() {
+        val inputStoredStyles: Map<String, ClockStyle> = mapOf(
+            "CLASSIC" to ClockStyle.CLASSIC,
+            "BOLD" to ClockStyle.BOLD,
+            "STACKED" to ClockStyle.STACKED,
+            "COMPACT" to ClockStyle.COMPACT
+        )
+
+        inputStoredStyles.forEach { (storedName, expectedStyle) ->
+            assertEquals(expectedStyle, converters.fromStringToClockStyle(storedName))
+        }
+    }
+
+    @Test
     fun `falls back to defaults for unknown Header settings enum names`() {
         assertEquals(ClockStyle.CLASSIC, converters.fromStringToClockStyle("UNKNOWN"))
         assertEquals(TimeFormat.SYSTEM, converters.fromStringToTimeFormat("UNKNOWN"))

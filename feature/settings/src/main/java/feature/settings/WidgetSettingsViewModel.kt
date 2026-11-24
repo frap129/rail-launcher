@@ -672,12 +672,9 @@ private fun HeaderTapSetting.toSummary(defaultResource: Int, launchableState: La
     label = toLabel(defaultResource = defaultResource, launchableState = launchableState)
 )
 
-/** The settings label describing what the Header's date line opens by default. */
-private fun HeaderTapTarget.dateDefaultLabelResource(): Int = when (this) {
-    HeaderTapTarget.SystemAlarms -> R.string.tap_action_alarms_default
-    is HeaderTapTarget.SystemCalendar -> R.string.tap_action_calendar_default
-    else -> R.string.tap_action_system_default
-}
+/** The settings label describing what the Header's date line opens by default: the calendar, or the Weekday style's alarms. */
+private fun HeaderTapTarget.dateDefaultLabelResource(): Int =
+    if (this is HeaderTapTarget.SystemCalendar) R.string.tap_action_calendar_default else R.string.tap_action_clock_default
 
 private fun HeaderTapSetting.toLabel(defaultResource: Int, launchableState: LaunchableState): TapActionLabel = when (this) {
     HeaderTapSetting.SystemDefault -> TapActionLabel.Resource(defaultResource)

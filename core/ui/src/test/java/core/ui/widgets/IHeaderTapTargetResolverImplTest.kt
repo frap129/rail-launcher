@@ -3,6 +3,7 @@ package core.ui.widgets
 import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.LaunchableReadiness
+import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.RailLaunchable
 import core.data.prefs.ClockStyle
@@ -16,7 +17,6 @@ import core.data.testing.createLoadedLaunchableState
 import core.data.testing.packageLevelKey
 import core.ui.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,61 +36,53 @@ class IHeaderTapTargetResolverImplTest {
 
     @Test
     fun `applies the system defaults when no tap action is set`() {
-        val inputHeader: HeaderModel = header()
-        val actualHeader: HeaderModel = resolver.applyTo(
-            header = inputHeader,
-            settings = HeaderSettings(),
-            launchableState = createLaunchableState(groups = emptyList()),
-            atEpochMillis = nowMillis
-        )
-        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
-        assertEquals(R.string.open_alarms, actualHeader.time?.clickLabel)
+        val actualHeader: HeaderModel = applyStyle(style = ClockStyle.CLASSIC)
+
+        assertTimeDefault(header = actualHeader)
         assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
         assertEquals(R.string.open_calendar, actualHeader.date?.clickLabel)
-
-        val actualWeekdayHeader: HeaderModel = resolver.applyTo(
-            header = inputHeader,
-            settings = HeaderSettings(clockStyle = ClockStyle.WEEKDAY),
-            launchableState = createLaunchableState(groups = emptyList()),
-            atEpochMillis = nowMillis
-        )
-        assertEquals(HeaderTapTarget.SystemAlarms, actualWeekdayHeader.date?.tapTarget)
-        assertEquals(R.string.open_alarms, actualWeekdayHeader.date?.clickLabel)
     }
 
     @Test
-    fun `applies Nothing to both Header lines`() {
-        val inputHeader: HeaderModel = header()
-        val actualHeader: HeaderModel = resolver.applyTo(
-            header = inputHeader,
-            settings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = HeaderTapSetting.Nothing),
-            launchableState = createLaunchableState(groups = emptyList()),
-            atEpochMillis = nowMillis
-        )
-        assertEquals(HeaderTapTarget.None, actualHeader.time?.tapTarget)
-        assertNull(actualHeader.time?.clickLabel)
-        assertEquals(HeaderTapTarget.None, actualHeader.date?.tapTarget)
-        assertNull(actualHeader.date?.clickLabel)
+    fun `defaults both Weekday Header lines to the alarm list`() {
+        val actualHeader: HeaderModel = applyStyle(style = ClockStyle.WEEKDAY)
+
+        assertTimeDefault(header = actualHeader)
+        assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.date?.tapTarget)
+        assertEquals(R.string.open_alarms, actualHeader.date?.clickLabel)
     }
 
     @Test
-    fun `applies a chosen Launchable with its click labels`() {
-        val inputHeader: HeaderModel = header()
-        val inputSettings: HeaderSettings = HeaderSettings(
-            timeTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key),
-            dateTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key)
-        )
-        val actualHeader: HeaderModel = resolver.applyTo(
-            header = inputHeader,
-            settings = inputSettings,
-            launchableState = createLoadedLaunchableState(listOf(inputLaunchable)),
-            atEpochMillis = nowMillis
-        )
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.time?.tapTarget)
-        assertEquals(R.string.open_launchable, actualHeader.time?.clickLabel)
-        assertEquals("Maps", actualHeader.time?.clickLabelArg)
-        assertEquals(HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable), actualHeader.date?.tapTarget)
-        assertEquals("Maps", actualHeader.date?.clickLabelArg)
+    fun `applies Nothing to both Header lines in every style`() {
+        ClockStyle.entries.forEach { style ->
+            val actualHeader: HeaderModel = applyStyle(
+                style = style,
+                settings = HeaderSettings(timeTapTarget = HeaderTapSetting.Nothing, dateTapTarget = HeaderTapSetting.Nothing)
+            )
+
+            assertBothLines(header = actualHeader, expectedTarget = HeaderTapTarget.None, expectedLabel = null)
+        }
+    }
+
+    @Test
+    fun `applies a chosen Launchable with its click labels in every style`() {
+        ClockStyle.entries.forEach { style ->
+            val actualHeader: HeaderModel = applyStyle(
+                style = style,
+                settings = HeaderSettings(
+                    timeTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key),
+                    dateTapTarget = HeaderTapSetting.Launchable(key = inputLaunchable.key)
+                ),
+                launchableState = createLoadedLaunchableState(listOf(inputLaunchable))
+            )
+
+            assertBothLines(
+                header = actualHeader,
+                expectedTarget = HeaderTapTarget.LaunchLaunchable(launchable = inputLaunchable),
+                expectedLabel = R.string.open_launchable,
+                expectedLabelArg = "Maps"
+            )
+        }
     }
 
     @Test
@@ -175,24 +167,18 @@ class IHeaderTapTargetResolverImplTest {
     }
 
     @Test
-    fun `opens the agenda from the time and the date`() {
-        val inputHeader: HeaderModel = header()
-        val inputSettings: HeaderSettings = HeaderSettings(
-            timeTapTarget = HeaderTapSetting.OpenAgenda,
-            dateTapTarget = HeaderTapSetting.OpenAgenda
-        )
+    fun `opens the agenda from the time and the date in every style`() {
+        ClockStyle.entries.forEach { style ->
+            val actualHeader: HeaderModel = applyStyle(
+                style = style,
+                settings = HeaderSettings(
+                    timeTapTarget = HeaderTapSetting.OpenAgenda,
+                    dateTapTarget = HeaderTapSetting.OpenAgenda
+                )
+            )
 
-        val actualHeader: HeaderModel = resolver.applyTo(
-            header = inputHeader,
-            settings = inputSettings,
-            launchableState = createLaunchableState(groups = emptyList()),
-            atEpochMillis = nowMillis
-        )
-
-        assertEquals(HeaderTapTarget.OpenAgenda, actualHeader.time?.tapTarget)
-        assertEquals(R.string.open_agenda, actualHeader.time?.clickLabel)
-        assertEquals(HeaderTapTarget.OpenAgenda, actualHeader.date?.tapTarget)
-        assertEquals(R.string.open_agenda, actualHeader.date?.clickLabel)
+            assertBothLines(header = actualHeader, expectedTarget = HeaderTapTarget.OpenAgenda, expectedLabel = R.string.open_agenda)
+        }
     }
 
     @Test
@@ -245,6 +231,36 @@ class IHeaderTapTargetResolverImplTest {
         assertEquals(HeaderTapSetting.SystemDefault, actualSetting)
         assertEquals(HeaderTapTarget.SystemAlarms, actualHeader.time?.tapTarget)
         assertEquals(HeaderTapTarget.SystemCalendar(atEpochMillis = nowMillis), actualHeader.date?.tapTarget)
+    }
+
+    private fun applyStyle(
+        style: ClockStyle,
+        settings: HeaderSettings = HeaderSettings(),
+        launchableState: LaunchableState = createLaunchableState(groups = emptyList())
+    ): HeaderModel = resolver.applyTo(
+        header = header(),
+        settings = settings.copy(clockStyle = style),
+        launchableState = launchableState,
+        atEpochMillis = nowMillis
+    )
+
+    private fun assertTimeDefault(header: HeaderModel) {
+        assertEquals(HeaderTapTarget.SystemAlarms, header.time?.tapTarget)
+        assertEquals(R.string.open_alarms, header.time?.clickLabel)
+    }
+
+    private fun assertBothLines(
+        header: HeaderModel,
+        expectedTarget: HeaderTapTarget,
+        expectedLabel: Int?,
+        expectedLabelArg: String? = null
+    ) {
+        assertEquals(expectedTarget, header.time?.tapTarget)
+        assertEquals(expectedLabel, header.time?.clickLabel)
+        assertEquals(expectedLabelArg, header.time?.clickLabelArg)
+        assertEquals(expectedTarget, header.date?.tapTarget)
+        assertEquals(expectedLabel, header.date?.clickLabel)
+        assertEquals(expectedLabelArg, header.date?.clickLabelArg)
     }
 
     private fun header(): HeaderModel = createHeaderModel(
