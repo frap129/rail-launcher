@@ -7,6 +7,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.TextFieldColors
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
@@ -58,9 +59,11 @@ import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import core.data.testing.createWebSuggestionRow
 import core.ui.R as CoreUiR
+import core.ui.composables.LocalLauncherInputState
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailStartInset
 import core.ui.layout.minTouchTargetSize
+import core.ui.model.data.LauncherInputState
 import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -591,6 +594,16 @@ class LauncherSearchTest {
     }
 
     @Test
+    fun `reports the query field focus to the launcher input state`() {
+        val inputLauncherInputState: LauncherInputState = LauncherInputState()
+        setSearchContent(query = mutableStateOf(""), launcherInputState = inputLauncherInputState)
+
+        queryField().assertIsFocused()
+
+        assertTrue(inputLauncherInputState.isTextFieldFocused.value)
+    }
+
+    @Test
     fun `shows the Clear button only while the query is not empty`() {
         val inputQuery: MutableState<String> = mutableStateOf("")
         setSearchContent(query = inputQuery)
@@ -757,31 +770,34 @@ class LauncherSearchTest {
         options: SearchOptions = inputSearchOptions,
         contactsEvents: Flow<SearchContactsUiEvent> = emptyFlow(),
         searchOptionsActions: SearchOptionsActions = inputSearchOptionsActions,
+        launcherInputState: LauncherInputState = LauncherInputState(),
         onQueryChange: (String) -> Unit = { text -> query.value = text },
         onSearchGo: (String) -> SearchResult? = { null }
     ) {
         composeRule.setContent {
             val inputResults: List<SearchResult> = resultsState.value
-            LauncherSearch(
-                search = LauncherUiState.Search(
-                    query = query.value,
-                    results = inputResults,
-                    topResult = inputResults.firstOrNull(),
-                    isShowingSuggestions = false,
-                    isBottomAnchored = isBottomAnchored,
-                    autoLaunchResult = autoLaunchResult,
-                    options = options
-                ),
-                shouldAutoLaunch = { true },
-                itemActions = itemActions,
-                contactsEvents = contactsEvents,
-                searchOptionsActions = searchOptionsActions,
-                onQueryChange = onQueryChange,
-                onSearchGo = onSearchGo,
-                onCopyCalculatorRow = {},
-                onOpenSearchRow = onOpenSearchRow,
-                onContactRowAction = onContactRowAction
-            )
+            CompositionLocalProvider(LocalLauncherInputState provides launcherInputState) {
+                LauncherSearch(
+                    search = LauncherUiState.Search(
+                        query = query.value,
+                        results = inputResults,
+                        topResult = inputResults.firstOrNull(),
+                        isShowingSuggestions = false,
+                        isBottomAnchored = isBottomAnchored,
+                        autoLaunchResult = autoLaunchResult,
+                        options = options
+                    ),
+                    shouldAutoLaunch = { true },
+                    itemActions = itemActions,
+                    contactsEvents = contactsEvents,
+                    searchOptionsActions = searchOptionsActions,
+                    onQueryChange = onQueryChange,
+                    onSearchGo = onSearchGo,
+                    onCopyCalculatorRow = {},
+                    onOpenSearchRow = onOpenSearchRow,
+                    onContactRowAction = onContactRowAction
+                )
+            }
         }
     }
 }

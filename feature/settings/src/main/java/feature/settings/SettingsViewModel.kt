@@ -18,6 +18,7 @@ import core.data.profiles.IPrivateSpaceStatus
 import core.data.search.IStoppedSuggestionRepository
 import core.ui.model.data.POPUPS_SETTINGS_KEY
 import core.ui.model.data.SEARCH_SETTINGS_KEY
+import core.ui.model.data.SETTINGS_MAIN_KEY
 import core.ui.search.SearchContactsUiEvent
 import core.ui.search.SearchContactsUiEvents
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
@@ -32,7 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 private val defaultSettings: Settings = Settings()
 
 enum class SettingsScreen(val key: String) {
-    Main("main"),
+    Main(SETTINGS_MAIN_KEY),
     Appearance("appearance"),
     Widgets("widgets"),
     Popups(POPUPS_SETTINGS_KEY),

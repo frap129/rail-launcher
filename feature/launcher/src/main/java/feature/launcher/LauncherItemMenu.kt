@@ -49,6 +49,7 @@ import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
 import core.ui.composables.sheetContainerColor
+import core.ui.composables.tracksTextFieldFocus
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
@@ -295,7 +296,8 @@ internal fun LauncherItemEditName(item: Launchable, viewModel: LauncherViewModel
             OutlinedTextField(
                 modifier = Modifier
                     .padding(48.dp, 10.dp)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .tracksTextFieldFocus(),
                 singleLine = true,
                 shape = CircleShape,
                 value = nameEdit,
