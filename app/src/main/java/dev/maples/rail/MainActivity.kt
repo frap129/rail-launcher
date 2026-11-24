@@ -21,6 +21,7 @@ import core.lifecycle.LauncherSignals
 import core.lifecycle.TemplateActivity
 import core.lifecycle.isSearchEntry
 import core.ui.App
+import core.ui.layout.resolveRequestedOrientation
 import core.ui.model.data.Destination
 import core.ui.model.data.LauncherTypingState
 import feature.launcher.launcherDestination
@@ -88,6 +89,8 @@ class MainActivity : TemplateActivity() {
     private val appWidgetResults: AppWidgetResults by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val configuration: Configuration = resources.configuration
+        requestedOrientation = resolveRequestedOrientation(smallestScreenWidthDp = configuration.smallestScreenWidthDp)
         enableEdgeToEdge(
             statusBarStyle = wallpaperFollowingSystemBarStyle(),
             navigationBarStyle = wallpaperFollowingSystemBarStyle()
