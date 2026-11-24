@@ -345,10 +345,17 @@ fun LauncherScreen(
         launcherInputState.setAcceptsTyping(
             acceptsTyping = viewModel.canAcceptTypedCharacter(isPopupOpen = isPopupOpen)
         )
+        launcherInputState.setCanToggleAppList(
+            canToggleAppList = viewModel.canToggleAppList(isPopupOpen = isPopupOpen)
+        )
     }
     LaunchedEffect(launcherSignalRequest) {
         launcherSignalRequest.collectRequests { signal ->
-            if (signal !is LauncherSignal.TypedCharacter && signal !is LauncherSignal.OpenIndex) {
+            if (
+                signal !is LauncherSignal.TypedCharacter &&
+                signal !is LauncherSignal.OpenIndex &&
+                signal !is LauncherSignal.ToggleAppList
+            ) {
                 popupCardViewModel.onHomeIntent()
             }
             when (signal) {
@@ -366,6 +373,10 @@ fun LauncherScreen(
                 LauncherSignal.OpenAgenda -> agendaViewModel.open()
 
                 LauncherSignal.OpenSettings -> navController.navigate(route = SETTINGS_MAIN_ROUTE)
+
+                LauncherSignal.ToggleAppList -> viewModel.toggleAppList(
+                    isPopupOpen = popupCardViewModel.isCardOpen.value
+                )
 
                 is LauncherSignal.OpenIndex -> {
                     val target: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = signal.index)

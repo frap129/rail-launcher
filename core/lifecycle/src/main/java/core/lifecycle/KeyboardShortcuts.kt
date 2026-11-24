@@ -14,7 +14,7 @@ import core.ui.model.data.KeyboardShortcut
 fun createKeyboardShortcutGroup(label: CharSequence, resolveLabel: (KeyboardShortcut) -> CharSequence): KeyboardShortcutGroup {
     val shortcutInfos: List<KeyboardShortcutInfo> = KeyboardShortcut.entries.flatMap { shortcut ->
         shortcut.keyCodes.flatMap { keyCode ->
-            KeyboardShortcut.modifiers.map { modifiers ->
+            shortcut.modifiers.map { modifiers ->
                 KeyboardShortcutInfo(resolveLabel(shortcut), keyCode, modifiers)
             }
         }

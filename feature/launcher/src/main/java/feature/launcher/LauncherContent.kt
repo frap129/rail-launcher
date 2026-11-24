@@ -219,6 +219,7 @@ internal fun LauncherContent(
                 isSwipeDownEnabled = isSwipeDownEnabled,
                 isResizing = isResizing,
                 isEditingWidgets = isEditingWidgets,
+                isRowFocusEnabled = isHomeVisible,
                 isPopupSwipeEnabled = !isEditingHome,
                 onResizeOutsideTap = widgetViewModel::finishResize
             )
@@ -253,6 +254,7 @@ internal fun LauncherContent(
                     val rowState: AppListRowState = rememberAppListRowState(
                         isEditingFavorites = state.isEditingFavorites,
                         favorites = viewModel.favorites,
+                        isRowFocusEnabled = state == uiState,
                         isPopupSwipeEnabled = !isEditingHome
                     )
                     LauncherAppList(
@@ -274,6 +276,7 @@ internal fun LauncherContent(
                     val rowState: AppListRowState = rememberAppListRowState(
                         isEditingFavorites = state.isEditingFavorites,
                         favorites = viewModel.favorites,
+                        isRowFocusEnabled = state == uiState,
                         isPopupSwipeEnabled = false
                     )
                     LauncherItemGroup(

@@ -74,8 +74,7 @@ class MainActivity : TemplateActivity() {
 
     private val launcherKeyHandler: LauncherKeyHandler = LauncherKeyHandler(
         isLauncherShown = { isLauncherShown },
-        isTypingAccepted = { launcherInputState.acceptsTyping.value },
-        isTextFieldFocused = { launcherInputState.isTextFieldFocused.value },
+        inputState = launcherInputState,
         onBack = { onBackPressedDispatcher.onBackPressed() },
         onSignal = launcherSignals::signal
     )
@@ -210,6 +209,9 @@ class MainActivity : TemplateActivity() {
 
     private fun onDestinationChanged(route: String?, isWallpaperBacked: Boolean, isSurfaceDark: Boolean) {
         isLauncherShown = route == launcherDestination.route
+        if (!isLauncherShown) {
+            launcherInputState.setCanToggleAppList(canToggleAppList = false)
+        }
         this.isWallpaperBacked = isWallpaperBacked
         this.isSurfaceDark = isSurfaceDark
         updateSystemBarIconAppearance()

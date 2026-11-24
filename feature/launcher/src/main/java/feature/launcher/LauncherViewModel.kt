@@ -1061,21 +1061,46 @@ class LauncherViewModel(
 
     fun onRailReleased(index: Int) = handleRailGroup(index, isScrolling = false)
 
+    /** Whether Tab may switch between Home and the App List without taking input from a Pop-up or Home edit mode. */
+    fun canToggleAppList(isPopupOpen: Boolean): Boolean {
+        val state: LauncherUiState = uiState.value
+        return (state is LauncherUiState.Home || state is LauncherUiState.AppList) &&
+            homeEditState.mode.value == HomeEditMode.None &&
+            !isPopupOpen
+    }
+
+    /** Switches between Home and the App List when [canToggleAppList] allows it. */
+    fun toggleAppList(isPopupOpen: Boolean) {
+        if (!canToggleAppList(isPopupOpen = isPopupOpen)) {
+            return
+        }
+        if (isShowingAppList) {
+            showHome(resetScroll = false)
+            return
+        }
+        val group: LaunchableGroup.Listed = launchableState.value
+            .listedGroupsFor(includeHidden = isEditingFavorites.value)
+            .firstOrNull()
+            ?: return
+        showAppList(group = group, isScrolling = false)
+    }
+
     private fun handleRailGroup(index: Int, isScrolling: Boolean) {
         when (val group = findRailGroup(index) ?: return) {
             LaunchableGroup.Star -> showHomeFromRail()
+            is LaunchableGroup.Listed -> showAppList(group = group, isScrolling = isScrolling)
+        }
+    }
 
-            is LaunchableGroup.Listed -> {
-                val appListState: LazyListState? = if (isScrolling) null else createAppListState(group)
-                navigation.update { current ->
-                    toAppListNavigation(
-                        current = current,
-                        group = group,
-                        isScrolling = isScrolling,
-                        appListState = appListState ?: current.appListState
-                    )
-                }
-            }
+    private fun showAppList(group: LaunchableGroup.Listed, isScrolling: Boolean) {
+        val appListState: LazyListState? = if (isScrolling) null else createAppListState(group)
+        navigation.update { current ->
+            toAppListNavigation(
+                current = current,
+                group = group,
+                isScrolling = isScrolling,
+                appListState = appListState ?: current.appListState
+            )
         }
     }
 

@@ -1160,6 +1160,76 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `Tab switches between Home and the App List in both directions`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            assertTrue(viewModel.canToggleAppList(isPopupOpen = false))
+            viewModel.toggleAppList(isPopupOpen = false)
+            val actualAppList: LauncherUiState.AppList.Browsing = expectAppList()
+            assertEquals(inputListedGroups, actualAppList.groups)
+            assertEquals(1, actualAppList.lazyListState.firstVisibleItemIndex)
+            assertTrue(viewModel.canToggleAppList(isPopupOpen = false))
+            viewModel.toggleAppList(isPopupOpen = false)
+            expectHome()
+        }
+    }
+
+    @Test
+    fun `Tab passes through while a Pop-up is open`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            assertFalse(viewModel.canToggleAppList(isPopupOpen = true))
+            viewModel.toggleAppList(isPopupOpen = true)
+            runCurrent()
+            expectNoEvents()
+            viewModel.onRailReleased(index = railIndex(inputListedGroups[0]))
+            expectAppList()
+            assertFalse(viewModel.canToggleAppList(isPopupOpen = true))
+            viewModel.toggleAppList(isPopupOpen = true)
+            runCurrent()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Tab passes through in every Home edit mode`() = runTest {
+        val inputModes: List<HomeEditMode> = listOf(
+            HomeEditMode.Favorites,
+            HomeEditMode.Resizing(placeId = 7L),
+            HomeEditMode.Widgets,
+            HomeEditMode.MovingWidgetArea
+        )
+        inputModes.forEach { inputMode ->
+            val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(inputMode) }
+            val viewModel: LauncherViewModel = createViewModel(inputHomeEditState = inputHomeEditState)
+            viewModel.uiState.test {
+                expectHome()
+                assertFalse(viewModel.canToggleAppList(isPopupOpen = false))
+                viewModel.toggleAppList(isPopupOpen = false)
+                runCurrent()
+                expectNoEvents()
+            }
+        }
+    }
+
+    @Test
+    fun `Tab leaves Search unchanged`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.openSearch()
+            expectSearch()
+            assertFalse(viewModel.canToggleAppList(isPopupOpen = false))
+            viewModel.toggleAppList(isPopupOpen = false)
+            runCurrent()
+            expectNoEvents()
+            assertTrue(viewModel.isSearchOpen())
+        }
+    }
+
+    @Test
     fun `open index resolves Favorites in Home order`() = runTest {
         val inputSecondFavorite: Launchable = listedItem(1)
         mockFavoritesFixture.state.setFavorites(listOf(inputSecondFavorite, inputItem))

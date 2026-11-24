@@ -129,6 +129,7 @@ fun LauncherHomeTestContent(
     modifier: Modifier = Modifier,
     isResizing: Boolean = false,
     isEditingWidgets: Boolean = false,
+    isRowFocusEnabled: Boolean = true,
     onFavoriteIconSettled: (Launchable) -> Unit = {}
 ) {
     val widgetArea: WidgetAreaUi = remember { createTestWidgetAreaUi() }
@@ -148,6 +149,7 @@ fun LauncherHomeTestContent(
         isSwipeDownEnabled = false,
         isResizing = isResizing,
         isEditingWidgets = isEditingWidgets,
+        isRowFocusEnabled = isRowFocusEnabled,
         isPopupSwipeEnabled = isPopupSwipeEnabled,
         onResizeOutsideTap = {}
     )

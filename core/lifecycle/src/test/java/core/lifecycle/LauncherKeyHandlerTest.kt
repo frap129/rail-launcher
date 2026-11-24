@@ -2,7 +2,9 @@ package core.lifecycle
 
 import android.view.KeyEvent
 import core.ui.model.data.KeyboardShortcut
+import core.ui.model.data.LauncherInputState
 import core.ui.model.data.LauncherSignal
+import core.ui.model.data.TextFieldFocusToken
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,7 +21,6 @@ class LauncherKeyHandlerTest {
         var actualBackCalls: Int = 0
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = true,
             onBack = { actualBackCalls++ }
         )
 
@@ -37,7 +38,6 @@ class LauncherKeyHandlerTest {
         var actualBackCalls: Int = 0
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = true,
             onBack = { actualBackCalls++ }
         )
 
@@ -51,10 +51,10 @@ class LauncherKeyHandlerTest {
     }
 
     @Test
-    fun `every listed shortcut fires for each of its modifiers`() {
+    fun `every listed shortcut fires for each of its modifiers, including Tab`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifiers.forEach { inputModifier ->
                     assertShortcutFires(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
@@ -78,10 +78,11 @@ class LauncherKeyHandlerTest {
             LauncherSignal.OpenIndex(index = 7),
             LauncherSignal.OpenIndex(index = 8)
         )
+        val inputModifiers: List<Int> = listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)
         expectedSignals.forEachIndexed { index, expectedSignal ->
             val inputKeyCodes: List<Int> = listOf(KeyEvent.KEYCODE_1 + index, KeyEvent.KEYCODE_NUMPAD_1 + index)
             inputKeyCodes.forEach { inputKeyCode ->
-                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                inputModifiers.forEach { inputModifier ->
                     assertShortcutFires(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
@@ -96,6 +97,7 @@ class LauncherKeyHandlerTest {
     fun `other modifier combinations pass through`() {
         val inputMetaStates: List<Int> = listOf(
             KeyEvent.META_ALT_ON,
+            KeyEvent.META_SHIFT_ON,
             KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
             KeyEvent.META_META_ON or KeyEvent.META_ALT_ON,
             KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON,
@@ -126,7 +128,7 @@ class LauncherKeyHandlerTest {
     fun `every listed shortcut passes through outside the launcher`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifiers.forEach { inputModifier ->
                     assertPassesThrough(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
@@ -138,14 +140,24 @@ class LauncherKeyHandlerTest {
     }
 
     @Test
+    fun `Tab passes through when no Tab surface is available`() {
+        assertPassesThrough(
+            inputKeyCode = KeyEvent.KEYCODE_TAB,
+            inputMetaState = 0,
+            inputState = LauncherInputState()
+        )
+    }
+
+    @Test
     fun `shortcuts are ignored while a text field has focus`() {
+        val inputState: LauncherInputState = createInputState(isTextFieldFocused = true)
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                KeyboardShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifiers.forEach { inputModifier ->
                     assertPassesThrough(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
-                        isTextFieldFocused = true
+                        inputState = inputState
                     )
                 }
             }
@@ -170,7 +182,6 @@ class LauncherKeyHandlerTest {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = false,
             onSignal = actualSignals::add
         )
 
@@ -186,9 +197,10 @@ class LauncherKeyHandlerTest {
     @Test
     fun `typing outside the launcher passes through`() {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
+        val inputState: LauncherInputState = createInputState(acceptsTyping = true)
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = false,
-            isTypingAccepted = true,
+            inputState = inputState,
             onSignal = actualSignals::add
         )
 
@@ -204,9 +216,10 @@ class LauncherKeyHandlerTest {
     @Test
     fun `a Typed character and a Keyboard shortcut fire while a row has focus`() {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
+        val inputState: LauncherInputState = createInputState(acceptsTyping = true)
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = true,
+            inputState = inputState,
             onSignal = actualSignals::add
         )
 
@@ -240,7 +253,6 @@ class LauncherKeyHandlerTest {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = true,
             onSignal = actualSignals::add
         )
 
@@ -255,9 +267,10 @@ class LauncherKeyHandlerTest {
 
     private fun assertTypedCharacterFires(inputKeyCode: Int, expectedCharacter: String) {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
+        val inputState: LauncherInputState = createInputState(acceptsTyping = true)
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = true,
-            isTypingAccepted = true,
+            inputState = inputState,
             onSignal = actualSignals::add
         )
         val actualHandled: Boolean = launcherKeyHandler.onKeyDown(
@@ -289,37 +302,45 @@ class LauncherKeyHandlerTest {
         inputKeyCode: Int,
         inputMetaState: Int,
         isLauncherShown: Boolean = true,
-        isTextFieldFocused: Boolean = false
+        inputState: LauncherInputState = createInputState()
     ) {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = isLauncherShown,
-            isTextFieldFocused = isTextFieldFocused,
+            inputState = inputState,
             onSignal = actualSignals::add
         )
-
         val actualHandled: Boolean = launcherKeyHandler.onKeyDown(
             keyCode = inputKeyCode,
             event = createKeyEvent(keyCode = inputKeyCode, metaState = inputMetaState)
         )
-
         assertFalse(actualHandled)
         assertTrue(actualSignals.isEmpty())
     }
 
     private fun createHandler(
         isLauncherShown: Boolean = true,
-        isTypingAccepted: Boolean = false,
-        isTextFieldFocused: Boolean = false,
+        inputState: LauncherInputState = createInputState(),
         onBack: () -> Unit = {},
         onSignal: (LauncherSignal) -> Unit = {}
     ): LauncherKeyHandler = LauncherKeyHandler(
         isLauncherShown = { isLauncherShown },
-        isTypingAccepted = { isTypingAccepted },
-        isTextFieldFocused = { isTextFieldFocused },
+        inputState = inputState,
         onBack = onBack,
         onSignal = onSignal
     )
+
+    private fun createInputState(
+        acceptsTyping: Boolean = false,
+        canToggleAppList: Boolean = true,
+        isTextFieldFocused: Boolean = false
+    ): LauncherInputState = LauncherInputState().apply {
+        setAcceptsTyping(acceptsTyping = acceptsTyping)
+        setCanToggleAppList(canToggleAppList = canToggleAppList)
+        if (isTextFieldFocused) {
+            setTextFieldFocused(token = TextFieldFocusToken(), isFocused = true)
+        }
+    }
 
     private fun createKeyEvent(keyCode: Int, metaState: Int = 0): KeyEvent = KeyEvent(
         0L,
