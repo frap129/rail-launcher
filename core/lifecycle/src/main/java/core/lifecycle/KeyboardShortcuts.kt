@@ -6,7 +6,7 @@ import core.ui.model.data.KeyboardShortcut
 
 /**
  * The system keyboard shortcuts helper group listing every [KeyboardShortcut.keyCodes] variant for
- * each of its accepted [KeyboardShortcut.modifiers], so the helper and the key handler read one list.
+ * each accepted [KeyboardShortcut.modifierStates], so the helper and the key handler read one list.
  *
  * @param label the group's label in the helper
  * @param resolveLabel names each shortcut's action in the helper
@@ -14,7 +14,7 @@ import core.ui.model.data.KeyboardShortcut
 fun createKeyboardShortcutGroup(label: CharSequence, resolveLabel: (KeyboardShortcut) -> CharSequence): KeyboardShortcutGroup {
     val shortcutInfos: List<KeyboardShortcutInfo> = KeyboardShortcut.entries.flatMap { shortcut ->
         shortcut.keyCodes.flatMap { keyCode ->
-            shortcut.modifiers.map { modifiers ->
+            shortcut.modifierStates.map { modifiers ->
                 KeyboardShortcutInfo(resolveLabel(shortcut), keyCode, modifiers)
             }
         }

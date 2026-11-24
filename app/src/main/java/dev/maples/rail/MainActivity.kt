@@ -187,7 +187,7 @@ class MainActivity : TemplateActivity() {
         super.onProvideKeyboardShortcuts(data, menu, deviceId)
         data += createKeyboardShortcutGroup(
             label = getString(R.string.app_name),
-            resolveLabel = { shortcut -> getString(shortcut.label) }
+            resolveLabel = { shortcut -> getString(shortcut.label, *shortcut.labelArguments.toTypedArray()) }
         )
     }
 

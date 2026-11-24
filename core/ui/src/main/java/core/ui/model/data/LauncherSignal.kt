@@ -30,6 +30,9 @@ sealed interface LauncherSignal : Serializable {
     /** A Keyboard shortcut asked to switch between Home and the App List. */
     data object ToggleAppList : LauncherSignal
 
+    /** A Keyboard shortcut asked to open the Keyboard shortcuts help sheet. */
+    data object OpenKeyboardShortcutsHelp : LauncherSignal
+
     /**
      * A Keyboard shortcut asked to open a row in the shown Home or App List order.
      *

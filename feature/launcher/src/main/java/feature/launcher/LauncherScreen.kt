@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -153,6 +154,7 @@ fun LauncherScreen(
     val finishEditingHomeMessage: String = stringResource(R.string.finish_editing_home)
     var showCalendarPermissionDialog: Boolean by remember { mutableStateOf(false) }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
+    var isKeyboardShortcutsHelpOpen: Boolean by rememberSaveable { mutableStateOf(false) }
     val appWidgetResults: AppWidgetResults = koinInject()
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
@@ -361,6 +363,7 @@ fun LauncherScreen(
             when (signal) {
                 is LauncherSignal.Home -> {
                     agendaViewModel.close()
+                    isKeyboardShortcutsHelpOpen = false
                     val wasEditingHome: Boolean =
                         widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
                     if (!widgetViewModel.finishHomeInteractions(resetScroll = signal.shouldShowHome) || wasEditingHome) {
@@ -377,6 +380,8 @@ fun LauncherScreen(
                 LauncherSignal.ToggleAppList -> viewModel.toggleAppList(
                     isPopupOpen = popupCardViewModel.isCardOpen.value
                 )
+
+                LauncherSignal.OpenKeyboardShortcutsHelp -> isKeyboardShortcutsHelpOpen = true
 
                 is LauncherSignal.OpenIndex -> {
                     val target: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = signal.index)
@@ -467,6 +472,9 @@ fun LauncherScreen(
                 onGrantPermission = { agendaPermissionLauncher.launch(Manifest.permission.READ_CALENDAR) },
                 onDismiss = agendaViewModel::close
             )
+        }
+        if (isKeyboardShortcutsHelpOpen) {
+            KeyboardShortcutsHelpSheet(onDismiss = { isKeyboardShortcutsHelpOpen = false })
         }
         PopupHost(
             viewModel = popupCardViewModel,
