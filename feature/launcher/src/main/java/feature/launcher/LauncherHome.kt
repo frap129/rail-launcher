@@ -281,7 +281,8 @@ private fun FavoritesBottomArea(
                 folderSummaries = folderSummaries,
                 reorderableState = reorderState,
                 onFavoriteIconSettled = onFavoriteIconSettled,
-                isPopupSwipeEnabled = isPopupSwipeEnabled
+                isPopupSwipeEnabled = isPopupSwipeEnabled,
+                blockInteraction = interaction.isResizing || interaction.isEditingWidgets
             )
         }
     }
@@ -354,6 +355,7 @@ private fun LazyListScope.favoriteItems(
                         item = favorite,
                         isEditingFavorites = home.isEditingFavorites,
                         isFavorite = true,
+                        isRowFocusEnabled = !blockInteraction,
                         isPopupSwipeEnabled = isPopupSwipeEnabled,
                         itemActions = itemActions,
                         menuSuggestion = MenuSuggestion.None,
@@ -385,18 +387,26 @@ private fun LazyListScope.favoriteItems(
             suggestion = suggestion,
             railSide = railSide,
             itemActions = itemActions,
-            isPopupSwipeEnabled = isPopupSwipeEnabled
+            isPopupSwipeEnabled = isPopupSwipeEnabled,
+            isRowFocusEnabled = !blockInteraction
         )
     }
 }
 
 /** A Home suggestion: a Favorite-like row drawn quieter and announced as suggested. */
 @Composable
-internal fun HomeSuggestionRow(suggestion: Launchable, railSide: RailSide, itemActions: LauncherItemActions, isPopupSwipeEnabled: Boolean) {
+internal fun HomeSuggestionRow(
+    suggestion: Launchable,
+    railSide: RailSide,
+    itemActions: LauncherItemActions,
+    isPopupSwipeEnabled: Boolean,
+    isRowFocusEnabled: Boolean = true
+) {
     HomeItem(
         item = suggestion,
         isFavorite = false,
         isEditingFavorites = false,
+        isRowFocusEnabled = isRowFocusEnabled,
         isPopupSwipeEnabled = isPopupSwipeEnabled,
         itemActions = itemActions,
         accessibilityAnnouncement = stringResource(R.string.home_suggestion_announcement),
@@ -413,6 +423,7 @@ private fun HomeItem(
     item: Launchable,
     isFavorite: Boolean,
     isEditingFavorites: Boolean,
+    isRowFocusEnabled: Boolean,
     isPopupSwipeEnabled: Boolean,
     itemActions: LauncherItemActions,
     menuSuggestion: MenuSuggestion,
@@ -425,6 +436,7 @@ private fun HomeItem(
         item = item,
         isEditingFavorites = isEditingFavorites,
         isFavorite = isFavorite,
+        isRowFocusEnabled = isRowFocusEnabled,
         isPopupSwipeEnabled = isPopupSwipeEnabled,
         popupRow = PopupRow.Home,
         itemActions = itemActions,

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.isHeading
@@ -60,7 +59,13 @@ class LauncherAppListTest {
                     rowState = rowState,
                     itemActions = itemActions
                 )
-                AppListContent(appList = listOf(inputGroup), lazyListState = inputReleasedListState, topOffset = inputTopOffset)
+                LauncherAppListTestContent(
+                    appList = listOf(inputGroup),
+                    lazyListState = inputReleasedListState,
+                    topOffset = inputTopOffset,
+                    rowState = rowState,
+                    itemActions = itemActions
+                )
             }
         }
         composeRule.mainClock.advanceTimeByFrame()
@@ -75,19 +80,23 @@ class LauncherAppListTest {
     fun `drops the Rail gutter from the App List when Show Rail is off`() {
         composeRule.setContent {
             Column {
-                AppListContent(
+                LauncherAppListTestContent(
                     modifier = Modifier.weight(1f),
                     appList = listOf(groupOf(label = "Shown", name = "Alpha")),
                     lazyListState = LazyListState(),
                     topOffset = 0.dp,
+                    rowState = rowState,
+                    itemActions = itemActions,
                     railSide = RailSide.START,
                     showRail = true
                 )
-                AppListContent(
+                LauncherAppListTestContent(
                     modifier = Modifier.weight(1f),
                     appList = listOf(groupOf(label = "Hidden", name = "Beta")),
                     lazyListState = LazyListState(),
                     topOffset = 0.dp,
+                    rowState = rowState,
+                    itemActions = itemActions,
                     railSide = RailSide.START,
                     showRail = false
                 )
@@ -106,35 +115,17 @@ class LauncherAppListTest {
         val expectedTitle: String = getString(R.string.recently_installed)
 
         composeRule.setContent {
-            AppListContent(appList = emptyList(), recentlyInstalled = inputSection, lazyListState = LazyListState(), topOffset = 0.dp)
+            LauncherAppListTestContent(
+                appList = emptyList(),
+                recentlyInstalled = inputSection,
+                lazyListState = LazyListState(),
+                topOffset = 0.dp,
+                rowState = rowState,
+                itemActions = itemActions
+            )
         }
 
         composeRule.onNodeWithText(expectedTitle, useUnmergedTree = true).assert(isHeading())
-    }
-
-    @Composable
-    private fun AppListContent(
-        appList: List<LaunchableGroup.Listed>,
-        recentlyInstalled: RecentlyInstalledSection? = null,
-        lazyListState: LazyListState,
-        topOffset: Dp,
-        modifier: Modifier = Modifier.fillMaxSize(),
-        railSide: RailSide = RailSide.END,
-        showRail: Boolean = true
-    ) {
-        LauncherAppList(
-            modifier = modifier,
-            appList = appList,
-            recentlyInstalled = recentlyInstalled,
-            lazyListState = lazyListState,
-            rowState = rowState,
-            itemActions = itemActions,
-            folderSummaries = emptyMap(),
-            topOffset = topOffset,
-            bottomOffset = 0.dp,
-            railSide = railSide,
-            showRail = showRail
-        )
     }
 
     private fun groupOf(label: String, name: String): LaunchableGroup.InitialGroup =

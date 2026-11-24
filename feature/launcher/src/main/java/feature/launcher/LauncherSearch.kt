@@ -351,6 +351,7 @@ private fun LauncherSearchResults(
                     item = result.launchable,
                     isEditingFavorites = false,
                     isFavorite = false,
+                    isRowFocusEnabled = false,
                     isPopupSwipeEnabled = true,
                     popupRow = PopupRow.Search,
                     itemActions = itemActions,

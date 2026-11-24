@@ -3,6 +3,7 @@ package core.lifecycle
 import android.view.KeyEvent
 import core.ui.model.data.KeyboardShortcut
 import core.ui.model.data.LauncherSignal
+import core.ui.model.data.hasShortcutModifier
 
 /**
  * Routes a hardware key press in the launcher activity: Esc acts as Back on every screen, while

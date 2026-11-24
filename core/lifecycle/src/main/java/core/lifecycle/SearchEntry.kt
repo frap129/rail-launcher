@@ -4,6 +4,7 @@ import android.content.Intent
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import core.ui.model.data.SEARCH_ENTRY_URI
+import core.ui.model.data.hasShortcutModifier
 
 /**
  * Whether this intent is the Search entry other apps call to open Search,
@@ -21,8 +22,6 @@ fun KeyEvent.typedCharacter(): String? {
     }
     return printableHardwareCharacter(codePoint = unicodeChar, deviceId = deviceId, flags = flags)
 }
-
-internal fun KeyEvent.hasShortcutModifier(): Boolean = isCtrlPressed || isAltPressed || isMetaPressed
 
 internal fun printableHardwareCharacter(codePoint: Int, deviceId: Int, flags: Int): String? {
     if (deviceId == KeyCharacterMap.VIRTUAL_KEYBOARD) {

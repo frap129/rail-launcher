@@ -175,6 +175,15 @@ class MainActivity : TemplateActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
         launcherKeyHandler.onKeyDown(keyCode = keyCode, event = event) || super.onKeyDown(keyCode, event)
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Compose consumes Tab for focus traversal before onKeyDown sees it, so Tab goes to the key handler first.
+        val isTabDown: Boolean = event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_TAB
+        if (isTabDown && launcherKeyHandler.onKeyDown(keyCode = event.keyCode, event = event)) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onProvideKeyboardShortcuts(data: MutableList<KeyboardShortcutGroup>, menu: Menu?, deviceId: Int) {
         super.onProvideKeyboardShortcuts(data, menu, deviceId)
         data += createKeyboardShortcutGroup(
