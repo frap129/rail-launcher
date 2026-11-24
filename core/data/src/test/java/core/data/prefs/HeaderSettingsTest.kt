@@ -66,6 +66,56 @@ class HeaderSettingsTest {
     }
 
     @Test
+    fun `allows hiding the clock and date while the Weekday style shows the weekday`() {
+        val inputClockSettings: HeaderSettings = HeaderSettings(
+            clockVisible = true,
+            dateVisible = false,
+            clockStyle = ClockStyle.WEEKDAY
+        )
+        val inputDateSettings: HeaderSettings = HeaderSettings(
+            clockVisible = false,
+            dateVisible = true,
+            clockStyle = ClockStyle.WEEKDAY
+        )
+
+        assertTrue(inputClockSettings.canHideClock)
+        assertTrue(inputDateSettings.canHideDate)
+        assertFalse(inputClockSettings.withClockVisible(visible = false).clockVisible)
+        assertFalse(inputDateSettings.withDateVisible(visible = false).dateVisible)
+    }
+
+    @Test
+    fun `keeps the last visible part rule outside the Weekday style`() {
+        val inputClockSettings: HeaderSettings = HeaderSettings(
+            clockVisible = true,
+            dateVisible = false,
+            clockStyle = ClockStyle.CLASSIC
+        )
+        val inputDateSettings: HeaderSettings = HeaderSettings(
+            clockVisible = false,
+            dateVisible = true,
+            clockStyle = ClockStyle.CLASSIC
+        )
+
+        assertFalse(inputClockSettings.canHideClock)
+        assertFalse(inputDateSettings.canHideDate)
+    }
+
+    @Test
+    fun `allows a conditional battery under the Weekday style`() {
+        val inputSettings: HeaderSettings = HeaderSettings(
+            clockVisible = false,
+            dateVisible = false,
+            batteryVisibility = BatteryVisibility.NEVER,
+            clockStyle = ClockStyle.WEEKDAY
+        )
+
+        val actualSettings: HeaderSettings = inputSettings.withBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW)
+
+        assertEquals(BatteryVisibility.CHARGING_OR_LOW, actualSettings.batteryVisibility)
+    }
+
+    @Test
     fun `never re-enables a hidden clock when the battery visibility changes`() {
         val inputBaseSettings: HeaderSettings = HeaderSettings(
             clockVisible = false,
@@ -89,9 +139,38 @@ class HeaderSettingsTest {
 
     @Test
     fun `allows a conditional battery only while another part is visible`() {
-        assertTrue(canSetBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW, clockVisible = false, dateVisible = true))
-        assertFalse(canSetBatteryVisibility(BatteryVisibility.CHARGING_OR_LOW, clockVisible = false, dateVisible = false))
-        assertTrue(canSetBatteryVisibility(BatteryVisibility.ALWAYS, clockVisible = false, dateVisible = false))
+        assertTrue(
+            canSetBatteryVisibility(
+                BatteryVisibility.CHARGING_OR_LOW,
+                clockVisible = false,
+                dateVisible = true,
+                clockStyle = ClockStyle.CLASSIC
+            )
+        )
+        assertFalse(
+            canSetBatteryVisibility(
+                BatteryVisibility.CHARGING_OR_LOW,
+                clockVisible = false,
+                dateVisible = false,
+                clockStyle = ClockStyle.CLASSIC
+            )
+        )
+        assertTrue(
+            canSetBatteryVisibility(
+                BatteryVisibility.CHARGING_OR_LOW,
+                clockVisible = false,
+                dateVisible = false,
+                clockStyle = ClockStyle.WEEKDAY
+            )
+        )
+        assertTrue(
+            canSetBatteryVisibility(
+                BatteryVisibility.ALWAYS,
+                clockVisible = false,
+                dateVisible = false,
+                clockStyle = ClockStyle.CLASSIC
+            )
+        )
     }
 
     @Test

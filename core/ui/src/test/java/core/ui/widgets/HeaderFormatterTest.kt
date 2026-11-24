@@ -155,8 +155,46 @@ class HeaderFormatterTest {
         assertEquals("Tuesday", actualHeader.time?.weekdayText)
         assertEquals("2:05", actualHeader.time?.text)
         assertEquals("Tuesday, 2:05 PM", actualHeader.time?.spokenText)
-        assertEquals("October 20", actualHeader.date?.text)
+        assertEquals("Tuesday, October 20", actualHeader.date?.text)
         assertEquals("October 20, 2026", actualHeader.date?.spokenText)
+    }
+
+    @Test
+    fun `speaks the full date outside the Weekday style`() {
+        val actualHeader: HeaderModel = format(HeaderSettings(clockStyle = ClockStyle.CLASSIC))
+
+        assertEquals("Tuesday, October 20, 2026", actualHeader.date?.spokenText)
+    }
+
+    @Test
+    fun `shows the weekday when the clock is hidden`() {
+        val actualHeader: HeaderModel = format(HeaderSettings(clockStyle = ClockStyle.WEEKDAY, clockVisible = false))
+
+        assertEquals("Tuesday", actualHeader.time?.weekdayText)
+        assertNull(actualHeader.time?.text)
+        assertEquals("Tuesday", actualHeader.time?.spokenText)
+    }
+
+    @Test
+    fun `uses the chosen Date format under the Weekday style`() {
+        val actualHeader: HeaderModel = format(HeaderSettings(clockStyle = ClockStyle.WEEKDAY, dateFormat = DateFormatPreset.SHORT))
+
+        assertEquals("Tue, Oct 20", actualHeader.date?.text)
+        assertEquals("October 20, 2026", actualHeader.date?.spokenText)
+    }
+
+    @Test
+    fun `carries the style's default date Tap action and label`() {
+        val actualWeekdayHeader: HeaderModel = format(HeaderSettings(clockStyle = ClockStyle.WEEKDAY))
+        assertEquals(HeaderTapTarget.SystemAlarms, actualWeekdayHeader.date?.tapTarget)
+        assertEquals(R.string.open_alarms, actualWeekdayHeader.date?.clickLabel)
+
+        val actualCalendarHeader: HeaderModel = format(HeaderSettings())
+        assertEquals(
+            HeaderTapTarget.SystemCalendar(atEpochMillis = inputReading.instant.toEpochMilli()),
+            actualCalendarHeader.date?.tapTarget
+        )
+        assertEquals(R.string.open_calendar, actualCalendarHeader.date?.clickLabel)
     }
 
     @Test

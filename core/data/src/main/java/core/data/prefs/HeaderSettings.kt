@@ -21,9 +21,11 @@ data class HeaderSettings(
     @ColumnInfo(name = "date_tap_target") val dateTapTarget: HeaderTapSetting? = null,
     @ColumnInfo(name = "battery_visibility") val batteryVisibility: BatteryVisibility = BatteryVisibility.NEVER
 ) {
-    val canHideClock: Boolean get() = !clockVisible || dateVisible || batteryVisibility == BatteryVisibility.ALWAYS
+    val canHideClock: Boolean
+        get() = !clockVisible || clockStyle.isWeekday || dateVisible || batteryVisibility == BatteryVisibility.ALWAYS
 
-    val canHideDate: Boolean get() = !dateVisible || clockVisible || batteryVisibility == BatteryVisibility.ALWAYS
+    val canHideDate: Boolean
+        get() = !dateVisible || clockStyle.isWeekday || clockVisible || batteryVisibility == BatteryVisibility.ALWAYS
 
     val resolvedTimeTapTarget: HeaderTapSetting get() = timeTapTarget ?: HeaderTapSetting.SystemDefault
 
@@ -48,6 +50,9 @@ enum class ClockStyle {
     COMPACT,
     WEEKDAY
 }
+
+/** Reports whether this style keeps the weekday visible whatever the Clock and Date switches say. */
+val ClockStyle.isWeekday: Boolean get() = this == ClockStyle.WEEKDAY
 
 enum class TimeFormat {
     SYSTEM,
@@ -84,25 +89,29 @@ private fun HeaderTapSetting?.withoutTapTargets(keys: Set<String>): HeaderTapSet
 
 /**
  * Reports whether [visibility] can be selected without hiding the Header's last standing part.
- * A conditional battery only stands in when the Clock or Date is visible.
+ * A conditional battery only stands in when the Clock, Date or Weekday is visible.
  */
-fun canSetBatteryVisibility(visibility: BatteryVisibility, clockVisible: Boolean, dateVisible: Boolean): Boolean =
-    visibility == BatteryVisibility.ALWAYS || clockVisible || dateVisible
+fun canSetBatteryVisibility(visibility: BatteryVisibility, clockVisible: Boolean, dateVisible: Boolean, clockStyle: ClockStyle): Boolean =
+    visibility == BatteryVisibility.ALWAYS || clockStyle.isWeekday || clockVisible || dateVisible
 
 /**
- * Sets the battery visibility, refusing a non-[BatteryVisibility.ALWAYS] value while the Clock and Date are hidden.
+ * Sets the battery visibility, refusing a non-[BatteryVisibility.ALWAYS] value while the Clock, Date and Weekday are hidden.
  * Never re-enables a hidden clock.
  */
 fun HeaderSettings.withBatteryVisibility(visibility: BatteryVisibility): HeaderSettings =
-    if (canSetBatteryVisibility(visibility, clockVisible = clockVisible, dateVisible = dateVisible)) {
+    if (canSetBatteryVisibility(visibility = visibility, clockVisible = clockVisible, dateVisible = dateVisible, clockStyle = clockStyle)) {
         copy(batteryVisibility = visibility)
     } else {
         this
     }
 
 /** Reports whether [visibility] can be selected without hiding this Header's last standing part. */
-fun HeaderSettings.canSetBatteryVisibility(visibility: BatteryVisibility): Boolean =
-    canSetBatteryVisibility(visibility = visibility, clockVisible = clockVisible, dateVisible = dateVisible)
+fun HeaderSettings.canSetBatteryVisibility(visibility: BatteryVisibility): Boolean = canSetBatteryVisibility(
+    visibility = visibility,
+    clockVisible = clockVisible,
+    dateVisible = dateVisible,
+    clockStyle = clockStyle
+)
 
 fun TimeFormat.is24Hour(isSystem24Hour: Boolean): Boolean = when (this) {
     TimeFormat.SYSTEM -> isSystem24Hour

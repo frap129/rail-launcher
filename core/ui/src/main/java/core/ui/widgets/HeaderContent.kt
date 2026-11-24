@@ -283,11 +283,12 @@ private fun StackedTime(time: HeaderTimeModel, presentation: HeaderLinePresentat
 @Composable
 private fun WeekdayTime(time: HeaderTimeModel, presentation: HeaderLinePresentation, secondaryStyle: TextStyle) {
     val weekdayText: String = time.weekdayText ?: return
-    val timeText: String = time.text ?: return
     HeaderTimeTapTarget(time = time, presentation = presentation) {
         HeaderTimeColumn(presentation = presentation) {
             OutlinedText(text = weekdayText, style = presentation.style, textAlign = presentation.alignment.textAlign())
-            OutlinedText(text = timeText, style = secondaryStyle, textAlign = presentation.alignment.textAlign())
+            time.text?.let { text ->
+                OutlinedText(text = text, style = secondaryStyle, textAlign = presentation.alignment.textAlign())
+            }
         }
     }
 }
