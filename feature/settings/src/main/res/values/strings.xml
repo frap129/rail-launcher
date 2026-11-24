@@ -55,7 +55,6 @@
     <string name="date_tap_action">Date tap action</string>
     <string name="tap_action_clock_default">Clock (system default)</string>
     <string name="tap_action_calendar_default">Calendar (system default)</string>
-    <string name="tap_action_alarms_default">Alarms (system default)</string>
     <string name="tap_action_system_default">System default</string>
     <string name="tap_action_nothing">Nothing</string>
     <string name="show_upcoming_events">Show upcoming events</string>
