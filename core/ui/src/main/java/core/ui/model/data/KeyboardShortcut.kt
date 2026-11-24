@@ -4,28 +4,40 @@ import android.view.KeyEvent
 import androidx.annotation.StringRes
 import core.ui.R
 
+/** The modifier state for an unmodified key. */
+internal const val NO_KEYBOARD_MODIFIERS: Int = 0
+
 /**
- * A keyboard shortcut the launcher consumes: any of [keyCodes] with one of [modifiers], where zero
- * means no modifier, which the launcher activity turns into [signal].
+ * A keyboard shortcut the launcher consumes: any of [keyCodes] with one of [modifiers], where
+ * [NO_KEYBOARD_MODIFIERS] means no modifier, which the launcher activity turns into [signal].
  *
- * [label] names the action in the system keyboard shortcuts helper and, later, the Keyboard
- * shortcuts help sheet, so a new shortcut is only added to this list. Digit shortcuts publish both
- * their primary and numpad key codes.
+ * [label] names the action in the system keyboard shortcuts helper and the Keyboard shortcuts help
+ * sheet, with [labelArguments] supplying its format arguments. Digit shortcuts publish both their
+ * primary and numpad key codes. [isShiftAllowed] adds shifted variants for layouts that need Shift
+ * to type the key.
  */
 enum class KeyboardShortcut(
     @StringRes val label: Int,
     val keyCodes: List<Int>,
     val signal: LauncherSignal,
-    val modifiers: List<Int> = listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)
+    val modifiers: List<Int> = listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON),
+    val isShiftAllowed: Boolean = false,
+    val labelArguments: List<String> = emptyList()
 ) {
     Search(label = R.string.search, keyCodes = listOf(KeyEvent.KEYCODE_F), signal = LauncherSignal.OpenSearch),
     Agenda(label = R.string.agenda, keyCodes = listOf(KeyEvent.KEYCODE_A), signal = LauncherSignal.OpenAgenda),
     Settings(label = R.string.settings, keyCodes = listOf(KeyEvent.KEYCODE_S), signal = LauncherSignal.OpenSettings),
+    KeyboardShortcutsHelp(
+        label = R.string.keyboard_shortcuts_help,
+        keyCodes = listOf(KeyEvent.KEYCODE_SLASH),
+        signal = LauncherSignal.OpenKeyboardShortcutsHelp,
+        isShiftAllowed = true
+    ),
     ToggleAppList(
         label = R.string.toggle_app_list,
         keyCodes = listOf(KeyEvent.KEYCODE_TAB),
         signal = LauncherSignal.ToggleAppList,
-        modifiers = listOf(0)
+        modifiers = listOf(NO_KEYBOARD_MODIFIERS)
     ),
     OpenRow1(index = 0),
     OpenRow2(index = 1),
@@ -40,8 +52,15 @@ enum class KeyboardShortcut(
     private constructor(index: Int) : this(
         label = R.string.open_row,
         keyCodes = listOf(KeyEvent.KEYCODE_1 + index, KeyEvent.KEYCODE_NUMPAD_1 + index),
-        signal = LauncherSignal.OpenIndex(index = index)
+        signal = LauncherSignal.OpenIndex(index = index),
+        labelArguments = listOf((index + 1).toString())
     )
+
+    /** Every exact modifier state this shortcut accepts, including optional Shift variants. */
+    val modifierStates: List<Int>
+        get() = modifiers.flatMap { modifier: Int ->
+            if (isShiftAllowed) listOf(modifier, modifier or KeyEvent.META_SHIFT_ON) else listOf(modifier)
+        }.distinct()
 
     companion object {
         /**
@@ -50,7 +69,7 @@ enum class KeyboardShortcut(
          */
         fun forEvent(keyCode: Int, event: KeyEvent): KeyboardShortcut? = entries.firstOrNull { shortcut ->
             keyCode in shortcut.keyCodes &&
-                shortcut.modifiers.any { expectedModifiers: Int ->
+                shortcut.modifierStates.any { expectedModifiers: Int ->
                     event.matchesShortcutModifiers(expectedModifiers = expectedModifiers)
                 }
         }
@@ -58,8 +77,9 @@ enum class KeyboardShortcut(
         private fun KeyEvent.matchesShortcutModifiers(expectedModifiers: Int): Boolean {
             val pressedModifiers: Int =
                 (if (isCtrlPressed) KeyEvent.META_CTRL_ON else 0) or
-                    (if (isMetaPressed) KeyEvent.META_META_ON else 0)
-            return pressedModifiers == expectedModifiers && !isAltPressed && !isShiftPressed
+                    (if (isMetaPressed) KeyEvent.META_META_ON else 0) or
+                    (if (isShiftPressed) KeyEvent.META_SHIFT_ON else 0)
+            return pressedModifiers == expectedModifiers && !isAltPressed
         }
     }
 }

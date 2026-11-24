@@ -25,7 +25,7 @@ class KeyboardShortcutsTest {
             (KeyEvent.KEYCODE_NUMPAD_1..KeyEvent.KEYCODE_NUMPAD_9).toSet()
         val expectedRowModifiers: List<Int> = listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON)
         val expectedShortcutCount: Int = KeyboardShortcut.entries.sumOf { shortcut ->
-            shortcut.keyCodes.size * shortcut.modifiers.size
+            shortcut.keyCodes.size * shortcut.modifierStates.size
         }
         assertEquals(inputGroupLabel, actualGroup.label.toString())
         assertEquals(expectedShortcutCount, actualGroup.items.size)
@@ -37,10 +37,30 @@ class KeyboardShortcutsTest {
             inputShortcut.keyCodes.forEach { inputKeyCode ->
                 val actualShortcutInfos: List<KeyboardShortcutInfo> =
                     actualGroup.items.filter { info -> info.keycode == inputKeyCode }
-                assertEquals(inputShortcut.modifiers.toSet(), actualShortcutInfos.map { info -> info.modifiers }.toSet())
+                assertEquals(inputShortcut.modifierStates.toSet(), actualShortcutInfos.map { info -> info.modifiers }.toSet())
                 assertTrue(actualShortcutInfos.all { info -> info.label.toString() == inputShortcut.name })
             }
         }
+    }
+
+    @Test
+    fun `lists shifted and unshifted help shortcuts`() {
+        val inputGroupLabel: String = "Rail"
+        val actualGroup: KeyboardShortcutGroup = createKeyboardShortcutGroup(
+            label = inputGroupLabel,
+            resolveLabel = { shortcut -> shortcut.name }
+        )
+        val actualHelpShortcuts: List<KeyboardShortcutInfo> = actualGroup.items.filter { info ->
+            info.keycode == KeyEvent.KEYCODE_SLASH
+        }
+        val expectedModifiers: Set<Int> = setOf(
+            KeyEvent.META_CTRL_ON,
+            KeyEvent.META_META_ON,
+            KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
+            KeyEvent.META_META_ON or KeyEvent.META_SHIFT_ON
+        )
+        assertEquals(expectedModifiers, actualHelpShortcuts.map { info -> info.modifiers }.toSet())
+        assertTrue(actualHelpShortcuts.all { info -> info.label.toString() == KeyboardShortcut.KeyboardShortcutsHelp.name })
     }
 
     @Test

@@ -34,6 +34,17 @@ class LauncherKeyHandlerTest {
     }
 
     @Test
+    fun `Ctrl or Meta Shift slash opens the Keyboard shortcuts help sheet`() {
+        listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON).forEach { inputModifier: Int ->
+            assertShortcutFires(
+                inputKeyCode = KeyEvent.KEYCODE_SLASH,
+                inputMetaState = inputModifier or KeyEvent.META_SHIFT_ON,
+                expectedSignal = LauncherSignal.OpenKeyboardShortcutsHelp
+            )
+        }
+    }
+
+    @Test
     fun `a Ctrl Esc shortcut passes through`() {
         var actualBackCalls: Int = 0
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
@@ -54,7 +65,7 @@ class LauncherKeyHandlerTest {
     fun `every listed shortcut fires for each of its modifiers, including Tab`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifierStates.forEach { inputModifier ->
                     assertShortcutFires(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
@@ -100,9 +111,7 @@ class LauncherKeyHandlerTest {
             KeyEvent.META_SHIFT_ON,
             KeyEvent.META_CTRL_ON or KeyEvent.META_ALT_ON,
             KeyEvent.META_META_ON or KeyEvent.META_ALT_ON,
-            KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON,
-            KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
-            KeyEvent.META_META_ON or KeyEvent.META_SHIFT_ON
+            KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON
         )
 
         KeyboardShortcut.entries.forEach { inputShortcut ->
@@ -112,6 +121,23 @@ class LauncherKeyHandlerTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `Shift combinations pass through for shortcuts that reject Shift`() {
+        val inputMetaStates: List<Int> = listOf(
+            KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
+            KeyEvent.META_META_ON or KeyEvent.META_SHIFT_ON
+        )
+        KeyboardShortcut.entries
+            .filterNot { shortcut: KeyboardShortcut -> shortcut.isShiftAllowed }
+            .forEach { inputShortcut: KeyboardShortcut ->
+                inputShortcut.keyCodes.forEach { inputKeyCode: Int ->
+                    inputMetaStates.forEach { inputMetaState: Int ->
+                        assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
+                    }
+                }
+            }
     }
 
     @Test
@@ -128,7 +154,7 @@ class LauncherKeyHandlerTest {
     fun `every listed shortcut passes through outside the launcher`() {
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifierStates.forEach { inputModifier ->
                     assertPassesThrough(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,
@@ -153,7 +179,7 @@ class LauncherKeyHandlerTest {
         val inputState: LauncherInputState = createInputState(isTextFieldFocused = true)
         KeyboardShortcut.entries.forEach { inputShortcut ->
             inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifiers.forEach { inputModifier ->
+                inputShortcut.modifierStates.forEach { inputModifier ->
                     assertPassesThrough(
                         inputKeyCode = inputKeyCode,
                         inputMetaState = inputModifier,

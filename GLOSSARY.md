@@ -321,7 +321,7 @@ A printable character typed with a hardware keyboard while the launcher is shown
 _Avoid_: Key press, keystroke
 
 **Keyboard shortcut**:
-A key combination or unmodified Tab the launcher consumes on Home or in the App List, such as Ctrl/Meta+F for Search or Tab to switch between them. Rail keeps one list of them, which feeds the system keyboard shortcuts helper and, later, the Keyboard shortcuts help sheet; any other Ctrl, Alt or Meta combination passes through, Tab passes through outside Home and the App List, and a Keyboard shortcut passes through while a text field has focus.
+A key combination or unmodified Tab the launcher consumes on Home or in the App List, such as Ctrl/Meta+F for Search or Ctrl/Meta+/ for the Keyboard shortcuts help sheet. Rail keeps one list of them, which feeds the system keyboard shortcuts helper and the Keyboard shortcuts help sheet; any other Ctrl, Alt or Meta combination passes through, Tab passes through outside Home and the App List, and a Keyboard shortcut passes through while a text field has focus.
 _Avoid_: Hotkey, key binding, Launcher shortcut
 
 **Row focus**:
