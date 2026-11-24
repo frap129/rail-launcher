@@ -53,15 +53,18 @@ class MainActivity : TemplateActivity() {
      */
     private val launcherSignals: LauncherSignals = LauncherSignals()
 
-    private val launcherIntentHandler: LauncherIntentHandler = LauncherIntentHandler(onSignal = launcherSignals::signal)
+    private val homePressState: HomePressState = HomePressState()
+
+    private val launcherIntentHandler: LauncherIntentHandler = LauncherIntentHandler(
+        onSignal = launcherSignals::signal,
+        homePressState = homePressState
+    )
 
     private val launcherTypingState: LauncherTypingState by inject()
 
     private val wallpaperManager: WallpaperManager by lazy {
         WallpaperManager.getInstance(applicationContext)
     }
-
-    private val homePressState: HomePressState = HomePressState()
 
     private var isWallpaperBacked: Boolean = launcherDestination.isWallpaperBacked
     private var isLauncherShown: Boolean = true
@@ -100,7 +103,7 @@ class MainActivity : TemplateActivity() {
         super.onCreate(savedInstanceState)
 
         launcherIntentHandler.restore(savedInstanceState = savedInstanceState)
-        launcherIntentHandler.handle(intent = intent, wasResumed = false, isNewIntent = false)
+        launcherIntentHandler.handle(intent = intent, isNewIntent = false)
 
         observeWallpaperColors()
         setContent {
@@ -136,6 +139,11 @@ class MainActivity : TemplateActivity() {
         homePressState.onResume()
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        homePressState.onUserLeaveHint()
+    }
+
     override fun onStop() {
         super.onStop()
         homePressState.onStop()
@@ -148,11 +156,7 @@ class MainActivity : TemplateActivity() {
 
     override fun onNewIntent(intent: Intent) {
         setIntent(intent)
-        launcherIntentHandler.handle(
-            intent = intent,
-            wasResumed = homePressState.wasResumedAtHomeIntent(),
-            isNewIntent = true
-        )
+        launcherIntentHandler.handle(intent = intent, isNewIntent = true)
         // Only the Search entry skips TemplateActivity's pending-intent resend.
         if (!intent.isSearchEntry()) {
             super.onNewIntent(intent)

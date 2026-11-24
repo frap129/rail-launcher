@@ -226,7 +226,7 @@ fun LauncherScreen(
                     }
                     coroutineScope.showSnackbar(snackbarHostState = snackbarHostState, message = message)
                 },
-                onHomeIntent = widgetViewModel::onHomeIntent
+                finishHomeInteractions = { widgetViewModel.finishHomeInteractions(resetScroll = false) }
             )
         )
     }
@@ -340,8 +340,8 @@ fun LauncherScreen(
                     agendaViewModel.close()
                     val wasEditingHome: Boolean =
                         widgetViewModel.editState.value != null || widgetViewModel.moveState.value != null
-                    if (!widgetViewModel.onHomeIntent() || wasEditingHome) {
-                        viewModel.onHomeIntent(wasResumed = signal.wasResumed)
+                    if (!widgetViewModel.finishHomeInteractions(resetScroll = signal.shouldShowHome) || wasEditingHome) {
+                        viewModel.onHomeIntent(signal)
                     }
                 }
 
@@ -561,7 +561,7 @@ internal class LaunchItemEffects(
     val onDisabledLaunch: () -> Unit,
     val onPopupLaunched: () -> Unit,
     val onLaunchFailed: (Launchable) -> Unit,
-    val onHomeIntent: () -> Unit
+    val finishHomeInteractions: () -> Unit
 )
 
 /**
@@ -589,7 +589,7 @@ internal fun launchLauncherItem(launchable: Launchable, context: Context, viewMo
         return
     }
     viewModel.onLaunched(launchable)
-    effects.onHomeIntent()
+    effects.finishHomeInteractions()
 }
 
 /**

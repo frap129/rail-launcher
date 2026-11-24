@@ -116,6 +116,7 @@ import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.model.data.LauncherSignal
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -217,7 +218,11 @@ class LauncherViewModelTest {
             open = { viewModel -> viewModel.onTypedCharacter(character = "a", isPopupOpen = false) }
         ),
         SearchEntryCase(name = "Swipe up", suggestionsQueried = 0, open = { viewModel -> viewModel.onHomeSwipeUp() }),
-        SearchEntryCase(name = "a Home press", suggestionsQueried = 0, open = { viewModel -> viewModel.onHomeIntent(wasResumed = true) })
+        SearchEntryCase(
+            name = "a Home press",
+            suggestionsQueried = 0,
+            open = { viewModel -> viewModel.sendHomeIntent() }
+        )
     )
 
     private val mockClockSource: IClockSource = createClockSourceMock(
@@ -1186,7 +1191,7 @@ class LauncherViewModelTest {
                 awaitState<LauncherUiState.AppList.Browsing>()
                 runCurrent()
                 expectNoEvents()
-                viewModel.onHomeIntent(wasResumed = true)
+                viewModel.sendHomeIntent()
                 awaitState<LauncherUiState.Home>()
                 runCurrent()
                 expectNoEvents()
@@ -1389,8 +1394,23 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailReleased(railIndex(inputListedGroups[1]))
                 expectAppList()
-                viewModel.onHomeIntent(wasResumed = true)
+                viewModel.sendHomeIntent()
                 expectHome()
+            }
+        }
+    }
+
+    @Test
+    fun `returns Home at the top when a Home press from the App List loses window focus`() {
+        runTest {
+            val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+            viewModel.uiState.test {
+                val actualFirstHome: LauncherUiState.Home = expectHome()
+                viewModel.onRailReleased(railIndex(inputListedGroups[1]))
+                expectAppList()
+                viewModel.sendHomeIntent(wasFocused = false)
+                val actualReturnedHome: LauncherUiState.Home = expectHome()
+                assertHomeRestartedAtTop(before = actualFirstHome, after = actualReturnedHome)
             }
         }
     }
@@ -1401,10 +1421,9 @@ class LauncherViewModelTest {
             val viewModel: LauncherViewModel = createViewModel()
             viewModel.uiState.test {
                 val actualFirstHome: LauncherUiState.Home = expectHome()
-                viewModel.onHomeIntent(wasResumed = true)
+                viewModel.sendHomeIntent()
                 val actualSecondHome: LauncherUiState.Home = expectHome()
-                assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
-                assertEquals(0, actualSecondHome.lazyListState.firstVisibleItemIndex)
+                assertHomeRestartedAtTop(before = actualFirstHome, after = actualSecondHome)
             }
         }
     }
@@ -4009,7 +4028,7 @@ class LauncherViewModelTest {
             viewModel.setSearchQuery("al")
             assertEquals(launchableResults(inputItem), expectSearch().results)
 
-            viewModel.onHomeIntent(wasResumed = true)
+            viewModel.sendHomeIntent()
 
             expectHome()
             viewModel.openSearch()
@@ -4564,10 +4583,21 @@ class LauncherViewModelTest {
         viewModel.uiState.test {
             expectHome()
 
-            viewModel.onHomeIntent(wasResumed = true)
+            viewModel.sendHomeIntent()
 
             val actualSearch: LauncherUiState.Search = expectSearch()
             assertEquals("", actualSearch.query)
+        }
+    }
+
+    @Test
+    fun `Home press that loses window focus does not open Search`() = runTest {
+        val viewModel: LauncherViewModel = createViewModelWithSettings(Settings(openSearchOnHomePress = true))
+        viewModel.uiState.test {
+            val actualFirstHome: LauncherUiState.Home = expectHome()
+            viewModel.sendHomeIntent(wasFocused = false)
+            val actualSecondHome: LauncherUiState.Home = expectHome()
+            assertHomeRestartedAtTop(before = actualFirstHome, after = actualSecondHome)
         }
     }
 
@@ -4578,10 +4608,10 @@ class LauncherViewModelTest {
         viewModel.uiState.test {
             val actualFirstHome: LauncherUiState.Home = expectHome()
 
-            viewModel.onHomeIntent(wasResumed = true)
+            viewModel.sendHomeIntent()
 
             val actualSecondHome: LauncherUiState.Home = expectHome()
-            assertNotSame(actualFirstHome.lazyListState, actualSecondHome.lazyListState)
+            assertHomeRestartedAtTop(before = actualFirstHome, after = actualSecondHome)
             runCurrent()
             expectNoEvents()
         }
@@ -4594,7 +4624,7 @@ class LauncherViewModelTest {
         viewModel.uiState.test {
             val actualHome: LauncherUiState.Home = expectHome()
 
-            viewModel.onHomeIntent(wasResumed = false)
+            viewModel.sendHomeIntent(shouldShowHome = false, wasFocused = false)
 
             runCurrent()
             expectNoEvents()
@@ -4611,7 +4641,7 @@ class LauncherViewModelTest {
             viewModel.onRailReleased(railIndex(inputListedGroups[1]))
             val actualAppList: LauncherUiState.AppList.Browsing = expectAppList()
 
-            viewModel.onHomeIntent(wasResumed = false)
+            viewModel.sendHomeIntent(shouldShowHome = false, wasFocused = false)
 
             runCurrent()
             expectNoEvents()
@@ -4638,7 +4668,7 @@ class LauncherViewModelTest {
             )
             assertEquals(expectedRows, expectSearch().results)
 
-            viewModel.onHomeIntent(wasResumed = true)
+            viewModel.sendHomeIntent()
 
             expectHome()
         }
@@ -5098,6 +5128,15 @@ class LauncherViewModelTest {
         viewModel.openSearch()
         viewModel.setSearchQuery(query)
         runCurrent()
+    }
+
+    private fun LauncherViewModel.sendHomeIntent(shouldShowHome: Boolean = true, wasFocused: Boolean = true) {
+        onHomeIntent(LauncherSignal.Home(shouldShowHome = shouldShowHome, wasFocused = wasFocused))
+    }
+
+    private fun assertHomeRestartedAtTop(before: LauncherUiState.Home, after: LauncherUiState.Home) {
+        assertNotSame(before.lazyListState, after.lazyListState)
+        assertEquals(0, after.lazyListState.firstVisibleItemIndex)
     }
 
     private fun assertAppListStateRetained(before: LauncherUiState.AppList.Browsing, after: LauncherUiState) {

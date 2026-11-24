@@ -23,6 +23,7 @@ import core.ui.composables.LocalHomeIconCache
 import core.ui.model.data.Destination
 import core.ui.model.data.LauncherSignal
 import core.ui.model.data.LauncherSignalRequest
+import core.ui.model.data.narrowSearchToStartDestination
 import core.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -83,7 +84,7 @@ fun App(
                 showStartDestination(navController = navController, startDestination = startDestination)
             }
             val signalForLauncher: LauncherSignal = if (signal is LauncherSignal.Home) {
-                signal.copy(wasResumed = signal.wasResumed && wasShowingStart)
+                signal.narrowSearchToStartDestination(isStartDestination = wasShowingStart)
             } else {
                 signal
             }

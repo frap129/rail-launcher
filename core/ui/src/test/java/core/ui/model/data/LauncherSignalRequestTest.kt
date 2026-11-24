@@ -13,8 +13,9 @@ class LauncherSignalRequestTest {
     @Test
     fun `round-trips every launcher signal`() = runTest {
         val inputSignals: List<LauncherSignal> = listOf(
-            LauncherSignal.Home(wasResumed = true),
-            LauncherSignal.Home(wasResumed = false),
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = true),
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = false),
+            LauncherSignal.Home(shouldShowHome = false, wasFocused = false),
             LauncherSignal.OpenSearch,
             LauncherSignal.OpenAgenda,
             LauncherSignal.TypedCharacter(character = "a")
@@ -40,7 +41,7 @@ class LauncherSignalRequestTest {
             LauncherSignal.TypedCharacter(character = "a"),
             LauncherSignal.TypedCharacter(character = "l"),
             LauncherSignal.OpenSearch,
-            LauncherSignal.Home(wasResumed = true)
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = true)
         )
         val savedStateHandle: SavedStateHandle = SavedStateHandle()
         val launcherSignalWriter: LauncherSignalRequest = LauncherSignalRequest(savedStateHandle)

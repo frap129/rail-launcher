@@ -11,7 +11,7 @@ private const val HANDLED_CREATION_INTENT_KEY: String = "handledCreationIntent"
  * Turns launcher activity intents into launcher signals and remembers which creation intent was
  * handled, so a configuration change never handles the same creation intent twice.
  */
-class LauncherIntentHandler(private val onSignal: (LauncherSignal) -> Unit) {
+class LauncherIntentHandler(private val onSignal: (LauncherSignal) -> Unit, private val homePressState: HomePressState) {
     private var handledCreationIntentToken: String? = null
 
     /** Restores the creation intent already handled by the previous instance. */
@@ -26,16 +26,17 @@ class LauncherIntentHandler(private val onSignal: (LauncherSignal) -> Unit) {
 
     /**
      * Signals the launcher intent [intent] carries and returns whether it was handled. A creation
-     * intent only handles the Search entry, while HOME intents arrive through [isNewIntent].
+     * intent only handles the Search entry, while HOME intents arrive through [isNewIntent] with
+     * the re-selection and focus facts captured in [homePressState].
      */
-    fun handle(intent: Intent, wasResumed: Boolean, isNewIntent: Boolean): Boolean {
+    fun handle(intent: Intent, isNewIntent: Boolean): Boolean {
         val token: String = intent.creationToken()
         if (!isNewIntent && token == handledCreationIntentToken) {
             return false
         }
         val signal: LauncherSignal = when {
             intent.isSearchEntry() -> LauncherSignal.OpenSearch
-            isNewIntent && intent.isHomeIntent() -> LauncherSignal.Home(wasResumed = wasResumed)
+            isNewIntent && intent.isHomeIntent() -> createHomeSignal()
             else -> return false
         }
         onSignal(signal)
@@ -44,6 +45,11 @@ class LauncherIntentHandler(private val onSignal: (LauncherSignal) -> Unit) {
         }
         return true
     }
+
+    private fun createHomeSignal(): LauncherSignal.Home = LauncherSignal.Home(
+        shouldShowHome = homePressState.shouldShowHomeAtHomeIntent(),
+        wasFocused = homePressState.wasFocusedAtHomeIntent()
+    )
 }
 
 private fun Intent.creationToken(): String = "${action.orEmpty()}|${dataString.orEmpty()}"
