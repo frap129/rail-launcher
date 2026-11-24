@@ -39,13 +39,19 @@ import kotlinx.coroutines.flow.Flow
 private const val RECENTLY_INSTALLED_ITEM_KEY: String = "recentlyInstalled"
 
 @Immutable
-data class AppListRowState(val isEditingFavorites: Boolean, val favoriteKeys: Set<String>, val isPopupSwipeEnabled: Boolean)
+data class AppListRowState(
+    val isEditingFavorites: Boolean,
+    val favoriteKeys: Set<String>,
+    val isPopupSwipeEnabled: Boolean,
+    val isRowFocusEnabled: Boolean = true
+)
 
 // App List rows only read Favorites while Edit Favorites shows stars.
 @Composable
 internal fun rememberAppListRowState(
     isEditingFavorites: Boolean,
     favorites: Flow<List<Launchable>>,
+    isRowFocusEnabled: Boolean,
     isPopupSwipeEnabled: Boolean
 ): AppListRowState {
     val favoriteList: List<Launchable> by favorites.collectAsState(initial = emptyList())
@@ -53,6 +59,7 @@ internal fun rememberAppListRowState(
     return AppListRowState(
         isEditingFavorites = isEditingFavorites,
         favoriteKeys = favoriteKeys,
+        isRowFocusEnabled = isRowFocusEnabled,
         isPopupSwipeEnabled = isPopupSwipeEnabled
     )
 }
@@ -185,7 +192,7 @@ private fun LauncherAppListRow(
         item = item,
         isEditingFavorites = rowState.isEditingFavorites,
         isFavorite = item.key in rowState.favoriteKeys,
-        isRowFocusEnabled = true,
+        isRowFocusEnabled = rowState.isRowFocusEnabled,
         isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
         popupRow = popupRow,
         itemActions = itemActions,

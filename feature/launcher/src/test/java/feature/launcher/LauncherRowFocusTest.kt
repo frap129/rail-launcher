@@ -5,9 +5,13 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.InputMode
@@ -32,13 +36,23 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
+import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
+import core.ui.IHomeIconsDrawn
 import core.ui.composables.LocalLauncherInputState
 import core.ui.composables.RowTestContent
 import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.captureThemeColor
 import core.ui.composables.rowTestBackgroundColor
+import core.ui.layout.HomeEditMode
 import core.ui.model.data.LauncherInputState
+import feature.launcher.widgets.WidgetAreaUi
+import feature.launcher.widgets.WidgetAreaViewModel
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -157,6 +171,39 @@ class LauncherRowFocusTest {
     }
 
     @Test
+    fun `Enter only opens rows on the visible page after each switch`() {
+        val actualOpened: MutableList<Launchable> = mutableListOf()
+        val inputHomeState: LauncherUiState.Home = createHomeState(favorites = listOf(testFirstApp))
+        val inputUiState: MutableStateFlow<LauncherUiState> = MutableStateFlow(inputHomeState)
+        setSwitchingLauncherContent(inputUiState = inputUiState, actualOpened = actualOpened)
+        row(name = "Alpha").requestFocus()
+        composeRule.waitForIdle()
+        composeRule.runOnIdle {
+            inputUiState.value = LauncherUiState.AppList.Browsing(
+                groups = listOf(LaunchableGroup.InitialGroup(label = "B", items = listOf(testSecondApp))),
+                recentlyInstalled = null,
+                lazyListState = LazyListState(firstVisibleItemIndex = 1),
+                isEditingFavorites = false
+            )
+        }
+        composeRule.waitForIdle()
+        composeRule.onRoot().performKeyInput { pressKey(Key.Enter) }
+        assertTrue(actualOpened.isEmpty())
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        row(name = "Beta").assertIsFocused()
+        row(name = "Beta").performKeyInput { pressKey(Key.Enter) }
+        assertEquals(listOf(testSecondApp), actualOpened)
+        composeRule.runOnIdle { inputUiState.value = inputHomeState }
+        composeRule.waitForIdle()
+        composeRule.onRoot().performKeyInput { pressKey(Key.Enter) }
+        assertEquals(listOf(testSecondApp), actualOpened)
+        composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        row(name = "Alpha").assertIsFocused()
+        row(name = "Alpha").performKeyInput { pressKey(Key.Enter) }
+        assertEquals(listOf(testSecondApp, testFirstApp), actualOpened)
+    }
+
+    @Test
     fun `modified Enter leaves the focused row alone`() {
         val actualOpens: MutableList<Launchable> = mutableListOf()
         composeRule.setHomeSuggestionRows(
@@ -269,6 +316,58 @@ class LauncherRowFocusTest {
         composeRule.waitForIdle()
 
         assertFalse(inputLauncherInputState.isTextFieldFocused.value)
+    }
+
+    private fun setSwitchingLauncherContent(inputUiState: MutableStateFlow<LauncherUiState>, actualOpened: MutableList<Launchable>) {
+        val mockLauncherViewModel: LauncherViewModel = createLauncherViewModelMock(inputUiState = inputUiState)
+        val mockWidgetAreaViewModel: WidgetAreaViewModel = createWidgetAreaViewModelMock()
+        val mockHomeIconsDrawn: IHomeIconsDrawn = mockk(relaxed = true)
+        composeRule.setContent {
+            val inputRailBounds: RailBounds = remember { RailBounds() }
+            LauncherContent(
+                modifier = Modifier.fillMaxSize(),
+                viewModel = mockLauncherViewModel,
+                widgetViewModel = mockWidgetAreaViewModel,
+                railBounds = inputRailBounds,
+                railSide = RailSide.DEFAULT,
+                showRail = false,
+                onItemLaunch = { launchable: Launchable -> actualOpened += launchable },
+                onRowTap = { launchable: Launchable, _ -> actualOpened += launchable },
+                onOpenAgenda = {},
+                onItemOpenPopup = { _, _ -> },
+                onItemAnchorChanged = { _, _ -> },
+                onCopyCalculatorRow = {},
+                onOpenSearchRow = {},
+                onContactRowAction = { _, _ -> },
+                onOpenSearchSettings = {},
+                homeIconsDrawn = mockHomeIconsDrawn,
+                isResizing = false,
+                isEditingWidgets = false,
+                homeEditMode = HomeEditMode.None
+            )
+        }
+    }
+
+    private fun createLauncherViewModelMock(inputUiState: MutableStateFlow<LauncherUiState>): LauncherViewModel {
+        val mockLauncherViewModel: LauncherViewModel = mockk(relaxed = true)
+        every { mockLauncherViewModel.uiState } returns inputUiState
+        every { mockLauncherViewModel.folderSummaryLines } returns MutableStateFlow(emptyMap())
+        every { mockLauncherViewModel.privateSpaceSettingsIntent } returns MutableStateFlow(null)
+        every { mockLauncherViewModel.favorites } returns flowOf(emptyList())
+        every { mockLauncherViewModel.listStartOffsetPx } returns 0
+        every { mockLauncherViewModel.listEndOffsetPx } returns 0
+        return mockLauncherViewModel
+    }
+
+    private fun createWidgetAreaViewModelMock(): WidgetAreaViewModel {
+        val inputWidgetAreaUi: WidgetAreaUi = createTestWidgetAreaUi()
+        val mockWidgetAreaViewModel: WidgetAreaViewModel = mockk(relaxed = true)
+        every { mockWidgetAreaViewModel.widgetAreaState } returns MutableStateFlow(inputWidgetAreaUi.state)
+        every { mockWidgetAreaViewModel.resizeState } returns MutableStateFlow(null)
+        every { mockWidgetAreaViewModel.editState } returns MutableStateFlow(null)
+        every { mockWidgetAreaViewModel.mediaPlayerState } returns MutableStateFlow(inputWidgetAreaUi.mediaPlayer)
+        every { mockWidgetAreaViewModel.scrollToPlaceId } returns MutableStateFlow(null)
+        return mockWidgetAreaViewModel
     }
 
     private fun assertHomeRowsAreNotFocusable(isResizing: Boolean = false, isEditingWidgets: Boolean = false) {
