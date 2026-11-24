@@ -5,24 +5,20 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.ViewRootForTest
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasRequestFocusAction
 import androidx.compose.ui.test.hasText
@@ -32,16 +28,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
-import androidx.compose.ui.unit.dp
-import compose.icons.FontAwesomeIcons
-import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Lock
 import core.data.launchables.model.Launchable
-import core.data.launchables.model.LaunchableGroup
 import core.data.testing.TEST_SDK
-import core.data.testing.createApp
 import core.ui.composables.LocalLauncherInputState
 import core.ui.composables.RowTestContent
 import core.ui.composables.assertPaintsTopEdge
@@ -62,9 +53,6 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val ROW_TEST_TAG: String = "launcherRow"
-private const val ACTION_ROW_TEST_TAG: String = "launcherActionRow"
-
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -72,12 +60,9 @@ class LauncherRowFocusTest {
     @get:Rule
     val composeRule: ComposeContentTestRule = createComposeRule()
 
-    private val inputFirstApp: Launchable = createApp(name = "Alpha", packageName = "com.example.alpha")
-    private val inputSecondApp: Launchable = createApp(name = "Beta", packageName = "com.example.beta")
-
     @Test
     fun `Down moves row focus to the next Home row`() {
-        setHomeRows()
+        composeRule.setHomeSuggestionRows(itemActions = createLauncherItemActions())
         row(name = "Alpha").requestFocus()
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
@@ -87,7 +72,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Down gives row focus to the first App List row when no row has it`() {
-        setAppListRows()
+        composeRule.setAppListRows(itemActions = createLauncherItemActions())
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
 
@@ -96,7 +81,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Down gives row focus to the first Home row when no row has it`() {
-        setHomeRows()
+        composeRule.setHomeSuggestionRows(itemActions = createLauncherItemActions())
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
 
@@ -105,7 +90,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Up gives row focus to the last Home row when no row has it`() {
-        setHomeRows()
+        composeRule.setHomeSuggestionRows(itemActions = createLauncherItemActions())
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
 
@@ -114,7 +99,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Up moves row focus to the previous App List row`() {
-        setAppListRows()
+        composeRule.setAppListRows(itemActions = createLauncherItemActions())
         row(name = "Beta").requestFocus()
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
@@ -124,7 +109,10 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Down moves row focus to the next Home Favorite`() {
-        setHomeFavorites()
+        composeRule.setHomeFavoriteRows(
+            favorites = listOf(testFirstApp, testSecondApp),
+            itemActions = createLauncherItemActions()
+        )
         row(name = "Alpha").requestFocus()
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
@@ -134,7 +122,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `keeps row focus on one Home row at a time`() {
-        setHomeRows()
+        composeRule.setHomeSuggestionRows(itemActions = createLauncherItemActions())
         row(name = "Alpha").requestFocus()
 
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
@@ -145,29 +133,35 @@ class LauncherRowFocusTest {
     @Test
     fun `Enter opens the focused Home row`() {
         val actualOpens: MutableList<Launchable> = mutableListOf()
-        setHomeRows(itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable }))
+        composeRule.setHomeSuggestionRows(
+            itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable })
+        )
         row(name = "Alpha").requestFocus()
 
         row(name = "Alpha").performKeyInput { pressKey(Key.Enter) }
 
-        assertEquals(listOf(inputFirstApp), actualOpens)
+        assertEquals(listOf(testFirstApp), actualOpens)
     }
 
     @Test
     fun `Enter opens the focused App List row`() {
         val actualOpens: MutableList<Launchable> = mutableListOf()
-        setAppListRows(itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable }))
+        composeRule.setAppListRows(
+            itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable })
+        )
         row(name = "Beta").requestFocus()
 
         row(name = "Beta").performKeyInput { pressKey(Key.Enter) }
 
-        assertEquals(listOf(inputSecondApp), actualOpens)
+        assertEquals(listOf(testSecondApp), actualOpens)
     }
 
     @Test
     fun `modified Enter leaves the focused row alone`() {
         val actualOpens: MutableList<Launchable> = mutableListOf()
-        setHomeRows(itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable }))
+        composeRule.setHomeSuggestionRows(
+            itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable })
+        )
         val actualRow: SemanticsNodeInteraction = row(name = "Alpha")
         actualRow.requestFocus()
 
@@ -182,9 +176,9 @@ class LauncherRowFocusTest {
     fun `paints a focus indicator on the focused row`() {
         val expectedFocusColor: Color = composeRule.captureThemeColor(
             color = { MaterialTheme.colorScheme.primary },
-            content = { LauncherItemTestContent() }
+            content = { LauncherItemTestContent(item = testFirstApp) }
         )
-        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(ROW_TEST_TAG)
+        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(LAUNCHER_ROW_TEST_TAG)
         actualRow.assertPaintsTopEdge(expectedColor = rowTestBackgroundColor)
 
         actualRow.requestFocus()
@@ -194,21 +188,30 @@ class LauncherRowFocusTest {
     }
 
     @Test
+    fun `a hovered focused row paints the focus background only`() {
+        composeRule.setLauncherItemRow(item = testFirstApp)
+        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(LAUNCHER_ROW_TEST_TAG)
+        actualRow.requestFocus()
+        composeRule.waitForIdle()
+        val expectedFocusBackground: Color = actualRow.rowBackgroundColor()
+
+        actualRow.performMouseInput { moveTo(center) }
+        composeRule.waitForIdle()
+
+        assertEquals(expectedFocusBackground, actualRow.rowBackgroundColor())
+    }
+
+    @Test
     fun `paints the same focus indicator on a clickable row`() {
         val expectedFocusColor: Color = composeRule.captureThemeColor(
             color = { MaterialTheme.colorScheme.primary },
             content = {
                 val inputModeManager = LocalInputModeManager.current
                 LaunchedEffect(inputModeManager) { inputModeManager.requestInputMode(InputMode.Keyboard) }
-                LauncherActionRow(
-                    imageVector = FontAwesomeIcons.Solid.Lock,
-                    label = "Lock Private Space",
-                    onClick = {},
-                    modifier = Modifier.testTag(ACTION_ROW_TEST_TAG)
-                )
+                LauncherActionRowTestContent()
             }
         )
-        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(ACTION_ROW_TEST_TAG)
+        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(LAUNCHER_ACTION_ROW_TEST_TAG)
 
         actualRow.requestFocus()
         composeRule.waitForIdle()
@@ -219,8 +222,8 @@ class LauncherRowFocusTest {
     @Test
     fun `moves TalkBack focus to the row keyboard focus moves to`() {
         enableAccessibility()
-        composeRule.setContent { RowTestContent { LauncherItemTestContent() } }
-        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(ROW_TEST_TAG)
+        composeRule.setLauncherItemRow(item = testFirstApp)
+        val actualRow: SemanticsNodeInteraction = composeRule.onNodeWithTag(LAUNCHER_ROW_TEST_TAG)
 
         actualRow.requestFocus()
         composeRule.waitForIdle()
@@ -229,15 +232,15 @@ class LauncherRowFocusTest {
         val actualAccessibilityFocus: AccessibilityNodeInfo? = actualRow.accessibilityFocus()
         assertNotNull(actualAccessibilityFocus)
         assertTrue(requireNotNull(actualAccessibilityFocus).isAccessibilityFocused)
-        assertEquals(inputFirstApp.accessibilityName, actualAccessibilityFocus?.contentDescription?.toString())
+        assertEquals(testFirstApp.accessibilityName, actualAccessibilityFocus?.contentDescription?.toString())
         assertNull(actualAccessibilityFocus?.text)
     }
 
     @Test
     fun `keeps Search result rows out of Row focus`() {
-        composeRule.setContent { RowTestContent { LauncherItemTestContent(popupRow = PopupRow.Search, isRowFocusEnabled = false) } }
+        composeRule.setLauncherItemRow(item = testFirstApp, popupRow = PopupRow.Search, isRowFocusEnabled = false)
 
-        composeRule.onNodeWithTag(ROW_TEST_TAG).assert(isNotFocusable())
+        composeRule.onNodeWithTag(LAUNCHER_ROW_TEST_TAG).assert(isNotFocusable())
     }
 
     @Test
@@ -256,7 +259,9 @@ class LauncherRowFocusTest {
         val inputItemActions: LauncherItemActions = createLauncherItemActions()
         composeRule.setContent {
             CompositionLocalProvider(LocalLauncherInputState provides inputLauncherInputState) {
-                HomeRows(itemActions = inputItemActions)
+                RowTestContent {
+                    HomeSuggestionRowsTestContent(itemActions = inputItemActions)
+                }
             }
         }
 
@@ -266,71 +271,18 @@ class LauncherRowFocusTest {
         assertFalse(inputLauncherInputState.isTextFieldFocused.value)
     }
 
-    private fun setHomeRows(itemActions: LauncherItemActions = createLauncherItemActions()) {
-        composeRule.setContent { HomeRows(itemActions = itemActions) }
-    }
-
-    @Composable
-    private fun HomeRows(itemActions: LauncherItemActions) {
-        HomeSuggestionRowsTestContent(
-            suggestions = listOf(inputFirstApp, inputSecondApp),
-            itemActions = itemActions,
-            isPopupSwipeEnabled = false
-        )
-    }
-
-    private fun setHomeFavorites(isResizing: Boolean = false, isEditingWidgets: Boolean = false) {
-        val inputHome: LauncherUiState.Home = createHomeState(favorites = listOf(inputFirstApp, inputSecondApp))
-        composeRule.setContent {
-            val inputItemActions: LauncherItemActions = remember { createLauncherItemActions() }
-            LauncherHomeTestContent(
-                modifier = Modifier.size(width = 360.dp, height = 600.dp),
-                home = inputHome,
-                itemActions = inputItemActions,
-                isPopupSwipeEnabled = false,
-                isResizing = isResizing,
-                isEditingWidgets = isEditingWidgets
-            )
-        }
-    }
-
     private fun assertHomeRowsAreNotFocusable(isResizing: Boolean = false, isEditingWidgets: Boolean = false) {
-        setHomeFavorites(isResizing = isResizing, isEditingWidgets = isEditingWidgets)
+        composeRule.setHomeFavoriteRows(
+            favorites = listOf(testFirstApp, testSecondApp),
+            itemActions = createLauncherItemActions(),
+            isResizing = isResizing,
+            isEditingWidgets = isEditingWidgets
+        )
 
         composeRule.onNode(
             hasRequestFocusAction() and hasAnyDescendant(hasText("Alpha")),
             useUnmergedTree = true
         ).assertDoesNotExist()
-    }
-
-    private fun setAppListRows(itemActions: LauncherItemActions = createLauncherItemActions()) {
-        composeRule.setContent {
-            LauncherAppListTestContent(
-                modifier = Modifier.size(width = 360.dp, height = 600.dp),
-                appList = listOf(
-                    LaunchableGroup.InitialGroup(label = "A", items = listOf(inputFirstApp, inputSecondApp))
-                ),
-                lazyListState = LazyListState(),
-                topOffset = 0.dp,
-                rowState = AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet(), isPopupSwipeEnabled = false),
-                itemActions = itemActions
-            )
-        }
-    }
-
-    @Composable
-    private fun LauncherItemTestContent(popupRow: PopupRow = PopupRow.Home, isRowFocusEnabled: Boolean = true) {
-        val inputItemActions: LauncherItemActions = remember { createLauncherItemActions() }
-        LauncherItem(
-            item = inputFirstApp,
-            isEditingFavorites = false,
-            isFavorite = false,
-            isRowFocusEnabled = isRowFocusEnabled,
-            isPopupSwipeEnabled = false,
-            popupRow = popupRow,
-            itemActions = inputItemActions,
-            modifier = Modifier.testTag(ROW_TEST_TAG)
-        )
     }
 
     private fun enableAccessibility() {
@@ -365,6 +317,9 @@ class LauncherRowFocusTest {
         0,
         0
     )
+
+    private fun SemanticsNodeInteraction.rowBackgroundColor(): Color =
+        captureToImage().toPixelMap().let { pixels -> pixels[pixels.width - 20, pixels.height / 2] }
 
     private fun row(name: String): SemanticsNodeInteraction = composeRule.onNode(
         hasRequestFocusAction() and hasAnyDescendant(hasText(name)),

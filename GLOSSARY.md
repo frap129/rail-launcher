@@ -328,6 +328,14 @@ _Avoid_: Hotkey, key binding, Launcher shortcut
 The hardware keyboard's focus on a Launcher row on Home or in the App List, which the arrow keys move and Enter opens as a tap would. The focused row paints the focus indicator and moves TalkBack's accessibility focus to itself, so keyboard focus and TalkBack focus stay on one row. Row focus is not text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus, and a modified key passes through.
 _Avoid_: Cursor, selection, highlight
 
+**Row hover**:
+The tinted background a Launcher row paints while a mouse hovers it, removed when the pointer leaves. A row that also has Row focus paints the focus background only, so the two states never stack.
+_Avoid_: Hover highlight, mouse-over
+
+**Secondary click**:
+A press of the mouse's secondary button or of a stylus button on a Launcher row, which opens the row's long-press menu instead of tapping it, and never fires for a press an ancestor already consumed or for a drag that entered the row. Touch input has no secondary click, so tap and long-press behave as before.
+_Avoid_: Right-click, stylus press
+
 **Launcher signal**:
 A one-shot request the launcher UI acts on: a HOME intent, a Search entry, a Keyboard shortcut or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
 _Avoid_: Home event, intent event

@@ -2,21 +2,103 @@ package feature.launcher
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import compose.icons.FontAwesomeIcons
+import compose.icons.fontawesomeicons.Solid
+import compose.icons.fontawesomeicons.solid.Lock
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.prefs.RailSide
+import core.data.testing.createApp
+import core.ui.composables.RowTestContent
 import feature.launcher.widgets.MediaPlayerUiState
 import feature.launcher.widgets.WidgetAreaLayout
 import feature.launcher.widgets.WidgetAreaState
 import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.widgetAreaActions
+
+const val LAUNCHER_ROW_TEST_TAG: String = "launcherRow"
+const val LAUNCHER_ACTION_ROW_TEST_TAG: String = "launcherActionRow"
+const val PRIVATE_SPACE_ROW_TEST_TAG: String = "privateSpaceRow"
+
+/** The first App every Launcher row test lays out. */
+val testFirstApp: Launchable = createApp(name = "Alpha", packageName = "com.example.alpha")
+
+/** The second App every Launcher row test lays out. */
+val testSecondApp: Launchable = createApp(name = "Beta", packageName = "com.example.beta")
+
+/** Sets two Home suggestion rows over the contrasting test background. */
+fun ComposeContentTestRule.setHomeSuggestionRows(itemActions: LauncherItemActions) {
+    setContent {
+        RowTestContent {
+            HomeSuggestionRowsTestContent(itemActions = itemActions)
+        }
+    }
+}
+
+/** Sets one App List group of the two test Apps over the contrasting test background. */
+fun ComposeContentTestRule.setAppListRows(itemActions: LauncherItemActions) {
+    setContent {
+        RowTestContent {
+            LauncherAppListTestContent(
+                modifier = Modifier.size(width = 360.dp, height = 600.dp),
+                appList = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(testFirstApp, testSecondApp))),
+                lazyListState = LazyListState(),
+                topOffset = 0.dp,
+                rowState = AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet(), isPopupSwipeEnabled = false),
+                itemActions = itemActions
+            )
+        }
+    }
+}
+
+/** Sets one tagged Launcher row over the contrasting test background. */
+fun ComposeContentTestRule.setLauncherItemRow(
+    item: Launchable,
+    itemActions: LauncherItemActions = createLauncherItemActions(),
+    popupRow: PopupRow = PopupRow.Home,
+    isRowFocusEnabled: Boolean = true
+) {
+    setContent {
+        RowTestContent {
+            LauncherItemTestContent(
+                item = item,
+                itemActions = itemActions,
+                popupRow = popupRow,
+                isRowFocusEnabled = isRowFocusEnabled
+            )
+        }
+    }
+}
+
+/** Sets Home Favorites, optionally blocked as widget editing and resizing do. */
+fun ComposeContentTestRule.setHomeFavoriteRows(
+    favorites: List<Launchable>,
+    itemActions: LauncherItemActions = createLauncherItemActions(),
+    isResizing: Boolean = false,
+    isEditingWidgets: Boolean = false
+) {
+    val home: LauncherUiState.Home = createHomeState(favorites = favorites)
+    setContent {
+        LauncherHomeTestContent(
+            modifier = Modifier.size(width = 360.dp, height = 600.dp),
+            home = home,
+            itemActions = itemActions,
+            isPopupSwipeEnabled = false,
+            isResizing = isResizing,
+            isEditingWidgets = isEditingWidgets
+        )
+    }
+}
 
 /** A Home state showing [favorites] and [suggestions], as Home tests compose it. */
 fun createHomeState(favorites: List<Launchable>, suggestions: List<Launchable> = emptyList()): LauncherUiState.Home = LauncherUiState.Home(
@@ -74,9 +156,9 @@ fun LauncherHomeTestContent(
 /** A column of Home suggestions, sized by [modifier]. */
 @Composable
 fun HomeSuggestionRowsTestContent(
-    suggestions: List<Launchable>,
     itemActions: LauncherItemActions,
-    isPopupSwipeEnabled: Boolean,
+    suggestions: List<Launchable> = listOf(testFirstApp, testSecondApp),
+    isPopupSwipeEnabled: Boolean = false,
     modifier: Modifier = Modifier.fillMaxSize()
 ) {
     Column(modifier = modifier) {
@@ -89,6 +171,47 @@ fun HomeSuggestionRowsTestContent(
             )
         }
     }
+}
+
+/** One Launcher row composed for tests, tagged so tests can inspect and drive it. */
+@Composable
+fun LauncherItemTestContent(
+    item: Launchable,
+    itemActions: LauncherItemActions = createLauncherItemActions(),
+    popupRow: PopupRow = PopupRow.Home,
+    isRowFocusEnabled: Boolean = true
+) {
+    LauncherItem(
+        item = item,
+        isEditingFavorites = false,
+        isFavorite = false,
+        isRowFocusEnabled = isRowFocusEnabled,
+        isPopupSwipeEnabled = false,
+        popupRow = popupRow,
+        itemActions = itemActions,
+        modifier = Modifier.testTag(LAUNCHER_ROW_TEST_TAG)
+    )
+}
+
+/** The Lock action row composed for tests, tagged so tests can inspect and drive it. */
+@Composable
+fun LauncherActionRowTestContent(onClick: () -> Unit = {}) {
+    LauncherActionRow(
+        imageVector = FontAwesomeIcons.Solid.Lock,
+        label = "Lock Private Space",
+        onClick = onClick,
+        modifier = Modifier.testTag(LAUNCHER_ACTION_ROW_TEST_TAG)
+    )
+}
+
+/** The locked Private Space container row composed for tests, tagged so tests can inspect and drive it. */
+@Composable
+fun PrivateSpaceRowTestContent(isLocked: Boolean = true, onUnlock: () -> Unit = {}) {
+    PrivateSpaceRow(
+        isLocked = isLocked,
+        onUnlock = onUnlock,
+        modifier = Modifier.testTag(PRIVATE_SPACE_ROW_TEST_TAG)
+    )
 }
 
 /** The App List composed for tests, with [rowState] and [itemActions] shared by its rows. */

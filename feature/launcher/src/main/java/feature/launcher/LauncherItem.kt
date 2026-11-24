@@ -54,6 +54,8 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
+import core.ui.composables.longPressMenuOnSecondaryClick
+import core.ui.composables.rowHoverAndFocusIndicator
 import core.ui.composables.tracksRowFocus
 import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.minTouchTargetSize
@@ -142,10 +144,18 @@ fun LauncherItem(
     val anchorHolder: PopupAnchorHolder = remember { PopupAnchorHolder() }
     val longPressGate: LongPressGate = remember { LongPressGate() }
     val openRow: () -> Unit = { currentItemActions.onItemTap(currentItem, anchorHolder.anchor) }
-    val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
+    val openLongPressMenu: () -> Unit = remember {
+        {
+            longPressGate.isFired = true
+            currentItemActions.onItemLongPress(currentItem, currentMenuSuggestion)
+            hapticFeedback.performLongPressHaptic()
+        }
+    }
+    val canLongPressRow: Boolean = !isEditingFavorites
+    val canOpenPopup: Boolean = canLongPressRow && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isUnavailable: Boolean = item.isPaused || item.isDisabled
-    val canFocusRow: Boolean = isRowFocusEnabled && !isEditingFavorites
+    val canFocusRow: Boolean = isRowFocusEnabled && canLongPressRow
     val rowDetails: String? = launcherItemDescription(
         label = item.accessibilityName,
         detail = secondaryText,
@@ -160,17 +170,15 @@ fun LauncherItem(
             modifier = modifier
                 .fillMaxWidth()
                 .alpha(if (isUnavailable) UNAVAILABLE_ALPHA else 1f)
+                .rowHoverAndFocusIndicator()
                 .then(if (canFocusRow) Modifier.tracksRowFocus(onOpen = openRow) else Modifier)
-                .pointerInput(isEditingFavorites) {
-                    if (!isEditingFavorites) {
+                .then(if (canLongPressRow) Modifier.longPressMenuOnSecondaryClick(onLongPress = openLongPressMenu) else Modifier)
+                .pointerInput(canLongPressRow) {
+                    if (canLongPressRow) {
                         detectTapGestures(
                             onPress = { longPressGate.isFired = false },
                             onTap = { openRow() },
-                            onLongPress = {
-                                longPressGate.isFired = true
-                                currentItemActions.onItemLongPress(currentItem, currentMenuSuggestion)
-                                hapticFeedback.performLongPressHaptic()
-                            }
+                            onLongPress = { openLongPressMenu() }
                         )
                     }
                 }
