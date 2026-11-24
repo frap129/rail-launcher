@@ -58,6 +58,7 @@ import core.data.time.IClockSource
 import core.ui.GroupMark
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
+import core.ui.model.data.LauncherSignal
 import core.ui.search.SearchContactsUiEvent
 import core.ui.search.SearchContactsUiEvents
 import core.ui.toGroupMark
@@ -1107,14 +1108,14 @@ class LauncherViewModel(
 
     /**
      * The launcher was re-selected through the HOME category. A HOME intent that returns to Rail
-     * from another app keeps the App List or Home where it was left. A Home press on Home opens
-     * Search when its entry is on; any other press while Rail is resumed shows Home scrolled to the top.
+     * from another app keeps the App List or Home where it was left. A HOME intent while Rail is
+     * shown returns Home scrolled to the top; a focused Home press opens Search when its entry is on.
      */
-    fun onHomeIntent(wasResumed: Boolean) {
-        if (!wasResumed) {
+    fun onHomeIntent(signal: LauncherSignal.Home) {
+        if (!signal.shouldShowHome) {
             return
         }
-        if (isHomePressOnHome() && openSearch()) {
+        if (signal.wasFocused && isHomePressOnHome() && openSearch()) {
             return
         }
         showHome(resetScroll = true)

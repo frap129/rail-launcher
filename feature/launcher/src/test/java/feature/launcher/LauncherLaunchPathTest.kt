@@ -15,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +46,16 @@ class LauncherLaunchPathTest {
         launch(launchable = mockLaunchable)
 
         verify { mockViewModel.onLaunched(mockLaunchable) }
+    }
+
+    @Test
+    fun `a successful launch finishes Home interactions`() {
+        var actualFinished: Boolean = false
+        launch(
+            launchable = mockLaunchable,
+            effects = effects(finishHomeInteractions = { actualFinished = true })
+        )
+        assertTrue(actualFinished)
     }
 
     @Test
@@ -194,11 +205,12 @@ class LauncherLaunchPathTest {
         verify(exactly = 0) { mockViewModel.onLaunched(any()) }
     }
 
-    private fun effects(onLaunchFailed: (Launchable) -> Unit = {}): LaunchItemEffects = LaunchItemEffects(
-        onHideKeyboard = {},
-        onDisabledLaunch = {},
-        onPopupLaunched = {},
-        onLaunchFailed = onLaunchFailed,
-        onHomeIntent = {}
-    )
+    private fun effects(onLaunchFailed: (Launchable) -> Unit = {}, finishHomeInteractions: () -> Unit = {}): LaunchItemEffects =
+        LaunchItemEffects(
+            onHideKeyboard = {},
+            onDisabledLaunch = {},
+            onPopupLaunched = {},
+            onLaunchFailed = onLaunchFailed,
+            finishHomeInteractions = finishHomeInteractions
+        )
 }

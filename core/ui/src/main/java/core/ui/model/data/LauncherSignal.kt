@@ -10,11 +10,12 @@ sealed interface LauncherSignal : Serializable {
     /**
      * A HOME intent delivered to the launcher.
      *
-     * @property wasResumed whether the launcher activity was already resumed when the intent arrived,
-     * which is only true for a Home press on Home and never for one that returns to Rail from another app,
-     * so only a resumed HOME intent resets the launcher to Home.
+     * @property shouldShowHome whether the HOME intent presses the shown launcher rather than returning
+     * from another app, so only that press resets the launcher to Home.
+     * @property wasFocused whether the launcher had window focus at HOME intent arrival or just before
+     * a delivery pause, which the App narrows to a Home press on Home so only that press can open Search.
      */
-    data class Home(val wasResumed: Boolean) : LauncherSignal
+    data class Home(val shouldShowHome: Boolean, val wasFocused: Boolean) : LauncherSignal
 
     /** The Search entry asked to open Search. */
     data object OpenSearch : LauncherSignal
@@ -25,3 +26,7 @@ sealed interface LauncherSignal : Serializable {
     /** A printable character was typed on the launcher with a hardware keyboard. */
     data class TypedCharacter(val character: String) : LauncherSignal
 }
+
+/** Keeps Home navigation on every destination while limiting Search to a focused HOME intent already on Home. */
+internal fun LauncherSignal.Home.narrowSearchToStartDestination(isStartDestination: Boolean): LauncherSignal.Home =
+    copy(wasFocused = wasFocused && isStartDestination)

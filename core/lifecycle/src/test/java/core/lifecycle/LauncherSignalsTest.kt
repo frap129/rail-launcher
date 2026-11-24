@@ -11,7 +11,8 @@ class LauncherSignalsTest {
     @Test
     fun `a signal sent before a collector attaches is delivered once it attaches`() = runTest {
         val inputSignals: List<LauncherSignal> = listOf(
-            LauncherSignal.Home(wasResumed = true),
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = true),
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = false),
             LauncherSignal.OpenSearch,
             LauncherSignal.OpenAgenda
         )
@@ -28,7 +29,7 @@ class LauncherSignalsTest {
     @Test
     fun `consumed signal is not re-delivered to a later collector`() = runTest {
         val launcherSignals: LauncherSignals = LauncherSignals()
-        launcherSignals.signal(LauncherSignal.Home(wasResumed = true))
+        launcherSignals.signal(LauncherSignal.Home(shouldShowHome = true, wasFocused = true))
         launcherSignals.events.first()
         launcherSignals.events.test {
             expectNoEvents()
@@ -38,10 +39,10 @@ class LauncherSignalsTest {
     @Test
     fun `signals sent while no collector is attached conflate into the latest signal`() = runTest {
         val launcherSignals: LauncherSignals = LauncherSignals()
-        launcherSignals.signal(LauncherSignal.Home(wasResumed = true))
-        launcherSignals.signal(LauncherSignal.Home(wasResumed = false))
+        launcherSignals.signal(LauncherSignal.Home(shouldShowHome = true, wasFocused = true))
+        launcherSignals.signal(LauncherSignal.Home(shouldShowHome = false, wasFocused = false))
         launcherSignals.events.test {
-            assertEquals(LauncherSignal.Home(wasResumed = false), awaitItem())
+            assertEquals(LauncherSignal.Home(shouldShowHome = false, wasFocused = false), awaitItem())
             expectNoEvents()
         }
     }
@@ -50,8 +51,8 @@ class LauncherSignalsTest {
     fun `signal sent to an attached collector is delivered`() = runTest {
         val launcherSignals: LauncherSignals = LauncherSignals()
         launcherSignals.events.test {
-            launcherSignals.signal(LauncherSignal.Home(wasResumed = false))
-            assertEquals(LauncherSignal.Home(wasResumed = false), awaitItem())
+            launcherSignals.signal(LauncherSignal.Home(shouldShowHome = false, wasFocused = false))
+            assertEquals(LauncherSignal.Home(shouldShowHome = false, wasFocused = false), awaitItem())
         }
     }
 
@@ -59,10 +60,10 @@ class LauncherSignalsTest {
     fun `each signal is delivered after the previous one is consumed`() = runTest {
         val launcherSignals: LauncherSignals = LauncherSignals()
         launcherSignals.events.test {
-            launcherSignals.signal(LauncherSignal.Home(wasResumed = true))
-            assertEquals(LauncherSignal.Home(wasResumed = true), awaitItem())
-            launcherSignals.signal(LauncherSignal.Home(wasResumed = false))
-            assertEquals(LauncherSignal.Home(wasResumed = false), awaitItem())
+            launcherSignals.signal(LauncherSignal.Home(shouldShowHome = true, wasFocused = true))
+            assertEquals(LauncherSignal.Home(shouldShowHome = true, wasFocused = true), awaitItem())
+            launcherSignals.signal(LauncherSignal.Home(shouldShowHome = false, wasFocused = false))
+            assertEquals(LauncherSignal.Home(shouldShowHome = false, wasFocused = false), awaitItem())
         }
     }
 

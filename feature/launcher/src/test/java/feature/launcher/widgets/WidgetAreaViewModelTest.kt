@@ -1079,10 +1079,20 @@ class WidgetAreaViewModelTest {
         collectWidgetAreaState(viewModel)
         val actualPrevious: LazyListState = viewModel.widgetAreaState.value.listState
 
-        viewModel.onHomeIntent()
+        viewModel.finishHomeInteractions(resetScroll = true)
         advanceUntilIdle()
 
         assertNotSame(actualPrevious, viewModel.widgetAreaState.value.listState)
+    }
+
+    @Test
+    fun `Home intent returning from another app keeps the Widget Area list state`() = runTest {
+        val viewModel: WidgetAreaViewModel = createViewModel()
+        collectWidgetAreaState(viewModel)
+        val actualPrevious: LazyListState = viewModel.widgetAreaState.value.listState
+        viewModel.finishHomeInteractions(resetScroll = false)
+        advanceUntilIdle()
+        assertSame(actualPrevious, viewModel.widgetAreaState.value.listState)
     }
 
     @Test
@@ -1217,7 +1227,7 @@ class WidgetAreaViewModelTest {
         viewModel.startMoveWidgetArea()
         advanceUntilIdle()
         viewModel.setDraftOffset(16)
-        assertTrue(viewModel.onHomeIntent())
+        assertTrue(viewModel.finishHomeInteractions(resetScroll = true))
         advanceUntilIdle()
         assertEquals(16, inputAreaSettings.value.topOffsetDp)
     }
@@ -2055,13 +2065,13 @@ class WidgetAreaViewModelTest {
         assertTrue(viewModel.onBack())
         advanceUntilIdle()
         inputResizeState.value = resizeState()
-        assertTrue(viewModel.onHomeIntent())
+        assertTrue(viewModel.finishHomeInteractions(resetScroll = true))
         advanceUntilIdle()
 
         verify(exactly = 2) { mockResizeController.finishResize() }
         assertNull(inputResizeState.value)
         assertFalse(viewModel.onBack())
-        assertFalse(viewModel.onHomeIntent())
+        assertFalse(viewModel.finishHomeInteractions(resetScroll = true))
     }
 
     @Test
@@ -2311,7 +2321,7 @@ class WidgetAreaViewModelTest {
         viewModel.editWidgets()
         advanceUntilIdle()
         viewModel.removeWidgetPlaceInEdit(placeId = 2L)
-        assertTrue(viewModel.onHomeIntent())
+        assertTrue(viewModel.finishHomeInteractions(resetScroll = true))
         advanceUntilIdle()
         coVerify(exactly = 1) { mockRepository.commitEdit(editDroppingSecondPlace()) }
         assertEquals(HomeEditMode.None, inputHomeEditState.mode.value)

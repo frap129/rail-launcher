@@ -967,8 +967,10 @@ class WidgetAreaViewModel(
 
     fun onBack(): Boolean = finishEditingOrMove(fallback = ::finishResizeIfResizing)
 
-    fun onHomeIntent(): Boolean {
-        widgetAreaListState.value = LazyListState()
+    fun finishHomeInteractions(resetScroll: Boolean): Boolean {
+        if (resetScroll) {
+            widgetAreaListState.value = LazyListState()
+        }
         return finishEditingOrMove(fallback = ::finishResizeIfResizing)
     }
 
