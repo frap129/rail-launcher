@@ -37,3 +37,9 @@ enum class KeyboardShortcut(@StringRes val label: Int, val keyCode: Int, val sig
         }
     }
 }
+
+/**
+ * Whether [this] event presses Ctrl, Alt or Meta, which a Typed character or a Row focus key never
+ * accepts.
+ */
+fun KeyEvent.hasShortcutModifier(): Boolean = isCtrlPressed || isAltPressed || isMetaPressed

@@ -2,7 +2,6 @@ package feature.launcher
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -12,16 +11,10 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import core.data.launchables.model.Launchable
-import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.ui.IHomeIconsDrawn
 import core.ui.model.data.isFavoriteKey
-import feature.launcher.widgets.MediaPlayerUiState
-import feature.launcher.widgets.WidgetAreaLayout
-import feature.launcher.widgets.WidgetAreaState
-import feature.launcher.widgets.WidgetAreaUi
-import feature.launcher.widgets.widgetAreaActions
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -74,14 +67,14 @@ class HomeIconsDrawnTest {
     fun `reports at once for a Home with no Favorites`() {
         // No frame may pass before the report, so the empty Home must not wait to lay out icons.
         composeRule.mainClock.autoAdvance = false
-        setHome(home = createHome(favorites = emptyList()))
+        setHome(home = createHomeState(favorites = emptyList()))
         verify(exactly = 1) { mockHomeIconsDrawn.report() }
     }
 
     @Test
     fun `reports when a Favorite icon fails to load`() {
         // The test ImageLoader has no fetcher for an Icon, so this Favorite's load ends in Error.
-        setHome(home = createHome(favorites = listOf(createFavorite(index = 1))))
+        setHome(home = createHomeState(favorites = listOf(createFavorite(index = 1))))
         composeRule.waitUntil(timeoutMillis = REPORT_TIMEOUT_MILLIS) { isReported }
         composeRule.mainClock.advanceTimeBy(milliseconds = SETTLE_MILLIS)
         verify(exactly = 1) { mockHomeIconsDrawn.report() }
@@ -89,7 +82,7 @@ class HomeIconsDrawnTest {
 
     @Test
     fun `waits only for the visible Favorite icons`() {
-        val inputHome: LauncherUiState.Home = createHome(favorites = (1..FAVORITE_COUNT).map(::createFavorite))
+        val inputHome: LauncherUiState.Home = createHomeState(favorites = (1..FAVORITE_COUNT).map(::createFavorite))
         setHome(home = inputHome)
         composeRule.waitUntil(timeoutMillis = REPORT_TIMEOUT_MILLIS) { isReported }
         val actualVisibleFavoriteCount: Int = inputHome.lazyListState.layoutInfo.visibleItemsInfo.count { info -> isFavoriteKey(info.key) }
@@ -103,47 +96,18 @@ class HomeIconsDrawnTest {
     private fun setHome(home: LauncherUiState.Home) {
         composeRule.setContent {
             val report: HomeIconsDrawnReport = remember { HomeIconsDrawnReport(homeIconsDrawn = mockHomeIconsDrawn) }
+            val itemActions: LauncherItemActions = remember { createLauncherItemActions() }
             Box(modifier = Modifier.size(width = HOME_WIDTH, height = HOME_HEIGHT)) {
-                LauncherHome(
+                LauncherHomeTestContent(
                     home = home,
-                    widgetArea = widgetAreaUi(),
-                    railSide = RailSide.DEFAULT,
-                    itemActions = createLauncherItemActions(),
-                    folderSummaries = emptyMap(),
-                    onFavoriteIconSettled = report.settledIcons::settle,
-                    onFavoriteMoved = { _, _ -> },
-                    onEmptyAreaLongPress = {},
-                    onSwipeUp = {},
-                    isSwipeUpEnabled = false,
-                    onSwipeDown = {},
-                    isSwipeDownEnabled = false,
-                    isResizing = false,
-                    isEditingWidgets = false,
+                    itemActions = itemActions,
                     isPopupSwipeEnabled = true,
-                    onResizeOutsideTap = {}
+                    onFavoriteIconSettled = report.settledIcons::settle
                 )
                 HomeIconsDrawnEffect(home = home, isHomeDrawable = true, report = report)
             }
         }
     }
 
-    private fun createHome(favorites: List<Launchable>): LauncherUiState.Home = LauncherUiState.Home(
-        lazyListState = LazyListState(),
-        favorites = favorites,
-        isFavoritesLoaded = true,
-        suggestions = emptyList(),
-        isSwipeUpEnabled = false,
-        isSwipeDownEnabled = false
-    )
-
     private fun createFavorite(index: Int): Launchable = createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
-
-    private fun widgetAreaUi(): WidgetAreaUi = WidgetAreaUi(
-        state = WidgetAreaState(isLoaded = true, layout = WidgetAreaLayout.Uncapped, listState = LazyListState()),
-        resize = null,
-        editDraft = null,
-        mediaPlayer = MediaPlayerUiState.Hidden,
-        scrollToPlaceId = null,
-        actions = widgetAreaActions()
-    )
 }

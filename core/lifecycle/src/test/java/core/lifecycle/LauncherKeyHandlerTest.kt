@@ -172,6 +172,40 @@ class LauncherKeyHandlerTest {
     }
 
     @Test
+    fun `a Typed character and a Keyboard shortcut fire while a row has focus`() {
+        val actualSignals: MutableList<LauncherSignal> = mutableListOf()
+        val launcherKeyHandler: LauncherKeyHandler = createHandler(
+            isLauncherShown = true,
+            isTypingAccepted = true,
+            onSignal = actualSignals::add
+        )
+
+        // Row focus never reports text-field focus, so the launcher still accepts both keys.
+        val actualTypedHandled: Boolean = launcherKeyHandler.onKeyDown(
+            keyCode = KeyEvent.KEYCODE_A,
+            event = createKeyEvent(keyCode = KeyEvent.KEYCODE_A)
+        )
+        val actualShortcutHandled: Boolean = launcherKeyHandler.onKeyDown(
+            keyCode = KeyEvent.KEYCODE_F,
+            event = createKeyEvent(keyCode = KeyEvent.KEYCODE_F, metaState = KeyEvent.META_CTRL_ON)
+        )
+
+        assertTrue(actualTypedHandled)
+        assertTrue(actualShortcutHandled)
+        assertEquals(
+            listOf(LauncherSignal.TypedCharacter(character = "a"), LauncherSignal.OpenSearch),
+            actualSignals
+        )
+    }
+
+    @Test
+    fun `arrow keys pass through to Row focus`() {
+        listOf(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN).forEach { inputKeyCode ->
+            assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = 0)
+        }
+    }
+
+    @Test
     fun `a non-printing key passes through`() {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val launcherKeyHandler: LauncherKeyHandler = createHandler(

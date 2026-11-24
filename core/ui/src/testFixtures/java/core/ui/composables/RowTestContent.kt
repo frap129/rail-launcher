@@ -46,6 +46,21 @@ fun SemanticsNodeInteraction.assertPaintsTopEdge(expectedColor: Color) {
 }
 
 /**
+ * Renders [content] over the contrasting test background, returning the colour [color] resolves
+ * to in the theme [content] is drawn with.
+ */
+fun ComposeContentTestRule.captureThemeColor(color: @Composable () -> Color, content: @Composable () -> Unit = {}): Color {
+    val capturedColor: MutableState<Color?> = mutableStateOf(null)
+    setContent {
+        RowTestContent {
+            capturedColor.value = color()
+            content()
+        }
+    }
+    return requireNotNull(capturedColor.value)
+}
+
+/**
  * Renders [content] over the contrasting test background and asserts every node from [labels]
  * paints the colour [expectedColor] resolves to in the theme.
  */
@@ -54,14 +69,7 @@ fun ComposeContentTestRule.assertRowsPaintColor(
     content: @Composable () -> Unit,
     labels: () -> List<SemanticsNodeInteraction>
 ) {
-    val capturedExpectedColor: MutableState<Color?> = mutableStateOf(null)
-    setContent {
-        RowTestContent {
-            capturedExpectedColor.value = expectedColor()
-            content()
-        }
-    }
-    val actualExpectedColor: Color = requireNotNull(capturedExpectedColor.value)
+    val actualExpectedColor: Color = captureThemeColor(color = expectedColor, content = content)
     labels().forEach { label -> label.assertPaintsTopEdge(actualExpectedColor) }
 }
 

@@ -37,6 +37,7 @@ import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconPadding
 import core.ui.composables.launchableIconSize
+import core.ui.composables.rowFocusIndicator
 
 /** The glyph size inside the Private Space container's circular indicator. */
 private val privateSpaceGlyphSize: Dp = 32.dp
@@ -59,6 +60,7 @@ internal fun PrivateSpaceRow(isLocked: Boolean, onUnlock: () -> Unit, modifier: 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .rowFocusIndicator()
             .then(if (isLocked) Modifier.clickable(role = Role.Button, onClickLabel = unlockLabel, onClick = onUnlock) else Modifier)
             .semantics(mergeDescendants = true) {
                 contentDescription = label

@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import core.ui.composables.OutlinedText
 import core.ui.composables.launchableIconSize
+import core.ui.composables.rowFocusIndicator
 import core.ui.layout.compactIconSize
 
 /** A full-width launcher action row with a leading icon, a label and optional trailing content. */
@@ -35,6 +36,7 @@ internal fun LauncherActionRow(
             .fillMaxWidth()
             .heightIn(min = launchableIconSize)
             .contentDescriptionSemantics(description = rowDescription)
+            .rowFocusIndicator()
             .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {

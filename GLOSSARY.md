@@ -324,6 +324,10 @@ _Avoid_: Key press, keystroke
 A Ctrl or Meta key combination the launcher consumes on Home or in the App List, such as Ctrl/Meta+F for Search. Rail keeps one list of them, which feeds the system keyboard shortcuts helper and, later, the Keyboard shortcuts help sheet; any other Ctrl, Alt or Meta combination passes through, and a Keyboard shortcut does nothing while a text field has focus.
 _Avoid_: Hotkey, key binding, Launcher shortcut
 
+**Row focus**:
+The hardware keyboard's focus on a Launcher row on Home or in the App List, which the arrow keys move and Enter opens as a tap would. The focused row paints the focus indicator and moves TalkBack's accessibility focus to itself, so keyboard focus and TalkBack focus stay on one row. Row focus is not text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus, and a modified key passes through.
+_Avoid_: Cursor, selection, highlight
+
 **Launcher signal**:
 A one-shot request the launcher UI acts on: a HOME intent, a Search entry, a Keyboard shortcut or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
 _Avoid_: Home event, intent event

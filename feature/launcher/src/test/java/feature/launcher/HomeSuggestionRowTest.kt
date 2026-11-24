@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsNode
@@ -14,7 +13,6 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
-import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import org.junit.Assert.assertEquals
@@ -67,14 +65,12 @@ class HomeSuggestionRowTest {
 
     private fun setRow(itemActions: LauncherItemActions) {
         composeRule.setContent {
-            Box(modifier = Modifier.size(width = ROW_WIDTH, height = ROW_HEIGHT)) {
-                HomeSuggestionRow(
-                    suggestion = inputSuggestion,
-                    railSide = RailSide.DEFAULT,
-                    itemActions = itemActions,
-                    isPopupSwipeEnabled = true
-                )
-            }
+            HomeSuggestionRowsTestContent(
+                suggestions = listOf(inputSuggestion),
+                itemActions = itemActions,
+                isPopupSwipeEnabled = true,
+                modifier = Modifier.size(width = ROW_WIDTH, height = ROW_HEIGHT)
+            )
         }
     }
 }

@@ -185,6 +185,7 @@ private fun LauncherAppListRow(
         item = item,
         isEditingFavorites = rowState.isEditingFavorites,
         isFavorite = item.key in rowState.favoriteKeys,
+        isRowFocusEnabled = true,
         isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
         popupRow = popupRow,
         itemActions = itemActions,

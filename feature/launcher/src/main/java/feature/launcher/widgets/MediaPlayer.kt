@@ -64,6 +64,7 @@ import core.data.media.MediaSessionSnapshot
 import core.data.media.PlaybackStatus
 import core.data.prefs.RailSide
 import core.data.widgets.WidgetWidth
+import core.ui.composables.rowFocusIndicator
 import feature.launcher.R
 
 private val mediaArtworkSize: Dp = 80.dp
@@ -288,7 +289,12 @@ private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaComman
 
 @Composable
 private fun MediaControlButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(mediaControlSize)) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(mediaControlSize)
+            .rowFocusIndicator()
+    ) {
         MaterialIcon(
             imageVector = icon,
             contentDescription = contentDescription,
@@ -304,6 +310,7 @@ private fun PlayPauseButton(command: MediaCommand, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .size(mediaPlayButtonSize)
+            .rowFocusIndicator()
             .clip(CircleShape)
             .border(
                 width = mediaPlayButtonBorderWidth,

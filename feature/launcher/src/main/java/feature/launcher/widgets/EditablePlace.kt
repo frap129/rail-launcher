@@ -57,6 +57,7 @@ import compose.icons.fontawesomeicons.solid.MinusCircle
 import core.data.prefs.RailSide
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
+import core.ui.composables.rowFocusIndicator
 import core.ui.layout.DragHandlePlacement
 import core.ui.layout.compactIconSize
 import core.ui.layout.dragHandleInset
@@ -316,6 +317,7 @@ private fun EditablePlace(
                 modifier = Modifier
                     .size(minTouchTargetSize)
                     .background(color = MaterialTheme.colorScheme.errorContainer, shape = CircleShape)
+                    .rowFocusIndicator()
                     .clickable(onClick = onRemove)
                     .semantics { contentDescription = removeLabel },
                 contentAlignment = Alignment.Center
@@ -338,6 +340,7 @@ private fun EditablePlace(
                 Box(
                     modifier = Modifier
                         .size(minTouchTargetSize)
+                        .rowFocusIndicator()
                         .clickable(onClick = onToggleExpand)
                         .semantics { contentDescription = expandLabel },
                     contentAlignment = Alignment.Center
@@ -441,6 +444,7 @@ private fun ExpandedPageRow(
         Box(
             modifier = Modifier
                 .size(minTouchTargetSize)
+                .rowFocusIndicator()
                 .clickable(onClick = onRemove)
                 .semantics { contentDescription = removeLabel },
             contentAlignment = Alignment.Center
@@ -477,6 +481,7 @@ private fun ExpandedPageRow(
                         onDragCancel = { dragY = null }
                     )
                 }
+                .rowFocusIndicator()
                 .clickable(onClick = onSplit)
                 .semantics { contentDescription = splitLabel },
             contentAlignment = Alignment.Center

@@ -54,6 +54,7 @@ import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.ui.composables.LaunchableIcon
 import core.ui.composables.OutlinedText
+import core.ui.composables.tracksRowFocus
 import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.performLongPressHaptic
@@ -121,6 +122,7 @@ fun LauncherItem(
     item: Launchable,
     isEditingFavorites: Boolean,
     isFavorite: Boolean,
+    isRowFocusEnabled: Boolean,
     isPopupSwipeEnabled: Boolean,
     popupRow: PopupRow,
     itemActions: LauncherItemActions,
@@ -139,14 +141,18 @@ fun LauncherItem(
     val currentMenuSuggestion: MenuSuggestion by rememberUpdatedState(menuSuggestion)
     val anchorHolder: PopupAnchorHolder = remember { PopupAnchorHolder() }
     val longPressGate: LongPressGate = remember { LongPressGate() }
+    val openRow: () -> Unit = { currentItemActions.onItemTap(currentItem, anchorHolder.anchor) }
     val canOpenPopup: Boolean = !isEditingFavorites && (item is Folder || (isPopupSwipeEnabled && item is App))
     val canSwipePopup: Boolean = isPopupSwipeEnabled && canOpenPopup
     val isUnavailable: Boolean = item.isPaused || item.isDisabled
-    val rowDescription: String? = launcherItemDescription(
+    val canFocusRow: Boolean = isRowFocusEnabled && !isEditingFavorites
+    val rowDetails: String? = launcherItemDescription(
         label = item.accessibilityName,
         detail = secondaryText,
         announcement = accessibilityAnnouncement
     ).takeIf { !isEditingFavorites }
+    // A Row focus row without details still announces its own name, so TalkBack hears it.
+    val rowDescription: String? = rowDetails ?: item.accessibilityName.takeIf { canFocusRow }
     CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.titleMedium) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -154,13 +160,12 @@ fun LauncherItem(
             modifier = modifier
                 .fillMaxWidth()
                 .alpha(if (isUnavailable) UNAVAILABLE_ALPHA else 1f)
+                .then(if (canFocusRow) Modifier.tracksRowFocus(onOpen = openRow) else Modifier)
                 .pointerInput(isEditingFavorites) {
                     if (!isEditingFavorites) {
                         detectTapGestures(
                             onPress = { longPressGate.isFired = false },
-                            onTap = {
-                                currentItemActions.onItemTap(currentItem, anchorHolder.anchor)
-                            },
+                            onTap = { openRow() },
                             onLongPress = {
                                 longPressGate.isFired = true
                                 currentItemActions.onItemLongPress(currentItem, currentMenuSuggestion)
@@ -197,7 +202,7 @@ fun LauncherItem(
                 }
                 .contentDescriptionSemantics(
                     description = rowDescription,
-                    mergeDescendants = true
+                    mergeDescendants = rowDetails != null
                 )
                 .then(
                     if (canOpenPopup) {
