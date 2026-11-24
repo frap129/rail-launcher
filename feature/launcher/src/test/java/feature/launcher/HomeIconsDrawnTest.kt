@@ -9,6 +9,8 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
@@ -23,12 +25,15 @@ import feature.launcher.widgets.widgetAreaActions
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlin.coroutines.EmptyCoroutineContext
+import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 private val HOME_WIDTH: Dp = 360.dp
@@ -49,6 +54,20 @@ class HomeIconsDrawnTest {
     @Before
     fun recordReports() {
         every { mockHomeIconsDrawn.report() } answers { isReported = true }
+    }
+
+    @Before
+    fun useImageLoader() {
+        // Loading on the composition's thread keeps the settled write off Coil's IO threads, whose
+        // snapshot changes reach Compose only through a main-looper post that waitUntil never runs.
+        SingletonImageLoader.setUnsafe(
+            ImageLoader.Builder(RuntimeEnvironment.getApplication()).coroutineContext(EmptyCoroutineContext).build()
+        )
+    }
+
+    @After
+    fun releaseImageLoader() {
+        SingletonImageLoader.reset()
     }
 
     @Test
