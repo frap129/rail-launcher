@@ -828,10 +828,12 @@ class LauncherViewModel(
 
     /**
      * The actionable row at the zero-based [index] in the shown Home or App List order, or null when
-     * the index is outside that order or a Home edit mode disables row taps.
+     * the index is outside that order, a Pop-up card is open or a Home edit mode disables row taps.
+     *
+     * @param isPopupOpen whether a Pop-up card currently owns the launcher input.
      */
-    fun rowTargetForOpenIndex(index: Int): LauncherRowTarget? {
-        if (homeEditState.mode.value != HomeEditMode.None) {
+    fun rowTargetForOpenIndex(index: Int, isPopupOpen: Boolean = false): LauncherRowTarget? {
+        if (isPopupOpen || homeEditState.mode.value != HomeEditMode.None) {
             return null
         }
         val state: LauncherUiState = uiState.value
