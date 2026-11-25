@@ -795,8 +795,8 @@ class LauncherViewModelTest {
         val inputSuggested: List<App> = (1..3).map { index ->
             createApp(name = "Suggested $index", packageName = "com.example.suggested$index")
         }
-        val inputFavorites: List<App> = (1..HOME_ROW_TARGET - 1).map { index ->
-            createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
+        val inputFavorites: List<App> = (1..HOME_ROW_TARGET - 1).map { index: Int ->
+            createFavorite(index = index)
         }
         val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
             launchables = inputSuggested + inputFavorites,
@@ -1198,66 +1198,51 @@ class LauncherViewModelTest {
         viewModel.uiState.test {
             expectHome()
             assertTrue(viewModel.canToggleAppList(isPopupOpen = false))
-            viewModel.toggleAppList(isPopupOpen = false)
+            viewModel.toggleAppList()
             val actualAppList: LauncherUiState.AppList.Browsing = expectAppList()
             assertEquals(inputListedGroups, actualAppList.groups)
             assertEquals(1, actualAppList.lazyListState.firstVisibleItemIndex)
             assertTrue(viewModel.canToggleAppList(isPopupOpen = false))
-            viewModel.toggleAppList(isPopupOpen = false)
+            viewModel.toggleAppList()
             expectHome()
         }
     }
 
     @Test
-    fun `Tab passes through while a Pop-up is open`() = runTest {
+    fun `Tab is unavailable while a Pop-up is open`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
         viewModel.uiState.test {
             expectHome()
             assertFalse(viewModel.canToggleAppList(isPopupOpen = true))
-            viewModel.toggleAppList(isPopupOpen = true)
-            runCurrent()
-            expectNoEvents()
             viewModel.onRailReleased(index = railIndex(inputListedGroups[0]))
             expectAppList()
             assertFalse(viewModel.canToggleAppList(isPopupOpen = true))
-            viewModel.toggleAppList(isPopupOpen = true)
-            runCurrent()
-            expectNoEvents()
         }
     }
 
     @Test
-    fun `Tab passes through in every Home edit mode`() = runTest {
+    fun `Tab is unavailable in every Home edit mode`() = runTest {
         val inputModes: List<HomeEditMode> = listOf(
             HomeEditMode.Favorites,
             HomeEditMode.Resizing(placeId = 7L),
             HomeEditMode.Widgets,
             HomeEditMode.MovingWidgetArea
         )
-        inputModes.forEach { inputMode ->
+        inputModes.forEach { inputMode: HomeEditMode ->
             val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(inputMode) }
             val viewModel: LauncherViewModel = createViewModel(inputHomeEditState = inputHomeEditState)
-            viewModel.uiState.test {
-                expectHome()
-                assertFalse(viewModel.canToggleAppList(isPopupOpen = false))
-                viewModel.toggleAppList(isPopupOpen = false)
-                runCurrent()
-                expectNoEvents()
-            }
+            assertFalse(viewModel.canToggleAppList(isPopupOpen = false))
         }
     }
 
     @Test
-    fun `Tab leaves Search unchanged`() = runTest {
+    fun `Tab is unavailable outside Home and the App List`() = runTest {
         val viewModel: LauncherViewModel = createViewModel()
         viewModel.uiState.test {
             expectHome()
             viewModel.openSearch()
             expectSearch()
             assertFalse(viewModel.canToggleAppList(isPopupOpen = false))
-            viewModel.toggleAppList(isPopupOpen = false)
-            runCurrent()
-            expectNoEvents()
             assertTrue(viewModel.isSearchOpen())
         }
     }
@@ -1277,8 +1262,8 @@ class LauncherViewModelTest {
 
     @Test
     fun `open index resolves suggestions after the Favorites on Home`() = runTest {
-        val inputFavorites: List<App> = (1..2).map { index ->
-            createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
+        val inputFavorites: List<App> = (1..2).map { index: Int ->
+            createFavorite(index = index)
         }
         val inputSuggestions: List<App> = (1..3).map { index ->
             createApp(name = "Suggested $index", packageName = "com.example.suggested$index")

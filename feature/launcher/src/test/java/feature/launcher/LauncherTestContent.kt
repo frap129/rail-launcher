@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Lock
+import core.data.apps.model.App
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
@@ -36,6 +37,9 @@ val testFirstApp: Launchable = createApp(name = "Alpha", packageName = "com.exam
 /** The second App every Launcher row test lays out. */
 val testSecondApp: Launchable = createApp(name = "Beta", packageName = "com.example.beta")
 
+/** Creates the numbered App used by Favorite test fixtures. */
+fun createFavorite(index: Int): App = createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
+
 /** Sets two Home suggestion rows over the contrasting test background. */
 fun ComposeContentTestRule.setHomeSuggestionRows(itemActions: LauncherItemActions) {
     setContent {
@@ -45,14 +49,20 @@ fun ComposeContentTestRule.setHomeSuggestionRows(itemActions: LauncherItemAction
     }
 }
 
-/** Sets one App List group of the two test Apps over the contrasting test background. */
-fun ComposeContentTestRule.setAppListRows(itemActions: LauncherItemActions) {
+/** Sets App List groups of the test Apps over the contrasting test background. */
+fun ComposeContentTestRule.setAppListRows(
+    itemActions: LauncherItemActions,
+    appList: List<LaunchableGroup.Listed> = listOf(
+        LaunchableGroup.InitialGroup(label = "A", items = listOf(testFirstApp, testSecondApp))
+    ),
+    lazyListState: LazyListState = LazyListState()
+) {
     setContent {
         RowTestContent {
             LauncherAppListTestContent(
                 modifier = Modifier.size(width = 360.dp, height = 600.dp),
-                appList = listOf(LaunchableGroup.InitialGroup(label = "A", items = listOf(testFirstApp, testSecondApp))),
-                lazyListState = LazyListState(),
+                appList = appList,
+                lazyListState = lazyListState,
                 topOffset = 0.dp,
                 rowState = AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet(), isPopupSwipeEnabled = false),
                 itemActions = itemActions
@@ -85,9 +95,10 @@ fun ComposeContentTestRule.setHomeFavoriteRows(
     favorites: List<Launchable>,
     itemActions: LauncherItemActions = createLauncherItemActions(),
     isResizing: Boolean = false,
-    isEditingWidgets: Boolean = false
+    isEditingWidgets: Boolean = false,
+    lazyListState: LazyListState = LazyListState()
 ) {
-    val home: LauncherUiState.Home = createHomeState(favorites = favorites)
+    val home: LauncherUiState.Home = createHomeState(favorites = favorites, lazyListState = lazyListState)
     setContent {
         LauncherHomeTestContent(
             modifier = Modifier.size(width = 360.dp, height = 600.dp),
@@ -101,8 +112,12 @@ fun ComposeContentTestRule.setHomeFavoriteRows(
 }
 
 /** A Home state showing [favorites] and [suggestions], as Home tests compose it. */
-fun createHomeState(favorites: List<Launchable>, suggestions: List<Launchable> = emptyList()): LauncherUiState.Home = LauncherUiState.Home(
-    lazyListState = LazyListState(),
+fun createHomeState(
+    favorites: List<Launchable>,
+    suggestions: List<Launchable> = emptyList(),
+    lazyListState: LazyListState = LazyListState()
+): LauncherUiState.Home = LauncherUiState.Home(
+    lazyListState = lazyListState,
     favorites = favorites,
     isFavoritesLoaded = true,
     suggestions = suggestions,

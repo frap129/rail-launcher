@@ -217,9 +217,6 @@ class MainActivity : TemplateActivity() {
 
     private fun onDestinationChanged(route: String?, isWallpaperBacked: Boolean, isSurfaceDark: Boolean) {
         isLauncherShown = route == launcherDestination.route
-        if (!isLauncherShown) {
-            launcherInputState.setCanToggleAppList(canToggleAppList = false)
-        }
         this.isWallpaperBacked = isWallpaperBacked
         this.isSurfaceDark = isSurfaceDark
         updateSystemBarIconAppearance()

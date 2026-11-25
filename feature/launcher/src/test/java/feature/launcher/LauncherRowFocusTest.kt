@@ -49,7 +49,7 @@ import core.ui.composables.LocalLauncherInputState
 import core.ui.composables.RowTestContent
 import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.captureThemeColor
-import core.ui.composables.rowFocusIndicator
+import core.ui.composables.focusIndicator
 import core.ui.composables.rowTestBackgroundColor
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.LauncherInputState
@@ -228,7 +228,7 @@ class LauncherRowFocusTest {
     }
 
     @Test
-    fun `paints a focus indicator on the focused row`() {
+    fun `paints a Focus indicator on the focused row`() {
         val expectedFocusColor: Color = composeRule.captureThemeColor(
             color = { MaterialTheme.colorScheme.primary },
             content = { LauncherItemTestContent(item = testFirstApp) }
@@ -257,7 +257,7 @@ class LauncherRowFocusTest {
     }
 
     @Test
-    fun `paints the same focus indicator on a clickable row`() {
+    fun `paints the same Focus indicator on a clickable row`() {
         val expectedFocusColor: Color = composeRule.captureThemeColor(
             color = { MaterialTheme.colorScheme.primary },
             content = {
@@ -325,7 +325,7 @@ class LauncherRowFocusTest {
                     modifier = Modifier
                         .testTag(NON_ROW_FOCUS_TEST_TAG)
                         .size(48.dp)
-                        .rowFocusIndicator()
+                        .focusIndicator()
                         .clickable(onClick = {})
                 )
             }

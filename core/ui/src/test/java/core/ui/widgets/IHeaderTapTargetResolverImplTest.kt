@@ -167,7 +167,7 @@ class IHeaderTapTargetResolverImplTest {
     }
 
     @Test
-    fun `opens the agenda from the time and the date in every style`() {
+    fun `opens the Agenda from the time and the date in every style`() {
         ClockStyle.entries.forEach { style ->
             val actualHeader: HeaderModel = applyStyle(
                 style = style,
@@ -182,7 +182,7 @@ class IHeaderTapTargetResolverImplTest {
     }
 
     @Test
-    fun `keeps Open agenda while resolving the settings for display`() {
+    fun `keeps Open Agenda while resolving the settings for display`() {
         val actualSetting: HeaderTapSetting = resolver.resolveSetting(
             setting = HeaderTapSetting.OpenAgenda,
             launchableState = createLoadedLaunchableState(listOf(inputLaunchable))

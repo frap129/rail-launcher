@@ -4,7 +4,7 @@ import java.io.Serializable
 
 /**
  * A one-shot request the launcher UI acts on: a HOME intent, a Keyboard shortcut, the Search entry
- * or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its
+ * or a Typed character the launcher activity hands it, or the Agenda the launcher UI opens on its
  * own.
  */
 sealed interface LauncherSignal : Serializable {
@@ -28,7 +28,7 @@ sealed interface LauncherSignal : Serializable {
         override val closesPopupCard: Boolean = true
     }
 
-    /** A Header Tap action or a Keyboard shortcut asked to open the agenda. */
+    /** A Header Tap action or a Keyboard shortcut asked to open the Agenda. */
     data object OpenAgenda : LauncherSignal {
         override val closesPopupCard: Boolean = true
     }

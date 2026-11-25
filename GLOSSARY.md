@@ -328,12 +328,20 @@ _Avoid_: Hotkey, key binding, Launcher shortcut
 One input listed in the Keyboard shortcuts help sheet and the system keyboard shortcuts helper: either a Keyboard shortcut, an unmodified key that starts Search with a Typed character, Back, or a Row focus key. One ordered list feeds both surfaces.
 _Avoid_: Help shortcut, listed shortcut
 
+**Keyboard shortcuts help sheet**:
+The bottom sheet Ctrl+/ opens in the launcher, listing every Keyboard help entry from the same ordered list as the system keyboard shortcuts helper. Back or Esc dismisses it.
+_Avoid_: Shortcut menu, hotkey list
+
 **Row focus**:
-The hardware keyboard's focus on a Launcher row on Home or in the App List, which the arrow keys move and Enter opens as a tap would. The focused row paints the focus indicator and moves TalkBack's accessibility focus to itself, so keyboard focus and TalkBack focus stay on one row. Row focus is not text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus, and a modified key passes through.
+The hardware keyboard's focus on a Launcher row on Home or in the App List, which the arrow keys move and Enter opens as a tap would. The focused row paints the Focus indicator and moves TalkBack's accessibility focus to itself, so keyboard focus and TalkBack focus stay on one row. Row focus is not text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus, and a modified key passes through.
 _Avoid_: Cursor, selection, highlight
 
+**Focus indicator**:
+The themed background and ring painted around a keyboard-focused control. Launcher rows paint it for Row focus; controls outside Row focus, such as the Keyboard shortcuts help sheet title and Media Player buttons, paint it without moving Row focus. A hovered row never stacks its Row hover background under the Focus indicator.
+_Avoid_: Focus ring (when meaning the background and ring), selection highlight
+
 **Row hover**:
-The tinted background a Launcher row paints while a mouse hovers it, removed when the pointer leaves. A row that also has Row focus paints the focus background only, so the two states never stack.
+The tinted background a Launcher row paints while a mouse hovers it, removed when the pointer leaves. A row that also has Row focus paints the Focus indicator only, so the two states never stack.
 _Avoid_: Hover highlight, mouse-over
 
 **Secondary click**:
@@ -341,7 +349,7 @@ A press of the mouse's secondary button or of a stylus button on a Launcher row,
 _Avoid_: Right-click, stylus press
 
 **Launcher signal**:
-A one-shot request the launcher UI acts on: a HOME intent, a Search entry, a Keyboard shortcut or a Typed character the launcher activity hands it, or the agenda the launcher UI opens on its own.
+A one-shot request the launcher UI acts on: a HOME intent, a Search entry, a Keyboard shortcut or a Typed character the launcher activity hands it, or the Agenda the launcher UI opens on its own.
 _Avoid_: Home event, intent event
 
 **Home press**:
@@ -485,7 +493,7 @@ The Header style that shows the weekday prominently above the time and date. Its
 _Avoid_: Day clock
 
 **Tap action**:
-What a tappable Header line opens: the system default, a chosen Launchable, the agenda, or nothing. A removed Launchable falls back to the system default.
+What a tappable Header line opens: the system default, a chosen Launchable, the Agenda, or nothing. A removed Launchable falls back to the system default.
 _Avoid_: Shortcut, click action, gesture
 
 **Agenda**:

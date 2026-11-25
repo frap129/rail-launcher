@@ -33,8 +33,8 @@ import core.ui.R as CoreUiR
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetRow
 import core.ui.composables.SheetTextTitle
+import core.ui.composables.focusIndicator
 import core.ui.composables.formatKeyCombination
-import core.ui.composables.rowFocusIndicator
 import core.ui.model.data.KeyboardHelpEntry
 import core.ui.model.data.keyboardHelpEntries
 import core.ui.model.data.resolveKeyboardHelpEntryLabel
@@ -71,7 +71,7 @@ internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .focusRequester(titleFocusRequester)
                     .focusable()
-                    .rowFocusIndicator()
+                    .focusIndicator()
                     .semantics { heading() }
             )
             LazyColumn(

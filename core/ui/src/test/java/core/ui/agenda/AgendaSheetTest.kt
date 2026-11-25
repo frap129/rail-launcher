@@ -79,7 +79,7 @@ class AgendaSheetTest {
     }
 
     @Test
-    fun `reads the agenda rows in order`() {
+    fun `reads the Agenda rows in order`() {
         setAgendaContent(hasPermission = true)
 
         val actualTexts: List<String> = composeRule

@@ -14,8 +14,8 @@ import core.ui.model.data.hasShortcutModifier
  * a row by index, and Tab switches between Home and the App List when no Pop-up or Home
  * edit mode owns input. Agenda and Rail Settings shortcuts pass through during a Home edit mode.
  * Every unlisted Ctrl, Alt or Meta combination and modified Tab passes through, and shortcuts are
- * ignored while a text field has focus so typing never triggers them. A Typed character opens
- * Search or appends to its query when the launcher accepts typing, and is consumed; Row focus keys
+ * ignored while a text field has focus so typing never triggers them. When the launcher accepts
+ * typing, a Typed character opens Search or appends to its query and is consumed. Row focus keys
  * pass through to Compose.
  */
 class LauncherKeyHandler(

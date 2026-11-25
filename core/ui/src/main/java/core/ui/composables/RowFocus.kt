@@ -87,11 +87,11 @@ private class RowFocusLayoutInfo : RemeasurementModifier {
 }
 
 /**
- * Paints the focus indicator on a focusable control that is not a launcher row, such as an icon
+ * Paints the Focus indicator on a focusable control that is not a launcher row, such as an icon
  * button, and moves TalkBack's accessibility focus to it so both focuses stay on the same control.
  */
 @Composable
-fun Modifier.rowFocusIndicator(): Modifier {
+fun Modifier.focusIndicator(): Modifier {
     var isFocused: Boolean by remember { mutableStateOf(false) }
     return this
         .tracksRowFocusState(isRowFocusEnabled = false, onFocusChange = { isFocused = it })
@@ -100,11 +100,10 @@ fun Modifier.rowFocusIndicator(): Modifier {
 }
 
 /**
- * Paints a launcher row's hover and Row focus states and moves TalkBack's accessibility focus to
- * the row when it takes Row focus. A focused row paints the focus background and ring, a hovered row
- * paints the hover background, and a row that is both paints the focus background only, so hover
- * never stacks under focus. Only rows with [isRowFocusEnabled] synchronize TalkBack focus back to
- * Row focus.
+ * Paints a launcher row's Row hover and Row focus states and moves TalkBack's accessibility focus to
+ * the row when it takes Row focus. A focused row paints the Focus indicator, a hovered row paints the
+ * hover background, and a row that is both paints the Focus indicator only, so hover never stacks
+ * under focus. Only rows with [isRowFocusEnabled] synchronize TalkBack focus back to Row focus.
  */
 @Composable
 fun Modifier.rowHoverAndFocusIndicator(isRowFocusEnabled: Boolean): Modifier {
@@ -165,7 +164,6 @@ private fun Modifier.tracksRowFocusState(isRowFocusEnabled: Boolean, onFocusChan
  * Modified keys pass through, and Row focus never counts as text-field focus, so Keyboard
  * shortcuts and Typed characters still fire while a row has focus.
  */
-@Composable
 fun Modifier.tracksRowFocus(onOpen: () -> Unit): Modifier = this
     .focusable()
     .onKeyEvent { event ->

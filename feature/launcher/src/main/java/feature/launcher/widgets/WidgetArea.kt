@@ -795,7 +795,7 @@ internal fun WidgetWidth.contentPadding(railSide: RailSide): PaddingValues = whe
     WidgetWidth.UnderRail -> PaddingValues()
 }
 
-/** Runs a Tap action: a Launchable goes through [onLaunch], the agenda through [onOpenAgenda], and every other target opens itself. */
+/** Runs a Tap action: a Launchable goes through [onLaunch], the Agenda through [onOpenAgenda], and every other target opens itself. */
 internal fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -> Unit, onOpenAgenda: () -> Unit) {
     when (target) {
         HeaderTapTarget.None -> Unit
