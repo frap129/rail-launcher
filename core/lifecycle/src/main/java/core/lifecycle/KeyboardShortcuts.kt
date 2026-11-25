@@ -2,20 +2,21 @@ package core.lifecycle
 
 import android.view.KeyboardShortcutGroup
 import android.view.KeyboardShortcutInfo
-import core.ui.model.data.KeyboardShortcut
+import core.ui.model.data.KeyboardHelpEntry
+import core.ui.model.data.keyboardHelpEntries
 
 /**
- * The system keyboard shortcuts helper group listing every [KeyboardShortcut.keyCodes] variant for
- * each accepted [KeyboardShortcut.modifierStates], so the helper and the key handler read one list.
+ * The system keyboard shortcuts helper group listing every [KeyboardHelpEntry.keyCodes] variant for
+ * each accepted [KeyboardHelpEntry.modifierStates] from the single list shared with the help sheet.
  *
  * @param label the group's label in the helper
- * @param resolveLabel names each shortcut's action in the helper
+ * @param resolveLabel names each help entry's action in the helper
  */
-fun createKeyboardShortcutGroup(label: CharSequence, resolveLabel: (KeyboardShortcut) -> CharSequence): KeyboardShortcutGroup {
-    val shortcutInfos: List<KeyboardShortcutInfo> = KeyboardShortcut.entries.flatMap { shortcut ->
-        shortcut.keyCodes.flatMap { keyCode ->
-            shortcut.modifierStates.map { modifiers ->
-                KeyboardShortcutInfo(resolveLabel(shortcut), keyCode, modifiers)
+fun createKeyboardShortcutGroup(label: CharSequence, resolveLabel: (KeyboardHelpEntry) -> CharSequence): KeyboardShortcutGroup {
+    val shortcutInfos: List<KeyboardShortcutInfo> = keyboardHelpEntries.flatMap { entry: KeyboardHelpEntry ->
+        entry.keyCodes.flatMap { keyCode: Int ->
+            entry.modifierStates.map { modifiers: Int ->
+                KeyboardShortcutInfo(resolveLabel(entry), keyCode, modifiers)
             }
         }
     }

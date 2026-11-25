@@ -10,13 +10,13 @@ import core.ui.model.data.hasShortcutModifier
 
 /**
  * Routes a hardware key press in the launcher activity: Esc acts as Back on every screen, while
- * the listed keyboard shortcuts open Search, the Agenda, Rail Settings, the Keyboard shortcuts
- * help sheet or a row by index, and Tab switches between Home and the App List when no Pop-up or
- * Home edit mode owns input. Agenda and Rail Settings shortcuts pass through during a Home edit
- * mode. Every unlisted Ctrl, Alt or Meta combination and modified Tab passes through, and shortcuts
- * are ignored while a text field has focus so typing never triggers them. A Typed character opens
- * Search or appends to its query when the launcher accepts typing, and is consumed; otherwise the
- * key passes through.
+ * Keyboard shortcuts open Search, the Agenda, Rail Settings, the Keyboard shortcuts help sheet or
+ * a row by index, and Tab switches between Home and the App List when no Pop-up or Home
+ * edit mode owns input. Agenda and Rail Settings shortcuts pass through during a Home edit mode.
+ * Every unlisted Ctrl, Alt or Meta combination and modified Tab passes through, and shortcuts are
+ * ignored while a text field has focus so typing never triggers them. A Typed character opens
+ * Search or appends to its query when the launcher accepts typing, and is consumed; Row focus keys
+ * pass through to Compose.
  */
 class LauncherKeyHandler(
     private val isLauncherShown: () -> Boolean,
