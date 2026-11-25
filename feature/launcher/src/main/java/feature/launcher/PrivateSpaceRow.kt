@@ -60,7 +60,7 @@ internal fun PrivateSpaceRow(isLocked: Boolean, onUnlock: () -> Unit, modifier: 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .rowHoverAndFocusIndicator()
+            .rowHoverAndFocusIndicator(isRowFocusEnabled = isLocked)
             .then(if (isLocked) Modifier.clickable(role = Role.Button, onClickLabel = unlockLabel, onClick = onUnlock) else Modifier)
             .semantics(mergeDescendants = true) {
                 contentDescription = label

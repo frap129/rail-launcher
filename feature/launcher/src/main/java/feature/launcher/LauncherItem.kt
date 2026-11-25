@@ -170,7 +170,7 @@ fun LauncherItem(
             modifier = modifier
                 .fillMaxWidth()
                 .alpha(if (isUnavailable) UNAVAILABLE_ALPHA else 1f)
-                .rowHoverAndFocusIndicator()
+                .rowHoverAndFocusIndicator(isRowFocusEnabled = canFocusRow)
                 .then(if (canFocusRow) Modifier.tracksRowFocus(onOpen = openRow) else Modifier)
                 .then(if (canLongPressRow) Modifier.longPressMenuOnSecondaryClick(onLongPress = openLongPressMenu) else Modifier)
                 .pointerInput(canLongPressRow) {
