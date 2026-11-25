@@ -1243,6 +1243,24 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `open index resolves nothing while a Pop-up card is open`() = runTest {
+        mockFavoritesFixture.state.setFavorites(listOf(inputItem))
+        mockFavoritesFixture.state.setLoaded(true)
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            assertEquals(listOf(inputItem), expectHome().favorites)
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputItem), viewModel.rowTargetForOpenIndex(index = 0))
+            val actualHomeTarget: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = 0, isPopupOpen = true)
+            assertNull(actualHomeTarget)
+            viewModel.onRailReleased(index = railIndex(inputListedGroups[0]))
+            expectAppList()
+            assertEquals(LauncherRowTarget.OpenLaunchable(inputItem), viewModel.rowTargetForOpenIndex(index = 0))
+            val actualAppListTarget: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = 0, isPopupOpen = true)
+            assertNull(actualAppListTarget)
+        }
+    }
+
+    @Test
     fun `open index follows App List rows through groups and Recently installed`() = runTest {
         val inputRecentApp: App = createApp(name = "Recent", packageName = "com.example.recent")
         val inputGroupsWithRecentApp: List<LaunchableGroup> = listOf(

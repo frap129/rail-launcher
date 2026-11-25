@@ -353,11 +353,7 @@ fun LauncherScreen(
     }
     LaunchedEffect(launcherSignalRequest) {
         launcherSignalRequest.collectRequests { signal ->
-            if (
-                signal !is LauncherSignal.TypedCharacter &&
-                signal !is LauncherSignal.OpenIndex &&
-                signal !is LauncherSignal.ToggleAppList
-            ) {
+            if (signal.closesPopupCard) {
                 popupCardViewModel.onHomeIntent()
             }
             when (signal) {
@@ -384,7 +380,10 @@ fun LauncherScreen(
                 LauncherSignal.OpenKeyboardShortcutsHelp -> isKeyboardShortcutsHelpOpen = true
 
                 is LauncherSignal.OpenIndex -> {
-                    val target: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(index = signal.index)
+                    val target: LauncherRowTarget? = viewModel.rowTargetForOpenIndex(
+                        index = signal.index,
+                        isPopupOpen = popupCardViewModel.isCardOpen.value
+                    )
                     when (target) {
                         null -> Unit
                         is LauncherRowTarget.OpenLaunchable -> openRow(target.launchable, null)

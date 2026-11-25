@@ -24,4 +24,24 @@ class LauncherSignalTest {
         val actualSignal: LauncherSignal.Home = inputSignal.narrowSearchToStartDestination(isStartDestination = false)
         assertEquals(inputSignal, actualSignal)
     }
+
+    @Test
+    fun `launcher signals keep their Pop-up card behavior`() {
+        val inputExpectations: Map<LauncherSignal, Boolean> = mapOf(
+            LauncherSignal.Home(shouldShowHome = true, wasFocused = true) to true,
+            LauncherSignal.Home(shouldShowHome = false, wasFocused = false) to true,
+            LauncherSignal.OpenSearch to true,
+            LauncherSignal.OpenAgenda to true,
+            LauncherSignal.OpenSettings to true,
+            LauncherSignal.ToggleAppList to false,
+            LauncherSignal.OpenKeyboardShortcutsHelp to true,
+            LauncherSignal.OpenIndex(index = 8) to false,
+            LauncherSignal.TypedCharacter(character = "a") to false
+        )
+
+        inputExpectations.forEach { (inputSignal, expectedClosesPopupCard) ->
+            val actualClosesPopupCard: Boolean = inputSignal.closesPopupCard
+            assertEquals(inputSignal.toString(), expectedClosesPopupCard, actualClosesPopupCard)
+        }
+    }
 }
