@@ -3,11 +3,10 @@ package core.ui.composables
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.focus.onFocusChanged
 import core.ui.model.data.LauncherInputState
 import core.ui.model.data.TextFieldFocusToken
@@ -21,21 +20,21 @@ val LocalLauncherInputState: ProvidableCompositionLocal<LauncherInputState> = st
 }
 
 /**
- * Reports this text field's focus to [LocalLauncherInputState] while the field is shown, so no
- * launcher keyboard shortcut fires while any text field can be typed into.
+ * Reports this main-window text field's focus to [LocalLauncherInputState] while the field is shown,
+ * so no launcher keyboard shortcut fires while it can be typed into. Dialogs and bottom sheets run
+ * in their own windows and must not apply this modifier.
  *
- * Each text field reports with a token of its own and drops it when it leaves the screen, so
- * focus moving between fields never clears the launcher's focus state.
+ * Each text field reports with a token of its own and releases it from the input state it registered
+ * with when it leaves the screen, so focus moving between fields never clears the launcher's focus state.
  */
 @Composable
 fun Modifier.tracksTextFieldFocus(): Modifier {
     val inputState: LauncherInputState = LocalLauncherInputState.current
     val token: TextFieldFocusToken = remember { TextFieldFocusToken() }
-    val currentInputState: LauncherInputState by rememberUpdatedState(inputState)
-    DisposableEffect(token, currentInputState) {
-        onDispose { currentInputState.setTextFieldFocused(token = token, isFocused = false) }
+    DisposableEffect(inputState, token) {
+        onDispose { inputState.setTextFieldFocused(token = token, isFocused = false) }
     }
-    return onFocusChanged { focusState ->
-        currentInputState.setTextFieldFocused(token = token, isFocused = focusState.isFocused)
+    return onFocusChanged { focusState: FocusState ->
+        inputState.setTextFieldFocused(token = token, isFocused = focusState.isFocused)
     }
 }

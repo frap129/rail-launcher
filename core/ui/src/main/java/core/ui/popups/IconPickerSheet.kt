@@ -47,7 +47,6 @@ import core.data.icons.model.IconPackCategory
 import core.ui.R
 import core.ui.composables.sheetHorizontalPadding
 import core.ui.composables.sheetVerticalPadding
-import core.ui.composables.tracksTextFieldFocus
 import core.util.toNormalizedDrawableName
 
 private val packIconSize = 64.dp
@@ -159,8 +158,7 @@ private fun IconPickerPackSheet(
             onValueChange = onQuery,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = sheetHorizontalPadding, vertical = packSearchVerticalPadding)
-                .tracksTextFieldFocus(),
+                .padding(horizontal = sheetHorizontalPadding, vertical = packSearchVerticalPadding),
             placeholder = { Text(text = stringResource(R.string.search_icons)) },
             singleLine = true
         )

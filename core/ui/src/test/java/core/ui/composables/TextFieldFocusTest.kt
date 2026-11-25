@@ -32,80 +32,95 @@ class TextFieldFocusTest {
 
     @Test
     fun `a focused text field reports focus`() {
-        val inputLauncherInputState: LauncherInputState = LauncherInputState()
+        val inputLauncherInputState: MutableState<LauncherInputState> = createLauncherInputState()
         setFocusTrackingContent(
-            isSecondFieldShown = mutableStateOf(true),
-            launcherInputState = inputLauncherInputState
+            inputIsSecondFieldShown = mutableStateOf(true),
+            inputLauncherInputState = inputLauncherInputState
         )
-
-        composeRule.onNodeWithTag(FIRST_TEXT_FIELD_TAG).requestFocus()
-        composeRule.waitForIdle()
-
-        assertTrue(inputLauncherInputState.isTextFieldFocused.value)
+        focusField(inputTestTag = FIRST_TEXT_FIELD_TAG)
+        assertTrue(inputLauncherInputState.value.isTextFieldFocused.value)
     }
 
     @Test
     fun `moving focus between text fields keeps the focus reported`() {
-        val inputLauncherInputState: LauncherInputState = LauncherInputState()
+        val inputLauncherInputState: MutableState<LauncherInputState> = createLauncherInputState()
         setFocusTrackingContent(
-            isSecondFieldShown = mutableStateOf(true),
-            launcherInputState = inputLauncherInputState
+            inputIsSecondFieldShown = mutableStateOf(true),
+            inputLauncherInputState = inputLauncherInputState
         )
-        composeRule.onNodeWithTag(FIRST_TEXT_FIELD_TAG).requestFocus()
-        composeRule.waitForIdle()
-
-        composeRule.onNodeWithTag(SECOND_TEXT_FIELD_TAG).requestFocus()
-        composeRule.waitForIdle()
-
-        assertTrue(inputLauncherInputState.isTextFieldFocused.value)
+        focusField(inputTestTag = FIRST_TEXT_FIELD_TAG)
+        focusField(inputTestTag = SECOND_TEXT_FIELD_TAG)
+        assertTrue(inputLauncherInputState.value.isTextFieldFocused.value)
     }
 
     @Test
     fun `a text field that leaves the screen stops reporting focus`() {
-        val inputLauncherInputState: LauncherInputState = LauncherInputState()
+        val inputLauncherInputState: MutableState<LauncherInputState> = createLauncherInputState()
         val inputIsSecondFieldShown: MutableState<Boolean> = mutableStateOf(true)
         setFocusTrackingContent(
-            isFirstFieldShown = mutableStateOf(false),
-            isSecondFieldShown = inputIsSecondFieldShown,
-            launcherInputState = inputLauncherInputState
+            inputIsFirstFieldShown = mutableStateOf(false),
+            inputIsSecondFieldShown = inputIsSecondFieldShown,
+            inputLauncherInputState = inputLauncherInputState
         )
-        composeRule.onNodeWithTag(SECOND_TEXT_FIELD_TAG).requestFocus()
-        composeRule.waitForIdle()
-
+        focusField(inputTestTag = SECOND_TEXT_FIELD_TAG)
         composeRule.runOnIdle { inputIsSecondFieldShown.value = false }
         composeRule.waitForIdle()
+        assertFalse(inputLauncherInputState.value.isTextFieldFocused.value)
+    }
 
-        assertFalse(inputLauncherInputState.isTextFieldFocused.value)
+    @Test
+    fun `disposing a focused field clears the input state it registered with`() {
+        val inputOriginalLauncherInputState: LauncherInputState = LauncherInputState()
+        val inputReplacementLauncherInputState: LauncherInputState = LauncherInputState()
+        val inputLauncherInputState: MutableState<LauncherInputState> = mutableStateOf(inputOriginalLauncherInputState)
+        val inputIsFirstFieldShown: MutableState<Boolean> = mutableStateOf(true)
+        setFocusTrackingContent(
+            inputIsFirstFieldShown = inputIsFirstFieldShown,
+            inputIsSecondFieldShown = mutableStateOf(false),
+            inputLauncherInputState = inputLauncherInputState
+        )
+        focusField(inputTestTag = FIRST_TEXT_FIELD_TAG)
+        assertTrue(inputOriginalLauncherInputState.isTextFieldFocused.value)
+        composeRule.runOnIdle { inputLauncherInputState.value = inputReplacementLauncherInputState }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { inputIsFirstFieldShown.value = false }
+        composeRule.waitForIdle()
+        assertFalse(inputOriginalLauncherInputState.isTextFieldFocused.value)
+        assertFalse(inputReplacementLauncherInputState.isTextFieldFocused.value)
+    }
+
+    private fun focusField(inputTestTag: String) {
+        composeRule.onNodeWithTag(inputTestTag).requestFocus()
+        composeRule.waitForIdle()
     }
 
     private fun setFocusTrackingContent(
-        isFirstFieldShown: MutableState<Boolean> = mutableStateOf(true),
-        isSecondFieldShown: MutableState<Boolean>,
-        launcherInputState: LauncherInputState
+        inputIsFirstFieldShown: MutableState<Boolean> = mutableStateOf(true),
+        inputIsSecondFieldShown: MutableState<Boolean>,
+        inputLauncherInputState: MutableState<LauncherInputState>
     ) {
         composeRule.setContent {
-            CompositionLocalProvider(LocalLauncherInputState provides launcherInputState) {
+            val inputFields: List<Pair<String, MutableState<Boolean>>> = listOf(
+                FIRST_TEXT_FIELD_TAG to inputIsFirstFieldShown,
+                SECOND_TEXT_FIELD_TAG to inputIsSecondFieldShown
+            )
+            CompositionLocalProvider(LocalLauncherInputState provides inputLauncherInputState.value) {
                 Column {
-                    if (isFirstFieldShown.value) {
-                        BasicTextField(
-                            value = "",
-                            onValueChange = {},
-                            modifier = Modifier
-                                .tracksTextFieldFocus()
-                                .testTag(FIRST_TEXT_FIELD_TAG)
-                        )
-                    }
-                    if (isSecondFieldShown.value) {
-                        BasicTextField(
-                            value = "",
-                            onValueChange = {},
-                            modifier = Modifier
-                                .tracksTextFieldFocus()
-                                .testTag(SECOND_TEXT_FIELD_TAG)
-                        )
+                    inputFields.forEach { (inputTestTag: String, inputIsFieldShown: MutableState<Boolean>) ->
+                        if (inputIsFieldShown.value) {
+                            BasicTextField(
+                                value = "",
+                                onValueChange = { _: String -> },
+                                modifier = Modifier
+                                    .tracksTextFieldFocus()
+                                    .testTag(inputTestTag)
+                            )
+                        }
                     }
                 }
             }
         }
     }
+
+    private fun createLauncherInputState(): MutableState<LauncherInputState> = mutableStateOf(LauncherInputState())
 }

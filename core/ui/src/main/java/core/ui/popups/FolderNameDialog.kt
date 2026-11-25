@@ -22,7 +22,6 @@ import core.data.folders.Folder
 import core.ui.R
 import core.ui.composables.RequestKeyboardFocus
 import core.ui.composables.toTextFieldValueAtEnd
-import core.ui.composables.tracksTextFieldFocus
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
 
 /** Asks for a Folder's name, prefilled, selected and trimmed to the Launchable name limit. */
@@ -50,7 +49,7 @@ fun FolderNameDialog(
         text = {
             RequestKeyboardFocus(focusRequester = focusRequester)
             OutlinedTextField(
-                modifier = Modifier.focusRequester(focusRequester).tracksTextFieldFocus(),
+                modifier = Modifier.focusRequester(focusRequester),
                 value = name,
                 onValueChange = { value ->
                     val text: String = value.text.take(MAX_LAUNCHABLE_NAME_LENGTH)
