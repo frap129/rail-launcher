@@ -49,7 +49,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 ### Ticket delivery
 
 - One commit per ticket: amend review fixes into that commit instead of adding new ones.
-- Do not push and do not close tickets unless asked.
+- Close a ticket (`bd close <id> --reason "<summary>"`) as soon as its work is committed and verified. Do not push unless asked.
 - Verify in order: `testDebugUnitTest` (with `--rerun` on the touched modules), `:app:assembleDebug`, `ktlintFormat`, then `ktlintCheck`.
 
 ## Agent skills
