@@ -1125,24 +1125,57 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(index = 1)
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputDigitGroup, isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(
+                        group = inputDigitGroup,
+                        railIndex = 1,
+                        isEditingFavorites = false
+                    ),
                     expectMostRecentItem()
                 )
                 viewModel.onRailPreview(index = 2)
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[0], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(
+                        group = inputListedGroups[0],
+                        railIndex = 2,
+                        isEditingFavorites = false
+                    ),
                     expectMostRecentItem()
                 )
                 viewModel.onRailPreview(index = 0)
                 expectHome()
                 viewModel.onRailPreview(index = 3)
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(
+                        group = inputListedGroups[1],
+                        railIndex = 3,
+                        isEditingFavorites = false
+                    ),
                     expectMostRecentItem()
                 )
                 viewModel.onRailReleased(index = 4)
                 assertEquals(4, expectAppList().lazyListState.firstVisibleItemIndex)
             }
+        }
+    }
+
+    @Test
+    fun `Scrolling records the Rail index when a group shares the Builtin mark`() = runTest {
+        val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
+        val inputDuplicateGroup: LaunchableGroup.InitialGroup = LaunchableGroup.InitialGroup(
+            label = inputBuiltinGroup.label,
+            items = listOf(createRailLaunchable("House"))
+        )
+        inputLaunchableState.value = createLaunchableState(
+            groups = listOf(LaunchableGroup.Star, inputDuplicateGroup, inputBuiltinGroup)
+        )
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            expectHome()
+            viewModel.onRailPreview(index = 2)
+            val actualScrolling: LauncherUiState.AppList.Scrolling =
+                expectMostRecentItem() as LauncherUiState.AppList.Scrolling
+            assertEquals(inputBuiltinGroup, actualScrolling.group)
+            assertEquals(2, actualScrolling.railIndex)
         }
     }
 
@@ -1445,14 +1478,14 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(index = 1)
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[0], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[0], railIndex = 1, isEditingFavorites = false),
                     awaitItem()
                 )
                 runCurrent()
                 expectNoEvents()
                 viewModel.onRailPreview(index = 2)
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], railIndex = 2, isEditingFavorites = false),
                     awaitItem()
                 )
                 runCurrent()
@@ -1488,7 +1521,7 @@ class LauncherViewModelTest {
             viewModel.uiState.test {
                 viewModel.onRailPreview(railIndex(inputListedGroups[1]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], railIndex = 2, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
             }
@@ -1503,7 +1536,7 @@ class LauncherViewModelTest {
                 viewModel.onRailPreview(railIndex(inputListedGroups[0]))
                 viewModel.onRailPreview(railIndex(inputListedGroups[2]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[2], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[2], railIndex = 3, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
             }
@@ -1534,7 +1567,7 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(railIndex(inputListedGroups[1]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], railIndex = 2, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
                 viewModel.onRailPreview(railIndex(LaunchableGroup.Star))
@@ -1566,14 +1599,14 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(railIndex(inputListedGroups[0]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[0], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[0], railIndex = 1, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
                 viewModel.onRailPreview(railIndex(LaunchableGroup.Star))
                 expectHome()
                 viewModel.onRailPreview(railIndex(inputListedGroups[2]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[2], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[2], railIndex = 3, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
                 viewModel.onRailReleased(railIndex(inputListedGroups[2]))
@@ -1655,7 +1688,7 @@ class LauncherViewModelTest {
                 expectHome()
                 viewModel.onRailPreview(railIndex(inputListedGroups[1]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = false),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], railIndex = 2, isEditingFavorites = false),
                     expectMostRecentItem()
                 )
                 viewModel.onBack()
@@ -2189,7 +2222,7 @@ class LauncherViewModelTest {
                 viewModel.editFavorites()
                 viewModel.onRailPreview(railIndex(inputListedGroups[1]))
                 assertEquals(
-                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], isEditingFavorites = true),
+                    LauncherUiState.AppList.Scrolling(group = inputListedGroups[1], railIndex = 2, isEditingFavorites = true),
                     expectMostRecentItem()
                 )
             }

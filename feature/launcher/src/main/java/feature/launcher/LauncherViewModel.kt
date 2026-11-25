@@ -16,6 +16,7 @@ import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
+import core.data.launchables.model.appListKey
 import core.data.launches.ILaunchCountRepository
 import core.data.notifications.INotificationShade
 import core.data.notifications.INotificationSource
@@ -120,7 +121,7 @@ sealed class LauncherUiState {
             override val isEditingFavorites: Boolean
         ) : AppList()
 
-        data class Scrolling(val group: LaunchableGroup.Listed, override val isEditingFavorites: Boolean) : AppList()
+        data class Scrolling(val group: LaunchableGroup.Listed, val railIndex: Int, override val isEditingFavorites: Boolean) : AppList()
     }
 
     /**
@@ -324,7 +325,13 @@ private fun toLauncherUiState(
         return if (selected == null) {
             LauncherUiState.Loading
         } else {
-            LauncherUiState.AppList.Scrolling(group = selected, isEditingFavorites = isEditingFavorites)
+            // The Star occupies Rail index 0, before every Listed group.
+            val railIndex: Int = listedGroups.indexOfFirst { group -> group.appListKey() == selected.appListKey() }.inc()
+            LauncherUiState.AppList.Scrolling(
+                group = selected,
+                railIndex = railIndex,
+                isEditingFavorites = isEditingFavorites
+            )
         }
     }
     val appListState: LazyListState = navigation.appListState ?: return LauncherUiState.Loading

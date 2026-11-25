@@ -89,6 +89,8 @@ private const val REVEAL_FADE_IN_MILLIS: Int = 200
 private const val REVEAL_FADE_IN_DELAY_MILLIS: Int = 75
 private const val REVEAL_FADE_OUT_MILLIS: Int = 1
 private const val REVEAL_FADE_OUT_DELAY_MILLIS: Int = 275
+private const val HOME_RAIL_INDEX: Int = 0
+private const val FIRST_GROUP_RAIL_INDEX: Int = 1
 
 /** The test tag on the Rail scrub strip on [side]. */
 internal fun railScrubStripTestTag(side: RailSide): String = if (side.isStart) "railScrubStripStart" else "railScrubStripEnd"
@@ -352,9 +354,25 @@ private fun rememberHomeFullyDrawn(isHomeDrawable: Boolean): Boolean {
 /** Applies [tag] to this modifier only while [isTagged], so the benchmark can wait for the milestone. */
 private fun Modifier.testTagWhen(isTagged: Boolean, tag: String): Modifier = then(if (isTagged) Modifier.testTag(tag) else Modifier)
 
+/** The Rail mark for the group this launcher state shows, or the Star outside the App List. */
+internal fun LauncherUiState.findShownRailIndex(railItems: List<GroupMark>): Int {
+    val firstVisibleItemIndex: Int = (this as? LauncherUiState.AppList.Browsing)
+        ?.lazyListState
+        ?.firstVisibleItemIndex
+        ?: FIRST_GROUP_RAIL_INDEX
+    // App List item 0 is the top spacer; item 1 is the first group.
+    val groupIndex: Int = (firstVisibleItemIndex - FIRST_GROUP_RAIL_INDEX).coerceAtLeast(HOME_RAIL_INDEX)
+    return when (this) {
+        LauncherUiState.Loading, is LauncherUiState.Home, is LauncherUiState.Search -> HOME_RAIL_INDEX
+        is LauncherUiState.AppList.Scrolling -> railIndex
+        is LauncherUiState.AppList.Browsing -> (groupIndex + FIRST_GROUP_RAIL_INDEX).coerceAtMost(railItems.lastIndex)
+    }
+}
+
 @Composable
 internal fun BoxScope.LauncherRail(
     railItems: List<GroupMark>,
+    uiState: () -> LauncherUiState,
     railBounds: RailBounds,
     railSide: RailSide,
     scrubEdges: ScrubEdges,
@@ -388,18 +406,24 @@ internal fun BoxScope.LauncherRail(
     val railScrubState: RailScrubState = rememberRailScrubState(
         items = railItems,
         onScroll = { index ->
-            if (railGesture.onScroll(index = index, card = currentRailPopupCard()) == RailIndexAction.Act) {
+            if (railGesture.onScroll(card = currentRailPopupCard()) == RailIndexAction.Act) {
                 onRailPreview(index)
             }
         },
         onScrollEnded = { index ->
-            if (railGesture.onScrollEnded(index = index, card = currentRailPopupCard()) == RailIndexAction.Act) {
+            if (railGesture.onScrollEnded(card = currentRailPopupCard()) == RailIndexAction.Act) {
                 onRailReleased(index)
             }
         },
         onWheelScroll = { deltaY ->
-            railGesture.onWheelScroll(deltaY = deltaY, markCount = railItems.size, card = currentRailPopupCard())
-                .forEach(onRailReleased)
+            railGesture.onWheelScroll(
+                deltaY = deltaY,
+                wheelStep = RailWheelStep(
+                    currentMarkIndex = uiState().findShownRailIndex(railItems = railItems),
+                    markCount = railItems.size,
+                    card = currentRailPopupCard()
+                )
+            ).forEach(onRailReleased)
         },
         onPointerExit = railGesture::resetWheelScroll,
         railHaptics = railHaptics,

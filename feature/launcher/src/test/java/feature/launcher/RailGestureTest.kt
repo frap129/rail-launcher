@@ -2,6 +2,7 @@ package feature.launcher
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class RailGestureTest {
@@ -9,9 +10,7 @@ class RailGestureTest {
     fun `closes an open card and suppresses its scroll`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 0, card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
-
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Ignore, actualAction)
         assertEquals(1, actualCloseCount)
     }
@@ -20,10 +19,8 @@ class RailGestureTest {
     fun `suppresses the scrolls after the card closed`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-        gesture.onScroll(index = 0, card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 1, card = popupCard(onClose = { actualCloseCount++ }))
-
+        gesture.onScroll(card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard(onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Ignore, actualAction)
         assertEquals(1, actualCloseCount)
     }
@@ -32,10 +29,8 @@ class RailGestureTest {
     fun `closes a card once for its whole gesture`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-        gesture.onScroll(index = 0, card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 1, card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
-
+        gesture.onScroll(card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Ignore, actualAction)
         assertEquals(1, actualCloseCount)
     }
@@ -44,10 +39,8 @@ class RailGestureTest {
     fun `suppresses the scroll-ended callback of the gesture`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-        gesture.onScroll(index = 0, card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
-
-        val actualAction: RailIndexAction = gesture.onScrollEnded(index = 1, card = popupCard(onClose = { actualCloseCount++ }))
-
+        gesture.onScroll(card = popupCard(isOpen = true, onClose = { actualCloseCount++ }))
+        val actualAction: RailIndexAction = gesture.onScrollEnded(card = popupCard(onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Ignore, actualAction)
         assertEquals(1, actualCloseCount)
     }
@@ -55,11 +48,9 @@ class RailGestureTest {
     @Test
     fun `re-arms the next gesture on scroll-ended`() {
         val gesture: RailGesture = RailGesture()
-        gesture.onScroll(index = 0, card = popupCard(isOpen = true))
-        gesture.onScrollEnded(index = 0, card = popupCard())
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 0, card = popupCard())
-
+        gesture.onScroll(card = popupCard(isOpen = true))
+        gesture.onScrollEnded(card = popupCard())
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard())
         assertEquals(RailIndexAction.Act, actualAction)
     }
 
@@ -67,9 +58,7 @@ class RailGestureTest {
     fun `previews a scroll when no card is open`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 0, card = popupCard(onClose = { actualCloseCount++ }))
-
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard(onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Act, actualAction)
         assertEquals(0, actualCloseCount)
     }
@@ -78,9 +67,7 @@ class RailGestureTest {
     fun `releases a scroll when no card is open`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-
-        val actualAction: RailIndexAction = gesture.onScrollEnded(index = 0, card = popupCard(onClose = { actualCloseCount++ }))
-
+        val actualAction: RailIndexAction = gesture.onScrollEnded(card = popupCard(onClose = { actualCloseCount++ }))
         assertEquals(RailIndexAction.Act, actualAction)
         assertEquals(0, actualCloseCount)
     }
@@ -88,99 +75,77 @@ class RailGestureTest {
     @Test
     fun `re-arms a gesture restarted mid-touch`() {
         val gesture: RailGesture = RailGesture()
-        gesture.onScroll(index = 0, card = popupCard(isOpen = true))
+        gesture.onScroll(card = popupCard(isOpen = true))
         gesture.reset()
-
-        val actualAction: RailIndexAction = gesture.onScroll(index = 0, card = popupCard())
-
+        val actualAction: RailIndexAction = gesture.onScroll(card = popupCard())
         assertEquals(RailIndexAction.Act, actualAction)
     }
 
     @Test
-    fun `a downward wheel scroll steps toward the last group`() {
-        val actualDirection: RailWheelDirection = RailWheelDirection.fromScrollDelta(deltaY = 1f)
-
-        assertEquals(RailWheelDirection.Next, actualDirection)
+    fun `a downward Rail wheel step moves toward the last group`() {
+        val gesture: RailGesture = RailGesture()
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 1f, currentMarkIndex = 1)
+        assertEquals(listOf(2), actualIndices)
     }
 
     @Test
-    fun `an upward wheel scroll steps toward the first group`() {
-        val actualDirection: RailWheelDirection = RailWheelDirection.fromScrollDelta(deltaY = -1f)
-
-        assertEquals(RailWheelDirection.Previous, actualDirection)
+    fun `an upward Rail wheel step moves toward the first group`() {
+        val gesture: RailGesture = RailGesture()
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = -1f, currentMarkIndex = 1)
+        assertEquals(listOf(0), actualIndices)
     }
 
     @Test
     fun `steps to the next group on a wheel notch`() {
         val gesture: RailGesture = RailGesture()
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Next)
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1)
         assertEquals(1, actualIndex)
     }
 
     @Test
     fun `steps one group per wheel notch`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelStep(direction = RailWheelDirection.Next)
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Next)
-
+        val inputFirstIndex: Int? = gesture.wheelStep(inputStep = 1)
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1, currentMarkIndex = requireNotNull(inputFirstIndex))
         assertEquals(2, actualIndex)
     }
 
     @Test
     fun `steps to the previous group on a wheel notch`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelStep(direction = RailWheelDirection.Next)
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Previous)
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = -1, currentMarkIndex = 1)
         assertEquals(0, actualIndex)
     }
 
     @Test
     fun `stops at the last group on a wheel notch`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelStep(direction = RailWheelDirection.Next)
-        gesture.wheelStep(direction = RailWheelDirection.Next)
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Next)
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1, currentMarkIndex = 2)
         assertNull(actualIndex)
     }
 
     @Test
     fun `stops at the first group on a wheel notch`() {
         val gesture: RailGesture = RailGesture()
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Previous)
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = -1)
         assertNull(actualIndex)
     }
 
     @Test
-    fun `steps from the last group the Rail showed`() {
+    fun `rejects a Rail wheel step that is not one mark`() {
         val gesture: RailGesture = RailGesture()
-        gesture.onScroll(index = 2, card = popupCard())
-        gesture.onScrollEnded(index = 2, card = popupCard())
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Previous)
-
-        assertEquals(1, actualIndex)
+        listOf(0, 2, -2).forEach { inputStep: Int ->
+            assertThrows(IllegalArgumentException::class.java) {
+                gesture.wheelStep(inputStep = inputStep)
+            }
+        }
     }
 
     @Test
     fun `closes an open card on a wheel notch`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-
-        val actualIndex: Int? = gesture.wheelStep(
-            direction = RailWheelDirection.Next,
-            isOpen = true,
-            onClose = { actualCloseCount++ }
-        )
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1, isOpen = true, onClose = { actualCloseCount++ })
         assertNull(actualIndex)
         assertEquals(1, actualCloseCount)
     }
@@ -189,10 +154,8 @@ class RailGestureTest {
     fun `steps on the wheel notch after closing a card`() {
         val gesture: RailGesture = RailGesture()
         var actualCloseCount: Int = 0
-        gesture.wheelStep(direction = RailWheelDirection.Next, isOpen = true, onClose = { actualCloseCount++ })
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Next)
-
+        gesture.wheelStep(inputStep = 1, isOpen = true, onClose = { actualCloseCount++ })
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1)
         assertEquals(1, actualIndex)
         assertEquals(1, actualCloseCount)
     }
@@ -200,19 +163,22 @@ class RailGestureTest {
     @Test
     fun `ignores a wheel notch when the Rail has no marks`() {
         val gesture: RailGesture = RailGesture()
-
-        val actualIndex: Int? = gesture.wheelStep(direction = RailWheelDirection.Next, markCount = 0)
-
+        val actualIndex: Int? = gesture.wheelStep(inputStep = 1, markCount = 0)
         assertNull(actualIndex)
     }
 
     @Test
-    fun `adds fractional wheel scrolls up to one notch`() {
+    fun `ignores a zero wheel delta`() {
         val gesture: RailGesture = RailGesture()
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0f)
+        assertEquals(emptyList<Int>(), actualIndices)
+    }
 
-        val actualFirstIndices: List<Int> = gesture.wheelScroll(deltaY = 0.5f)
-        val actualSecondIndices: List<Int> = gesture.wheelScroll(deltaY = 0.5f)
-
+    @Test
+    fun `adds fractional wheel deltas up to one Rail wheel step`() {
+        val gesture: RailGesture = RailGesture()
+        val actualFirstIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0.5f)
+        val actualSecondIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0.5f)
         assertEquals(emptyList<Int>(), actualFirstIndices)
         assertEquals(listOf(1), actualSecondIndices)
     }
@@ -220,69 +186,77 @@ class RailGestureTest {
     @Test
     fun `keeps the fraction a whole notch leaves`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelScroll(deltaY = 0.75f)
-
-        val actualWholeIndices: List<Int> = gesture.wheelScroll(deltaY = 0.75f)
-        val actualRestIndices: List<Int> = gesture.wheelScroll(deltaY = 0.5f)
-
+        gesture.applyWheelDelta(inputDeltaY = 0.75f)
+        val actualWholeIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0.75f)
+        val actualRestIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0.5f, currentMarkIndex = 1)
         assertEquals(listOf(1), actualWholeIndices)
         assertEquals(listOf(2), actualRestIndices)
     }
 
     @Test
-    fun `emits a step for every whole notch of a fast wheel scroll`() {
+    fun `emits consecutive Rail wheel steps for a fast wheel delta`() {
         val gesture: RailGesture = RailGesture()
-
-        val actualIndices: List<Int> = gesture.wheelScroll(deltaY = 2f)
-
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 2f)
         assertEquals(listOf(1, 2), actualIndices)
+    }
+
+    @Test
+    fun `starts consecutive Rail wheel steps from the shown group`() {
+        val gesture: RailGesture = RailGesture()
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 2f, currentMarkIndex = 1, markCount = 4)
+        assertEquals(listOf(2, 3), actualIndices)
     }
 
     @Test
     fun `drops the fraction when the wheel reverses`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelScroll(deltaY = 1f)
-        gesture.wheelScroll(deltaY = 0.9f)
-
-        val actualIndices: List<Int> = gesture.wheelScroll(deltaY = -1f)
-
+        gesture.applyWheelDelta(inputDeltaY = 1f)
+        gesture.applyWheelDelta(inputDeltaY = 0.9f, currentMarkIndex = 1)
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = -1f, currentMarkIndex = 1)
         assertEquals(listOf(0), actualIndices)
     }
 
     @Test
     fun `drops the fraction when the pointer leaves the Rail`() {
         val gesture: RailGesture = RailGesture()
-        gesture.wheelScroll(deltaY = 0.9f)
+        gesture.applyWheelDelta(inputDeltaY = 0.9f)
         gesture.resetWheelScroll()
-
-        val actualIndices: List<Int> = gesture.wheelScroll(deltaY = 0.2f)
-
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 0.2f)
         assertEquals(emptyList<Int>(), actualIndices)
     }
 
     @Test
-    fun `clamps a fast wheel scroll at the last group`() {
+    fun `clamps consecutive Rail wheel steps at the last group`() {
         val gesture: RailGesture = RailGesture()
-
-        val actualIndices: List<Int> = gesture.wheelScroll(deltaY = 5f)
-
+        val actualIndices: List<Int> = gesture.applyWheelDelta(inputDeltaY = 5f)
         assertEquals(listOf(1, 2), actualIndices)
     }
 
-    /** The marks a wheel scroll of [deltaY] moves the Rail to, over a [markCount]-mark Rail. */
-    private fun RailGesture.wheelScroll(deltaY: Float, markCount: Int = TEST_MARK_COUNT): List<Int> =
-        onWheelScroll(deltaY = deltaY, markCount = markCount, card = popupCard())
+    /** The marks a wheel delta of [inputDeltaY] moves the Rail to, over a [markCount]-mark Rail. */
+    private fun RailGesture.applyWheelDelta(inputDeltaY: Float, currentMarkIndex: Int = 0, markCount: Int = TEST_MARK_COUNT): List<Int> =
+        onWheelScroll(
+            deltaY = inputDeltaY,
+            wheelStep = RailWheelStep(
+                currentMarkIndex = currentMarkIndex,
+                markCount = markCount,
+                card = popupCard()
+            )
+        )
 
     /** A wheel notch over a [markCount]-mark Rail, closing an open card through [onClose]. */
     private fun RailGesture.wheelStep(
-        direction: RailWheelDirection,
+        inputStep: Int,
+        currentMarkIndex: Int = 0,
         markCount: Int = TEST_MARK_COUNT,
         isOpen: Boolean = false,
         onClose: () -> Unit = {}
     ): Int? = onWheelStep(
-        direction = direction,
-        markCount = markCount,
-        card = popupCard(isOpen = isOpen, onClose = onClose)
+        step = inputStep,
+        wheelStep = RailWheelStep(
+            currentMarkIndex = currentMarkIndex,
+            markCount = markCount,
+            card = popupCard(isOpen = isOpen, onClose = onClose)
+        )
     )
 
     private fun popupCard(isOpen: Boolean = false, onClose: () -> Unit = {}): RailPopupCard =

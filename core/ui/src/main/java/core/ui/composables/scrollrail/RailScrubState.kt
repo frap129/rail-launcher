@@ -83,7 +83,7 @@ private class RailPointerAnimation {
 
 /**
  * Holds the Rail's scrub selection and the pointer animations that bend it.
- * The Rail's touch and wheel input feeds pointer positions and wheel scroll
+ * The Rail's touch and wheel input feeds pointer positions and wheel
  * deltas into this state; ScrollRail only reads it to draw the marks.
  */
 @Stable
@@ -96,8 +96,8 @@ class RailScrubState internal constructor(
     private val scope: CoroutineScope,
     private val onScroll: (Int) -> Unit,
     private val onScrollEnded: (Int) -> Unit,
-    private val onWheelScroll: (deltaY: Float) -> Unit,
-    private val onPointerExit: () -> Unit
+    internal val onWheelScroll: (deltaY: Float) -> Unit,
+    internal val onPointerExit: () -> Unit
 ) {
     internal val metrics: RailMetrics = RailMetrics(density = density)
     internal val isEnabled: Boolean = enabled
@@ -139,18 +139,6 @@ class RailScrubState internal constructor(
             PointerEventType.Unknown, PointerEventType.Release -> endScrub(markIndex = markIndex)
             else -> Unit
         }
-    }
-
-    /** Reports a wheel notch's vertical scroll [deltaY], ignoring a sideways notch. */
-    internal fun handleWheelScroll(deltaY: Float) {
-        if (deltaY != 0f) {
-            onWheelScroll(deltaY)
-        }
-    }
-
-    /** Reports the pointer leaving the Rail, which ends any wheel scrolling in progress. */
-    internal fun handlePointerExit() {
-        onPointerExit()
     }
 
     private fun startScrub(pointer: Offset, markIndex: Int) {
@@ -257,9 +245,9 @@ private suspend fun PointerInputScope.collectRailPointers(
             val event: PointerEvent = awaitPointerEvent()
             val change: PointerInputChange = event.changes.first()
             when (event.type) {
-                PointerEventType.Scroll -> state.handleWheelScroll(deltaY = change.scrollDelta.y)
+                PointerEventType.Scroll -> state.onWheelScroll(change.scrollDelta.y)
 
-                PointerEventType.Exit -> state.handlePointerExit()
+                PointerEventType.Exit -> state.onPointerExit()
 
                 else -> state.handlePointerEvent(
                     eventType = event.type,

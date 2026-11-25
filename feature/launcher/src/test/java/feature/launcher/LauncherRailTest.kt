@@ -1,8 +1,10 @@
 package feature.launcher
 
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
@@ -39,6 +41,8 @@ import core.ui.GroupMark
 import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.layout.HomeEditMode
+import core.ui.model.data.KeyboardShortcut
+import core.ui.model.data.LauncherSignal
 import core.ui.toGroupMark
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -186,7 +190,86 @@ class LauncherRailTest {
     }
 
     @Test
-    fun `a fast downward wheel scroll over the Rail steps up to the last group`() {
+    fun `a wheel notch after Home steps from the Star`() {
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState -> inputShownUiState.value = HOME_UI_STATE },
+            expectedReleaseIndices = listOf(4, 1)
+        )
+    }
+
+    @Test
+    fun `a wheel notch after Tab steps from the first App List group`() {
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState ->
+                inputShownUiState.value = createAppListUiState(firstVisibleItemIndex = 1)
+            },
+            expectedReleaseIndices = listOf(4, 2)
+        )
+    }
+
+    @Test
+    fun `a wheel notch after an App List scroll steps from the shown group`() {
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState ->
+                inputShownUiState.value = createAppListUiState(firstVisibleItemIndex = 2)
+            },
+            expectedReleaseIndices = listOf(4, 3)
+        )
+    }
+
+    @Test
+    fun `a wheel step from a Scrolling group uses its Rail index when marks repeat`() {
+        val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
+        val inputDuplicateGroup: LaunchableGroup.InitialGroup = LaunchableGroup.InitialGroup(
+            label = inputBuiltinGroup.label,
+            items = emptyList()
+        )
+        val inputGroups: List<LaunchableGroup.Listed> = listOf(inputDuplicateGroup, inputBuiltinGroup)
+        val inputRailItems: List<GroupMark> = listOf(LaunchableGroup.Star.toGroupMark()) +
+            inputGroups.map { group -> group.toGroupMark() }
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState ->
+                inputShownUiState.value = LauncherUiState.AppList.Scrolling(
+                    group = inputBuiltinGroup,
+                    railIndex = 2,
+                    isEditingFavorites = false
+                )
+            },
+            expectedReleaseIndices = listOf(2, 1),
+            railItems = inputRailItems,
+            inputDeltaY = -1f
+        )
+    }
+
+    @Test
+    fun `a wheel notch after scrolling the App List to its top steps from the first group`() {
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState ->
+                inputShownUiState.value = createAppListUiState(firstVisibleItemIndex = 0)
+            },
+            expectedReleaseIndices = listOf(4, 2)
+        )
+    }
+
+    @Test
+    fun `a wheel notch after Ctrl or Meta plus a number steps from the opened row's group`() {
+        assertWheelStepAfterStateChange(
+            changeShownState = { inputShownUiState ->
+                val inputPostShortcutStates: List<LauncherUiState.AppList.Browsing> = listOf(
+                    KeyEvent.META_CTRL_ON,
+                    KeyEvent.META_META_ON
+                ).map { inputMetaState: Int -> createAppListAfterOpeningRow(inputMetaState = inputMetaState) }
+                inputPostShortcutStates.forEach { inputState: LauncherUiState.AppList.Browsing ->
+                    assertEquals(2, inputState.lazyListState.firstVisibleItemIndex)
+                }
+                inputShownUiState.value = inputPostShortcutStates.first()
+            },
+            expectedReleaseIndices = listOf(4, 3)
+        )
+    }
+
+    @Test
+    fun `a fast downward wheel delta emits consecutive Rail wheel steps`() {
         val actualRail: RailCallbackRecorder = RailCallbackRecorder()
         setRecordedRailContent(
             recorder = actualRail,
@@ -347,6 +430,55 @@ class LauncherRailTest {
 
         assertEquals(listOf(0, 1, 2, 0, 1, 2), actualRail.previewIndices)
         assertEquals(listOf(2, 2), actualRail.releaseIndices)
+    }
+
+    private fun assertWheelStepAfterStateChange(
+        changeShownState: (MutableState<LauncherUiState>) -> Unit,
+        expectedReleaseIndices: List<Int>,
+        railItems: List<GroupMark> = WHEEL_MARKS,
+        inputDeltaY: Float = 1f
+    ) {
+        val inputShownUiState: MutableState<LauncherUiState> = mutableStateOf(HOME_UI_STATE)
+        val actualRail: RailCallbackRecorder = RailCallbackRecorder()
+        setRecordedRailContent(
+            recorder = actualRail,
+            scrubEdges = ScrubEdges.BOTH,
+            railItems = { railItems },
+            uiState = { inputShownUiState.value }
+        )
+        dragScrubEdge(tag = SCROLL_RAIL_TEST_TAG, marks = railItems)
+        composeRule.runOnIdle { changeShownState(inputShownUiState) }
+        composeRule.onNodeWithTag(SCROLL_RAIL_TEST_TAG).performMouseInput {
+            moveTo(center)
+            scroll(delta = inputDeltaY)
+        }
+        assertEquals(expectedReleaseIndices, actualRail.releaseIndices)
+    }
+
+    private fun createAppListUiState(firstVisibleItemIndex: Int): LauncherUiState.AppList.Browsing = LauncherUiState.AppList.Browsing(
+        groups = WHEEL_GROUPS,
+        recentlyInstalled = null,
+        lazyListState = LazyListState(firstVisibleItemIndex = firstVisibleItemIndex),
+        isEditingFavorites = false
+    )
+
+    private fun createAppListAfterOpeningRow(inputMetaState: Int): LauncherUiState.AppList.Browsing {
+        val inputKeyCode: Int = KeyEvent.KEYCODE_2
+        val inputEvent: KeyEvent = KeyEvent(
+            0L,
+            0L,
+            KeyEvent.ACTION_DOWN,
+            inputKeyCode,
+            0,
+            inputMetaState,
+            0,
+            0,
+            0
+        )
+        val inputShortcut: KeyboardShortcut = requireNotNull(KeyboardShortcut.forEvent(inputKeyCode, inputEvent))
+        val inputSignal: LauncherSignal.OpenIndex = inputShortcut.signal as? LauncherSignal.OpenIndex
+            ?: error("Expected an OpenIndex signal")
+        return createAppListUiState(firstVisibleItemIndex = inputSignal.index + 1)
     }
 
     @Test
@@ -533,6 +665,7 @@ class LauncherRailTest {
     private fun setRailContent(
         scrubEdges: ScrubEdges,
         railItems: () -> List<GroupMark> = { MARKS },
+        uiState: () -> LauncherUiState = { HOME_UI_STATE },
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         railSide: RailSide = RailSide.DEFAULT,
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
@@ -562,6 +695,7 @@ class LauncherRailTest {
                     rowContent(railBounds)
                     LauncherRail(
                         railItems = railItems(),
+                        uiState = uiState,
                         railBounds = remember { railBounds },
                         railSide = railSide,
                         scrubEdges = scrubEdges,
@@ -596,7 +730,12 @@ class LauncherRailTest {
         railHaptics: Boolean = true,
         homeEditMode: () -> HomeEditMode = { HomeEditMode.None },
         onRailTouched: () -> Unit = {},
-        onHapticTick: () -> Unit = {}
+        onHapticTick: () -> Unit = {},
+        railItems: () -> List<GroupMark> = { MARKS },
+        uiState: () -> LauncherUiState = {
+            recorder.releaseIndices.lastOrNull()?.let { index -> createAppListUiState(firstVisibleItemIndex = index) }
+                ?: HOME_UI_STATE
+        }
     ): RailBounds = setRailContent(
         scrubEdges = scrubEdges,
         railSide = railSide,
@@ -608,7 +747,9 @@ class LauncherRailTest {
         onRailTouched = onRailTouched,
         onRailPreview = { index -> recorder.previewIndices += index },
         onRailReleased = { index -> recorder.releaseIndices += index },
-        onHapticTick = onHapticTick
+        onHapticTick = onHapticTick,
+        railItems = railItems,
+        uiState = uiState
     )
 
     private fun assertBothEdgesScrub(railSide: RailSide, layoutDirection: LayoutDirection, isRailOnLeft: Boolean) {
@@ -684,16 +825,16 @@ class LauncherRailTest {
     private fun dragScrubStrip(side: RailSide): Int = dragScrubEdge(tag = railScrubStripTestTag(side = side))
 
     /** Drags across every mark on the edge with [tag] and returns how many marks it scrubbed. */
-    private fun dragScrubEdge(tag: String): Int {
+    private fun dragScrubEdge(tag: String, marks: List<GroupMark> = MARKS): Int {
         composeRule.onNodeWithTag(tag).performTouchInput {
-            fun markCenterY(index: Int): Float = height / MARKS.size * (index + 0.5f)
+            fun markCenterY(index: Int): Float = height / marks.size * (index + 0.5f)
             down(position = Offset(x = center.x, y = markCenterY(index = 0)))
-            MARKS.indices.drop(1).forEach { index ->
+            marks.indices.drop(1).forEach { index ->
                 moveTo(position = Offset(x = center.x, y = markCenterY(index = index)))
             }
             up()
         }
-        return MARKS.size
+        return marks.size
     }
 
     /** The texts the Rail draws, top to bottom, one per mark. */
@@ -707,6 +848,20 @@ class LauncherRailTest {
     private companion object {
         const val ROW_TEST_TAG: String = "row"
         const val ROW_SWIPE_START_FRACTION: Float = 0.3f
+        val HOME_UI_STATE: LauncherUiState.Home = LauncherUiState.Home(
+            lazyListState = LazyListState(),
+            favorites = emptyList(),
+            isFavoritesLoaded = true,
+            suggestions = emptyList(),
+            isSwipeUpEnabled = false,
+            isSwipeDownEnabled = false
+        )
+        val WHEEL_GROUPS: List<LaunchableGroup.Listed> = createAppListGroups(
+            locale = Locale.US,
+            names = listOf("Alpha", "Beta", "Gamma")
+        ).filterIsInstance<LaunchableGroup.Listed>()
+        val WHEEL_MARKS: List<GroupMark> = listOf(LaunchableGroup.Star.toGroupMark()) +
+            WHEEL_GROUPS.map { group -> group.toGroupMark() }
         val MARKS: List<GroupMark> = listOf(
             GroupMark.Label(text = "A"),
             GroupMark.Label(text = "B"),
