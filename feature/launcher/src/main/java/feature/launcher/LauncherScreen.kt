@@ -484,6 +484,7 @@ fun LauncherScreen(
         )
         LauncherRail(
             railItems = railItems,
+            uiState = { viewModel.uiState.value },
             railBounds = railBounds,
             railSide = railSide,
             scrubEdges = scrubEdges,
