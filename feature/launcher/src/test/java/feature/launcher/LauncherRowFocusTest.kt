@@ -5,7 +5,10 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
@@ -18,6 +21,7 @@ import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.ViewRootForTest
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
@@ -35,6 +39,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.prefs.RailSide
@@ -44,6 +49,7 @@ import core.ui.composables.LocalLauncherInputState
 import core.ui.composables.RowTestContent
 import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.captureThemeColor
+import core.ui.composables.rowFocusIndicator
 import core.ui.composables.rowTestBackgroundColor
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.LauncherInputState
@@ -66,6 +72,8 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+
+private const val NON_ROW_FOCUS_TEST_TAG: String = "nonRowFocus"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -213,7 +221,7 @@ class LauncherRowFocusTest {
         actualRow.requestFocus()
 
         listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_ALT_ON, KeyEvent.META_META_ON).forEach { inputMetaState ->
-            actualRow.pressKey(keyCode = KeyEvent.KEYCODE_ENTER, metaState = inputMetaState)
+            pressKey(keyCode = KeyEvent.KEYCODE_ENTER, metaState = inputMetaState)
         }
 
         assertTrue(actualOpens.isEmpty())
@@ -276,11 +284,70 @@ class LauncherRowFocusTest {
         composeRule.waitForIdle()
         shadowOf(Looper.getMainLooper()).idle()
 
-        val actualAccessibilityFocus: AccessibilityNodeInfo? = actualRow.accessibilityFocus()
+        val actualAccessibilityFocus: AccessibilityNodeInfo? = accessibilityFocus()
         assertNotNull(actualAccessibilityFocus)
         assertTrue(requireNotNull(actualAccessibilityFocus).isAccessibilityFocused)
         assertEquals(testFirstApp.accessibilityName, actualAccessibilityFocus?.contentDescription?.toString())
         assertNull(actualAccessibilityFocus?.text)
+    }
+
+    @Test
+    fun `moving TalkBack focus to a row moves Row focus to it`() {
+        enableAccessibility()
+        composeRule.setHomeSuggestionRows(itemActions = createLauncherItemActions())
+        row(name = "Alpha").requestFocus()
+        composeRule.waitForIdle()
+        shadowOf(Looper.getMainLooper()).idle()
+        val actualRow: SemanticsNodeInteraction = row(name = "Beta")
+        val actualNodeId: Int = actualRow.fetchSemanticsNode().id
+        val actualView: View = getRootView()
+        composeRule.runOnIdle {
+            val actualFocusResult: Boolean = actualView.accessibilityNodeProvider?.performAction(
+                actualNodeId,
+                AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS,
+                null
+            ) == true
+            assertTrue(actualFocusResult)
+        }
+        composeRule.waitForIdle()
+        shadowOf(Looper.getMainLooper()).idle()
+        actualRow.assertIsFocused()
+        row(name = "Alpha").assertIsNotFocused()
+    }
+
+    @Test
+    fun `TalkBack focus on a non-row control leaves Row focus alone`() {
+        enableAccessibility()
+        composeRule.setContent {
+            RowTestContent {
+                HomeSuggestionRowsTestContent(itemActions = createLauncherItemActions())
+                Box(
+                    modifier = Modifier
+                        .testTag(NON_ROW_FOCUS_TEST_TAG)
+                        .size(48.dp)
+                        .rowFocusIndicator()
+                        .clickable(onClick = {})
+                )
+            }
+        }
+        row(name = "Alpha").requestFocus()
+        composeRule.waitForIdle()
+        shadowOf(Looper.getMainLooper()).idle()
+        val actualControl: SemanticsNodeInteraction = composeRule.onNodeWithTag(NON_ROW_FOCUS_TEST_TAG)
+        val actualNodeId: Int = actualControl.fetchSemanticsNode().id
+        val actualView: View = getRootView()
+        composeRule.runOnIdle {
+            val actualFocusResult: Boolean = actualView.accessibilityNodeProvider?.performAction(
+                actualNodeId,
+                AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS,
+                null
+            ) == true
+            assertTrue(actualFocusResult)
+        }
+        composeRule.waitForIdle()
+        shadowOf(Looper.getMainLooper()).idle()
+        row(name = "Alpha").assertIsFocused()
+        actualControl.assertIsNotFocused()
     }
 
     @Test
@@ -392,18 +459,20 @@ class LauncherRowFocusTest {
         shadowOf(accessibilityManager).setTouchExplorationEnabled(true)
     }
 
-    private fun SemanticsNodeInteraction.accessibilityFocus(): AccessibilityNodeInfo? {
-        val actualView: View = (requireNotNull(fetchSemanticsNode().root) as ViewRootForTest).view
+    private fun accessibilityFocus(): AccessibilityNodeInfo? {
+        val actualView: View = getRootView()
         return actualView.accessibilityNodeProvider?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
     }
 
-    private fun SemanticsNodeInteraction.pressKey(keyCode: Int, metaState: Int) {
-        val actualView: View = (requireNotNull(fetchSemanticsNode().root) as ViewRootForTest).view
+    private fun pressKey(keyCode: Int, metaState: Int) {
+        val actualView: View = getRootView()
         composeRule.runOnIdle {
             actualView.dispatchKeyEvent(createKeyEvent(action = KeyEvent.ACTION_DOWN, keyCode = keyCode, metaState = metaState))
             actualView.dispatchKeyEvent(createKeyEvent(action = KeyEvent.ACTION_UP, keyCode = keyCode, metaState = metaState))
         }
     }
+
+    private fun getRootView(): View = (requireNotNull(composeRule.onRoot().fetchSemanticsNode().root) as ViewRootForTest).view
 
     private fun createKeyEvent(action: Int, keyCode: Int, metaState: Int): KeyEvent = KeyEvent(
         0L,

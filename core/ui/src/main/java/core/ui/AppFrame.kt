@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import core.data.icons.IHomeIconCache
 import core.ui.composables.LocalHomeIconCache
 import core.ui.composables.LocalLauncherInputState
+import core.ui.composables.synchronizeRowAccessibilityFocus
 import core.ui.model.data.Destination
 import core.ui.model.data.LauncherInputState
 import core.ui.model.data.LauncherSignal
@@ -112,23 +113,25 @@ fun App(
                 LocalHomeIconCache provides homeIconCache,
                 LocalLauncherInputState provides launcherInputState
             ) {
-                NavHost(
-                    modifier = Modifier.semantics { testTagsAsResourceId = true },
-                    navController = navController,
-                    startDestination = startDestination
-                ) {
-                    // Add all defined destinations to the NavGraph
-                    destinations.forEach { dest ->
-                        composable(
-                            route = dest.route,
-                            content = { navBackStackEntry ->
-                                dest.content(navController, navBackStackEntry)
-                            },
-                            deepLinks = dest.deepLinks,
-                            arguments = dest.arguments,
-                            enterTransition = dest.enterTransition,
-                            exitTransition = dest.exitTransition
-                        )
+                synchronizeRowAccessibilityFocus {
+                    NavHost(
+                        modifier = Modifier.semantics { testTagsAsResourceId = true },
+                        navController = navController,
+                        startDestination = startDestination
+                    ) {
+                        // Add all defined destinations to the NavGraph
+                        destinations.forEach { dest ->
+                            composable(
+                                route = dest.route,
+                                content = { navBackStackEntry ->
+                                    dest.content(navController, navBackStackEntry)
+                                },
+                                deepLinks = dest.deepLinks,
+                                arguments = dest.arguments,
+                                enterTransition = dest.enterTransition,
+                                exitTransition = dest.exitTransition
+                            )
+                        }
                     }
                 }
             }

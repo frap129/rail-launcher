@@ -36,7 +36,7 @@ internal fun LauncherActionRow(
             .fillMaxWidth()
             .heightIn(min = launchableIconSize)
             .contentDescriptionSemantics(description = rowDescription)
-            .rowHoverAndFocusIndicator()
+            .rowHoverAndFocusIndicator(isRowFocusEnabled = true)
             .clickable(role = Role.Button, onClickLabel = onClickLabel, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {

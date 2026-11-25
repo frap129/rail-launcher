@@ -26,10 +26,12 @@ val rowTestBackgroundColor: Color = Color.Red
 /** The theme and contrasting background shared by the sheet-row tests. */
 @Composable
 fun RowTestContent(content: @Composable () -> Unit) {
-    MaterialTheme {
-        Box(modifier = Modifier.fillMaxSize().background(rowTestBackgroundColor)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                content()
+    synchronizeRowAccessibilityFocus {
+        MaterialTheme {
+            Box(modifier = Modifier.fillMaxSize().background(rowTestBackgroundColor)) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    content()
+                }
             }
         }
     }
