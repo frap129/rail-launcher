@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * The agenda sheet's state: whether it is open, whether it is still loading, whether calendar
+ * The Agenda sheet's state: whether it is open, whether it is still loading, whether calendar
  * access is granted and the days it lists.
  */
 data class AgendaUiState(
@@ -51,7 +51,7 @@ private sealed interface AgendaContent {
 }
 
 /**
- * The launcher's agenda sheet. It reads the calendar only while the sheet is open, and uses the
+ * The launcher's Agenda sheet. It reads the calendar only while the sheet is open, and uses the
  * Event settings' lookahead, calendars and all-day option whatever the Header shows. Calendar
  * access goes through the shared permission gate.
  */

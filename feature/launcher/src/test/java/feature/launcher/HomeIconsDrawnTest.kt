@@ -10,9 +10,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
-import core.data.launchables.model.Launchable
 import core.data.testing.TEST_SDK
-import core.data.testing.createApp
 import core.ui.IHomeIconsDrawn
 import core.ui.model.data.isFavoriteKey
 import io.mockk.every
@@ -108,6 +106,4 @@ class HomeIconsDrawnTest {
             }
         }
     }
-
-    private fun createFavorite(index: Int): Launchable = createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
 }

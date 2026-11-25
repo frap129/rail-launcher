@@ -12,7 +12,7 @@ import core.ui.calendar.openEventTarget
 import java.time.Instant
 import java.time.LocalDate
 
-/** Formats the agenda's day headings and event rows from the grouped events. */
+/** Formats the Agenda's day headings and event rows from the grouped events. */
 class AgendaFormatter(datePatternSource: IDatePatternSource, resources: Resources? = null) {
     private val eventText: EventTextFormatter = EventTextFormatter(datePatternSource = datePatternSource, resources = resources)
 

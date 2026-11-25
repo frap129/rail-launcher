@@ -164,7 +164,7 @@ class AgendaViewModelTest {
     }
 
     @Test
-    fun `loads the agenda in place after the calendar permission is granted from the sheet`() = runTest {
+    fun `loads the Agenda in place after the calendar permission is granted from the sheet`() = runTest {
         val inputPermission: MutableStateFlow<Boolean> = MutableStateFlow(false)
         val inputEvents: MutableSharedFlow<List<UpcomingEvent>> = MutableSharedFlow()
         val viewModel: AgendaViewModel = createGrantableViewModel(inputPermission = inputPermission, inputEvents = inputEvents)
@@ -193,7 +193,7 @@ class AgendaViewModelTest {
     }
 
     @Test
-    fun `loads the agenda when a grant made outside the sheet reaches the calendar source`() = runTest {
+    fun `loads the Agenda when a grant made outside the sheet reaches the calendar source`() = runTest {
         val inputPermission: MutableStateFlow<Boolean> = MutableStateFlow(false)
         val inputEvents: MutableStateFlow<List<UpcomingEvent>> = MutableStateFlow(
             listOf(createUpcomingEvent(title = "Standup", begin = "2026-10-20T15:00:00Z", end = "2026-10-20T15:30:00Z"))
@@ -276,7 +276,7 @@ class AgendaViewModelTest {
     )
 }
 
-/** Waits until the agenda has left its loading state. */
+/** Waits until the Agenda has left its loading state. */
 private suspend fun TurbineTestContext<AgendaUiState>.awaitSettled(): AgendaUiState {
     var state: AgendaUiState = awaitItem()
     while (state.isLoading) {

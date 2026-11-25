@@ -47,7 +47,7 @@ class WidgetAreaLaunchTest : IntentLaunchTestBase() {
     }
 
     @Test
-    fun `an Open agenda Tap action goes through the agenda callback`() {
+    fun `an Open Agenda Tap action goes through the Agenda callback`() {
         var actualOpenAgendaCount: Int = 0
 
         val actualLaunched: Launchable? = runTapAction(

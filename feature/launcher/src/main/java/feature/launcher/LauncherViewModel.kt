@@ -1082,11 +1082,8 @@ class LauncherViewModel(
             !isPopupOpen
     }
 
-    /** Switches between Home and the App List when [canToggleAppList] allows it. */
-    fun toggleAppList(isPopupOpen: Boolean) {
-        if (!canToggleAppList(isPopupOpen = isPopupOpen)) {
-            return
-        }
+    /** Switches between Home and the App List; the caller must check [canToggleAppList] first. */
+    fun toggleAppList() {
         if (isShowingAppList) {
             showHome(resetScroll = false)
             return

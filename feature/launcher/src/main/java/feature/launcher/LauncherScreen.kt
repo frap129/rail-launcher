@@ -373,9 +373,7 @@ fun LauncherScreen(
 
                 LauncherSignal.OpenSettings -> navController.navigate(route = SETTINGS_MAIN_ROUTE)
 
-                LauncherSignal.ToggleAppList -> viewModel.toggleAppList(
-                    isPopupOpen = popupCardViewModel.isCardOpen.value
-                )
+                LauncherSignal.ToggleAppList -> viewModel.toggleAppList()
 
                 LauncherSignal.OpenKeyboardShortcutsHelp -> isKeyboardShortcutsHelpOpen = true
 

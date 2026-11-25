@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 
 private val eventDotSize = 8.dp
 
-/** The coloured dot that marks an event in the Header and the agenda. */
+/** The coloured dot that marks an event in the Header and the Agenda. */
 @Composable
 fun EventDot(color: Color, modifier: Modifier = Modifier) {
     Box(

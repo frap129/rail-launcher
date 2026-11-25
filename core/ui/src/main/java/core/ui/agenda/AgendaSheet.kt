@@ -33,7 +33,7 @@ import core.ui.composables.sheetVerticalPadding
 import core.ui.popups.PopupSheetTitleAction
 import core.ui.popups.PopupSheetTitleRow
 
-/** The agenda's list of days and their events, read by tests to assert its reading order. */
+/** The Agenda's list of days and their events, read by tests to assert its reading order. */
 const val AGENDA_LIST_TEST_TAG: String = "agendaList"
 
 private const val DAY_KEY_PREFIX: String = "agenda-day-"
@@ -52,7 +52,7 @@ internal fun eventItemKey(day: AgendaDayModel, event: AgendaEventModel): String 
 }
 
 /**
- * The agenda sheet listing upcoming events by local day. Back and a swipe down dismiss it through
+ * The Agenda sheet listing upcoming events by local day. Back and a swipe down dismiss it through
  * [onDismiss]; the title's Open calendar action opens the calendar App. Without calendar access it
  * offers [onGrantPermission] instead of events.
  */

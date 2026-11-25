@@ -19,7 +19,7 @@ private const val DEFAULT_EVENT_TOMORROW: String = "Tomorrow"
 private const val DEFAULT_EVENT_TOMORROW_LOWER: String = "tomorrow"
 
 /**
- * Formats the event titles, times and day labels the Header's event lines and the agenda share.
+ * Formats the event titles, times and day labels the Header's event lines and the Agenda share.
  * [resources] is optional so pure tests format without Android resources.
  */
 class EventTextFormatter(datePatternSource: IDatePatternSource, private val resources: Resources? = null) {

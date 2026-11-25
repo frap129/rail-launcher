@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.merge
  * Each HOME signal separates re-selection of the shown launcher from the focused Home-press
  * condition that opens Search, while a return from another app preserves the current launcher
  * state. The Search entry and Typed characters use the same signal flow, so every signal the
- * activity hands in reaches the launcher through one path; an agenda the launcher UI opens on
+ * activity hands in reaches the launcher through one path; the Agenda the launcher UI opens on
  * its own goes straight to its saved request queue instead.
  *
  * The launcher activity uses `singleTask`, so a HOME intent that arrives while

@@ -7,11 +7,11 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** One local day of the agenda: its date and the events happening on it. */
+/** One local day of the Agenda: its date and the events happening on it. */
 data class AgendaDay(val date: LocalDate, val events: List<UpcomingEvent>)
 
 /**
- * The upcoming events the Header and the agenda share: the timed events still running, the
+ * The upcoming events the Header and the Agenda share: the timed events still running, the
  * upcoming timed events by local day, and each day an all-day event covers.
  */
 data class GroupedEvents(
@@ -25,7 +25,7 @@ data class GroupedEvents(
 }
 
 /**
- * Filters [events] with the Calendar filters and lookahead the Header and the agenda share, then
+ * Filters [events] with the Calendar filters and lookahead the Header and the Agenda share, then
  * groups them by local day. An all-day event covers every day from today to the day before its end.
  */
 fun groupUpcomingEvents(events: List<UpcomingEvent>, eventSettings: EventSettings, now: Instant, zoneId: ZoneId): GroupedEvents {
@@ -59,7 +59,7 @@ fun groupUpcomingEvents(events: List<UpcomingEvent>, eventSettings: EventSetting
 }
 
 /**
- * The agenda's days within the Event settings' lookahead, with the same filters as the Header.
+ * The Agenda's days within the Event settings' lookahead, with the same filters as the Header.
  * Ongoing events join today, and each day lists its timed events before its all-day events.
  */
 fun buildAgendaDays(events: List<UpcomingEvent>, eventSettings: EventSettings, now: Instant, zoneId: ZoneId): List<AgendaDay> {

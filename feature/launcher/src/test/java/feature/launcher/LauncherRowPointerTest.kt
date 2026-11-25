@@ -8,6 +8,8 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,6 +37,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.rightClick
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
+import core.data.launchables.model.LaunchableGroup
 import core.data.testing.TEST_SDK
 import core.ui.composables.ROW_HOVER_BACKGROUND_ALPHA
 import core.ui.composables.RowTestContent
@@ -52,6 +55,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+
+private const val SCROLLABLE_APP_COUNT: Int = 40
+private const val MOUSE_WHEEL_DELTA: Float = 500f
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -279,6 +285,55 @@ class LauncherRowPointerTest {
         val expectedHoverColor: Color = captureHoverColor { PrivateSpaceRowTestContent() }
 
         assertHoverHighlights(actualRow = composeRule.onNodeWithTag(PRIVATE_SPACE_ROW_TEST_TAG), expectedHoverColor = expectedHoverColor)
+    }
+
+    @Test
+    fun `hovering an Unlocked Private Space row highlights it`() {
+        val expectedHoverColor: Color = captureHoverColor { PrivateSpaceRowTestContent(isLocked = false) }
+        assertHoverHighlights(actualRow = composeRule.onNodeWithTag(PRIVATE_SPACE_ROW_TEST_TAG), expectedHoverColor = expectedHoverColor)
+    }
+
+    @Test
+    fun `the mouse wheel scrolls Home`() {
+        val inputFavorites: List<Launchable> = createScrollableApps()
+        val inputLazyListState: LazyListState = LazyListState()
+        composeRule.setHomeFavoriteRows(
+            favorites = inputFavorites,
+            itemActions = createLauncherItemActions(),
+            lazyListState = inputLazyListState
+        )
+        assertMouseWheelScrolls(lazyListState = inputLazyListState, firstFavoriteLabel = inputFavorites.first().name)
+    }
+
+    @Test
+    fun `the mouse wheel scrolls the App List`() {
+        val inputApps: List<Launchable> = createScrollableApps()
+        val inputLazyListState: LazyListState = LazyListState()
+        composeRule.setAppListRows(
+            itemActions = createLauncherItemActions(),
+            appList = listOf(LaunchableGroup.InitialGroup(label = "A", items = inputApps)),
+            lazyListState = inputLazyListState
+        )
+        assertMouseWheelScrolls(lazyListState = inputLazyListState, firstFavoriteLabel = inputApps.first().name)
+    }
+
+    private fun assertMouseWheelScrolls(lazyListState: LazyListState, firstFavoriteLabel: String) {
+        composeRule.waitForIdle()
+        val inputInitialItemIndex: Int = lazyListState.firstVisibleItemIndex
+        val inputInitialItemOffset: Int = lazyListState.firstVisibleItemScrollOffset
+        composeRule.onAllNodesWithText(firstFavoriteLabel).onFirst().performMouseInput {
+            moveTo(center)
+            scroll(delta = MOUSE_WHEEL_DELTA)
+        }
+        composeRule.waitForIdle()
+        assertTrue(
+            lazyListState.firstVisibleItemIndex > inputInitialItemIndex ||
+                lazyListState.firstVisibleItemScrollOffset > inputInitialItemOffset
+        )
+    }
+
+    private fun createScrollableApps(): List<Launchable> = (1..SCROLLABLE_APP_COUNT).map { index: Int ->
+        createFavorite(index = index)
     }
 
     private fun createLongPressRecordingActions(actualLongPresses: MutableList<Pair<Launchable, MenuSuggestion>>): LauncherItemActions =
