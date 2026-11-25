@@ -32,7 +32,6 @@ import core.data.profiles.IProfileSource
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
-import core.ui.composables.tracksTextFieldFocus
 import core.ui.layout.compactIconSize
 import org.koin.compose.koinInject
 
@@ -60,7 +59,7 @@ fun AppWidgetPickerSheet(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).tracksTextFieldFocus(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                 placeholder = { Text(text = stringResource(CoreUiR.string.search_widgets)) },
                 singleLine = true
             )
