@@ -336,13 +336,17 @@ private fun toLauncherUiState(
     )
 }
 
+/** The OpenLaunchable targets for [this] list, in its shown order. */
+private fun List<Launchable>.openLaunchableTargets(): List<LauncherRowTarget> =
+    map { launchable -> LauncherRowTarget.OpenLaunchable(launchable) }
+
 /** The actionable rows in one group; an Unlocked Private Space container has no tap action. */
 private fun LaunchableGroup.Listed.rowTargets(privateSpaceSettingsIntent: IntentSender?): List<LauncherRowTarget> = buildList {
     val group: LaunchableGroup.Listed = this@rowTargets
     if (group is LaunchableGroup.PrivateSpace && group.isLocked) {
         add(LauncherRowTarget.UnlockPrivateSpace)
     }
-    group.items.forEach { launchable -> add(LauncherRowTarget.OpenLaunchable(launchable)) }
+    addAll(group.items.openLaunchableTargets())
     if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
         add(LauncherRowTarget.LockPrivateSpace)
         privateSpaceSettingsIntent?.let { intentSender ->
@@ -353,7 +357,7 @@ private fun LaunchableGroup.Listed.rowTargets(privateSpaceSettingsIntent: Intent
 
 private fun LauncherUiState.AppList.Browsing.rowTargets(privateSpaceSettingsIntent: IntentSender?): List<LauncherRowTarget> =
     groups.flatMap { group -> group.rowTargets(privateSpaceSettingsIntent) } +
-        recentlyInstalled?.apps.orEmpty().map { app -> LauncherRowTarget.OpenLaunchable(app) }
+        recentlyInstalled?.apps.orEmpty().openLaunchableTargets()
 
 /** The App List scroll state that shows the group at [groupIndex] where the Rail scrub showed it, past the top spacer. */
 internal fun createReleasedAppListState(groupIndex: Int, listStartOffsetPx: Int): LazyListState = LazyListState(
@@ -839,7 +843,7 @@ class LauncherViewModel(
         val state: LauncherUiState = uiState.value
         val settingsIntent: IntentSender? = privateSpaceSettingsIntent.value
         return when (state) {
-            is LauncherUiState.Home -> state.favorites.map { launchable -> LauncherRowTarget.OpenLaunchable(launchable) }.getOrNull(index)
+            is LauncherUiState.Home -> (state.favorites + state.suggestions).openLaunchableTargets().getOrNull(index)
             is LauncherUiState.AppList.Browsing -> state.rowTargets(settingsIntent).getOrNull(index)
             is LauncherUiState.AppList.Scrolling -> state.group.rowTargets(settingsIntent).getOrNull(index)
             LauncherUiState.Loading, is LauncherUiState.Search -> null
