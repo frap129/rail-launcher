@@ -1,6 +1,8 @@
 package core.lifecycle
 
 import android.view.KeyEvent
+import core.ui.layout.HomeEditMode
+import core.ui.layout.HomeEditState
 import core.ui.model.data.KeyboardShortcut
 import core.ui.model.data.LauncherInputState
 import core.ui.model.data.LauncherSignal
@@ -63,16 +65,12 @@ class LauncherKeyHandlerTest {
 
     @Test
     fun `every listed shortcut fires for each of its modifiers, including Tab`() {
-        KeyboardShortcut.entries.forEach { inputShortcut ->
-            inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifierStates.forEach { inputModifier ->
-                    assertShortcutFires(
-                        inputKeyCode = inputKeyCode,
-                        inputMetaState = inputModifier,
-                        expectedSignal = inputShortcut.signal
-                    )
-                }
-            }
+        forEachShortcutInput { inputShortcut: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+            assertShortcutFires(
+                inputKeyCode = inputKeyCode,
+                inputMetaState = inputMetaState,
+                expectedSignal = inputShortcut.signal
+            )
         }
     }
 
@@ -114,12 +112,10 @@ class LauncherKeyHandlerTest {
             KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON
         )
 
-        KeyboardShortcut.entries.forEach { inputShortcut ->
-            inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputMetaStates.forEach { inputMetaState ->
-                    assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
-                }
-            }
+        forEachShortcutInput(
+            resolveModifierStates = { _: KeyboardShortcut -> inputMetaStates }
+        ) { _: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+            assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
         }
     }
 
@@ -129,15 +125,12 @@ class LauncherKeyHandlerTest {
             KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
             KeyEvent.META_META_ON or KeyEvent.META_SHIFT_ON
         )
-        KeyboardShortcut.entries
-            .filterNot { shortcut: KeyboardShortcut -> shortcut.isShiftAllowed }
-            .forEach { inputShortcut: KeyboardShortcut ->
-                inputShortcut.keyCodes.forEach { inputKeyCode: Int ->
-                    inputMetaStates.forEach { inputMetaState: Int ->
-                        assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
-                    }
-                }
-            }
+        forEachShortcutInput(
+            inputShortcuts = KeyboardShortcut.entries.filterNot { shortcut: KeyboardShortcut -> shortcut.isShiftAllowed },
+            resolveModifierStates = { _: KeyboardShortcut -> inputMetaStates }
+        ) { _: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+            assertPassesThrough(inputKeyCode = inputKeyCode, inputMetaState = inputMetaState)
+        }
     }
 
     @Test
@@ -152,15 +145,32 @@ class LauncherKeyHandlerTest {
 
     @Test
     fun `every listed shortcut passes through outside the launcher`() {
-        KeyboardShortcut.entries.forEach { inputShortcut ->
-            inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifierStates.forEach { inputModifier ->
-                    assertPassesThrough(
-                        inputKeyCode = inputKeyCode,
-                        inputMetaState = inputModifier,
-                        isLauncherShown = false
-                    )
-                }
+        forEachShortcutInput { _: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+            assertPassesThrough(
+                inputKeyCode = inputKeyCode,
+                inputMetaState = inputMetaState,
+                isLauncherShown = false
+            )
+        }
+    }
+
+    @Test
+    fun `Settings and Agenda shortcuts pass through in every Home edit mode`() {
+        val inputShortcuts: List<KeyboardShortcut> = listOf(KeyboardShortcut.Settings, KeyboardShortcut.Agenda)
+        val inputModes: List<HomeEditMode> = listOf(
+            HomeEditMode.Favorites,
+            HomeEditMode.Resizing(placeId = 7L),
+            HomeEditMode.Widgets,
+            HomeEditMode.MovingWidgetArea
+        )
+        inputModes.forEach { inputMode: HomeEditMode ->
+            val inputHomeEditState: HomeEditState = HomeEditState().apply { tryEnter(inputMode) }
+            forEachShortcutInput(inputShortcuts = inputShortcuts) { _: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+                assertPassesThrough(
+                    inputKeyCode = inputKeyCode,
+                    inputMetaState = inputMetaState,
+                    inputHomeEditState = inputHomeEditState
+                )
             }
         }
     }
@@ -177,16 +187,12 @@ class LauncherKeyHandlerTest {
     @Test
     fun `shortcuts are ignored while a text field has focus`() {
         val inputState: LauncherInputState = createInputState(isTextFieldFocused = true)
-        KeyboardShortcut.entries.forEach { inputShortcut ->
-            inputShortcut.keyCodes.forEach { inputKeyCode ->
-                inputShortcut.modifierStates.forEach { inputModifier ->
-                    assertPassesThrough(
-                        inputKeyCode = inputKeyCode,
-                        inputMetaState = inputModifier,
-                        inputState = inputState
-                    )
-                }
-            }
+        forEachShortcutInput { _: KeyboardShortcut, inputKeyCode: Int, inputMetaState: Int ->
+            assertPassesThrough(
+                inputKeyCode = inputKeyCode,
+                inputMetaState = inputMetaState,
+                inputState = inputState
+            )
         }
     }
 
@@ -291,6 +297,21 @@ class LauncherKeyHandlerTest {
         assertTrue(actualSignals.isEmpty())
     }
 
+    private fun forEachShortcutInput(
+        inputShortcuts: Iterable<KeyboardShortcut> = KeyboardShortcut.entries,
+        resolveModifierStates: (KeyboardShortcut) -> List<Int> = { shortcut: KeyboardShortcut -> shortcut.modifierStates },
+        onShortcutInput: (KeyboardShortcut, Int, Int) -> Unit
+    ) {
+        inputShortcuts.forEach { inputShortcut: KeyboardShortcut ->
+            val inputModifierStates: List<Int> = resolveModifierStates(inputShortcut)
+            inputShortcut.keyCodes.forEach { inputKeyCode: Int ->
+                inputModifierStates.forEach { inputMetaState: Int ->
+                    onShortcutInput(inputShortcut, inputKeyCode, inputMetaState)
+                }
+            }
+        }
+    }
+
     private fun assertTypedCharacterFires(inputKeyCode: Int, expectedCharacter: String) {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val inputState: LauncherInputState = createInputState(acceptsTyping = true)
@@ -328,12 +349,14 @@ class LauncherKeyHandlerTest {
         inputKeyCode: Int,
         inputMetaState: Int,
         isLauncherShown: Boolean = true,
-        inputState: LauncherInputState = createInputState()
+        inputState: LauncherInputState = createInputState(),
+        inputHomeEditState: HomeEditState = HomeEditState()
     ) {
         val actualSignals: MutableList<LauncherSignal> = mutableListOf()
         val launcherKeyHandler: LauncherKeyHandler = createHandler(
             isLauncherShown = isLauncherShown,
             inputState = inputState,
+            homeEditState = inputHomeEditState,
             onSignal = actualSignals::add
         )
         val actualHandled: Boolean = launcherKeyHandler.onKeyDown(
@@ -347,11 +370,13 @@ class LauncherKeyHandlerTest {
     private fun createHandler(
         isLauncherShown: Boolean = true,
         inputState: LauncherInputState = createInputState(),
+        homeEditState: HomeEditState = HomeEditState(),
         onBack: () -> Unit = {},
         onSignal: (LauncherSignal) -> Unit = {}
     ): LauncherKeyHandler = LauncherKeyHandler(
         isLauncherShown = { isLauncherShown },
         inputState = inputState,
+        homeEditState = homeEditState,
         onBack = onBack,
         onSignal = onSignal
     )

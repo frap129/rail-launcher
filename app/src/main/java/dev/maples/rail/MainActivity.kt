@@ -24,6 +24,7 @@ import core.lifecycle.TemplateActivity
 import core.lifecycle.createKeyboardShortcutGroup
 import core.lifecycle.isSearchEntry
 import core.ui.App
+import core.ui.layout.HomeEditState
 import core.ui.layout.resolveRequestedOrientation
 import core.ui.model.data.Destination
 import core.ui.model.data.LauncherInputState
@@ -65,6 +66,8 @@ class MainActivity : TemplateActivity() {
 
     private val launcherInputState: LauncherInputState by inject()
 
+    private val homeEditState: HomeEditState by inject()
+
     private val wallpaperManager: WallpaperManager by lazy {
         WallpaperManager.getInstance(applicationContext)
     }
@@ -75,6 +78,7 @@ class MainActivity : TemplateActivity() {
     private val launcherKeyHandler: LauncherKeyHandler = LauncherKeyHandler(
         isLauncherShown = { isLauncherShown },
         inputState = launcherInputState,
+        homeEditState = homeEditState,
         onBack = { onBackPressedDispatcher.onBackPressed() },
         onSignal = launcherSignals::signal
     )
