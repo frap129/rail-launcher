@@ -1243,6 +1243,35 @@ class LauncherViewModelTest {
     }
 
     @Test
+    fun `open index resolves suggestions after the Favorites on Home`() = runTest {
+        val inputFavorites: List<App> = (1..2).map { index ->
+            createApp(name = "Favorite $index", packageName = "com.example.favorite$index")
+        }
+        val inputSuggestions: List<App> = (1..3).map { index ->
+            createApp(name = "Suggested $index", packageName = "com.example.suggested$index")
+        }
+        mockFavoritesFixture.state.setFavorites(inputFavorites)
+        mockFavoritesFixture.state.setLoaded(true)
+        val fixture: SuggestionHomeFixture = createSuggestionHomeFixture(
+            launchables = inputFavorites + inputSuggestions,
+            counts = inputSuggestions.mapIndexed { index, app ->
+                createSuggestionRecord(launchable = app, score = inputSuggestions.size - index.toDouble())
+            }
+        )
+        fixture.viewModel.uiState.test {
+            val actualHome: LauncherUiState.Home = awaitHomeWithSuggestions()
+            val expectedTargets: List<LauncherRowTarget> = (inputFavorites + inputSuggestions).map { launchable ->
+                LauncherRowTarget.OpenLaunchable(launchable)
+            }
+            expectedTargets.forEachIndexed { index, expectedTarget ->
+                assertEquals(expectedTarget, fixture.viewModel.rowTargetForOpenIndex(index = index))
+            }
+            assertNull(fixture.viewModel.rowTargetForOpenIndex(index = expectedTargets.size))
+            assertEquals(inputFavorites + inputSuggestions, actualHome.favorites + actualHome.suggestions)
+        }
+    }
+
+    @Test
     fun `open index resolves nothing while a Pop-up card is open`() = runTest {
         mockFavoritesFixture.state.setFavorites(listOf(inputItem))
         mockFavoritesFixture.state.setLoaded(true)
@@ -5219,11 +5248,13 @@ class LauncherViewModelTest {
     private fun homeSuggestions(viewModel: LauncherViewModel): List<Launchable> =
         checkState<LauncherUiState.Home>(viewModel.uiState.value).suggestions
 
-    private suspend fun TurbineTestContext<LauncherUiState>.awaitSuggestions(): List<Launchable> = (
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitSuggestions(): List<Launchable> = awaitHomeWithSuggestions().suggestions
+
+    private suspend fun TurbineTestContext<LauncherUiState>.awaitHomeWithSuggestions(): LauncherUiState.Home = (
         awaitFirstMatching { state ->
             state is LauncherUiState.Home && state.suggestions.isNotEmpty()
         } as LauncherUiState.Home
-        ).suggestions
+        )
 
     private fun TestScope.createViewModel(
         mockLaunchableRepository: ILaunchableRepository = this@LauncherViewModelTest.mockLaunchableRepository,
