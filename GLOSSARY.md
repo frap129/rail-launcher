@@ -321,8 +321,12 @@ A printable character typed with a hardware keyboard while the launcher is shown
 _Avoid_: Key press, keystroke
 
 **Keyboard shortcut**:
-A key combination or unmodified Tab the launcher consumes on Home or in the App List, such as Ctrl/Meta+F for Search or Ctrl/Meta+/ for the Keyboard shortcuts help sheet. Rail keeps one list of them, which feeds the system keyboard shortcuts helper and the Keyboard shortcuts help sheet; any other Ctrl, Alt or Meta combination passes through, Tab passes through outside Home and the App List, and a Keyboard shortcut passes through while a text field has focus.
+A key combination or unmodified Tab that fires a Launcher signal on Home or in the App List, such as Ctrl/Meta+F for Search or Ctrl+/ for the Keyboard shortcuts help sheet. Rail lists Keyboard shortcuts together with Typed character, Back and Row focus inputs as Keyboard help entries; any other Ctrl, Alt or Meta combination passes through, Tab passes through outside Home and the App List, and a Keyboard shortcut passes through while a text field has focus.
 _Avoid_: Hotkey, key binding, Launcher shortcut
+
+**Keyboard help entry**:
+One input listed in the Keyboard shortcuts help sheet and the system keyboard shortcuts helper: either a Keyboard shortcut, an unmodified key that starts Search with a Typed character, Back, or a Row focus key. One ordered list feeds both surfaces.
+_Avoid_: Help shortcut, listed shortcut
 
 **Row focus**:
 The hardware keyboard's focus on a Launcher row on Home or in the App List, which the arrow keys move and Enter opens as a tap would. The focused row paints the focus indicator and moves TalkBack's accessibility focus to itself, so keyboard focus and TalkBack focus stay on one row. Row focus is not text-field focus, so Keyboard shortcuts and Typed characters still fire while a row has focus, and a modified key passes through.

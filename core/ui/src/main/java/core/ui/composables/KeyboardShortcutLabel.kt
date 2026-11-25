@@ -5,22 +5,23 @@ import android.view.KeyEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import core.ui.R
-import core.ui.model.data.KeyboardShortcut
-import core.ui.model.data.NO_KEYBOARD_MODIFIERS
-import java.util.Locale
-
-private const val KEY_CODE_PREFIX: String = "KEYCODE_"
+import core.ui.model.data.KeyboardHelpEntry
+import core.ui.model.data.KeyboardShortcutModifier
 
 @Composable
-fun formatKeyCombination(shortcut: KeyboardShortcut, keyCharacterMap: KeyCharacterMap): String {
-    val keyLabels: List<String> = shortcut.keyCodes.map { keyCode: Int ->
-        formatKeyboardKey(keyCode = keyCode, keyCharacterMap = keyCharacterMap)
+fun formatKeyCombination(entry: KeyboardHelpEntry, keyCharacterMap: KeyCharacterMap): String {
+    val keyLabel: String = entry.keyLabel?.let { keyLabelResource: Int ->
+        stringResource(keyLabelResource)
+    } ?: run {
+        val keyLabels: List<String> = entry.keyCodes.map { keyCode: Int ->
+            formatKeyboardKey(keyCode = keyCode, keyCharacterMap = keyCharacterMap)
+        }
+        keyLabels.reduce { first: String, second: String ->
+            stringResource(R.string.keyboard_shortcut_key_variants, first, second)
+        }
     }
-    val keyLabel: String = keyLabels.reduce { first: String, second: String ->
-        stringResource(R.string.keyboard_shortcut_key_variants, first, second)
-    }
-    val modifierLabels: List<String> = shortcut.modifiers
-        .map { modifier: Int -> formatKeyboardModifier(modifier) }
+    val modifierLabels: List<String> = entry.modifiers
+        .map { modifier: KeyboardShortcutModifier -> formatKeyboardModifier(modifier) }
         .filter { label: String -> label.isNotEmpty() }
     if (modifierLabels.isEmpty()) {
         return keyLabel
@@ -29,7 +30,7 @@ fun formatKeyCombination(shortcut: KeyboardShortcut, keyCharacterMap: KeyCharact
         stringResource(R.string.keyboard_shortcut_alternative, first, second)
     }
     val combinationLabel: String = stringResource(R.string.keyboard_shortcut_combination, alternativesLabel, keyLabel)
-    return if (shortcut.isShiftAllowed) {
+    return if (entry.isShiftAllowed) {
         stringResource(R.string.keyboard_shortcut_shift_optional, combinationLabel)
     } else {
         combinationLabel
@@ -37,11 +38,10 @@ fun formatKeyCombination(shortcut: KeyboardShortcut, keyCharacterMap: KeyCharact
 }
 
 @Composable
-private fun formatKeyboardModifier(modifiers: Int): String = when (modifiers) {
-    NO_KEYBOARD_MODIFIERS -> ""
-    KeyEvent.META_CTRL_ON -> stringResource(R.string.keyboard_shortcut_ctrl)
-    KeyEvent.META_META_ON -> stringResource(R.string.keyboard_shortcut_meta)
-    else -> modifiers.toString()
+private fun formatKeyboardModifier(modifier: KeyboardShortcutModifier): String = when (modifier) {
+    KeyboardShortcutModifier.None -> ""
+    KeyboardShortcutModifier.Control -> stringResource(R.string.keyboard_shortcut_ctrl)
+    KeyboardShortcutModifier.Meta -> stringResource(R.string.keyboard_shortcut_meta)
 }
 
 @Composable
@@ -53,19 +53,6 @@ internal fun formatKeyboardKey(keyCode: Int, keyCharacterMap: KeyCharacterMap): 
     if (keyCode == KeyEvent.KEYCODE_TAB) {
         return stringResource(R.string.keyboard_shortcut_tab)
     }
-    if (isPrintingKeyCode(keyCode)) {
-        val displayLabel: Char = keyCharacterMap.getDisplayLabel(keyCode)
-        if (displayLabel != Char.MIN_VALUE && !displayLabel.isWhitespace()) {
-            return if (displayLabel.isLetter()) displayLabel.uppercaseChar().toString() else displayLabel.toString()
-        }
-    }
-    val keyCodeName: String = KeyEvent.keyCodeToString(keyCode).removePrefix(KEY_CODE_PREFIX)
-    return keyCodeName
-        .lowercase(Locale.ROOT)
-        .replace('_', ' ')
-        .replaceFirstChar { character: Char -> character.titlecase(Locale.ROOT) }
+    val displayLabel: Char = keyCharacterMap.getDisplayLabel(keyCode)
+    return if (displayLabel.isLetter()) displayLabel.uppercaseChar().toString() else displayLabel.toString()
 }
-
-private fun isPrintingKeyCode(keyCode: Int): Boolean = keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 ||
-    keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z ||
-    keyCode in KeyEvent.KEYCODE_GRAVE..KeyEvent.KEYCODE_SLASH

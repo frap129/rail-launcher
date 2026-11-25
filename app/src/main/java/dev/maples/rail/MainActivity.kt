@@ -27,7 +27,9 @@ import core.ui.App
 import core.ui.layout.HomeEditState
 import core.ui.layout.resolveRequestedOrientation
 import core.ui.model.data.Destination
+import core.ui.model.data.KeyboardHelpEntry
 import core.ui.model.data.LauncherInputState
+import core.ui.model.data.resolveKeyboardHelpEntryLabel
 import feature.launcher.launcherDestination
 import feature.launcher.widgets.AppWidgetResults
 import feature.settings.settingsDestination
@@ -191,7 +193,9 @@ class MainActivity : TemplateActivity() {
         super.onProvideKeyboardShortcuts(data, menu, deviceId)
         data += createKeyboardShortcutGroup(
             label = getString(R.string.app_name),
-            resolveLabel = { shortcut -> getString(shortcut.label, *shortcut.labelArguments.toTypedArray()) }
+            resolveLabel = { entry: KeyboardHelpEntry ->
+                resolveKeyboardHelpEntryLabel(entry = entry, resources = resources)
+            }
         )
     }
 

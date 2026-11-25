@@ -4,26 +4,32 @@ import android.view.KeyEvent
 import androidx.annotation.StringRes
 import core.ui.R
 
-/** The modifier state for an unmodified key. */
-internal const val NO_KEYBOARD_MODIFIERS: Int = 0
+private const val NO_KEYBOARD_MODIFIERS: Int = 0
+
+/** A modifier accepted by a [KeyboardHelpEntry], with the state Android's key APIs expect. */
+enum class KeyboardShortcutModifier(val metaState: Int) {
+    None(NO_KEYBOARD_MODIFIERS),
+    Control(KeyEvent.META_CTRL_ON),
+    Meta(KeyEvent.META_META_ON)
+}
 
 /**
- * A keyboard shortcut the launcher consumes: any of [keyCodes] with one of [modifiers], where
- * [NO_KEYBOARD_MODIFIERS] means no modifier, which the launcher activity turns into [signal].
+ * A key combination or unmodified Tab that fires a [signal] on Home or in the App List.
  *
  * [label] names the action in the system keyboard shortcuts helper and the Keyboard shortcuts help
  * sheet, with [labelArguments] supplying its format arguments. Digit shortcuts publish both their
  * primary and numpad key codes. [isShiftAllowed] adds shifted variants for layouts that need Shift
- * to type the key.
+ * to type the key. [keyLabel] overrides the generated key label when one row represents many keys.
  */
 enum class KeyboardShortcut(
-    @StringRes val label: Int,
-    val keyCodes: List<Int>,
+    @get:StringRes override val label: Int,
+    override val keyCodes: List<Int>,
     val signal: LauncherSignal,
-    val modifiers: List<Int> = listOf(KeyEvent.META_CTRL_ON, KeyEvent.META_META_ON),
-    val isShiftAllowed: Boolean = false,
-    val labelArguments: List<String> = emptyList()
-) {
+    override val modifiers: List<KeyboardShortcutModifier> = listOf(KeyboardShortcutModifier.Control, KeyboardShortcutModifier.Meta),
+    override val isShiftAllowed: Boolean = false,
+    override val labelArguments: List<String> = emptyList(),
+    @get:StringRes override val keyLabel: Int? = null
+) : KeyboardHelpEntry {
     Search(label = R.string.search, keyCodes = listOf(KeyEvent.KEYCODE_F), signal = LauncherSignal.OpenSearch),
     Agenda(label = R.string.agenda, keyCodes = listOf(KeyEvent.KEYCODE_A), signal = LauncherSignal.OpenAgenda),
     Settings(label = R.string.settings, keyCodes = listOf(KeyEvent.KEYCODE_S), signal = LauncherSignal.OpenSettings),
@@ -31,13 +37,14 @@ enum class KeyboardShortcut(
         label = R.string.keyboard_shortcuts_help,
         keyCodes = listOf(KeyEvent.KEYCODE_SLASH),
         signal = LauncherSignal.OpenKeyboardShortcutsHelp,
+        modifiers = listOf(KeyboardShortcutModifier.Control),
         isShiftAllowed = true
     ),
     ToggleAppList(
         label = R.string.toggle_app_list,
         keyCodes = listOf(KeyEvent.KEYCODE_TAB),
         signal = LauncherSignal.ToggleAppList,
-        modifiers = listOf(NO_KEYBOARD_MODIFIERS)
+        modifiers = listOf(KeyboardShortcutModifier.None)
     ),
     OpenRow1(index = 0),
     OpenRow2(index = 1),
@@ -56,18 +63,12 @@ enum class KeyboardShortcut(
         labelArguments = listOf((index + 1).toString())
     )
 
-    /** Every exact modifier state this shortcut accepts, including optional Shift variants. */
-    val modifierStates: List<Int>
-        get() = modifiers.flatMap { modifier: Int ->
-            if (isShiftAllowed) listOf(modifier, modifier or KeyEvent.META_SHIFT_ON) else listOf(modifier)
-        }.distinct()
-
     companion object {
         /**
          * The listed shortcut [event] presses with [keyCode], or null when it presses any other
          * key or a modifier combination that shortcut does not list.
          */
-        fun forEvent(keyCode: Int, event: KeyEvent): KeyboardShortcut? = entries.firstOrNull { shortcut ->
+        fun forEvent(keyCode: Int, event: KeyEvent): KeyboardShortcut? = entries.firstOrNull { shortcut: KeyboardShortcut ->
             keyCode in shortcut.keyCodes &&
                 shortcut.modifierStates.any { expectedModifiers: Int ->
                     event.matchesShortcutModifiers(expectedModifiers = expectedModifiers)

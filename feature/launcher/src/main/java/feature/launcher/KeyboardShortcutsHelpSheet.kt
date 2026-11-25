@@ -1,8 +1,8 @@
 package feature.launcher
 
+import android.content.res.Resources
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Column
@@ -24,6 +24,7 @@ import androidx.compose.ui.input.key.KeyEvent as ComposeKeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -34,7 +35,9 @@ import core.ui.composables.SheetRow
 import core.ui.composables.SheetTextTitle
 import core.ui.composables.formatKeyCombination
 import core.ui.composables.rowFocusIndicator
-import core.ui.model.data.KeyboardShortcut
+import core.ui.model.data.KeyboardHelpEntry
+import core.ui.model.data.keyboardHelpEntries
+import core.ui.model.data.resolveKeyboardHelpEntryLabel
 
 internal const val KEYBOARD_SHORTCUTS_HELP_LIST_TEST_TAG: String = "keyboardShortcutsHelpList"
 
@@ -45,7 +48,6 @@ internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val titleFocusRequester: FocusRequester = remember { FocusRequester() }
     val keyCharacterMap: KeyCharacterMap = remember { KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD) }
-    BackHandler(onBack = onDismiss)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -78,10 +80,10 @@ internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
                     .testTag(KEYBOARD_SHORTCUTS_HELP_LIST_TEST_TAG)
             ) {
                 items(
-                    items = KeyboardShortcut.entries,
-                    key = { shortcut: KeyboardShortcut -> shortcut.name }
-                ) { shortcut: KeyboardShortcut ->
-                    KeyboardShortcutHelpRow(shortcut = shortcut, keyCharacterMap = keyCharacterMap)
+                    items = keyboardHelpEntries,
+                    key = { entry: KeyboardHelpEntry -> entry.toString() }
+                ) { entry: KeyboardHelpEntry ->
+                    KeyboardShortcutHelpRow(entry = entry, keyCharacterMap = keyCharacterMap)
                 }
             }
         }
@@ -90,9 +92,10 @@ internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun KeyboardShortcutHelpRow(shortcut: KeyboardShortcut, keyCharacterMap: KeyCharacterMap) {
-    val actionLabel: String = stringResource(shortcut.label, *shortcut.labelArguments.toTypedArray())
-    val keyCombination: String = formatKeyCombination(shortcut = shortcut, keyCharacterMap = keyCharacterMap)
+private fun KeyboardShortcutHelpRow(entry: KeyboardHelpEntry, keyCharacterMap: KeyCharacterMap) {
+    val resources: Resources = LocalResources.current
+    val actionLabel: String = resolveKeyboardHelpEntryLabel(entry = entry, resources = resources)
+    val keyCombination: String = formatKeyCombination(entry = entry, keyCharacterMap = keyCharacterMap)
     val announcement: String = stringResource(R.string.keyboard_shortcut_announcement, actionLabel, keyCombination)
     SheetRow(
         modifier = Modifier.contentDescriptionSemantics(description = announcement, mergeDescendants = true),
