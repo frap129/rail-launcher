@@ -112,7 +112,7 @@ internal fun Project.configureAndroidBase() {
         implementation(libs, "koin.android")
         implementation(libs, "util.timber")
 
-        add("baselineProfile", project(":core:baselineprofile"))
+        add("baselineProfile", project(BASELINE_PROFILE_MODULE_PATH))
     }
 
     configureUnitTestDependencies()
