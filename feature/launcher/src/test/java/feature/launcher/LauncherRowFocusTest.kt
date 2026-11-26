@@ -51,8 +51,10 @@ import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.captureThemeColor
 import core.ui.composables.focusIndicator
 import core.ui.composables.rowTestBackgroundColor
+import core.ui.composables.scrollrail.RailBounds
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.LauncherInputState
+import core.ui.popups.PopupRow
 import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
 import io.mockk.every

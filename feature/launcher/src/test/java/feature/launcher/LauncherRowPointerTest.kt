@@ -45,6 +45,7 @@ import core.ui.composables.assertPaintsTopEdge
 import core.ui.composables.captureThemeColor
 import core.ui.composables.rowTestBackgroundColor
 import core.ui.composables.topEdgeColor
+import core.ui.popups.PopupRow
 import core.ui.util.consumeTouches
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals

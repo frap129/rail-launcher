@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables.scrollrail
 
 import kotlin.math.abs
 import kotlin.math.sign
@@ -7,7 +7,7 @@ private const val PREVIOUS_RAIL_WHEEL_STEP: Int = -1
 private const val NEXT_RAIL_WHEEL_STEP: Int = 1
 
 /** What a Rail callback does with its index while a Pop-up card takes the gesture. */
-internal enum class RailIndexAction {
+enum class RailIndexAction {
     /** Preview the index while scrolling or release it when the gesture ends. */
     Act,
 
@@ -16,10 +16,10 @@ internal enum class RailIndexAction {
 }
 
 /** The Pop-up card that takes a Rail gesture: [isOpen] says whether one is open, and [close] closes it. */
-internal class RailPopupCard(val isOpen: Boolean, val close: () -> Unit)
+class RailPopupCard(val isOpen: Boolean, val close: () -> Unit)
 
 /** The Rail position, mark count and Pop-up card one Rail wheel step uses. */
-internal data class RailWheelStep(val currentMarkIndex: Int, val markCount: Int, val card: RailPopupCard)
+data class RailWheelStep(val currentMarkIndex: Int, val markCount: Int, val card: RailPopupCard)
 
 /**
  * Applies the open-Pop-up-card policy to one Rail gesture: the first callback
@@ -27,7 +27,7 @@ internal data class RailWheelStep(val currentMarkIndex: Int, val markCount: Int,
  * neither previews nor releases a Rail position. It also counts wheel deltas
  * into whole notches.
  */
-internal class RailGesture {
+class RailGesture {
     private var isConsumedByCardClose: Boolean = false
     private var pendingNotches: Float = 0f
 

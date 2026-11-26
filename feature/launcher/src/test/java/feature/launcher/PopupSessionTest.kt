@@ -12,6 +12,7 @@ import core.ui.popups.IconPickerState
 import core.ui.popups.PopupEditState
 import core.ui.popups.PopupPickerState
 import core.ui.popups.ShortcutPickerState
+import core.ui.popups.TEST_INPUT_ANCHOR
 import io.mockk.coVerify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables.scrollrail
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -11,12 +11,7 @@ import core.ui.layout.dragHandlePadding
 
 /** A drag handle on the [railSide] side of its content, [inset] from its content edge. */
 @Composable
-internal fun RailDragHandle(
-    railSide: RailSide,
-    contentDescription: String,
-    modifier: Modifier = Modifier,
-    inset: Dp = railSide.dragHandleInset()
-) {
+fun RailDragHandle(railSide: RailSide, contentDescription: String, modifier: Modifier = Modifier, inset: Dp = railSide.dragHandleInset()) {
     DragHandle(
         modifier = modifier.padding(railSide.dragHandlePadding(inset = inset)),
         contentDescription = contentDescription

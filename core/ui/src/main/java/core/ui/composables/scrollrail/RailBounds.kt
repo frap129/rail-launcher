@@ -1,9 +1,9 @@
-package feature.launcher
+package core.ui.composables.scrollrail
 
 import androidx.compose.ui.geometry.Rect
 
 /** The Rail's bounds in root coordinates: the area whose touches belong to the Rail. */
-internal class RailBounds {
+class RailBounds {
     var current: Rect? = null
         private set
 

@@ -55,10 +55,16 @@ import core.data.search.SearchResult
 import core.ui.GroupMark
 import core.ui.HOME_FULLY_DRAWN_TEST_TAG
 import core.ui.HOME_ICONS_DRAWN_TEST_TAG
+import core.ui.HomeIconsDrawnReport
 import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
 import core.ui.composables.FocusRevealContent
+import core.ui.composables.scrollrail.RailBounds
+import core.ui.composables.scrollrail.RailGesture
+import core.ui.composables.scrollrail.RailIndexAction
+import core.ui.composables.scrollrail.RailPopupCard
 import core.ui.composables.scrollrail.RailScrubState
+import core.ui.composables.scrollrail.RailWheelStep
 import core.ui.composables.scrollrail.ScrollRail
 import core.ui.composables.scrollrail.railScrubInput
 import core.ui.composables.scrollrail.railScrubStripInput
@@ -68,6 +74,7 @@ import core.ui.layout.HomeEditMode
 import core.ui.layout.appListStartInset
 import core.ui.layout.homeEdgePadding
 import core.ui.popups.IPopupEditor
+import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
 import core.util.attemptLaunch

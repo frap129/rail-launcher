@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
@@ -25,6 +25,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.prefs.RailSide
+import core.ui.gestures.DragEnd
+import core.ui.gestures.SwipeClaim
+import core.ui.gestures.SwipeToOpen
+import core.ui.gestures.isHorizontalDominant
+import core.ui.gestures.railDirectionOffset
+import core.ui.gestures.towardRailDx
+import core.ui.gestures.trackDrag
 import core.ui.util.performSegmentTickHaptic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

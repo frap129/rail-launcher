@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui
 
 import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.snapshots.SnapshotStateSet
@@ -9,7 +9,7 @@ import core.ui.model.data.favoriteKey
  * The Favorite icons Home has shown and whether each has drawn or failed to, so Home can tell when
  * every visible one has finished; a Home with no visible Favorite icon has nothing to wait for.
  */
-internal class SettledHomeIcons {
+class SettledHomeIcons {
     private val settledFavoriteKeys: SnapshotStateSet<String> = mutableStateSetOf()
 
     /** Records that the Favorite icon of [favorite] has drawn or failed; repeats do nothing. */

@@ -23,11 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetAvailability
+import core.ui.gestures.LocalWidgetSwipeState
+import core.ui.gestures.WidgetSwipeState
 import core.ui.widgets.AppWidgetModel
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.RailAppWidgetHostView
-import feature.launcher.LocalWidgetSwipeState
-import feature.launcher.WidgetSwipeState
 import kotlin.math.roundToInt
 import org.koin.compose.koinInject
 

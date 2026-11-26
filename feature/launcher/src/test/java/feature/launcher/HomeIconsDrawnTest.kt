@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import core.data.testing.TEST_SDK
+import core.ui.HomeIconsDrawnReport
 import core.ui.IHomeIconsDrawn
 import core.ui.model.data.isFavoriteKey
 import io.mockk.every

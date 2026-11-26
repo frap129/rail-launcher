@@ -66,6 +66,7 @@ import core.ui.composables.CalendarPermissionResumeRefresh
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.rememberPermissionResultLauncher
+import core.ui.composables.scrollrail.RailBounds
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -85,6 +86,7 @@ import core.ui.popups.IPopupFolderActions
 import core.ui.popups.IPopupPicker
 import core.ui.popups.IPopupSession
 import core.ui.popups.IconPickerHost
+import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches

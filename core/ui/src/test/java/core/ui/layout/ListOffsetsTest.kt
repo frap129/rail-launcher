@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.layout
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

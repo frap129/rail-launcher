@@ -1,6 +1,5 @@
 package feature.launcher
 
-import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.SavedStateHandle
 import core.data.apps.model.App
 import core.data.icons.IIconImageImporter
@@ -38,6 +37,7 @@ import core.ui.popups.IPopupPicker
 import core.ui.popups.IPopupSession
 import core.ui.popups.IPopupSessionImpl
 import core.ui.popups.PopupTestBase
+import core.ui.popups.TEST_INPUT_ANCHOR
 import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.createAddController
 import java.time.Instant
@@ -51,12 +51,6 @@ import org.robolectric.RuntimeEnvironment
 
 internal const val TEST_WORK_PROFILE_SERIAL: Long = 42L
 internal val TEST_NOW: Instant = Instant.ofEpochMilli(10_000_000L)
-internal val TEST_INPUT_ANCHOR: PopupAnchor = PopupAnchor(
-    row = PopupRow.Group,
-    rowTop = 400,
-    rowBottom = 464,
-    iconCenter = Offset(32f, 432f)
-)
 
 /** The card, editor, pickers and Folder actions connected by one Pop-up session. */
 class PopupTestSession(

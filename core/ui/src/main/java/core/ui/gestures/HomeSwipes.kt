@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.gestures
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -157,7 +157,7 @@ private class HomeRubberBand(
  * Home whose touches are consumed never reacts.
  */
 @Composable
-internal fun Modifier.homeSwipes(
+fun Modifier.homeSwipes(
     isSwipeUpEnabled: Boolean,
     isSwipeDownEnabled: Boolean,
     widgetSwipeState: WidgetSwipeState,

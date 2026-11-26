@@ -11,6 +11,7 @@ import core.data.testing.TEST_SDK
 import core.data.testing.TimberLogRecorder
 import core.data.testing.createApp
 import core.data.testing.createPrivateApp
+import core.ui.popups.TEST_INPUT_ANCHOR
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
