@@ -26,8 +26,8 @@ import core.ui.layout.HomeEditMode
 import core.ui.testing.createLauncherItemActions
 import core.ui.testing.testFirstApp
 import core.ui.testing.testSecondApp
-import core.ui.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
+import feature.launcher.widgets.createWidgetAreaViewModelMock
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -141,17 +141,6 @@ class LauncherContentFocusTest {
         every { mockLauncherViewModel.listStartOffsetPx } returns 0
         every { mockLauncherViewModel.listEndOffsetPx } returns 0
         return mockLauncherViewModel
-    }
-
-    private fun createWidgetAreaViewModelMock(): WidgetAreaViewModel {
-        val inputWidgetAreaUi: WidgetAreaUi = createTestWidgetAreaUi()
-        val mockWidgetAreaViewModel: WidgetAreaViewModel = mockk(relaxed = true)
-        every { mockWidgetAreaViewModel.widgetAreaState } returns MutableStateFlow(inputWidgetAreaUi.state)
-        every { mockWidgetAreaViewModel.resizeState } returns MutableStateFlow(null)
-        every { mockWidgetAreaViewModel.editState } returns MutableStateFlow(null)
-        every { mockWidgetAreaViewModel.mediaPlayerState } returns MutableStateFlow(inputWidgetAreaUi.mediaPlayer)
-        every { mockWidgetAreaViewModel.scrollToPlaceId } returns MutableStateFlow(null)
-        return mockWidgetAreaViewModel
     }
 
     private fun assertHomeRowsAreNotFocusable(isResizing: Boolean = false, isEditingWidgets: Boolean = false) {

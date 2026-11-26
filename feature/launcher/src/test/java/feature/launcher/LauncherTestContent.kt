@@ -20,6 +20,7 @@ import core.ui.testing.createAppListRowState
 import core.ui.testing.createLauncherItemActions
 import core.ui.testing.createTestAppList
 import core.ui.widgets.MediaPlayerUiState
+import core.ui.widgets.WidgetAreaActions
 import core.ui.widgets.WidgetAreaLayout
 import core.ui.widgets.WidgetAreaState
 import core.ui.widgets.WidgetAreaUi
@@ -78,14 +79,18 @@ fun createHomeState(
     isSwipeDownEnabled = false
 )
 
-/** A loaded, uncapped Widget Area with no widgets, as Home tests compose it. */
-fun createTestWidgetAreaUi(): WidgetAreaUi = WidgetAreaUi(
-    state = WidgetAreaState(isLoaded = true, layout = WidgetAreaLayout.Uncapped, listState = LazyListState()),
+/** A loaded, uncapped Widget Area with no widgets, unless a test supplies other state or callbacks. */
+fun createTestWidgetAreaUi(
+    state: WidgetAreaState = WidgetAreaState(isLoaded = true, layout = WidgetAreaLayout.Uncapped, listState = LazyListState()),
+    mediaPlayer: MediaPlayerUiState = MediaPlayerUiState.Hidden,
+    actions: WidgetAreaActions = widgetAreaActions()
+): WidgetAreaUi = WidgetAreaUi(
+    state = state,
     resize = null,
     editDraft = null,
-    mediaPlayer = MediaPlayerUiState.Hidden,
+    mediaPlayer = mediaPlayer,
     scrollToPlaceId = null,
-    actions = widgetAreaActions()
+    actions = actions
 )
 
 /** Home composed with the test Widget Area and the callbacks tests do not exercise. */

@@ -8,6 +8,15 @@ fun HapticFeedback.performLongPressHaptic() {
     performHapticFeedback(HapticFeedbackType.LongPress)
 }
 
+/** Plays the long-press haptic and runs [onLongPress] only while [menuEnabled]. */
+fun HapticFeedback.performLongPressHaptic(menuEnabled: Boolean, onLongPress: () -> Unit) {
+    if (!menuEnabled) {
+        return
+    }
+    performLongPressHaptic()
+    onLongPress()
+}
+
 /** Performs the launcher's standard reorder segment-tick haptic. */
 fun HapticFeedback.performSegmentTickHaptic() {
     performHapticFeedback(HapticFeedbackType.SegmentTick)
