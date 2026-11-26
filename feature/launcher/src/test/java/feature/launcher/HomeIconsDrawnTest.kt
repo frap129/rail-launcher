@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import core.data.testing.REPORT_TIMEOUT_MILLIS
 import core.data.testing.TEST_SDK
 import core.ui.HomeIconsDrawnReport
 import core.ui.IHomeIconsDrawn
@@ -34,7 +35,6 @@ import org.robolectric.annotation.Config
 private val HOME_WIDTH: Dp = 360.dp
 private val HOME_HEIGHT: Dp = 300.dp
 private const val FAVORITE_COUNT: Int = 6
-private const val REPORT_TIMEOUT_MILLIS: Long = 5_000L
 private const val SETTLE_MILLIS: Long = 500L
 
 @RunWith(RobolectricTestRunner::class)

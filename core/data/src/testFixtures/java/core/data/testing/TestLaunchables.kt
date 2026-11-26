@@ -21,6 +21,9 @@ private const val TEST_APP_PACKAGE_NAME: String = "com.example.app"
 /** A package name used for private Apps in tests. */
 const val PRIVATE_PACKAGE_NAME: String = "com.example.private"
 
+/** The App name shared by menu and Settings row tests. */
+const val APP_NAME: String = "Maps"
+
 /** The Rail Settings Builtin group used across launcher tests. */
 fun createBuiltinGroup(): LaunchableGroup.Builtin = LaunchableGroup.Builtin(items = listOf(createRailLaunchable("Rail Settings")))
 

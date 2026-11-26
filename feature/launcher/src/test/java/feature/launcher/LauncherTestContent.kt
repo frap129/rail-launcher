@@ -25,8 +25,8 @@ import core.ui.widgets.WidgetAreaState
 import core.ui.widgets.WidgetAreaUi
 import core.ui.widgets.widgetAreaActions
 
-/** Sets App List groups of the test Apps over the contrasting test background. */
-fun ComposeContentTestRule.setAppListRows(
+/** Sets the launcher App List content in a lazy list over the contrasting test background. */
+fun ComposeContentTestRule.setLauncherAppListContent(
     itemActions: LauncherItemActions,
     appList: List<LaunchableGroup.Listed> = createTestAppList(),
     lazyListState: LazyListState = LazyListState()

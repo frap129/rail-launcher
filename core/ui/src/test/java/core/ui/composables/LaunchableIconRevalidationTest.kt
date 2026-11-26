@@ -24,6 +24,7 @@ import core.data.icons.IHomeIconCache
 import core.data.icons.IconKeyer
 import core.data.icons.identity
 import core.data.icons.model.Icon
+import core.data.testing.REPORT_TIMEOUT_MILLIS
 import core.data.testing.TEST_APP_UPDATE_TIME
 import core.data.testing.TEST_ICON_CENTER_PX
 import core.data.testing.TEST_ICON_SIZE_PX
@@ -44,7 +45,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-private const val REPORT_TIMEOUT_MILLIS: Long = 5_000L
 private const val FIRST_RELOAD_COUNT: Int = 2
 
 /** A Coil fetcher serving each icon's identity from [colors], standing in for the disk cache a reload reads. */

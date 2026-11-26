@@ -75,7 +75,7 @@ class LauncherRowPointerTest {
     @Test
     fun `a secondary click opens the long-press menu on an App List row`() {
         val actualLongPresses: MutableList<Pair<Launchable, MenuSuggestion>> = mutableListOf()
-        composeRule.setAppListRows(itemActions = createLongPressRecordingActions(actualLongPresses = actualLongPresses))
+        composeRule.setAppListGroupRows(itemActions = createLongPressRecordingActions(actualLongPresses = actualLongPresses))
         composeRule.onAllNodesWithText("Beta").onFirst().performMouseInput { rightClick() }
         assertEquals(listOf(testSecondApp to MenuSuggestion.None), actualLongPresses)
     }

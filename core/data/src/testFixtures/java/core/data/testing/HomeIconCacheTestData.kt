@@ -13,6 +13,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 
+/** How long icon drawing tests wait for a revalidation or Home icon report. */
+const val REPORT_TIMEOUT_MILLIS: Long = 5_000L
+
 /** A Home icon cache whose background work runs on [this] test scope's scheduler. */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun TestScope.createHomeIconCache(

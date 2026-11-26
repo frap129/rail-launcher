@@ -9,7 +9,9 @@ import androidx.compose.ui.test.performClick
 import core.data.apps.model.App
 import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
+import core.data.testing.APP_NAME
 import core.data.testing.TEST_SDK
+import core.data.testing.WIDGET_LABEL
 import core.data.testing.createApp
 import core.data.testing.createProfileSourceMock
 import core.data.widgets.WidgetAvailability
@@ -33,8 +35,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val APP_NAME: String = "Maps"
-private const val WIDGET_LABEL: String = "Weather"
 private const val WIDGET_PROVIDER_PACKAGE: String = "com.example.weather"
 private const val WIDGET_PROVIDER_CLASS: String = "com.example.weather.WeatherWidget"
 private const val WIDGET_ID: Long = 1L
