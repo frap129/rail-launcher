@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.runtime.Immutable
 import core.data.notifications.NotificationSnapshot

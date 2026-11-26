@@ -18,6 +18,7 @@ import core.data.popups.PopupContentResolver
 import core.data.popups.PopupItem
 import core.data.popups.ShortcutTarget
 import core.data.popups.addedItems
+import core.data.popups.appOwner
 import core.data.popups.collectShortcuts
 import core.data.popups.findLaunchable
 import core.data.popups.hiddenShortcutIds
@@ -52,9 +53,12 @@ import core.ui.popups.IPopupCard
 import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupSession
 import core.ui.popups.PopupAnchor
+import core.ui.popups.PopupWidgetPage
+import core.ui.popups.PopupWidgetState
 import core.ui.popups.contentKeys
 import core.ui.popups.observeLockedContent
 import core.ui.popups.observeTargetLoss
+import core.ui.popups.popupWidgetMaxHeightDp
 import core.ui.widgets.AddWidgetFlowState
 import core.ui.widgets.AddWidgetOrigin
 import core.ui.widgets.IWidgetAddController

@@ -35,6 +35,10 @@ data class HiddenShortcutIds(val ownerKey: String?, val ids: Set<String>)
 
 data class OwnerItems(val ownerKey: String?, val items: List<PopupItem>)
 
+/** The App [this] is, or null when it is another Launchable. */
+val Launchable.appOwner: App?
+    get() = this as? App
+
 fun targetFor(owner: Launchable): ShortcutTarget? = when (owner) {
     is App -> ShortcutTarget(
         ownerKey = owner.key,
