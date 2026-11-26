@@ -114,10 +114,12 @@ import core.data.testing.setLoaded
 import core.data.time.ClockReading
 import core.data.time.IClockSource
 import core.ui.GroupMark
+import core.ui.composables.MenuSuggestion
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.ListOffsets
 import core.ui.model.data.LauncherSignal
+import core.ui.testing.createFavorite
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import io.mockk.coEvery
 import io.mockk.coVerify

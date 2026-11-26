@@ -58,7 +58,12 @@ import core.ui.HOME_ICONS_DRAWN_TEST_TAG
 import core.ui.HomeIconsDrawnReport
 import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
+import core.ui.composables.AppListRowState
 import core.ui.composables.FocusRevealContent
+import core.ui.composables.LauncherItemActions
+import core.ui.composables.LauncherItemGroup
+import core.ui.composables.PrivateSpaceActions
+import core.ui.composables.rememberAppListRowState
 import core.ui.composables.scrollrail.RailBounds
 import core.ui.composables.scrollrail.RailGesture
 import core.ui.composables.scrollrail.RailIndexAction

@@ -65,6 +65,7 @@ import core.ui.agenda.AgendaSheet
 import core.ui.calendar.openCalendarEvent
 import core.ui.calendar.openSystemCalendar
 import core.ui.composables.CalendarPermissionResumeRefresh
+import core.ui.composables.KeyboardShortcutsHelpSheet
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.rememberPermissionResultLauncher
@@ -81,6 +82,7 @@ import core.ui.model.data.SEARCH_SETTINGS_ROUTE
 import core.ui.model.data.SETTINGS_MAIN_ROUTE
 import core.ui.model.data.WIDGETS_MEDIA_SETTINGS_ROUTE
 import core.ui.model.data.WIDGETS_SETTINGS_ROUTE
+import core.ui.popups.AddToFolderHost
 import core.ui.popups.FolderDeleteHost
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupEditor

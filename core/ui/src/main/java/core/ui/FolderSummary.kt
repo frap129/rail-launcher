@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui
 
 private const val FOLDER_SUMMARY_MAX_LENGTH: Int = 48
 private const val FOLDER_SUMMARY_SEPARATOR: String = ", "

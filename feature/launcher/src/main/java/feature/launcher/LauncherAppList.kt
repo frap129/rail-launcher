@@ -11,9 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,46 +22,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.launchables.model.appListKey
 import core.data.prefs.RailSide
-import core.ui.composables.LaunchableGroupHeader
+import core.ui.composables.AppListRowState
 import core.ui.composables.LaunchableSectionHeader
+import core.ui.composables.LauncherAppListRow
+import core.ui.composables.LauncherItemActions
+import core.ui.composables.LauncherItemGroup
 import core.ui.layout.appListStartInset
 import core.ui.layout.homeEdgePadding
 import core.ui.popups.PopupRow
-import kotlinx.coroutines.flow.Flow
 
 /** The LazyColumn key of the Recently installed section, which is not one of the App List's groups. */
 private const val RECENTLY_INSTALLED_ITEM_KEY: String = "recentlyInstalled"
-
-@Immutable
-data class AppListRowState(
-    val isEditingFavorites: Boolean,
-    val favoriteKeys: Set<String>,
-    val isPopupSwipeEnabled: Boolean,
-    val isRowFocusEnabled: Boolean = true
-)
-
-// App List rows only read Favorites while Edit Favorites shows stars.
-@Composable
-internal fun rememberAppListRowState(
-    isEditingFavorites: Boolean,
-    favorites: Flow<List<Launchable>>,
-    isRowFocusEnabled: Boolean,
-    isPopupSwipeEnabled: Boolean
-): AppListRowState {
-    val favoriteList: List<Launchable> by favorites.collectAsState(initial = emptyList())
-    val favoriteKeys: Set<String> = if (isEditingFavorites) rememberFavoriteKeySet(favoriteList) else emptySet()
-    return AppListRowState(
-        isEditingFavorites = isEditingFavorites,
-        favoriteKeys = favoriteKeys,
-        isRowFocusEnabled = isRowFocusEnabled,
-        isPopupSwipeEnabled = isPopupSwipeEnabled
-    )
-}
 
 @Composable
 fun LauncherAppList(
@@ -127,37 +100,6 @@ fun LauncherAppList(
     }
 }
 
-@Composable
-fun LauncherItemGroup(
-    modifier: Modifier = Modifier,
-    group: LaunchableGroup.Listed,
-    rowState: AppListRowState,
-    itemActions: LauncherItemActions,
-    folderSummaries: Map<String, String> = emptyMap()
-) {
-    Column(modifier = modifier) {
-        LaunchableGroupHeader(group = group)
-        if (group is LaunchableGroup.PrivateSpace) {
-            PrivateSpaceRow(
-                isLocked = group.isLocked,
-                onUnlock = itemActions.privateSpaceActions.onUnlock
-            )
-        }
-        group.items.forEach { item ->
-            LauncherAppListRow(
-                item = item,
-                popupRow = PopupRow.Group,
-                rowState = rowState,
-                itemActions = itemActions,
-                folderSummaries = folderSummaries
-            )
-        }
-        if (group is LaunchableGroup.PrivateSpace && !group.isLocked) {
-            PrivateSpaceActionRows(actions = itemActions.privateSpaceActions)
-        }
-    }
-}
-
 /** The Recently installed section: its titled header and its Apps, after every group. */
 @Composable
 private fun LauncherRecentlyInstalledGroup(
@@ -178,25 +120,4 @@ private fun LauncherRecentlyInstalledGroup(
             )
         }
     }
-}
-
-/** One App List row, shared by the groups and the Recently installed section. */
-@Composable
-private fun LauncherAppListRow(
-    item: Launchable,
-    popupRow: PopupRow,
-    rowState: AppListRowState,
-    itemActions: LauncherItemActions,
-    folderSummaries: Map<String, String>
-) {
-    LauncherItem(
-        item = item,
-        isEditingFavorites = rowState.isEditingFavorites,
-        isFavorite = item.key in rowState.favoriteKeys,
-        isRowFocusEnabled = rowState.isRowFocusEnabled,
-        isPopupSwipeEnabled = rowState.isPopupSwipeEnabled,
-        popupRow = popupRow,
-        itemActions = itemActions,
-        secondaryText = folderSummaries[item.key]
-    )
 }

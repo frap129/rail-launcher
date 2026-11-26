@@ -20,7 +20,12 @@ import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.data.testing.createRailLaunchable
+import core.ui.composables.AppListRowState
+import core.ui.composables.LauncherItemActions
+import core.ui.composables.LauncherItemGroup
 import core.ui.composables.getString
+import core.ui.testing.createAppListRowState
+import core.ui.testing.createLauncherItemActions
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -35,8 +40,7 @@ class LauncherAppListTest {
     val composeRule: ComposeContentTestRule = createComposeRule()
 
     private val itemActions: LauncherItemActions = createLauncherItemActions()
-    private val rowState: AppListRowState =
-        AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet(), isPopupSwipeEnabled = false)
+    private val rowState: AppListRowState = createAppListRowState()
 
     @Test
     fun `keeps the released Rail group where the Rail scrub showed it`() {

@@ -59,12 +59,14 @@ import core.data.testing.createSearchContact
 import core.data.testing.createShortcut
 import core.data.testing.createWebSuggestionRow
 import core.ui.R as CoreUiR
+import core.ui.composables.LauncherItemActions
 import core.ui.composables.LocalLauncherInputState
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailStartInset
 import core.ui.layout.minTouchTargetSize
 import core.ui.model.data.LauncherInputState
 import core.ui.search.SearchContactsUiEvent
+import core.ui.testing.createLauncherItemActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals

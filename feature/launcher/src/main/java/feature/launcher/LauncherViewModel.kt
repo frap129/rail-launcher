@@ -57,6 +57,8 @@ import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.time.IClockSource
 import core.ui.GroupMark
+import core.ui.composables.MenuSuggestion
+import core.ui.folderSummaryLine
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.ListOffsets
@@ -158,13 +160,6 @@ private enum class LauncherMode {
     Home,
     AppList,
     Search
-}
-
-/** The kind of suggestion the row behind a menu is, which decides the suggestion action the menu offers. */
-enum class MenuSuggestion {
-    None,
-    Search,
-    Home
 }
 
 sealed class LauncherMenuState {

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -14,14 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
-import core.ui.composables.OutlinedText
-import core.ui.composables.launchableIconSize
-import core.ui.composables.rowHoverAndFocusIndicator
 import core.ui.layout.compactIconSize
 
 /** A full-width launcher action row with a leading icon, a label and optional trailing content. */
 @Composable
-internal fun LauncherActionRow(
+fun LauncherActionRow(
     imageVector: ImageVector,
     label: String,
     onClick: () -> Unit,

@@ -28,5 +28,6 @@ dependencies {
     testFixturesImplementation(libs.compose.material3)
     testFixturesImplementation(libs.compose.ui)
     testFixturesImplementation(libs.compose.ui.test.junit4)
+    testFixturesImplementation(libs.icons.fontawesome)
     testFixturesImplementation(testFixtures(project(":core:data")))
 }

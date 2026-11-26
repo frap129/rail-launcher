@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -52,11 +52,7 @@ import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
-import core.ui.composables.LaunchableIcon
-import core.ui.composables.OutlinedText
-import core.ui.composables.longPressMenuOnSecondaryClick
-import core.ui.composables.rowHoverAndFocusIndicator
-import core.ui.composables.tracksRowFocus
+import core.ui.R
 import core.ui.layout.UNAVAILABLE_ALPHA
 import core.ui.layout.minTouchTargetSize
 import core.ui.popups.PopupAnchor
@@ -117,7 +113,7 @@ internal fun Modifier.contentDescriptionSemantics(description: String?, mergeDes
     }
 
 @Composable
-internal fun rememberFavoriteKeys(favorites: List<Launchable>): List<String> = remember(favorites) { favorites.favoriteKeys() }
+fun rememberFavoriteKeys(favorites: List<Launchable>): List<String> = remember(favorites) { favorites.favoriteKeys() }
 
 @Composable
 internal fun rememberFavoriteKeySet(favorites: List<Launchable>): Set<String> = remember(favorites) { favorites.favoriteKeys().toHashSet() }

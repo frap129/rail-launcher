@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="private_space">Private Space</string>
+    <string name="private_space_locked">Locked</string>
+    <string name="private_space_unlocked">Unlocked</string>
+    <string name="unlock_private_space">Unlock</string>
+    <string name="lock_private_space">Lock</string>
+    <string name="private_space_settings">Private Space settings</string>
     <string name="header_last_part_supporting_text">Use Remove Header to hide the Header</string>
     <string name="battery">Battery</string>
     <string name="calendar_permission_denied_title">Calendar access is off</string>
@@ -19,6 +24,7 @@
     <string name="open_focused_row">Open focused row</string>
     <string name="toggle_app_list">Switch between Home and the App List</string>
     <string name="keyboard_shortcuts_help">Keyboard shortcuts</string>
+    <string name="keyboard_shortcut_announcement">%1$s, %2$s</string>
     <string name="keyboard_shortcut_ctrl">Ctrl</string>
     <string name="keyboard_shortcut_meta">Meta</string>
     <string name="keyboard_shortcut_tab">Tab</string>
@@ -132,6 +138,8 @@
     <string name="delete_folder_title">Delete %1$s?</string>
     <string name="delete_folder_body">The apps in it stay installed.</string>
     <string name="new_folder">New Folder</string>
+    <string name="add_to_folder_title">Add %1$s to Folder</string>
+    <string name="no_folders">You don\'t have any Folders</string>
     <string name="create">Create</string>
     <string name="back">Back</string>
     <string name="change_icon">Change icon</string>
@@ -141,6 +149,10 @@
     <string name="no_icon_packs">No icon packs installed</string>
     <string name="search_icons">Search icons</string>
     <string name="edit_favorites">Edit Favorites</string>
+    <string name="add_to_favorites">Add to Favorites</string>
+    <string name="remove_from_favorites">Remove from Favorites</string>
+    <string name="open_popup">Open Pop-up</string>
+    <string name="launcher_item_description">%1$s, %2$s</string>
     <string name="no_clock_app">No clock app</string>
     <string name="no_calendar_app">No calendar app</string>
     <string name="no_battery_usage_app">No battery usage screen</string>

@@ -13,7 +13,10 @@ import coil3.SingletonImageLoader
 import core.data.testing.TEST_SDK
 import core.ui.HomeIconsDrawnReport
 import core.ui.IHomeIconsDrawn
+import core.ui.composables.LauncherItemActions
 import core.ui.model.data.isFavoriteKey
+import core.ui.testing.createFavorite
+import core.ui.testing.createLauncherItemActions
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

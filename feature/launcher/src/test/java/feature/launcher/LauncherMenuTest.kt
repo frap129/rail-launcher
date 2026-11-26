@@ -23,6 +23,7 @@ import core.data.testing.createApp
 import core.data.testing.createProfileInfo
 import core.data.testing.createShortcut
 import core.ui.R as CoreUiR
+import core.ui.composables.MenuSuggestion
 import core.ui.composables.RowTestContent
 import core.ui.composables.SHEET_TITLE_ICON_TEST_TAG
 import core.ui.composables.assertSheetRowsPaintSheetColor

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables
 
 import android.content.res.Resources
 import android.view.KeyCharacterMap
@@ -29,12 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import core.ui.R as CoreUiR
-import core.ui.composables.SheetDragHandle
-import core.ui.composables.SheetRow
-import core.ui.composables.SheetTextTitle
-import core.ui.composables.focusIndicator
-import core.ui.composables.formatKeyCombination
+import core.ui.R
 import core.ui.model.data.KeyboardHelpEntry
 import core.ui.model.data.keyboardHelpEntries
 import core.ui.model.data.resolveKeyboardHelpEntryLabel
@@ -44,7 +39,7 @@ internal const val KEYBOARD_SHORTCUTS_HELP_LIST_TEST_TAG: String = "keyboardShor
 /** The Keyboard shortcuts help sheet, listing the same shortcuts as the system helper. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
+fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val titleFocusRequester: FocusRequester = remember { FocusRequester() }
     val keyCharacterMap: KeyCharacterMap = remember { KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD) }
@@ -67,7 +62,7 @@ internal fun KeyboardShortcutsHelpSheet(onDismiss: () -> Unit) {
                 }
         ) {
             SheetTextTitle(
-                title = stringResource(CoreUiR.string.keyboard_shortcuts_help),
+                title = stringResource(R.string.keyboard_shortcuts_help),
                 modifier = Modifier
                     .focusRequester(titleFocusRequester)
                     .focusable()

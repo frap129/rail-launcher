@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="search_hint">Search apps, folders, Shortcuts and more</string>
-    <string name="home_suggestion_announcement">Suggested</string>
     <string name="top_result">Top result</string>
     <string name="top_result_opens">%1$s, Enter opens</string>
     <string name="top_result_copies">%1$s, Enter copies</string>
@@ -9,7 +8,6 @@
     <string name="hidden">Hidden</string>
     <string name="search_options">Search options</string>
     <string name="search_settings">Search settings</string>
-    <string name="keyboard_shortcut_announcement">%1$s, %2$s</string>
     <string name="calculator_row">%1$s = %2$s</string>
     <string name="calculator_copied">Copied to clipboard</string>
     <string name="search_open_url">Open %1$s</string>
@@ -23,8 +21,6 @@
     <string name="header_replaced">Header replaced</string>
     <string name="undo">Undo</string>
     <string name="favorites_empty_hint">Long-press any app to add it to Favorites</string>
-    <string name="add_to_favorites">Add to Favorites</string>
-    <string name="remove_from_favorites">Remove from Favorites</string>
     <string name="remove_from_suggestions">Remove from suggestions</string>
     <string name="stop_suggesting">Stop suggesting</string>
     <string name="hide_from_app_list">Hide from App List</string>
@@ -34,20 +30,11 @@
     <string name="media_player_excluded">%1$s excluded</string>
     <string name="couldnt_open_app">Couldn\'t open %1$s</string>
     <string name="finish_editing_home">Finish editing Home before adding a widget</string>
-    <string name="open_popup">Open Pop-up</string>
     <string name="couldnt_open_shortcut">Couldn\'t open shortcut</string>
-    <string name="launcher_item_description">%1$s, %2$s</string>
-    <string name="add_to_folder_title">Add %1$s to Folder</string>
-    <string name="no_folders">You don\'t have any Folders</string>
     <string name="edit_folder">Edit Folder</string>
     <string name="remove_from_popup">Remove from Pop-up</string>
     <string name="add_to_folder">Add to Folder</string>
     <string name="added_to_folder">Added to %1$s</string>
-    <string name="private_space_locked">Locked</string>
-    <string name="private_space_unlocked">Unlocked</string>
-    <string name="unlock_private_space">Unlock</string>
-    <string name="lock_private_space">Lock</string>
-    <string name="private_space_settings">Private Space settings</string>
     <string name="install_in_private_space">Install in Private Space</string>
     <string name="couldnt_open_store_page">Couldn\'t open the Store page</string>
     <string name="pin_shortcut_from">From %1$s</string>

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +22,9 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Plus
 import core.data.folders.Folder
 import core.data.launchables.model.Launchable
-import core.ui.R as CoreUiR
+import core.ui.R
+import core.ui.composables.LauncherActionRow
 import core.ui.composables.SheetDragHandle
-import core.ui.popups.CheckboxLaunchableRow
-import core.ui.popups.FolderNameDialog
-import core.ui.popups.PopupEmptyState
-import core.ui.popups.PopupSheetTitleRow
 
 private val folderRowMinHeight: Dp = 56.dp
 
@@ -69,7 +66,7 @@ fun AddToFolderSheet(
                 }
                 LauncherActionRow(
                     imageVector = FontAwesomeIcons.Solid.Plus,
-                    label = stringResource(CoreUiR.string.new_folder),
+                    label = stringResource(R.string.new_folder),
                     onClick = { isNamingFolder = true }
                 )
             }

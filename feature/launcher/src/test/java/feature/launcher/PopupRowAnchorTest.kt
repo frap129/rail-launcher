@@ -14,8 +14,12 @@ import app.cash.turbine.test
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.testing.TEST_SDK
+import core.ui.composables.AppListRowState
+import core.ui.composables.LauncherItemActions
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupRow
+import core.ui.testing.createAppListRowState
+import core.ui.testing.createLauncherItemActions
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -35,8 +39,7 @@ class PopupRowAnchorTest : PopupSessionTestBase() {
     @get:Rule
     val composeRule: ComposeContentTestRule = createComposeRule()
 
-    private val rowState: AppListRowState =
-        AppListRowState(isEditingFavorites = false, favoriteKeys = emptySet(), isPopupSwipeEnabled = true)
+    private val rowState: AppListRowState = createAppListRowState(isPopupSwipeEnabled = true)
 
     @Test
     fun `keeps a Pop-up opened from the Initial group row on that row when the other copy relayouts`() = runTest {
