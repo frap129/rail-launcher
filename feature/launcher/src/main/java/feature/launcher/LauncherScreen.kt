@@ -93,7 +93,9 @@ import core.ui.util.consumeTouches
 import core.ui.widgets.AddWidgetFlowState
 import core.ui.widgets.AddWidgetOrigin
 import core.ui.widgets.AddWidgetPlacement
+import core.ui.widgets.AppWidgetPickerSheet
 import core.ui.widgets.AppWidgetResults
+import core.ui.widgets.AppWidgetViews
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.MoveWidgetAreaState
 import core.ui.widgets.NotificationAccessDialog
@@ -106,8 +108,6 @@ import core.util.openApplicationDetailsSettings
 import feature.launcher.agenda.AgendaEvent
 import feature.launcher.agenda.AgendaUiState
 import feature.launcher.agenda.AgendaViewModel
-import feature.launcher.widgets.AppWidgetPickerSheet
-import feature.launcher.widgets.AppWidgetViews
 import feature.launcher.widgets.MoveWidgetAreaPanel
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.openCalendarEvent

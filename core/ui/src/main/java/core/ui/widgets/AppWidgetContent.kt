@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import android.os.Build
 import android.util.SparseIntArray
@@ -25,9 +25,6 @@ import core.data.widgets.AppWidgetId
 import core.data.widgets.WidgetAvailability
 import core.ui.gestures.LocalWidgetSwipeState
 import core.ui.gestures.WidgetSwipeState
-import core.ui.widgets.AppWidgetModel
-import core.ui.widgets.IAppWidgetViewCache
-import core.ui.widgets.RailAppWidgetHostView
 import kotlin.math.roundToInt
 import org.koin.compose.koinInject
 

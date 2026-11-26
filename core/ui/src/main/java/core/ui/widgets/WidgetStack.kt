@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
