@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.gestures
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect

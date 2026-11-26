@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables.scrollrail
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

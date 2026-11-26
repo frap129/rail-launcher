@@ -32,6 +32,10 @@ import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.ui.composables.OutlinedText
+import core.ui.composables.scrollrail.RailDragHandle
+import core.ui.gestures.LocalWidgetSwipeState
+import core.ui.gestures.WidgetSwipeState
+import core.ui.gestures.homeSwipes
 import core.ui.layout.DragHandlePlacement
 import core.ui.layout.dragHandlePlacement
 import core.ui.layout.favoritesContentPadding
@@ -39,6 +43,7 @@ import core.ui.layout.homeEdgePadding
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
 import core.ui.model.data.favoriteKey
 import core.ui.model.data.suggestionKey
+import core.ui.popups.PopupRow
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import feature.launcher.widgets.CappedWidgetArea

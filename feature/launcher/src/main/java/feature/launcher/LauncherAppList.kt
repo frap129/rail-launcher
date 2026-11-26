@@ -33,6 +33,7 @@ import core.ui.composables.LaunchableGroupHeader
 import core.ui.composables.LaunchableSectionHeader
 import core.ui.layout.appListStartInset
 import core.ui.layout.homeEdgePadding
+import core.ui.popups.PopupRow
 import kotlinx.coroutines.flow.Flow
 
 /** The LazyColumn key of the Recently installed section, which is not one of the App List's groups. */

@@ -14,6 +14,8 @@ import app.cash.turbine.test
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RecentlyInstalledSection
 import core.data.testing.TEST_SDK
+import core.ui.popups.PopupAnchor
+import core.ui.popups.PopupRow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest

@@ -58,6 +58,7 @@ import core.data.prefs.RailSide
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.composables.focusIndicator
+import core.ui.composables.scrollrail.RailDragHandle
 import core.ui.layout.DragHandlePlacement
 import core.ui.layout.compactIconSize
 import core.ui.layout.dragHandleInset
@@ -70,7 +71,6 @@ import core.ui.widgets.AppWidgetModel
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.WidgetModel
 import feature.launcher.R
-import feature.launcher.RailDragHandle
 import sh.calvin.reorderable.ReorderableColumn
 
 private val editablePlaceShape = RoundedCornerShape(12.dp)

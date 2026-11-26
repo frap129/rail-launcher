@@ -68,7 +68,10 @@ import core.data.widgets.WidgetProviderInfo
 import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.popups.IconPickerState
+import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
+import core.ui.popups.PopupRow
+import core.ui.popups.TEST_INPUT_ANCHOR
 import feature.launcher.widgets.AddWidgetFlowState
 import feature.launcher.widgets.WidgetEvent
 import feature.launcher.widgets.appWidgetProviderInfo

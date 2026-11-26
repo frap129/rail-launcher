@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui
 
 import core.data.launchables.model.Launchable
 import core.data.testing.TEST_SDK

@@ -38,11 +38,13 @@ import core.data.testing.createAppListGroups
 import core.data.testing.createBuiltinGroup
 import core.data.testing.localeGroupingCases
 import core.ui.GroupMark
+import core.ui.composables.scrollrail.RailBounds
 import core.ui.composables.scrollrail.SCROLL_RAIL_BUBBLE_TEST_TAG
 import core.ui.composables.scrollrail.SCROLL_RAIL_TEST_TAG
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.KeyboardShortcut
 import core.ui.model.data.LauncherSignal
+import core.ui.popups.popupSwipe
 import core.ui.toGroupMark
 import java.util.Locale
 import org.junit.Assert.assertEquals

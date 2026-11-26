@@ -21,6 +21,7 @@ import core.data.launchables.model.RecentlyInstalledSection
 import core.data.prefs.RailSide
 import core.data.testing.createApp
 import core.ui.composables.RowTestContent
+import core.ui.popups.PopupRow
 import feature.launcher.widgets.MediaPlayerUiState
 import feature.launcher.widgets.WidgetAreaLayout
 import feature.launcher.widgets.WidgetAreaState

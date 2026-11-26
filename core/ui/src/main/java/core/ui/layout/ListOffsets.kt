@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.layout
 
 /**
  * Vertical pixel offsets of the visible App List area.

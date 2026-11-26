@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.ui.unit.IntRect
 import core.data.prefs.RailSide

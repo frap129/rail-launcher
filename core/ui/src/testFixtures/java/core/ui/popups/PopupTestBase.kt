@@ -1,6 +1,7 @@
 package core.ui.popups
 
 import android.os.UserHandle
+import androidx.compose.ui.geometry.Offset
 import core.data.apps.model.App
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
@@ -48,6 +49,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
 import org.junit.Rule
+
+private const val TEST_INPUT_ROW_TOP_PX: Int = 400
+private const val TEST_INPUT_ROW_BOTTOM_PX: Int = 464
+private const val TEST_INPUT_ICON_CENTER_X_PX: Float = 32f
+private const val TEST_INPUT_ICON_CENTER_Y_PX: Float = 432f
+
+val TEST_INPUT_ANCHOR: PopupAnchor = PopupAnchor(
+    row = PopupRow.Group,
+    rowTop = TEST_INPUT_ROW_TOP_PX,
+    rowBottom = TEST_INPUT_ROW_BOTTOM_PX,
+    iconCenter = Offset(TEST_INPUT_ICON_CENTER_X_PX, TEST_INPUT_ICON_CENTER_Y_PX)
+)
 
 /** The Pop-up fixtures and collaborator factories the feature tests build their sessions from. */
 @OptIn(ExperimentalCoroutinesApi::class)

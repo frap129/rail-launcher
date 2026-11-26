@@ -35,6 +35,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
+import core.ui.popups.PopupAnchor
+import core.ui.popups.PopupFrame
+import core.ui.popups.PopupInsets
+import core.ui.popups.PopupPlacement
 import core.ui.util.consumeTouches
 import feature.launcher.widgets.ResizeState
 import kotlin.math.roundToInt
