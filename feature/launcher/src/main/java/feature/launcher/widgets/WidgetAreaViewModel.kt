@@ -1282,7 +1282,7 @@ class WidgetAreaViewModel(
             id = WidgetMenuAction.MediaPlayer,
             checked = mediaPlayer.enabled,
             enabled = true,
-            supportingText = if (mediaPlayer.enabled && !notificationAccess) R.string.needs_notification_access else null,
+            supportingText = if (mediaPlayer.enabled && !notificationAccess) CoreUiR.string.needs_notification_access else null,
             rowOpensAction = mediaPlayer.enabled && !notificationAccess
         ),
         WidgetMenuItem.Action(

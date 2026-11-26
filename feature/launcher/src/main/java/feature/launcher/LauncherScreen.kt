@@ -62,6 +62,8 @@ import core.ui.GroupMark
 import core.ui.IHomeIconsDrawn
 import core.ui.R as CoreUiR
 import core.ui.agenda.AgendaSheet
+import core.ui.calendar.openCalendarEvent
+import core.ui.calendar.openSystemCalendar
 import core.ui.composables.CalendarPermissionResumeRefresh
 import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
@@ -90,6 +92,7 @@ import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
 import core.ui.util.consumeTouches
+import core.ui.widgets.AddPlacementSheet
 import core.ui.widgets.AddWidgetFlowState
 import core.ui.widgets.AddWidgetOrigin
 import core.ui.widgets.AddWidgetPlacement
@@ -97,6 +100,7 @@ import core.ui.widgets.AppWidgetPickerSheet
 import core.ui.widgets.AppWidgetResults
 import core.ui.widgets.AppWidgetViews
 import core.ui.widgets.IAppWidgetViewCache
+import core.ui.widgets.MoveWidgetAreaPanel
 import core.ui.widgets.MoveWidgetAreaState
 import core.ui.widgets.NotificationAccessDialog
 import core.ui.widgets.ResizeState
@@ -108,10 +112,7 @@ import core.util.openApplicationDetailsSettings
 import feature.launcher.agenda.AgendaEvent
 import feature.launcher.agenda.AgendaUiState
 import feature.launcher.agenda.AgendaViewModel
-import feature.launcher.widgets.MoveWidgetAreaPanel
 import feature.launcher.widgets.WidgetAreaViewModel
-import feature.launcher.widgets.openCalendarEvent
-import feature.launcher.widgets.openSystemCalendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map

@@ -1,9 +1,9 @@
-package feature.launcher
+package core.ui.layout
 
 import core.ui.model.data.favoriteKey
 import core.ui.model.data.placeKey
-import feature.launcher.widgets.MEDIA_PLAYER_KEY
-import feature.launcher.widgets.WIDGET_AREA_OFFSET_KEY
+import core.ui.widgets.MEDIA_PLAYER_KEY
+import core.ui.widgets.WIDGET_AREA_OFFSET_KEY
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

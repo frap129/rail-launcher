@@ -250,7 +250,7 @@ class LauncherMenuTest {
             suggestion = MenuSuggestion.Search,
             canUninstall = true,
             labels = listOf(
-                R.string.edit_favorites,
+                CoreUiR.string.edit_favorites,
                 R.string.remove_from_suggestions,
                 R.string.hide_from_app_list,
                 CoreUiR.string.edit_popup,
@@ -265,7 +265,7 @@ class LauncherMenuTest {
     fun `paints the Folder menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             item = Folder(folderId = FOLDER_ID, name = FOLDER_NAME),
-            labels = listOf(R.string.edit_favorites, R.string.edit_folder, CoreUiR.string.delete_folder)
+            labels = listOf(CoreUiR.string.edit_favorites, R.string.edit_folder, CoreUiR.string.delete_folder)
         )
     }
 
@@ -275,7 +275,7 @@ class LauncherMenuTest {
             item = createShortcut(packageName = SHORTCUT_PACKAGE_NAME, shortLabel = SHORTCUT_NAME),
             isStandaloneShortcut = true,
             labels = listOf(
-                R.string.edit_favorites,
+                CoreUiR.string.edit_favorites,
                 R.string.hide_from_app_list,
                 R.string.add_to_folder,
                 CoreUiR.string.app_info,

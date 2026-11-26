@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import core.data.search.SearchResult
 import core.data.testing.TEST_SDK
+import core.ui.testing.IntentLaunchTestBase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

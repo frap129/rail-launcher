@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.testing
 
 import android.app.Activity
 import android.content.ComponentName

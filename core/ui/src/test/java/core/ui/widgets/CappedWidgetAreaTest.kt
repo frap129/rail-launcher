@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.getValue
@@ -16,10 +16,6 @@ import androidx.compose.ui.unit.dp
 import core.data.prefs.RailSide
 import core.data.testing.TEST_SDK
 import core.ui.layout.homeEdgePadding
-import core.ui.widgets.MediaPlayerUiState
-import core.ui.widgets.WidgetAreaState
-import core.ui.widgets.WidgetPlaceModel
-import core.ui.widgets.createHeaderModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule

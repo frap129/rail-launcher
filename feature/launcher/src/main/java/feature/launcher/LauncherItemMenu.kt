@@ -112,7 +112,7 @@ internal fun LauncherItemMenu(
 
     SheetActionRow(
         imageVector = FontAwesomeIcons.Solid.GripVertical,
-        label = stringResource(R.string.edit_favorites),
+        label = stringResource(CoreUiR.string.edit_favorites),
         onClick = { viewModel.editFavorites() }
     )
     if (menu.suggestion == MenuSuggestion.Search) {

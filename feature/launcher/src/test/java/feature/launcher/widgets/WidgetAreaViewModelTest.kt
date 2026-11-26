@@ -110,7 +110,6 @@ import core.ui.widgets.WidgetPlaceModel
 import core.ui.widgets.WidgetSizeReport
 import core.ui.widgets.createAddController
 import core.ui.widgets.settingsAddOrigin
-import feature.launcher.R
 import feature.launcher.awaitFirstMatching
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -1387,7 +1386,7 @@ class WidgetAreaViewModelTest {
             val actualMenu: WidgetMenuState.HeaderMenu = expectHeaderMenu()
             val actualToggle: WidgetMenuItem.Toggle =
                 actualMenu.items.single { item -> item.id == WidgetMenuAction.MediaPlayer } as WidgetMenuItem.Toggle
-            assertEquals(R.string.needs_notification_access, actualToggle.supportingText)
+            assertEquals(CoreUiR.string.needs_notification_access, actualToggle.supportingText)
             assertTrue(actualToggle.rowOpensAction)
             cancelAndIgnoreRemainingEvents()
         }

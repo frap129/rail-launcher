@@ -1,12 +1,11 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import android.content.Intent
 import android.provider.AlarmClock
 import core.data.launchables.model.Launchable
 import core.data.testing.TEST_SDK
 import core.data.testing.createRailLaunchable
-import core.ui.widgets.HeaderTapTarget
-import feature.launcher.IntentLaunchTestBase
+import core.ui.testing.IntentLaunchTestBase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

@@ -32,8 +32,8 @@ import core.ui.composables.SheetTitle
 import core.ui.composables.sheetContainerColor
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
+import core.ui.widgets.WidgetMenuTitle
 import core.util.openApplicationDetailsSettings
-import feature.launcher.widgets.WidgetMenuTitle
 import org.koin.compose.koinInject
 
 /** The bottom sheet listing the open Pop-up's actions or an added item's actions. */

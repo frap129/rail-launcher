@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -64,10 +64,8 @@ import core.data.media.MediaSessionSnapshot
 import core.data.media.PlaybackStatus
 import core.data.prefs.RailSide
 import core.data.widgets.WidgetWidth
+import core.ui.R as CoreUiR
 import core.ui.composables.focusIndicator
-import core.ui.widgets.MediaPlayerActions
-import core.ui.widgets.MediaPlayerUiState
-import feature.launcher.R
 
 private val mediaArtworkSize: Dp = 80.dp
 private val mediaArtworkShape: RoundedCornerShape = RoundedCornerShape(2.dp)
@@ -145,8 +143,8 @@ fun MediaPlayerSlot(ui: WidgetAreaUi, topSpacing: Dp, bottomSpacing: Dp, railSid
 fun MediaPlayer(state: MediaPlayerUiState.Visible, actions: MediaPlayerActions, modifier: Modifier = Modifier) {
     val session: MediaSessionSnapshot = state.session
     val description: String = mediaPlayerAnnouncement(session = session)
-    val openLabel: String = stringResource(R.string.media_open_player)
-    val menuLabel: String = stringResource(R.string.media_player_menu)
+    val openLabel: String = stringResource(CoreUiR.string.media_open_player)
+    val menuLabel: String = stringResource(CoreUiR.string.media_player_menu)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -268,7 +266,7 @@ private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaComman
         if (MediaCommand.Previous in session.actions) {
             MediaControlButton(
                 icon = FontAwesomeIcons.Solid.StepBackward,
-                contentDescription = stringResource(R.string.media_previous),
+                contentDescription = stringResource(CoreUiR.string.media_previous),
                 onClick = { onCommand(MediaCommand.Previous) }
             )
         }
@@ -282,7 +280,7 @@ private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaComman
         if (MediaCommand.Next in session.actions) {
             MediaControlButton(
                 icon = FontAwesomeIcons.Solid.StepForward,
-                contentDescription = stringResource(R.string.media_next),
+                contentDescription = stringResource(CoreUiR.string.media_next),
                 onClick = { onCommand(MediaCommand.Next) }
             )
         }
@@ -327,7 +325,7 @@ private fun PlayPauseButton(command: MediaCommand, onClick: () -> Unit) {
                 FontAwesomeIcons.Solid.Play
             },
             contentDescription = stringResource(
-                if (command == MediaCommand.Pause) R.string.media_pause else R.string.media_play
+                if (command == MediaCommand.Pause) CoreUiR.string.media_pause else CoreUiR.string.media_play
             ),
             modifier = Modifier.size(mediaPlayIconSize),
             tint = MaterialTheme.colorScheme.onSurface
@@ -367,8 +365,8 @@ private fun AppIcon(packageName: String) {
 
 @Composable
 private fun mediaPlayerAnnouncement(session: MediaSessionSnapshot): String = session.artist?.let { artist ->
-    stringResource(R.string.media_player_announcement, session.title, artist, session.appLabel)
-} ?: stringResource(R.string.media_player_announcement_no_artist, session.title, session.appLabel)
+    stringResource(CoreUiR.string.media_player_announcement, session.title, artist, session.appLabel)
+} ?: stringResource(CoreUiR.string.media_player_announcement_no_artist, session.title, session.appLabel)
 
 private fun playPauseCommand(session: MediaSessionSnapshot): MediaCommand? {
     val isPlaying: Boolean = session.state in PLAYING_STATES
