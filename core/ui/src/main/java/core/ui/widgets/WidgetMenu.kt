@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -37,12 +37,6 @@ import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetRow
 import core.ui.composables.SheetTextTitle
 import core.ui.composables.sheetContainerColor
-import core.ui.widgets.SheetClockStyleChooser
-import core.ui.widgets.WidgetMenuAction
-import core.ui.widgets.WidgetMenuChoiceKey
-import core.ui.widgets.WidgetMenuItem
-import core.ui.widgets.WidgetMenuState
-import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */
 @Composable
@@ -71,7 +65,7 @@ fun WidgetMenu(
         }
 
         is WidgetMenuState.HeaderMenu -> {
-            header = { SheetTextTitle(title = stringResource(R.string.header_title)) }
+            header = { SheetTextTitle(title = stringResource(CoreUiR.string.header_title)) }
             items = state.items
         }
 
@@ -174,28 +168,28 @@ private fun ChoiceRow(
 }
 
 private fun WidgetMenuAction.label(): Int = when (this) {
-    WidgetMenuAction.EditFavorites -> R.string.edit_favorites
-    WidgetMenuAction.Clock -> R.string.widget_clock
-    WidgetMenuAction.Date -> R.string.widget_date
+    WidgetMenuAction.EditFavorites -> CoreUiR.string.edit_favorites
+    WidgetMenuAction.Clock -> CoreUiR.string.widget_clock
+    WidgetMenuAction.Date -> CoreUiR.string.widget_date
     WidgetMenuAction.Battery -> CoreUiR.string.battery
     WidgetMenuAction.UpcomingEvents -> CoreUiR.string.upcoming_events
-    WidgetMenuAction.ClockStyle -> R.string.clock_style
+    WidgetMenuAction.ClockStyle -> CoreUiR.string.clock_style
     WidgetMenuAction.AddWidget -> CoreUiR.string.add_widget
-    WidgetMenuAction.MoveWidgetArea -> R.string.move_widget_area
+    WidgetMenuAction.MoveWidgetArea -> CoreUiR.string.move_widget_area
     WidgetMenuAction.Resize -> CoreUiR.string.resize_widget
     WidgetMenuAction.Reconfigure -> CoreUiR.string.reconfigure_widget
-    WidgetMenuAction.RemoveHeader -> R.string.remove_header
+    WidgetMenuAction.RemoveHeader -> CoreUiR.string.remove_header
     WidgetMenuAction.RemoveFromStack -> CoreUiR.string.remove_from_stack
-    WidgetMenuAction.RestoreHeader -> R.string.restore_header
+    WidgetMenuAction.RestoreHeader -> CoreUiR.string.restore_header
     WidgetMenuAction.RemoveWidget -> CoreUiR.string.remove_widget
-    WidgetMenuAction.ReplaceHeader -> R.string.replace_header
+    WidgetMenuAction.ReplaceHeader -> CoreUiR.string.replace_header
     WidgetMenuAction.ExtendUnderRail -> CoreUiR.string.extend_under_rail
-    WidgetMenuAction.EditWidgets -> R.string.edit_widgets
-    WidgetMenuAction.WidgetSettings -> R.string.widget_settings
+    WidgetMenuAction.EditWidgets -> CoreUiR.string.edit_widgets
+    WidgetMenuAction.WidgetSettings -> CoreUiR.string.widget_settings
     WidgetMenuAction.MediaPlayer -> CoreUiR.string.media_player
-    WidgetMenuAction.OpenMediaPlayer -> R.string.open_app
-    WidgetMenuAction.ExcludeMediaApp -> R.string.exclude_media_app
-    WidgetMenuAction.MediaPlayerSettings -> R.string.media_player_settings
+    WidgetMenuAction.OpenMediaPlayer -> CoreUiR.string.open_app
+    WidgetMenuAction.ExcludeMediaApp -> CoreUiR.string.exclude_media_app
+    WidgetMenuAction.MediaPlayerSettings -> CoreUiR.string.media_player_settings
 }
 
 private fun WidgetMenuAction.icon(): ImageVector = when (this) {

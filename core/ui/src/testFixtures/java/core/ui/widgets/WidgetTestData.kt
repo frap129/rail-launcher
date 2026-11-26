@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 /** The Widget Area callbacks a test composes without any behavior. */
 fun widgetAreaActions(): WidgetAreaActions = WidgetAreaActions(

@@ -25,8 +25,8 @@ import core.ui.popups.PopupRow
 import core.ui.widgets.MediaPlayerUiState
 import core.ui.widgets.WidgetAreaLayout
 import core.ui.widgets.WidgetAreaState
-import feature.launcher.widgets.WidgetAreaUi
-import feature.launcher.widgets.widgetAreaActions
+import core.ui.widgets.WidgetAreaUi
+import core.ui.widgets.widgetAreaActions
 
 const val LAUNCHER_ROW_TEST_TAG: String = "launcherRow"
 const val LAUNCHER_ACTION_ROW_TEST_TAG: String = "launcherActionRow"

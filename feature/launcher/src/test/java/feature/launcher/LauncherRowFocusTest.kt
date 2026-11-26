@@ -55,7 +55,7 @@ import core.ui.composables.scrollrail.RailBounds
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.LauncherInputState
 import core.ui.popups.PopupRow
-import feature.launcher.widgets.WidgetAreaUi
+import core.ui.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
 import io.mockk.every
 import io.mockk.mockk

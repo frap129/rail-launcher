@@ -1,0 +1,735 @@
+package core.ui.widgets
+
+import android.content.Context
+import android.content.Intent
+import android.provider.AlarmClock
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import core.data.launchables.model.Launchable
+import core.data.media.MediaCommand
+import core.data.prefs.RailSide
+import core.data.widgets.MediaPlayerPlacement
+import core.data.widgets.WidgetWidth
+import core.ui.R as CoreUiR
+import core.ui.calendar.openCalendarEvent
+import core.ui.calendar.openSystemCalendar
+import core.ui.calendar.openSystemIntent
+import core.ui.composables.OutlinedText
+import core.ui.layout.HomeReorder
+import core.ui.layout.ReorderRow
+import core.ui.layout.homeContentPaddingValues
+import core.ui.layout.homeEdgePadding
+import core.ui.layout.insetWidgetContentWidth
+import core.ui.layout.resolvePlaceReorder
+import core.ui.model.data.placeKey
+import core.ui.util.consumeTouches
+import core.ui.util.performLongPressHaptic
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.ReorderableLazyListState
+import sh.calvin.reorderable.rememberReorderableLazyListState
+
+private val emptyWidgetAreaHeight: Dp = 96.dp
+private val minWidgetAreaContentHeight: Dp = 48.dp
+private const val WIDGET_AREA_HEIGHT_ANIMATION_MILLIS: Int = 200
+private const val WIDGET_AREA_OFFSET_ANIMATION_MILLIS: Int = 150
+private const val WIDGET_AREA_SCROLL_TO_PLACE_TIMEOUT_MS: Long = 1_000L
+private val widgetAreaFadeHeight: Dp = 16.dp
+private const val WIDGET_AREA_EMPTY_KEY: String = "widgetAreaEmpty"
+const val WIDGET_AREA_OFFSET_KEY: String = "widgetAreaOffset"
+internal const val CAPPED_WIDGET_AREA_TEST_TAG: String = "cappedWidgetArea"
+
+/** The Widget Area callbacks shared by the Capped and Uncapped Home layouts. */
+@Immutable
+data class WidgetAreaActions(
+    val menuEnabled: Boolean,
+    val onHomeHeight: (Int) -> Unit,
+    val onWidgetAreaWidth: (Int) -> Unit,
+    val onTapTarget: (HeaderTapTarget) -> Unit,
+    val onHeaderLongPress: (Long) -> Unit,
+    val onHeaderHeight: (Int) -> Unit,
+    val onAppWidgetLongPress: (Long) -> Unit,
+    val onAppWidgetUnpause: (Long) -> Unit,
+    val onPageSettled: (Long, Int) -> Unit,
+    val onEmptyAreaLongPress: () -> Unit,
+    val onFinishResize: () -> Unit,
+    val onDragResize: (Float) -> Unit,
+    val onResetResize: () -> Unit,
+    val onMovePlace: (Int, Int) -> Unit,
+    val onRemovePlace: (Long) -> Unit,
+    val onToggleExpand: (Long) -> Unit,
+    val onMovePage: (Long, Int, Int) -> Unit,
+    val onRemovePage: (Long, Long) -> Unit,
+    val onSplitPage: (Long, Long, Long?) -> Unit,
+    val onMergePlace: (Long, Long) -> Unit,
+    val onMediaPlayerOpen: () -> Unit,
+    val onMediaPlayerLongPress: () -> Unit,
+    val onMediaCommand: (MediaCommand) -> Unit,
+    val onScrolledToPlace: () -> Unit
+)
+
+/** The Widget Area state and callbacks read by Home. */
+@Stable
+class WidgetAreaUi(
+    val state: WidgetAreaState,
+    val resize: ResizeState?,
+    val editDraft: WidgetEditDraft?,
+    val mediaPlayer: MediaPlayerUiState,
+    val scrollToPlaceId: Long?,
+    val actions: WidgetAreaActions
+)
+
+/** Whether the Media Player is laid out above the Widget places. */
+internal val WidgetAreaUi.mediaAtTop: Boolean
+    get() = ((mediaPlayer as? MediaPlayerUiState.Visible)?.placement ?: state.mediaPlayerPlacement) ==
+        MediaPlayerPlacement.TOP_OF_WIDGET_AREA
+
+/** The leading list items before the first place in the Capped layout. */
+internal val WidgetAreaUi.cappedListPrefix: Int
+    get() = if (mediaAtTop) 1 else 0
+
+/** The leading list items before the first place in the Uncapped layout, including the offset spacer. */
+val WidgetAreaUi.uncappedListPrefix: Int
+    get() = 1 + cappedListPrefix
+
+/**
+ * Sums the full heights of the visible items plus content padding, or returns null when the list
+ * has no items. The caller measures the list at the Widget Area cap, so the sum is the content
+ * height when it fits and at least the viewport height when it overflows.
+ */
+internal fun calculateVisibleItemsHeightPx(layoutInfo: LazyListLayoutInfo): Int? {
+    if (layoutInfo.totalItemsCount == 0) {
+        return null
+    }
+    return layoutInfo.visibleItemsInfo.sumOf { item -> item.size } +
+        layoutInfo.beforeContentPadding + layoutInfo.afterContentPadding
+}
+
+/** Caps the measured content height, using the full cap while the list is unmeasured. */
+internal fun calculateWidgetAreaHeightPx(layoutInfo: LazyListLayoutInfo, maxHeightPx: Int): Int =
+    calculateVisibleItemsHeightPx(layoutInfo = layoutInfo)?.coerceAtMost(maxHeightPx) ?: maxHeightPx
+
+/** The index to scroll to when the Media Player becomes visible, or null before the list has items. */
+internal fun mediaPlayerScrollTargetIndex(mediaAtTop: Boolean, totalItemsCount: Int): Int? = when {
+    mediaAtTop -> 0
+    totalItemsCount > 0 -> totalItemsCount - 1
+    else -> null
+}
+
+/**
+ * Measures the child at [measureHeight], then reports [contentHeight] and places the child at the
+ * top. Unlike requiredHeight, an oversized child is not centered inside the shorter layout, so the
+ * list can measure at the cap while the Box stays at the measured content height.
+ */
+private fun Modifier.measureAtHeight(measureHeight: Dp, contentHeight: Dp): Modifier = layout { measurable, constraints ->
+    val heightPx: Int = measureHeight.roundToPx()
+    val placeable: Placeable = measurable.measure(
+        Constraints(
+            minWidth = constraints.minWidth,
+            maxWidth = constraints.maxWidth,
+            minHeight = heightPx,
+            maxHeight = heightPx
+        )
+    )
+    val contentHeightPx: Int = contentHeight.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
+    layout(width = placeable.width, height = contentHeightPx) {
+        placeable.placeRelative(x = 0, y = 0)
+    }
+}
+
+/** The scrollable, height-capped Widget Area shown above Favorites when the limit is on. */
+@Composable
+fun CappedWidgetArea(ui: WidgetAreaUi, maxHeight: Dp, railSide: RailSide, modifier: Modifier = Modifier) {
+    val state: WidgetAreaState = ui.state
+    val actions: WidgetAreaActions = ui.actions
+    val mediaPlayerVisible: Boolean = ui.mediaPlayer is MediaPlayerUiState.Visible
+    val mediaPlayerWasVisible: MutableState<Boolean> = remember { mutableStateOf(mediaPlayerVisible) }
+    LaunchedEffect(mediaPlayerVisible, ui.mediaAtTop) {
+        val becameVisible: Boolean = mediaPlayerVisible && !mediaPlayerWasVisible.value
+        mediaPlayerWasVisible.value = mediaPlayerVisible
+        if (!becameVisible) {
+            return@LaunchedEffect
+        }
+        val totalItemsCount: Int = if (ui.mediaAtTop) {
+            0
+        } else {
+            snapshotFlow { state.listState.layoutInfo.totalItemsCount }.first { count -> count > 0 }
+        }
+        val targetIndex: Int = mediaPlayerScrollTargetIndex(mediaAtTop = ui.mediaAtTop, totalItemsCount = totalItemsCount)
+            ?: return@LaunchedEffect
+        state.listState.animateScrollToItem(index = targetIndex)
+    }
+    WidgetAreaScrollToPlaceEffect(ui = ui, listState = state.listState, listPrefix = ui.cappedListPrefix)
+    val reorderState: ReorderableLazyListState = rememberReorderableLazyListState(state.listState) { from, to ->
+        val rows: List<ReorderRow> = state.listState.layoutInfo.visibleItemsInfo.map { item -> ReorderRow(item.index, item.key) }
+        val reorder: HomeReorder.Place? = resolvePlaceReorder(
+            rows = rows,
+            fromListIndex = from.index,
+            toListIndex = to.index,
+            placeIds = state.placeIds
+        )
+        if (reorder != null) {
+            actions.onMovePlace(reorder.fromIndex, reorder.toIndex)
+        }
+    }
+    val mergeState: EditMergeState = remember { EditMergeState() }
+    val density: Density = LocalDensity.current
+    val topOffsetDp: Int = rememberAnimatedTopOffsetDp(state = state)
+    val maxHeightPx: Int = with(density) { maxHeight.roundToPx() }
+    val areaHeightPx: Int by remember(state.listState, maxHeightPx) {
+        derivedStateOf { calculateWidgetAreaHeightPx(layoutInfo = state.listState.layoutInfo, maxHeightPx = maxHeightPx) }
+    }
+    val areaHeight: Dp = with(density) { areaHeightPx.toDp() }
+    val topPadding: Dp = (homeEdgePadding + topOffsetDp.dp)
+        .coerceAtMost((maxHeight - minWidgetAreaContentHeight).coerceAtLeast(0.dp))
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val widgetAreaWidthDp: Int = insetWidgetContentWidth(screenWidth = maxWidth, railSide = railSide).value.roundToInt()
+        LaunchedEffect(widgetAreaWidthDp) {
+            if (widgetAreaWidthDp > 0) {
+                actions.onWidgetAreaWidth(widgetAreaWidthDp)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(CAPPED_WIDGET_AREA_TEST_TAG)
+                .clipToBounds()
+                .animateContentSize(animationSpec = tween(durationMillis = WIDGET_AREA_HEIGHT_ANIMATION_MILLIS))
+                .height(areaHeight)
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawWidgetAreaFade(listState = state.listState)
+                }
+        ) {
+            LazyColumn(
+                state = state.listState,
+                // Measure at the cap so the content height does not depend on the clipped Box,
+                // then report the measured content height and place the list at the top.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .measureAtHeight(measureHeight = maxHeight, contentHeight = areaHeight),
+                contentPadding = PaddingValues(
+                    start = homeEdgePadding,
+                    top = topPadding,
+                    end = homeEdgePadding
+                )
+            ) {
+                widgetAreaItems(
+                    ui = ui,
+                    reorderableState = reorderState,
+                    mergeState = mergeState,
+                    railSide = railSide
+                )
+            }
+        }
+    }
+    WidgetAreaResizeAutoScroll(
+        ui = ui,
+        listState = state.listState,
+        listPrefix = ui.cappedListPrefix
+    )
+}
+
+/**
+ * Scrolls the newly added place into view, then clears the request. Call it from the list that
+ * hosts the Widget Area with the number of items laid out before the first place.
+ */
+@Composable
+fun WidgetAreaScrollToPlaceEffect(ui: WidgetAreaUi, listState: LazyListState, listPrefix: Int) {
+    LaunchedEffect(ui.scrollToPlaceId, ui.state.placeIds, listState) {
+        val placeId: Long = ui.scrollToPlaceId ?: return@LaunchedEffect
+        val placeIndex: Int = ui.state.places.indexOfFirst { place -> place.id == placeId }
+        if (placeIndex < 0) {
+            delay(WIDGET_AREA_SCROLL_TO_PLACE_TIMEOUT_MS)
+            ui.actions.onScrolledToPlace()
+            return@LaunchedEffect
+        }
+        listState.scrollPlaceIntoView(
+            listIndex = listPrefix + placeIndex,
+            placeItemKey = placeKey(placeId),
+            keepBottomVisible = false
+        )
+        ui.actions.onScrolledToPlace()
+    }
+}
+
+/** Adds the Widget Area places to an existing Home column. */
+fun LazyListScope.widgetAreaItems(
+    ui: WidgetAreaUi,
+    reorderableState: ReorderableLazyListState,
+    mergeState: EditMergeState,
+    railSide: RailSide
+) {
+    val state: WidgetAreaState = ui.state
+    val mediaAtTop: Boolean = ui.mediaAtTop
+    val spacing: Dp = state.widgetSpacingDp.dp
+    val mediaTopSpacing: Dp = if (mediaAtTop) 0.dp else spacing
+    val mediaBottomSpacing: Dp = if (mediaAtTop && state.hasWidgets) spacing else 0.dp
+    if (mediaAtTop) {
+        mediaPlayerItem(ui = ui, topSpacing = mediaTopSpacing, bottomSpacing = mediaBottomSpacing, railSide = railSide)
+    }
+    if (!state.hasWidgets) {
+        item(key = WIDGET_AREA_EMPTY_KEY) {
+            EmptyWidgetArea(
+                menuEnabled = ui.actions.menuEnabled && ui.resize == null && !state.isEditing,
+                showNoWidgets = state.isEditing,
+                onLongPress = ui.actions.onEmptyAreaLongPress,
+                railSide = railSide
+            )
+        }
+    } else if (state.isEditing) {
+        itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
+            ReorderableItem(state = reorderableState, key = placeKey(place.id)) { isDragging ->
+                Column {
+                    val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+                    val editablePlace: WidgetPlaceModel = place.copy(widthMode = WidgetWidth.Inset)
+                    EditablePlaceItem(
+                        place = editablePlace,
+                        index = index,
+                        places = state.places,
+                        mergeState = mergeState,
+                        isDragging = isDragging,
+                        isExpanded = place.id in ui.editDraft?.expandedPlaceIds.orEmpty(),
+                        onMovePlace = ui.actions.onMovePlace,
+                        onRemovePlace = ui.actions.onRemovePlace,
+                        onToggleExpand = ui.actions.onToggleExpand,
+                        onMovePage = ui.actions.onMovePage,
+                        onRemovePage = ui.actions.onRemovePage,
+                        onSplitPage = ui.actions.onSplitPage,
+                        onMergePlace = ui.actions.onMergePlace,
+                        railSide = railSide,
+                        handleModifier = Modifier.draggableHandle(
+                            onDragStarted = { hapticFeedback.performLongPressHaptic() }
+                        )
+                    ) { contentModifier ->
+                        placeContent(
+                            ui = ui,
+                            place = editablePlace,
+                            heightDp = place.heightDp,
+                            menuEnabled = false,
+                            isResizing = false,
+                            railSide = railSide,
+                            modifier = contentModifier
+                        )
+                    }
+                    if (index != state.places.lastIndex) {
+                        Box(Modifier.fillMaxWidth().height(state.widgetSpacingDp.dp))
+                    }
+                }
+            }
+        }
+    } else {
+        itemsIndexed(state.places, key = { _, place -> placeKey(place.id) }) { index, place ->
+            WidgetAreaPlace(
+                ui = ui,
+                place = place,
+                bottomSpacing = if (index != state.places.lastIndex) state.widgetSpacingDp.dp else 0.dp,
+                railSide = railSide
+            )
+        }
+    }
+    if (!mediaAtTop) {
+        mediaPlayerItem(ui = ui, topSpacing = mediaTopSpacing, bottomSpacing = mediaBottomSpacing, railSide = railSide)
+    }
+}
+
+/** The leading Home spacer that moves the uncapped Widget Area down by the set offset. */
+@Composable
+fun WidgetAreaTopOffsetSpacer(ui: WidgetAreaUi, modifier: Modifier = Modifier) {
+    val state: WidgetAreaState = ui.state
+    val offsetDp: Int = rememberAnimatedTopOffsetDp(state = state)
+    Box(modifier = modifier.fillMaxWidth().height(offsetDp.dp))
+}
+
+@Composable
+private fun rememberAnimatedTopOffsetDp(state: WidgetAreaState): Int = animateIntAsState(
+    targetValue = state.topOffsetDp,
+    animationSpec = if (state.animateOffset) {
+        tween(durationMillis = WIDGET_AREA_OFFSET_ANIMATION_MILLIS)
+    } else {
+        snap()
+    },
+    label = "widgetAreaTopOffset"
+).value
+
+@Composable
+private fun WidgetAreaPlace(ui: WidgetAreaUi, place: WidgetPlaceModel, bottomSpacing: Dp, railSide: RailSide) {
+    val actions: WidgetAreaActions = ui.actions
+    val placeResize: ResizeState? = ui.resize?.takeIf { resize -> resize.placeId == place.id }
+    if (placeResize != null) {
+        ResizeOverlay(
+            state = placeResize,
+            onDrag = actions.onDragResize,
+            onReset = actions.onResetResize
+        ) {
+            placeContent(
+                ui = ui,
+                place = place,
+                heightDp = placeResize.draftHeightDp,
+                menuEnabled = false,
+                isResizing = true,
+                railSide = railSide,
+                modifier = Modifier.consumeTouches().padding(bottom = bottomSpacing)
+            )
+        }
+    } else {
+        val dimmed: Boolean = ui.resize != null
+        placeContent(
+            ui = ui,
+            place = place,
+            heightDp = place.heightDp,
+            menuEnabled = actions.menuEnabled && !dimmed,
+            isResizing = false,
+            railSide = railSide,
+            modifier = Modifier
+                .alpha(if (dimmed) RESIZE_DIMMED_ALPHA else 1f)
+                .then(
+                    if (dimmed) {
+                        Modifier.consumeTouches(onGestureEnd = actions.onFinishResize)
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(bottom = bottomSpacing)
+        )
+    }
+}
+
+@Composable
+private fun placeContent(
+    ui: WidgetAreaUi,
+    place: WidgetPlaceModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    railSide: RailSide,
+    modifier: Modifier
+) {
+    WidgetPlaceContent(
+        place = place,
+        heightDp = heightDp,
+        menuEnabled = menuEnabled,
+        isResizing = isResizing,
+        stackIndicatorVisible = ui.state.stackIndicatorVisible,
+        onTapTarget = ui.actions.onTapTarget,
+        onHeaderLongPress = ui.actions.onHeaderLongPress,
+        onHeaderHeight = ui.actions.onHeaderHeight,
+        onAppWidgetLongPress = ui.actions.onAppWidgetLongPress,
+        onAppWidgetUnpause = ui.actions.onAppWidgetUnpause,
+        onPageSettled = ui.actions.onPageSettled,
+        userScrollEnabled = menuEnabled && !isResizing,
+        railSide = railSide,
+        modifier = modifier
+    )
+}
+
+/** Keeps the bottom of the place being resized inside [listState]'s viewport. */
+@Composable
+fun WidgetAreaResizeAutoScroll(ui: WidgetAreaUi, listState: LazyListState, listPrefix: Int) {
+    val resize: ResizeState = ui.resize ?: return
+    val placeIndex: Int = ui.state.places.indexOfFirst { place -> place.id == resize.placeId }
+    if (placeIndex < 0) {
+        return
+    }
+    LaunchedEffect(listState, resize.placeId, resize.draftHeightDp) {
+        listState.scrollPlaceIntoView(
+            listIndex = listPrefix + placeIndex,
+            placeItemKey = placeKey(resize.placeId),
+            keepBottomVisible = true
+        )
+    }
+}
+
+/**
+ * Scrolls [listIndex] into view by the smallest amount needed. When [keepBottomVisible] is true,
+ * a place taller than the viewport is aligned by its bottom; otherwise its top stays visible.
+ */
+internal suspend fun LazyListState.scrollPlaceIntoView(listIndex: Int, placeItemKey: String, keepBottomVisible: Boolean) {
+    val initialLayoutInfo: LazyListLayoutInfo = layoutInfo
+    if (initialLayoutInfo.visibleItemsInfo.none { item -> item.key == placeItemKey }) {
+        animateScrollToItem(index = listIndex)
+    }
+    val currentLayoutInfo: LazyListLayoutInfo = layoutInfo
+    val visibleInfo: LazyListItemInfo = currentLayoutInfo.visibleItemsInfo.firstOrNull { item -> item.key == placeItemKey }
+        ?: return
+    val delta: Int = calculateScrollIntoViewDelta(
+        itemOffset = visibleInfo.offset,
+        itemSize = visibleInfo.size,
+        viewportStart = currentLayoutInfo.viewportStartOffset + currentLayoutInfo.beforeContentPadding,
+        viewportEnd = currentLayoutInfo.viewportEndOffset - currentLayoutInfo.afterContentPadding,
+        keepBottomVisible = keepBottomVisible
+    )
+    if (delta != 0) {
+        scrollBy(delta.toFloat())
+    }
+}
+
+/** The smallest scroll delta that brings an item into view; zero when it is visible or cannot fit. */
+internal fun calculateScrollIntoViewDelta(
+    itemOffset: Int,
+    itemSize: Int,
+    viewportStart: Int,
+    viewportEnd: Int,
+    keepBottomVisible: Boolean
+): Int {
+    val viewportSize: Int = viewportEnd - viewportStart
+    val overflow: Int = itemOffset + itemSize - viewportEnd
+    if (overflow > 0) {
+        return if (keepBottomVisible || itemSize <= viewportSize) overflow else 0
+    }
+    return if (itemSize <= viewportSize && itemOffset < viewportStart) {
+        itemOffset - viewportStart
+    } else {
+        0
+    }
+}
+
+private fun DrawScope.drawWidgetAreaFade(listState: LazyListState) {
+    val fadeHeightPx: Float = widgetAreaFadeHeight.toPx()
+    if (fadeHeightPx <= 0f) {
+        return
+    }
+    val isScrolledFromTop: Boolean = listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+    if (isScrolledFromTop) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Black, Color.Transparent),
+                startY = 0f,
+                endY = fadeHeightPx
+            ),
+            topLeft = Offset.Zero,
+            size = Size(width = size.width, height = fadeHeightPx.coerceAtMost(size.height)),
+            blendMode = BlendMode.DstOut
+        )
+    }
+    if (listState.canScrollForward) {
+        val fadeTop: Float = (size.height - fadeHeightPx).coerceAtLeast(0f)
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color.Black),
+                startY = fadeTop,
+                endY = size.height
+            ),
+            topLeft = Offset(x = 0f, y = fadeTop),
+            size = Size(width = size.width, height = size.height - fadeTop),
+            blendMode = BlendMode.DstOut
+        )
+    }
+}
+
+@Composable
+private fun EmptyWidgetArea(menuEnabled: Boolean, showNoWidgets: Boolean, onLongPress: () -> Unit, railSide: RailSide) {
+    Box(
+        modifier = Modifier
+            .insetWidgetWidth(railSide = railSide)
+            .height(emptyWidgetAreaHeight)
+            .pointerInput(menuEnabled) {
+                if (menuEnabled) {
+                    detectTapGestures(onLongPress = { onLongPress() })
+                }
+            }
+    ) {
+        if (showNoWidgets) {
+            OutlinedText(
+                text = stringResource(CoreUiR.string.no_widgets),
+                modifier = Modifier.align(Alignment.CenterStart),
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
+}
+
+@Composable
+private fun WidgetPlaceContent(
+    place: WidgetPlaceModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    stackIndicatorVisible: Boolean,
+    onTapTarget: (HeaderTapTarget) -> Unit,
+    onHeaderLongPress: (Long) -> Unit,
+    onHeaderHeight: (Int) -> Unit,
+    onAppWidgetLongPress: (Long) -> Unit,
+    onAppWidgetUnpause: (Long) -> Unit,
+    onPageSettled: (Long, Int) -> Unit,
+    userScrollEnabled: Boolean,
+    railSide: RailSide,
+    modifier: Modifier = Modifier
+) {
+    if (place.isStack) {
+        WidgetStackPager(
+            pageCount = place.widgets.size,
+            currentPage = place.currentPage,
+            heightDp = heightDp,
+            indicatorVisible = stackIndicatorVisible,
+            pageKey = { page -> place.widgets[page].id },
+            onPageSettled = { page -> onPageSettled(place.id, page) },
+            modifier = modifier.insetWidgetWidth(railSide = railSide, widthMode = place.widthMode),
+            userScrollEnabled = menuEnabled && !isResizing
+        ) { page, pageHeightDp ->
+            WidgetPageContent(
+                widget = place.widgets[page],
+                heightDp = pageHeightDp,
+                menuEnabled = menuEnabled,
+                isResizing = isResizing,
+                onTapTarget = onTapTarget,
+                onHeaderLongPress = onHeaderLongPress,
+                onHeaderHeight = onHeaderHeight,
+                onAppWidgetLongPress = onAppWidgetLongPress,
+                onAppWidgetUnpause = onAppWidgetUnpause
+            )
+        }
+    } else {
+        Column(modifier = modifier.insetWidgetWidth(railSide = railSide, widthMode = place.widthMode)) {
+            place.widgets.forEach { widget ->
+                WidgetPageContent(
+                    widget = widget,
+                    heightDp = heightDp,
+                    menuEnabled = menuEnabled,
+                    isResizing = isResizing,
+                    onTapTarget = onTapTarget,
+                    onHeaderLongPress = onHeaderLongPress,
+                    onHeaderHeight = onHeaderHeight,
+                    onAppWidgetLongPress = onAppWidgetLongPress,
+                    onAppWidgetUnpause = onAppWidgetUnpause
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetPageContent(
+    widget: WidgetModel,
+    heightDp: Int?,
+    menuEnabled: Boolean,
+    isResizing: Boolean,
+    onTapTarget: (HeaderTapTarget) -> Unit,
+    onHeaderLongPress: (Long) -> Unit,
+    onHeaderHeight: (Int) -> Unit,
+    onAppWidgetLongPress: (Long) -> Unit,
+    onAppWidgetUnpause: (Long) -> Unit
+) {
+    when (widget) {
+        is HeaderModel -> {
+            val density: Density = LocalDensity.current
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { size -> onHeaderHeight(with(density) { size.height.toDp().value.roundToInt() }) }
+            ) {
+                HeaderContent(
+                    model = widget,
+                    menuEnabled = menuEnabled,
+                    interactive = menuEnabled,
+                    onTapTarget = onTapTarget,
+                    onLongPress = { onHeaderLongPress(widget.id) }
+                )
+            }
+        }
+
+        is AppWidgetModel -> AppWidgetContent(
+            widget = widget,
+            heightDp = heightDp,
+            menuEnabled = menuEnabled,
+            isResizing = isResizing,
+            onLongPress = onAppWidgetLongPress,
+            onUnpause = onAppWidgetUnpause
+        )
+    }
+}
+
+/** Fills the content width and keeps the Widget clear of the Rail's touch column according to [widthMode]. */
+internal fun Modifier.insetWidgetWidth(railSide: RailSide, widthMode: WidgetWidth = WidgetWidth.Inset): Modifier = fillMaxWidth().padding(
+    widthMode.contentPadding(railSide = railSide)
+)
+
+internal fun WidgetWidth.contentPadding(railSide: RailSide): PaddingValues = when (this) {
+    WidgetWidth.Inset -> homeContentPaddingValues(railSide = railSide)
+    WidgetWidth.UnderRail -> PaddingValues()
+}
+
+/** Runs a Tap action: a Launchable goes through [onLaunch], the Agenda through [onOpenAgenda], and every other target opens itself. */
+fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -> Unit, onOpenAgenda: () -> Unit) {
+    when (target) {
+        HeaderTapTarget.None -> Unit
+
+        is HeaderTapTarget.LaunchLaunchable -> onLaunch(target.launchable)
+
+        HeaderTapTarget.OpenAgenda -> onOpenAgenda()
+
+        HeaderTapTarget.SystemAlarms -> openSystemIntent(
+            intent = Intent(AlarmClock.ACTION_SHOW_ALARMS),
+            targetDescription = target.toString(),
+            messageResource = CoreUiR.string.no_clock_app
+        )
+
+        is HeaderTapTarget.SystemCalendar -> openSystemCalendar(atEpochMillis = target.atEpochMillis)
+
+        HeaderTapTarget.SystemBatteryUsage -> openSystemIntent(
+            intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY),
+            targetDescription = target.toString(),
+            messageResource = CoreUiR.string.no_battery_usage_app
+        )
+
+        is HeaderTapTarget.OpenEvent -> openCalendarEvent(target = target.target)
+    }
+}

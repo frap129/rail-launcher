@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.widgets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,14 +22,6 @@ import core.ui.composables.assertSheetRowsPaintSheetColor
 import core.ui.composables.assertSheetTitleMatchesFirstRow
 import core.ui.composables.assertSheetTitleMatchesRowContent
 import core.ui.composables.getString
-import core.ui.widgets.WidgetMenuAction
-import core.ui.widgets.WidgetMenuChoiceKey
-import core.ui.widgets.WidgetMenuChoiceOption
-import core.ui.widgets.WidgetMenuItem
-import core.ui.widgets.WidgetMenuState
-import core.ui.widgets.createHeaderModel
-import core.ui.widgets.labelResource
-import feature.launcher.widgets.WidgetMenu
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -65,7 +57,7 @@ class WidgetMenuTest {
                     WidgetMenuItem.Action(id = WidgetMenuAction.AddWidget)
                 )
             ),
-            labels = listOf(R.string.edit_favorites, CoreUiR.string.add_widget)
+            labels = listOf(CoreUiR.string.edit_favorites, CoreUiR.string.add_widget)
         )
     }
 
@@ -73,7 +65,7 @@ class WidgetMenuTest {
     fun `paints the header menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             state = WidgetMenuState.HeaderMenu(items = inputHeaderItems(expanded = false)),
-            labels = listOf(R.string.widget_clock, CoreUiR.string.battery, CoreUiR.string.add_widget)
+            labels = listOf(CoreUiR.string.widget_clock, CoreUiR.string.battery, CoreUiR.string.add_widget)
         )
     }
 
@@ -81,7 +73,7 @@ class WidgetMenuTest {
     fun `paints the expanded choice option rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             state = WidgetMenuState.HeaderMenu(items = inputHeaderItems(expanded = true)),
-            labels = listOf(R.string.widget_clock, R.string.widget_date)
+            labels = listOf(CoreUiR.string.widget_clock, CoreUiR.string.widget_date)
         )
     }
 
@@ -94,7 +86,7 @@ class WidgetMenuTest {
                     WidgetMenuItem.Action(id = WidgetMenuAction.EditWidgets)
                 )
             ),
-            labels = listOf(CoreUiR.string.extend_under_rail, R.string.move_widget_area, R.string.edit_widgets)
+            labels = listOf(CoreUiR.string.extend_under_rail, CoreUiR.string.move_widget_area, CoreUiR.string.edit_widgets)
         )
     }
 
@@ -102,7 +94,7 @@ class WidgetMenuTest {
     fun `paints the media player menu rows with the sheet container colour`() {
         assertRowsPaintSheetColor(
             state = mediaPlayerState(),
-            labels = listOf(R.string.media_player_settings)
+            labels = listOf(CoreUiR.string.media_player_settings)
         )
     }
 
@@ -138,7 +130,7 @@ class WidgetMenuTest {
         setMenuContent(state = WidgetMenuState.HeaderMenu(items = inputHeaderItems(expanded = false)))
 
         composeRule.assertSheetTitleMatchesFirstRow(
-            titleContent = composeRule.onNodeWithText(getString(R.string.header_title), useUnmergedTree = true)
+            titleContent = composeRule.onNodeWithText(getString(CoreUiR.string.header_title), useUnmergedTree = true)
         )
     }
 
@@ -168,7 +160,7 @@ class WidgetMenuTest {
             )
         )
 
-        composeRule.onNodeWithText(getString(R.string.widget_clock)).performClick()
+        composeRule.onNodeWithText(getString(CoreUiR.string.widget_clock)).performClick()
 
         assertEquals(listOf(WidgetMenuAction.Clock to true), actualToggles)
         assertEquals(emptyList<WidgetMenuAction>(), actualActions)
@@ -221,14 +213,14 @@ class WidgetMenuTest {
                 )
             }
         }
-        composeRule.onNodeWithText(getString(R.string.widget_date)).assertDoesNotExist()
+        composeRule.onNodeWithText(getString(CoreUiR.string.widget_date)).assertDoesNotExist()
 
         composeRule.onNodeWithText(getString(CoreUiR.string.battery)).performClick()
 
-        composeRule.onNodeWithText(getString(R.string.widget_date)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(CoreUiR.string.widget_date)).assertIsDisplayed()
         assertEquals(listOf(WidgetMenuAction.Battery), actualChoiceClicks)
 
-        composeRule.onNodeWithText(getString(R.string.widget_date)).performClick()
+        composeRule.onNodeWithText(getString(CoreUiR.string.widget_date)).performClick()
 
         assertEquals(listOf(WidgetMenuAction.Battery to ALWAYS_KEY), actualSelections)
     }
@@ -250,8 +242,8 @@ class WidgetMenuTest {
     )
 
     private fun inputBatteryOptions(): List<WidgetMenuChoiceOption> = listOf(
-        WidgetMenuChoiceOption(key = NEVER_KEY, label = R.string.widget_clock),
-        WidgetMenuChoiceOption(key = ALWAYS_KEY, label = R.string.widget_date)
+        WidgetMenuChoiceOption(key = NEVER_KEY, label = CoreUiR.string.widget_clock),
+        WidgetMenuChoiceOption(key = ALWAYS_KEY, label = CoreUiR.string.widget_date)
     )
 
     private fun clockStyleState(): WidgetMenuState = WidgetMenuState.ClockStyleChooser(

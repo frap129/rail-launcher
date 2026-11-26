@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.widgets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
@@ -34,7 +34,7 @@ class AddPlacementSheetTest {
     fun `paints the placement rows with the sheet container colour`() {
         composeRule.assertSheetRowsPaintSheetColor(
             content = { PlacementContent(canAddToStack = true) },
-            labels = listOf(R.string.add_below, CoreUiR.string.add_next_to)
+            labels = listOf(CoreUiR.string.add_below, CoreUiR.string.add_next_to)
         )
     }
 
@@ -42,8 +42,8 @@ class AddPlacementSheetTest {
     fun `shows the supporting text of each placement row`() {
         setPlacementContent(canAddToStack = true)
 
-        composeRule.onNodeWithText(getString(R.string.add_below_supporting_text)).assertIsDisplayed()
-        composeRule.onNodeWithText(getString(R.string.add_next_to_supporting_text)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(CoreUiR.string.add_below_supporting_text)).assertIsDisplayed()
+        composeRule.onNodeWithText(getString(CoreUiR.string.add_next_to_supporting_text)).assertIsDisplayed()
     }
 
     @Test
@@ -66,7 +66,7 @@ class AddPlacementSheetTest {
     fun `adds below from its placement row`() {
         setPlacementContent(canAddToStack = true)
 
-        composeRule.onNodeWithText(getString(R.string.add_below)).performClick()
+        composeRule.onNodeWithText(getString(CoreUiR.string.add_below)).performClick()
 
         assertEquals(1, actualBelowCount)
         assertEquals(0, actualIntoStackCount)

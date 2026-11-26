@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,10 +26,6 @@ import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
 import core.ui.util.formatDpLabel
 import core.ui.util.performSegmentTickHaptic
-import core.ui.widgets.MoveWidgetAreaSlider
-import core.ui.widgets.MoveWidgetAreaState
-import core.ui.widgets.MoveWidgetAreaStep
-import feature.launcher.R
 
 /** The non-modal bottom panel that moves the Widget Area down while Home stays visible. */
 @Composable
@@ -58,7 +54,7 @@ fun MoveWidgetAreaPanel(
     ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text(
-                text = stringResource(R.string.move_widget_area),
+                text = stringResource(CoreUiR.string.move_widget_area),
                 style = MaterialTheme.typography.titleLarge
             )
             MoveWidgetAreaSlider(

@@ -8,6 +8,7 @@ import core.data.testing.TEST_CONTACT_LOOKUP_KEY
 import core.data.testing.TEST_CONTACT_NUMBER
 import core.data.testing.TEST_SDK
 import core.data.testing.createSearchContact
+import core.ui.testing.IntentLaunchTestBase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

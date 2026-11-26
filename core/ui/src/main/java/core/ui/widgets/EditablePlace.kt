@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -67,11 +67,6 @@ import core.ui.layout.minTouchTargetSize
 import core.ui.layout.stackPageHandleInset
 import core.ui.util.performLongPressHaptic
 import core.ui.util.performSegmentTickHaptic
-import core.ui.widgets.AppWidgetModel
-import core.ui.widgets.HeaderModel
-import core.ui.widgets.WidgetModel
-import core.ui.widgets.WidgetPlaceModel
-import feature.launcher.R
 import sh.calvin.reorderable.ReorderableColumn
 
 private val editablePlaceShape = RoundedCornerShape(12.dp)
@@ -222,15 +217,17 @@ private fun EditablePlace(
     val outlineColor: Color = if (isMergeTarget) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     val scrimColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = EDIT_SCRIM_ALPHA)
     val label: String = when (val widget = place.widgets.firstOrNull()) {
-        is HeaderModel -> stringResource(R.string.header_title)
+        is HeaderModel -> stringResource(CoreUiR.string.header_title)
         is AppWidgetModel -> widget.label
-        null -> stringResource(R.string.widget_title)
+        null -> stringResource(CoreUiR.string.widget_title)
     }
-    val removeLabel: String = stringResource(R.string.remove_widget_named, label)
+    val removeLabel: String = stringResource(CoreUiR.string.remove_widget_named, label)
     val moveUpLabel: String = stringResource(CoreUiR.string.move_up)
     val moveDownLabel: String = stringResource(CoreUiR.string.move_down)
-    val reorderLabel: String = stringResource(R.string.reorder_widget, label)
-    val expandLabel: String = stringResource(if (isExpanded) R.string.collapse_stack else R.string.expand_stack)
+    val reorderLabel: String = stringResource(CoreUiR.string.reorder_widget, label)
+    val expandLabel: String = stringResource(
+        if (isExpanded) CoreUiR.string.collapse_stack else CoreUiR.string.expand_stack
+    )
     val elevation: Dp by animateDpAsState(
         targetValue = if (isDragging) DRAG_ELEVATION else 0.dp,
         animationSpec = tween(durationMillis = LIFT_ANIMATION_MILLIS)
@@ -416,18 +413,18 @@ private fun ExpandedPageRow(
     modifier: Modifier = Modifier
 ) {
     val label: String = when (widget) {
-        is HeaderModel -> stringResource(R.string.header_title)
+        is HeaderModel -> stringResource(CoreUiR.string.header_title)
         is AppWidgetModel -> widget.label
     }
     var coordinates: LayoutCoordinates? by remember { mutableStateOf(null) }
     var dragY: Float? by remember { mutableStateOf(null) }
-    val removeLabel: String = stringResource(R.string.remove_from_stack_named, label)
-    val splitLabel: String = stringResource(R.string.split_page_named, label)
+    val removeLabel: String = stringResource(CoreUiR.string.remove_from_stack_named, label)
+    val splitLabel: String = stringResource(CoreUiR.string.split_page_named, label)
     val dragHandlePlacement: DragHandlePlacement = railSide.dragHandlePlacement()
     val stackPageHandle: @Composable () -> Unit = {
         RailDragHandle(
             railSide = railSide,
-            contentDescription = stringResource(R.string.reorder_stack_page, label),
+            contentDescription = stringResource(CoreUiR.string.reorder_stack_page, label),
             modifier = handleModifier,
             inset = railSide.stackPageHandleInset(gap = editablePlacePadding)
         )
