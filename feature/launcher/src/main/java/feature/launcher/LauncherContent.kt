@@ -1,9 +1,7 @@
 package feature.launcher
 
-import android.app.ActivityOptions
 import android.content.Context
 import android.content.IntentSender
-import android.os.Build
 import androidx.activity.FullyDrawnReporter
 import androidx.activity.compose.LocalFullyDrawnReporterOwner
 import androidx.activity.compose.ReportDrawnWhen
@@ -81,11 +79,13 @@ import core.ui.layout.homeEdgePadding
 import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
+import core.ui.search.ContactRowAction
+import core.ui.search.SearchOptionsActions
 import core.ui.util.consumeTouches
 import core.ui.widgets.WidgetAreaUi
 import core.ui.widgets.WidgetEditDraft
-import core.util.attemptLaunch
 import core.util.toDp
+import core.util.tryStartIntentSender
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.rememberWidgetAreaUi
 
@@ -519,20 +519,3 @@ internal fun BoxScope.LauncherDoneButton(viewModel: LauncherViewModel, widgetVie
         }
     }
 }
-
-/**
- * Activity options for opening a system screen or store page Rail reaches through one of the
- * system's IntentSenders, which only Android 16 offers.
- * [ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE] is the least permissive mode
- * that still lets the visible launcher start the screen behind the system's IntentSender.
- */
-internal fun privateSpaceLaunchOptions(): ActivityOptions? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-    ActivityOptions.makeBasic()
-        .setPendingIntentBackgroundActivityStartMode(ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE)
-} else {
-    null
-}
-
-/** Starts the system's [intentSender], returning whether the system accepted it. */
-internal fun Context.tryStartIntentSender(intentSender: IntentSender): Boolean =
-    attemptLaunch { startIntentSender(intentSender, null, 0, 0, 0, privateSpaceLaunchOptions()?.toBundle()) }

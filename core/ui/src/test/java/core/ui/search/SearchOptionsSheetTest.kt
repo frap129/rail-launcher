@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.search
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -22,15 +22,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-
-private val SHEET_ROW_LABELS: List<Int> = listOf(
-    CoreUiR.string.search_web_suggestions,
-    CoreUiR.string.search_contacts,
-    CoreUiR.string.search_suggestions,
-    CoreUiR.string.search_calculator_row,
-    CoreUiR.string.search_swipe_up,
-    R.string.search_settings
-)
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -70,7 +61,7 @@ class SearchOptionsSheetTest {
         setSheetContent()
 
         assertActionLabelMatchesSwitchTitle(
-            actionLabel = composeRule.onNodeWithText(getString(R.string.search_settings), useUnmergedTree = true)
+            actionLabel = composeRule.onNodeWithText(getString(CoreUiR.string.search_settings), useUnmergedTree = true)
                 .performScrollTo(),
             switchTitle = composeRule.onNodeWithText(getString(CoreUiR.string.search_suggestions), useUnmergedTree = true)
                 .performScrollTo()
@@ -82,7 +73,7 @@ class SearchOptionsSheetTest {
         setSheetContent()
 
         assertActionRowMatchesSwitchRow(
-            actionRow = composeRule.onNodeWithText(getString(R.string.search_settings)).performScrollTo(),
+            actionRow = composeRule.onNodeWithText(getString(CoreUiR.string.search_settings)).performScrollTo(),
             switchRow = composeRule.onNodeWithText(getString(CoreUiR.string.search_suggestions)).performScrollTo()
         )
     }

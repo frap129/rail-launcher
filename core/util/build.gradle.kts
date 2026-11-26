@@ -13,4 +13,5 @@ android {
 
 dependencies {
     implementation(libs.evalex)
+    testImplementation(testFixtures(project(":core:data")))
 }

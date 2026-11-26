@@ -1,8 +1,9 @@
-package feature.launcher
+package core.ui.search
 
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import core.data.search.SearchContact
 import core.data.testing.TEST_CONTACT_ID
 import core.data.testing.TEST_CONTACT_LOOKUP_KEY
 import core.data.testing.TEST_CONTACT_NUMBER
@@ -20,7 +21,6 @@ import org.robolectric.annotation.Config
 
 private const val DIALER_PACKAGE: String = "com.example.dialer"
 private const val DIALER_ACTIVITY: String = "com.example.dialer.DialerActivity"
-private const val DIAL_SCHEME: String = "tel"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
@@ -32,7 +32,7 @@ class ContactRowOpenerTest : IntentLaunchTestBase() {
         )
 
         assertEquals(Intent.ACTION_DIAL, actualIntent.action)
-        assertEquals(Uri.fromParts("tel", TEST_CONTACT_NUMBER, null), actualIntent.data)
+        assertEquals(Uri.fromParts(DIAL_SCHEME, TEST_CONTACT_NUMBER, null), actualIntent.data)
     }
 
     @Test
@@ -57,7 +57,7 @@ class ContactRowOpenerTest : IntentLaunchTestBase() {
 
     @Test
     fun `builds no call or message intent for a contact without a number`() {
-        val inputContact = createSearchContact(phoneNumber = null)
+        val inputContact: SearchContact = createSearchContact(phoneNumber = null)
 
         assertNull(contactRowIntent(contact = inputContact, action = ContactRowAction.Dial))
         assertNull(contactRowIntent(contact = inputContact, action = ContactRowAction.Message))
@@ -80,7 +80,7 @@ class ContactRowOpenerTest : IntentLaunchTestBase() {
         val actualIntent: Intent? = shadowActivity.nextStartedActivity
         assertTrue(actualOpened)
         assertEquals(Intent.ACTION_DIAL, actualIntent?.action)
-        assertEquals(Uri.fromParts("tel", TEST_CONTACT_NUMBER, null), actualIntent?.data)
+        assertEquals(Uri.fromParts(DIAL_SCHEME, TEST_CONTACT_NUMBER, null), actualIntent?.data)
     }
 
     @Test

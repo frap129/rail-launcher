@@ -28,7 +28,6 @@ import core.data.prefs.IPreferencesRepository
 import core.data.prefs.ISearchSettings
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
-import core.data.prefs.SearchEngine
 import core.data.prefs.Settings
 import core.data.prefs.isContactResultsEnabled
 import core.data.profiles.IPrivateSpaceLock
@@ -65,6 +64,7 @@ import core.ui.layout.ListOffsets
 import core.ui.model.data.LauncherSignal
 import core.ui.search.SearchContactsUiEvent
 import core.ui.search.SearchContactsUiEvents
+import core.ui.search.SearchOptions
 import core.ui.toGroupMark
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import core.util.launchLogged
@@ -90,16 +90,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
-
-/** The Search preferences the Search options sheet shows and edits. */
-data class SearchOptions(
-    val openSearchOnSwipeUp: Boolean,
-    val searchSuggestions: Boolean,
-    val searchWebSuggestions: Boolean,
-    val searchContacts: Boolean,
-    val searchCalculatorRow: Boolean,
-    val searchEngine: SearchEngine
-)
 
 sealed class LauncherUiState {
     data object Loading : LauncherUiState()

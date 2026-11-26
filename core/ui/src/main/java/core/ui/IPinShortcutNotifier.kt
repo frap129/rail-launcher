@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui
 
 /** Shows the outcome of a Pin request add even after its dialog is gone. */
 interface IPinShortcutNotifier {

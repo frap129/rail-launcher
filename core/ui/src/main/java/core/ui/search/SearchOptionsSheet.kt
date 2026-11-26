@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.search
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,7 +18,8 @@ import compose.icons.fontawesomeicons.solid.Cog
 import compose.icons.fontawesomeicons.solid.Globe
 import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.User
-import core.ui.R as CoreUiR
+import core.data.prefs.SearchEngine
+import core.ui.R
 import core.ui.composables.SearchContactsSwitchRow
 import core.ui.composables.SearchWebSuggestionsSwitchRow
 import core.ui.composables.SettingsSwitchRow
@@ -27,11 +28,20 @@ import core.ui.composables.SheetDragHandle
 import core.ui.composables.sheetContainerColor
 import core.ui.composables.sheetRowContentInset
 import core.ui.popups.PopupSheetTitleRow
-import core.ui.search.SearchContactsUiEvent
 import kotlinx.coroutines.flow.Flow
 
+/** The Search preferences the Search options sheet shows and edits. */
+data class SearchOptions(
+    val openSearchOnSwipeUp: Boolean,
+    val searchSuggestions: Boolean,
+    val searchWebSuggestions: Boolean,
+    val searchContacts: Boolean,
+    val searchCalculatorRow: Boolean,
+    val searchEngine: SearchEngine
+)
+
 /** What the Search options sheet asks its host to change. */
-internal data class SearchOptionsActions(
+data class SearchOptionsActions(
     val onOpenSearchOnSwipeUpChange: (Boolean) -> Unit,
     val onSearchSuggestionsChange: (Boolean) -> Unit,
     val onSearchWebSuggestionsChange: (Boolean) -> Unit,
@@ -45,7 +55,7 @@ internal data class SearchOptionsActions(
 /** The Search options sheet: the Search preferences consulted most while searching. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SearchOptionsSheet(
+fun SearchOptionsSheet(
     options: SearchOptions,
     contactsEvents: Flow<SearchContactsUiEvent>,
     actions: SearchOptionsActions,
@@ -70,7 +80,7 @@ internal fun SearchOptionsContent(
 ) {
     val containerColor: Color = sheetContainerColor
     Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-        PopupSheetTitleRow(title = stringResource(CoreUiR.string.search), horizontalPadding = sheetRowContentInset)
+        PopupSheetTitleRow(title = stringResource(R.string.search), horizontalPadding = sheetRowContentInset)
         SearchWebSuggestionsSwitchRow(
             checked = options.searchWebSuggestions,
             searchEngine = options.searchEngine,
@@ -88,26 +98,26 @@ internal fun SearchOptionsContent(
             containerColor = containerColor
         )
         SettingsSwitchRow(
-            title = stringResource(CoreUiR.string.search_suggestions),
+            title = stringResource(R.string.search_suggestions),
             checked = options.searchSuggestions,
             onCheckedChange = actions.onSearchSuggestionsChange,
-            supportingText = stringResource(CoreUiR.string.search_suggestions_summary),
+            supportingText = stringResource(R.string.search_suggestions_summary),
             leadingIcon = FontAwesomeIcons.Solid.Search,
             containerColor = containerColor
         )
         SettingsSwitchRow(
-            title = stringResource(CoreUiR.string.search_calculator_row),
+            title = stringResource(R.string.search_calculator_row),
             checked = options.searchCalculatorRow,
             onCheckedChange = actions.onSearchCalculatorRowChange,
-            supportingText = stringResource(CoreUiR.string.search_calculator_row_summary),
+            supportingText = stringResource(R.string.search_calculator_row_summary),
             leadingIcon = FontAwesomeIcons.Solid.Calculator,
             containerColor = containerColor
         )
         SettingsSwitchRow(
-            title = stringResource(CoreUiR.string.search_swipe_up),
+            title = stringResource(R.string.search_swipe_up),
             checked = options.openSearchOnSwipeUp,
             onCheckedChange = actions.onOpenSearchOnSwipeUpChange,
-            supportingText = stringResource(CoreUiR.string.search_swipe_up_summary),
+            supportingText = stringResource(R.string.search_swipe_up_summary),
             leadingIcon = FontAwesomeIcons.Solid.ArrowUp,
             containerColor = containerColor
         )

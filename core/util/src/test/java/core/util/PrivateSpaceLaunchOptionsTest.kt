@@ -1,4 +1,4 @@
-package feature.launcher
+package core.util
 
 import android.app.ActivityOptions
 import android.os.Build

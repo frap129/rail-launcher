@@ -1,11 +1,10 @@
-package feature.launcher
+package core.util
 
 import android.content.Context
 import android.content.IntentSender
 import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.UserHandle
-import core.util.logTypeName
 import timber.log.Timber
 
 /**
@@ -13,7 +12,7 @@ import timber.log.Timber
  * Only the system's own market activity intent opens the Store in another Profile, and only
  * Android 15, where Private Space exists, offers one.
  */
-internal fun Context.openStorePage(packageName: String, profile: UserHandle): Boolean =
+fun Context.openStorePage(packageName: String, profile: UserHandle): Boolean =
     marketActivityIntent(packageName = packageName, profile = profile)?.let { intentSender ->
         tryStartIntentSender(intentSender = intentSender)
     } ?: false

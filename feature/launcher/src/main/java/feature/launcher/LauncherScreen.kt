@@ -93,6 +93,9 @@ import core.ui.popups.IconPickerHost
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditorHost
 import core.ui.popups.showFolderSnackbars
+import core.ui.search.ContactRowAction
+import core.ui.search.openContactRow
+import core.ui.search.openSearchResultRow
 import core.ui.util.consumeTouches
 import core.ui.widgets.AddPlacementSheet
 import core.ui.widgets.AddWidgetFlowState
@@ -110,7 +113,9 @@ import core.ui.widgets.UndoAction
 import core.ui.widgets.WidgetEditDraft
 import core.ui.widgets.WidgetEvent
 import core.util.attemptLaunch
+import core.util.copyCalculatorRowResult
 import core.util.openApplicationDetailsSettings
+import core.util.tryStartIntentSender
 import feature.launcher.agenda.AgendaEvent
 import feature.launcher.agenda.AgendaUiState
 import feature.launcher.agenda.AgendaViewModel

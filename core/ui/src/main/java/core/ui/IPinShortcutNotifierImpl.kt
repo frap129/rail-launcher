@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui
 
 import android.content.Context
 import android.widget.Toast

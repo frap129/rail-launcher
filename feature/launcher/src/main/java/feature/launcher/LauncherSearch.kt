@@ -24,8 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldColors
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
@@ -74,25 +71,17 @@ import core.ui.layout.compactIconSize
 import core.ui.layout.homeRailContentPaddingValues
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupRow
+import core.ui.search.ContactRowAction
 import core.ui.search.SearchContactsUiEvent
+import core.ui.search.SearchOptionsActions
+import core.ui.search.SearchOptionsSheet
+import core.ui.search.searchFieldColors
 import kotlinx.coroutines.flow.Flow
 
 private val searchFieldPadding: Dp = 16.dp
 private val searchFieldVerticalPadding: Dp = 8.dp
 private val topResultPadding: Dp = 16.dp
 private val resultsBottomPadding: Dp = 16.dp
-
-@Composable
-internal fun searchFieldColors(): TextFieldColors = TextFieldDefaults.colors(
-    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    errorContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    focusedIndicatorColor = Color.Transparent,
-    unfocusedIndicatorColor = Color.Transparent,
-    disabledIndicatorColor = Color.Transparent,
-    errorIndicatorColor = Color.Transparent
-)
 
 private class SearchAnchors {
     val byKey: MutableMap<String, PopupAnchor> = mutableMapOf()

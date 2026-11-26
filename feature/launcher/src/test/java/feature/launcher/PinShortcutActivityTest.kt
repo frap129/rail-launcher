@@ -10,6 +10,9 @@ import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.testing.MainDispatcherRule
 import core.data.testing.TEST_SDK
 import core.data.testing.createStandaloneShortcutRepositoryMock
+import core.ui.IPinShortcutNotifier
+import core.ui.IPinShortcutNotifierImpl
+import core.ui.R as CoreUiR
 import io.mockk.coEvery
 import io.mockk.coVerify
 import java.lang.reflect.Proxy
@@ -68,7 +71,7 @@ class PinShortcutActivityTest {
         val actualActivity: PinShortcutActivity = Robolectric.buildActivity(PinShortcutActivity::class.java, inputIntent).create().get()
 
         assertTrue(actualActivity.isFinishing)
-        assertEquals(context.getString(R.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
+        assertEquals(context.getString(CoreUiR.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
@@ -126,7 +129,7 @@ class PinShortcutActivityTest {
         }
 
         assertEquals(1, pinAdd.request.acceptCalls.get())
-        assertEquals(context.getString(R.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
+        assertEquals(context.getString(CoreUiR.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
@@ -144,7 +147,7 @@ class PinShortcutActivityTest {
         }
 
         assertEquals(1, pinAdd.request.acceptCalls.get())
-        assertEquals(context.getString(R.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
+        assertEquals(context.getString(CoreUiR.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
@@ -162,7 +165,7 @@ class PinShortcutActivityTest {
         }
 
         assertEquals(0, pinAdd.request.acceptCalls.get())
-        assertEquals(context.getString(R.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
+        assertEquals(context.getString(CoreUiR.string.couldnt_add_shortcut), ShadowToast.getTextOfLatestToast())
     }
 
     private fun runPinTest(testBody: suspend TestScope.() -> Unit): TestResult = runTest {

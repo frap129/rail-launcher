@@ -152,6 +152,8 @@ import core.lifecycle.startup.IHomeIconsDrawnImpl
 import core.lifecycle.widgets.IAppWidgetViewCacheImpl
 import core.lifecycle.widgets.RailAppWidgetHost
 import core.ui.IHomeIconsDrawn
+import core.ui.IPinShortcutNotifier
+import core.ui.IPinShortcutNotifierImpl
 import core.ui.agenda.AgendaFormatter
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
@@ -179,8 +181,6 @@ import core.ui.widgets.IWidgetAddControllerImpl
 import core.ui.widgets.IWidgetResizeController
 import core.ui.widgets.IWidgetResizeControllerImpl
 import core.util.screenHeightPx
-import feature.launcher.IPinShortcutNotifier
-import feature.launcher.IPinShortcutNotifierImpl
 import feature.launcher.LauncherViewModel
 import feature.launcher.PinShortcutViewModel
 import feature.launcher.PopupCardViewModel

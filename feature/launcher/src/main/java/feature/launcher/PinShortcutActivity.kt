@@ -26,6 +26,7 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import core.data.shortcuts.ShortcutKey
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.shortcuts.toShortcutLaunchable
+import core.ui.IPinShortcutNotifier
 import core.ui.R as CoreUiR
 import core.ui.theme.AppTheme
 import core.util.logTypeName
