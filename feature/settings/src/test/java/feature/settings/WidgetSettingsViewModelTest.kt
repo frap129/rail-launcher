@@ -57,7 +57,9 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeHeightState
 import core.ui.widgets.HeaderFormatter
 import core.ui.widgets.HeaderModel
+import core.ui.widgets.HeaderTapTargetPart
 import core.ui.widgets.IHeaderTapTargetResolverImpl
+import core.ui.widgets.TapActionPickerState
 import io.mockk.coVerify
 import io.mockk.verify
 import java.time.Instant
@@ -363,7 +365,7 @@ class WidgetSettingsViewModelTest {
             val actualState: WidgetSettingsUiState = expectMostRecentItem()
             assertEquals(HeaderTapSetting.Launchable(key = inputLaunchable.key), actualState.timeTapAction.setting)
             assertEquals("Café Maps", (actualState.timeTapAction.label as TapActionLabel.Launchable).name)
-            assertEquals(TapActionLabel.Resource(R.string.tap_action_nothing), actualState.dateTapAction.label)
+            assertEquals(TapActionLabel.Resource(CoreUiR.string.tap_action_nothing), actualState.dateTapAction.label)
             cancelAndIgnoreRemainingEvents()
         }
     }

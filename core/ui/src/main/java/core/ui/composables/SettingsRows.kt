@@ -1,4 +1,4 @@
-package feature.settings
+package core.ui.composables
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -33,24 +33,17 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.ui.R as CoreUiR
-import core.ui.composables.DestructiveConfirmationDialog
-import core.ui.composables.SheetRow
-import core.ui.composables.settingsRowContainerColor
 
 private val navigationIconSize: Dp = 64.dp
-private val navigationIconPadding: Dp = 16.dp
-private val snackbarPadding: Dp = 16.dp
+private val settingsSectionTitleBottomPadding: Dp = 8.dp
+private val singleChoiceRowVerticalPadding: Dp = 12.dp
 
 /** The padding around Settings content that is not a row, such as an empty state or a search field. */
-internal val settingsContentPadding: Dp = 16.dp
+val settingsContentPadding: Dp = 16.dp
 
 /** The text a Settings list shows when it has no rows. */
 @Composable
-internal fun SettingsEmptyState(
-    @StringRes text: Int,
-    modifier: Modifier = Modifier,
-    style: TextStyle = MaterialTheme.typography.bodyLarge
-) {
+fun SettingsEmptyState(@StringRes text: Int, modifier: Modifier = Modifier, style: TextStyle = MaterialTheme.typography.bodyLarge) {
     Text(
         text = stringResource(text),
         modifier = modifier.padding(settingsContentPadding),
@@ -60,10 +53,15 @@ internal fun SettingsEmptyState(
 
 /** The section title above a group of settings rows. */
 @Composable
-internal fun SettingsSectionTitle(@StringRes title: Int) {
+fun SettingsSectionTitle(@StringRes title: Int) {
     Text(
         text = stringResource(title),
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+        modifier = Modifier.padding(
+            start = settingsContentPadding,
+            top = settingsContentPadding,
+            end = settingsContentPadding,
+            bottom = settingsSectionTitleBottomPadding
+        ),
         color = MaterialTheme.colorScheme.primary,
         style = MaterialTheme.typography.titleSmall
     )
@@ -71,14 +69,14 @@ internal fun SettingsSectionTitle(@StringRes title: Int) {
 
 /** A Main-screen row that opens another Settings screen. */
 @Composable
-internal fun SettingsNavigationRow(@StringRes title: Int, @StringRes summary: Int, icon: ImageVector, onClick: () -> Unit) {
+fun SettingsNavigationRow(@StringRes title: Int, @StringRes summary: Int, icon: ImageVector, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text(stringResource(title)) },
         supportingContent = { Text(stringResource(summary)) },
         leadingContent = {
             Icon(
-                modifier = Modifier.size(navigationIconSize).padding(navigationIconPadding),
+                modifier = Modifier.size(navigationIconSize).padding(settingsContentPadding),
                 imageVector = icon,
                 contentDescription = stringResource(title)
             )
@@ -87,7 +85,7 @@ internal fun SettingsNavigationRow(@StringRes title: Int, @StringRes summary: In
 }
 
 @Composable
-internal fun SettingsActionRow(
+fun SettingsActionRow(
     title: String,
     value: String,
     onClick: () -> Unit,
@@ -108,7 +106,7 @@ internal fun SettingsActionRow(
 }
 
 @Composable
-internal fun SettingsDestructiveRow(title: String, onClick: () -> Unit, containerColor: Color = settingsRowContainerColor) {
+fun SettingsDestructiveRow(title: String, onClick: () -> Unit, containerColor: Color = settingsRowContainerColor) {
     SheetRow(
         modifier = Modifier.clickable(onClick = onClick),
         headlineContent = { Text(text = title, color = MaterialTheme.colorScheme.error) },
@@ -118,7 +116,7 @@ internal fun SettingsDestructiveRow(title: String, onClick: () -> Unit, containe
 
 /** A [SettingsDestructiveRow] that runs [onConfirm] only after the user confirms the [DestructiveConfirmationDialog]. */
 @Composable
-internal fun SettingsConfirmedDestructiveRow(title: String, dialogTitle: String, dialogBody: String, onConfirm: () -> Unit) {
+fun SettingsConfirmedDestructiveRow(title: String, dialogTitle: String, dialogBody: String, onConfirm: () -> Unit) {
     var showConfirmation: Boolean by remember { mutableStateOf(false) }
     SettingsDestructiveRow(title = title, onClick = { showConfirmation = true })
     if (showConfirmation) {
@@ -137,23 +135,17 @@ internal fun SettingsConfirmedDestructiveRow(title: String, dialogTitle: String,
 
 /** The bottom-centred Snackbar host every Settings screen shows in its content Box. */
 @Composable
-internal fun BoxScope.SettingsSnackbarHost(hostState: SnackbarHostState) {
+fun BoxScope.SettingsSnackbarHost(hostState: SnackbarHostState) {
     SnackbarHost(
         hostState = hostState,
-        modifier = Modifier.align(Alignment.BottomCenter).padding(snackbarPadding)
+        modifier = Modifier.align(Alignment.BottomCenter).padding(settingsContentPadding)
     )
 }
 
-internal data class SingleChoiceOption<T>(val value: T, val label: String, val enabled: Boolean = true)
+data class SingleChoiceOption<T>(val value: T, val label: String, val enabled: Boolean = true)
 
 @Composable
-internal fun <T> SingleChoiceDialog(
-    title: String,
-    options: List<SingleChoiceOption<T>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    onDismiss: () -> Unit
-) {
+fun <T> SingleChoiceDialog(title: String, options: List<SingleChoiceOption<T>>, selected: T, onSelect: (T) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -169,11 +161,11 @@ internal fun <T> SingleChoiceDialog(
                                 role = Role.RadioButton,
                                 onClick = { onSelect(option.value) }
                             )
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = singleChoiceRowVerticalPadding),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(selected = option.value == selected, onClick = null, enabled = option.enabled)
-                        Text(text = option.label, modifier = Modifier.padding(start = 16.dp))
+                        Text(text = option.label, modifier = Modifier.padding(start = settingsContentPadding))
                     }
                 }
             }

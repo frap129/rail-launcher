@@ -45,7 +45,10 @@ import core.ui.layout.HomeHeightState
 import core.ui.widgets.HeaderFormatter
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.HeaderTapTarget
+import core.ui.widgets.HeaderTapTargetPart
 import core.ui.widgets.IHeaderTapTargetResolver
+import core.ui.widgets.TapActionLaunchable
+import core.ui.widgets.TapActionPickerState
 import core.ui.widgets.dateDefaultTapTarget
 import core.util.EventChannel
 import core.util.SearchQuery
@@ -66,27 +69,13 @@ import kotlinx.coroutines.launch
 
 data class DateFormatOption(val preset: DateFormatPreset, val label: String)
 
-enum class HeaderTapTargetPart {
-    Time,
-    Date
-}
-
 sealed interface TapActionLabel {
     data class Resource(@StringRes val id: Int) : TapActionLabel
 
     data class Launchable(val name: String) : TapActionLabel
 }
 
-data class TapActionLaunchable(val setting: HeaderTapSetting.Launchable, val name: String, val icon: Icon)
-
 data class TapActionSummary(val setting: HeaderTapSetting, val label: TapActionLabel)
-
-data class TapActionPickerState(
-    val part: HeaderTapTargetPart,
-    val query: String = "",
-    val isLoaded: Boolean = false,
-    val launchables: List<TapActionLaunchable> = emptyList()
-)
 
 /** One app offered in the Media Player exclusion list. */
 data class ExcludableApp(val packageName: String, val label: String, val icon: Icon, val isExcluded: Boolean)
@@ -679,7 +668,7 @@ private fun HeaderTapTarget.dateDefaultLabelResource(): Int =
 private fun HeaderTapSetting.toLabel(defaultResource: Int, launchableState: LaunchableState): TapActionLabel = when (this) {
     HeaderTapSetting.SystemDefault -> TapActionLabel.Resource(defaultResource)
 
-    HeaderTapSetting.Nothing -> TapActionLabel.Resource(R.string.tap_action_nothing)
+    HeaderTapSetting.Nothing -> TapActionLabel.Resource(CoreUiR.string.tap_action_nothing)
 
     HeaderTapSetting.OpenAgenda -> TapActionLabel.Resource(CoreUiR.string.open_agenda)
 

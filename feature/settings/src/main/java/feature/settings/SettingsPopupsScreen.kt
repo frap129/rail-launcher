@@ -38,12 +38,19 @@ import coil3.compose.AsyncImage
 import core.data.folders.Folder
 import core.ui.R as CoreUiR
 import core.ui.composables.NotificationAccessRow
+import core.ui.composables.SettingsActionRow
+import core.ui.composables.SettingsDestructiveRow
+import core.ui.composables.SettingsEmptyState
+import core.ui.composables.SettingsSectionTitle
+import core.ui.composables.SettingsSnackbarHost
 import core.ui.composables.SettingsSwitchRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
+import core.ui.composables.settingsContentPadding
 import core.ui.composables.sheetContainerColor
 import core.ui.popups.FolderDeleteHost
 import core.ui.popups.FolderNameDialog
+import core.ui.popups.FolderRenameHost
 import core.ui.popups.IIconPicker
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions

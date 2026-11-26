@@ -21,7 +21,10 @@ import core.data.prefs.SearchEngine
 import core.ui.R as CoreUiR
 import core.ui.composables.SearchContactsSwitchRow
 import core.ui.composables.SearchWebSuggestionsSwitchRow
+import core.ui.composables.SettingsActionRow
 import core.ui.composables.SettingsSwitchRow
+import core.ui.composables.SingleChoiceDialog
+import core.ui.composables.SingleChoiceOption
 import core.ui.model.data.SEARCH_ENTRY_URI
 import core.util.SEARCH_TEMPLATE_PLACEHOLDER
 import core.util.isValidSearchTemplate

@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import core.data.launchables.model.Launchable
 import core.ui.composables.LaunchableIconArtwork
+import core.ui.composables.SettingsEmptyState
 import org.koin.androidx.compose.koinViewModel
 
 /** The Hidden apps screen: every Hidden app by resolved name and icon, each with an Unhide action. */
