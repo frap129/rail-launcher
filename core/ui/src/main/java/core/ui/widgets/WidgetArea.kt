@@ -689,7 +689,6 @@ private fun WidgetPageContent(
         is AppWidgetModel -> AppWidgetContent(
             widget = widget,
             heightDp = heightDp,
-            menuEnabled = menuEnabled,
             isResizing = isResizing,
             onLongPress = onAppWidgetLongPress,
             onUnpause = onAppWidgetUnpause

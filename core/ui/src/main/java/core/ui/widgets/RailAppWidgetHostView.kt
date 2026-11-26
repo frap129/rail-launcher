@@ -5,7 +5,6 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.SystemClock
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 
@@ -35,7 +34,6 @@ class RailAppWidgetHostView(context: Context) : AppWidgetHostView(context) {
         }
         isLongPressPending = false
         isLongPressFired = true
-        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         sendCancelToChildren()
         onLongPress?.invoke()
     }

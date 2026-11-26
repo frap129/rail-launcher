@@ -336,6 +336,15 @@ private fun PopupWidgetSection(
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = popupWidgetHorizontalPadding)) {
         val heightDp: Int = resize?.draftHeightDp ?: widget.heightDp
         val isResizing: Boolean = resize != null
+        val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
+        val currentOnLongPress: (Long) -> Unit by rememberUpdatedState(onLongPress)
+        val guardedOnLongPress: (Long) -> Unit = remember(hapticFeedback, isResizing, currentOnLongPress) {
+            { widgetId: Long ->
+                hapticFeedback.performLongPressHaptic(menuEnabled = !isResizing) {
+                    currentOnLongPress(widgetId)
+                }
+            }
+        }
         val content: @Composable () -> Unit = {
             WidgetStackPager(
                 pageCount = widget.pages.size,
@@ -350,9 +359,8 @@ private fun PopupWidgetSection(
                 AppWidgetContent(
                     widget = widget.pages[page].model,
                     heightDp = pageHeightDp,
-                    menuEnabled = !isResizing,
                     isResizing = isResizing,
-                    onLongPress = onLongPress,
+                    onLongPress = guardedOnLongPress,
                     onUnpause = onUnpause
                 )
             }

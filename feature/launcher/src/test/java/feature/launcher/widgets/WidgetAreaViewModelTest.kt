@@ -18,9 +18,7 @@ import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.media.IMediaSessionSource
 import core.data.media.MediaCommand
-import core.data.media.MediaSessionKey
 import core.data.media.MediaSessionSnapshot
-import core.data.media.PlaybackStatus
 import core.data.prefs.BatteryVisibility
 import core.data.prefs.ClockStyle
 import core.data.prefs.EventSettings
@@ -45,6 +43,7 @@ import core.data.testing.createDatePatternSourceMock
 import core.data.testing.createHeaderSettingsActions
 import core.data.testing.createLaunchableRepositoryMock
 import core.data.testing.createLaunchableState
+import core.data.testing.createMediaSessionSnapshot
 import core.data.testing.createMediaSessionSourceMock
 import core.data.testing.createRemoveAppWidgetMock
 import core.data.testing.createUpcomingEvent
@@ -1320,8 +1319,8 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `shows the system's first eligible Media session`() = runTest {
-        val inputFirst: MediaSessionSnapshot = mediaSession(key = "first", title = "First")
-        val inputSecond: MediaSessionSnapshot = mediaSession(key = "second", title = "Second")
+        val inputFirst: MediaSessionSnapshot = createMediaSessionSnapshot(key = "first", title = "First")
+        val inputSecond: MediaSessionSnapshot = createMediaSessionSnapshot(key = "second", title = "Second")
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
@@ -1338,7 +1337,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides the Media Player when disabled or without notification access`() = runTest {
-        val inputSession: MediaSessionSnapshot = mediaSession()
+        val inputSession: MediaSessionSnapshot = createMediaSessionSnapshot()
         val disabled: WidgetAreaViewModel = createViewModel(
             mockMediaSessionSource = createMediaSessionSourceMock(initialSessions = listOf(inputSession))
         )
@@ -1394,7 +1393,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `hides the Media Player while a Home edit mode is active`() = runTest {
-        val inputSession: MediaSessionSnapshot = mediaSession()
+        val inputSession: MediaSessionSnapshot = createMediaSessionSnapshot()
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
@@ -1414,7 +1413,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `opens the Media Player menu and forwards transport commands`() = runTest {
-        val inputSession: MediaSessionSnapshot = mediaSession(
+        val inputSession: MediaSessionSnapshot = createMediaSessionSnapshot(
             key = "first",
             actions = setOf(MediaCommand.Play, MediaCommand.Pause, MediaCommand.Next)
         )
@@ -1463,7 +1462,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `exposes the Media Player placement and artwork options`() = runTest {
-        val inputSession: MediaSessionSnapshot = mediaSession()
+        val inputSession: MediaSessionSnapshot = createMediaSessionSnapshot()
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 mediaPlayerSettings = MediaPlayerSettings(
@@ -1490,9 +1489,9 @@ class WidgetAreaViewModelTest {
     @Test
     fun `excluding the shown app emits Undo and selects the next session`() = runTest {
         val inputFirst: MediaSessionSnapshot =
-            mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
+            createMediaSessionSnapshot(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
         val inputSecond: MediaSessionSnapshot =
-            mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
+            createMediaSessionSnapshot(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
@@ -1523,9 +1522,9 @@ class WidgetAreaViewModelTest {
     @Test
     fun `undoing an exclusion restores the excluded app`() = runTest {
         val inputFirst: MediaSessionSnapshot =
-            mediaSession(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
+            createMediaSessionSnapshot(key = "first", title = "First", packageName = "com.example.first", appLabel = "First")
         val inputSecond: MediaSessionSnapshot =
-            mediaSession(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
+            createMediaSessionSnapshot(key = "second", title = "Second", packageName = "com.example.second", appLabel = "Second")
         val mockSettingsRepository: IWidgetSettingsRepository = createWidgetSettingsRepositoryMock(
             mediaPlayerSettings = MediaPlayerSettings(enabled = true)
         )
@@ -1554,7 +1553,7 @@ class WidgetAreaViewModelTest {
 
     @Test
     fun `Media Player menu offers excluding the shown app`() = runTest {
-        val inputSession: MediaSessionSnapshot = mediaSession(appLabel = "Video")
+        val inputSession: MediaSessionSnapshot = createMediaSessionSnapshot(appLabel = "Video")
         val viewModel: WidgetAreaViewModel = createViewModel(
             mockSettingsRepository = createWidgetSettingsRepositoryMock(
                 mediaPlayerSettings = MediaPlayerSettings(enabled = true)
@@ -2550,25 +2549,6 @@ class WidgetAreaViewModelTest {
         zoneId = zoneId,
         locale = locale,
         isSystem24Hour = isSystem24Hour
-    )
-
-    private fun mediaSession(
-        key: String = "session",
-        title: String = "Song",
-        artist: String? = "Artist",
-        packageName: String = "com.example.music",
-        appLabel: String = "Music",
-        state: PlaybackStatus = PlaybackStatus.PLAYING,
-        actions: Set<MediaCommand> = setOf(MediaCommand.Play, MediaCommand.Pause)
-    ): MediaSessionSnapshot = MediaSessionSnapshot(
-        key = MediaSessionKey(value = key),
-        packageName = packageName,
-        appLabel = appLabel,
-        title = title,
-        artist = artist,
-        artwork = null,
-        state = state,
-        actions = actions
     )
 
     private fun testLaunchable(name: String = "Example", deeplink: String = "rail://example"): RailLaunchable = RailLaunchable(

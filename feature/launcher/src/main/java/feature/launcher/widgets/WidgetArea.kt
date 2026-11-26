@@ -41,24 +41,21 @@ fun rememberWidgetAreaUi(
             onTapTarget = { target ->
                 context.runHeaderTapAction(target = target, onLaunch = onLaunch, onOpenAgenda = onOpenAgenda)
             },
-            onHeaderLongPress = { widgetId ->
-                if (menuEnabled) {
-                    hapticFeedback.performLongPressHaptic()
+            onHeaderLongPress = { widgetId: Long ->
+                hapticFeedback.performLongPressHaptic(menuEnabled = menuEnabled) {
                     viewModel.openHeaderMenu(widgetId = widgetId)
                 }
             },
             onHeaderHeight = viewModel::setHeaderHeight,
-            onAppWidgetLongPress = { widgetId ->
-                if (menuEnabled) {
-                    hapticFeedback.performLongPressHaptic()
+            onAppWidgetLongPress = { widgetId: Long ->
+                hapticFeedback.performLongPressHaptic(menuEnabled = menuEnabled) {
                     viewModel.openAppWidgetMenu(widgetId = widgetId)
                 }
             },
             onAppWidgetUnpause = viewModel::unpauseWorkProfile,
             onPageSettled = viewModel::onPageSettled,
             onEmptyAreaLongPress = {
-                if (menuEnabled) {
-                    hapticFeedback.performLongPressHaptic()
+                hapticFeedback.performLongPressHaptic(menuEnabled = menuEnabled) {
                     viewModel.openEmptyAreaMenu()
                 }
             },
@@ -74,8 +71,7 @@ fun rememberWidgetAreaUi(
             onMergePlace = viewModel::mergePlace,
             onMediaPlayerOpen = viewModel::openMediaPlayer,
             onMediaPlayerLongPress = {
-                if (menuEnabled) {
-                    hapticFeedback.performLongPressHaptic()
+                hapticFeedback.performLongPressHaptic(menuEnabled = menuEnabled) {
                     viewModel.openMediaPlayerMenu()
                 }
             },

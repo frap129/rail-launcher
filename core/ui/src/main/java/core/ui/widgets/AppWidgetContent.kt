@@ -36,7 +36,6 @@ private const val MIN_APP_WIDGET_HEIGHT_DP: Int = 48
 fun AppWidgetContent(
     widget: AppWidgetModel,
     heightDp: Int?,
-    menuEnabled: Boolean,
     isResizing: Boolean = false,
     onLongPress: (Long) -> Unit,
     onUnpause: (Long) -> Unit,
@@ -63,7 +62,6 @@ fun AppWidgetContent(
         AppWidgetPlaceholder(
             widget = widget,
             heightDp = height,
-            menuEnabled = menuEnabled,
             onLongPress = onLongPress,
             onUnpause = onUnpause,
             modifier = modifier
@@ -101,11 +99,7 @@ fun AppWidgetContent(
             .pointerInteropFilter(requestDisallowInterceptTouchEvent = disallowInterceptTouchEvent) { false }
             .onSizeChanged { size -> measuredWidthPx = size.width },
         update = { hostView ->
-            hostView.onLongPress = if (menuEnabled) {
-                { onLongPress(widget.id) }
-            } else {
-                null
-            }
+            hostView.onLongPress = { onLongPress(widget.id) }
             hostView.onGestureClaimed = widgetSwipeState?.let { state -> { state.markWidgetTookSwipe() } }
         }
     )

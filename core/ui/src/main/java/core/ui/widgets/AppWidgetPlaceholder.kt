@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -22,25 +21,22 @@ import coil3.compose.AsyncImage
 import core.data.widgets.WidgetAvailability
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
-import core.ui.util.performLongPressHaptic
 
 /** Shown in place of an App Widget whose provider cannot be rendered right now. */
 @Composable
 fun AppWidgetPlaceholder(
     widget: AppWidgetModel,
     heightDp: Int,
-    menuEnabled: Boolean,
     onLongPress: (Long) -> Unit,
     onUnpause: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
     Column(
         modifier = modifier
             .fillMaxWidth()
             .height(heightDp.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .pointerInput(widget.id, widget.availability, menuEnabled) {
+            .pointerInput(widget.id, widget.availability, onLongPress, onUnpause) {
                 detectTapGestures(
                     onTap = {
                         if (widget.availability == WidgetAvailability.ProfilePaused) {
@@ -48,10 +44,7 @@ fun AppWidgetPlaceholder(
                         }
                     },
                     onLongPress = {
-                        if (menuEnabled) {
-                            hapticFeedback.performLongPressHaptic()
-                            onLongPress(widget.id)
-                        }
+                        onLongPress(widget.id)
                     }
                 )
             }

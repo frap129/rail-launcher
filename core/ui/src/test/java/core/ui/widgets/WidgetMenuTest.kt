@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import core.data.icons.model.Icon
 import core.data.prefs.ClockStyle
+import core.data.testing.MEDIA_APP_LABEL
 import core.data.testing.TEST_SDK
 import core.data.testing.WIDGET_LABEL
 import core.data.widgets.AppWidgetId
@@ -31,7 +32,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val MEDIA_APP_LABEL: String = "Music"
 private val NEVER_KEY: WidgetMenuChoiceKey = WidgetMenuChoiceKey("NEVER")
 private val ALWAYS_KEY: WidgetMenuChoiceKey = WidgetMenuChoiceKey("ALWAYS")
 

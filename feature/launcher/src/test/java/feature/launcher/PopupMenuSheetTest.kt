@@ -7,14 +7,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import core.data.apps.model.App
-import core.data.icons.model.Icon
 import core.data.profiles.IProfileSource
 import core.data.testing.APP_NAME
 import core.data.testing.TEST_SDK
-import core.data.testing.WIDGET_LABEL
+import core.data.testing.WIDGET_PROVIDER_PACKAGE
 import core.data.testing.createApp
 import core.data.testing.createProfileSourceMock
-import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetProvider
 import core.ui.R as CoreUiR
 import core.ui.composables.RowTestContent
@@ -25,7 +23,7 @@ import core.ui.composables.getString
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.ui.popups.PopupWidgetPage
-import core.ui.widgets.AppWidgetModel
+import core.ui.widgets.createAppWidgetModel
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.Rule
@@ -35,7 +33,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val WIDGET_PROVIDER_PACKAGE: String = "com.example.weather"
 private const val WIDGET_PROVIDER_CLASS: String = "com.example.weather.WeatherWidget"
 private const val WIDGET_ID: Long = 1L
 private const val APP_WIDGET_ID: Int = 2
@@ -70,15 +67,9 @@ class PopupMenuSheetTest {
             appWidgetId = APP_WIDGET_ID,
             provider = WidgetProvider(packageName = WIDGET_PROVIDER_PACKAGE, className = WIDGET_PROVIDER_CLASS),
             profileSerial = 0L,
-            model = AppWidgetModel(
+            model = createAppWidgetModel(
                 id = WIDGET_ID,
-                appWidgetId = APP_WIDGET_ID,
-                provider = WIDGET_PROVIDER_PACKAGE,
-                label = WIDGET_LABEL,
-                icon = Icon.RailIcon(resId = 0),
-                minHeightDp = 0,
-                isWorkProfile = false,
-                availability = WidgetAvailability.Available
+                appWidgetId = APP_WIDGET_ID
             ),
             isReconfigurable = true
         )
