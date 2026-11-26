@@ -38,8 +38,8 @@ import core.ui.popups.IPopupSession
 import core.ui.popups.IPopupSessionImpl
 import core.ui.popups.PopupTestBase
 import core.ui.popups.TEST_INPUT_ANCHOR
-import feature.launcher.widgets.IWidgetResizeControllerImpl
-import feature.launcher.widgets.createAddController
+import core.ui.widgets.IWidgetResizeControllerImpl
+import core.ui.widgets.createAddController
 import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow

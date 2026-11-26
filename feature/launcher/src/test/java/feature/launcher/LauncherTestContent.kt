@@ -22,9 +22,9 @@ import core.data.prefs.RailSide
 import core.data.testing.createApp
 import core.ui.composables.RowTestContent
 import core.ui.popups.PopupRow
-import feature.launcher.widgets.MediaPlayerUiState
-import feature.launcher.widgets.WidgetAreaLayout
-import feature.launcher.widgets.WidgetAreaState
+import core.ui.widgets.MediaPlayerUiState
+import core.ui.widgets.WidgetAreaLayout
+import core.ui.widgets.WidgetAreaState
 import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.widgetAreaActions
 

@@ -38,6 +38,10 @@ import core.ui.composables.SheetRow
 import core.ui.composables.SheetTextTitle
 import core.ui.composables.sheetContainerColor
 import core.ui.widgets.SheetClockStyleChooser
+import core.ui.widgets.WidgetMenuAction
+import core.ui.widgets.WidgetMenuChoiceKey
+import core.ui.widgets.WidgetMenuItem
+import core.ui.widgets.WidgetMenuState
 import feature.launcher.R
 
 /** The content of the Widget Area's context sheet. */

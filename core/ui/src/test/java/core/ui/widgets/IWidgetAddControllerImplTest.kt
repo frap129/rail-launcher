@@ -1,10 +1,11 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import core.data.testing.AddFlowPendingIdsState
 import core.data.testing.AppWidgetHostFixture
 import core.data.testing.appWidgetPlace
+import core.data.testing.appWidgetProviderInfo
 import core.data.testing.createAddFlowPendingIdsMock
 import core.data.testing.createAppWidgetHostFixture
 import core.data.testing.createAppWidgetHostMock

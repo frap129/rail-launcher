@@ -37,6 +37,7 @@ import core.data.testing.TEST_NOTIFICATION_REPLY_TEXT
 import core.data.testing.TEST_SDK
 import core.data.testing.WidgetAreaRepositoryFixture
 import core.data.testing.appWidgetPlace
+import core.data.testing.appWidgetProviderInfo
 import core.data.testing.createApp
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createClockReading
@@ -72,9 +73,8 @@ import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
 import core.ui.popups.PopupRow
 import core.ui.popups.TEST_INPUT_ANCHOR
-import feature.launcher.widgets.AddWidgetFlowState
-import feature.launcher.widgets.WidgetEvent
-import feature.launcher.widgets.appWidgetProviderInfo
+import core.ui.widgets.AddWidgetFlowState
+import core.ui.widgets.WidgetEvent
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.verify

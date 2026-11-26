@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.icons.model.Icon
 import core.data.widgets.AppWidgetId

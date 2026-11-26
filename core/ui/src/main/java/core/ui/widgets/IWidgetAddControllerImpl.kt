@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import core.data.widgets.AddAppWidget

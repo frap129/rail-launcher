@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
@@ -79,9 +79,7 @@ class IWidgetResizeControllerImpl(
             bounds = bounds,
             providerInfo = { widget -> appWidgetHost.providerInfoFor(widget) }
         )
-        val indicatorVisible: Boolean = place.widgets.stackIndicatorVisible(
-            settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
-        )
+        val indicatorVisible: Boolean = resolveStackIndicatorVisible(widgets = place.widgets)
         val draftHeightDp: Int = bounds.clamp(
             heightDp = place.heightDp ?: defaultHeightDp,
             homeHeightDp = homeHeight.value ?: Int.MAX_VALUE
@@ -205,12 +203,13 @@ class IWidgetResizeControllerImpl(
         if (appWidgetIds.isEmpty() || widthDp <= 0) {
             return null
         }
-        val indicatorVisible: Boolean = place.widgets.stackIndicatorVisible(
-            settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible
-        )
+        val indicatorVisible: Boolean = resolveStackIndicatorVisible(widgets = place.widgets)
         val pageHeightDp: Int = pageHeightDp(heightDp = heightDp, indicatorVisible = indicatorVisible)
         return WidgetSizeReport(appWidgetIds = appWidgetIds, widthDp = widthDp, heightDp = pageHeightDp)
     }
+
+    private suspend fun resolveStackIndicatorVisible(widgets: List<PlacedWidget>): Boolean =
+        widgets.stackIndicatorVisible(settingVisible = settingsRepository.widgetAreaSettings.first().stackIndicatorVisible)
 
     private fun pageHeightDp(heightDp: Int, indicatorVisible: Boolean): Int =
         (heightDp - if (indicatorVisible) ResizeBounds.STACK_INDICATOR_HEIGHT_DP else 0).coerceAtLeast(1)

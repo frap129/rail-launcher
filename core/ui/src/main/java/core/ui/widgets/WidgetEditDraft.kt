@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.widgets.PlaceDraft
 import core.data.widgets.PlacedWidget
@@ -10,11 +10,13 @@ data class WidgetEditDraft(
     val removedWidgetIds: Set<Long> = emptySet(),
     val expandedPlaceIds: Set<Long> = emptySet()
 ) {
-    val placeIds: List<Long> get() = places.mapNotNull { draft -> draft.placeId }
+    val placeIds: List<Long> get() = places.placeIds()
 }
 
+private fun List<PlaceDraft>.placeIds(): List<Long> = mapNotNull { draft -> draft.placeId }
+
 /** Resolves the draft against the live places, keeping removed widgets and vanished places out. */
-internal fun WidgetEditDraft.toPlaces(source: List<WidgetPlace>): List<WidgetPlace> {
+fun WidgetEditDraft.toPlaces(source: List<WidgetPlace>): List<WidgetPlace> {
     val sourceById: Map<Long, WidgetPlace> = source.associateBy { place -> place.id }
     val sourceWidgets: Map<Long, PlacedWidget> = source
         .flatMap { place -> place.widgets }
@@ -39,7 +41,7 @@ internal fun WidgetEditDraft.toPlaces(source: List<WidgetPlace>): List<WidgetPla
             }
         }
     }
-    val draftedPlaceIds: Set<Long> = places.mapNotNull { draft -> draft.placeId }.toSet()
+    val draftedPlaceIds: Set<Long> = placeIds.toSet()
     val appended: List<WidgetPlace> = source
         .filter { place -> place.id !in draftedPlaceIds }
         .mapNotNull { place ->
@@ -50,9 +52,9 @@ internal fun WidgetEditDraft.toPlaces(source: List<WidgetPlace>): List<WidgetPla
 }
 
 /** Drops pages and places that vanished while the draft was open, and appends newly added places. */
-internal fun WidgetEditDraft.reconciledWith(source: List<WidgetPlace>): WidgetEditDraft {
+fun WidgetEditDraft.reconciledWith(source: List<WidgetPlace>): WidgetEditDraft {
     val sourceById: Map<Long, WidgetPlace> = source.associateBy { place -> place.id }
-    val knownPlaceIds: Set<Long> = places.mapNotNull { draft -> draft.placeId }.toSet()
+    val knownPlaceIds: Set<Long> = placeIds.toSet()
     val keptPlaces: List<PlaceDraft> = places.mapNotNull { draft ->
         if (draft.placeId == null) {
             draft
@@ -75,6 +77,6 @@ internal fun WidgetEditDraft.reconciledWith(source: List<WidgetPlace>): WidgetEd
         }
     return copy(
         places = keptPlaces + appendedPlaces,
-        expandedPlaceIds = expandedPlaceIds.intersect(keptPlaces.mapNotNull { draft -> draft.placeId }.toSet())
+        expandedPlaceIds = expandedPlaceIds.intersect(keptPlaces.placeIds().toSet())
     )
 }

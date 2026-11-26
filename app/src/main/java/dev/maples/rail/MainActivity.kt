@@ -30,8 +30,8 @@ import core.ui.model.data.Destination
 import core.ui.model.data.KeyboardHelpEntry
 import core.ui.model.data.LauncherInputState
 import core.ui.model.data.resolveKeyboardHelpEntryLabel
+import core.ui.widgets.AppWidgetResults
 import feature.launcher.launcherDestination
-import feature.launcher.widgets.AppWidgetResults
 import feature.settings.settingsDestination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

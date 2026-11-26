@@ -1,7 +1,8 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.testing.WidgetAreaRepositoryFixture
 import core.data.testing.appWidgetPlace
+import core.data.testing.appWidgetProviderInfo
 import core.data.testing.createAppWidgetHostMock
 import core.data.testing.createWidgetAreaRepositoryFixture
 import core.data.testing.createWidgetAreaRepositoryMock

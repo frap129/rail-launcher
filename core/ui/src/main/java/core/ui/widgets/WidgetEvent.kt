@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.annotation.StringRes
 import core.data.widgets.AppWidgetId
