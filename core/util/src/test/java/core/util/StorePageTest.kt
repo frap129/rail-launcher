@@ -1,4 +1,4 @@
-package feature.launcher
+package core.util
 
 import android.content.Context
 import android.content.IntentSender
@@ -43,7 +43,16 @@ class StorePageTest {
         val actualOpened: Boolean = mockContext.openStorePage(packageName = PACKAGE_NAME, profile = inputPrivateProfile.user)
 
         assertTrue(actualOpened)
-        verify(exactly = 1) { mockContext.startIntentSender(mockIntentSender, null, 0, 0, 0, null) }
+        verify(exactly = 1) {
+            mockContext.startIntentSender(
+                mockIntentSender,
+                INTENT_SENDER_FILL_IN_INTENT,
+                INTENT_SENDER_FLAGS_MASK,
+                INTENT_SENDER_FLAG_VALUES,
+                INTENT_SENDER_EXTRA_FLAGS,
+                null
+            )
+        }
     }
 
     @Test

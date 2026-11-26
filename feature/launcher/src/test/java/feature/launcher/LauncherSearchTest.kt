@@ -65,7 +65,14 @@ import core.ui.layout.homeEdgePadding
 import core.ui.layout.homeRailStartInset
 import core.ui.layout.minTouchTargetSize
 import core.ui.model.data.LauncherInputState
+import core.ui.search.ContactRowAction
+import core.ui.search.SHEET_ROW_LABELS
 import core.ui.search.SearchContactsUiEvent
+import core.ui.search.SearchOptions
+import core.ui.search.SearchOptionsActions
+import core.ui.search.inputSearchOptions
+import core.ui.search.inputSearchOptionsActions
+import core.ui.search.searchFieldColors
 import core.ui.testing.createLauncherItemActions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -623,14 +630,7 @@ class LauncherSearchTest {
         composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
 
         composeRule.onNodeWithText(context.getString(CoreUiR.string.search)).assertExists()
-        listOf(
-            CoreUiR.string.search_web_suggestions,
-            CoreUiR.string.search_contacts,
-            CoreUiR.string.search_suggestions,
-            CoreUiR.string.search_calculator_row,
-            CoreUiR.string.search_swipe_up,
-            R.string.search_settings
-        ).forEach { label ->
+        SHEET_ROW_LABELS.forEach { label ->
             composeRule.onNodeWithText(context.getString(label)).assertExists()
         }
     }
@@ -657,7 +657,7 @@ class LauncherSearchTest {
         )
 
         composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
-        composeRule.onNodeWithText(context.getString(R.string.search_settings)).performScrollTo().performClick()
+        composeRule.onNodeWithText(context.getString(CoreUiR.string.search_settings)).performScrollTo().performClick()
 
         composeRule.runOnIdle { assertTrue(actualOpenedSettings) }
     }
@@ -667,7 +667,7 @@ class LauncherSearchTest {
         setSearchContent(query = mutableStateOf(QUERY))
 
         composeRule.onNodeWithContentDescription(context.getString(R.string.search_options)).performClick()
-        composeRule.onNodeWithText(context.getString(R.string.search_settings)).performScrollTo().performClick()
+        composeRule.onNodeWithText(context.getString(CoreUiR.string.search_settings)).performScrollTo().performClick()
         composeRule.waitForIdle()
 
         assertEquals(QUERY, queryFieldText())

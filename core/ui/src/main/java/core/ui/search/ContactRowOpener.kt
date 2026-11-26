@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.search
 
 import android.content.Context
 import android.content.Intent
@@ -7,8 +7,11 @@ import android.provider.ContactsContract
 import core.data.search.SearchContact
 import core.util.tryStartActivity
 
+/** The URI scheme that opens the system dialer. */
+internal const val DIAL_SCHEME: String = "tel"
+
 /** What a Contact row's tap or one of its buttons does. */
-internal enum class ContactRowAction {
+enum class ContactRowAction {
     Open,
     Dial,
     Message
@@ -25,7 +28,7 @@ internal fun contactRowIntent(contact: SearchContact, action: ContactRowAction):
     )
 
     ContactRowAction.Dial -> contact.phoneNumber?.let { number ->
-        Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))
+        Intent(Intent.ACTION_DIAL, Uri.fromParts(DIAL_SCHEME, number, null))
     }
 
     ContactRowAction.Message -> contact.phoneNumber?.let { number ->
@@ -34,5 +37,5 @@ internal fun contactRowIntent(contact: SearchContact, action: ContactRowAction):
 }
 
 /** Runs [action] for [contact], returning whether an app accepted the intent. */
-internal fun openContactRow(context: Context, contact: SearchContact, action: ContactRowAction): Boolean =
+fun openContactRow(context: Context, contact: SearchContact, action: ContactRowAction): Boolean =
     contactRowIntent(contact = contact, action = action)?.let { intent -> context.tryStartActivity(intent = intent) } ?: false

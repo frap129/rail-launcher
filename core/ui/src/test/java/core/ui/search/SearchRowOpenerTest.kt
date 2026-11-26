@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.search
 
 import android.content.Intent
 import android.net.Uri

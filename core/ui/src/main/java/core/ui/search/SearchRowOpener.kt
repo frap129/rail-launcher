@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.search
 
 import android.content.Context
 import android.content.Intent
@@ -10,7 +10,7 @@ import core.util.tryStartActivity
  * Opens [row] outside Rail: a typed URL or web search in the default browser, or the Play Store
  * search with its web address as the fallback. Returns whether an app accepted the intent.
  */
-internal fun openSearchResultRow(context: Context, row: SearchResult.ExternalRow): Boolean = when (row) {
+fun openSearchResultRow(context: Context, row: SearchResult.ExternalRow): Boolean = when (row) {
     is SearchResult.TypedUrlRow -> openBrowserUrl(context = context, url = row.url)
     is SearchResult.WebSearchRow -> openBrowserUrl(context = context, url = row.url)
     is SearchResult.WebSuggestionRow -> openBrowserUrl(context = context, url = row.url)

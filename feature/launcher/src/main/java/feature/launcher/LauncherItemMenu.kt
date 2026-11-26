@@ -55,6 +55,7 @@ import core.ui.popups.IPopupCollaborators
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
 import core.util.MAX_LAUNCHABLE_NAME_LENGTH
+import core.util.openStorePage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

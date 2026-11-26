@@ -3,6 +3,7 @@ package feature.launcher
 import androidx.lifecycle.ViewModel
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutKey
+import core.ui.IPinShortcutNotifier
 import core.util.logTypeName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
