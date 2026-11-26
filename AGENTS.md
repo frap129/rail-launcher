@@ -17,8 +17,8 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 ## Module layout
 - Modules are layered, top to bottom: `app`; `core:lifecycle`, the composition root; `feature:launcher` and `feature:settings`; `core:ui`, `core:data` and `core:util`.
   A module may depend only on modules in its own layer or below.
-- `core:ui`, `core:data` and `core:util` never depend on a feature module, `core:lifecycle` or `app`. Feature modules never depend on `app`, `core:lifecycle` or another feature module;
-  the Android library convention plugin fails the build when one declares a feature-to-feature dependency. Only `app` depends on `core:lifecycle`, which names feature types only to bind them in Koin.
+- Modules in the bottom `core:*` layer never depend on a feature module, `core:lifecycle` or `app`. Feature modules never depend on `app`, `core:lifecycle` or another feature module;
+  the Android library convention plugin fails the build when a module dependency violates these layer rules. Only `app` depends on `core:lifecycle`, which names feature types only to bind them in Koin.
 - Place code by kind, not by how many features use it today. A feature module keeps only:
   - its ViewModels, and the state and event types only they and the feature's screens use;
   - its Destinations;

@@ -17,7 +17,7 @@
 import com.android.build.api.dsl.LibraryExtension
 import dev.maples.build.configureAndroid
 import dev.maples.build.configureAndroidBase
-import dev.maples.build.configureFeatureDependencyGuard
+import dev.maples.build.configureModuleDependencyGuard
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.getByType
@@ -32,7 +32,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
 
             configureAndroidBase()
             configureAndroid(target, extensions.getByType<LibraryExtension>())
-            configureFeatureDependencyGuard()
+            configureModuleDependencyGuard()
         }
     }
 }
