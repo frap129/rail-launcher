@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.clickable
@@ -33,8 +33,6 @@ import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetSize
 import core.ui.R as CoreUiR
 import core.ui.layout.compactIconSize
-import core.ui.widgets.AddWidgetFlowState
-import core.ui.widgets.PickerGroup
 import org.koin.compose.koinInject
 
 private val profileBadgeSize: Dp = 18.dp

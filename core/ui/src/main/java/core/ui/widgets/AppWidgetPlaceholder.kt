@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -23,7 +23,6 @@ import core.data.widgets.WidgetAvailability
 import core.ui.R as CoreUiR
 import core.ui.composables.OutlinedText
 import core.ui.util.performLongPressHaptic
-import core.ui.widgets.AppWidgetModel
 
 /** Shown in place of an App Widget whose provider cannot be rendered right now. */
 @Composable
