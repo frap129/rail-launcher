@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables
 
 import android.app.Dialog
 import androidx.compose.ui.input.key.Key

@@ -1,10 +1,8 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import core.ui.popups.AddToFolderState
-import core.ui.popups.IPopupFolderActions
 
 /** Hosts the Add to Folder sheet; renders nothing while it is closed. */
 @Composable

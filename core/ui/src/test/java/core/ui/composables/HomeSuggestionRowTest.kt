@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.composables
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
+import core.ui.testing.createLauncherItemActions
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -36,9 +37,7 @@ class HomeSuggestionRowTest {
     @Test
     fun `announces a Home suggestion as suggested`() {
         setRow(itemActions = createLauncherItemActions())
-
         val actualNode: SemanticsNode = composeRule.onNodeWithText("Suggestion").fetchSemanticsNode()
-
         assertEquals(listOf("Suggestion, Suggested"), actualNode.config[SemanticsProperties.ContentDescription])
     }
 
@@ -46,9 +45,7 @@ class HomeSuggestionRowTest {
     fun `opens a Home suggestion on tap`() {
         val actualTapped: MutableList<Launchable> = mutableListOf()
         setRow(itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualTapped += launchable }))
-
         composeRule.onNodeWithText("Suggestion").performClick()
-
         assertEquals(listOf(inputSuggestion), actualTapped)
     }
 
@@ -56,10 +53,8 @@ class HomeSuggestionRowTest {
     fun `opens the Pop-up of a Home suggestion on swipe right`() {
         val actualOpened: MutableList<Launchable> = mutableListOf()
         setRow(itemActions = createLauncherItemActions().copy(onItemOpenPopup = { launchable, _ -> actualOpened += launchable }))
-
         composeRule.onNodeWithText("Suggestion").performTouchInput { swipeRight() }
         composeRule.waitForIdle()
-
         assertEquals(listOf(inputSuggestion), actualOpened)
     }
 

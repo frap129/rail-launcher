@@ -45,6 +45,7 @@ import core.data.profiles.ProfileInfo
 import core.data.shortcuts.ShortcutLaunchable
 import core.ui.R as CoreUiR
 import core.ui.composables.LaunchableIcon
+import core.ui.composables.MenuSuggestion
 import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle

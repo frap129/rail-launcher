@@ -1,19 +1,8 @@
 package feature.launcher
 
 import core.data.launchables.model.Launchable
-import core.data.prefs.RailSide
 import core.data.profiles.ProfileInfo
-
-fun createLauncherItemActions(railSide: RailSide = RailSide.DEFAULT): LauncherItemActions = LauncherItemActions(
-    onItemTap = { _, _ -> },
-    onItemLongPress = { _, _ -> },
-    onToggleFavorite = {},
-    onItemOpenPopup = { _, _ -> },
-    onItemAnchorChanged = { _, _ -> },
-    privateSpaceActions = PrivateSpaceActions(onUnlock = {}, onLock = {}, onSettings = null),
-    railBounds = { null },
-    railSide = railSide
-)
+import core.ui.composables.MenuSuggestion
 
 /** The menu [LauncherViewModel] resolves for [item], defaulting every action it has not been given to hidden. */
 fun createItemMenu(
