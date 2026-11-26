@@ -13,10 +13,10 @@ sealed interface HomeReorder {
 }
 
 /** A Widget Area row reported by the reorderable library, with its LazyColumn position. */
-data class ReorderRow(val listIndex: Int, val key: Any?)
+internal data class ReorderRow(val listIndex: Int, val key: Any?)
 
 /** Resolves the places a capped Widget Area drag moved between from the rows it straddled. */
-fun resolvePlaceReorder(rows: List<ReorderRow>, fromListIndex: Int, toListIndex: Int, placeIds: List<Long>): HomeReorder.Place? {
+internal fun resolvePlaceReorder(rows: List<ReorderRow>, fromListIndex: Int, toListIndex: Int, placeIds: List<Long>): HomeReorder.Place? {
     val fromKey: Any? = rows.firstOrNull { row -> row.listIndex == fromListIndex }?.key
     val toKey: Any? = rows.firstOrNull { row -> row.listIndex == toListIndex }?.key
     val indices: Pair<Int, Int> = resolveMoveIndices(fromKey, toKey, placeIds, ::isPlaceKey, ::placeKey) ?: return null

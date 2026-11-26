@@ -7,7 +7,6 @@ import core.data.apps.model.App
 import core.data.calendar.CalendarInfo
 import core.data.calendar.ICalendarEventSource
 import core.data.calendar.UpcomingEventsOutcome
-import core.data.folders.Folder
 import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
@@ -23,6 +22,7 @@ import core.data.prefs.HeaderSize
 import core.data.prefs.HeaderTapSetting
 import core.data.prefs.TimeFormat
 import core.data.prefs.is24Hour
+import core.data.search.filterLaunchables
 import core.data.time.IClockSource
 import core.data.widgets.AppWidgetId
 import core.data.widgets.IAppWidgetHostSource
@@ -615,14 +615,6 @@ class WidgetSettingsViewModel(
             settingsRepository.updateHeaderSettings(transform)
         }
     }
-}
-
-/** Filters Launchables by name, ignoring case and accents. */
-internal fun filterLaunchables(launchables: List<Launchable>, query: String): List<Launchable> {
-    val searchQuery: SearchQuery = SearchQuery(query)
-    return launchables
-        .filterNot { launchable -> launchable is Folder }
-        .filter { launchable -> searchQuery.matches(candidate = launchable.name) }
 }
 
 /** The installed apps offered in the Media Player exclusion list, one row per package, excluded apps first. */

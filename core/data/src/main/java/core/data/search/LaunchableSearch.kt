@@ -1,11 +1,13 @@
 package core.data.search
 
 import core.data.apps.model.isPrivateApp
+import core.data.folders.Folder
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.profiles.isPrivate
 import core.data.shortcuts.ShortcutLaunchable
+import core.util.SearchQuery
 import core.util.normalizedForSearch
 import core.util.wordsForSearch
 import kotlin.math.abs
@@ -143,6 +145,14 @@ private fun LaunchableState.hasUnlockedPrivateSpace(): Boolean =
 private fun Launchable.isPrivateLaunchable(): Boolean = isPrivateApp || (this is ShortcutLaunchable && profileInfo?.isPrivate == true)
 
 private fun LaunchableState.isSearchable(launchable: Launchable): Boolean = !launchable.isPrivateLaunchable() || hasUnlockedPrivateSpace()
+
+/** Filters Launchables by name, ignoring case and accents. */
+fun filterLaunchables(launchables: List<Launchable>, query: String): List<Launchable> {
+    val searchQuery: SearchQuery = SearchQuery(query)
+    return launchables
+        .filterNot { launchable -> launchable is Folder }
+        .filter { launchable -> searchQuery.matches(candidate = launchable.name) }
+}
 
 // App List order, Hidden apps included where they would rank if visible, then the Launchables kept out of it,
 // such as Apps held in a Folder.

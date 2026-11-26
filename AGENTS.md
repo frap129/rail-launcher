@@ -32,7 +32,7 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP), framework sources, and pure non-UI projections and helpers over repositories. No Compose and no Android UI. No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
 - `core:ui`: Compose UI, UI state, UI helpers and strings (theme, `ScrollRail`, `Destination` model), plus the Pop-up collaborator layer in `core.ui.popups`: the `IPopupSession` contract, the host-implemented `IPopupCard` contract, the `IPopupCollaborators` aggregate, the editor, the Add apps and Shortcut pickers, and the Folder actions. These are UI collaborators, not ViewModels; `core:lifecycle` owns the Koin wiring that binds them. No ViewModels and no feature dependencies.
 - `core:util`: non-UI utilities.
-- `feature:launcher`, `feature:settings`: the feature modules governed by the boundary above. Existing feature modules still hold UI code that belongs in core; `rail-aj7` moves it. Put new code where it belongs.
+- `feature:launcher`, `feature:settings`: the feature modules governed by the boundary above. Put new code where it belongs.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.
 - `core:baselineprofile` is a `com.android.test` module with its own hard-coded SDK/Java 11 config; don't apply convention plugins to it.
 
