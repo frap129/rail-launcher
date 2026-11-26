@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:util"))
     implementation(libs.compose.activity)
+    implementation(libs.compose.material.icons.core)
     implementation(libs.icons.fontawesome)
     implementation(libs.reorderable)
     testImplementation(testFixtures(project(":core:data")))
