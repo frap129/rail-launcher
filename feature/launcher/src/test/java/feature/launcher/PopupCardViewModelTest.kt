@@ -72,6 +72,7 @@ import core.ui.popups.IconPickerState
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
 import core.ui.popups.PopupRow
+import core.ui.popups.PopupWidgetState
 import core.ui.popups.TEST_INPUT_ANCHOR
 import core.ui.widgets.AddWidgetFlowState
 import core.ui.widgets.WidgetEvent

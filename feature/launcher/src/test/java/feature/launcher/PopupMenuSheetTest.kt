@@ -22,6 +22,7 @@ import core.ui.composables.assertSheetTitleMatchesFirstRow
 import core.ui.composables.getString
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
+import core.ui.popups.PopupWidgetPage
 import core.ui.widgets.AppWidgetModel
 import io.mockk.mockk
 import io.mockk.verify

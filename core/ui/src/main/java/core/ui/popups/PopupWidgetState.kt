@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetProvider

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -83,9 +83,6 @@ import core.ui.composables.suspendedIconColorFilter
 import core.ui.composables.tracksTextFieldFocus
 import core.ui.layout.compactIconSize
 import core.ui.layout.minTouchTargetSize
-import core.ui.popups.PopupEmptyState
-import core.ui.popups.PopupSheetTitleRow
-import core.ui.popups.PopupShortcutLabel
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
 import core.ui.widgets.AppWidgetContent
@@ -121,7 +118,7 @@ private val itemIconSize = 32.dp
 private val itemIconGap = 12.dp
 private val itemDividerInset = 16.dp
 val popupWidgetHorizontalPadding: Dp = 8.dp
-internal const val POPUP_CARD_TEST_TAG: String = "popupCard"
+const val POPUP_CARD_TEST_TAG: String = "popupCard"
 
 @Immutable
 private data class NotificationRowsUi(
@@ -172,7 +169,7 @@ fun PopupCard(
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val closeLabel: String = stringResource(R.string.close_popup)
+    val closeLabel: String = stringResource(CoreUiR.string.close_popup)
     val focusRequester: FocusRequester = remember { FocusRequester() }
     val hapticFeedback: HapticFeedback = LocalHapticFeedback.current
     val currentOnLongPress: () -> Unit by rememberUpdatedState(onLongPress)
@@ -303,10 +300,10 @@ fun PopupCard(
                     when (emptyReason) {
                         PopupEmptyReason.None -> Unit
 
-                        PopupEmptyReason.Empty -> PopupEmptyState(messageResId = R.string.popup_empty_hint)
+                        PopupEmptyReason.Empty -> PopupEmptyState(messageResId = CoreUiR.string.popup_empty_hint)
 
                         PopupEmptyReason.FolderEmpty -> PopupEmptyState(
-                            messageResId = R.string.folder_empty,
+                            messageResId = CoreUiR.string.folder_empty,
                             onAddApps = onAddItems
                         )
 
@@ -376,7 +373,7 @@ private fun PopupWidgetSection(
 
 @Composable
 private fun PopupHeader(header: PopupHeader, focusRequester: FocusRequester, onClick: (() -> Unit)?, onLongClick: () -> Unit) {
-    val announcement: String = stringResource(R.string.popup_announcement, header.name)
+    val announcement: String = stringResource(CoreUiR.string.popup_announcement, header.name)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -480,11 +477,11 @@ private fun PopupNotificationRow(row: NotificationRowUi) {
 @Composable
 private fun NotificationRowContent(row: NotificationRowUi) {
     val snapshot = row.snapshot
-    val expandLabel: String = stringResource(R.string.notification_expand)
-    val collapseLabel: String = stringResource(R.string.notification_collapse)
-    val dismissLabel: String = stringResource(R.string.notification_dismiss)
-    val openLabel: String = stringResource(R.string.notification_open)
-    val announcement: String = stringResource(R.string.notification_announcement, row.appName, snapshot.title)
+    val expandLabel: String = stringResource(CoreUiR.string.notification_expand)
+    val collapseLabel: String = stringResource(CoreUiR.string.notification_collapse)
+    val dismissLabel: String = stringResource(CoreUiR.string.notification_dismiss)
+    val openLabel: String = stringResource(CoreUiR.string.notification_open)
+    val announcement: String = stringResource(CoreUiR.string.notification_announcement, row.appName, snapshot.title)
     val actionLayout: NotificationActionLayout = notificationActionLayout(actions = snapshot.actions)
     val toggleLabel: String = if (row.isExpanded) collapseLabel else expandLabel
     val clickLabel: String = if (row.isExpanded) collapseLabel else openLabel
@@ -542,7 +539,7 @@ private fun NotificationRowContent(row: NotificationRowUi) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(
-                        R.string.notification_app_and_age,
+                        CoreUiR.string.notification_app_and_age,
                         row.appName,
                         notificationAgeLabel(postTime = snapshot.postTime, nowMillis = row.nowMillis)
                     ),
@@ -612,7 +609,7 @@ private fun NotificationExpandedContent(row: NotificationRowUi, actionLayout: No
                 }
                 if (overflowButtons.isNotEmpty()) {
                     TextButton(onClick = { showActionSheet = true }) {
-                        Text(text = stringResource(R.string.notification_more_actions))
+                        Text(text = stringResource(CoreUiR.string.notification_more_actions))
                     }
                 }
             }
@@ -621,7 +618,7 @@ private fun NotificationExpandedContent(row: NotificationRowUi, actionLayout: No
             if (row.isReplySent) {
                 Text(
                     modifier = Modifier.padding(vertical = notificationVerticalPadding),
-                    text = stringResource(R.string.notification_sent),
+                    text = stringResource(CoreUiR.string.notification_sent),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -646,13 +643,13 @@ private fun NotificationExpandedContent(row: NotificationRowUi, actionLayout: No
 @Composable
 private fun NotificationReplyField(onSend: (String) -> Unit) {
     var replyText: String by rememberSaveable { mutableStateOf("") }
-    val sendLabel: String = stringResource(R.string.notification_send)
+    val sendLabel: String = stringResource(CoreUiR.string.notification_send)
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             modifier = Modifier.weight(1f).tracksTextFieldFocus(),
             value = replyText,
             onValueChange = { value -> replyText = value },
-            placeholder = { Text(text = stringResource(R.string.notification_reply_hint)) },
+            placeholder = { Text(text = stringResource(CoreUiR.string.notification_reply_hint)) },
             maxLines = NOTIFICATION_REPLY_MAX_LINES
         )
         IconButton(
@@ -708,11 +705,11 @@ private fun NotificationActionsSheet(
 private fun notificationAgeLabel(postTime: Long, nowMillis: Long): String {
     val age: NotificationAge = notificationAge(postTime = postTime, now = nowMillis)
     return when (age) {
-        NotificationAge.Now -> stringResource(R.string.notification_age_now)
-        is NotificationAge.Minutes -> stringResource(R.string.notification_age_minutes, age.value)
-        is NotificationAge.Hours -> stringResource(R.string.notification_age_hours, age.value)
-        is NotificationAge.Days -> stringResource(R.string.notification_age_days, age.value)
-        is NotificationAge.Weeks -> stringResource(R.string.notification_age_weeks, age.value)
+        NotificationAge.Now -> stringResource(CoreUiR.string.notification_age_now)
+        is NotificationAge.Minutes -> stringResource(CoreUiR.string.notification_age_minutes, age.value)
+        is NotificationAge.Hours -> stringResource(CoreUiR.string.notification_age_hours, age.value)
+        is NotificationAge.Days -> stringResource(CoreUiR.string.notification_age_days, age.value)
+        is NotificationAge.Weeks -> stringResource(CoreUiR.string.notification_age_weeks, age.value)
     }
 }
 

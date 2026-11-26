@@ -19,6 +19,7 @@ import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import core.ui.popups.POPUP_CARD_TEST_TAG
 import kotlin.math.abs
 import org.junit.Rule
 import org.junit.Test
@@ -36,7 +37,6 @@ private const val BACK_RETRY_TIMEOUT_MS = 1_000L
 private const val BACK_RETRIES = 3
 private const val SCROLL_ATTEMPTS = 6
 private const val HEADER_TIME_DESCRIPTION_FRAGMENT = ":"
-private const val POPUP_CARD_TEST_TAG = "popupCard"
 private const val POPUP_SWIPE_END_FRACTION = 0.9f
 private const val POPUP_SWIPE_STEPS = 10
 private const val POPUP_SCROLL_STEPS = 20

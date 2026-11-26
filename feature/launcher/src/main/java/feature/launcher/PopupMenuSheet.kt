@@ -32,6 +32,7 @@ import core.ui.composables.SheetTitle
 import core.ui.composables.sheetContainerColor
 import core.ui.popups.IPopupEditor
 import core.ui.popups.IPopupFolderActions
+import core.ui.popups.PopupWidgetPage
 import core.ui.widgets.WidgetMenuTitle
 import core.util.openApplicationDetailsSettings
 import org.koin.compose.koinInject

@@ -1,4 +1,4 @@
-package feature.launcher
+package core.ui.popups
 
 import core.util.MILLIS_PER_DAY
 import core.util.MILLIS_PER_HOUR
