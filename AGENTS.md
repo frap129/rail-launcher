@@ -15,14 +15,24 @@ All development commands must run inside the Nix flake. Do not export toolchain 
 - Emulators: the Android MCP's `start_emulator` tool is denied in `opencode.json`. Start an AVD manually with `nix develop .#emulator --command emulator -avd <name>` only when no physical device is in use.
 
 ## Module layout
-- Modules are layered App > Feature > Core. A module may depend on modules in its own layer or below, never above: core modules never depend on feature modules or `app`, and feature modules never depend on `app`.
-- Place code by kind, not by how many features use it today: UI components, UI state, UI helpers and their strings go in `core:ui`, data code in `core:data`, non-UI utilities in `core:util`. A feature module keeps only what is specific to that feature: its ViewModels, its screens and `Destination`, and the glue binding its state to core components. Abstract into core from the start.
+- Modules are layered, top to bottom: `app`; `core:lifecycle`, the composition root; `feature:launcher` and `feature:settings`; `core:ui`, `core:data` and `core:util`.
+  A module may depend only on modules in its own layer or below.
+- `core:ui`, `core:data` and `core:util` never depend on a feature module, `core:lifecycle` or `app`. Feature modules never depend on `app`, `core:lifecycle` or another feature module;
+  the Android library convention plugin fails the build when one declares a feature-to-feature dependency. Only `app` depends on `core:lifecycle`, which names feature types only to bind them in Koin.
+- Place code by kind, not by how many features use it today. A feature module keeps only:
+  - its ViewModels, and the state and event types only they and the feature's screens use;
+  - its Destinations;
+  - its screens with their private composables: `LauncherScreen` and `LauncherContent`, the Home, App List and Search content
+    (`LauncherHome`, `LauncherAppList`, `LauncherSearch`), and each Settings screen;
+  - glue, meaning any composable or helper that takes one of its ViewModels or the state types it keeps.
+- Everything else moves by kind: composables, modifiers, gestures, UI state and UI helpers to `core:ui`; non-UI utilities to `core:util`;
+  non-UI helpers over `core:data` types to `core:data`. Strings go with the code that renders them.
 - `app` (`dev.maples.rail`): a thin `MainActivity` that lists the nav `Destination`s (`launcherDestination`, `settingsDestination`) passed to `core.ui.App`, plus `SystemBarIconContrast` (system-bar icon-tone decision logic, unit-tested).
-- `core:lifecycle`: application-level plumbing: `MainApplication` (installed by the app manifest) owns all Koin wiring (DAOs, repositories, ViewModels, Pop-up collaborators) and the Room DB, and the module also holds application-scoped implementations, the `TemplateActivity` base, and `LauncherSignals`, the activity-owned launcher-signal channel exposed as a `Flow`. New repos, ViewModels and Pop-up collaborator bindings must be registered here. Its `MainApplication` currently imports feature types, which breaks the layering above; `rail-aj7` moves the composition root to `app`. Until then, add no other feature imports to this module.
+- `core:lifecycle`: the composition root and application-level plumbing: `MainApplication` (installed by the app manifest) owns all Koin wiring (DAOs, repositories, ViewModels, Pop-up collaborators) and the Room DB, and the module also holds application-scoped implementations, the `TemplateActivity` base, and `LauncherSignals`, the activity-owned launcher-signal channel exposed as a `Flow`. It names feature types only to bind them in Koin. New repos, ViewModels and Pop-up collaborator bindings must be registered here.
 - `core:data`: repositories as `IFoo` interface + `IFooImpl` class, Room DB (`AppDatabase`, KSP), framework sources, and pure non-UI projections and helpers over repositories. No Compose and no Android UI. No DataStore; preferences are Room-backed. Room schemas export to `core/data/schemas`, so commit the new JSON on every `@Database` version bump.
 - `core:ui`: Compose UI, UI state, UI helpers and strings (theme, `ScrollRail`, `Destination` model), plus the Pop-up collaborator layer in `core.ui.popups`: the `IPopupSession` contract, the host-implemented `IPopupCard` contract, the `IPopupCollaborators` aggregate, the editor, the Add apps and Shortcut pickers, and the Folder actions. These are UI collaborators, not ViewModels; `core:lifecycle` owns the Koin wiring that binds them. No ViewModels and no feature dependencies.
-- `core:util`, `feature:launcher`, `feature:settings`: non-UI utilities and the feature modules. Existing feature modules still hold UI code that belongs in core; `rail-aj7` moves it. Put new code where it belongs.
-- Feature modules must not depend on other feature modules; the Android library convention plugin fails the build when one declares such a dependency.
+- `core:util`: non-UI utilities.
+- `feature:launcher`, `feature:settings`: the feature modules governed by the boundary above. Existing feature modules still hold UI code that belongs in core; `rail-aj7` moves it. Put new code where it belongs.
 - Package names are module paths (`core.data`, `feature.launcher`), not `dev.maples.*`, except `app`.
 - `core:baselineprofile` is a `com.android.test` module with its own hard-coded SDK/Java 11 config; don't apply convention plugins to it.
 
