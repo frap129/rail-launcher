@@ -35,6 +35,7 @@ import core.data.widgets.ResizeBounds
 import core.ui.R as CoreUiR
 import core.ui.layout.minTouchTargetSize
 import core.ui.util.formatDpLabel
+import core.ui.widgets.ResizeState
 
 /** Dimming applied to Home content that is inert while one place is resized. */
 const val RESIZE_DIMMED_ALPHA: Float = 0.38f

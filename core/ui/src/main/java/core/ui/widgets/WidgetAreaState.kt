@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
@@ -7,7 +7,6 @@ import core.data.widgets.WidgetAreaHeightLimit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetSpacing
 import core.data.widgets.WidgetWidth
-import core.ui.widgets.WidgetModel
 
 /** How Home lays out the Widget Area. */
 sealed interface WidgetAreaLayout {
@@ -16,7 +15,8 @@ sealed interface WidgetAreaLayout {
     data object Uncapped : WidgetAreaLayout
 }
 
-internal fun WidgetAreaSettings.toLayout(): WidgetAreaLayout =
+/** Maps the persisted height-limit settings to the Widget Area layout. */
+fun WidgetAreaSettings.toLayout(): WidgetAreaLayout =
     if (heightLimitEnabled) WidgetAreaLayout.Capped(fraction = heightLimit.fraction) else WidgetAreaLayout.Uncapped
 
 /** What the Widget Area shows once the first clock reading has arrived. */

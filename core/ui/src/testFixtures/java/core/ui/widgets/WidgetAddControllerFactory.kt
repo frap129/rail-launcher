@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import androidx.lifecycle.SavedStateHandle
 import core.data.testing.createAddFlowPendingIdsMock
@@ -8,6 +8,7 @@ import core.data.testing.headerPlace
 import core.data.widgets.IAddFlowPendingIds
 import core.data.widgets.IAppWidgetHostSource
 import core.data.widgets.IWidgetAreaRepository
+import core.data.widgets.InsertPosition
 import core.ui.layout.HomeEditState
 
 /** The production App Widget add controller over the given test doubles. */
@@ -24,3 +25,5 @@ fun createAddController(
     savedStateHandle = savedStateHandle,
     pendingIds = mockPendingIds
 )
+
+fun settingsAddOrigin(): AddWidgetOrigin = AddWidgetOrigin(insertAt = InsertPosition.End, returnToSettings = true)

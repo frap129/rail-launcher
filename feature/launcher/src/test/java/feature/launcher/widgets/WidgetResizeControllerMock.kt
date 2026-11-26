@@ -1,5 +1,9 @@
 package feature.launcher.widgets
 
+import core.ui.widgets.IWidgetResizeController
+import core.ui.widgets.ResizeFinish
+import core.ui.widgets.ResizeState
+import core.ui.widgets.WidgetSizeReport
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every

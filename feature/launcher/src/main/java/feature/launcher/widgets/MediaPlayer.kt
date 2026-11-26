@@ -65,6 +65,8 @@ import core.data.media.PlaybackStatus
 import core.data.prefs.RailSide
 import core.data.widgets.WidgetWidth
 import core.ui.composables.focusIndicator
+import core.ui.widgets.MediaPlayerActions
+import core.ui.widgets.MediaPlayerUiState
 import feature.launcher.R
 
 private val mediaArtworkSize: Dp = 80.dp

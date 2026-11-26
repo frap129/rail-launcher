@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.widgets.AppWidgetId
 import core.data.widgets.ResizeBounds

@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import android.app.Activity
 import core.util.EventChannel

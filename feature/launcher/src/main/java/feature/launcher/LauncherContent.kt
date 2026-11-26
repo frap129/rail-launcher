@@ -77,11 +77,11 @@ import core.ui.popups.IPopupEditor
 import core.ui.popups.PopupAnchor
 import core.ui.popups.PopupEditState
 import core.ui.util.consumeTouches
+import core.ui.widgets.WidgetEditDraft
 import core.util.attemptLaunch
 import core.util.toDp
 import feature.launcher.widgets.WidgetAreaUi
 import feature.launcher.widgets.WidgetAreaViewModel
-import feature.launcher.widgets.WidgetEditDraft
 import feature.launcher.widgets.rememberWidgetAreaUi
 
 private val doneButtonPadding: Dp = 24.dp

@@ -1,4 +1,4 @@
-package feature.launcher.widgets
+package core.data.widgets
 
 import core.data.testing.createWidgetAreaRepositoryMock
 import core.data.widgets.IWidgetAreaRepository

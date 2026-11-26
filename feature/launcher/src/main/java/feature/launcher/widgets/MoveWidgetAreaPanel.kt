@@ -27,6 +27,8 @@ import core.ui.R as CoreUiR
 import core.ui.util.formatDpLabel
 import core.ui.util.performSegmentTickHaptic
 import core.ui.widgets.MoveWidgetAreaSlider
+import core.ui.widgets.MoveWidgetAreaState
+import core.ui.widgets.MoveWidgetAreaStep
 import feature.launcher.R
 
 /** The non-modal bottom panel that moves the Widget Area down while Home stays visible. */

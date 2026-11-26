@@ -169,10 +169,15 @@ import core.ui.popups.IPopupPicker
 import core.ui.popups.IPopupPickerImpl
 import core.ui.popups.IPopupSession
 import core.ui.popups.IPopupSessionImpl
+import core.ui.widgets.AppWidgetResults
 import core.ui.widgets.HeaderFormatter
 import core.ui.widgets.IAppWidgetViewCache
 import core.ui.widgets.IHeaderTapTargetResolver
 import core.ui.widgets.IHeaderTapTargetResolverImpl
+import core.ui.widgets.IWidgetAddController
+import core.ui.widgets.IWidgetAddControllerImpl
+import core.ui.widgets.IWidgetResizeController
+import core.ui.widgets.IWidgetResizeControllerImpl
 import core.util.screenHeightPx
 import feature.launcher.IPinShortcutNotifier
 import feature.launcher.IPinShortcutNotifierImpl
@@ -180,11 +185,6 @@ import feature.launcher.LauncherViewModel
 import feature.launcher.PinShortcutViewModel
 import feature.launcher.PopupCardViewModel
 import feature.launcher.agenda.AgendaViewModel
-import feature.launcher.widgets.AppWidgetResults
-import feature.launcher.widgets.IWidgetAddController
-import feature.launcher.widgets.IWidgetAddControllerImpl
-import feature.launcher.widgets.IWidgetResizeController
-import feature.launcher.widgets.IWidgetResizeControllerImpl
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.settings.PopupSettingsViewModel
 import feature.settings.SettingsViewModel

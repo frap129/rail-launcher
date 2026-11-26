@@ -40,7 +40,7 @@ import core.ui.popups.PopupFrame
 import core.ui.popups.PopupInsets
 import core.ui.popups.PopupPlacement
 import core.ui.util.consumeTouches
-import feature.launcher.widgets.ResizeState
+import core.ui.widgets.ResizeState
 import kotlin.math.roundToInt
 
 private const val ENTER_DURATION_MILLIS: Int = 200

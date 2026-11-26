@@ -18,10 +18,10 @@ import core.ui.composables.SheetActionRow
 import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTextTitle
 import core.ui.composables.sheetContainerColor
+import core.ui.widgets.WidgetMenuAction
+import core.ui.widgets.WidgetMenuState
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.WidgetMenu
-import feature.launcher.widgets.WidgetMenuAction
-import feature.launcher.widgets.WidgetMenuState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

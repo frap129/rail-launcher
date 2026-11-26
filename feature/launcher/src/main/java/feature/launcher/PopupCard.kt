@@ -88,9 +88,9 @@ import core.ui.popups.PopupSheetTitleRow
 import core.ui.popups.PopupShortcutLabel
 import core.ui.util.consumeTouches
 import core.ui.util.performLongPressHaptic
+import core.ui.widgets.ResizeState
 import feature.launcher.widgets.AppWidgetContent
 import feature.launcher.widgets.ResizeOverlay
-import feature.launcher.widgets.ResizeState
 import feature.launcher.widgets.WidgetStackPager
 
 private val cardCornerRadius = 24.dp

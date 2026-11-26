@@ -1,6 +1,5 @@
 package feature.launcher.widgets
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,6 +39,7 @@ import core.data.widgets.ResizeBounds
 import core.data.widgets.WidgetAreaEdit
 import core.data.widgets.WidgetAreaSettings
 import core.data.widgets.WidgetAvailability
+import core.data.widgets.WidgetPageSettler
 import core.data.widgets.WidgetPlace
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.WidgetStackFullException
@@ -62,11 +62,41 @@ import core.ui.R as CoreUiR
 import core.ui.layout.HomeEditMode
 import core.ui.layout.HomeEditState
 import core.ui.layout.HomeHeightState
+import core.ui.widgets.AddWidgetFlowState
+import core.ui.widgets.AddWidgetOrigin
+import core.ui.widgets.AddWidgetPlacement
+import core.ui.widgets.AddWidgetTarget
+import core.ui.widgets.AppWidgetMenuCapabilities
 import core.ui.widgets.HeaderFormatter
-import core.ui.widgets.HeaderModel
 import core.ui.widgets.IHeaderTapTargetResolver
+import core.ui.widgets.IWidgetAddController
+import core.ui.widgets.IWidgetResizeController
+import core.ui.widgets.MediaPlayerUiState
+import core.ui.widgets.MoveWidgetAreaState
+import core.ui.widgets.MoveWidgetAreaStep
+import core.ui.widgets.ResizeState
+import core.ui.widgets.UndoAction
+import core.ui.widgets.WidgetAreaState
+import core.ui.widgets.WidgetEditDraft
+import core.ui.widgets.WidgetEvent
+import core.ui.widgets.WidgetMenuAction
+import core.ui.widgets.WidgetMenuChoiceKey
+import core.ui.widgets.WidgetMenuChoiceOption
+import core.ui.widgets.WidgetMenuItem
+import core.ui.widgets.WidgetMenuState
 import core.ui.widgets.WidgetModel
+import core.ui.widgets.WidgetPlaceModel
+import core.ui.widgets.WidgetSizeReport
+import core.ui.widgets.appWidgetMenuCapabilities
+import core.ui.widgets.finishResizeAndReport
 import core.ui.widgets.labelResource
+import core.ui.widgets.reconciledWith
+import core.ui.widgets.removeWidgetAndReport
+import core.ui.widgets.startWidgetWiring
+import core.ui.widgets.toAppWidgetModel
+import core.ui.widgets.toLayout
+import core.ui.widgets.toPlaces
+import core.ui.widgets.toWidgetEvent
 import core.util.EventChannel
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
 import feature.launcher.R
@@ -89,88 +119,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
-
-/** One step of the Move Widget Area adjuster. */
-enum class MoveWidgetAreaStep {
-    Up,
-    Down
-}
-
-/** The live Move Widget Area adjuster state. */
-data class MoveWidgetAreaState(val draftOffsetDp: Int, val maxOffsetDp: Int, val canMoveUp: Boolean, val canMoveDown: Boolean)
-
-/** The long-press menu currently shown on Home. */
-sealed interface WidgetMenuState {
-    data object Closed : WidgetMenuState
-
-    data class HeaderMenu(val items: List<WidgetMenuItem>) : WidgetMenuState
-
-    data class EmptyAreaMenu(val items: List<WidgetMenuItem>) : WidgetMenuState
-
-    data class AppWidgetMenu(
-        val widgetId: Long,
-        val appWidgetId: AppWidgetId,
-        val icon: Icon,
-        val label: String,
-        val items: List<WidgetMenuItem>
-    ) : WidgetMenuState
-
-    data class MediaPlayerMenu(val icon: Icon, val label: String, val items: List<WidgetMenuItem>) : WidgetMenuState
-
-    data class ClockStyleChooser(val selected: ClockStyle, val previews: List<HeaderModel>) : WidgetMenuState
-}
-
-sealed interface WidgetMenuItem {
-    val id: WidgetMenuAction
-
-    data class Toggle(
-        override val id: WidgetMenuAction,
-        val checked: Boolean,
-        val enabled: Boolean,
-        val supportingText: Int? = null,
-        val rowOpensAction: Boolean = false
-    ) : WidgetMenuItem
-
-    data class Action(override val id: WidgetMenuAction, val labelArg: String? = null) : WidgetMenuItem
-
-    data class Choice(
-        override val id: WidgetMenuAction,
-        @StringRes val valueLabel: Int,
-        val options: List<WidgetMenuChoiceOption>,
-        val selectedKey: WidgetMenuChoiceKey,
-        val expanded: Boolean
-    ) : WidgetMenuItem
-}
-
-@JvmInline
-value class WidgetMenuChoiceKey(val value: String)
-
-data class WidgetMenuChoiceOption(val key: WidgetMenuChoiceKey, @StringRes val label: Int, val enabled: Boolean = true)
-
-enum class WidgetMenuAction {
-    EditFavorites,
-    Clock,
-    Date,
-    Battery,
-    UpcomingEvents,
-    ClockStyle,
-    AddWidget,
-    MoveWidgetArea,
-    ReplaceHeader,
-    ExtendUnderRail,
-    Resize,
-    Reconfigure,
-    RemoveHeader,
-    RestoreHeader,
-    RemoveWidget,
-    RemoveFromStack,
-    EditWidgets,
-    WidgetSettings,
-    MediaPlayer,
-    OpenMediaPlayer,
-    ExcludeMediaApp,
-    MediaPlayerSettings
-}
 
 private sealed interface WidgetMenuTarget {
     data class Header(val widgetId: Long? = null) : WidgetMenuTarget

@@ -1,11 +1,10 @@
-package feature.launcher.widgets
+package core.ui.widgets
 
 import core.data.widgets.PlacedWidget
 import core.data.widgets.WidgetAvailability
 import core.data.widgets.WidgetProviderInfo
 import core.data.widgets.iconOr
 import core.data.widgets.labelOr
-import core.ui.widgets.AppWidgetModel
 
 /** The provider actions one placed App Widget offers in its menu. */
 data class AppWidgetMenuCapabilities(val isReconfigurable: Boolean)

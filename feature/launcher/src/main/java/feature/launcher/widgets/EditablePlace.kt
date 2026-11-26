@@ -70,6 +70,7 @@ import core.ui.util.performSegmentTickHaptic
 import core.ui.widgets.AppWidgetModel
 import core.ui.widgets.HeaderModel
 import core.ui.widgets.WidgetModel
+import core.ui.widgets.WidgetPlaceModel
 import feature.launcher.R
 import sh.calvin.reorderable.ReorderableColumn
 
