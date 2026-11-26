@@ -9,6 +9,9 @@ private const val DEFAULT_PROFILE_SERIAL: Long = 0L
 private const val DEFAULT_MIN_HEIGHT_DP: Int = 48
 private const val DEFAULT_WIDGET_WIDTH_DP: Int = 110
 
+/** The App Widget label shared by Widget and Pop-up menu tests. */
+const val WIDGET_LABEL: String = "Weather"
+
 fun appWidgetProviderInfo(
     provider: WidgetProvider = WidgetProvider(packageName = "com.example", className = "ExampleWidget"),
     appPackageName: String = provider.packageName,

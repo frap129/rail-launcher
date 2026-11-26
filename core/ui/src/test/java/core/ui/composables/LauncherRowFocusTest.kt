@@ -76,7 +76,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Down gives row focus to the first App List row when no row has it`() {
-        composeRule.setAppListRows(itemActions = createLauncherItemActions())
+        composeRule.setAppListGroupRows(itemActions = createLauncherItemActions())
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
         composeRule.row(name = "Alpha").assertIsFocused()
     }
@@ -97,7 +97,7 @@ class LauncherRowFocusTest {
 
     @Test
     fun `Up moves row focus to the previous App List row`() {
-        composeRule.setAppListRows(itemActions = createLauncherItemActions())
+        composeRule.setAppListGroupRows(itemActions = createLauncherItemActions())
         composeRule.row(name = "Beta").requestFocus()
         composeRule.onRoot().performKeyInput { pressKey(Key.DirectionUp) }
         composeRule.row(name = "Alpha").assertIsFocused()
@@ -125,7 +125,7 @@ class LauncherRowFocusTest {
     @Test
     fun `Enter opens the focused App List row`() {
         val actualOpens: MutableList<Launchable> = mutableListOf()
-        composeRule.setAppListRows(
+        composeRule.setAppListGroupRows(
             itemActions = createLauncherItemActions().copy(onItemTap = { launchable, _ -> actualOpens += launchable })
         )
         composeRule.row(name = "Beta").requestFocus()

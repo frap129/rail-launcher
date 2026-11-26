@@ -69,7 +69,7 @@ class LauncherContentPointerTest {
     fun `the mouse wheel scrolls the App List`() {
         val inputApps: List<Launchable> = createScrollableApps()
         val inputLazyListState: LazyListState = LazyListState()
-        composeRule.setAppListRows(
+        composeRule.setLauncherAppListContent(
             itemActions = createLauncherItemActions(),
             appList = listOf(LaunchableGroup.InitialGroup(label = "A", items = inputApps)),
             lazyListState = inputLazyListState

@@ -10,6 +10,7 @@ import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Clock
 import core.data.icons.model.Icon
 import core.data.prefs.HeaderTapSetting
+import core.data.testing.APP_NAME
 import core.data.testing.TEST_RAIL_ICON_RES_ID
 import core.data.testing.TEST_SDK
 import core.ui.R as CoreUiR
@@ -25,7 +26,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val APP_NAME: String = "Maps"
 private const val APP_KEY: String = "Maps"
 private const val SETTINGS_ROW_TITLE: String = "Name"
 private const val SWITCH_ROW_TITLE: String = "On Home"

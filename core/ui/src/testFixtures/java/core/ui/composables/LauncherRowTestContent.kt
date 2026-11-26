@@ -57,8 +57,11 @@ fun ComposeContentTestRule.setLauncherRowTestContent(content: @Composable (Modif
     }
 }
 
-/** Sets App List groups of the test Apps over the contrasting test background. */
-fun ComposeContentTestRule.setAppListRows(itemActions: LauncherItemActions, appList: List<LaunchableGroup.Listed> = createTestAppList()) {
+/** Sets bare App List group rows in a Column over the contrasting test background. */
+fun ComposeContentTestRule.setAppListGroupRows(
+    itemActions: LauncherItemActions,
+    appList: List<LaunchableGroup.Listed> = createTestAppList()
+) {
     setLauncherRowTestContent { modifier ->
         Column(modifier = modifier) {
             appList.forEach { group ->

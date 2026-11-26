@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import core.data.apps.model.App
 import core.data.launchables.model.Launchable
+import core.data.testing.APP_NAME
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
 import core.ui.composables.getString
@@ -23,8 +24,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private const val HIDDEN_APP_NAME: String = "Maps"
-
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [TEST_SDK])
 class HiddenAppsScreenTest {
@@ -33,7 +32,7 @@ class HiddenAppsScreenTest {
 
     @Test
     fun `lists each Hidden app with an app-specific Unhide action`() {
-        val inputHiddenApp: App = createApp(name = HIDDEN_APP_NAME)
+        val inputHiddenApp: App = createApp(name = APP_NAME)
         var actualUnhidden: Launchable? = null
         composeRule.setContent {
             HiddenAppsContent(
@@ -42,9 +41,9 @@ class HiddenAppsScreenTest {
             )
         }
 
-        composeRule.onNodeWithText(HIDDEN_APP_NAME).assertIsDisplayed()
+        composeRule.onNodeWithText(APP_NAME).assertIsDisplayed()
         composeRule.onNodeWithText(getString(R.string.unhide)).assertIsDisplayed()
-        composeRule.onNodeWithContentDescription(getString(R.string.unhide_app, HIDDEN_APP_NAME))
+        composeRule.onNodeWithContentDescription(getString(R.string.unhide_app, APP_NAME))
             .assertIsDisplayed()
             .performClick()
 

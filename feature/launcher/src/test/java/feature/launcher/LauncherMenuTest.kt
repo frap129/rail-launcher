@@ -17,6 +17,7 @@ import core.data.folders.Folder
 import core.data.launchables.model.Launchable
 import core.data.profiles.ProfileInfo
 import core.data.profiles.ProfileKind
+import core.data.testing.APP_NAME
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
@@ -45,7 +46,6 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-private const val APP_NAME: String = "Maps"
 private const val FOLDER_NAME: String = "Music"
 private const val SHORTCUT_NAME: String = "Website"
 private const val FOLDER_ID: Long = 7L
