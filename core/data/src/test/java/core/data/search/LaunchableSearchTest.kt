@@ -5,6 +5,7 @@ import core.data.folders.Folder
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
+import core.data.launchables.model.RailLaunchable
 import core.data.shortcuts.ShortcutLaunchable
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
@@ -42,6 +43,20 @@ class LaunchableSearchTest {
         val actualResults: List<Launchable> = inputState.searchResults(query = "CAFE")
 
         assertEquals(listOf(inputCafe), actualResults)
+    }
+
+    @Test
+    fun `filters Launchables by name ignoring case and accents`() {
+        val inputCafe: RailLaunchable = createRailLaunchable(name = "Café")
+        val inputMaps: RailLaunchable = createRailLaunchable(name = "Maps")
+        val inputPhotos: RailLaunchable = createRailLaunchable(name = "Photos")
+        val inputFolder: Folder = Folder(folderId = 1L)
+        val inputLaunchables: List<Launchable> = listOf(inputCafe, inputMaps, inputPhotos, inputFolder)
+
+        assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "cafe"))
+        assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "CAFÉ"))
+        assertEquals(listOf(inputMaps), filterLaunchables(inputLaunchables, "map"))
+        assertEquals(listOf(inputCafe, inputMaps, inputPhotos), filterLaunchables(inputLaunchables, ""))
     }
 
     @Test

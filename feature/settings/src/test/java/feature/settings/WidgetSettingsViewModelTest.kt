@@ -9,7 +9,6 @@ import core.data.icons.model.Icon
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
-import core.data.launchables.model.Launchable
 import core.data.launchables.model.LaunchableGroup
 import core.data.launchables.model.RailLaunchable
 import core.data.media.IMediaSessionSource
@@ -387,20 +386,6 @@ class WidgetSettingsViewModelTest {
             assertEquals(TapActionLabel.Resource(R.string.tap_action_clock_default), actualState.timeTapAction.label)
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun `filters Launchables by name ignoring case and accents`() {
-        val inputCafe: RailLaunchable = createRailLaunchable(name = "Café")
-        val inputMaps: RailLaunchable = createRailLaunchable(name = "Maps")
-        val inputPhotos: RailLaunchable = createRailLaunchable(name = "Photos")
-        val inputFolder: Folder = Folder(folderId = 1L)
-        val inputLaunchables: List<Launchable> = listOf(inputCafe, inputMaps, inputPhotos, inputFolder)
-
-        assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "cafe"))
-        assertEquals(listOf(inputCafe), filterLaunchables(inputLaunchables, "CAFÉ"))
-        assertEquals(listOf(inputMaps), filterLaunchables(inputLaunchables, "map"))
-        assertEquals(listOf(inputCafe, inputMaps, inputPhotos), filterLaunchables(inputLaunchables, ""))
     }
 
     @Test
