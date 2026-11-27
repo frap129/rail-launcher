@@ -717,7 +717,6 @@ fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -
 
         HeaderTapTarget.SystemAlarms -> openSystemIntent(
             intent = Intent(AlarmClock.ACTION_SHOW_ALARMS),
-            targetDescription = target.toString(),
             messageResource = CoreUiR.string.no_clock_app
         )
 
@@ -725,7 +724,6 @@ fun Context.runHeaderTapAction(target: HeaderTapTarget, onLaunch: (Launchable) -
 
         HeaderTapTarget.SystemBatteryUsage -> openSystemIntent(
             intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY),
-            targetDescription = target.toString(),
             messageResource = CoreUiR.string.no_battery_usage_app
         )
 

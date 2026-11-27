@@ -1,6 +1,7 @@
 package core.data.notifications
 
 import core.data.apps.model.AppProfile
+import core.data.testing.RAIL_PACKAGE_NAME
 import core.data.testing.TEST_NOTIFICATION_ACTION_LABEL
 import core.data.testing.TEST_NOTIFICATION_KEY
 import core.data.testing.TEST_NOTIFICATION_PACKAGE_NAME
@@ -16,7 +17,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private const val OWN_PACKAGE_NAME: String = "dev.maples.rail"
 private const val TITLE: String = "Title"
 private const val TEXT: String = "Text"
 private const val BIG_TEXT: String = "Long text"
@@ -30,7 +30,7 @@ class NotificationTextMapperTest {
     fun `uses the text as the body`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = TEXT, bigText = BIG_TEXT, messages = listOf(MESSAGE))),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(TEXT, actualSnapshots.single().body)
     }
@@ -39,7 +39,7 @@ class NotificationTextMapperTest {
     fun `falls back to the big text when the text is blank`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = "", bigText = BIG_TEXT)),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(BIG_TEXT, actualSnapshots.single().body)
         assertEquals(BIG_TEXT, actualSnapshots.single().expandedBody)
@@ -49,7 +49,7 @@ class NotificationTextMapperTest {
     fun `blank text with big text is expandable`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = "", bigText = BIG_TEXT)),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(BIG_TEXT, actualSnapshot.body)
         assertTrue(actualSnapshot.isExpandable)
@@ -59,7 +59,7 @@ class NotificationTextMapperTest {
     fun `a notification with a body is expandable`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord()),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(TEXT, actualSnapshot.expandedBody)
         assertTrue(actualSnapshot.isExpandable)
@@ -69,7 +69,7 @@ class NotificationTextMapperTest {
     fun `a title-only notification is not expandable`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = "", bigText = "", messages = emptyList())),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals("", actualSnapshot.expandedBody)
         assertFalse(actualSnapshot.isExpandable)
@@ -79,7 +79,7 @@ class NotificationTextMapperTest {
     fun `falls back to the last messaging text when the text and big text are blank`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = "", bigText = "", messages = listOf(MESSAGE))),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(MESSAGE, actualSnapshots.single().body)
     }
@@ -88,7 +88,7 @@ class NotificationTextMapperTest {
     fun `uses the big text as the expanded body`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = TEXT, bigText = BIG_TEXT)),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(BIG_TEXT, actualSnapshot.expandedBody)
         assertTrue(actualSnapshot.isExpandable)
@@ -103,7 +103,7 @@ class NotificationTextMapperTest {
                     messages = listOf(EARLIER_MESSAGE, MESSAGE)
                 )
             ),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(MESSAGE, actualSnapshot.body)
         assertEquals("$EARLIER_MESSAGE\n$MESSAGE", actualSnapshot.expandedBody)
@@ -118,7 +118,7 @@ class NotificationTextMapperTest {
         )
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(actions = inputActions)),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(inputActions, actualSnapshot.actions)
         assertTrue(actualSnapshot.actions.single { action -> action.label == TEST_NOTIFICATION_ACTION_LABEL }.hasRemoteInput)
@@ -129,7 +129,7 @@ class NotificationTextMapperTest {
     fun `a notification with only actions is expandable`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(actions = listOf(createNotificationAction()))),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertTrue(actualSnapshot.isExpandable)
     }
@@ -138,7 +138,7 @@ class NotificationTextMapperTest {
     fun `drops a notification with no title and no body`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(title = "", text = "", bigText = "", messages = emptyList())),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(emptyList<NotificationSnapshot>(), actualSnapshots)
     }
@@ -147,7 +147,7 @@ class NotificationTextMapperTest {
     fun `keeps a notification with only a title`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(text = "", bigText = "", messages = emptyList())),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(TITLE, actualSnapshots.single().title)
         assertEquals("", actualSnapshots.single().body)
@@ -156,8 +156,8 @@ class NotificationTextMapperTest {
     @Test
     fun `skips Rail's own notifications`() {
         val actualSnapshots: List<NotificationSnapshot> = NotificationTextMapper.snapshots(
-            records = listOf(createNotificationRecord(packageName = OWN_PACKAGE_NAME)),
-            ownPackageName = OWN_PACKAGE_NAME
+            records = listOf(createNotificationRecord(packageName = RAIL_PACKAGE_NAME)),
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(emptyList<NotificationSnapshot>(), actualSnapshots)
     }
@@ -169,7 +169,7 @@ class NotificationTextMapperTest {
                 createNotificationRecord(key = "summary", isGroupSummary = true),
                 createNotificationRecord(key = "child")
             ),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(listOf("child"), actualSnapshots.map { snapshot -> snapshot.key })
     }
@@ -181,7 +181,7 @@ class NotificationTextMapperTest {
                 createNotificationRecord(key = "summary", isGroupSummary = true),
                 createNotificationRecord(key = "child", title = "", text = "", bigText = "", messages = emptyList())
             ),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(listOf("summary"), actualSnapshots.map { snapshot -> snapshot.key })
     }
@@ -193,7 +193,7 @@ class NotificationTextMapperTest {
                 createNotificationRecord(key = "older", postTime = 1_000L),
                 createNotificationRecord(key = "newer", postTime = 2_000L)
             ),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         )
         assertEquals(listOf("newer", "older"), actualSnapshots.map { snapshot -> snapshot.key })
     }
@@ -202,7 +202,7 @@ class NotificationTextMapperTest {
     fun `maps the package and profile to the owning App`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord()),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(AppProfile(packageName = TEST_NOTIFICATION_PACKAGE_NAME, profile = createNotificationProfile()), actualSnapshot.owner)
     }
@@ -211,7 +211,7 @@ class NotificationTextMapperTest {
     fun `carries the clearable flag`() {
         val actualSnapshot: NotificationSnapshot = NotificationTextMapper.snapshots(
             records = listOf(createNotificationRecord(isClearable = false, bigText = BIG_TEXT)),
-            ownPackageName = OWN_PACKAGE_NAME
+            ownPackageName = RAIL_PACKAGE_NAME
         ).single()
         assertEquals(TEST_NOTIFICATION_KEY, actualSnapshot.key)
         assertFalse(actualSnapshot.isClearable)
