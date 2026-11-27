@@ -1,7 +1,6 @@
 package core.data.media
 
 import android.app.PendingIntent
-import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,6 +16,7 @@ import android.os.Looper
 import core.data.notifications.isNotificationAccessGranted
 import core.data.retryWithExponentialBackoff
 import core.util.WHILE_SUBSCRIBED_TIMEOUT_MS
+import core.util.tryStartActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -146,16 +146,7 @@ class IMediaSessionSourceImpl(context: Context, scope: CoroutineScope, private v
             }
         }
         val launchIntent: Intent = appContext.packageManager.getLaunchIntentForPackage(controller.packageName) ?: return false
-        return try {
-            appContext.startActivity(launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            true
-        } catch (exception: ActivityNotFoundException) {
-            Timber.w("Could not launch the Media Player")
-            false
-        } catch (exception: SecurityException) {
-            Timber.w("No permission to launch the Media Player")
-            false
-        }
+        return appContext.tryStartActivity(launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     private fun updateControllers(active: List<MediaController>, onChanged: () -> Unit) {

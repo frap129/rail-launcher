@@ -2,7 +2,6 @@ package feature.launcher
 
 import android.Manifest
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -112,6 +111,7 @@ import core.ui.widgets.ResizeState
 import core.ui.widgets.UndoAction
 import core.ui.widgets.WidgetEditDraft
 import core.ui.widgets.WidgetEvent
+import core.ui.widgets.launchAppWidgetConfiguration
 import core.util.attemptLaunch
 import core.util.copyCalculatorRowResult
 import core.util.openApplicationDetailsSettings
@@ -660,7 +660,7 @@ internal fun openLauncherItemPopup(
     }
 }
 
-private class WidgetEventCallbacks(
+internal class WidgetEventCallbacks(
     val onBindResult: (Boolean) -> Unit,
     val onConfigureResult: (Boolean) -> Unit,
     val onReconfigureResult: (Boolean) -> Unit,
@@ -669,7 +669,7 @@ private class WidgetEventCallbacks(
     val onEditFavorites: () -> Unit
 )
 
-private suspend fun handleWidgetEvent(
+internal suspend fun handleWidgetEvent(
     event: WidgetEvent,
     activity: ComponentActivity?,
     context: Context,
@@ -730,53 +730,32 @@ private suspend fun handleWidgetEvent(
 
         WidgetEvent.RequestNotificationAccess -> showNotificationAccessDialog()
 
-        is WidgetEvent.LaunchBind -> try {
-            bindLauncher.launch(
-                AppWidgetViews.bindIntent(context = context, request = event.request, profileSource = profileSource)
-            )
-        } catch (exception: ActivityNotFoundException) {
-            callbacks.onBindResult(false)
-        } catch (exception: SecurityException) {
-            callbacks.onBindResult(false)
-        }
-
-        is WidgetEvent.LaunchConfigure -> {
-            val currentActivity: ComponentActivity? = activity
-            if (currentActivity == null) {
-                callbacks.onConfigureResult(false)
-            } else {
-                try {
-                    appWidgetHostSource.startConfiguring(
-                        activity = currentActivity,
-                        id = event.id,
-                        requestCode = AppWidgetResults.REQUEST_CODE
-                    )
-                } catch (exception: ActivityNotFoundException) {
-                    callbacks.onConfigureResult(false)
-                } catch (exception: SecurityException) {
-                    callbacks.onConfigureResult(false)
-                }
+        is WidgetEvent.LaunchBind -> {
+            val didLaunch: Boolean = attemptLaunch {
+                bindLauncher.launch(
+                    AppWidgetViews.bindIntent(context = context, request = event.request, profileSource = profileSource)
+                )
+            }
+            if (!didLaunch) {
+                callbacks.onBindResult(false)
             }
         }
 
-        is WidgetEvent.LaunchReconfigure -> {
-            val currentActivity: ComponentActivity? = activity
-            if (currentActivity == null) {
-                callbacks.onReconfigureResult(false)
-            } else {
-                try {
-                    appWidgetHostSource.startConfiguring(
-                        activity = currentActivity,
-                        id = event.id,
-                        requestCode = AppWidgetResults.RECONFIGURE_REQUEST_CODE
-                    )
-                } catch (exception: ActivityNotFoundException) {
-                    callbacks.onReconfigureResult(false)
-                } catch (exception: SecurityException) {
-                    callbacks.onReconfigureResult(false)
-                }
-            }
-        }
+        is WidgetEvent.LaunchConfigure -> launchAppWidgetConfiguration(
+            activity = activity,
+            appWidgetHostSource = appWidgetHostSource,
+            id = event.id,
+            requestCode = AppWidgetResults.REQUEST_CODE,
+            onLaunchFailed = { callbacks.onConfigureResult(false) }
+        )
+
+        is WidgetEvent.LaunchReconfigure -> launchAppWidgetConfiguration(
+            activity = activity,
+            appWidgetHostSource = appWidgetHostSource,
+            id = event.id,
+            requestCode = AppWidgetResults.RECONFIGURE_REQUEST_CODE,
+            onLaunchFailed = { callbacks.onReconfigureResult(false) }
+        )
 
         is WidgetEvent.ShowMessage -> coroutineScope.showSnackbar(
             snackbarHostState = snackbarHostState,

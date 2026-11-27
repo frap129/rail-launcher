@@ -1,6 +1,5 @@
 package core.ui.widgets
 
-import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -22,21 +21,15 @@ import androidx.compose.ui.unit.dp
 import core.data.media.RailNotificationListener
 import core.ui.R
 import core.util.openApplicationDetailsSettings
-import timber.log.Timber
+import core.util.tryStartActivity
 
 /** Opens the system's notification-access page for Rail's listener. */
 fun Context.openRailNotificationListenerSettings() {
     val component: ComponentName = ComponentName(this, RailNotificationListener::class.java)
     val detailIntent: Intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
         .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component.flattenToString())
-    try {
-        startActivity(detailIntent)
-    } catch (exception: ActivityNotFoundException) {
-        Timber.w(exception, "No notification listener detail screen")
-        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-    } catch (exception: SecurityException) {
-        Timber.w(exception, "No permission to open notification listener settings")
-        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    if (!tryStartActivity(detailIntent)) {
+        tryStartActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
     }
 }
 

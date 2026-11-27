@@ -1,6 +1,5 @@
 package core.ui.calendar
 
-import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -8,13 +7,13 @@ import android.net.Uri
 import android.provider.CalendarContract
 import android.widget.Toast
 import core.ui.R
-import timber.log.Timber
+import core.util.attemptLaunch
+import core.util.tryStartActivity
 
 /** Opens the calendar App at [atEpochMillis]. */
 fun Context.openSystemCalendar(atEpochMillis: Long) {
     openSystemIntent(
         intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/$atEpochMillis")),
-        targetDescription = "calendar at $atEpochMillis",
         messageResource = R.string.no_calendar_app
     )
 }
@@ -22,8 +21,9 @@ fun Context.openSystemCalendar(atEpochMillis: Long) {
 /** Opens [target] in the calendar App, through the work profile when the event belongs to one. */
 fun Context.openCalendarEvent(target: OpenEventTarget) {
     if (target.isWorkProfile) {
-        try {
-            val opened: Boolean = CalendarContract.startViewCalendarEventInManagedProfile(
+        var didOpen: Boolean = false
+        val didComplete: Boolean = attemptLaunch {
+            didOpen = CalendarContract.startViewCalendarEventInManagedProfile(
                 this,
                 target.eventId,
                 target.beginMillis,
@@ -31,12 +31,9 @@ fun Context.openCalendarEvent(target: OpenEventTarget) {
                 false,
                 0
             )
-            if (!opened) {
-                Toast.makeText(this, R.string.no_calendar_app, Toast.LENGTH_SHORT).show()
-            }
-        } catch (exception: SecurityException) {
-            Toast.makeText(this, R.string.no_calendar_app, Toast.LENGTH_SHORT).show()
-            Timber.w(exception, "Could not open work-profile event %s", target.eventId)
+        }
+        if (!didComplete || !didOpen) {
+            showNoAppToast(R.string.no_calendar_app)
         }
         return
     }
@@ -44,14 +41,15 @@ fun Context.openCalendarEvent(target: OpenEventTarget) {
         .setData(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, target.eventId))
         .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, target.beginMillis)
         .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, target.endMillis)
-    openSystemIntent(intent = intent, targetDescription = target.toString(), messageResource = R.string.no_calendar_app)
+    openSystemIntent(intent = intent, messageResource = R.string.no_calendar_app)
 }
 
-internal fun Context.openSystemIntent(intent: Intent, targetDescription: String, messageResource: Int) {
-    try {
-        startActivity(intent)
-    } catch (exception: ActivityNotFoundException) {
-        Toast.makeText(this, messageResource, Toast.LENGTH_SHORT).show()
-        Timber.w(exception, "No activity for %s", targetDescription)
+internal fun Context.openSystemIntent(intent: Intent, messageResource: Int) {
+    if (!tryStartActivity(intent)) {
+        showNoAppToast(messageResource)
     }
+}
+
+private fun Context.showNoAppToast(messageResource: Int) {
+    Toast.makeText(this, messageResource, Toast.LENGTH_SHORT).show()
 }
