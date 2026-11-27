@@ -54,6 +54,8 @@ private const val FAVORITE_STATE_ATTEMPTS = 5
 
 private const val WORK_USER_NAME = "rail-work"
 private const val PRIVATE_SPACE_USER_NAME = "rail-private"
+private const val PRIVATE_SPACE_TEST_APP_PACKAGE = "com.android.settings"
+private const val NO_APPLICATION_INFO_FLAGS = 0
 private const val TEST_PIN = "1234"
 private const val PIN_VERIFIED_OUTPUT = "verified successfully"
 private const val PIN_SET_OUTPUT = "Pin set"
@@ -216,8 +218,9 @@ class BaselineProfileGenerator {
     }
 
     /**
-     * Creates the test Work profile and Private Space, installs Rail into both and locks the
-     * Private Space. Existing test users are reused; users created here are removed afterwards.
+     * Creates the test Work profile and Private Space, installs Rail into Work and Settings into
+     * Private Space, and locks the Private Space. Existing test users are reused; users created
+     * here are removed afterwards.
      */
     private fun setUpTestProfiles(): TestProfiles {
         val workUserId: Int? = setUpWorkProfile()
@@ -254,7 +257,7 @@ class BaselineProfileGenerator {
         if (user.isCreated) {
             createdUserIds.add(user.userId)
         }
-        installAppForUser(userId = user.userId)
+        installAppForUser(userId = user.userId, packageName = PRIVATE_SPACE_TEST_APP_PACKAGE)
         setQuietMode(userId = user.userId, enabled = true)
         return user.userId
     }
@@ -283,9 +286,9 @@ class BaselineProfileGenerator {
         }
     }
 
-    private fun installAppForUser(userId: Int) {
-        val output: String = device.executeShellCommand("pm install-existing --user $userId $APP_PACKAGE")
-        check(output.contains("installed for user")) { "Could not install $APP_PACKAGE for user $userId: $output" }
+    private fun installAppForUser(userId: Int, packageName: String = APP_PACKAGE) {
+        val output: String = device.executeShellCommand("pm install-existing --user $userId $packageName")
+        check(output.contains("installed for user")) { "Could not install $packageName for user $userId: $output" }
     }
 
     private fun verifyOrSetDevicePin(): DevicePinState {
@@ -372,8 +375,8 @@ class BaselineProfileGenerator {
     )
 
     /**
-     * Unlocks the Private Space through the system credential prompt, asserts the private Apps in
-     * the Pop-up and Header pickers, locks the space again and asserts its Apps disappear.
+     * Unlocks the Private Space through the system credential prompt, asserts the seeded private
+     * App in the Pop-up and Header pickers, locks the space again and asserts the App disappears.
      */
     private fun MacrobenchmarkScope.exercisePrivateSpace(privateSpaceUserId: Int, favoriteName: String) {
         val launcherList = openAppList()
@@ -387,18 +390,9 @@ class BaselineProfileGenerator {
             scrollToEnd(container = launcherList)
         }
         check(device.wait(Until.hasObject(lockSelector), PRIVATE_UNLOCK_TIMEOUT_MS)) { "Private Space did not unlock" }
-        val privateBadgePrefix: String = privateAppBadgePrefix(privateSpaceUserId = privateSpaceUserId)
-        val privateAppDescriptions: Set<String> = buildSet {
-            addAll(findPrivateAppDescriptions(badgePrefix = privateBadgePrefix))
-            scrollToEnd(container = launcherList)
-            addAll(findPrivateAppDescriptions(badgePrefix = privateBadgePrefix))
-        }
-        check(privateAppDescriptions.isNotEmpty()) { "No badged private App row found" }
-        val privateAppNames: Set<String> = privateAppDescriptions
-            .map { description -> description.removePrefix(privateBadgePrefix) }
-            .filter { name -> name.isNotBlank() }
-            .toSet()
-        check(privateAppNames.isNotEmpty()) { "Private App rows have no labels" }
+        val privateAppName: String = loadPrivateTestAppName()
+        val privateAppDescription: String = loadPrivateTestAppDescription(appName = privateAppName, privateSpaceUserId = privateSpaceUserId)
+        findOrThrow(By.desc(privateAppDescription), "No badged private App row found")
 
         returnHome()
         openFavoriteCard(favoriteName = favoriteName)
@@ -406,15 +400,15 @@ class BaselineProfileGenerator {
         findOrThrow(By.text(appString("edit_popup")), "Edit Pop-up action not found").click()
         findOrThrow(By.text(appString("add_apps")), "Add apps not found").click()
         check(device.wait(Until.hasObject(By.text(appString("add"))), WAIT_TIMEOUT_MS)) { "Add apps picker did not open" }
-        check(isPrivateAppInPicker(descriptions = privateAppDescriptions)) {
-            "Private apps missing from the Add apps picker"
+        check(isPrivateAppInPicker(description = privateAppDescription)) {
+            "Private App missing from the Add apps picker"
         }
         device.pressBack()
         check(device.wait(Until.gone(By.text(appString("add"))), WAIT_TIMEOUT_MS)) { "Add apps picker did not close" }
         findOrThrow(By.text(appString("add_shortcuts")), "Add shortcuts not found").click()
         check(device.wait(Until.hasObject(By.text(appString("add"))), WAIT_TIMEOUT_MS)) { "Shortcut picker did not open" }
-        check(isPrivateAppInPicker(descriptions = privateAppDescriptions)) {
-            "Private apps missing from the Shortcut picker"
+        check(isPrivateAppInPicker(description = privateAppDescription)) {
+            "Private App missing from the Shortcut picker"
         }
         device.pressBack()
         check(device.wait(Until.gone(By.text(appString("add"))), WAIT_TIMEOUT_MS)) { "Shortcut picker did not close" }
@@ -425,7 +419,7 @@ class BaselineProfileGenerator {
         device.pressBack()
         check(device.wait(Until.gone(POPUP_CARD_SELECTOR), WAIT_TIMEOUT_MS)) { "Pop-up card did not close" }
 
-        exerciseHeaderTapActionPicker(privateAppNames = privateAppNames)
+        exerciseHeaderTapActionPicker(privateAppName = privateAppName)
         returnHome()
         val lockList = openAppList()
         clickPrivateSpaceLock(
@@ -434,10 +428,8 @@ class BaselineProfileGenerator {
             lockSelector = lockSelector
         )
         check(device.wait(Until.gone(lockSelector), WAIT_TIMEOUT_MS)) { "Private Space Lock action stayed visible" }
-        privateAppDescriptions.forEach { description ->
-            check(device.wait(Until.gone(By.desc(description)), WAIT_TIMEOUT_MS)) {
-                "Private App $description stayed listed while locked"
-            }
+        check(device.wait(Until.gone(By.desc(privateAppDescription)), WAIT_TIMEOUT_MS)) {
+            "Private App $privateAppDescription stayed listed while locked"
         }
         returnHome()
     }
@@ -476,32 +468,25 @@ class BaselineProfileGenerator {
         error("Private Space did not lock")
     }
 
-    /** Derives the system badge the Private Space puts in front of a private App's label. */
-    private fun privateAppBadgePrefix(privateSpaceUserId: Int): String {
-        val appName: String = appString("app_name")
+    private fun loadPrivateTestAppName(): String = packageManager.getApplicationLabel(
+        packageManager.getApplicationInfo(PRIVATE_SPACE_TEST_APP_PACKAGE, NO_APPLICATION_INFO_FLAGS)
+    ).toString()
+
+    private fun loadPrivateTestAppDescription(appName: String, privateSpaceUserId: Int): String {
         val badgedName: String = packageManager.getUserBadgedLabel(appName, userHandle(userId = privateSpaceUserId)).toString()
-        val appNameIndex: Int = badgedName.indexOf(appName)
-        check(appNameIndex > 0) { "Private Apps are not badged on this device: $badgedName" }
-        return badgedName.substring(startIndex = 0, endIndex = appNameIndex)
+        check(badgedName != appName) { "Private Space test App is not badged on this device: $badgedName" }
+        return badgedName
     }
 
-    private fun MacrobenchmarkScope.findPrivateAppDescriptions(badgePrefix: String): Set<String> {
-        val containerLabel: String = appString("private_space")
-        return device.findObjects(By.clazz("android.widget.ImageView"))
-            .mapNotNull { node -> node.contentDescription }
-            .filter { description -> description.startsWith(badgePrefix) && description != containerLabel }
-            .toSet()
-    }
-
-    private fun MacrobenchmarkScope.isPrivateAppInPicker(descriptions: Set<String>): Boolean {
+    private fun MacrobenchmarkScope.isPrivateAppInPicker(description: String): Boolean {
         device.findObject(By.scrollable(true))?.let { pickerList ->
             scrollToEdge(device = device, container = pickerList, direction = Direction.DOWN)
         }
-        return descriptions.any { description -> device.hasObject(By.desc(description)) }
+        return device.hasObject(By.desc(description))
     }
 
     /** Opens the Header tap action picker while Private Space is unlocked and backs out unchanged. */
-    private fun MacrobenchmarkScope.exerciseHeaderTapActionPicker(privateAppNames: Set<String>) {
+    private fun MacrobenchmarkScope.exerciseHeaderTapActionPicker(privateAppName: String) {
         openWidgetsSettings()
         val settingsList = widgetsSettingsList()
         check(
@@ -516,7 +501,6 @@ class BaselineProfileGenerator {
         check(device.wait(Until.hasObject(By.text(appString("search"))), WAIT_TIMEOUT_MS)) {
             "Header tap action picker did not open"
         }
-        val privateAppName: String = privateAppNames.first()
         findOrThrow(By.clazz("android.widget.EditText"), "Header tap action search not found").setText(privateAppName)
         findOrThrow(By.text(privateAppName), "Private App $privateAppName missing from the Header tap action picker")
         device.pressBack()
