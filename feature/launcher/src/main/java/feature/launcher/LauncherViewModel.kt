@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.content.Intent
 import android.content.IntentSender
 import android.os.UserHandle
 import androidx.compose.foundation.lazy.LazyListState
@@ -925,9 +924,6 @@ class LauncherViewModel(
             onResult(profileSource.requestQuiet(user = user, quiet = quiet))
         }
     }
-
-    /** Builds the system Home role request, or returns null when the platform cannot offer it. */
-    fun requestHomeRole(): Intent? = homeRoleSource.createHomeRoleRequestIntent()
 
     /** Hides the default launcher prompt until this process restarts. */
     fun dismissDefaultLauncherPrompt() {

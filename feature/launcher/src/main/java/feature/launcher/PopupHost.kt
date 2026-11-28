@@ -60,6 +60,7 @@ fun PopupHost(
     railSide: RailSide,
     onLaunch: (Launchable) -> Unit,
     onAddItems: () -> Unit,
+    onRequestHomeRole: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density: Density = LocalDensity.current
@@ -164,6 +165,7 @@ fun PopupHost(
                 onItemClick = { item -> onLaunch(item.launchable) },
                 onItemLongClick = { item -> viewModel.openItemMenu(item) },
                 onAddItems = onAddItems,
+                onRequestHomeRole = onRequestHomeRole,
                 onRequestQuietModeOff = { viewModel.unpauseOwnerProfile(owner = displayState.owner) },
                 onWidgetLongPress = viewModel::openWidgetMenu,
                 onWidgetUnpause = viewModel::unpauseWorkProfile,

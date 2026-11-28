@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import core.data.testing.TEST_SDK
+import core.ui.R as CoreUiR
 import core.ui.composables.LauncherItemActions
 import core.ui.composables.getString
 import core.ui.testing.createLauncherItemActions
@@ -49,7 +50,7 @@ class DefaultLauncherPromptTest {
         setHomeContent(isDefaultLauncherPromptShown = true)
         composeRule.onNodeWithText(getString(R.string.default_launcher_prompt_title)).assertIsDisplayed()
         composeRule.onNodeWithText(getString(R.string.default_launcher_prompt_body)).assertIsDisplayed()
-        showAction(getString(R.string.set_rail_as_home))
+        showAction(getString(CoreUiR.string.set_rail_as_home))
         showAction(getString(R.string.dismiss_default_launcher_prompt))
         showAction(getString(R.string.turn_off_default_launcher_prompt))
     }
@@ -61,7 +62,7 @@ class DefaultLauncherPromptTest {
             layout = WidgetAreaLayout.Capped(fraction = CAPPED_WIDGET_AREA_FRACTION)
         )
         composeRule.onNodeWithText(getString(R.string.default_launcher_prompt_title)).assertIsDisplayed()
-        showAction(getString(R.string.set_rail_as_home))
+        showAction(getString(CoreUiR.string.set_rail_as_home))
     }
 
     @Test
@@ -71,7 +72,7 @@ class DefaultLauncherPromptTest {
             isDefaultLauncherPromptShown = true,
             mockActions = createDefaultLauncherPromptActions(onRequestHomeRole = { actualRequests++ })
         )
-        showAction(getString(R.string.set_rail_as_home)).performClick()
+        showAction(getString(CoreUiR.string.set_rail_as_home)).performClick()
         composeRule.runOnIdle { assertEquals(1, actualRequests) }
     }
 
@@ -151,7 +152,7 @@ class DefaultLauncherPromptTest {
     fun `given the prompt is hidden, when Home loads, then its message and actions are absent`() {
         setHomeContent(isDefaultLauncherPromptShown = false)
         composeRule.onNodeWithText(getString(R.string.default_launcher_prompt_title)).assertDoesNotExist()
-        composeRule.onNodeWithText(getString(R.string.set_rail_as_home)).assertDoesNotExist()
+        composeRule.onNodeWithText(getString(CoreUiR.string.set_rail_as_home)).assertDoesNotExist()
         composeRule.onNodeWithText(getString(R.string.dismiss_default_launcher_prompt)).assertDoesNotExist()
         composeRule.onNodeWithText(getString(R.string.turn_off_default_launcher_prompt)).assertDoesNotExist()
     }

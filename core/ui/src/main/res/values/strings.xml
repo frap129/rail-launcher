@@ -133,6 +133,7 @@
     <string name="remove_item">Remove %1$s</string>
     <string name="reorder_item">Reorder %1$s</string>
     <string name="edit_popup_title">Edit %1$s Pop-up</string>
+    <string name="set_rail_as_home">Set Rail as Home</string>
     <string name="set_rail_as_home_for_shortcuts">Set Rail as your home app to see shortcuts</string>
     <string name="set_rail_as_home_to_add_shortcuts">Set Rail as your home app to add shortcuts</string>
     <string name="work_apps_paused">Work apps are paused</string>

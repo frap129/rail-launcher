@@ -1,6 +1,5 @@
 package feature.launcher
 
-import android.content.Intent
 import android.content.IntentSender
 import app.cash.turbine.TurbineTestContext
 import app.cash.turbine.test
@@ -53,6 +52,7 @@ import core.data.search.SearchResult
 import core.data.search.SearchShortcut
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.testing.FakeHomeRoleSource
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PERSONAL_USER_ID
@@ -351,16 +351,6 @@ class LauncherViewModelTest {
         val viewModel: LauncherViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
         viewModel.turnOffDefaultLauncherPrompt()
         verify(exactly = 1) { mockPreferencesRepository.setDefaultLauncherPromptEnabled(false) }
-    }
-
-    @Test
-    fun `requests the Home role through the framework source`() = runTest {
-        val inputIntent: Intent = Intent(Intent.ACTION_VIEW)
-        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(requestIntent = inputIntent)
-        val viewModel: LauncherViewModel = createViewModel(mockHomeRoleSource = mockHomeRoleSource)
-        val actualIntent: Intent? = viewModel.requestHomeRole()
-        assertSame(inputIntent, actualIntent)
-        assertEquals(1, mockHomeRoleSource.requestCount)
     }
 
     @Test
@@ -5555,28 +5545,6 @@ class LauncherViewModelTest {
     }
 
     private fun listedItem(index: Int): Launchable = inputListedGroups[index].items.first()
-}
-
-private class FakeHomeRoleSource(isHomeRoleHeld: Boolean = true, private val requestIntent: Intent? = Intent(Intent.ACTION_VIEW)) :
-    IHomeRoleSource {
-    private var currentIsHomeRoleHeld: Boolean = isHomeRoleHeld
-    override val isHomeRoleHeld: MutableStateFlow<Boolean> = MutableStateFlow(isHomeRoleHeld)
-    var requestCount: Int = 0
-        private set
-
-    override fun createHomeRoleRequestIntent(): Intent? {
-        requestCount++
-        return requestIntent
-    }
-
-    override fun refreshHomeRole() {
-        isHomeRoleHeld.value = currentIsHomeRoleHeld
-    }
-
-    fun setHomeRoleHeld(isHeld: Boolean) {
-        currentIsHomeRoleHeld = isHeld
-        isHomeRoleHeld.value = isHeld
-    }
 }
 
 private data class FolderSummaryFixture(val folder: Folder, val viewModel: LauncherViewModel)

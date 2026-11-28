@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.pm.LauncherApps
 import core.data.apps.model.App
 import core.data.profiles.ProfileKind
+import core.data.testing.FakeHomeRoleSource
 import core.data.testing.PRIVATE_USER_ID
 import core.data.testing.TEST_SDK
 import core.data.testing.createApp
@@ -30,7 +31,8 @@ class IShortcutPickerSourceImplTest {
     private val shadowLauncherApps: ShadowLauncherApps = Shadow.extract(launcherApps)
     private val shortcutSource: IShortcutSource = IShortcutSourceImpl(
         context = context,
-        shortcutListener = IShortcutListenerImpl(context = context)
+        shortcutListener = IShortcutListenerImpl(context = context),
+        homeRoleSource = FakeHomeRoleSource()
     )
 
     @Before

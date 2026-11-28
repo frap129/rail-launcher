@@ -324,7 +324,9 @@ class MainApplication :
         }
         single<IHomeRoleSource> { IHomeRoleSourceImpl(androidContext()) }
         single<IShortcutListener> { IShortcutListenerImpl(context = androidContext()) }
-        single<IShortcutSource> { IShortcutSourceImpl(context = androidContext(), shortcutListener = get()) }
+        single<IShortcutSource> {
+            IShortcutSourceImpl(context = androidContext(), shortcutListener = get(), homeRoleSource = get())
+        }
         single<IStoredKeyClassifier> {
             IStoredKeyClassifierImpl(launchableRepository = get(), shortcutSource = get())
         }

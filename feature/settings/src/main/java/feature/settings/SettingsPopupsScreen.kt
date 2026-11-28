@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import core.data.folders.Folder
+import core.data.homerole.IHomeRoleSource
 import core.ui.R as CoreUiR
 import core.ui.composables.NotificationAccessRow
 import core.ui.composables.SettingsActionRow
@@ -48,6 +49,7 @@ import core.ui.composables.SheetDragHandle
 import core.ui.composables.SheetTitle
 import core.ui.composables.settingsContentPadding
 import core.ui.composables.sheetContainerColor
+import core.ui.homerole.rememberHomeRoleRequest
 import core.ui.popups.FolderDeleteHost
 import core.ui.popups.FolderNameDialog
 import core.ui.popups.FolderRenameHost
@@ -72,6 +74,7 @@ private val folderIconSize: Dp = 32.dp
 fun SettingsPopupsScreen(settingsViewModel: SettingsViewModel = koinViewModel()) {
     // One session per Pop-up host; the settings ViewModel owns the collaborators it was created with.
     val popupSession: IPopupSession = koinInject()
+    val homeRoleSource: IHomeRoleSource = koinInject()
     val viewModel: PopupSettingsViewModel = koinViewModel { parametersOf(popupSession) }
     val popupEditor: IPopupEditor = viewModel.collaborators.editor
     val popupPicker: IPopupPicker = viewModel.collaborators.picker
@@ -80,6 +83,7 @@ fun SettingsPopupsScreen(settingsViewModel: SettingsViewModel = koinViewModel())
     val uiState: PopupSettingsUiState by viewModel.uiState.collectAsState()
     val settingsUiState: SettingsUiState by settingsViewModel.uiState.collectAsState()
     val context: Context = LocalContext.current
+    val onRequestHomeRole: () -> Unit = rememberHomeRoleRequest(homeRoleSource)
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     var showNotificationAccessDialog: Boolean by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel) {
@@ -145,7 +149,7 @@ fun SettingsPopupsScreen(settingsViewModel: SettingsViewModel = koinViewModel())
     if (showNotificationAccessDialog) {
         NotificationAccessDialog(onDismiss = { showNotificationAccessDialog = false })
     }
-    PopupEditorHost(editor = popupEditor, picker = popupPicker)
+    PopupEditorHost(editor = popupEditor, picker = popupPicker, onRequestHomeRole = onRequestHomeRole)
     IconPickerHost(iconPicker = popupIconPicker)
 }
 

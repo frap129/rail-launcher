@@ -118,6 +118,7 @@ class LauncherContentFocusTest {
                 onItemLaunch = { launchable: Launchable -> actualOpened += launchable },
                 onRowTap = { launchable: Launchable, _ -> actualOpened += launchable },
                 onOpenAgenda = {},
+                onRequestHomeRole = {},
                 onItemOpenPopup = { _, _ -> },
                 onItemAnchorChanged = { _, _ -> },
                 onCopyCalculatorRow = {},

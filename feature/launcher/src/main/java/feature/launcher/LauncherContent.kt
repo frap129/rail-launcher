@@ -1,7 +1,6 @@
 package feature.launcher
 
 import android.content.Context
-import android.content.Intent
 import android.content.IntentSender
 import androidx.activity.FullyDrawnReporter
 import androidx.activity.compose.LocalFullyDrawnReporterOwner
@@ -86,11 +85,9 @@ import core.ui.util.consumeTouches
 import core.ui.widgets.WidgetAreaUi
 import core.ui.widgets.WidgetEditDraft
 import core.util.toDp
-import core.util.tryStartActivity
 import core.util.tryStartIntentSender
 import feature.launcher.widgets.WidgetAreaViewModel
 import feature.launcher.widgets.rememberWidgetAreaUi
-import timber.log.Timber
 
 private val doneButtonPadding: Dp = 24.dp
 private val railTopPadding: Dp = 200.dp
@@ -121,6 +118,7 @@ internal fun LauncherContent(
     onItemLaunch: (Launchable) -> Unit,
     onRowTap: (Launchable, PopupAnchor?) -> Unit,
     onOpenAgenda: () -> Unit,
+    onRequestHomeRole: () -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor?) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
@@ -136,16 +134,9 @@ internal fun LauncherContent(
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
     val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
-    val defaultLauncherPromptActions: DefaultLauncherPromptActions = remember(viewModel, context) {
+    val defaultLauncherPromptActions: DefaultLauncherPromptActions = remember(viewModel, onRequestHomeRole) {
         DefaultLauncherPromptActions(
-            onRequestHomeRole = {
-                val homeRoleRequest: Intent? = viewModel.requestHomeRole()
-                if (homeRoleRequest != null) {
-                    context.tryStartActivity(homeRoleRequest)
-                } else {
-                    Timber.w("The system offers no Home role request Intent")
-                }
-            },
+            onRequestHomeRole = onRequestHomeRole,
             onDismiss = viewModel::dismissDefaultLauncherPrompt,
             onTurnOff = viewModel::turnOffDefaultLauncherPrompt
         )

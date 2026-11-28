@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
+import core.ui.R as CoreUiR
 import core.ui.composables.HomeItem
 import core.ui.composables.HomeSuggestionRow
 import core.ui.composables.LauncherItemActions
@@ -277,7 +278,7 @@ private fun DefaultLauncherPrompt(railSide: RailSide, actions: DefaultLauncherPr
                 style = MaterialTheme.typography.bodyMedium
             )
             TextButton(onClick = actions.onRequestHomeRole, modifier = Modifier.align(Alignment.End)) {
-                Text(stringResource(R.string.set_rail_as_home))
+                Text(stringResource(CoreUiR.string.set_rail_as_home))
             }
             TextButton(onClick = actions.onDismiss, modifier = Modifier.align(Alignment.End)) {
                 Text(stringResource(R.string.dismiss_default_launcher_prompt))
