@@ -14,7 +14,7 @@
     <string name="grant">Grant</string>
     <string name="open_settings">Open settings</string>
     <string name="notification_access">Notification access</string>
-    <string name="notification_access_allowed">Allowed</string>
+    <string name="permission_granted">Granted</string>
     <string name="notification_access_not_allowed">Not allowed — tap to allow</string>
     <string name="settings">Settings</string>
     <string name="search">Search</string>

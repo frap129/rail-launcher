@@ -570,11 +570,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
             message = stringResource(CoreUiR.string.calendar_permission_denied_message),
-            onDismiss = { showPermissionDialog = false },
-            onOpenSettings = {
-                context.openApplicationDetailsSettings()
-                showPermissionDialog = false
-            }
+            onDismiss = { showPermissionDialog = false }
         )
     }
     if (showNotificationAccessDialog) {

@@ -583,11 +583,7 @@ fun LauncherScreen(
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
             message = stringResource(CoreUiR.string.calendar_permission_denied_message),
-            onDismiss = { showCalendarPermissionDialog = false },
-            onOpenSettings = {
-                showCalendarPermissionDialog = false
-                context.openApplicationDetailsSettings()
-            }
+            onDismiss = { showCalendarPermissionDialog = false }
         )
     }
     if (showNotificationAccessDialog) {

@@ -14,6 +14,12 @@
     <string name="onboarding_pop_ups_body">Swipe across an app row to open its Pop-up, with shortcuts and actions close at hand.</string>
     <string name="onboarding_widgets_title">Make Home yours</string>
     <string name="onboarding_widgets_body">The Widget Area sits above Favorites. Long-press it to add, arrange and resize Widgets.</string>
+    <string name="onboarding_notification_access_title">Notifications in Pop-ups</string>
+    <string name="onboarding_calendar_body">Allow calendar access to show your upcoming events in the Agenda.</string>
+    <string name="onboarding_contacts_body">Allow contacts access to find matching contacts in Search, with call and message buttons.</string>
+    <string name="onboarding_notification_access_request">Open notification access settings</string>
+    <string name="onboarding_calendar_request">Grant calendar access</string>
+    <string name="onboarding_contacts_request">Grant contacts access</string>
     <string name="onboarding_home_role_body">Finish setup to open Android\'s Home role dialog. Rail can then open with the Home button and pin Shortcuts.</string>
     <string name="search_hint">Search apps, folders, Shortcuts and more</string>
     <string name="top_result">Top result</string>

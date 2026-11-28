@@ -6,9 +6,7 @@ import core.data.prefs.Settings
 import core.data.search.IContactSearchSource
 import core.data.search.SearchContact
 import core.data.search.SearchResult
-import io.mockk.Runs
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,11 +63,12 @@ fun createSearchContact(
 /** A MockK [IContactSearchSource] emitting [contacts] and reporting [hasPermission]. */
 fun createContactSearchSourceMock(
     contacts: Flow<List<SearchContact>> = MutableStateFlow(emptyList()),
-    hasPermission: StateFlow<Boolean> = MutableStateFlow(false)
+    hasPermission: StateFlow<Boolean> = MutableStateFlow(false),
+    onRefresh: () -> Unit = {}
 ): IContactSearchSource {
     val mockContactSearchSource: IContactSearchSource = mockk()
     every { mockContactSearchSource.contacts } returns contacts
     every { mockContactSearchSource.hasPermission } returns hasPermission
-    every { mockContactSearchSource.refreshPermission() } just Runs
+    every { mockContactSearchSource.refreshPermission() } answers { onRefresh() }
     return mockContactSearchSource
 }
