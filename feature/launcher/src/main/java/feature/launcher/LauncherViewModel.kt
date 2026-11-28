@@ -11,6 +11,7 @@ import core.data.favorites.FavoritesState
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.homerole.IHomeRoleSource
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableState
 import core.data.launchables.model.Launchable
@@ -101,7 +102,8 @@ sealed class LauncherUiState {
         val suggestions: List<Launchable>,
         val isSwipeUpEnabled: Boolean,
         val isSwipeDownEnabled: Boolean,
-        val isEditingFavorites: Boolean = false
+        val isEditingFavorites: Boolean = false,
+        val isDefaultLauncherPromptShown: Boolean = false
     ) : LauncherUiState()
 
     sealed class AppList : LauncherUiState() {
@@ -193,8 +195,12 @@ private fun memberNamesWithNotifications(items: List<PopupItem>, notifications: 
         .map { item -> item.launchable.name }
 }
 
-/** The Favorites and the Home suggestions Home shows after them. */
-private data class HomeContent(val favoritesState: FavoritesState, val suggestions: List<Launchable>)
+/** The Favorites, Home suggestions and default launcher prompt visibility Home shows. */
+private data class HomeContent(
+    val favoritesState: FavoritesState,
+    val suggestions: List<Launchable>,
+    val isDefaultLauncherPromptShown: Boolean = false
+)
 
 private data class SearchState(val origin: LauncherMode, val query: String = "", val isForwardTyping: Boolean = false)
 
@@ -299,7 +305,8 @@ private fun toLauncherUiState(
             suggestions = if (isEditingFavorites || !settings.suggestOftenUsedApps) emptyList() else homeContent.suggestions,
             isSwipeUpEnabled = settings.openSearchOnSwipeUp,
             isSwipeDownEnabled = settings.expandNotificationsOnSwipeDown,
-            isEditingFavorites = isEditingFavorites
+            isEditingFavorites = isEditingFavorites,
+            isDefaultLauncherPromptShown = homeContent.isDefaultLauncherPromptShown
         )
     }
     if (!state.isAppListReady) {
@@ -386,6 +393,8 @@ class LauncherViewModel(
     listOffsets: ListOffsets,
     private val launcherItemRepo: ILaunchableRepository,
     private val prefsRepo: IPreferencesRepository,
+    private val homeRoleSource: IHomeRoleSource,
+    private val defaultLauncherPromptState: DefaultLauncherPromptState,
     private val favoritesRepo: IFavoritesRepository,
     private val folderRepo: IFolderRepository,
     private val popupRepo: IPopupRepository,
@@ -443,6 +452,8 @@ class LauncherViewModel(
         started = SharingStarted.Eagerly,
         initialValue = defaultSettings
     )
+
+    private val isHomeRoleHeld: StateFlow<Boolean> = homeRoleSource.isHomeRoleHeld
 
     // The stored setting as a UI state, showing [initial] until the stored value first arrives.
     private fun <T> Flow<Settings>.settingState(read: (Settings) -> T, initial: T): StateFlow<T> = map(read).stateIn(
@@ -571,7 +582,7 @@ class LauncherViewModel(
             }
         }
 
-    private val homeContent: Flow<HomeContent> = combine(
+    private val homeLaunchableContent: Flow<HomeContent> = combine(
         favoritesState,
         homeSuggestionKeys,
         launchableState,
@@ -588,6 +599,17 @@ class LauncherViewModel(
             suggestions = suggestionKeys.orEmpty()
                 .filterNot { key -> key in excludedKeys }
                 .mapNotNull { key -> state.suggestibleLaunchableFor(key = key) }
+        )
+    }
+
+    private val homeContent: Flow<HomeContent> = combine(
+        homeLaunchableContent,
+        currentSettings,
+        isHomeRoleHeld,
+        defaultLauncherPromptState.isDismissed
+    ) { content, settings, isRoleHeld, isDismissed ->
+        content.copy(
+            isDefaultLauncherPromptShown = settings.defaultLauncherPromptEnabled && !isRoleHeld && !isDismissed
         )
     }
 
@@ -901,6 +923,16 @@ class LauncherViewModel(
         viewModelScope.launch {
             onResult(profileSource.requestQuiet(user = user, quiet = quiet))
         }
+    }
+
+    /** Hides the default launcher prompt until this process restarts. */
+    fun dismissDefaultLauncherPrompt() {
+        defaultLauncherPromptState.dismiss()
+    }
+
+    /** Persists the user's choice to hide the default launcher prompt until they turn it back on. */
+    fun turnOffDefaultLauncherPrompt() {
+        prefsRepo.setDefaultLauncherPromptEnabled(false)
     }
 
     fun dismissPausedPrompt() {

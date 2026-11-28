@@ -7,6 +7,7 @@ import core.data.apps.model.App
 import core.data.favorites.IFavoritesRepository
 import core.data.folders.Folder
 import core.data.folders.IFolderRepository
+import core.data.homerole.IHomeRoleSource
 import core.data.launchables.ILaunchableRepository
 import core.data.launchables.LaunchableReadiness
 import core.data.launchables.LaunchableState
@@ -51,6 +52,7 @@ import core.data.search.SearchResult
 import core.data.search.SearchShortcut
 import core.data.shortcuts.IStandaloneShortcutRepository
 import core.data.shortcuts.ShortcutLaunchable
+import core.data.testing.FakeHomeRoleSource
 import core.data.testing.FavoritesRepositoryFixture
 import core.data.testing.MainDispatcherRule
 import core.data.testing.PERSONAL_USER_ID
@@ -241,6 +243,7 @@ class LauncherViewModelTest {
     private val mockLaunchCountRepository: ILaunchCountRepository = createLaunchCountRepositoryMock()
 
     private val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(settings = inputSearchRowsOff)
+    private val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource()
     private val mockProfileSource: IProfileSource = createProfileSourceMock()
     private val inputPrivateProfile: ProfileInfo = createProfileInfo(userId = PRIVATE_USER_ID, kind = ProfileKind.Private)
     private val inputBuiltinGroup: LaunchableGroup.Builtin = createBuiltinGroup()
@@ -268,6 +271,86 @@ class LauncherViewModelTest {
     @Before
     fun clearSearchHistory() {
         searchHistoryDatabase.value.clearAllTables()
+    }
+
+    @Test
+    fun `shows the default launcher prompt when Rail does not hold the Home role`() = runTest {
+        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(isHomeRoleHeld = false)
+        val viewModel: LauncherViewModel = createViewModel(mockHomeRoleSource = mockHomeRoleSource)
+        viewModel.uiState.test {
+            assertTrue(expectHome().isDefaultLauncherPromptShown)
+        }
+    }
+
+    @Test
+    fun `hides the default launcher prompt when Rail holds the Home role`() = runTest {
+        val viewModel: LauncherViewModel = createViewModel()
+        viewModel.uiState.test {
+            assertFalse(expectHome().isDefaultLauncherPromptShown)
+        }
+    }
+
+    @Test
+    fun `hides the default launcher prompt when it is turned off`() = runTest {
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock(
+            settings = Settings(defaultLauncherPromptEnabled = false)
+        )
+        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(isHomeRoleHeld = false)
+        val viewModel: LauncherViewModel = createViewModel(
+            mockPreferencesRepository = mockPreferencesRepository,
+            mockHomeRoleSource = mockHomeRoleSource
+        )
+        viewModel.uiState.test {
+            assertFalse(expectHome().isDefaultLauncherPromptShown)
+        }
+    }
+
+    @Test
+    fun `keeps the default launcher prompt dismissed across ViewModels until the process restarts`() = runTest {
+        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(isHomeRoleHeld = false)
+        val inputPromptState: DefaultLauncherPromptState = DefaultLauncherPromptState()
+        val viewModel: LauncherViewModel = createViewModel(
+            mockHomeRoleSource = mockHomeRoleSource,
+            inputDefaultLauncherPromptState = inputPromptState
+        )
+        viewModel.uiState.test {
+            assertTrue(expectHome().isDefaultLauncherPromptShown)
+            viewModel.dismissDefaultLauncherPrompt()
+            assertFalse(expectHome().isDefaultLauncherPromptShown)
+        }
+        val recreatedViewModel: LauncherViewModel = createViewModel(
+            mockHomeRoleSource = mockHomeRoleSource,
+            inputDefaultLauncherPromptState = inputPromptState
+        )
+        recreatedViewModel.uiState.test {
+            assertFalse(expectHome().isDefaultLauncherPromptShown)
+        }
+        val restartedViewModel: LauncherViewModel = createViewModel(
+            mockHomeRoleSource = mockHomeRoleSource,
+            inputDefaultLauncherPromptState = DefaultLauncherPromptState()
+        )
+        restartedViewModel.uiState.test {
+            assertTrue(expectHome().isDefaultLauncherPromptShown)
+        }
+    }
+
+    @Test
+    fun `hides the default launcher prompt when the Home role is granted while Home is visible`() = runTest {
+        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(isHomeRoleHeld = false)
+        val viewModel: LauncherViewModel = createViewModel(mockHomeRoleSource = mockHomeRoleSource)
+        viewModel.uiState.test {
+            assertTrue(expectHome().isDefaultLauncherPromptShown)
+            mockHomeRoleSource.setHomeRoleHeld(isHeld = true)
+            assertFalse(expectHome().isDefaultLauncherPromptShown)
+        }
+    }
+
+    @Test
+    fun `turns off the default launcher prompt through the preferences repository`() = runTest {
+        val mockPreferencesRepository: IPreferencesRepository = createPreferencesRepositoryMock()
+        val viewModel: LauncherViewModel = createViewModel(mockPreferencesRepository = mockPreferencesRepository)
+        viewModel.turnOffDefaultLauncherPrompt()
+        verify(exactly = 1) { mockPreferencesRepository.setDefaultLauncherPromptEnabled(false) }
     }
 
     @Test
@@ -5286,6 +5369,8 @@ class LauncherViewModelTest {
         mockPopupRepository: IPopupRepository = this@LauncherViewModelTest.mockPopupRepository,
         mockProfileSource: IProfileSource = this@LauncherViewModelTest.mockProfileSource,
         mockPreferencesRepository: IPreferencesRepository = this@LauncherViewModelTest.mockPreferencesRepository,
+        mockHomeRoleSource: IHomeRoleSource = this@LauncherViewModelTest.mockHomeRoleSource,
+        inputDefaultLauncherPromptState: DefaultLauncherPromptState = DefaultLauncherPromptState(),
         privateSpaceLock: IPrivateSpaceLock = createPrivateSpaceLock(profileSource = mockProfileSource),
         mockPrivateSpaceStatus: IPrivateSpaceStatus = createPrivateSpaceStatusMock(),
         mockStandaloneShortcutRepository: IStandaloneShortcutRepository = createStandaloneShortcutRepositoryMock(),
@@ -5313,6 +5398,8 @@ class LauncherViewModelTest {
         listOffsets = ListOffsets(startPx = START_OFFSET_PX, endPx = END_OFFSET_PX),
         launcherItemRepo = mockLaunchableRepository,
         prefsRepo = mockPreferencesRepository,
+        homeRoleSource = mockHomeRoleSource,
+        defaultLauncherPromptState = inputDefaultLauncherPromptState,
         favoritesRepo = mockFavoritesRepository,
         folderRepo = mockFolderRepository,
         popupRepo = mockPopupRepository,

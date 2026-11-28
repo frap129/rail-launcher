@@ -5,6 +5,7 @@ import core.data.testing.InMemoryDatabaseTest
 import core.data.testing.TEST_ICON_PACK_PACKAGE
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class SettingsDaoTest : InMemoryDatabaseTest() {
@@ -22,6 +23,40 @@ class SettingsDaoTest : InMemoryDatabaseTest() {
 
         settingsDao.upsert(expectedSettings)
 
+        val actualSettings: Settings = settingsDao.observe().first()
+        assertEquals(expectedSettings, actualSettings)
+    }
+
+    @Test
+    fun `stores and emits the Rotate Home preference`() = databaseTest {
+        val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE, rotateHome = false)
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(expectedSettings)
+        val actualSettings: Settings = settingsDao.observe().first()
+        assertEquals(expectedSettings, actualSettings)
+    }
+
+    @Test
+    fun `stores and emits the default launcher prompt preference`() = databaseTest {
+        val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE, defaultLauncherPromptEnabled = false)
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(expectedSettings)
+        val actualSettings: Settings = settingsDao.observe().first()
+        assertEquals(expectedSettings, actualSettings)
+    }
+
+    @Test
+    fun `defaults onboarding completed to off`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        val actualSettings: Settings = settingsDao.observe().first()
+        assertFalse(actualSettings.onboardingCompleted)
+    }
+
+    @Test
+    fun `stores and emits the onboarding completed preference`() = databaseTest {
+        val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE, onboardingCompleted = true)
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(expectedSettings)
         val actualSettings: Settings = settingsDao.observe().first()
         assertEquals(expectedSettings, actualSettings)
     }

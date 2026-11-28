@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="onboarding_welcome">Welcome to Rail</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_finish">Finish setup</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
+    <string name="onboarding_rail_title">Meet the Rail</string>
+    <string name="onboarding_rail_body">Rail is your App List. Touch a letter on the Rail to jump straight to it.</string>
+    <string name="onboarding_favorites_title">Keep Favorites close</string>
+    <string name="onboarding_favorites_body">Long-press any app and choose Add to Favorites. Favorites stay on Home, ready to open.</string>
+    <string name="onboarding_search_title">Search with a swipe</string>
+    <string name="onboarding_search_body">Swipe up on Home to open Search. Find apps, shortcuts and more without leaving Home.</string>
+    <string name="onboarding_pop_ups_title">Open Pop-ups in a swipe</string>
+    <string name="onboarding_pop_ups_body">Swipe across an app row to open its Pop-up, with shortcuts and actions close at hand.</string>
+    <string name="onboarding_widgets_title">Make Home yours</string>
+    <string name="onboarding_widgets_body">The Widget Area sits above Favorites. Long-press it to add, arrange and resize Widgets.</string>
+    <string name="onboarding_notification_access_title">Notifications in Pop-ups</string>
+    <string name="onboarding_calendar_body">Allow calendar access to show your upcoming events in the Agenda.</string>
+    <string name="onboarding_contacts_body">Allow contacts access to find matching contacts in Search, with call and message buttons.</string>
+    <string name="onboarding_notification_access_request">Open notification access settings</string>
+    <string name="onboarding_calendar_request">Grant calendar access</string>
+    <string name="onboarding_contacts_request">Grant contacts access</string>
+    <string name="onboarding_home_role_body">Finish setup to open Android\'s Home role dialog. Rail can then open with the Home button and pin Shortcuts.</string>
     <string name="search_hint">Search apps, folders, Shortcuts and more</string>
     <string name="top_result">Top result</string>
     <string name="top_result_opens">%1$s, Enter opens</string>
@@ -41,4 +62,8 @@
     <string name="remove_shortcut">Remove shortcut</string>
     <string name="uninstall">Uninstall</string>
     <string name="recently_installed">Recently installed</string>
+    <string name="default_launcher_prompt_title">Make Rail your Home app</string>
+    <string name="default_launcher_prompt_body">Rail is not your default Home app. Set it as Home to open it with the Home button and pin Shortcuts.</string>
+    <string name="dismiss_default_launcher_prompt">Dismiss prompt for now</string>
+    <string name="turn_off_default_launcher_prompt">Turn off prompt</string>
 </resources>

@@ -54,6 +54,8 @@ data class SettingsUiState(
     val railHaptics: Boolean,
     val showRail: Boolean,
     val suggestOftenUsedApps: Boolean,
+    val rotateHome: Boolean?,
+    val defaultLauncherPromptEnabled: Boolean,
     val expandNotificationsOnSwipeDown: Boolean,
     val openSearchOnSwipeUp: Boolean,
     val openSearchOnHomePress: Boolean,
@@ -89,6 +91,8 @@ private fun Settings.toSettingsUiState(
     railHaptics = railHaptics,
     showRail = showRail,
     suggestOftenUsedApps = suggestOftenUsedApps,
+    rotateHome = rotateHome,
+    defaultLauncherPromptEnabled = defaultLauncherPromptEnabled,
     expandNotificationsOnSwipeDown = expandNotificationsOnSwipeDown,
     openSearchOnSwipeUp = openSearchOnSwipeUp,
     openSearchOnHomePress = openSearchOnHomePress,
@@ -198,6 +202,12 @@ class SettingsViewModel(
 
     /** Persists whether Home shows the Home suggestions. */
     fun setSuggestOftenUsedApps(enabled: Boolean) = prefsRepo.setSuggestOftenUsedApps(enabled)
+
+    /** Persists whether Home may rotate with the system. */
+    fun setRotateHome(enabled: Boolean) = prefsRepo.setRotateHome(enabled)
+
+    /** Persists whether Home asks to become the default Home app. */
+    fun setDefaultLauncherPromptEnabled(enabled: Boolean) = prefsRepo.setDefaultLauncherPromptEnabled(enabled)
 
     /** Lets Home suggest every Launchable the user stopped suggesting again. */
     fun resetStoppedSuggestions() {

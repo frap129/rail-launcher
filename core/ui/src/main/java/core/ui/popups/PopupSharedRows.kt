@@ -46,9 +46,14 @@ fun PopupShortcutLabel(shortcut: ShortcutLaunchable, modifier: Modifier = Modifi
     )
 }
 
-/** A centred empty-state message with optional Turn on and Add apps actions. */
+/** A centred empty-state message with optional Home role, Turn on and Add apps actions. */
 @Composable
-fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null, onAddApps: (() -> Unit)? = null) {
+fun PopupEmptyState(
+    messageResId: Int,
+    onRequestHomeRole: (() -> Unit)? = null,
+    onTurnOn: (() -> Unit)? = null,
+    onAddApps: (() -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -62,6 +67,11 @@ fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null, onAddApps
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        if (onRequestHomeRole != null) {
+            TextButton(onClick = onRequestHomeRole) {
+                Text(stringResource(R.string.set_rail_as_home))
+            }
+        }
         if (onTurnOn != null) {
             TextButton(onClick = onTurnOn) {
                 Text(stringResource(R.string.turn_on))
@@ -74,4 +84,10 @@ fun PopupEmptyState(messageResId: Int, onTurnOn: (() -> Unit)? = null, onAddApps
             }
         }
     }
+}
+
+/** Explains that Shortcuts need the Home role and offers the system role request. */
+@Composable
+fun ShortcutsUnavailableEmptyState(onRequestHomeRole: () -> Unit, messageResId: Int = R.string.set_rail_as_home_for_shortcuts) {
+    PopupEmptyState(messageResId = messageResId, onRequestHomeRole = onRequestHomeRole)
 }

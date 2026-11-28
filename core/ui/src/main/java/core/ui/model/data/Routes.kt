@@ -3,6 +3,9 @@ package core.ui.model.data
 /** Route of the Home (launcher) destination. */
 const val LAUNCHER_ROUTE: String = "launcher"
 
+/** Route of the first-run and replayable onboarding flow. */
+const val ONBOARDING_ROUTE: String = "onboarding"
+
 /** Route root of the Settings screens. */
 const val SETTINGS_ROUTE: String = "settings"
 

@@ -17,7 +17,7 @@ fun NotificationAccessRow(hasAccess: Boolean, onClick: () -> Unit, modifier: Mod
         supportingContent = {
             Text(
                 text = stringResource(
-                    if (hasAccess) R.string.notification_access_allowed else R.string.notification_access_not_allowed
+                    if (hasAccess) R.string.permission_granted else R.string.notification_access_not_allowed
                 )
             )
         }

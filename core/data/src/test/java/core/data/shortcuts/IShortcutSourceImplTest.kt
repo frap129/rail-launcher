@@ -12,8 +12,10 @@ import android.os.UserHandle
 import app.cash.turbine.test
 import core.data.apps.model.App
 import core.data.apps.model.AppProfile
+import core.data.homerole.IHomeRoleSource
 import core.data.testing.FIRST_PACKAGE_NAME
 import core.data.testing.FIRST_SHORTCUT_ID
+import core.data.testing.FakeHomeRoleSource
 import core.data.testing.PERSONAL_USER_ID
 import core.data.testing.SECOND_PACKAGE_NAME
 import core.data.testing.SECOND_SHORTCUT_ID
@@ -32,9 +34,11 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -164,6 +168,28 @@ class IShortcutSourceImplTest {
         }
 
         logRecorder.assertLoggedWithout(inputPrivateApp.packageName, inputPrivateApp.key)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `given Rail does not hold the Home role, when granted, then Shortcuts reload without a new collector`() = runTest {
+        val mockLauncherApps: LauncherApps = mockk(relaxed = true)
+        val mockHomeRoleSource: FakeHomeRoleSource = FakeHomeRoleSource(isHomeRoleHeld = false)
+        val inputSource: IShortcutSourceImpl = createListeningSource(
+            mockLauncherApps = mockLauncherApps,
+            homeRoleSource = mockHomeRoleSource
+        )
+        every { mockLauncherApps.hasShortcutHostPermission() } returns false
+
+        inputSource.shortcuts(app = firstApp).test {
+            assertEquals(ShortcutsResult.Unavailable, awaitItem())
+            every { mockLauncherApps.hasShortcutHostPermission() } returns true
+            mockHomeRoleSource.setHomeRoleHeld(isHeld = true)
+            runCurrent()
+
+            assertEquals(ShortcutsResult.Available(shortcuts = emptyList()), awaitItem())
+            verify(exactly = 1) { mockLauncherApps.getActivityList(FIRST_PACKAGE_NAME, profile) }
+        }
     }
 
     @Test
@@ -351,23 +377,26 @@ class IShortcutSourceImplTest {
 
     private fun createShortcutSource(
         shortcutListener: IShortcutListener = IShortcutListenerImpl(context = context),
+        homeRoleSource: IHomeRoleSource = FakeHomeRoleSource(),
         dispatcher: CoroutineDispatcher = Dispatchers.IO
     ): IShortcutSourceImpl = IShortcutSourceImpl(
         context = context,
         shortcutListener = shortcutListener,
+        homeRoleSource = homeRoleSource,
         dispatcher = dispatcher
     )
 
     private fun TestScope.createListeningSource(
         mockLauncherApps: LauncherApps,
         callbackSlot: CapturingSlot<LauncherApps.Callback> = slot(),
-        handlerSlot: CapturingSlot<Handler> = slot()
+        handlerSlot: CapturingSlot<Handler> = slot(),
+        homeRoleSource: IHomeRoleSource = FakeHomeRoleSource()
     ): IShortcutSourceImpl {
         every { mockLauncherApps.hasShortcutHostPermission() } returns true
         every { mockLauncherApps.registerCallback(capture(callbackSlot), capture(handlerSlot)) } just Runs
         every { mockLauncherApps.unregisterCallback(any()) } just Runs
         useLauncherApps(mockLauncherApps = mockLauncherApps)
-        return createShortcutSource(dispatcher = StandardTestDispatcher(testScheduler))
+        return createShortcutSource(homeRoleSource = homeRoleSource, dispatcher = StandardTestDispatcher(testScheduler))
     }
 
     private fun useLauncherApps(mockLauncherApps: LauncherApps) {

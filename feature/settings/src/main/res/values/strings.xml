@@ -2,6 +2,7 @@
 <resources>
     <string name="appearance">Appearance</string>
     <string name="appearance_summary">Customize Rail launchers appearance</string>
+    <string name="rotate_home">Rotate Home</string>
     <string name="app_list_order">App List order</string>
     <string name="app_list_order_alphabetical">Alphabetical</string>
     <string name="app_list_order_most_used">Most used</string>
@@ -144,6 +145,14 @@
     <string name="swipe_down_notifications_summary">Open notifications with a swipe down</string>
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
+    <string name="advanced">Advanced</string>
+    <string name="default_launcher_prompt">Default launcher prompt</string>
+    <string name="default_launcher_prompt_summary">Ask to make Rail the default Home app</string>
+    <string name="replay_onboarding">Replay onboarding</string>
+    <string name="restart_rail">Restart Rail</string>
+    <string name="change_default_launcher">Change default launcher</string>
+    <string name="uninstall_rail">Uninstall Rail</string>
+    <string name="version_unavailable">Version unavailable</string>
     <string name="hidden_apps">Hidden apps</string>
     <string name="hidden_apps_summary">Unhide apps you removed from the App List</string>
     <string name="unhide">Unhide</string>

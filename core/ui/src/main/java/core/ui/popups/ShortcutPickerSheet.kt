@@ -43,7 +43,12 @@ private val pickerShortcutRowStartPadding = sheetHorizontalPadding + pickerRowIc
 
 /** The full-height sheet for choosing which Shortcuts a Pop-up shows. */
 @Composable
-fun ShortcutPickerSheet(state: ShortcutPickerState.Picking, onConfirm: (selectedInOrder: List<String>) -> Unit, onDismiss: () -> Unit) {
+fun ShortcutPickerSheet(
+    state: ShortcutPickerState.Picking,
+    onRequestHomeRole: () -> Unit,
+    onConfirm: (selectedInOrder: List<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
     val checkedKeys: SnapshotStateList<String> = remember(state.selectedKeys) {
         mutableStateListOf<String>().apply { addAll(state.selectedKeys) }
     }
@@ -57,7 +62,10 @@ fun ShortcutPickerSheet(state: ShortcutPickerState.Picking, onConfirm: (selected
             )
         )
         if (state.shortcutsUnavailable) {
-            PopupEmptyState(messageResId = R.string.set_rail_as_home_to_add_shortcuts)
+            ShortcutsUnavailableEmptyState(
+                messageResId = R.string.set_rail_as_home_to_add_shortcuts,
+                onRequestHomeRole = onRequestHomeRole
+            )
         } else {
             LazyColumn(modifier = Modifier.weight(1f)) {
                 state.groups.forEachIndexed { groupIndex, group ->

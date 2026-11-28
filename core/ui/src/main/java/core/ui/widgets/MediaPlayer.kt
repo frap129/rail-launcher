@@ -280,7 +280,7 @@ private fun MediaControls(session: MediaSessionSnapshot, onCommand: (MediaComman
         if (MediaCommand.Next in session.actions) {
             MediaControlButton(
                 icon = FontAwesomeIcons.Solid.StepForward,
-                contentDescription = stringResource(CoreUiR.string.media_next),
+                contentDescription = stringResource(CoreUiR.string.next),
                 onClick = { onCommand(MediaCommand.Next) }
             )
         }

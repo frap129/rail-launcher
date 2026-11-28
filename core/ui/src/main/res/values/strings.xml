@@ -14,7 +14,7 @@
     <string name="grant">Grant</string>
     <string name="open_settings">Open settings</string>
     <string name="notification_access">Notification access</string>
-    <string name="notification_access_allowed">Allowed</string>
+    <string name="permission_granted">Granted</string>
     <string name="notification_access_not_allowed">Not allowed — tap to allow</string>
     <string name="settings">Settings</string>
     <string name="search">Search</string>
@@ -133,6 +133,7 @@
     <string name="remove_item">Remove %1$s</string>
     <string name="reorder_item">Reorder %1$s</string>
     <string name="edit_popup_title">Edit %1$s Pop-up</string>
+    <string name="set_rail_as_home">Set Rail as Home</string>
     <string name="set_rail_as_home_for_shortcuts">Set Rail as your home app to see shortcuts</string>
     <string name="set_rail_as_home_to_add_shortcuts">Set Rail as your home app to add shortcuts</string>
     <string name="work_apps_paused">Work apps are paused</string>
@@ -190,7 +191,7 @@
     <string name="media_previous">Previous</string>
     <string name="media_play">Play</string>
     <string name="media_pause">Pause</string>
-    <string name="media_next">Next</string>
+    <string name="next">Next</string>
     <string name="media_open_player">Open player</string>
     <string name="media_player_menu">Media Player menu</string>
     <string name="media_player_announcement">%1$s, %2$s, playing in %3$s</string>

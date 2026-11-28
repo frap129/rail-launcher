@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -27,10 +31,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
+import core.ui.R as CoreUiR
 import core.ui.composables.HomeItem
 import core.ui.composables.HomeSuggestionRow
 import core.ui.composables.LauncherItemActions
@@ -45,6 +52,7 @@ import core.ui.layout.DragHandlePlacement
 import core.ui.layout.HomeReorder
 import core.ui.layout.dragHandlePlacement
 import core.ui.layout.favoritesContentPadding
+import core.ui.layout.homeContentPaddingValues
 import core.ui.layout.homeEdgePadding
 import core.ui.layout.resolveHomeReorder
 import core.ui.model.data.FAVORITES_EMPTY_HINT_KEY
@@ -69,6 +77,12 @@ import sh.calvin.reorderable.ReorderableLazyListState
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private const val LAUNCHER_HOME_TEST_TAG: String = "launcherHome"
+private const val DEFAULT_LAUNCHER_PROMPT_KEY: String = "defaultLauncherPrompt"
+private val defaultLauncherPromptPadding: Dp = 16.dp
+private val defaultLauncherPromptSpacing: Dp = 8.dp
+
+/** What the default launcher prompt asks Home to request, dismiss or turn off. */
+data class DefaultLauncherPromptActions(val onRequestHomeRole: () -> Unit, val onDismiss: () -> Unit, val onTurnOff: () -> Unit)
 
 private data class HomeInteraction(
     val menuEnabled: Boolean,
@@ -85,6 +99,7 @@ fun LauncherHome(
     railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
+    defaultLauncherPromptActions: DefaultLauncherPromptActions,
     onFavoriteIconSettled: (Launchable) -> Unit,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
@@ -147,6 +162,7 @@ fun LauncherHome(
                             railSide = railSide,
                             itemActions = itemActions,
                             folderSummaries = folderSummaries,
+                            defaultLauncherPromptActions = defaultLauncherPromptActions,
                             onFavoriteIconSettled = onFavoriteIconSettled,
                             onFavoriteMoved = onFavoriteMoved,
                             onEmptyAreaLongPress = onEmptyAreaLongPress,
@@ -159,6 +175,8 @@ fun LauncherHome(
 
                 WidgetAreaLayout.Uncapped -> {
                     val placeIds: List<Long> = widgetArea.state.placeIds
+                    val widgetAreaListPrefix: Int = widgetArea.uncappedListPrefix +
+                        if (home.isDefaultLauncherPromptShown) 1 else 0
                     val favoriteKeys: List<String> = rememberFavoriteKeys(home.favorites)
                     val reorderState: ReorderableLazyListState = rememberHomeReorderState(
                         listState = home.lazyListState,
@@ -171,7 +189,7 @@ fun LauncherHome(
                     WidgetAreaScrollToPlaceEffect(
                         ui = widgetArea,
                         listState = home.lazyListState,
-                        listPrefix = widgetArea.uncappedListPrefix
+                        listPrefix = widgetAreaListPrefix
                     )
                     LazyColumn(
                         modifier = Modifier
@@ -196,6 +214,11 @@ fun LauncherHome(
                             bottom = homeEdgePadding
                         )
                     ) {
+                        defaultLauncherPromptItem(
+                            home = home,
+                            railSide = railSide,
+                            actions = defaultLauncherPromptActions
+                        )
                         item(key = WIDGET_AREA_OFFSET_KEY) {
                             WidgetAreaTopOffsetSpacer(ui = widgetArea)
                         }
@@ -221,11 +244,58 @@ fun LauncherHome(
                     WidgetAreaResizeAutoScroll(
                         ui = widgetArea,
                         listState = home.lazyListState,
-                        listPrefix = widgetArea.uncappedListPrefix
+                        listPrefix = widgetAreaListPrefix
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DefaultLauncherPrompt(railSide: RailSide, actions: DefaultLauncherPromptActions, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .padding(
+                horizontal = homeEdgePadding,
+                vertical = defaultLauncherPromptSpacing
+            )
+            .padding(homeContentPaddingValues(railSide = railSide))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(defaultLauncherPromptPadding),
+            verticalArrangement = Arrangement.spacedBy(defaultLauncherPromptSpacing)
+        ) {
+            Text(
+                text = stringResource(R.string.default_launcher_prompt_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() }
+            )
+            Text(
+                text = stringResource(R.string.default_launcher_prompt_body),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            TextButton(onClick = actions.onRequestHomeRole, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(CoreUiR.string.set_rail_as_home))
+            }
+            TextButton(onClick = actions.onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.dismiss_default_launcher_prompt))
+            }
+            TextButton(onClick = actions.onTurnOff, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.turn_off_default_launcher_prompt))
+            }
+        }
+    }
+}
+
+private fun LazyListScope.defaultLauncherPromptItem(home: LauncherUiState.Home, railSide: RailSide, actions: DefaultLauncherPromptActions) {
+    if (!home.isDefaultLauncherPromptShown) {
+        return
+    }
+    item(key = DEFAULT_LAUNCHER_PROMPT_KEY) {
+        DefaultLauncherPrompt(railSide = railSide, actions = actions, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -248,6 +318,7 @@ private fun FavoritesBottomArea(
     railSide: RailSide,
     itemActions: LauncherItemActions,
     folderSummaries: Map<String, String>,
+    defaultLauncherPromptActions: DefaultLauncherPromptActions,
     onFavoriteIconSettled: (Launchable) -> Unit,
     onFavoriteMoved: (fromIndex: Int, toIndex: Int) -> Unit,
     onEmptyAreaLongPress: () -> Unit,
@@ -288,6 +359,11 @@ private fun FavoritesBottomArea(
             verticalArrangement = Arrangement.Top,
             contentPadding = PaddingValues(start = homeEdgePadding, end = homeEdgePadding, bottom = homeEdgePadding)
         ) {
+            defaultLauncherPromptItem(
+                home = home,
+                railSide = railSide,
+                actions = defaultLauncherPromptActions
+            )
             favoriteItems(
                 home = home,
                 railSide = railSide,

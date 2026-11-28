@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 
 /** Hosts the Pop-up editor and the item and Shortcut pickers it opens; renders nothing while they are closed. */
 @Composable
-fun PopupEditorHost(editor: IPopupEditor, picker: IPopupPicker) {
+fun PopupEditorHost(editor: IPopupEditor, picker: IPopupPicker, onRequestHomeRole: () -> Unit) {
     val editState: PopupEditState by editor.editState.collectAsState()
     val pickerState: PopupPickerState by picker.pickerState.collectAsState()
     val shortcutPickerState: ShortcutPickerState by picker.shortcutPickerState.collectAsState()
@@ -14,6 +14,7 @@ fun PopupEditorHost(editor: IPopupEditor, picker: IPopupPicker) {
     if (editing != null) {
         EditPopupSheet(
             state = editing,
+            onRequestHomeRole = onRequestHomeRole,
             onFinishEdit = editor::finishEdit,
             onShortcutHiddenChange = editor::setShortcutHidden,
             onItemOrderChange = editor::setItemOrder,
@@ -32,6 +33,7 @@ fun PopupEditorHost(editor: IPopupEditor, picker: IPopupPicker) {
     if (shortcutPickerState is ShortcutPickerState.Picking) {
         ShortcutPickerSheet(
             state = shortcutPickerState as ShortcutPickerState.Picking,
+            onRequestHomeRole = onRequestHomeRole,
             onConfirm = picker::confirmShortcuts,
             onDismiss = picker::cancelShortcutPicking
         )

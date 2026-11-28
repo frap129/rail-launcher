@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -517,6 +518,73 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `defaults Rotate Home to unset`() = databaseTest {
+        assertNull(defaultSettings().rotateHome)
+    }
+
+    @Test
+    fun `stores Rotate Home without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        repository.setRotateHome(true)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.rotateHome == true }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, rotateHome = true), actualSettings)
+    }
+
+    @Test
+    fun `stores a Rotate Home off choice`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        repository.setRotateHome(true)
+        awaitSettings(settingsDao) { stored -> stored.rotateHome == true }
+        repository.setRotateHome(false)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.rotateHome == false }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, rotateHome = false), actualSettings)
+    }
+
+    @Test
+    fun `defaults the default launcher prompt to on`() = databaseTest {
+        assertTrue(defaultSettings().defaultLauncherPromptEnabled)
+    }
+
+    @Test
+    fun `turns off the default launcher prompt without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        repository.setDefaultLauncherPromptEnabled(false)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> !stored.defaultLauncherPromptEnabled }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, defaultLauncherPromptEnabled = false), actualSettings)
+    }
+
+    @Test
+    fun `turns the default launcher prompt back on`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(defaultLauncherPromptEnabled = false))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        repository.setDefaultLauncherPromptEnabled(true)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.defaultLauncherPromptEnabled }
+        assertEquals(Settings(defaultLauncherPromptEnabled = true), actualSettings)
+    }
+
+    @Test
+    fun `defaults onboarding completed to off`() = databaseTest {
+        assertFalse(defaultSettings().onboardingCompleted)
+    }
+
+    @Test
+    fun `stores onboarding completed without clearing the icon pack`() = databaseTest {
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
+        val repository: IPreferencesRepository = createPreferencesRepository(settingsDao = settingsDao)
+        repository.setOnboardingCompleted(true)
+        val actualSettings: Settings = awaitSettings(settingsDao) { stored -> stored.onboardingCompleted }
+        assertEquals(Settings(iconPack = TEST_ICON_PACK_PACKAGE, onboardingCompleted = true), actualSettings)
+    }
+
+    @Test
     fun `stores Show Recently installed without clearing the icon pack`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         settingsDao.upsert(Settings(iconPack = TEST_ICON_PACK_PACKAGE))
@@ -720,6 +788,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
             { repository.setRailHaptics(enabled = false) },
             { repository.setShowRail(enabled = false) },
             { repository.setSuggestOftenUsedApps(enabled = false) },
+            { repository.setDefaultLauncherPromptEnabled(enabled = false) },
+            { repository.setOnboardingCompleted(completed = true) },
             { repository.setOpenSearchOnSwipeUp(enabled = false) },
             { repository.setExpandNotificationsOnSwipeDown(enabled = false) },
             { repository.setOpenSearchOnHomePress(enabled = true) },
@@ -752,6 +822,8 @@ class IPreferencesRepositoryImplTest : InMemoryDatabaseTest() {
                 railHaptics = false,
                 showRail = false,
                 suggestOftenUsedApps = false,
+                defaultLauncherPromptEnabled = false,
+                onboardingCompleted = true,
                 openSearchOnSwipeUp = false,
                 openSearchOnHomePress = true,
                 searchAutoLaunch = true,

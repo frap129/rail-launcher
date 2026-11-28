@@ -69,28 +69,42 @@ fun ComposeContentTestRule.setHomeFavoriteRows(
 fun createHomeState(
     favorites: List<Launchable>,
     suggestions: List<Launchable> = emptyList(),
-    lazyListState: LazyListState = LazyListState()
+    lazyListState: LazyListState = LazyListState(),
+    isDefaultLauncherPromptShown: Boolean = false
 ): LauncherUiState.Home = LauncherUiState.Home(
     lazyListState = lazyListState,
     favorites = favorites,
     isFavoritesLoaded = true,
     suggestions = suggestions,
     isSwipeUpEnabled = false,
-    isSwipeDownEnabled = false
+    isSwipeDownEnabled = false,
+    isDefaultLauncherPromptShown = isDefaultLauncherPromptShown
 )
 
 /** A loaded, uncapped Widget Area with no widgets, unless a test supplies other state or callbacks. */
 fun createTestWidgetAreaUi(
     state: WidgetAreaState = WidgetAreaState(isLoaded = true, layout = WidgetAreaLayout.Uncapped, listState = LazyListState()),
     mediaPlayer: MediaPlayerUiState = MediaPlayerUiState.Hidden,
-    actions: WidgetAreaActions = widgetAreaActions()
+    actions: WidgetAreaActions = widgetAreaActions(),
+    scrollToPlaceId: Long? = null
 ): WidgetAreaUi = WidgetAreaUi(
     state = state,
     resize = null,
     editDraft = null,
     mediaPlayer = mediaPlayer,
-    scrollToPlaceId = null,
+    scrollToPlaceId = scrollToPlaceId,
     actions = actions
+)
+
+/** The default launcher prompt callbacks for tests that do not exercise every action. */
+fun createDefaultLauncherPromptActions(
+    onRequestHomeRole: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+    onTurnOff: () -> Unit = {}
+): DefaultLauncherPromptActions = DefaultLauncherPromptActions(
+    onRequestHomeRole = onRequestHomeRole,
+    onDismiss = onDismiss,
+    onTurnOff = onTurnOff
 )
 
 /** Home composed with the test Widget Area and the callbacks tests do not exercise. */
@@ -103,9 +117,20 @@ fun LauncherHomeTestContent(
     isResizing: Boolean = false,
     isEditingWidgets: Boolean = false,
     isRowFocusEnabled: Boolean = true,
-    onFavoriteIconSettled: (Launchable) -> Unit = {}
+    onFavoriteIconSettled: (Launchable) -> Unit = {},
+    defaultLauncherPromptActions: DefaultLauncherPromptActions = createDefaultLauncherPromptActions(),
+    layout: WidgetAreaLayout = WidgetAreaLayout.Uncapped,
+    widgetAreaState: WidgetAreaState = WidgetAreaState(isLoaded = true, layout = layout, listState = LazyListState()),
+    scrollToPlaceId: Long? = null,
+    onScrolledToPlace: () -> Unit = {}
 ) {
-    val widgetArea: WidgetAreaUi = remember { createTestWidgetAreaUi() }
+    val widgetArea: WidgetAreaUi = remember(layout, widgetAreaState, scrollToPlaceId, onScrolledToPlace) {
+        createTestWidgetAreaUi(
+            state = widgetAreaState,
+            scrollToPlaceId = scrollToPlaceId,
+            actions = widgetAreaActions().copy(onScrolledToPlace = onScrolledToPlace)
+        )
+    }
     LauncherHome(
         modifier = modifier,
         home = home,
@@ -113,6 +138,7 @@ fun LauncherHomeTestContent(
         railSide = RailSide.DEFAULT,
         itemActions = itemActions,
         folderSummaries = emptyMap(),
+        defaultLauncherPromptActions = defaultLauncherPromptActions,
         onFavoriteIconSettled = onFavoriteIconSettled,
         onFavoriteMoved = { _, _ -> },
         onEmptyAreaLongPress = {},

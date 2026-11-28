@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Insets
+import android.os.Process
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowMetrics
@@ -67,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
@@ -132,9 +134,11 @@ import core.ui.composables.WarningRow
 import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.composables.settingsContentPadding
 import core.ui.composables.sheetContainerColor
+import core.ui.layout.resolveRotateHome
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.ONBOARDING_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.SEARCH_SETTINGS_ROUTE
@@ -152,6 +156,10 @@ import core.ui.widgets.labelResource
 import core.ui.widgets.openRailNotificationListenerSettings
 import core.util.RECENT_INSTALL_WINDOW_DAYS
 import core.util.openApplicationDetailsSettings
+import core.util.openDefaultHomeSettings
+import core.util.readAppVersionName
+import core.util.requestUninstall
+import core.util.restartRail
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -224,6 +232,7 @@ private fun NavController.startAddWidgetOnHome() {
 fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: SettingsViewModel = koinViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val hasStoppedSuggestions: Boolean by viewModel.hasStoppedSuggestions.collectAsState()
+    val context: Context = LocalContext.current
     val theme = MaterialTheme.colorScheme
     val screen: SettingsScreen = remember {
         SettingsScreen.entries.find { it.key == backStackEntry.arguments?.getString(SCREEN_ARGUMENT) } ?: SettingsScreen.Main
@@ -276,7 +285,17 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
                     toSearch = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
                     toHiddenApps = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.HiddenApps.key}") },
-                    onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
+                    onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked,
+                    defaultLauncherPromptEnabled = uiState.defaultLauncherPromptEnabled,
+                    versionName = readSettingsVersionName(),
+                    advancedActions = SettingsAdvancedActions(
+                        onDefaultLauncherPromptChange = viewModel::setDefaultLauncherPromptEnabled,
+                        onReplayOnboarding = { navController.navigate(ONBOARDING_ROUTE) },
+                        onRestartRail = context::restartRail,
+                        onChangeDefaultLauncher = context::openDefaultHomeSettings,
+                        onUninstallRail = { context.requestUninstall(context.packageName, Process.myUserHandle()) },
+                        onOpenAppInfo = context::openApplicationDetailsSettings
+                    )
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
@@ -290,6 +309,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     railHaptics = uiState.railHaptics,
                     showRail = uiState.showRail,
                     suggestOftenUsedApps = uiState.suggestOftenUsedApps,
+                    rotateHome = uiState.rotateHome,
+                    smallestScreenWidthDp = LocalConfiguration.current.smallestScreenWidthDp,
                     hasStoppedSuggestions = hasStoppedSuggestions,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
@@ -300,6 +321,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         onRailHapticsChange = viewModel::setRailHaptics,
                         onShowRailChange = viewModel::setShowRail,
                         onSuggestOftenUsedAppsChange = viewModel::setSuggestOftenUsedApps,
+                        onRotateHomeChange = viewModel::setRotateHome,
                         onResetStoppedSuggestions = viewModel::resetStoppedSuggestions,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
@@ -322,6 +344,13 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 }
 
 @Composable
+private fun readSettingsVersionName(): String {
+    val context: Context = LocalContext.current
+    val fallback: String = stringResource(R.string.version_unavailable)
+    return remember(context, fallback) { context.readAppVersionName(fallback = fallback) }
+}
+
+@Composable
 fun SettingsMainScreen(
     hidePrivateSpaceWhenLocked: Boolean,
     isPrivateSpaceAvailable: Boolean,
@@ -330,7 +359,10 @@ fun SettingsMainScreen(
     toPopups: () -> Unit,
     toSearch: () -> Unit,
     toHiddenApps: () -> Unit,
-    onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit
+    onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit,
+    defaultLauncherPromptEnabled: Boolean,
+    versionName: String,
+    advancedActions: SettingsAdvancedActions
 ) {
     LazyColumn {
         item {
@@ -383,6 +415,61 @@ fun SettingsMainScreen(
                 )
             }
         }
+        item { SettingsSectionTitle(R.string.advanced) }
+        item {
+            SettingsAdvancedRows(
+                defaultLauncherPromptEnabled = defaultLauncherPromptEnabled,
+                versionName = versionName,
+                actions = advancedActions
+            )
+        }
+    }
+}
+
+/** What the Advanced section asks its host to change, open or restart. */
+data class SettingsAdvancedActions(
+    val onDefaultLauncherPromptChange: (Boolean) -> Unit,
+    val onReplayOnboarding: () -> Unit,
+    val onRestartRail: () -> Unit,
+    val onChangeDefaultLauncher: () -> Unit,
+    val onUninstallRail: () -> Unit,
+    val onOpenAppInfo: () -> Unit
+)
+
+@Composable
+private fun SettingsAdvancedRows(defaultLauncherPromptEnabled: Boolean, versionName: String, actions: SettingsAdvancedActions) {
+    Column {
+        SettingsSwitchRow(
+            title = stringResource(R.string.default_launcher_prompt),
+            supportingText = stringResource(R.string.default_launcher_prompt_summary),
+            checked = defaultLauncherPromptEnabled,
+            onCheckedChange = actions.onDefaultLauncherPromptChange
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.replay_onboarding),
+            value = "",
+            onClick = actions.onReplayOnboarding
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.restart_rail),
+            value = "",
+            onClick = actions.onRestartRail
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.change_default_launcher),
+            value = "",
+            onClick = actions.onChangeDefaultLauncher
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.uninstall_rail),
+            value = "",
+            onClick = actions.onUninstallRail
+        )
+        SettingsActionRow(
+            title = stringResource(CoreUiR.string.app_info),
+            value = versionName,
+            onClick = actions.onOpenAppInfo
+        )
     }
 }
 
@@ -483,11 +570,7 @@ fun SettingsWidgetsScreen(section: String?, onAddWidget: () -> Unit, viewModel: 
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
             message = stringResource(CoreUiR.string.calendar_permission_denied_message),
-            onDismiss = { showPermissionDialog = false },
-            onOpenSettings = {
-                context.openApplicationDetailsSettings()
-                showPermissionDialog = false
-            }
+            onDismiss = { showPermissionDialog = false }
         )
     }
     if (showNotificationAccessDialog) {
@@ -1445,6 +1528,7 @@ class SettingsAppearanceActions(
     val onRailHapticsChange: (Boolean) -> Unit,
     val onShowRailChange: (Boolean) -> Unit,
     val onSuggestOftenUsedAppsChange: (Boolean) -> Unit,
+    val onRotateHomeChange: (Boolean) -> Unit,
     val onResetStoppedSuggestions: () -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
@@ -1462,9 +1546,15 @@ fun SettingsAppearanceScreen(
     railHaptics: Boolean,
     showRail: Boolean,
     suggestOftenUsedApps: Boolean,
+    rotateHome: Boolean?,
+    smallestScreenWidthDp: Int,
     hasStoppedSuggestions: Boolean,
     actions: SettingsAppearanceActions
 ) {
+    val isRotateHomeEnabled: Boolean = resolveRotateHome(
+        rotateHome = rotateHome,
+        smallestScreenWidthDp = smallestScreenWidthDp
+    )
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             IconPackRow(
@@ -1479,6 +1569,13 @@ fun SettingsAppearanceScreen(
                 dialogTitle = stringResource(R.string.reset_custom_icons_title),
                 dialogBody = stringResource(R.string.reset_custom_icons_body),
                 onConfirm = actions.onResetCustomIcons
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.rotate_home),
+                checked = isRotateHomeEnabled,
+                onCheckedChange = actions.onRotateHomeChange
             )
         }
         item {

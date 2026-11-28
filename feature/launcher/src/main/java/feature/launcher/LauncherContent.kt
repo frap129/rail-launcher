@@ -118,6 +118,7 @@ internal fun LauncherContent(
     onItemLaunch: (Launchable) -> Unit,
     onRowTap: (Launchable, PopupAnchor?) -> Unit,
     onOpenAgenda: () -> Unit,
+    onRequestHomeRole: () -> Unit,
     onItemOpenPopup: (Launchable, PopupAnchor?) -> Unit,
     onItemAnchorChanged: (Launchable, PopupAnchor) -> Unit,
     onCopyCalculatorRow: (String) -> Unit,
@@ -133,6 +134,13 @@ internal fun LauncherContent(
     val folderSummaries: Map<String, String> by viewModel.folderSummaryLines.collectAsState()
     val privateSpaceSettingsIntent: IntentSender? by viewModel.privateSpaceSettingsIntent.collectAsState()
     val context: Context = LocalContext.current
+    val defaultLauncherPromptActions: DefaultLauncherPromptActions = remember(viewModel, onRequestHomeRole) {
+        DefaultLauncherPromptActions(
+            onRequestHomeRole = onRequestHomeRole,
+            onDismiss = viewModel::dismissDefaultLauncherPrompt,
+            onTurnOff = viewModel::turnOffDefaultLauncherPrompt
+        )
+    }
     val itemActions: LauncherItemActions =
         remember(viewModel, onRowTap, onItemOpenPopup, onItemAnchorChanged, railBounds, railSide, context, privateSpaceSettingsIntent) {
             LauncherItemActions(
@@ -224,6 +232,7 @@ internal fun LauncherContent(
                 railSide = railSide,
                 itemActions = itemActions,
                 folderSummaries = folderSummaries,
+                defaultLauncherPromptActions = defaultLauncherPromptActions,
                 onFavoriteIconSettled = homeIconsDrawnReport.settledIcons::settle,
                 onFavoriteMoved = viewModel::moveFavorite,
                 onEmptyAreaLongPress = widgetViewModel::openEmptyAreaMenu,

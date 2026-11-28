@@ -157,6 +157,7 @@ fun PopupCard(
     onItemClick: (PopupItem) -> Unit,
     onItemLongClick: (PopupItem) -> Unit,
     onAddItems: () -> Unit,
+    onRequestHomeRole: () -> Unit,
     onRequestQuietModeOff: () -> Unit,
     onWidgetLongPress: (Long) -> Unit,
     onWidgetUnpause: (Long) -> Unit,
@@ -308,7 +309,7 @@ fun PopupCard(
                         )
 
                         PopupEmptyReason.ShortcutsUnavailable ->
-                            PopupEmptyState(messageResId = CoreUiR.string.set_rail_as_home_for_shortcuts)
+                            ShortcutsUnavailableEmptyState(onRequestHomeRole = onRequestHomeRole)
 
                         PopupEmptyReason.ProfilePaused -> PopupEmptyState(
                             messageResId = CoreUiR.string.work_apps_paused,

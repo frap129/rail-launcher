@@ -6,6 +6,7 @@ plugins {
 
 android {
     namespace = "dev.maples.rail"
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     defaultConfig {
         applicationId = "dev.maples.rail"

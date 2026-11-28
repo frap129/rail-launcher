@@ -6,15 +6,18 @@ import android.content.pm.ShortcutInfo
 import android.os.UserHandle
 import android.os.UserManager
 import core.data.apps.model.AppProfile
+import core.data.homerole.IHomeRoleSource
 import core.util.logTypeName
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,13 +27,17 @@ import timber.log.Timber
 class IShortcutSourceImpl(
     context: Context,
     private val shortcutListener: IShortcutListener,
+    private val homeRoleSource: IHomeRoleSource,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : IShortcutSource {
     private val launcherApps: LauncherApps = context.getSystemService(LauncherApps::class.java)
     private val userManager: UserManager = context.getSystemService(UserManager::class.java)
 
-    override fun shortcuts(app: AppProfile): Flow<ShortcutsResult> =
-        liveFlow(apps = setOf(app), unavailable = ShortcutsResult.Unavailable) { loadShortcuts(app = app) }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun shortcuts(app: AppProfile): Flow<ShortcutsResult> = homeRoleSource.isHomeRoleHeld
+        .flatMapLatest { _ ->
+            liveFlow(apps = setOf(app), unavailable = ShortcutsResult.Unavailable) { loadShortcuts(app = app) }
+        }
 
     override fun resolve(keys: Set<ShortcutKey>): Flow<ShortcutResolution> {
         if (keys.isEmpty()) {

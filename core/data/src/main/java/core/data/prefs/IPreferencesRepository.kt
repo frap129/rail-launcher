@@ -56,6 +56,15 @@ interface IPreferencesRepository {
     /** Sets whether Home shows the Home suggestions below the Favorites. */
     fun setSuggestOftenUsedApps(enabled: Boolean)
 
+    /** Sets whether Home may rotate with the system. */
+    fun setRotateHome(enabled: Boolean)
+
+    /** Sets whether Home asks to become the default Home app. */
+    fun setDefaultLauncherPromptEnabled(enabled: Boolean)
+
+    /** Stores whether onboarding was skipped or finished so it does not return on later launches or restores. */
+    fun setOnboardingCompleted(completed: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

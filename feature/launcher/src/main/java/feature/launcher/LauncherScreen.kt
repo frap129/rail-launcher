@@ -48,6 +48,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import core.data.calendar.ICalendarPermissionGate
 import core.data.folders.Folder
+import core.data.homerole.IHomeRoleSource
 import core.data.launchables.model.Launchable
 import core.data.prefs.RailSide
 import core.data.prefs.ScrubEdges
@@ -69,6 +70,7 @@ import core.ui.composables.OnResume
 import core.ui.composables.PermissionDeniedDialog
 import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.composables.scrollrail.RailBounds
+import core.ui.homerole.rememberHomeRoleRequest
 import core.ui.layout.HomeEditMode
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
@@ -169,10 +171,12 @@ fun LauncherScreen(
     val appWidgetHostSource: IAppWidgetHostSource = koinInject()
     val appWidgetViewCache: IAppWidgetViewCache = koinInject()
     val calendarPermissionGate: ICalendarPermissionGate = koinInject()
+    val homeRoleSource: IHomeRoleSource = koinInject()
     val profileSource: IProfileSource = koinInject()
     val launcherInputState: LauncherInputState = koinInject()
     val homeIconsDrawn: IHomeIconsDrawn = koinInject()
     val clockSource: IClockSource = koinInject()
+    val onRequestHomeRole: () -> Unit = rememberHomeRoleRequest(homeRoleSource)
     val uiState: LauncherUiState by viewModel.uiState.collectAsState()
     val agendaState: AgendaUiState by agendaViewModel.uiState.collectAsState()
     val isPopupOpen: Boolean by popupCardViewModel.isCardOpen.collectAsState()
@@ -451,6 +455,7 @@ fun LauncherScreen(
             onItemLaunch = launchLaunchable,
             onRowTap = openRow,
             onOpenAgenda = requestOpenAgenda,
+            onRequestHomeRole = onRequestHomeRole,
             onItemOpenPopup = openLaunchablePopup,
             onItemAnchorChanged = { owner, anchor -> popupCardViewModel.onAnchorChanged(owner.key, anchor) },
             onCopyCalculatorRow = { result ->
@@ -488,6 +493,7 @@ fun LauncherScreen(
             railSide = railSide,
             onLaunch = launchLaunchable,
             onAddItems = popupPicker::startFolderPicking,
+            onRequestHomeRole = onRequestHomeRole,
             modifier = Modifier.fillMaxSize()
         )
         LauncherRail(
@@ -517,7 +523,7 @@ fun LauncherScreen(
             editor = popupEditor,
             folderActions = popupFolderActions
         )
-        PopupEditorHost(editor = popupEditor, picker = popupPicker)
+        PopupEditorHost(editor = popupEditor, picker = popupPicker, onRequestHomeRole = onRequestHomeRole)
         IconPickerHost(iconPicker = popupIconPicker)
         FolderDeleteHost(folderActions = popupFolderActions)
         AddToFolderHost(folderActions = popupFolderActions)
@@ -577,11 +583,7 @@ fun LauncherScreen(
         PermissionDeniedDialog(
             title = stringResource(CoreUiR.string.calendar_permission_denied_title),
             message = stringResource(CoreUiR.string.calendar_permission_denied_message),
-            onDismiss = { showCalendarPermissionDialog = false },
-            onOpenSettings = {
-                showCalendarPermissionDialog = false
-                context.openApplicationDetailsSettings()
-            }
+            onDismiss = { showCalendarPermissionDialog = false }
         )
     }
     if (showNotificationAccessDialog) {

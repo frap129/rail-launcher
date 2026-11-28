@@ -72,6 +72,7 @@ private fun popupItemKey(key: String): String = ITEM_KEY_PREFIX + key
 @Composable
 fun EditPopupSheet(
     state: PopupEditState.Editing,
+    onRequestHomeRole: () -> Unit,
     onFinishEdit: () -> Unit,
     onShortcutHiddenChange: (shortcutId: String, hidden: Boolean) -> Unit,
     onItemOrderChange: (orderedItemKeys: List<String>) -> Unit,
@@ -136,7 +137,7 @@ fun EditPopupSheet(
                     }
 
                     ShortcutsResult.Unavailable -> item(key = "edit_popup_shortcuts_unavailable") {
-                        PopupEmptyState(messageResId = R.string.set_rail_as_home_for_shortcuts)
+                        ShortcutsUnavailableEmptyState(onRequestHomeRole = onRequestHomeRole)
                     }
 
                     ShortcutsResult.ProfilePaused -> item(key = "edit_popup_shortcuts_paused") {
