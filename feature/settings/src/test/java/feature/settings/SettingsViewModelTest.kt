@@ -355,6 +355,29 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `leaves the default launcher prompt enabled by default`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+        assertTrue(viewModel.uiState.value.defaultLauncherPromptEnabled)
+    }
+
+    @Test
+    fun `exposes the stored default launcher prompt choice`() = runTest {
+        assertExposesSetting(
+            expected = false,
+            inputSettings = Settings(defaultLauncherPromptEnabled = false),
+            read = { defaultLauncherPromptEnabled }
+        )
+    }
+
+    @Test
+    fun `persists the default launcher prompt choice`() = runTest {
+        assertPersists(
+            persist = { setDefaultLauncherPromptEnabled(false) },
+            verifyCall = { setDefaultLauncherPromptEnabled(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

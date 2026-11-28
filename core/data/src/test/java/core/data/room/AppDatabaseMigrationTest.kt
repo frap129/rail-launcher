@@ -703,6 +703,21 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds the default launcher prompt enabled by default and keeps the settings row`() {
+        assertAddsBooleanSettingColumn(
+            migration = MIGRATION_32_33,
+            version = 32,
+            column = Settings.COLUMN_DEFAULT_LAUNCHER_PROMPT_ENABLED,
+            expected = true
+        )
+    }
+
+    @Test
+    fun `opens a version 32 database with Room after adding the default launcher prompt preference`() {
+        assertOpensAfterMigration(version = 32)
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -859,11 +874,11 @@ private fun assertAddsBooleanSettingColumn(migration: Migration, version: Int, c
         createTables = { db -> db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false) }
     ) { db ->
         migration.migrate(db)
-
         assertEquals(
             listOf("id", "icon_pack", Settings.COLUMN_SEARCH_SUGGESTIONS, column),
             db.columnNames(table = Settings.TABLE_NAME)
         )
+        assertEquals(TableColumn(column, "INTEGER", true, false), db.tableColumns(table = Settings.TABLE_NAME).last())
         assertEquals(expected, db.booleanColumn(column))
         assertEquals(false, db.searchSuggestions())
         assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())

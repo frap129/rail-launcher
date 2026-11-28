@@ -146,6 +146,8 @@
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
     <string name="advanced">Advanced</string>
+    <string name="default_launcher_prompt">Default launcher prompt</string>
+    <string name="default_launcher_prompt_summary">Ask to make Rail the default Home app</string>
     <string name="restart_rail">Restart Rail</string>
     <string name="change_default_launcher">Change default launcher</string>
     <string name="uninstall_rail">Uninstall Rail</string>

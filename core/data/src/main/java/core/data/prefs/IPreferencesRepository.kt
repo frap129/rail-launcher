@@ -59,6 +59,9 @@ interface IPreferencesRepository {
     /** Sets whether Home may rotate with the system. */
     fun setRotateHome(enabled: Boolean)
 
+    /** Sets whether Home asks to become the default Home app. */
+    fun setDefaultLauncherPromptEnabled(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

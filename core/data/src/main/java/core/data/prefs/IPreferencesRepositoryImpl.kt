@@ -193,6 +193,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setDefaultLauncherPromptEnabled(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(defaultLauncherPromptEnabled = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

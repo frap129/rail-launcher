@@ -41,4 +41,9 @@
     <string name="remove_shortcut">Remove shortcut</string>
     <string name="uninstall">Uninstall</string>
     <string name="recently_installed">Recently installed</string>
+    <string name="default_launcher_prompt_title">Make Rail your Home app</string>
+    <string name="default_launcher_prompt_body">Rail is not your default Home app. Set it as Home to open it with the Home button and pin Shortcuts.</string>
+    <string name="set_rail_as_home">Set Rail as Home</string>
+    <string name="dismiss_default_launcher_prompt">Dismiss prompt for now</string>
+    <string name="turn_off_default_launcher_prompt">Turn off prompt</string>
 </resources>

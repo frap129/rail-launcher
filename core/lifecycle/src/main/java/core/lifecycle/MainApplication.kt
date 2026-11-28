@@ -38,6 +38,8 @@ import core.data.favorites.IFavoritesRepository
 import core.data.favorites.IFavoritesRepositoryImpl
 import core.data.folders.IFolderRepository
 import core.data.folders.IFolderRepositoryImpl
+import core.data.homerole.IHomeRoleSource
+import core.data.homerole.IHomeRoleSourceImpl
 import core.data.icons.IHomeIconCache
 import core.data.icons.IHomeIconCacheImpl
 import core.data.icons.IIconImageImporter
@@ -181,6 +183,7 @@ import core.ui.widgets.IWidgetAddControllerImpl
 import core.ui.widgets.IWidgetResizeController
 import core.ui.widgets.IWidgetResizeControllerImpl
 import core.util.screenHeightPx
+import feature.launcher.DefaultLauncherPromptState
 import feature.launcher.LauncherViewModel
 import feature.launcher.PinShortcutViewModel
 import feature.launcher.PopupCardViewModel
@@ -319,6 +322,7 @@ class MainApplication :
         single<IPreferencesRepository> {
             IPreferencesRepositoryImpl(get(), get(), get(), get(named(APP_SCOPE_QUALIFIER)))
         }
+        single<IHomeRoleSource> { IHomeRoleSourceImpl(androidContext()) }
         single<IShortcutListener> { IShortcutListenerImpl(context = androidContext()) }
         single<IShortcutSource> { IShortcutSourceImpl(context = androidContext(), shortcutListener = get()) }
         single<IStoredKeyClassifier> {
@@ -511,6 +515,7 @@ class MainApplication :
         }
         single { HomeEditState() }
         single { HomeHeightState() }
+        single { DefaultLauncherPromptState() }
         single<IClockSource> { IClockSourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IBatterySource> { IBatterySourceImpl(androidContext(), get(named(APP_SCOPE_QUALIFIER))) }
         single<IDatePatternSource> { IDatePatternSourceImpl() }
@@ -538,6 +543,8 @@ class MainApplication :
                 listOffsets = get(),
                 launcherItemRepo = get(),
                 prefsRepo = get(),
+                homeRoleSource = get(),
+                defaultLauncherPromptState = get(),
                 favoritesRepo = get(),
                 folderRepo = get(),
                 popupRepo = get(),

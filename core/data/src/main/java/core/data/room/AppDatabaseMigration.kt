@@ -241,6 +241,13 @@ val MIGRATION_31_32: Migration = object : Migration(31, 32) {
     }
 }
 
+/** Adds the default launcher prompt preference, enabled by default, and keeps every other setting. */
+val MIGRATION_32_33: Migration = object : Migration(32, 33) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addBooleanSetting(column = Settings.COLUMN_DEFAULT_LAUNCHER_PROMPT_ENABLED, isEnabledByDefault = true)
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -263,7 +270,8 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_28_29,
     MIGRATION_29_30,
     MIGRATION_30_31,
-    MIGRATION_31_32
+    MIGRATION_31_32,
+    MIGRATION_32_33
 )
 
 /** Adds the Boolean settings [column], defaulting to [isEnabledByDefault], keeping every other setting. */

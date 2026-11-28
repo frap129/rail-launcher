@@ -285,8 +285,10 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toSearch = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
                     toHiddenApps = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.HiddenApps.key}") },
                     onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked,
+                    defaultLauncherPromptEnabled = uiState.defaultLauncherPromptEnabled,
                     versionName = readSettingsVersionName(),
                     advancedActions = SettingsAdvancedActions(
+                        onDefaultLauncherPromptChange = viewModel::setDefaultLauncherPromptEnabled,
                         onRestartRail = context::restartRail,
                         onChangeDefaultLauncher = context::openDefaultHomeSettings,
                         onUninstallRail = { context.requestUninstall(context.packageName, Process.myUserHandle()) },
@@ -356,6 +358,7 @@ fun SettingsMainScreen(
     toSearch: () -> Unit,
     toHiddenApps: () -> Unit,
     onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit,
+    defaultLauncherPromptEnabled: Boolean,
     versionName: String,
     advancedActions: SettingsAdvancedActions
 ) {
@@ -411,12 +414,19 @@ fun SettingsMainScreen(
             }
         }
         item { SettingsSectionTitle(R.string.advanced) }
-        item { SettingsAdvancedRows(versionName = versionName, actions = advancedActions) }
+        item {
+            SettingsAdvancedRows(
+                defaultLauncherPromptEnabled = defaultLauncherPromptEnabled,
+                versionName = versionName,
+                actions = advancedActions
+            )
+        }
     }
 }
 
-/** What the Advanced section asks its host to open or restart. */
+/** What the Advanced section asks its host to change, open or restart. */
 data class SettingsAdvancedActions(
+    val onDefaultLauncherPromptChange: (Boolean) -> Unit,
     val onRestartRail: () -> Unit,
     val onChangeDefaultLauncher: () -> Unit,
     val onUninstallRail: () -> Unit,
@@ -424,8 +434,14 @@ data class SettingsAdvancedActions(
 )
 
 @Composable
-private fun SettingsAdvancedRows(versionName: String, actions: SettingsAdvancedActions) {
+private fun SettingsAdvancedRows(defaultLauncherPromptEnabled: Boolean, versionName: String, actions: SettingsAdvancedActions) {
     Column {
+        SettingsSwitchRow(
+            title = stringResource(R.string.default_launcher_prompt),
+            supportingText = stringResource(R.string.default_launcher_prompt_summary),
+            checked = defaultLauncherPromptEnabled,
+            onCheckedChange = actions.onDefaultLauncherPromptChange
+        )
         SettingsActionRow(
             title = stringResource(R.string.restart_rail),
             value = "",

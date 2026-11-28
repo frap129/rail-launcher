@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.core.app.TaskStackBuilder
 import androidx.lifecycle.lifecycleScope
+import core.data.homerole.IHomeRoleSource
 import core.data.prefs.IPreferencesRepository
 import core.data.prefs.Settings
 import core.data.profiles.IProfileSource
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 open class TemplateActivity : ComponentActivity() {
+    private val homeRoleSource: IHomeRoleSource by inject()
     private val profileSource: IProfileSource by inject()
     private val preferencesRepository: IPreferencesRepository by inject()
     private var rotateHome: Boolean? = null
@@ -36,7 +38,10 @@ open class TemplateActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        lifecycleScope.launch { profileSource.refreshProfiles() }
+        lifecycleScope.launch {
+            homeRoleSource.refreshHomeRole()
+            profileSource.refreshProfiles()
+        }
     }
 
     private fun observeRotateHome() {

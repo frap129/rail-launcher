@@ -2,6 +2,8 @@ package feature.settings
 
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -29,7 +31,7 @@ class SettingsAdvancedSectionTest {
     val composeRule: ComposeContentTestRule = createComposeRule()
 
     @Test
-    fun `given main Settings, when Advanced loads, then its four labelled rows and version are shown`() {
+    fun `given main Settings, when Advanced loads, then its labelled rows and version are shown`() {
         setMainContent()
         showLabel(getString(R.string.advanced))
         showAdvancedRow(getString(R.string.restart_rail))
@@ -39,6 +41,30 @@ class SettingsAdvancedSectionTest {
         composeRule.onNode(
             hasText(getString(CoreUiR.string.app_info)) and hasText(INPUT_VERSION_NAME) and hasClickAction()
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun `given Advanced settings, when the default launcher prompt loads, then it is shown on`() {
+        setMainContent()
+        showAdvancedRow(getString(R.string.default_launcher_prompt)).assertIsOn()
+        composeRule.onNodeWithText(getString(R.string.default_launcher_prompt_summary)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `given Advanced settings, when the prompt is switched off, then the change is reported`() {
+        var actualEnabled: Boolean? = null
+        setMainContent(
+            defaultLauncherPromptEnabled = true,
+            advancedActions = createAdvancedActions(onDefaultLauncherPromptChange = { actualEnabled = it })
+        )
+        showAdvancedRow(getString(R.string.default_launcher_prompt)).performClick()
+        composeRule.runOnIdle { assertEquals(false, actualEnabled) }
+    }
+
+    @Test
+    fun `given Advanced settings, when the prompt is off, then its switch is shown off`() {
+        setMainContent(defaultLauncherPromptEnabled = false)
+        showAdvancedRow(getString(R.string.default_launcher_prompt)).assertIsOff()
     }
 
     @Test
@@ -85,10 +111,12 @@ class SettingsAdvancedSectionTest {
 
     private fun createAdvancedActions(
         onRestartRail: () -> Unit = {},
+        onDefaultLauncherPromptChange: (Boolean) -> Unit = {},
         onChangeDefaultLauncher: () -> Unit = {},
         onUninstallRail: () -> Unit = {},
         onOpenAppInfo: () -> Unit = {}
     ): SettingsAdvancedActions = SettingsAdvancedActions(
+        onDefaultLauncherPromptChange = onDefaultLauncherPromptChange,
         onRestartRail = onRestartRail,
         onChangeDefaultLauncher = onChangeDefaultLauncher,
         onUninstallRail = onUninstallRail,
@@ -97,6 +125,7 @@ class SettingsAdvancedSectionTest {
 
     private fun setMainContent(
         versionName: String = INPUT_VERSION_NAME,
+        defaultLauncherPromptEnabled: Boolean = true,
         advancedActions: SettingsAdvancedActions = createAdvancedActions()
     ) {
         composeRule.setContent {
@@ -109,6 +138,7 @@ class SettingsAdvancedSectionTest {
                 toSearch = {},
                 toHiddenApps = {},
                 onHidePrivateSpaceWhenLockedChange = {},
+                defaultLauncherPromptEnabled = defaultLauncherPromptEnabled,
                 versionName = versionName,
                 advancedActions = advancedActions
             )
