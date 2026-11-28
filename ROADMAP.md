@@ -12,7 +12,7 @@ rough estimates.
 | 2 | ~~Suggested apps on Home (`rail-ccs`)~~ | S–M | **Done.** Pure projection over existing launch data. |
 | 3 | ~~Agenda sheet and weekday clock (`rail-dol`)~~ | S–M | **Done.** Reuses the calendar source and Header tap targets. Unblocks Keyboard and Integrations. |
 | 4 | ~~Keyboard and input (`rail-49n`)~~ | S | **Done.** Keyboard shortcuts, Row focus, mouse wheel, secondary click and hover. |
-| 5 | Module layering and code placement (`rail-aj7`) | M–L | High priority. Refactor only: App > Feature > Core, code placed by kind. Do before new feature epics add more code to move. |
+| 5 | ~~Module layering and code placement (`rail-aj7`)~~ | M–L | **Done.** Layer rules documented and enforced by the build; UI, data helpers and utilities placed by kind in the core modules. |
 | 6 | Default launcher and first run (`rail-746`) | S–M | Advanced rows and rotation first, then prompt and onboarding. Unblocks Large screens and Integrations. |
 
 ## Phase 2: the biggest gaps
