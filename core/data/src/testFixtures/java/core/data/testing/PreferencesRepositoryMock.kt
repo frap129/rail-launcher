@@ -35,6 +35,7 @@ fun createPreferencesRepositoryMock(
     every { mockPreferencesRepository.setRailHaptics(any()) } just Runs
     every { mockPreferencesRepository.setShowRail(any()) } just Runs
     every { mockPreferencesRepository.setSuggestOftenUsedApps(any()) } just Runs
+    every { mockPreferencesRepository.setRotateHome(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnSwipeUp(any()) } just Runs
     every { mockPreferencesRepository.setExpandNotificationsOnSwipeDown(any()) } just Runs
     every { mockPreferencesRepository.setOpenSearchOnHomePress(any()) } just Runs

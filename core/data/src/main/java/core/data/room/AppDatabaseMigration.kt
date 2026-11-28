@@ -234,6 +234,13 @@ val MIGRATION_30_31: Migration = object : Migration(30, 31) {
     }
 }
 
+/** Adds the nullable Rotate Home preference, leaving the screen-size default in effect until the user chooses. */
+val MIGRATION_31_32: Migration = object : Migration(31, 32) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE ${Settings.TABLE_NAME} ADD COLUMN ${Settings.COLUMN_ROTATE_HOME} INTEGER")
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -255,7 +262,8 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_27_28,
     MIGRATION_28_29,
     MIGRATION_29_30,
-    MIGRATION_30_31
+    MIGRATION_30_31,
+    MIGRATION_31_32
 )
 
 /** Adds the Boolean settings [column], defaulting to [isEnabledByDefault], keeping every other setting. */

@@ -27,6 +27,15 @@ class SettingsDaoTest : InMemoryDatabaseTest() {
     }
 
     @Test
+    fun `stores and emits the Rotate Home preference`() = databaseTest {
+        val expectedSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE, rotateHome = false)
+        val settingsDao: SettingsDao = database.getSettingsDao()
+        settingsDao.upsert(expectedSettings)
+        val actualSettings: Settings = settingsDao.observe().first()
+        assertEquals(expectedSettings, actualSettings)
+    }
+
+    @Test
     fun `updates one setting without clearing the others`() = databaseTest {
         val settingsDao: SettingsDao = database.getSettingsDao()
         val inputSettings: Settings = Settings(iconPack = TEST_ICON_PACK_PACKAGE)

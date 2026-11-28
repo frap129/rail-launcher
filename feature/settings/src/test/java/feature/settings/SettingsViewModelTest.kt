@@ -332,6 +332,29 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `leaves Rotate Home unset by default`() = runTest {
+        val viewModel: SettingsViewModel = createSettingsViewModel()
+        assertNull(viewModel.uiState.value.rotateHome)
+    }
+
+    @Test
+    fun `exposes the stored Rotate Home choice`() = runTest {
+        assertExposesSetting(
+            expected = true,
+            inputSettings = Settings(rotateHome = true),
+            read = { rotateHome }
+        )
+    }
+
+    @Test
+    fun `persists Rotate Home`() = runTest {
+        assertPersists(
+            persist = { setRotateHome(false) },
+            verifyCall = { setRotateHome(false) }
+        )
+    }
+
+    @Test
     fun `exposes the stored Swipe down entry`() = runTest {
         val viewModel: SettingsViewModel = createSettingsViewModel(
             mockPreferencesRepository = createPreferencesRepositoryMock(

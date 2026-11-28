@@ -25,6 +25,7 @@ import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -676,6 +677,32 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `adds an unset Rotate Home preference and keeps the settings row`() {
+        withDatabase(
+            name = "migration-31-32-test",
+            version = 31,
+            createTables = { db -> db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false) }
+        ) { db ->
+            MIGRATION_31_32.migrate(db)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
+            val actualRotateHomeColumn: TableColumn = db.tableColumns(table = Settings.TABLE_NAME).last()
+            assertEquals(
+                listOf("id", "icon_pack", Settings.COLUMN_SEARCH_SUGGESTIONS, Settings.COLUMN_ROTATE_HOME),
+                actualColumns
+            )
+            assertEquals(TableColumn(Settings.COLUMN_ROTATE_HOME, "INTEGER", false, false), actualRotateHomeColumn)
+            assertNull(db.nullableBooleanColumn(Settings.COLUMN_ROTATE_HOME))
+            assertFalse(db.searchSuggestions())
+            assertEquals(TEST_ICON_PACK_PACKAGE, db.iconPack())
+        }
+    }
+
+    @Test
+    fun `opens a version 31 database with Room after adding Rotate Home`() {
+        assertOpensAfterMigration(version = 31)
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -962,9 +989,12 @@ private fun SupportSQLiteDatabase.folderIds(): List<Long> = query("SELECT id FRO
 }
 
 private fun SupportSQLiteDatabase.booleanColumn(columnName: String, table: String = Settings.TABLE_NAME): Boolean =
+    nullableBooleanColumn(columnName = columnName, table = table) == true
+
+private fun SupportSQLiteDatabase.nullableBooleanColumn(columnName: String, table: String = Settings.TABLE_NAME): Boolean? =
     query("SELECT $columnName FROM $table").use { cursor ->
         cursor.moveToFirst()
-        cursor.getInt(cursor.getColumnIndexOrThrow(columnName)) != 0
+        if (cursor.isNull(0)) null else cursor.getInt(0) != 0
     }
 
 private fun SupportSQLiteDatabase.hidePrivateSpaceWhenLocked(): Boolean = booleanColumn(Settings.COLUMN_HIDE_PRIVATE_SPACE_WHEN_LOCKED)

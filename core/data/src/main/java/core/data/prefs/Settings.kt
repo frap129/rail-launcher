@@ -53,7 +53,10 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_SHOW_RAIL, defaultValue = "1")
     val showRail: Boolean = true,
     @ColumnInfo(name = Settings.COLUMN_SUGGEST_OFTEN_USED_APPS, defaultValue = "1")
-    val suggestOftenUsedApps: Boolean = true
+    val suggestOftenUsedApps: Boolean = true,
+    /** Null keeps the smallest-screen-width default until the user chooses. */
+    @ColumnInfo(name = Settings.COLUMN_ROTATE_HOME)
+    val rotateHome: Boolean? = null
 ) {
     companion object {
         const val TABLE_NAME: String = "settings"
@@ -81,5 +84,6 @@ data class Settings(
         const val COLUMN_RAIL_HAPTICS: String = "rail_haptics"
         const val COLUMN_SHOW_RAIL: String = "show_rail"
         const val COLUMN_SUGGEST_OFTEN_USED_APPS: String = "suggest_often_used_apps"
+        const val COLUMN_ROTATE_HOME: String = "rotate_home"
     }
 }

@@ -129,6 +129,49 @@ class SettingsSheetRowsTest {
     }
 
     @Test
+    fun `shows Rotate Home off by default on a phone`() {
+        assertSwitchRow(
+            title = getString(R.string.rotate_home),
+            checked = false,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(
+                    smallestScreenWidthDp = 411,
+                    onRotateHomeChange = onCheckedChange
+                )
+            }
+        )
+    }
+
+    @Test
+    fun `shows Rotate Home on by default at 600dp`() {
+        assertSwitchRow(
+            title = getString(R.string.rotate_home),
+            checked = true,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(
+                    smallestScreenWidthDp = 600,
+                    onRotateHomeChange = onCheckedChange
+                )
+            }
+        )
+    }
+
+    @Test
+    fun `shows a stored Rotate Home off choice on a large screen`() {
+        assertSwitchRow(
+            title = getString(R.string.rotate_home),
+            checked = false,
+            setContent = { onCheckedChange ->
+                setAppearanceContent(
+                    rotateHome = false,
+                    smallestScreenWidthDp = 600,
+                    onRotateHomeChange = onCheckedChange
+                )
+            }
+        )
+    }
+
+    @Test
     fun `shows Rail haptics with its summary and reports its change`() {
         assertSwitchRow(
             title = getString(R.string.rail_haptics),
@@ -230,6 +273,8 @@ class SettingsSheetRowsTest {
         railHaptics: Boolean = true,
         showRail: Boolean = true,
         suggestOftenUsedApps: Boolean = true,
+        rotateHome: Boolean? = null,
+        smallestScreenWidthDp: Int = 411,
         hasStoppedSuggestions: Boolean = false,
         onAppListOrderSelected: (AppListOrder) -> Unit = {},
         onRankFoldersByUseChange: (Boolean) -> Unit = {},
@@ -237,6 +282,7 @@ class SettingsSheetRowsTest {
         onRailHapticsChange: (Boolean) -> Unit = {},
         onShowRailChange: (Boolean) -> Unit = {},
         onSuggestOftenUsedAppsChange: (Boolean) -> Unit = {},
+        onRotateHomeChange: (Boolean) -> Unit = {},
         onResetCustomIcons: () -> Unit = {},
         onResetStoppedSuggestions: () -> Unit = {}
     ) {
@@ -252,6 +298,8 @@ class SettingsSheetRowsTest {
                 railHaptics = railHaptics,
                 showRail = showRail,
                 suggestOftenUsedApps = suggestOftenUsedApps,
+                rotateHome = rotateHome,
+                smallestScreenWidthDp = smallestScreenWidthDp,
                 hasStoppedSuggestions = hasStoppedSuggestions,
                 actions = SettingsAppearanceActions(
                     onIconPackSelected = {},
@@ -262,6 +310,7 @@ class SettingsSheetRowsTest {
                     onRailHapticsChange = onRailHapticsChange,
                     onShowRailChange = onShowRailChange,
                     onSuggestOftenUsedAppsChange = onSuggestOftenUsedAppsChange,
+                    onRotateHomeChange = onRotateHomeChange,
                     onResetStoppedSuggestions = onResetStoppedSuggestions,
                     onRailSideSelected = {},
                     onScrubEdgesSelected = {}

@@ -187,6 +187,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setRotateHome(enabled: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings: Settings -> settings.copy(rotateHome = enabled) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

@@ -56,6 +56,9 @@ interface IPreferencesRepository {
     /** Sets whether Home shows the Home suggestions below the Favorites. */
     fun setSuggestOftenUsedApps(enabled: Boolean)
 
+    /** Sets whether Home may rotate with the system. */
+    fun setRotateHome(enabled: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

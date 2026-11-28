@@ -68,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
@@ -133,6 +134,7 @@ import core.ui.composables.WarningRow
 import core.ui.composables.rememberPermissionResultLauncher
 import core.ui.composables.settingsContentPadding
 import core.ui.composables.sheetContainerColor
+import core.ui.layout.resolveRotateHome
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
@@ -303,6 +305,8 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     railHaptics = uiState.railHaptics,
                     showRail = uiState.showRail,
                     suggestOftenUsedApps = uiState.suggestOftenUsedApps,
+                    rotateHome = uiState.rotateHome,
+                    smallestScreenWidthDp = LocalConfiguration.current.smallestScreenWidthDp,
                     hasStoppedSuggestions = hasStoppedSuggestions,
                     actions = SettingsAppearanceActions(
                         onIconPackSelected = { iconPack -> viewModel.setIconPack(iconPack) },
@@ -313,6 +317,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                         onRailHapticsChange = viewModel::setRailHaptics,
                         onShowRailChange = viewModel::setShowRail,
                         onSuggestOftenUsedAppsChange = viewModel::setSuggestOftenUsedApps,
+                        onRotateHomeChange = viewModel::setRotateHome,
                         onResetStoppedSuggestions = viewModel::resetStoppedSuggestions,
                         onRailSideSelected = viewModel::setRailSide,
                         onScrubEdgesSelected = viewModel::setScrubEdges
@@ -1503,6 +1508,7 @@ class SettingsAppearanceActions(
     val onRailHapticsChange: (Boolean) -> Unit,
     val onShowRailChange: (Boolean) -> Unit,
     val onSuggestOftenUsedAppsChange: (Boolean) -> Unit,
+    val onRotateHomeChange: (Boolean) -> Unit,
     val onResetStoppedSuggestions: () -> Unit,
     val onRailSideSelected: (RailSide) -> Unit,
     val onScrubEdgesSelected: (ScrubEdges) -> Unit
@@ -1520,9 +1526,15 @@ fun SettingsAppearanceScreen(
     railHaptics: Boolean,
     showRail: Boolean,
     suggestOftenUsedApps: Boolean,
+    rotateHome: Boolean?,
+    smallestScreenWidthDp: Int,
     hasStoppedSuggestions: Boolean,
     actions: SettingsAppearanceActions
 ) {
+    val isRotateHomeEnabled: Boolean = resolveRotateHome(
+        rotateHome = rotateHome,
+        smallestScreenWidthDp = smallestScreenWidthDp
+    )
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             IconPackRow(
@@ -1537,6 +1549,13 @@ fun SettingsAppearanceScreen(
                 dialogTitle = stringResource(R.string.reset_custom_icons_title),
                 dialogBody = stringResource(R.string.reset_custom_icons_body),
                 onConfirm = actions.onResetCustomIcons
+            )
+        }
+        item {
+            SettingsSwitchRow(
+                title = stringResource(R.string.rotate_home),
+                checked = isRotateHomeEnabled,
+                onCheckedChange = actions.onRotateHomeChange
             )
         }
         item {

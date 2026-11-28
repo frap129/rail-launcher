@@ -2,6 +2,7 @@
 <resources>
     <string name="appearance">Appearance</string>
     <string name="appearance_summary">Customize Rail launchers appearance</string>
+    <string name="rotate_home">Rotate Home</string>
     <string name="app_list_order">App List order</string>
     <string name="app_list_order_alphabetical">Alphabetical</string>
     <string name="app_list_order_most_used">Most used</string>
