@@ -138,6 +138,7 @@ import core.ui.layout.resolveRotateHome
 import core.ui.model.data.Destination
 import core.ui.model.data.HOME_ADD_WIDGET_REQUEST_KEY
 import core.ui.model.data.LAUNCHER_ROUTE
+import core.ui.model.data.ONBOARDING_ROUTE
 import core.ui.model.data.OneShotRequest
 import core.ui.model.data.POPUPS_SETTINGS_ROUTE
 import core.ui.model.data.SEARCH_SETTINGS_ROUTE
@@ -289,6 +290,7 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     versionName = readSettingsVersionName(),
                     advancedActions = SettingsAdvancedActions(
                         onDefaultLauncherPromptChange = viewModel::setDefaultLauncherPromptEnabled,
+                        onReplayOnboarding = { navController.navigate(ONBOARDING_ROUTE) },
                         onRestartRail = context::restartRail,
                         onChangeDefaultLauncher = context::openDefaultHomeSettings,
                         onUninstallRail = { context.requestUninstall(context.packageName, Process.myUserHandle()) },
@@ -427,6 +429,7 @@ fun SettingsMainScreen(
 /** What the Advanced section asks its host to change, open or restart. */
 data class SettingsAdvancedActions(
     val onDefaultLauncherPromptChange: (Boolean) -> Unit,
+    val onReplayOnboarding: () -> Unit,
     val onRestartRail: () -> Unit,
     val onChangeDefaultLauncher: () -> Unit,
     val onUninstallRail: () -> Unit,
@@ -441,6 +444,11 @@ private fun SettingsAdvancedRows(defaultLauncherPromptEnabled: Boolean, versionN
             supportingText = stringResource(R.string.default_launcher_prompt_summary),
             checked = defaultLauncherPromptEnabled,
             onCheckedChange = actions.onDefaultLauncherPromptChange
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.replay_onboarding),
+            value = "",
+            onClick = actions.onReplayOnboarding
         )
         SettingsActionRow(
             title = stringResource(R.string.restart_rail),

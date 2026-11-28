@@ -718,6 +718,52 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
+    fun `marks onboarding completed for an existing v33 settings row`() {
+        withDatabase(
+            name = "migration-33-34-existing-settings-test",
+            version = 33,
+            createTables = { db ->
+                db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, searchSuggestions = false)
+            }
+        ) { db ->
+            MIGRATION_33_34.migrate(db)
+            val actualColumns: List<String> = db.columnNames(table = Settings.TABLE_NAME)
+            val actualOnboardingCompleted: Boolean = db.booleanColumn(Settings.COLUMN_ONBOARDING_COMPLETED)
+            val actualIconPack: String? = db.iconPack()
+            val actualSearchSuggestions: Boolean = db.searchSuggestions()
+
+            assertEquals(
+                listOf("id", "icon_pack", Settings.COLUMN_SEARCH_SUGGESTIONS, Settings.COLUMN_ONBOARDING_COMPLETED),
+                actualColumns
+            )
+            assertEquals(true, actualOnboardingCompleted)
+            assertEquals(TEST_ICON_PACK_PACKAGE, actualIconPack)
+            assertEquals(false, actualSearchSuggestions)
+        }
+    }
+
+    @Test
+    fun `marks onboarding completed when the v33 settings table is empty`() {
+        withDatabase(
+            name = "migration-33-34-empty-settings-test",
+            version = 33,
+            createTables = { db -> db.createSettingsRow(iconPack = TEST_ICON_PACK_PACKAGE, insertRow = false) }
+        ) { db ->
+            MIGRATION_33_34.migrate(db)
+            val actualOnboardingCompleted: Boolean = db.booleanColumn(Settings.COLUMN_ONBOARDING_COMPLETED)
+            val actualIconPack: String? = db.iconPack()
+
+            assertEquals(true, actualOnboardingCompleted)
+            assertNull(actualIconPack)
+        }
+    }
+
+    @Test
+    fun `opens a version 33 database with Room after adding the onboarding completed preference`() {
+        assertOpensAfterMigration(version = 33)
+    }
+
+    @Test
     fun `adds Rail side defaulting to the layout end and keeps the Scrub edges`() {
         withDatabase(
             name = RAIL_SIDE_DATABASE_NAME,
@@ -885,7 +931,7 @@ private fun assertAddsBooleanSettingColumn(migration: Migration, version: Int, c
     }
 }
 
-/** Creates a settings table and inserts one row with the columns each database version had. */
+/** Creates a settings table with the columns each database version had and optionally inserts one row. */
 private fun SupportSQLiteDatabase.createSettingsRow(
     iconPack: String,
     hidePrivateSpaceWhenLocked: Boolean? = null,
@@ -902,7 +948,8 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     searchContacts: Boolean? = null,
     searchWebSuggestions: Boolean? = null,
     searchEngine: SearchEngine? = null,
-    searchEngineTemplate: String? = null
+    searchEngineTemplate: String? = null,
+    insertRow: Boolean = true
 ) {
     val columns: List<SettingsColumn> = listOfNotNull(
         hidePrivateSpaceWhenLocked?.let { value ->
@@ -955,7 +1002,9 @@ private fun SupportSQLiteDatabase.createSettingsRow(
     val columnNames: String = columns.joinToString(separator = "") { column -> ", ${column.name}" }
     val values: String = columns.joinToString(separator = "") { column -> ", ${column.value}" }
     execSQL("CREATE TABLE ${Settings.TABLE_NAME} (id INTEGER NOT NULL, icon_pack TEXT$definitions, PRIMARY KEY(id))")
-    execSQL("INSERT INTO ${Settings.TABLE_NAME} (id, icon_pack$columnNames) VALUES (0, '$iconPack'$values)")
+    if (insertRow) {
+        execSQL("INSERT INTO ${Settings.TABLE_NAME} (id, icon_pack$columnNames) VALUES (0, '$iconPack'$values)")
+    }
 }
 
 private fun Boolean.toSql(): String = if (this) "1" else "0"

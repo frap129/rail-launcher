@@ -58,7 +58,9 @@ data class Settings(
     @ColumnInfo(name = Settings.COLUMN_ROTATE_HOME)
     val rotateHome: Boolean? = null,
     @ColumnInfo(name = Settings.COLUMN_DEFAULT_LAUNCHER_PROMPT_ENABLED, defaultValue = "1")
-    val defaultLauncherPromptEnabled: Boolean = true
+    val defaultLauncherPromptEnabled: Boolean = true,
+    @ColumnInfo(name = Settings.COLUMN_ONBOARDING_COMPLETED, defaultValue = "0")
+    val onboardingCompleted: Boolean = false
 ) {
     companion object {
         const val TABLE_NAME: String = "settings"
@@ -88,5 +90,6 @@ data class Settings(
         const val COLUMN_SUGGEST_OFTEN_USED_APPS: String = "suggest_often_used_apps"
         const val COLUMN_ROTATE_HOME: String = "rotate_home"
         const val COLUMN_DEFAULT_LAUNCHER_PROMPT_ENABLED: String = "default_launcher_prompt_enabled"
+        const val COLUMN_ONBOARDING_COMPLETED: String = "onboarding_completed"
     }
 }

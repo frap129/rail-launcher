@@ -31,6 +31,7 @@ import core.ui.model.data.LauncherInputState
 import core.ui.model.data.resolveKeyboardHelpEntryLabel
 import core.ui.widgets.AppWidgetResults
 import feature.launcher.launcherDestination
+import feature.launcher.onboarding.onboardingDestination
 import feature.settings.settingsDestination
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,6 +48,7 @@ class MainActivity : TemplateActivity() {
      */
     private val destinations: List<Destination> = listOf(
         launcherDestination,
+        onboardingDestination,
         settingsDestination
     )
 
@@ -116,6 +118,7 @@ class MainActivity : TemplateActivity() {
             App(
                 destinations = destinations,
                 startDestination = launcherDestination.route,
+                onboardingRoute = onboardingDestination.route,
                 launcherSignals = launcherSignals.events,
                 onDestinationChanged = ::onDestinationChanged
             )

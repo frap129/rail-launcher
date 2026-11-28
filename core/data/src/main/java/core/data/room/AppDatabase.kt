@@ -64,7 +64,7 @@ import core.data.widgets.WidgetRecord
         LaunchCountRecord::class,
         StoppedSuggestionRecord::class
     ],
-    version = 33
+    version = 34
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {

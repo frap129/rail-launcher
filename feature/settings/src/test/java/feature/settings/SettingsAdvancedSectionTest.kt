@@ -68,6 +68,20 @@ class SettingsAdvancedSectionTest {
     }
 
     @Test
+    fun `given Advanced settings, when Replay onboarding is shown, then it has a labelled click action`() {
+        setMainContent()
+        showAdvancedRow(getString(R.string.replay_onboarding)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `given Advanced settings, when Replay onboarding is tapped, then onboarding is requested`() {
+        var actualRequests: Int = 0
+        setMainContent(advancedActions = createAdvancedActions(onReplayOnboarding = { actualRequests++ }))
+        showAdvancedRow(getString(R.string.replay_onboarding)).performClick()
+        composeRule.runOnIdle { assertEquals(1, actualRequests) }
+    }
+
+    @Test
     fun `given Advanced settings, when Restart Rail is tapped, then restart is requested`() {
         var actualRestarts: Int = 0
         setMainContent(advancedActions = createAdvancedActions(onRestartRail = { actualRestarts++ }))
@@ -112,11 +126,13 @@ class SettingsAdvancedSectionTest {
     private fun createAdvancedActions(
         onRestartRail: () -> Unit = {},
         onDefaultLauncherPromptChange: (Boolean) -> Unit = {},
+        onReplayOnboarding: () -> Unit = {},
         onChangeDefaultLauncher: () -> Unit = {},
         onUninstallRail: () -> Unit = {},
         onOpenAppInfo: () -> Unit = {}
     ): SettingsAdvancedActions = SettingsAdvancedActions(
         onDefaultLauncherPromptChange = onDefaultLauncherPromptChange,
+        onReplayOnboarding = onReplayOnboarding,
         onRestartRail = onRestartRail,
         onChangeDefaultLauncher = onChangeDefaultLauncher,
         onUninstallRail = onUninstallRail,

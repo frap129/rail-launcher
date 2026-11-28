@@ -191,7 +191,7 @@
     <string name="media_previous">Previous</string>
     <string name="media_play">Play</string>
     <string name="media_pause">Pause</string>
-    <string name="media_next">Next</string>
+    <string name="next">Next</string>
     <string name="media_open_player">Open player</string>
     <string name="media_player_menu">Media Player menu</string>
     <string name="media_player_announcement">%1$s, %2$s, playing in %3$s</string>

@@ -248,6 +248,17 @@ val MIGRATION_32_33: Migration = object : Migration(32, 33) {
     }
 }
 
+/** Marks existing installs onboarded while keeping the fresh-install default off. */
+val MIGRATION_33_34: Migration = object : Migration(33, 34) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.addBooleanSetting(column = Settings.COLUMN_ONBOARDING_COMPLETED, isEnabledByDefault = false)
+        db.execSQL("UPDATE ${Settings.TABLE_NAME} SET ${Settings.COLUMN_ONBOARDING_COMPLETED} = 1")
+        db.execSQL(
+            "INSERT OR IGNORE INTO ${Settings.TABLE_NAME} (id, ${Settings.COLUMN_ONBOARDING_COMPLETED}) VALUES (0, 1)"
+        )
+    }
+}
+
 /** Every migration Rail applies, so [core.data.room.AppDatabase] can open any database Rail shipped. */
 val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_11_12,
@@ -271,7 +282,8 @@ val APP_DATABASE_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_29_30,
     MIGRATION_30_31,
     MIGRATION_31_32,
-    MIGRATION_32_33
+    MIGRATION_32_33,
+    MIGRATION_33_34
 )
 
 /** Adds the Boolean settings [column], defaulting to [isEnabledByDefault], keeping every other setting. */

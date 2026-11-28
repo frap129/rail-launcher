@@ -199,6 +199,12 @@ class IPreferencesRepositoryImpl(
         }
     }
 
+    override fun setOnboardingCompleted(completed: Boolean) {
+        scope.launch(dispatcher) {
+            settingsDao.update { settings -> settings.copy(onboardingCompleted = completed) }
+        }
+    }
+
     override fun setOpenSearchOnSwipeUp(enabled: Boolean) {
         scope.launch(dispatcher) {
             settingsDao.update { settings -> settings.copy(openSearchOnSwipeUp = enabled) }

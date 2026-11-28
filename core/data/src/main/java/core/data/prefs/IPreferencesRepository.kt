@@ -62,6 +62,9 @@ interface IPreferencesRepository {
     /** Sets whether Home asks to become the default Home app. */
     fun setDefaultLauncherPromptEnabled(enabled: Boolean)
 
+    /** Stores whether onboarding was skipped or finished so it does not return on later launches or restores. */
+    fun setOnboardingCompleted(completed: Boolean)
+
     /** Sets whether swiping up on Home opens Search. */
     fun setOpenSearchOnSwipeUp(enabled: Boolean)
 

@@ -233,6 +233,10 @@ Android's system role for the app that handles the Home button. Rail requests it
 **Default launcher prompt**:
 The dismissible panel Home shows while Rail does not hold the Home role. It can be dismissed for the current process or turned off until the user enables it again in Advanced settings.
 
+**Onboarding**:
+The skippable first-run flow that introduces the Rail, Favorites, Search, Pop-ups, the Widget Area and the Home role request before Home. Rail stores its completion so it does not return after a skip, finish or restore, and Rail Settings can replay it.
+_Avoid_: Setup wizard, intro flow
+
 **Home suggestions**:
 The Launchables Home shows below the Favorites that the user opens often and recently but has not made Favorites (at least three launches and a Recent use score of at least 1.0, so an App not opened for two to three weeks drops off), drawn quieter and announced as suggested. Folders are never suggested, whatever their Launch count and Recent use score. They are chosen when the launcher starts or stops and on leaving Home, never while Home is shown, and Edit Favorites leaves them out.
 _Avoid_: Suggested apps, predictions, Search suggestions (which are another list)

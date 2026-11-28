@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="onboarding_welcome">Welcome to Rail</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_finish">Finish setup</string>
+    <string name="onboarding_step">Step %1$d of %2$d</string>
+    <string name="onboarding_rail_title">Meet the Rail</string>
+    <string name="onboarding_rail_body">Rail is your App List. Touch a letter on the Rail to jump straight to it.</string>
+    <string name="onboarding_favorites_title">Keep Favorites close</string>
+    <string name="onboarding_favorites_body">Long-press any app and choose Add to Favorites. Favorites stay on Home, ready to open.</string>
+    <string name="onboarding_search_title">Search with a swipe</string>
+    <string name="onboarding_search_body">Swipe up on Home to open Search. Find apps, shortcuts and more without leaving Home.</string>
+    <string name="onboarding_pop_ups_title">Open Pop-ups in a swipe</string>
+    <string name="onboarding_pop_ups_body">Swipe across an app row to open its Pop-up, with shortcuts and actions close at hand.</string>
+    <string name="onboarding_widgets_title">Make Home yours</string>
+    <string name="onboarding_widgets_body">The Widget Area sits above Favorites. Long-press it to add, arrange and resize Widgets.</string>
+    <string name="onboarding_home_role_body">Finish setup to open Android\'s Home role dialog. Rail can then open with the Home button and pin Shortcuts.</string>
     <string name="search_hint">Search apps, folders, Shortcuts and more</string>
     <string name="top_result">Top result</string>
     <string name="top_result_opens">%1$s, Enter opens</string>
