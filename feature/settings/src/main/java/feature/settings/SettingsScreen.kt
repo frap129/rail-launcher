@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Insets
+import android.os.Process
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.WindowMetrics
@@ -152,6 +153,10 @@ import core.ui.widgets.labelResource
 import core.ui.widgets.openRailNotificationListenerSettings
 import core.util.RECENT_INSTALL_WINDOW_DAYS
 import core.util.openApplicationDetailsSettings
+import core.util.openDefaultHomeSettings
+import core.util.readAppVersionName
+import core.util.requestUninstall
+import core.util.restartRail
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -224,6 +229,7 @@ private fun NavController.startAddWidgetOnHome() {
 fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEntry, viewModel: SettingsViewModel = koinViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val hasStoppedSuggestions: Boolean by viewModel.hasStoppedSuggestions.collectAsState()
+    val context: Context = LocalContext.current
     val theme = MaterialTheme.colorScheme
     val screen: SettingsScreen = remember {
         SettingsScreen.entries.find { it.key == backStackEntry.arguments?.getString(SCREEN_ARGUMENT) } ?: SettingsScreen.Main
@@ -276,7 +282,14 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
                     toPopups = { navController.navigate(route = POPUPS_SETTINGS_ROUTE) },
                     toSearch = { navController.navigate(route = SEARCH_SETTINGS_ROUTE) },
                     toHiddenApps = { navController.navigate(route = "$SETTINGS_ROUTE/${SettingsScreen.HiddenApps.key}") },
-                    onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked
+                    onHidePrivateSpaceWhenLockedChange = viewModel::setHidePrivateSpaceWhenLocked,
+                    versionName = readSettingsVersionName(),
+                    advancedActions = SettingsAdvancedActions(
+                        onRestartRail = context::restartRail,
+                        onChangeDefaultLauncher = context::openDefaultHomeSettings,
+                        onUninstallRail = { context.requestUninstall(context.packageName, Process.myUserHandle()) },
+                        onOpenAppInfo = context::openApplicationDetailsSettings
+                    )
                 )
 
                 SettingsScreen.Appearance -> SettingsAppearanceScreen(
@@ -322,6 +335,13 @@ fun SettingsScreen(navController: NavController, backStackEntry: NavBackStackEnt
 }
 
 @Composable
+private fun readSettingsVersionName(): String {
+    val context: Context = LocalContext.current
+    val fallback: String = stringResource(R.string.version_unavailable)
+    return remember(context, fallback) { context.readAppVersionName(fallback = fallback) }
+}
+
+@Composable
 fun SettingsMainScreen(
     hidePrivateSpaceWhenLocked: Boolean,
     isPrivateSpaceAvailable: Boolean,
@@ -330,7 +350,9 @@ fun SettingsMainScreen(
     toPopups: () -> Unit,
     toSearch: () -> Unit,
     toHiddenApps: () -> Unit,
-    onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit
+    onHidePrivateSpaceWhenLockedChange: (Boolean) -> Unit,
+    versionName: String,
+    advancedActions: SettingsAdvancedActions
 ) {
     LazyColumn {
         item {
@@ -383,6 +405,42 @@ fun SettingsMainScreen(
                 )
             }
         }
+        item { SettingsSectionTitle(R.string.advanced) }
+        item { SettingsAdvancedRows(versionName = versionName, actions = advancedActions) }
+    }
+}
+
+/** What the Advanced section asks its host to open or restart. */
+data class SettingsAdvancedActions(
+    val onRestartRail: () -> Unit,
+    val onChangeDefaultLauncher: () -> Unit,
+    val onUninstallRail: () -> Unit,
+    val onOpenAppInfo: () -> Unit
+)
+
+@Composable
+private fun SettingsAdvancedRows(versionName: String, actions: SettingsAdvancedActions) {
+    Column {
+        SettingsActionRow(
+            title = stringResource(R.string.restart_rail),
+            value = "",
+            onClick = actions.onRestartRail
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.change_default_launcher),
+            value = "",
+            onClick = actions.onChangeDefaultLauncher
+        )
+        SettingsActionRow(
+            title = stringResource(R.string.uninstall_rail),
+            value = "",
+            onClick = actions.onUninstallRail
+        )
+        SettingsActionRow(
+            title = stringResource(CoreUiR.string.app_info),
+            value = versionName,
+            onClick = actions.onOpenAppInfo
+        )
     }
 }
 

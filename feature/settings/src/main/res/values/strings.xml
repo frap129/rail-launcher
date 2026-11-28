@@ -144,6 +144,11 @@
     <string name="swipe_down_notifications_summary">Open notifications with a swipe down</string>
     <string name="hide_private_space_when_locked">Hide Private Space when locked</string>
     <string name="hide_private_space_when_locked_summary">Unlocking Private Space shows it again</string>
+    <string name="advanced">Advanced</string>
+    <string name="restart_rail">Restart Rail</string>
+    <string name="change_default_launcher">Change default launcher</string>
+    <string name="uninstall_rail">Uninstall Rail</string>
+    <string name="version_unavailable">Version unavailable</string>
     <string name="hidden_apps">Hidden apps</string>
     <string name="hidden_apps_summary">Unhide apps you removed from the App List</string>
     <string name="unhide">Unhide</string>
